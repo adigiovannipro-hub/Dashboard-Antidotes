@@ -14,8 +14,11 @@ import { createHash } from "node:crypto";
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 
-import "dotenv/config";
+import dotenv from "dotenv";
 import { Client } from "pg";
+
+// Next lit `.env.local` nativement, pas les scripts Node lancés à la main.
+dotenv.config({ path: ".env.local", quiet: true });
 
 const MIGRATIONS_DIR = path.join(process.cwd(), "supabase", "migrations");
 
