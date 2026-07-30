@@ -7,9 +7,14 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-sans);
-  --font-mono: var(--font-geist-mono);
-  --font-heading: var(--font-sans);
+  --color-heading: var(--heading);
+  --color-brand: var(--brand);
+  --color-brand-mint: var(--brand-mint);
+  --color-brand-red: var(--brand-red);
+  /* Corps en Arial comme la charte, titres en Montserrat. */
+  --font-sans: var(--font-body);
+  --font-mono: ui-monospace, "SF Mono", Menlo, monospace;
+  --font-heading: var(--font-heading-family);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -49,29 +54,82 @@
 }
 
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
+  /* Charte Antidotes : fond blanc, cards #F2F2F2 pour structurer plutôt que
+     des bordures, corps #000000, secondaire #888888. */
+  --background: #ffffff;
+  --foreground: #000000;
+  --card: #f2f2f2;
+  --card-foreground: #000000;
+  --popover: #ffffff;
+  --popover-foreground: #000000;
+  --primary: #222222;
+  --primary-foreground: #ffffff;
+  --secondary: #f2f2f2;
+  --secondary-foreground: #222222;
+  --muted: #f2f2f2;
+  --muted-foreground: #888888;
   --accent: oklch(0.97 0 0);
   --accent-foreground: oklch(0.205 0 0);
   --destructive: oklch(0.577 0.245 27.325);
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
   --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
+  /* --- Identité Antidotes -------------------------------------------------
+     Le vert est une ponctuation — chiffres clés, puces, accents — jamais un
+     fond plein large.
+  --------------------------------------------------------------------------- */
+  --heading: #222222;
+  --brand: #70ad47;
+  --brand-mint: #d9facf;
+  --brand-mint-alt: #d8fdd6;
+  --brand-red: #ff003a;
+
+  /* --- Palette de visualisation -------------------------------------------
+     Enracinée dans le vert de marque, puis validée par le script du skill
+     dataviz sur la surface réelle des cards (#F2F2F2) — pas jugée à l'œil.
+
+     Trois slots catégoriels seulement, et c'est délibéré : ils passent le
+     contrôle *toutes paires* (donut, nuage) sans un seul échec dans les deux
+     modes. Les tentatives à 4 et 7 slots ont échoué — vert et orange sont à
+     ΔE 2,5 en deutéranopie, indiscernables. Au-delà de trois parts, on replie
+     la queue dans « Autres » ; on ne génère jamais une quatrième teinte.
+  --------------------------------------------------------------------------- */
+  --series-1: #70ad47; /* vert de marque */
+  --series-2: #2a78d6; /* bleu */
+  --series-3: #e87ba4; /* magenta */
+
+  /* Rampe ordinale mono-teinte pour les catégories ordonnées (tranches d'âge).
+     Démarre au vert de marque : les pas plus pâles tombent sous le plancher
+     de 2:1 contre #F2F2F2 et deviennent invisibles. */
+  --ordinal-1: #70ad47;
+  --ordinal-2: #498316;
+  --ordinal-3: #2e6100;
+
+  /* Rampe séquentielle pour la heatmap. Ici le pas le plus pâle a le droit de
+     se fondre dans la surface, puisqu'il signifie « proche de zéro » — c'est
+     exactement la menthe de la charte. */
+  --seq-0: #d9facf;
+  --seq-1: #b7e99b;
+  --seq-2: #9ad07a;
+  --seq-3: #70ad47;
+  --seq-4: #498316;
+  --seq-5: #2e6100;
+
+  /* État. Jamais réutilisé pour une série.
+     Le rouge de marque reste rare, réservé au réellement critique : une
+     variation défavorable ordinaire se lit à la flèche et à l'encre
+     secondaire, pas à une alarme rouge. */
+  --status-good: #70ad47;
+  --status-critical: #ff003a;
+  --delta-good: #2e6100;
+  --delta-bad: #888888;
+
+  /* Chrome des graphiques — filets discrets, un cran hors surface. */
+  --viz-grid: #e2e2e2;
+  --viz-axis: #cccccc;
+  --viz-muted: #888888;
+  --viz-surface: #f2f2f2;
+
   --radius: 0.625rem;
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
@@ -102,11 +160,41 @@
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
+  /* Le mode sombre est choisi, pas déduit par inversion : chaque pas est
+     re-étagé pour la surface sombre puis revalidé séparément. Le vert de
+     marque passe de L 0,684 à 0,66 — au-dessus, il sortait de la bande de
+     clarté du mode sombre. */
+  --heading: #f5f5f5;
+  --brand: #69a63f;
+  --brand-mint: #2e6100;
+  --brand-mint-alt: #2e6100;
+  --brand-red: #ff003a;
+
+  --series-1: #69a63f;
+  --series-2: #3987e5;
+  --series-3: #d55181;
+
+  --ordinal-1: #b7e99b;
+  --ordinal-2: #70ad47;
+  --ordinal-3: #2e6100;
+
+  --seq-0: #21460b;
+  --seq-1: #2e6100;
+  --seq-2: #498316;
+  --seq-3: #70ad47;
+  --seq-4: #9ad07a;
+  --seq-5: #b7e99b;
+
+  --status-good: #69a63f;
+  --status-critical: #ff003a;
+  --delta-good: #9ad07a;
+  --delta-bad: #888888;
+
+  --viz-grid: #262626;
+  --viz-axis: #383838;
+  --viz-muted: #888888;
+  --viz-surface: #171717;
+
   --sidebar: oklch(0.205 0 0);
   --sidebar-foreground: oklch(0.985 0 0);
   --sidebar-primary: oklch(0.488 0.243 264.376);
@@ -126,5 +214,20 @@
   }
   html {
     @apply font-sans;
+  }
+  /* Charte : la hiérarchie est portée par la taille et le poids. Montserrat
+     n'habille que les titres ; tout le reste reste en Arial. */
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-heading);
+    color: var(--heading);
+  }
+  /* Colonnes de chiffres alignées verticalement. Volontairement absent des
+     grands nombres isolés, où les chasses égales font paraître « 121 » lâche. */
+  th,
+  td {
+    font-variant-numeric: tabular-nums;
   }
 }
