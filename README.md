@@ -53,9 +53,39 @@ préfixée `NEXT_PUBLIC_` ni atteindre le navigateur.
 | `pnpm build` | Build de production |
 | `pnpm typecheck` | Vérification TypeScript |
 | `pnpm lint` | ESLint |
-| `pnpm test` | Tests unitaires (Vitest) |
+| `pnpm test` | Tests unitaires et tests d'isolation RLS (Vitest) |
 | `pnpm test:e2e` | Tests end-to-end (Playwright) |
+| `pnpm db:migrate` | Applique les migrations manquantes |
+| `pnpm db:status` | Liste les migrations en attente sans rien appliquer |
 | `pnpm sync` | Lance une synchronisation des sources de données |
+
+## Base de données
+
+Les migrations vivent dans `supabase/migrations/`, numérotées et appliquées
+dans l'ordre. `pnpm db:migrate` les joue une par une, chacune dans sa propre
+transaction, et retient ce qui a déjà tourné dans `app.schema_migrations`.
+
+Cela demande `SUPABASE_DB_URL` dans `.env.local` — *Project Settings →
+Database → Connection string (URI)*, en remplaçant `[YOUR-PASSWORD]` par le mot
+de passe de la base.
+
+À défaut, le contenu des fichiers peut être collé tel quel dans le SQL Editor
+de Supabase, dans l'ordre des numéros :
+
+```sh
+cat supabase/migrations/*.sql | pbcopy
+```
+
+## Sécurité
+
+L'isolation entre espaces est appliquée **dans la base**, par la RLS, et non
+dans l'interface : un client qui interrogerait l'API REST directement avec son
+propre jeton n'obtiendrait toujours aucune ligne d'un autre espace.
+[`tests/isolation.test.ts`](tests/isolation.test.ts) le prouve en ouvrant de
+vraies sessions et en tentant les accès interdits.
+
+Le rôle `anon` n'a aucun droit de lecture. Les pages de partage public sont
+rendues côté serveur après validation du token, avec la clé `service_role`.
 
 ## Précision des chiffres
 
