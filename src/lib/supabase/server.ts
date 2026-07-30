@@ -29,7 +29,7 @@ export async function createClient() {
             }
           } catch {
             // Appelé depuis un Server Component : les cookies sont en lecture
-            // seule. Le middleware s'est déjà chargé de rafraîchir la session.
+            // seule. Le proxy s'est déjà chargé de rafraîchir la session.
           }
         },
       },

@@ -21,7 +21,7 @@ export type AdLevel = "campaign" | "adset" | "ad";
 export type BreakdownType = "age" | "gender" | "region";
 export type SocialPlatform = "instagram" | "facebook" | "tiktok";
 
-export interface Workspace {
+export type Workspace = {
   id: string;
   org_id: string;
   type: WorkspaceType;
@@ -32,28 +32,28 @@ export interface Workspace {
   created_at: string;
 }
 
-export interface Organization {
+export type Organization = {
   id: string;
   name: string;
   slug: string;
   created_at: string;
 }
 
-export interface Membership {
+export type Membership = {
   user_id: string;
   workspace_id: string;
   role: WorkspaceRole;
   created_at: string;
 }
 
-export interface OrganizationMember {
+export type OrganizationMember = {
   org_id: string;
   user_id: string;
   role: OrgRole;
   created_at: string;
 }
 
-export interface Invitation {
+export type Invitation = {
   id: string;
   email: string;
   org_id: string;
@@ -65,7 +65,7 @@ export interface Invitation {
   accepted_at: string | null;
 }
 
-export interface Profile {
+export type Profile = {
   id: string;
   email: string;
   full_name: string | null;
@@ -73,7 +73,7 @@ export interface Profile {
   created_at: string;
 }
 
-export interface DataSource {
+export type DataSource = {
   id: string;
   workspace_id: string;
   provider: DataProvider;
@@ -87,7 +87,7 @@ export interface DataSource {
   created_at: string;
 }
 
-export interface SyncRun {
+export type SyncRun = {
   id: string;
   data_source_id: string;
   workspace_id: string;
@@ -100,7 +100,7 @@ export interface SyncRun {
   error: string | null;
 }
 
-export interface AdEntity {
+export type AdEntity = {
   id: string;
   data_source_id: string;
   workspace_id: string;
@@ -115,7 +115,7 @@ export interface AdEntity {
   updated_at: string;
 }
 
-export interface AdMetricsDaily {
+export type AdMetricsDaily = {
   data_source_id: string;
   workspace_id: string;
   entity_id: string;
@@ -133,7 +133,7 @@ export interface AdMetricsDaily {
   updated_at: string;
 }
 
-export interface AdBreakdownDaily {
+export type AdBreakdownDaily = {
   data_source_id: string;
   workspace_id: string;
   date: string;
@@ -145,7 +145,7 @@ export interface AdBreakdownDaily {
   updated_at: string;
 }
 
-export interface SocialFollowers {
+export type SocialFollowers = {
   data_source_id: string;
   workspace_id: string;
   platform: SocialPlatform;
@@ -155,7 +155,7 @@ export interface SocialFollowers {
   updated_at: string;
 }
 
-export interface SocialPost {
+export type SocialPost = {
   id: string;
   data_source_id: string;
   workspace_id: string;
@@ -174,7 +174,7 @@ export interface SocialPost {
   updated_at: string;
 }
 
-export interface Dashboard {
+export type Dashboard = {
   id: string;
   workspace_id: string;
   slug: string;
@@ -185,7 +185,7 @@ export interface Dashboard {
   updated_at: string;
 }
 
-export interface ShareLink {
+export type ShareLink = {
   id: string;
   dashboard_id: string;
   workspace_id: string;
@@ -200,7 +200,7 @@ export interface ShareLink {
   created_at: string;
 }
 
-export interface AuditLogEntry {
+export type AuditLogEntry = {
   id: number;
   actor_id: string | null;
   org_id: string | null;
@@ -218,7 +218,7 @@ type Table<Row, Insert = Partial<Row>, Update = Partial<Row>> = {
   Relationships: [];
 };
 
-export interface Database {
+export type Database = {
   public: {
     Tables: {
       profiles: Table<Profile>;
@@ -238,8 +238,10 @@ export interface Database {
       share_links: Table<ShareLink>;
       audit_log: Table<AuditLogEntry>;
     };
-    Views: Record<never, never>;
-    Functions: Record<never, never>;
+    // `never` satisfait la contrainte `Record<string, GenericView>` de
+    // postgrest-js tout en déclarant qu'il n'y a ni vue ni fonction exposée.
+    Views: Record<string, never>;
+    Functions: Record<string, never>;
     Enums: {
       workspace_type: WorkspaceType;
       org_role: OrgRole;

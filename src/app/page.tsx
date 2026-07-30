@@ -1,65 +1,109 @@
-import Image from "next/image";
+import Link from "next/link";
+import { redirect } from "next/navigation";
+import { ArrowRight, Briefcase, Lock, Users } from "lucide-react";
 
-export default function Home() {
+import { AppHeader } from "@/components/app-header";
+import { Badge } from "@/components/ui/badge";
+import { requireViewer, roleLabel, type WorkspaceAccess } from "@/lib/auth";
+import type { WorkspaceType } from "@/lib/supabase/database.types";
+
+const SECTIONS: { type: WorkspaceType; title: string; icon: typeof Users }[] = [
+  { type: "client", title: "Clients", icon: Users },
+  { type: "business", title: "Mon entreprise", icon: Briefcase },
+  { type: "personal", title: "Perso", icon: Lock },
+];
+
+export default async function HubPage() {
+  const viewer = await requireViewer();
+
+  // Un client n'a qu'un seul espace : lui présenter un hub d'un seul élément
+  // serait une étape pour rien.
+  if (viewer.workspaces.length === 1) {
+    redirect(`/espace/${viewer.workspaces[0]!.slug}`);
+  }
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+    <>
+      <AppHeader viewer={viewer} />
+
+      <main className="mx-auto w-full max-w-6xl flex-1 space-y-10 p-6 md:p-10">
+        <div className="space-y-1">
+          <h1 className="text-2xl font-semibold tracking-tight">Espaces</h1>
+          <p className="text-muted-foreground text-sm">
+            {viewer.workspaces.length === 0
+              ? "Aucun espace ne vous est encore attribué."
+              : `${viewer.workspaces.length} espaces accessibles.`}
           </p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
+
+        {viewer.workspaces.length === 0 ? <EmptyState email={viewer.email} /> : null}
+
+        {SECTIONS.map(({ type, title, icon: Icon }) => {
+          const workspaces = viewer.workspaces.filter(
+            (workspace) => workspace.type === type,
+          );
+          if (workspaces.length === 0) return null;
+
+          return (
+            <section key={type} className="space-y-3">
+              <h2 className="text-muted-foreground flex items-center gap-2 text-xs font-medium tracking-wide uppercase">
+                <Icon className="size-3.5" aria-hidden />
+                {title}
+              </h2>
+              <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {workspaces.map((workspace) => (
+                  <li key={workspace.id}>
+                    <WorkspaceCard workspace={workspace} />
+                  </li>
+                ))}
+              </ul>
+            </section>
+          );
+        })}
       </main>
+    </>
+  );
+}
+
+function WorkspaceCard({ workspace }: { workspace: WorkspaceAccess }) {
+  return (
+    <Link
+      href={`/espace/${workspace.slug}`}
+      className="group border-border bg-card hover:border-foreground/20 focus-visible:ring-ring block rounded-xl border p-5 transition-colors focus-visible:ring-2 focus-visible:outline-none"
+    >
+      <div className="flex items-start justify-between gap-3">
+        <span
+          aria-hidden
+          className="bg-muted size-8 shrink-0 rounded-lg"
+          style={
+            workspace.accent_color
+              ? { backgroundColor: workspace.accent_color }
+              : undefined
+          }
+        />
+        <ArrowRight
+          className="text-muted-foreground size-4 transition-transform group-hover:translate-x-0.5"
+          aria-hidden
+        />
+      </div>
+      <p className="mt-4 font-medium">{workspace.name}</p>
+      <Badge variant="secondary" className="mt-2">
+        {roleLabel(workspace.role)}
+      </Badge>
+    </Link>
+  );
+}
+
+function EmptyState({ email }: { email: string }) {
+  return (
+    <div className="border-border text-muted-foreground rounded-xl border border-dashed p-10 text-center text-sm">
+      <p>
+        Le compte <span className="text-foreground font-medium">{email}</span>{" "}
+        n&apos;a encore accès à aucun espace.
+      </p>
+      <p className="mt-1">
+        Un accès doit être accordé à cette adresse depuis l&apos;administration.
+      </p>
     </div>
   );
 }
