@@ -46,10 +46,24 @@ export async function GET(request: Request) {
 
   const admin = createAdminClient();
 
-  const { data: sourceRows } = await admin
+  const { data: sourceRows, error: sourcesError } = await admin
     .from("receipt_sources")
     .select("*")
     .eq("status", "connected");
+
+  /* Sans ce test, une table absente ou une erreur de lecture donnerait un
+     `data` nul, donc une liste vide, donc un « aucune boîte connectée »
+     parfaitement rassurant — et un cron qui ne fait rien pendant des semaines
+     sans que rien ne le signale. */
+  if (sourcesError) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: `Lecture des boîtes impossible : ${sourcesError.message}. Les migrations ont-elles été appliquées ?`,
+      },
+      { status: 500 },
+    );
+  }
 
   const sources = (sourceRows ?? []) as unknown as ReceiptSource[];
   if (sources.length === 0) {

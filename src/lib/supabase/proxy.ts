@@ -3,8 +3,21 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import { publicEnv } from "@/lib/env";
 
-/** Chemins accessibles sans session. Tout le reste redirige vers /login. */
-const PUBLIC_PATHS = ["/login", "/auth/callback", "/auth/erreur", "/partage"];
+/**
+ * Chemins accessibles sans session. Tout le reste redirige vers /login.
+ *
+ * `/api/cron` n'est pas une exception à l'authentification, c'en est une autre
+ * forme : ces routes sont appelées par un ordonnanceur, qui n'a pas de session,
+ * et se protègent elles-mêmes en comparant `CRON_SECRET` à temps constant. Les
+ * laisser ici sans cette note inviterait à les croire ouvertes.
+ */
+const PUBLIC_PATHS = [
+  "/login",
+  "/auth/callback",
+  "/auth/erreur",
+  "/partage",
+  "/api/cron",
+];
 
 function isPublic(pathname: string) {
   return PUBLIC_PATHS.some(
