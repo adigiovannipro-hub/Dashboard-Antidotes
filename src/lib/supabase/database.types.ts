@@ -393,6 +393,26 @@ export type ModerationAuditRow = {
   created_at: string;
 }
 
+/* --- Module Reçus ---------------------------------------------------------
+   Le détail de ces lignes vit dans `src/lib/recus/types.ts`, au plus près du
+   code qui les manipule. Réexportées ici pour que postgrest-js infère les
+   requêtes, sans dupliquer la définition. */
+export type {
+  ReceiptSource as ReceiptSourceRow,
+  ReceiptExpense as ReceiptExpenseRow,
+  ReceiptDocument as ReceiptDocumentRow,
+  ReceiptMerchantRule as ReceiptMerchantRuleRow,
+  ReceiptEvent as ReceiptEventRow,
+} from "@/lib/recus/types";
+
+import type {
+  ReceiptDocument,
+  ReceiptEvent,
+  ReceiptExpense,
+  ReceiptMerchantRule,
+  ReceiptSource,
+} from "@/lib/recus/types";
+
 type Table<Row, Insert = Partial<Row>, Update = Partial<Row>> = {
   Row: Row;
   Insert: Insert;
@@ -430,6 +450,11 @@ export type Database = {
       story_mentions: Table<StoryMentionRow>;
       channel_connections: Table<ChannelConnectionRow>;
       moderation_audit_log: Table<ModerationAuditRow>;
+      receipt_sources: Table<ReceiptSource>;
+      receipt_expenses: Table<ReceiptExpense>;
+      receipt_documents: Table<ReceiptDocument>;
+      receipt_merchant_rules: Table<ReceiptMerchantRule>;
+      receipt_events: Table<ReceiptEvent>;
     };
     // `never` satisfait la contrainte `Record<string, GenericView>` de
     // postgrest-js tout en déclarant qu'il n'y a ni vue ni fonction exposée.

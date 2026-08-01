@@ -102,7 +102,27 @@ autorité. Deux règles y sont vérifiées par des tests :
    lien alors que la colonne `Clics` utilise tous les clics. Ce dernier point est
    basculable via `ClickAttributionMode`.
 
+## Module Reçus
+
+`/entreprise/recus` automatise la collecte des justificatifs : les factures
+reçues par mail sont identifiées, rapprochées de la dépense carte Airwallex
+correspondante, puis transférées à la boîte de reçus d'Airwallex — qui les
+accroche à la ligne de frais.
+
+L'API Airwallex ne permet pas de déposer une pièce jointe : le transfert de mail
+est le seul chemin d'écriture. Le module ne range donc pas la pièce, il l'envoie
+puis **vérifie** en relisant l'API qu'elle s'est bien accrochée. Ce qui ne
+s'accroche pas ressort dans l'écran, à rattacher à la main.
+
+L'auto-transfert est désactivé par défaut et se mérite fournisseur par
+fournisseur : trois validations manuelles concordantes avant que l'automatisme
+soit proposé. Un rapprochement ambigu ou un fournisseur jamais approuvé ne
+partent jamais seuls, quel que soit le réglage.
+
+Mise en place — Google Cloud, clés Airwallex, cron : [`docs/recus-setup.md`](docs/recus-setup.md).
+
 ## Documentation
 
 - `docs/meta-setup.md` — création de l'app Meta et de l'utilisateur système *(étape 6)*
+- `docs/recus-setup.md` — accès Gmail, clés Airwallex et cadence du cron
 - `CLAUDE.md` — architecture, conventions, ajout d'un connecteur
