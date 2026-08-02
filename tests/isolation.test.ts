@@ -31,9 +31,10 @@ const emails = {
 };
 
 suite("isolation entre espaces (RLS)", () => {
-  const admin = createClient(SUPABASE_URL!, SERVICE_KEY!, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
+  // Créé dans `beforeAll` et non ici : le corps d'un `describe.skip` est tout
+  // de même exécuté à la collecte, et `createClient(undefined)` ferait échouer
+  // le fichier entier sur une machine sans `.env.local` — au lieu de le sauter.
+  let admin!: SupabaseClient;
 
   const ids = {
     org: "",
@@ -60,6 +61,10 @@ suite("isolation entre espaces (RLS)", () => {
   }
 
   beforeAll(async () => {
+    admin = createClient(SUPABASE_URL!, SERVICE_KEY!, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+
     const { data: org, error: orgError } = await admin
       .from("organizations")
       .insert({ name: `Org ${RUN}`, slug: RUN })

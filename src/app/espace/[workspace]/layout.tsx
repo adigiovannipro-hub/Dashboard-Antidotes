@@ -1,8 +1,9 @@
 import { notFound } from "next/navigation";
 
 import { AppHeader } from "@/components/app-header";
-import { DashboardNav } from "@/components/dashboard-nav";
+import { DashboardNav, type NavItem } from "@/components/dashboard-nav";
 import { getWorkspace, requireViewer } from "@/lib/auth";
+import { listBoards } from "@/lib/planning/queries";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function WorkspaceLayout({
@@ -21,22 +22,40 @@ export default async function WorkspaceLayout({
   if (!workspace) notFound();
 
   const supabase = await createClient();
-  const { data: dashboards } = await supabase
-    .from("dashboards")
-    .select("slug, name")
-    .eq("workspace_id", workspace.id)
-    .order("position");
+  const [{ data: dashboards }, boards] = await Promise.all([
+    supabase
+      .from("dashboards")
+      .select("slug, name")
+      .eq("workspace_id", workspace.id)
+      .order("position"),
+    listBoards(workspace.id),
+  ]);
+
+  // Le planning passe avant le reporting : on prépare le mois en cours bien
+  // plus souvent qu'on ne relit les chiffres du mois dernier.
+  const items: NavItem[] = [
+    ...(boards.length > 0
+      ? [
+          {
+            segment: "planning",
+            href: `/espace/${workspace.slug}/planning`,
+            name: "Planning Éditorial",
+          },
+        ]
+      : []),
+    ...(dashboards ?? []).map((dashboard) => ({
+      segment: dashboard.slug,
+      href: `/espace/${workspace.slug}/${dashboard.slug}`,
+      name: dashboard.name,
+    })),
+  ];
 
   return (
     <>
       <AppHeader viewer={viewer} currentWorkspaceSlug={workspace.slug} />
 
       <div className="flex flex-1 flex-col md:flex-row">
-        <DashboardNav
-          workspaceSlug={workspace.slug}
-          workspaceName={workspace.name}
-          dashboards={dashboards ?? []}
-        />
+        <DashboardNav workspaceName={workspace.name} items={items} />
         <div className="min-w-0 flex-1">{children}</div>
       </div>
     </>

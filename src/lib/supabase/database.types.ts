@@ -393,6 +393,87 @@ export type ModerationAuditRow = {
   created_at: string;
 }
 
+// --- Planning Éditorial (migrations 0006 à 0008) -----------------------------
+
+export type PlanningBoardRow = {
+  id: string;
+  workspace_id: string;
+  kind: string;
+  slug: string;
+  name: string;
+  year: number | null;
+  position: number;
+  settings: Record<string, unknown>;
+  created_at: string;
+};
+
+export type PlanningMonthRow = {
+  id: string;
+  board_id: string;
+  workspace_id: string;
+  label: string;
+  month: string;
+  position: number;
+  created_at: string;
+};
+
+export type PlanningLaneRow = {
+  id: string;
+  month_id: string;
+  board_id: string;
+  workspace_id: string;
+  platform: string;
+  name: string;
+  position: number;
+  external_id: string | null;
+  created_at: string;
+};
+
+export type PlanningSubjectRow = {
+  id: string;
+  lane_id: string;
+  month_id: string;
+  board_id: string;
+  workspace_id: string;
+  name: string;
+  status: string;
+  format: string;
+  scheduled_on: string | null;
+  wording: string | null;
+  sponsoring: number | null;
+  ad_objective: string | null;
+  ad_status: string | null;
+  owner_id: string | null;
+  visual_urls: string[];
+  position: number;
+  external_id: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type PlanningCommentRow = {
+  id: string;
+  subject_id: string;
+  workspace_id: string;
+  author_id: string | null;
+  scope: string;
+  body: string;
+  created_at: string;
+};
+
+export type PlanningFaqEntryRow = {
+  id: string;
+  board_id: string;
+  workspace_id: string;
+  question: string;
+  answer: string | null;
+  category: string | null;
+  position: number;
+  source: string;
+  created_at: string;
+  updated_at: string;
+};
+
 /* --- Module Reçus ---------------------------------------------------------
    Le détail de ces lignes vit dans `src/lib/recus/types.ts`, au plus près du
    code qui les manipule. Réexportées ici pour que postgrest-js infère les
@@ -450,6 +531,13 @@ export type Database = {
       story_mentions: Table<StoryMentionRow>;
       channel_connections: Table<ChannelConnectionRow>;
       moderation_audit_log: Table<ModerationAuditRow>;
+      planning_boards: Table<PlanningBoardRow>;
+      planning_months: Table<PlanningMonthRow>;
+      planning_lanes: Table<PlanningLaneRow>;
+      planning_subjects: Table<PlanningSubjectRow>;
+      planning_comments: Table<PlanningCommentRow>;
+      planning_faq_entries: Table<PlanningFaqEntryRow>;
+
       receipt_sources: Table<ReceiptSource>;
       receipt_expenses: Table<ReceiptExpense>;
       receipt_documents: Table<ReceiptDocument>;
