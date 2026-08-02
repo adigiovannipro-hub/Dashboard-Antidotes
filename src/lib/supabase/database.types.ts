@@ -393,6 +393,103 @@ export type ModerationAuditRow = {
   created_at: string;
 }
 
+// --- Module Planning Édito (migrations 0006 et 0007) ------------------------
+
+export type PlanningClientRow = {
+  id: string;
+  org_id: string;
+  workspace_id: string | null;
+  slug: string;
+  name: string;
+  strategy_override: Record<string, unknown> | null;
+  archived_at: string | null;
+  created_at: string;
+};
+
+export type PlanningMemberRow = {
+  user_id: string;
+  client_id: string;
+  role: string;
+  created_at: string;
+};
+
+export type PlanningBoardRow = {
+  id: string;
+  client_id: string;
+  monday_board_id: string;
+  monday_subitem_board_id: string | null;
+  name: string;
+  year: number | null;
+  url: string | null;
+  is_archive: boolean;
+  column_mapping: Record<string, string | null>;
+  status_mapping: Record<string, string>;
+  last_synced_at: string | null;
+  created_at: string;
+};
+
+export type PlanningMonthRow = {
+  id: string;
+  board_id: string;
+  client_id: string;
+  monday_group_id: string;
+  label: string;
+  month: string;
+  position: number;
+  created_at: string;
+};
+
+export type PlanningLaneRow = {
+  id: string;
+  month_id: string;
+  client_id: string;
+  monday_item_id: string;
+  platform: string;
+  name: string;
+  position: number;
+  created_at: string;
+};
+
+export type PlanningSubjectRow = {
+  id: string;
+  lane_id: string;
+  month_id: string;
+  client_id: string;
+  monday_item_id: string;
+  name: string;
+  format: string;
+  format_raw: string | null;
+  scheduled_on: string | null;
+  status: string;
+  status_raw: string | null;
+  wording: string | null;
+  comments: string | null;
+  sponsoring: number | null;
+  objective: string | null;
+  owner_name: string | null;
+  visual_urls: string[];
+  permalink: string | null;
+  pending_wording: string | null;
+  pending_since: string | null;
+  pushed_at: string | null;
+  monday_updated_at: string | null;
+  synced_at: string;
+  created_at: string;
+};
+
+export type PlanningSyncRunRow = {
+  id: string;
+  client_id: string;
+  board_id: string | null;
+  direction: string;
+  status: SyncStatus;
+  started_at: string;
+  finished_at: string | null;
+  boards_seen: number;
+  subjects_upserted: number;
+  error: string | null;
+};
+
 type Table<Row, Insert = Partial<Row>, Update = Partial<Row>> = {
   Row: Row;
   Insert: Insert;
@@ -430,6 +527,13 @@ export type Database = {
       story_mentions: Table<StoryMentionRow>;
       channel_connections: Table<ChannelConnectionRow>;
       moderation_audit_log: Table<ModerationAuditRow>;
+      planning_clients: Table<PlanningClientRow>;
+      planning_members: Table<PlanningMemberRow>;
+      planning_boards: Table<PlanningBoardRow>;
+      planning_months: Table<PlanningMonthRow>;
+      planning_lanes: Table<PlanningLaneRow>;
+      planning_subjects: Table<PlanningSubjectRow>;
+      planning_sync_runs: Table<PlanningSyncRunRow>;
     };
     // `never` satisfait la contrainte `Record<string, GenericView>` de
     // postgrest-js tout en déclarant qu'il n'y a ni vue ni fonction exposée.
