@@ -1,21 +1,12 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import {
-  ArrowRight,
-  Briefcase,
-  CalendarRange,
-  Lock,
-  MessagesSquare,
-  Users,
-} from "lucide-react";
+import { ArrowRight, Briefcase, Lock, MessagesSquare, Users } from "lucide-react";
 
 import { AppHeader } from "@/components/app-header";
 import { Badge } from "@/components/ui/badge";
 import { requireViewer, roleLabel, type WorkspaceAccess } from "@/lib/auth";
 import { getModerationContext } from "@/lib/moderation/access";
 import { isModerationVisible } from "@/lib/moderation/permissions";
-import { getPlanningContext } from "@/lib/planning/access";
-import { isPlanningVisible } from "@/lib/planning/permissions";
 import type { WorkspaceType } from "@/lib/supabase/database.types";
 
 const SECTIONS: { type: WorkspaceType; title: string; icon: typeof Users }[] = [
@@ -27,23 +18,14 @@ const SECTIONS: { type: WorkspaceType; title: string; icon: typeof Users }[] = [
 export default async function HubPage() {
   const viewer = await requireViewer();
 
-  // Les deux modules internes. La RLS a déjà filtré : un client du dashboard de
-  // reporting n'a aucun rattachement, donc aucun outil, et n'apprend pas leur
+  // Les outils internes, ceux qui ne vivent pas dans un espace client. Le
+  // Planning Éditorial n'en fait pas partie : il appartient à l'espace du
+  // client, à côté de son Reporting. La RLS a déjà filtré — un client du
+  // dashboard n'a aucun rattachement, donc aucun outil, et n'apprend pas leur
   // existence.
-  const [moderation, planning] = await Promise.all([
-    getModerationContext(),
-    getPlanningContext(),
-  ]);
+  const moderation = await getModerationContext();
 
   const tools = [
-    isPlanningVisible(planning.access)
-      ? {
-          href: "/planning",
-          title: "Planning Édito",
-          description: "Les plannings éditoriaux Monday, mois par mois",
-          icon: CalendarRange,
-        }
-      : null,
     isModerationVisible(moderation.access)
       ? {
           href: "/moderation",

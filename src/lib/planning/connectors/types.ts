@@ -48,22 +48,16 @@ export type BoardSnapshot = {
   items: RemoteItem[];
 };
 
+/**
+ * Connecteur de reprise.
+ *
+ * En lecture seule, et c'est structurel : une fois l'année importée, le tableau
+ * du dashboard fait autorité. Écrire des deux côtés créerait deux vérités et un
+ * conflit à chaque modification.
+ */
 export interface PlanningConnector {
   readonly id: string;
   /** Boards dont le nom correspond à la recherche. */
   listBoards(searchTerm: string): Promise<BoardSummary[]>;
   fetchBoard(boardId: string): Promise<BoardSnapshot>;
-  /**
-   * Écrit une valeur de colonne sur un sous-élément.
-   *
-   * L'implémentation ne filtre rien : c'est l'appelant qui doit être passé par
-   * la liste blanche de `monday-mapping.ts`. Le filtre vit là-bas parce qu'il
-   * relève de la règle métier, pas du transport.
-   */
-  updateColumnValue(input: {
-    boardId: string;
-    itemId: string;
-    columnId: string;
-    value: string;
-  }): Promise<void>;
 }

@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  assertWritableField,
   deriveColumnMapping,
+  monthGroupLabel,
   monthLabel,
+  normalizeAdStatus,
   normalizeFormat,
   normalizeLabel,
   normalizePlatform,
@@ -13,8 +14,6 @@ import {
   parseScheduledOn,
   parseSponsoring,
   parseVisualUrls,
-  slugifyClientName,
-  writableColumnIds,
   type MondayColumn,
 } from "./monday-mapping";
 
@@ -61,15 +60,18 @@ describe("mois", () => {
   });
 
   it("rend null pour un groupe qui n'est pas un mois", () => {
-    // Les boards contiennent des groupes de travail qu'il ne faut pas
-    // confondre avec le planning.
     expect(parseMonthLabel("IDÉES", 2026)).toBeNull();
     expect(parseMonthLabel("À CLASSER", 2026)).toBeNull();
   });
 
   it("réaffiche un mois lisiblement", () => {
-    expect(monthLabel("2026-08-01")).toBe("Aout 2026");
+    expect(monthLabel("2026-08-01")).toBe("Août 2026");
     expect(monthLabel("2026-01-01")).toBe("Janvier 2026");
+  });
+
+  it("propose un libellé de groupe dans le style du board", () => {
+    expect(monthGroupLabel("2026-08-01")).toBe("AOÛT");
+    expect(monthGroupLabel("2026-09-01")).toBe("SEPTEMBRE");
   });
 });
 
@@ -99,12 +101,6 @@ describe("nom de board", () => {
     expect(parseBoardName("LUNETTES BONDET I FAQ MODÉRATION")).toBeNull();
     expect(parseBoardName("ANTIDOTES I PIPELINE")).toBeNull();
   });
-
-  it("dérive un slug utilisable en URL", () => {
-    expect(slugifyClientName("LUNETTES BONDET")).toBe("lunettes-bondet");
-    expect(slugifyClientName("NAYA.")).toBe("naya");
-    expect(slugifyClientName("I-WAY")).toBe("i-way");
-  });
 });
 
 describe("statuts", () => {
@@ -124,14 +120,6 @@ describe("statuts", () => {
     expect(normalizeStatus(null)).toBe("idea");
     expect(normalizeStatus("")).toBe("idea");
     expect(normalizeStatus("À RETOURNER AU CLIENT")).toBe("idea");
-  });
-
-  it("laisse le mapping du board primer", () => {
-    // Un client qui a renommé ses statuts n'a pas à modifier le code.
-    expect(normalizeStatus("À RELIRE", { "A RELIRE": "to_validate" })).toBe(
-      "to_validate",
-    );
-    expect(normalizeStatus("PUBLIÉ", { PUBLIE: "scheduled" })).toBe("scheduled");
   });
 });
 
@@ -157,12 +145,27 @@ describe("plateformes", () => {
     expect(normalizePlatform("META")).toBe("meta");
     expect(normalizePlatform("LinkedIn")).toBe("linkedin");
     expect(normalizePlatform("TIK TOK")).toBe("tiktok");
-    expect(normalizePlatform("DARK")).toBe("dark");
     expect(normalizePlatform("X")).toBe("x");
   });
 
-  it("rend « autre » pour un couloir inattendu", () => {
+  it("ne fait pas de « DARK » une plateforme", () => {
+    // C'est un mode de diffusion. Le couloir garde son nom, sa plateforme
+    // reste indéterminée plutôt qu'inventée.
+    expect(normalizePlatform("DARK")).toBe("other");
     expect(normalizePlatform("NEWSLETTER")).toBe("other");
+  });
+});
+
+describe("statut publicitaire", () => {
+  it("reconnaît les trois états du board", () => {
+    expect(normalizeAdStatus("À faire")).toBe("todo");
+    expect(normalizeAdStatus("En cours")).toBe("doing");
+    expect(normalizeAdStatus("Fait")).toBe("done");
+  });
+
+  it("rend null sans valeur", () => {
+    expect(normalizeAdStatus(null)).toBeNull();
+    expect(normalizeAdStatus("")).toBeNull();
   });
 });
 
@@ -175,6 +178,7 @@ describe("mapping des colonnes", () => {
     expect(mapping.wording).toBe("texte5");
     expect(mapping.sponsoring).toBe("chiffres");
     expect(mapping.objective).toBe("statut");
+    expect(mapping.adStatus).toBe("statut0");
     expect(mapping.owner).toBe("person");
     expect(mapping.visual).toBe("fichier");
   });
@@ -186,6 +190,7 @@ describe("mapping des colonnes", () => {
       { id: "statut0", title: "Statut Ads", type: "status" },
     ]);
     expect(mapping.status).toBeNull();
+    expect(mapping.adStatus).toBe("statut0");
   });
 
   it("laisse à null une colonne que le board n'a pas", () => {
@@ -203,30 +208,6 @@ describe("mapping des colonnes", () => {
   });
 });
 
-describe("liste blanche d'écriture", () => {
-  it("laisse passer le wording et les commentaires", () => {
-    expect(() => assertWritableField("wording")).not.toThrow();
-    expect(() => assertWritableField("comments")).not.toThrow();
-  });
-
-  it("refuse tout ce qui appartient au board et à la validation client", () => {
-    for (const field of ["status", "format", "date", "visual", "owner"]) {
-      expect(() => assertWritableField(field)).toThrow(/non modifiable/);
-    }
-  });
-
-  it("ne rend que les colonnes réellement modifiables du board", () => {
-    expect(writableColumnIds(deriveColumnMapping(IWAY_COLUMNS))).toEqual([
-      "texte5",
-      "long_text_mm2v8f3h",
-    ]);
-    // Sans colonne Commentaires, la liste se réduit d'elle-même.
-    expect(writableColumnIds(deriveColumnMapping(BONDET_COLUMNS))).toEqual([
-      "texte5",
-    ]);
-  });
-});
-
 describe("valeurs de colonne", () => {
   it("lit les budgets de sponsorisation", () => {
     expect(parseSponsoring("806.8")).toBe(806.8);
@@ -241,9 +222,9 @@ describe("valeurs de colonne", () => {
       "https://a.test/1.png",
       "https://a.test/2.png",
     ]);
-    expect(
-      parseVisualUrls('{"files":[{"url":"https://a.test/3.png"}]}'),
-    ).toEqual(["https://a.test/3.png"]);
+    expect(parseVisualUrls('{"files":[{"url":"https://a.test/3.png"}]}')).toEqual([
+      "https://a.test/3.png",
+    ]);
     expect(parseVisualUrls(null)).toEqual([]);
     expect(parseVisualUrls("")).toEqual([]);
   });

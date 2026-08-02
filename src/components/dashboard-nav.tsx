@@ -5,31 +5,36 @@ import { useSelectedLayoutSegment } from "next/navigation";
 
 import { cn } from "@/lib/utils";
 
+export type NavItem = {
+  /** Premier segment de route, pour savoir lequel est actif. */
+  segment: string;
+  href: string;
+  name: string;
+};
+
 export function DashboardNav({
-  workspaceSlug,
   workspaceName,
-  dashboards,
+  items,
 }: {
-  workspaceSlug: string;
   workspaceName: string;
-  dashboards: { slug: string; name: string }[];
+  items: NavItem[];
 }) {
   const segment = useSelectedLayoutSegment();
 
-  if (dashboards.length === 0) return null;
+  if (items.length === 0) return null;
 
   return (
     <nav
-      aria-label={`Dashboards de ${workspaceName}`}
+      aria-label={`Sections de ${workspaceName}`}
       className="border-border shrink-0 border-b p-3 md:w-56 md:border-r md:border-b-0 md:p-4"
     >
       <ul className="flex gap-1 md:flex-col">
-        {dashboards.map((dashboard) => {
-          const active = segment === dashboard.slug;
+        {items.map((item) => {
+          const active = segment === item.segment;
           return (
-            <li key={dashboard.slug}>
+            <li key={item.segment}>
               <Link
-                href={`/espace/${workspaceSlug}/${dashboard.slug}`}
+                href={item.href}
                 aria-current={active ? "page" : undefined}
                 className={cn(
                   "focus-visible:ring-ring block rounded-md px-3 py-2 text-sm transition-colors focus-visible:ring-2 focus-visible:outline-none",
@@ -38,7 +43,7 @@ export function DashboardNav({
                     : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
                 )}
               >
-                {dashboard.name}
+                {item.name}
               </Link>
             </li>
           );

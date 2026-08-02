@@ -2,9 +2,8 @@
  * Santé de production d'un mois.
  *
  * La cadence dit si le planning est *bien construit* ; la santé dit s'il est
- * *prêt à partir*. Ce sont deux questions différentes et elles se posent à des
- * moments différents : la première en fin de planification, la seconde tous les
- * matins.
+ * *prêt à partir*. Deux questions différentes, posées à des moments différents :
+ * la première en fin de planification, la seconde tous les matins.
  *
  * Le critère est toujours la proximité de la date de publication. Un wording
  * manquant sur un contenu du 28 est normal le 2 ; le même wording manquant le
@@ -13,14 +12,13 @@
  */
 
 import { DONE_STATUSES, READY_STATUSES, hasWording, isPlanned } from "./types";
-import type { PlanningStatus, SubjectWithLane } from "./types";
+import type { PlanningStatus, ProducibleSubject } from "./types";
 
 export type GapCode =
   | "overdue"
   | "not_validated"
   | "wording_missing"
-  | "visual_missing"
-  | "pending_push";
+  | "visual_missing";
 
 export type GapSeverity = "info" | "warning" | "critical";
 
@@ -32,17 +30,15 @@ export type ProductionGap = {
 };
 
 export type MonthHealth = {
-  /** Contenus du mois, hors « non retenu ». */
+  /** Publications du mois, hors « non retenu ». */
   total: number;
   published: number;
   ready: number;
-  /** Part de contenus publiés ou prêts à partir, entre 0 et 1. */
+  /** Part de publications publiées ou prêtes à partir, entre 0 et 1. */
   completion: number;
   gaps: ProductionGap[];
-  /** Prochain contenu à sortir. */
-  nextUp: SubjectWithLane | null;
-  /** Wordings modifiés localement et pas encore poussés vers Monday. */
-  pendingPush: number;
+  /** Prochaine publication à sortir. */
+  nextUp: ProducibleSubject | null;
 };
 
 export type HealthOptions = {
@@ -72,7 +68,7 @@ function isReady(status: PlanningStatus): boolean {
 }
 
 export function assessMonth(
-  subjects: SubjectWithLane[],
+  subjects: ProducibleSubject[],
   options: HealthOptions,
 ): MonthHealth {
   const leadDays = options.validationLeadDays ?? DEFAULT_LEAD_DAYS;
@@ -83,16 +79,15 @@ export function assessMonth(
     code: GapCode,
     severity: GapSeverity,
     message: string,
-    matched: SubjectWithLane[],
+    matched: ProducibleSubject[],
   ) => {
     if (matched.length > 0) {
       gaps.push({ code, severity, message, subjectIds: matched.map((s) => s.id) });
     }
   };
 
-  // Un contenu daté d'hier et toujours pas publié : soit il est passé sans
-  // qu'on mette le board à jour, soit il est passé à la trappe. Les deux
-  // méritent un coup d'œil.
+  // Une date d'hier et toujours pas publié : soit c'est parti sans que le
+  // tableau suive, soit c'est passé à la trappe. Les deux méritent un œil.
   add(
     "overdue",
     "critical",
@@ -120,34 +115,22 @@ export function assessMonth(
     imminent.filter((subject) => !isReady(subject.status)),
   );
 
-  const missingWording = planned.filter(
-    (subject) => !isDone(subject.status) && !hasWording(subject),
-  );
   add(
     "wording_missing",
     imminent.some((subject) => !hasWording(subject)) ? "critical" : "warning",
     "Wording à écrire",
-    missingWording,
+    planned.filter((subject) => !isDone(subject.status) && !hasWording(subject)),
   );
 
-  const missingVisual = planned.filter(
-    (subject) => !isDone(subject.status) && subject.visual_urls.length === 0,
-  );
   add(
     "visual_missing",
     imminent.some((subject) => subject.visual_urls.length === 0)
       ? "critical"
       : "warning",
     "Visuel manquant",
-    missingVisual,
-  );
-
-  const pending = planned.filter((subject) => subject.pending_wording !== null);
-  add(
-    "pending_push",
-    "info",
-    "Wording modifié, pas encore envoyé dans Monday",
-    pending,
+    planned.filter(
+      (subject) => !isDone(subject.status) && subject.visual_urls.length === 0,
+    ),
   );
 
   const published = planned.filter((subject) => isDone(subject.status));
@@ -158,12 +141,9 @@ export function assessMonth(
     published: published.length,
     ready: ready.length,
     completion:
-      planned.length === 0
-        ? 0
-        : (published.length + ready.length) / planned.length,
+      planned.length === 0 ? 0 : (published.length + ready.length) / planned.length,
     gaps: gaps.sort((a, b) => severityRank(b.severity) - severityRank(a.severity)),
     nextUp: findNextUp(planned, options.asOf),
-    pendingPush: pending.length,
   };
 }
 
@@ -172,9 +152,9 @@ function severityRank(severity: GapSeverity): number {
 }
 
 function findNextUp(
-  subjects: SubjectWithLane[],
+  subjects: ProducibleSubject[],
   asOf: Date,
-): SubjectWithLane | null {
+): ProducibleSubject | null {
   const upcoming = subjects
     .filter(
       (subject) =>

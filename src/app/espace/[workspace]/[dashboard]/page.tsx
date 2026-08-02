@@ -53,7 +53,11 @@ export default async function DashboardPage({ params }: { params: Params }) {
   // de démonstration, calées sur le rapport Looker réel de juin 2026. Le
   // branchement de l'API Meta arrive à l'étape 6 et ne changera que l'origine
   // des données, pas la forme.
-  const isBondetMeta = workspace.slug === "bondet" && dashboard.slug === "meta";
+  // Le dashboard s'appelait « meta » avant de devenir « reporting » : les deux
+  // slugs sont acceptés le temps que la migration 0008 soit passée partout.
+  const isBondetMeta =
+    workspace.slug === "bondet" &&
+    (dashboard.slug === "reporting" || dashboard.slug === "meta");
 
   return (
     <main className="space-y-5 p-5 md:p-8">

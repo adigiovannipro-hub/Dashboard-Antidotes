@@ -8,7 +8,8 @@ sont synchronisées chaque jour et stockées en base, puis lues localement. Le
 dashboard s'affiche instantanément, l'historique n'est plus limité par la
 rétention des API, et le coût d'infrastructure reste nul.
 
-Premier espace client livré : **Bondet — Meta**.
+Premier espace client livré : **Bondet**, avec son Planning Éditorial et son
+Reporting Meta.
 
 ## Prérequis
 
@@ -58,8 +59,8 @@ préfixée `NEXT_PUBLIC_` ni atteindre le navigateur.
 | `pnpm db:migrate` | Applique les migrations manquantes |
 | `pnpm db:status` | Liste les migrations en attente sans rien appliquer |
 | `pnpm sync` | Lance une synchronisation des sources de données |
-| `pnpm sync:planning` | Synchronise les plannings éditoriaux depuis Monday |
-| `pnpm seed:planning` | Données de démonstration du Planning Édito |
+| `pnpm import:monday` | Reprend un planning éditorial depuis Monday |
+| `pnpm seed:planning` | Amorce le Planning Éditorial de Bondet |
 | `pnpm seed:moderation` | Données de démonstration de la Modération |
 
 ## Base de données
@@ -105,63 +106,59 @@ autorité. Deux règles y sont vérifiées par des tests :
    lien alors que la colonne `Clics` utilise tous les clics. Ce dernier point est
    basculable via `ClickAttributionMode`.
 
-## Modules internes
+## Le Planning Éditorial
 
-Deux outils d'agence vivent dans l'application, à côté des espaces de
-reporting. Ils sont **internes** : aucun espace client n'expose de lien vers
-eux, et leurs routes renvoient un 404 — et non un 403 — à qui n'y a pas accès.
-Un client du dashboard n'apprend donc pas leur existence.
+Chaque espace client porte deux sections : **Planning Éditorial** et
+**Reporting**. Le planning passe avant, parce qu'on prépare le mois en cours
+bien plus souvent qu'on ne relit les chiffres du mois dernier.
 
-- **Planning Édito** (`/planning`) — les plannings éditoriaux Monday, mois par
-  mois. Voir ci-dessous.
-- **Modération** (`/moderation`) — messages et commentaires, réponses générées
-  depuis la FAQ du client et validées à la main.
+Le Planning Éditorial remplace le board Monday du client, avec la même
+structure et le même vocabulaire :
 
-### Planning Édito
-
-Le planning se fait dans Monday et continue de s'y faire : un board par client
-et par année (`LUNETTES BONDET I PE 2026`), un groupe par mois, un élément
-parent par plateforme, un sous-élément par contenu. Le module en est le miroir
-local, et y ajoute ce que Monday ne sait pas faire — voir le mois d'un coup
-d'œil, déduire la stratégie de l'historique, contrôler la cadence, dire ce qui
-manque.
-
-**L'écriture est asymétrique, et c'est le point important.** Tout est recopié
-depuis Monday ; seuls le **Wording** et les **Commentaires** y sont réécrits.
-`Status`, `Visuel`, `Propriétaire`, `Date`, `Thématique` et `OK client`
-appartiennent au board et à la validation client. La règle est appliquée par le
-code — `WRITABLE_FIELDS` dans
-[`src/lib/planning/monday-mapping.ts`](src/lib/planning/monday-mapping.ts) — et
-non seulement documentée : toute autre colonne lève. Un wording modifié est par
-ailleurs mis en file d'attente et n'atteint Monday que sur action explicite.
-
-Le mapping des colonnes est une **donnée**, jamais du code : les boards
-divergent déjà entre clients (colonne `Commentaires` absente chez l'un, libellés
-de `Thématique` et d'`Objectifs` différents, « AOUT » contre « AOÛT »). Il est
-déduit à la découverte du board, stocké dans `planning_boards.column_mapping`,
-et corrigeable à la main.
-
-Pour voir le rendu sans rien brancher :
-
-```sh
-pnpm seed:planning     # sept mois de données de démonstration
+```
+Planning Éditorial 2026        FAQ
+└── SEPTEMBRE                  └── questions / réponses
+    └── META                       (enrichie par la Modération)
+        ├── ANNONCE SILMO
+        └── RELANCE SILMO J-7
 ```
 
-Pour brancher le vrai Monday, renseigner `MONDAY_API_TOKEN` dans `.env.local`
-— *Monday → avatar → Développeurs → Mes jetons d'accès* — puis :
+Un tableau par année, un groupe par mois, un couloir par réseau, une ligne par
+publication. Les colonnes : Sujet, retours client, Propriétaire, Statut, Type,
+Date, Visuel, Wording, Sponsorisation, Objectif et Statut Ads. Tout s'édite
+dans la cellule, sans bouton « enregistrer ».
+
+Les statuts et les couleurs sont ceux du board d'origine — `EN COURS` en
+orange, `PUBLIÉ` en vert. L'équipe lit ce tableau depuis des mois.
 
 ```sh
-pnpm sync:planning --discover   # recense les boards « CLIENT I PE ANNÉE »
-pnpm sync:planning              # synchronise
-pnpm sync:planning --archives   # inclut les archives, utiles à la stratégie
+pnpm seed:planning     # août et septembre, pour voir le tableau vivre
 ```
 
-Sans jeton, rien ne casse : le module affiche ce qui est déjà en base et les
-wordings restent en file d'attente.
+Pour reprendre une année déjà saisie dans Monday, renseigner
+`MONDAY_API_TOKEN` dans `.env.local` — *Monday → avatar → Développeurs → Mes
+jetons d'accès* — puis :
+
+```sh
+pnpm import:monday --list
+pnpm import:monday --workspace=bondet --board=pe-2026 --monday=<id>
+```
+
+L'échange est **à sens unique et ponctuel** : après l'import, le dashboard fait
+autorité et rien n'est jamais réécrit dans Monday. Deux outils qui s'écrivent
+mutuellement, ce sont deux vérités et un conflit à chaque modification.
+
+## Module interne — Modération
+
+La Modération (`/moderation`) est le seul outil qui ne vit pas dans un espace
+client. Elle est **interne** : aucun espace n'expose de lien vers elle, et ses
+routes renvoient un 404 — et non un 403 — à qui n'y a pas accès. Un client
+n'apprend donc pas son existence. Elle alimente en revanche la FAQ que ce
+client voit dans sa propre section Planning Éditorial.
 
 ## Documentation
 
-- `docs/plan-planning-edito.md` — modèle de données et décisions du Planning Édito
+- `docs/plan-planning-edito.md` — modèle de données et décisions du Planning Éditorial
 - `docs/plan-moderation.md` — modèle de données et décisions de la Modération
 - `docs/meta-setup.md` — création de l'app Meta et de l'utilisateur système *(étape 6)*
 - `CLAUDE.md` — architecture, conventions, ajout d'un connecteur

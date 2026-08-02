@@ -1,209 +1,226 @@
 -- ===========================================================================
--- Module Planning Édito — schéma
+-- Planning Éditorial — schéma
 --
--- Miroir local des boards Monday.com « PE » (Planning Éditorial) : un board par
--- client et par année, un groupe par mois, un élément parent par plateforme, un
--- sous-élément par contenu.
+-- Le planning éditorial social media, tenu jusqu'ici dans Monday.com, vit
+-- désormais dans l'espace du client, à côté de son Reporting.
 --
--- Trois principes structurants :
---   • Monday reste la source ; la base est le miroir. Le module lit la base,
---     jamais l'API en direct — même raison que pour les régies publicitaires.
---   • L'écriture est asymétrique : on recopie tout depuis Monday, on n'y
---     réécrit que le Wording et les Commentaires. `Status`, `Visuel`,
---     `Propriétaire`, `Date`, `Thématique` et `OK client` ne sont jamais
---     touchés — c'est la règle des skills éditoriales.
---   • Le mapping des colonnes est une donnée, jamais du code : deux boards
---     clients divergent déjà (colonne `Commentaires` absente chez l'un,
---     libellés de `Thématique` et d'`Objectifs` différents, « AOUT » contre
---     « AOÛT »).
+-- La hiérarchie reproduit celle des boards PE :
+--
+--   tableau (une année)  →  mois  →  réseau social  →  publication
+--
+-- Un espace porte plusieurs tableaux : une année de planning éditorial, et un
+-- tableau FAQ séparé qu'alimente le module Modération. Les deux vivent côte à
+-- côte dans la même section, sans rien partager d'autre que l'espace.
+--
+-- Tout est rattaché à `workspace_id` : l'isolation entre clients est celle,
+-- déjà éprouvée, des espaces. Un client édite son propre planning — c'est le
+-- modèle de rôles acté pour la plateforme, où aucun utilisateur authentifié
+-- n'est en lecture seule.
 -- ===========================================================================
+
+-- Reprise en cas de réapplication : le module a changé de forme entre deux
+-- itérations de la branche, et l'ancien schéma n'a aucune donnée à préserver.
+drop table if exists planning_sync_runs cascade;
+drop table if exists planning_subjects cascade;
+drop table if exists planning_lanes cascade;
+drop table if exists planning_months cascade;
+drop table if exists planning_boards cascade;
+drop table if exists planning_members cascade;
+drop table if exists planning_clients cascade;
+drop type if exists planning_role cascade;
+drop type if exists planning_sync_direction cascade;
 
 -- --- Types -----------------------------------------------------------------
 
-create type planning_role as enum ('editor', 'viewer');
+create type planning_board_kind as enum ('editorial', 'faq');
 
--- Plateformes portées par les éléments parents. `dark` n'est pas un réseau mais
--- Monday l'utilise comme couloir à part pour les campagnes non publiées sur le
--- feed : le conserver tel quel évite de le confondre avec de l'organique.
 create type planning_platform as enum (
-  'meta', 'instagram', 'facebook', 'linkedin',
-  'tiktok', 'youtube', 'x', 'dark', 'other'
+  'meta', 'instagram', 'facebook', 'linkedin', 'tiktok',
+  'youtube', 'x', 'pinterest', 'snapchat', 'other'
 );
 
 create type planning_format as enum (
-  'reel', 'post', 'story', 'carousel', 'thread', 'video', 'dark', 'other'
+  'post', 'story', 'reel', 'carousel', 'video', 'thread', 'dark', 'other'
 );
 
--- Statuts canoniques. Les libellés Monday sont normalisés vers cette échelle à
--- l'ingestion, et le libellé d'origine est conservé à côté : un client qui
--- renomme un statut ne casse rien, et l'interface peut toujours afficher son
--- vocabulaire.
+-- Les neuf libellés du board, plus `idea` pour une ligne sans statut — l'état
+-- d'une publication qu'on vient de créer et qui n'a encore rien.
 create type planning_status as enum (
-  'idea',          -- créé, rien de plus
-  'wording_todo',  -- « WORDING À FAIRE »
-  'draft',         -- « EN BROUILLON »
-  'in_progress',   -- « EN COURS »
-  'to_validate',   -- « À VALIDER »
-  'validated',     -- « VALIDÉ »
-  'scheduled',     -- « PROGRAMMÉ »
-  'published',     -- « PUBLIÉ »
-  'on_hold',       -- « EN ATTENTE »
-  'dropped'        -- « NON RETENU »
+  'idea',          -- (aucun statut)
+  'dropped',       -- NON RETENU
+  'on_hold',       -- EN ATTENTE
+  'in_progress',   -- EN COURS
+  'wording_todo',  -- WORDING À FAIRE
+  'to_validate',   -- À VALIDER
+  'validated',     -- VALIDÉ
+  'draft',         -- EN BROUILLON
+  'scheduled',     -- PROGRAMMÉ
+  'published'      -- PUBLIÉ
 );
 
-create type planning_sync_direction as enum ('pull', 'push');
+create type planning_ad_status as enum ('todo', 'doing', 'done', 'blocked');
 
--- --- Clients du module et accès -------------------------------------------
+-- Un retour client porte sur le visuel ou sur le wording : les deux sujets de
+-- discussion d'une validation, et ils n'appellent pas la même correction.
+create type planning_comment_scope as enum ('general', 'visual', 'wording');
 
-create table planning_clients (
-  id uuid primary key default gen_random_uuid(),
-  org_id uuid not null references organizations (id) on delete cascade,
-  -- Rattachement optionnel à un espace de reporting : un client peut avoir un
-  -- planning éditorial sans dashboard de performance, et l'inverse.
-  workspace_id uuid references workspaces (id) on delete set null,
-  slug text not null,
-  name text not null,
-  /* Stratégie déclarée. `null` — le cas courant — signifie « déduire de
-     l'historique », ce que fait `src/lib/planning/strategy.ts`. Renseignée,
-     elle prime sur la déduction. */
-  strategy_override jsonb,
-  archived_at timestamptz,
-  created_at timestamptz not null default now(),
-  unique (org_id, slug)
-);
-
--- Un `owner` d'organisation accède à tous les clients sans ligne ici.
-create table planning_members (
-  user_id uuid not null references auth.users (id) on delete cascade,
-  client_id uuid not null references planning_clients (id) on delete cascade,
-  role planning_role not null default 'editor',
-  created_at timestamptz not null default now(),
-  primary key (user_id, client_id)
-);
-
-create index planning_members_client_idx on planning_members (client_id);
-
--- --- Boards ----------------------------------------------------------------
+-- --- Tableaux ---------------------------------------------------------------
 
 create table planning_boards (
   id uuid primary key default gen_random_uuid(),
-  client_id uuid not null references planning_clients (id) on delete cascade,
-  monday_board_id text not null,
-  -- Les sous-éléments Monday vivent sur un board distinct, dont l'id est
-  -- nécessaire pour écrire une valeur de colonne.
-  monday_subitem_board_id text,
+  workspace_id uuid not null references workspaces (id) on delete cascade,
+  kind planning_board_kind not null default 'editorial',
+  slug text not null,
   name text not null,
+  -- L'année du planning. `null` pour un tableau FAQ, qui n'en a pas.
   year integer,
-  url text,
-  -- Les boards « [ARCHIVE] » alimentent la déduction de stratégie mais ne
-  -- s'affichent pas dans la navigation.
-  is_archive boolean not null default false,
-  /* Champ canonique → id de colonne Monday. Déduit à la découverte, corrigeable
-     à la main. Voir DEFAULT_COLUMN_MAPPING dans le domaine. */
-  column_mapping jsonb not null default '{}'::jsonb,
-  /* Libellé Monday → statut canonique, pour les clients qui ont renommé leurs
-     statuts. Vide = on applique la normalisation par défaut. */
-  status_mapping jsonb not null default '{}'::jsonb,
-  last_synced_at timestamptz,
+  position integer not null default 0,
+  /* Vocabulaire propre au tableau : objectifs publicitaires proposés dans le
+     sélecteur. Une donnée, pas du code — chaque client a les siens. */
+  settings jsonb not null default '{
+    "ad_objectives": ["Engagement", "Vues vidéos", "Couverture", "Traffic",
+                      "Conversion", "Visite de profil", "Followers"]
+  }'::jsonb,
   created_at timestamptz not null default now(),
-  unique (client_id, monday_board_id)
+  unique (workspace_id, slug)
 );
 
-create index planning_boards_client_idx on planning_boards (client_id, year desc);
+create index planning_boards_workspace_idx
+  on planning_boards (workspace_id, position);
 
--- --- Mois, couloirs, sujets ------------------------------------------------
+-- --- Mois --------------------------------------------------------------------
 
 create table planning_months (
   id uuid primary key default gen_random_uuid(),
   board_id uuid not null references planning_boards (id) on delete cascade,
-  client_id uuid not null references planning_clients (id) on delete cascade,
-  monday_group_id text not null,
-  -- Libellé d'origine du groupe (« AOUT », « AOÛT », « JUIN »).
+  workspace_id uuid not null references workspaces (id) on delete cascade,
+  -- Libellé affiché (« SEPTEMBRE »), librement modifiable.
   label text not null,
-  -- Premier jour du mois. C'est cette colonne qui rend l'ordre et les
-  -- comparaisons possibles : « AOUT » ne se trie pas.
+  -- Premier jour du mois. C'est cette colonne qui trie et qui compare ;
+  -- « SEPTEMBRE » ne se trie pas.
   month date not null,
   position integer not null default 0,
   created_at timestamptz not null default now(),
-  unique (board_id, monday_group_id)
+  unique (board_id, month)
 );
 
-create index planning_months_client_idx on planning_months (client_id, month desc);
+create index planning_months_board_idx on planning_months (board_id, position);
 
+-- --- Réseaux sociaux ---------------------------------------------------------
+
+-- Un couloir par réseau et par mois. Pas de contrainte d'unicité sur le couple
+-- (mois, plateforme) : un même mois porte parfois deux couloirs Meta, l'un pour
+-- le feed et l'autre pour le dark, et c'est un usage légitime.
 create table planning_lanes (
   id uuid primary key default gen_random_uuid(),
   month_id uuid not null references planning_months (id) on delete cascade,
-  client_id uuid not null references planning_clients (id) on delete cascade,
-  monday_item_id text not null unique,
-  platform planning_platform not null default 'other',
-  -- Nom d'origine de l'élément parent (« META », « LINKEDIN », « DARK »).
+  board_id uuid not null references planning_boards (id) on delete cascade,
+  workspace_id uuid not null references workspaces (id) on delete cascade,
+  platform planning_platform not null default 'meta',
   name text not null,
   position integer not null default 0,
-  created_at timestamptz not null default now()
+  /* Identifiant de l'élément Monday d'origine, quand le couloir vient d'un
+     import. Il rend l'import rejouable : une seconde passe met à jour au lieu
+     de dupliquer. `null` pour tout ce qui est créé ici. */
+  external_id text,
+  created_at timestamptz not null default now(),
+  unique (board_id, external_id)
 );
 
 create index planning_lanes_month_idx on planning_lanes (month_id, position);
+
+-- --- Publications ------------------------------------------------------------
 
 create table planning_subjects (
   id uuid primary key default gen_random_uuid(),
   lane_id uuid not null references planning_lanes (id) on delete cascade,
   month_id uuid not null references planning_months (id) on delete cascade,
-  client_id uuid not null references planning_clients (id) on delete cascade,
-  monday_item_id text not null unique,
-  name text not null,
-  format planning_format not null default 'other',
-  -- Libellé d'origine de la Thématique, conservé pour l'affichage.
-  format_raw text,
-  scheduled_on date,
+  board_id uuid not null references planning_boards (id) on delete cascade,
+  workspace_id uuid not null references workspaces (id) on delete cascade,
+  -- Le sujet de la publication. Vide à la création : on tape directement dans
+  -- la cellule, comme dans un tableur.
+  name text not null default '',
   status planning_status not null default 'idea',
-  status_raw text,
-  /* Colonne Wording : intention en phase de planning, caption finale en phase
-     de rédaction. La caption écrase l'intention — c'est voulu. */
+  format planning_format not null default 'post',
+  scheduled_on date,
+  -- La caption. Intention en phase de planning, texte publiable ensuite.
   wording text,
-  comments text,
   sponsoring numeric(12, 2),
-  objective text,
-  owner_name text,
+  -- Texte libre validé contre `settings.ad_objectives` du tableau.
+  ad_objective text,
+  ad_status planning_ad_status,
+  owner_id uuid references profiles (id) on delete set null,
   visual_urls text[] not null default '{}',
-  permalink text,
-  /* File d'attente du push. Une modification de wording est enregistrée ici et
-     n'atteint Monday que sur action explicite : le push est sous revue, jamais
-     automatique. */
-  pending_wording text,
-  pending_since timestamptz,
-  pushed_at timestamptz,
-  monday_updated_at timestamptz,
-  synced_at timestamptz not null default now(),
+  position integer not null default 0,
+  /* Voir `planning_lanes.external_id` : même rôle, même raison. */
+  external_id text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (board_id, external_id)
+);
+
+-- La vue mensuelle lit par couloir ; le contrôle de cadence balaie l'espace
+-- entier par date.
+create index planning_subjects_lane_idx on planning_subjects (lane_id, position);
+create index planning_subjects_schedule_idx
+  on planning_subjects (workspace_id, scheduled_on);
+create index planning_subjects_board_idx on planning_subjects (board_id, month_id);
+
+-- --- Retours client ----------------------------------------------------------
+
+-- La colonne « + » de chaque ligne : le fil de discussion entre l'agence et le
+-- client sur une publication précise.
+create table planning_comments (
+  id uuid primary key default gen_random_uuid(),
+  subject_id uuid not null references planning_subjects (id) on delete cascade,
+  workspace_id uuid not null references workspaces (id) on delete cascade,
+  author_id uuid references profiles (id) on delete set null,
+  scope planning_comment_scope not null default 'general',
+  body text not null,
   created_at timestamptz not null default now()
 );
 
--- La vue mensuelle, les compteurs de production et l'analyse de cadence — qui
--- balaie plusieurs mois — tapent sur ces trois index.
-create index planning_subjects_month_idx
-  on planning_subjects (client_id, month_id, scheduled_on);
-create index planning_subjects_status_idx
-  on planning_subjects (client_id, status);
-create index planning_subjects_schedule_idx
-  on planning_subjects (client_id, scheduled_on);
--- Les sujets en attente de push : quelques lignes, consultées à chaque rendu.
-create index planning_subjects_pending_idx
-  on planning_subjects (client_id, pending_since)
-  where pending_wording is not null;
+create index planning_comments_subject_idx
+  on planning_comments (subject_id, created_at);
 
--- --- Journal des synchronisations ------------------------------------------
+-- --- FAQ ---------------------------------------------------------------------
 
-create table planning_sync_runs (
+-- Le second tableau. Le module Modération l'enrichit à chaque correction, mais
+-- rien de la Modération n'apparaît ici : le client voit la FAQ, pas la boîte de
+-- réception qui l'alimente.
+create table planning_faq_entries (
   id uuid primary key default gen_random_uuid(),
-  client_id uuid not null references planning_clients (id) on delete cascade,
-  board_id uuid references planning_boards (id) on delete set null,
-  direction planning_sync_direction not null default 'pull',
-  status sync_status not null default 'running',
-  started_at timestamptz not null default now(),
-  finished_at timestamptz,
-  boards_seen integer not null default 0,
-  subjects_upserted integer not null default 0,
-  error text
+  board_id uuid not null references planning_boards (id) on delete cascade,
+  workspace_id uuid not null references workspaces (id) on delete cascade,
+  question text not null default '',
+  answer text,
+  category text,
+  position integer not null default 0,
+  -- `moderation` pour une entrée créée par la boucle de correction, `manual`
+  -- pour une saisie directe. Utile pour savoir ce qui vient d'où.
+  source text not null default 'manual',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
 );
 
-create index planning_sync_runs_client_idx
-  on planning_sync_runs (client_id, started_at desc);
+create index planning_faq_board_idx on planning_faq_entries (board_id, position);
+
+-- --- Horodatage ---------------------------------------------------------------
+
+create or replace function app.touch_updated_at()
+returns trigger
+language plpgsql
+as $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$;
+
+create trigger planning_subjects_touch
+  before update on planning_subjects
+  for each row execute function app.touch_updated_at();
+
+create trigger planning_faq_touch
+  before update on planning_faq_entries
+  for each row execute function app.touch_updated_at();

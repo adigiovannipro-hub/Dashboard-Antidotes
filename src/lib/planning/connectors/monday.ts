@@ -247,22 +247,4 @@ export class MondayConnector implements PlanningConnector {
     return { items, subitemBoardId, subitemColumns };
   }
 
-  async updateColumnValue(input: {
-    boardId: string;
-    itemId: string;
-    columnId: string;
-    value: string;
-  }): Promise<void> {
-    await this.request(
-      `mutation ($boardId: ID!, $itemId: ID!, $columnId: String!, $value: String!) {
-         change_simple_column_value (
-           board_id: $boardId,
-           item_id: $itemId,
-           column_id: $columnId,
-           value: $value
-         ) { id }
-       }`,
-      input,
-    );
-  }
 }

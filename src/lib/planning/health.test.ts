@@ -3,11 +3,11 @@ import { describe, expect, it } from "vitest";
 import { assessMonth } from "./health";
 import type { GapCode } from "./health";
 import { makeSubject } from "./test-support";
-import type { SubjectWithLane } from "./types";
+import type { ProducibleSubject } from "./types";
 
 const AS_OF = new Date("2026-08-10T09:00:00Z");
 
-function gapCodes(subjects: SubjectWithLane[]): GapCode[] {
+function gapCodes(subjects: ProducibleSubject[]): GapCode[] {
   return assessMonth(subjects, { asOf: AS_OF }).gaps.map((gap) => gap.code);
 }
 
@@ -100,18 +100,13 @@ describe("wording et visuel", () => {
     ).toBe("critical");
   });
 
-  it("compte un wording en attente de push comme écrit", () => {
-    // Il existe, il est juste encore chez nous plutôt que dans Monday.
+  it("ne relève rien sur un wording d'espaces… si, justement", () => {
+    // Un wording qui ne contient que des blancs n'est pas un wording.
     expect(
       gapCodes([
-        makeSubject({
-          id: "a",
-          scheduled_on: "2026-08-28",
-          wording: null,
-          pending_wording: "Une caption prête.",
-        }),
+        makeSubject({ id: "a", scheduled_on: "2026-08-28", wording: "   " }),
       ]),
-    ).not.toContain("wording_missing");
+    ).toContain("wording_missing");
   });
 
   it("relève un visuel manquant", () => {
@@ -122,26 +117,6 @@ describe("wording et visuel", () => {
     expect(
       health.gaps.find((entry) => entry.code === "visual_missing")?.subjectIds,
     ).toEqual(["a"]);
-  });
-});
-
-describe("file d'attente du push", () => {
-  it("compte les wordings pas encore renvoyés dans Monday", () => {
-    const health = assessMonth(
-      [
-        makeSubject({
-          id: "a",
-          scheduled_on: "2026-08-28",
-          pending_wording: "Nouvelle version.",
-          pending_since: "2026-08-09T10:00:00.000Z",
-        }),
-      ],
-      { asOf: AS_OF },
-    );
-
-    expect(health.pendingPush).toBe(1);
-    const gap = health.gaps.find((entry) => entry.code === "pending_push");
-    expect(gap?.severity).toBe("info");
   });
 });
 

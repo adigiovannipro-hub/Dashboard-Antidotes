@@ -8,17 +8,17 @@ import {
   templateKey,
 } from "./strategy";
 import { makeSubject } from "./test-support";
-import type { SubjectWithLane } from "./types";
+import type { ProducibleSubject } from "./types";
 
 const AS_OF = new Date("2026-08-02T00:00:00Z");
 
 /** `count` sujets d'un format donné, répartis sur un mois. */
 function batch(
   month: string,
-  format: SubjectWithLane["format"],
+  format: ProducibleSubject["format"],
   count: number,
-  extra: Partial<SubjectWithLane> = {},
-): SubjectWithLane[] {
+  extra: Partial<ProducibleSubject> = {},
+): ProducibleSubject[] {
   return Array.from({ length: count }, (_, index) =>
     makeSubject({
       id: `${month}-${format}-${index}`,
@@ -33,7 +33,7 @@ function batch(
  * Trois mois volontairement déséquilibrés : juillet est un mois de lancement à
  * douze contenus, mai et juin sont le rythme réel.
  */
-const HISTORY: SubjectWithLane[] = [
+const HISTORY: ProducibleSubject[] = [
   ...batch("2026-05", "post", 3),
   ...batch("2026-05", "reel", 1),
   ...batch("2026-06", "post", 4),
@@ -178,12 +178,7 @@ describe("déduction depuis l'historique", () => {
   it("sépare les plateformes", () => {
     const linkedin = ["2026-06-09", "2026-06-23", "2026-07-07", "2026-07-21"].map(
       (date) =>
-        makeSubject({
-          id: `li-${date}`,
-          scheduled_on: date,
-          platform: "linkedin",
-          lane_name: "LINKEDIN",
-        }),
+        makeSubject({ id: `li-${date}`, scheduled_on: date, platform: "linkedin" }),
     );
 
     const strategy = deduceStrategy(
@@ -212,10 +207,8 @@ describe("stratégie déclarée", () => {
   it("prime sur l'historique", () => {
     const strategy = resolveStrategy(
       {
-        strategy_override: {
-          platforms: {
-            meta: { monthly_target: 10, format_mix: { post: 6, reel: 4 } },
-          },
+        platforms: {
+          meta: { monthly_target: 10, format_mix: { post: 6, reel: 4 } },
         },
       },
       HISTORY,
@@ -232,9 +225,7 @@ describe("stratégie déclarée", () => {
   });
 
   it("retombe sur la déduction quand elle est absente", () => {
-    const strategy = resolveStrategy({ strategy_override: null }, HISTORY, {
-      asOf: AS_OF,
-    });
+    const strategy = resolveStrategy(null, HISTORY, { asOf: AS_OF });
     expect(strategy.source).toBe("history");
   });
 });

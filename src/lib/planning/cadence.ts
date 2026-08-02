@@ -14,8 +14,13 @@
 
 import { platformStrategy, templateKey, weekdayOf } from "./strategy";
 import type { DeducedStrategy } from "./strategy";
-import type { PlanningFormat, PlanningPlatform, SubjectWithLane } from "./types";
-import { FORMAT_LABELS, NO_REPEAT_FORMATS, PLATFORM_LABELS, isPlanned } from "./types";
+import type { PlanningFormat, PlanningPlatform, AnalysableSubject } from "./types";
+import {
+  FORMAT_PROSE_PLURAL,
+  NO_REPEAT_FORMATS,
+  PLATFORM_LABELS,
+  isPlanned,
+} from "./types";
 
 export type CadenceCode =
   | "undated"
@@ -81,9 +86,9 @@ function isWeekend(date: string): boolean {
 export function analyseCadence(input: {
   /** Mois analysé, `YYYY-MM-01`. */
   month: string;
-  subjects: SubjectWithLane[];
+  subjects: AnalysableSubject[];
   /** Mois précédent, pour la rotation des templates. */
-  previousSubjects?: SubjectWithLane[];
+  previousSubjects?: AnalysableSubject[];
   strategy?: DeducedStrategy | null;
   options?: CadenceOptions;
 }): CadenceIssue[] {
@@ -118,8 +123,8 @@ export function analyseCadence(input: {
 function analysePlatform(input: {
   month: string;
   platform: PlanningPlatform;
-  subjects: SubjectWithLane[];
-  previousSubjects: SubjectWithLane[];
+  subjects: AnalysableSubject[];
+  previousSubjects: AnalysableSubject[];
   strategy: DeducedStrategy | null;
   options: Required<CadenceOptions>;
 }): CadenceIssue[] {
@@ -149,7 +154,7 @@ function analysePlatform(input: {
 
   const dated = subjects
     .filter(
-      (subject): subject is SubjectWithLane & { scheduled_on: string } =>
+      (subject): subject is AnalysableSubject & { scheduled_on: string } =>
         subject.scheduled_on !== null,
     )
     .sort((a, b) => a.scheduled_on.localeCompare(b.scheduled_on));
@@ -178,7 +183,7 @@ function analysePlatform(input: {
       add(
         "consecutive_format",
         "warning",
-        `${label} : deux ${FORMAT_LABELS[current.format]}s à la suite ` +
+        `${label} : deux ${FORMAT_PROSE_PLURAL[current.format]} à la suite ` +
           `(${formatDay(previous.scheduled_on)} puis ${formatDay(current.scheduled_on)}).`,
         [previous.id, current.id],
       );
@@ -252,7 +257,7 @@ function analysePlatform(input: {
         add(
           "format_mix_off",
           "info",
-          `${label} : ${actual.length} ${FORMAT_LABELS[expected.format]}s ` +
+          `${label} : ${actual.length} ${FORMAT_PROSE_PLURAL[expected.format]} ` +
             `contre ${expected.perMonth} habituellement.`,
           actual.map((subject) => subject.id),
         );
@@ -309,7 +314,7 @@ export function flaggedSubjectIds(issues: CadenceIssue[]): Set<string> {
 
 /** Formats effectivement présents dans un mois, avec leur compte. */
 export function formatCounts(
-  subjects: SubjectWithLane[],
+  subjects: AnalysableSubject[],
 ): { format: PlanningFormat; count: number }[] {
   const counts = new Map<PlanningFormat, number>();
   for (const subject of subjects) {

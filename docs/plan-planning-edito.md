@@ -1,172 +1,118 @@
-# Plan d'implémentation — Module Planning Édito
+# Plan d'implémentation — Planning Éditorial
 
 ## Contexte
 
-Le planning éditorial vit dans Monday.com : un board par client et par année
-(`LUNETTES BONDET I PE 2026`), un groupe par mois, un élément parent par
-plateforme, et un sous-élément par contenu. C'est là que la production se fait,
-et ça ne change pas — Monday reste l'outil d'édition et de validation client.
+Le planning éditorial social media se tient dans Monday.com : un board par
+client et par année (`LUNETTES BONDET I PE 2026`), un groupe par mois, un
+élément parent par réseau social, un sous-élément par publication. À côté, un
+second board sert de FAQ.
 
-Ce que Monday ne sait pas faire, et qui est l'objet du module :
+L'objectif n'est pas de refléter Monday : c'est de **le remplacer**. Le planning
+descend dans l'espace du client, à côté de son Reporting, avec les mêmes gestes
+et le même vocabulaire — pour que personne n'ait à réapprendre son outil.
 
-- **voir un mois d'un coup d'œil** — Monday empile des sous-éléments dans des
-  groupes repliés ; il faut cliquer partout pour savoir où en est le mois ;
-- **déduire la stratégie** d'un client qui n'en a jamais formalisé une, à partir
-  de ce qui a réellement été publié les mois précédents ;
-- **contrôler la cadence** — alternance des formats, rotation des templates,
-  couverture du mois, publications le week-end ;
-- **dire ce qui manque** — wording à écrire, visuel absent, contenu daté d'hier
-  et toujours pas publié.
+```
+Espace Bondet
+├── Planning Éditorial     ← la section, deux tableaux
+│   ├── Planning Éditorial 2026   (mois → réseau → publication)
+│   └── FAQ                        (alimentée par la Modération)
+└── Reporting              ← l'ancien dashboard « Meta »
+```
 
-Le module est **interne**, comme la Modération : aucune route, aucun lien depuis
-un espace client. Les rôles lui sont propres.
+Le dashboard de performance s'appelait « Meta », du nom de sa source. Il
+s'appelle désormais « Reporting », du nom de ce qu'il fait : TikTok et les
+autres régies viendront s'y ajouter sans qu'il change de nom une fois de plus.
 
-**Périmètre V1** : les cinq boards PE actifs (Bondet, Catherine Osti, I-WAY,
-ANMF, NAYA) et leurs archives, sans un seul identifiant en dur.
+## Décision : le dashboard est l'outil, pas le miroir
 
-## Décision : Monday reste la source, la base est le miroir
+Une première version synchronisait Monday dans les deux sens. Elle a été
+abandonnée : deux outils qui s'écrivent mutuellement, ce sont deux vérités et un
+conflit à chaque modification.
 
-Même principe que pour les régies publicitaires : **le module lit la base, jamais
-l'API Monday en direct**. Une synchronisation pull recopie boards, groupes,
-éléments et sous-éléments dans Postgres ; l'affichage est instantané et ne
-consomme aucun quota.
+Le sens unique retenu est **Monday → Antidotes, une fois**. `pnpm import:monday`
+reprend une année déjà saisie plutôt que de la faire retaper ; après quoi le
+tableau du dashboard fait autorité et Monday n'est plus interrogé. L'import est
+rejouable — les identifiants Monday sont conservés dans `external_id` — et une
+publication créée à la main n'en a pas, donc ne sera jamais écrasée.
 
-L'écriture est **volontairement asymétrique** :
+## Décision : l'isolation est celle des espaces
 
-| Sens | Portée |
-|---|---|
-| Monday → Antidotes | tout : structure, colonnes, statuts, wording, budgets |
-| Antidotes → Monday | **le Wording et les Commentaires, rien d'autre** |
+Le planning n'a pas ses propres rôles. Il vit dans un espace client et hérite de
+son cloisonnement, déjà éprouvé et déjà testé.
 
-`Status`, `Visuel`, `Propriétaire`, `Date`, `Thématique` et `OK client` ne sont
-jamais réécrits. C'est la règle des skills `editorial-planner` et
-`caption-writer`, et elle est appliquée dans le code, pas seulement documentée :
-la fonction de push refuse toute colonne hors liste blanche.
-
-Le push est **désactivé par défaut** et se fait sous revue : une modification de
-wording est mise en file (`pending_wording`) et n'atteint Monday que sur action
-explicite.
-
-## Décision : le mapping des colonnes est une donnée, jamais du code
-
-Les deux boards inspectés partagent la plupart des identifiants de colonne
-(`texte5` pour Wording, `dup__of_status` pour Thématique, `date0` pour Date),
-mais **ils divergent déjà** :
-
-- I-WAY a une colonne `Commentaires` (`long_text_mm2v8f3h`) que Bondet n'a pas ;
-- la Thématique de Bondet compte sept libellés (dont `CARROUSEL`, `DARK`),
-  celle d'I-WAY trois ;
-- les `Objectifs` diffèrent : `Traffic` chez Bondet, `Followers` chez I-WAY ;
-- les groupes de mois ne s'écrivent même pas pareil — `AOUT` chez l'un, `AOÛT`
-  chez l'autre.
-
-Le mapping vit donc dans `planning_boards.column_mapping` et
-`planning_boards.status_mapping`, en JSON, avec des valeurs par défaut déduites
-à la découverte du board. Ajouter un sixième client ne demande aucune ligne de
-code.
+Cela veut dire que **le client écrit dans son planning** : il réorganise, annote,
+valide un wording. C'est le modèle de rôles acté pour la plateforme, où aucun
+utilisateur authentifié n'est en lecture seule. Ce qui reste à l'owner de
+l'organisation : supprimer un tableau, c'est-à-dire une année entière.
 
 ## Modèle de données
 
 ```
-planning_clients     id, org_id, workspace_id?, slug, name,
-                     -- null = stratégie déduite de l'historique ; renseigné =
-                     -- stratégie déclarée, qui prime sur la déduction
-                     strategy_override jsonb,
-                     archived_at, created_at
+planning_boards       id, workspace_id, kind: editorial|faq, slug, name, year,
+                      position, settings jsonb
+                      -- settings porte les objectifs publicitaires proposés :
+                      -- chaque client a les siens, c'est une donnée
 
-planning_members     user_id, client_id, role: editor|viewer
-                     -- `owner` d'organisation = accès à tous les clients
+planning_months       id, board_id, workspace_id, label, month date, position
+                      -- `label` est le libellé affiché (« SEPTEMBRE »),
+                      -- `month` est ce qui trie et compare
+                      unique (board_id, month)
 
-planning_boards      id, client_id, monday_board_id, monday_subitem_board_id,
-                     name, year, url, is_archive,
-                     column_mapping jsonb,   -- champ canonique → id de colonne
-                     status_mapping jsonb,   -- libellé Monday → statut canonique
-                     last_synced_at
+planning_lanes        id, month_id, board_id, workspace_id, platform, name,
+                      position, external_id
+                      -- pas d'unicité sur (mois, plateforme) : un même mois
+                      -- porte parfois deux couloirs Meta, feed et dark
 
-planning_months      id, board_id, client_id, monday_group_id, label,
-                     -- 1er du mois : ce qui rend l'ordre et les comparaisons
-                     -- possibles, là où « AOUT » ne se trie pas
-                     month date, position
+planning_subjects     id, lane_id, month_id, board_id, workspace_id,
+                      name, status, format, scheduled_on, wording,
+                      sponsoring, ad_objective, ad_status, owner_id,
+                      visual_urls text[], position, external_id
 
-planning_lanes       id, month_id, client_id, monday_item_id,
-                     platform, name, position
-                     -- un élément parent = une plateforme (META, LINKEDIN…)
+planning_comments     id, subject_id, workspace_id, author_id, scope, body
+                      -- scope : general | visual | wording
 
-planning_subjects    id, lane_id, month_id, client_id, monday_item_id,
-                     name, format, format_raw, scheduled_on,
-                     status, status_raw, wording, comments,
-                     sponsoring numeric, objective, owner_name,
-                     visual_urls text[], permalink,
-                     -- file d'attente du push, jamais écrite dans Monday sans
-                     -- action explicite
-                     pending_wording, pending_since, pushed_at,
-                     monday_updated_at, synced_at
-
-planning_sync_runs   id, client_id, board_id, direction: pull|push,
-                     status, started_at, finished_at,
-                     boards_seen, subjects_upserted, error
+planning_faq_entries  id, board_id, workspace_id, question, answer, category,
+                      position, source: manual|moderation
 ```
 
-Les index qui portent le produit : `planning_subjects (client_id, month_id,
-scheduled_on)` pour la vue mensuelle, `planning_subjects (client_id, status)`
-pour les compteurs de production, et `planning_subjects (client_id,
-scheduled_on)` pour l'analyse de cadence, qui balaie plusieurs mois.
+Les colonnes du tableau, dans l'ordre où elles s'affichent : **Sujet**,
+retours, **Propriétaire**, **Statut**, **Type**, **Date**, **Visuel**,
+**Wording**, **Sponsorisation**, **Objectif**, **Statut Ads**.
 
-## Le cœur métier : trois analyses
+Les libellés et les couleurs reprennent exactement ceux du board d'origine —
+`EN COURS` en orange, `PUBLIÉ` en vert, `REELS` en violet. Ce n'est pas de la
+coquetterie : l'équipe lit ce tableau depuis des mois, et un orange qui ne veut
+plus dire « en cours » coûterait plus cher qu'une palette repensée.
 
-Les règles des skills sont ici du code testé, pas des consignes de prompt.
+## Les visuels
 
-### 1. Déduction de stratégie (`strategy.ts`)
+Bucket privé `planning-visuals`, chemins en `<espace>/<publication>/<fichier>` —
+le premier dossier dit à qui appartient le fichier, ce qui rend la politique de
+stockage lisible. L'affichage passe par des URL signées d'une heure, générées au
+rendu. Le fichier transite par une action serveur plutôt que d'aller directement
+au bucket : le chemin est ainsi construit à partir de l'espace réellement
+accessible, et non d'un identifiant fourni par le navigateur.
 
-À partir des mois complets de l'historique, par plateforme : nombre de
-sous-éléments par mois, répartition par format, jours de publication
-privilégiés, budgets de sponsorisation, templates récurrents.
+## Ce que Monday ne fait pas
 
-Les agrégats sont des **médianes**, pas des moyennes : un mois de lancement à
-douze contenus ne doit pas faire croire que le rythme est de douze. Les mois
-vides sont exclus, et les mois futurs — encore en cours de remplissage — aussi.
+Trois analyses, en code testé plutôt qu'en consignes :
 
-### 2. Contrôle de cadence (`cadence.ts`)
-
-Sur un mois donné, dans l'ordre des dates :
-
-| Code | Ce qui est vérifié |
+| Module | Ce qu'il répond |
 |---|---|
-| `consecutive_format` | pas deux Stories d'affilée, pas deux Reels d'affilée |
-| `weekend` | publication samedi ou dimanche |
-| `coverage_gap` | trou de plus de N jours sans contenu |
-| `month_edges` | le mois démarre tard ou s'arrête tôt |
-| `volume_off_target` | volume du mois hors de la cible stratégique |
-| `format_mix_off` | répartition des formats éloignée du pattern habituel |
-| `template_repeat` | template déjà utilisé la même semaine le mois précédent |
-| `undated` | sous-élément sans date |
+| `strategy.ts` | Quel est le rythme réel de ce client ? Médiane des mois **complets** — une moyenne ferait passer un mois de lancement pour la norme |
+| `cadence.ts` | Ce mois est-il bien construit ? Alternance des formats, couverture, week-ends, rotation des templates, volume face à l'habitude |
+| `health.ts` | Ce mois est-il prêt à partir ? Wording manquant, visuel absent, non validé à J-3, daté d'hier et pas publié |
 
-Chaque anomalie porte les identifiants des sujets concernés : l'interface
-surligne, elle ne se contente pas d'un message.
-
-### 3. Santé de production (`health.ts`)
-
-Ce qui manque pour que le mois parte : wording vide, visuel absent, contenu non
-validé à J-3, contenu daté dans le passé et toujours pas publié. Plus un taux
-d'avancement, et le prochain contenu à traiter.
-
-## Étapes
-
-1. **Migrations** — 0006 schéma, 0007 RLS sur les six tables.
-2. **Domaine et tests** — mapping Monday configurable, déduction de stratégie,
-   cadence, santé de production, permissions. Tout testé.
-3. **Connecteur Monday** — client GraphQL, pull complet, journal des runs, push
-   du wording sous liste blanche.
-4. **Interface** — vue mensuelle en couloirs par plateforme, panneau de sujet
-   avec éditeur de wording, rail de santé, panneau stratégie et alertes.
-5. **Données de démonstration** — un client complet sur six mois, pour voir le
-   rendu sans jeton Monday.
+Le contrôle de cadence s'affiche en une ligne dépliable au-dessus du tableau, et
+porte sur le mois en cours. C'est un avis, pas une interdiction : un Reel le
+dimanche parce que c'est le jour du Grand Prix est un bon choix.
 
 ## Vérification
 
-Les domaines couverts par les tests : normalisation des libellés Monday
-(accents, casse, libellés inconnus), déduction de stratégie (médiane, exclusion
-des mois partiels, absence d'historique), cadence (chaque code d'anomalie,
-et l'absence de faux positif sur un mois sain), santé de production, liste
-blanche du push (toute colonne hors Wording/Commentaires est rejetée),
-permissions et isolation RLS entre clients.
+Couvert par les tests : normalisation du vocabulaire Monday (accents, casse,
+libellés inconnus, « Statut Ads » qui ne doit jamais devenir « Status »),
+déduction de stratégie (médiane, exclusion des mois partiels, absence
+d'historique), chaque code d'anomalie de cadence et l'absence de faux positif
+sur un mois sain, santé de production, et l'isolation RLS — dans les deux sens,
+puisqu'un client doit pouvoir écrire chez lui autant qu'il doit être incapable
+de lire ailleurs.

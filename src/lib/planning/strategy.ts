@@ -16,15 +16,23 @@
  *     vers le bas.
  */
 
-import { normalizeLabel } from "./monday-mapping";
 import type {
-  PlanningClient,
+  AnalysableSubject,
   PlanningFormat,
   PlanningPlatform,
   StrategyOverride,
-  SubjectWithLane,
 } from "./types";
 import { isPlanned } from "./types";
+
+/** Casse et accents écartés, pour regrouper « Grid Talk » et « GRID TALK ». */
+function normalizeLabel(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .trim()
+    .toUpperCase()
+    .replace(/\s+/g, " ");
+}
 
 export type FormatShare = {
   format: PlanningFormat;
@@ -148,7 +156,7 @@ function fromOverride(override: StrategyOverride): DeducedStrategy {
  * fenêtre chargée, cette fonction ne fait que la découper.
  */
 export function deduceStrategy(
-  subjects: SubjectWithLane[],
+  subjects: AnalysableSubject[],
   options: DeduceOptions,
 ): DeducedStrategy {
   const currentMonth = monthKeyOf(options.asOf);
@@ -191,7 +199,7 @@ export function deduceStrategy(
   };
 }
 
-function monthOf(subject: SubjectWithLane): string {
+function monthOf(subject: AnalysableSubject): string {
   // `scheduled_on` fait foi quand elle existe : c'est la date de publication
   // réelle. Le groupe Monday sert de repli pour les sujets non datés.
   return subject.scheduled_on
@@ -201,7 +209,7 @@ function monthOf(subject: SubjectWithLane): string {
 
 function buildPlatformStrategy(
   platform: PlanningPlatform,
-  subjects: SubjectWithLane[],
+  subjects: AnalysableSubject[],
   months: string[],
 ): PlatformStrategy {
   // Compte par mois, en incluant explicitement les mois à zéro : une plateforme
@@ -250,7 +258,7 @@ function buildPlatformStrategy(
   };
 }
 
-function buildTemplates(subjects: SubjectWithLane[]): TemplateUsage[] {
+function buildTemplates(subjects: AnalysableSubject[]): TemplateUsage[] {
   const byTemplate = new Map<string, { uses: number; lastUsedMonth: string }>();
 
   for (const subject of subjects) {
@@ -276,11 +284,11 @@ function buildTemplates(subjects: SubjectWithLane[]): TemplateUsage[] {
  * déclarée, sinon celle que dit l'historique.
  */
 export function resolveStrategy(
-  client: Pick<PlanningClient, "strategy_override">,
-  subjects: SubjectWithLane[],
+  override: StrategyOverride | null,
+  subjects: AnalysableSubject[],
   options: DeduceOptions,
 ): DeducedStrategy {
-  if (client.strategy_override) return fromOverride(client.strategy_override);
+  if (override) return fromOverride(override);
   return deduceStrategy(subjects, options);
 }
 

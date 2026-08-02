@@ -1,25 +1,42 @@
 /**
- * Normalisation du vocabulaire Monday vers le modèle canonique.
+ * Normalisation du vocabulaire Monday vers le modèle du Planning Éditorial.
  *
- * Les boards PE se ressemblent sans être identiques. Ce qui varie réellement,
- * constaté sur les boards en production :
+ * Sert à **l'import** : reprendre une année déjà saisie dans Monday plutôt que
+ * de la retaper. L'échange est à sens unique — une fois importé, le tableau du
+ * dashboard fait autorité, et rien n'est réécrit dans Monday.
  *
- *   • une colonne `Commentaires` chez un client, absente chez un autre ;
+ * Ce qui varie réellement d'un board client à l'autre, constaté en production :
+ *
+ *   • une colonne `Commentaires` chez l'un, absente chez l'autre ;
  *   • sept libellés de `Thématique` chez l'un, trois chez l'autre ;
  *   • des `Objectifs` différents (`Traffic` ici, `Followers` là) ;
  *   • des groupes de mois qui ne s'écrivent même pas pareil — « AOUT » contre
  *     « AOÛT ».
  *
  * D'où la règle : rien de tout cela n'est en dur. Le mapping est déduit à la
- * découverte du board, stocké en base, et corrigeable à la main.
+ * lecture du board.
  */
 
-import type {
-  ColumnMapping,
-  PlanningFormat,
-  PlanningPlatform,
-  PlanningStatus,
-} from "./types";
+import type { PlanningFormat, PlanningPlatform, PlanningStatus } from "./types";
+
+/**
+ * Champ du modèle → identifiant de colonne Monday.
+ *
+ * Le `null` est explicite plutôt qu'une clé absente : « ce board n'a pas de
+ * Commentaires » est une information, pas un oubli de configuration.
+ */
+export type ColumnMapping = {
+  status: string | null;
+  format: string | null;
+  date: string | null;
+  wording: string | null;
+  comments: string | null;
+  sponsoring: string | null;
+  objective: string | null;
+  adStatus: string | null;
+  owner: string | null;
+  visual: string | null;
+};
 
 /** Casse et accents écartés : « PUBLIÉ », « publie » et « Publié » convergent. */
 export function normalizeLabel(value: string | null | undefined): string {
@@ -57,20 +74,29 @@ const MONTH_NAMES = [
  * parfois des groupes de travail (« IDÉES », « À CLASSER ») qu'il ne faut pas
  * confondre avec le planning.
  */
-export function parseMonthLabel(
-  label: string,
-  year: number,
-): string | null {
-  const normalized = normalizeLabel(label);
-  const index = MONTH_NAMES.indexOf(normalized);
+export function parseMonthLabel(label: string, year: number): string | null {
+  const index = MONTH_NAMES.indexOf(normalizeLabel(label));
   if (index === -1) return null;
   return `${year}-${String(index + 1).padStart(2, "0")}-01`;
 }
 
+/** `2026-08-01` → « Août 2026 ». */
 export function monthLabel(month: string): string {
-  const index = Number(month.slice(5, 7)) - 1;
-  const name = MONTH_NAMES[index] ?? "";
-  return `${name.charAt(0)}${name.slice(1).toLowerCase()} ${month.slice(0, 4)}`;
+  const date = new Date(`${month}T00:00:00Z`);
+  const formatted = new Intl.DateTimeFormat("fr-FR", {
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(date);
+  return formatted.charAt(0).toUpperCase() + formatted.slice(1);
+}
+
+/** `2026-08-01` → « AOÛT », le libellé par défaut d'un nouveau groupe. */
+export function monthGroupLabel(month: string): string {
+  const date = new Date(`${month}T00:00:00Z`);
+  return new Intl.DateTimeFormat("fr-FR", { month: "long", timeZone: "UTC" })
+    .format(date)
+    .toUpperCase();
 }
 
 // --- Nom de board -----------------------------------------------------------
@@ -96,16 +122,6 @@ export function parseBoardName(name: string): {
   };
 }
 
-/** `LUNETTES BONDET` → `lunettes-bondet`. */
-export function slugifyClientName(name: string): string {
-  return name
-    .normalize("NFD")
-    .replace(/\p{Diacritic}/gu, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-}
-
 // --- Statuts ----------------------------------------------------------------
 
 const STATUS_BY_LABEL: Record<string, PlanningStatus> = {
@@ -121,20 +137,15 @@ const STATUS_BY_LABEL: Record<string, PlanningStatus> = {
 };
 
 /**
- * Libellé Monday → statut canonique.
+ * Libellé Monday → statut du modèle.
  *
- * `overrides` porte le mapping propre au board, pour un client qui aurait
- * renommé ses statuts. Un libellé inconnu retombe sur `idea` : le sujet existe,
- * on ne sait juste rien de son avancement. Son libellé d'origine est conservé
- * en base à côté, et c'est lui que l'interface affiche.
+ * Un libellé inconnu retombe sur `idea` : la publication existe, on ne sait
+ * juste rien de son avancement.
  */
-export function normalizeStatus(
-  raw: string | null | undefined,
-  overrides: Record<string, PlanningStatus> = {},
-): PlanningStatus {
+export function normalizeStatus(raw: string | null | undefined): PlanningStatus {
   const key = normalizeLabel(raw);
   if (!key) return "idea";
-  return overrides[key] ?? STATUS_BY_LABEL[key] ?? "idea";
+  return STATUS_BY_LABEL[key] ?? "idea";
 }
 
 // --- Formats ----------------------------------------------------------------
@@ -174,14 +185,38 @@ const PLATFORM_BY_LABEL: Record<string, PlanningPlatform> = {
   YT: "youtube",
   X: "x",
   TWITTER: "x",
-  DARK: "dark",
+  PINTEREST: "pinterest",
+  SNAPCHAT: "snapchat",
 };
 
-/** Nom de l'élément parent → plateforme du couloir. */
+/**
+ * Nom de l'élément parent → plateforme du couloir.
+ *
+ * « DARK » n'en est pas une : c'est un format de diffusion, et le couloir garde
+ * son nom d'origine. Le rendre `other` évite d'inventer une plateforme qui
+ * n'existe pas.
+ */
 export function normalizePlatform(
   name: string | null | undefined,
 ): PlanningPlatform {
   return PLATFORM_BY_LABEL[normalizeLabel(name)] ?? "other";
+}
+
+// --- Statut publicitaire ----------------------------------------------------
+
+const AD_STATUS_BY_LABEL: Record<string, "todo" | "doing" | "done" | "blocked"> = {
+  "A FAIRE": "todo",
+  "EN COURS": "doing",
+  FAIT: "done",
+  BLOCKED: "blocked",
+  BLOQUE: "blocked",
+};
+
+export function normalizeAdStatus(
+  raw: string | null | undefined,
+): "todo" | "doing" | "done" | "blocked" | null {
+  const key = normalizeLabel(raw);
+  return key ? (AD_STATUS_BY_LABEL[key] ?? null) : null;
 }
 
 // --- Colonnes ---------------------------------------------------------------
@@ -200,12 +235,13 @@ export const EMPTY_COLUMN_MAPPING: ColumnMapping = {
   comments: null,
   sponsoring: null,
   objective: null,
+  adStatus: null,
   owner: null,
   visual: null,
 };
 
 /**
- * Titre de colonne → champ canonique.
+ * Titre de colonne → champ du modèle.
  *
  * Le titre plutôt que l'identifiant : c'est ce que l'utilisateur voit et
  * maintient. Les identifiants Monday sont des restes d'historique (`texte5`,
@@ -216,19 +252,18 @@ const FIELD_BY_TITLE: Record<string, keyof ColumnMapping> = {
   STATUT: "status",
   THEMATIQUE: "format",
   FORMAT: "format",
+  TYPE: "format",
   DATE: "date",
   WORDING: "wording",
   COMMENTAIRES: "comments",
   SPONSORISATION: "sponsoring",
   OBJECTIFS: "objective",
+  "STATUT ADS": "adStatus",
   PROPRIETAIRE: "owner",
   VISUEL: "visual",
 };
 
-/**
- * Repli par identifiant, pour un board dont une colonne aurait été renommée.
- * Ces identifiants sont ceux observés sur les boards en production.
- */
+/** Repli par identifiant, pour un board dont une colonne aurait été renommée. */
 const FIELD_BY_ID: Record<string, keyof ColumnMapping> = {
   status: "status",
   dup__of_status: "format",
@@ -236,6 +271,7 @@ const FIELD_BY_ID: Record<string, keyof ColumnMapping> = {
   texte5: "wording",
   chiffres: "sponsoring",
   statut: "objective",
+  statut0: "adStatus",
   person: "owner",
   fichier: "visual",
 };
@@ -243,10 +279,8 @@ const FIELD_BY_ID: Record<string, keyof ColumnMapping> = {
 /**
  * Déduit le mapping d'un board à partir de ses colonnes de sous-éléments.
  *
- * `Statut Ads` ne doit surtout pas atterrir sur `status` : la correspondance par
- * titre est donc exacte, jamais partielle. Une colonne absente reste à `null`,
- * ce qui est une information — « ce board n'a pas de Commentaires » — et non un
- * oubli de configuration.
+ * « Statut Ads » ne doit surtout pas atterrir sur `status` : la correspondance
+ * par titre est donc exacte, jamais partielle.
  */
 export function deriveColumnMapping(columns: MondayColumn[]): ColumnMapping {
   const mapping: ColumnMapping = { ...EMPTY_COLUMN_MAPPING };
@@ -262,45 +296,6 @@ export function deriveColumnMapping(columns: MondayColumn[]): ColumnMapping {
   }
 
   return mapping;
-}
-
-// --- Liste blanche d'écriture ----------------------------------------------
-
-/**
- * Les seuls champs qu'Antidotes réécrit dans Monday.
- *
- * `Status`, `Visuel`, `Propriétaire`, `Date`, `Thématique` et `OK client`
- * appartiennent au board et à la validation client. Les toucher depuis ici
- * ferait diverger deux outils sur la seule information qui compte vraiment :
- * ce qui est validé et ce qui ne l'est pas.
- */
-export const WRITABLE_FIELDS = ["wording", "comments"] as const;
-
-export type WritableField = (typeof WRITABLE_FIELDS)[number];
-
-export function isWritableField(field: string): field is WritableField {
-  return (WRITABLE_FIELDS as readonly string[]).includes(field);
-}
-
-/**
- * Garde-fou du push. Toute tentative d'écriture hors liste blanche lève, plutôt
- * que d'être silencieusement ignorée : une erreur bruyante vaut mieux qu'un
- * statut client écrasé sans que personne ne s'en aperçoive.
- */
-export function assertWritableField(field: string): asserts field is WritableField {
-  if (!isWritableField(field)) {
-    throw new Error(
-      `Colonne « ${field} » non modifiable depuis Antidotes : ` +
-        `seuls ${WRITABLE_FIELDS.join(" et ")} le sont.`,
-    );
-  }
-}
-
-/** Identifiants de colonne Monday réellement modifiables sur ce board. */
-export function writableColumnIds(mapping: ColumnMapping): string[] {
-  return WRITABLE_FIELDS.map((field) => mapping[field]).filter(
-    (id): id is string => id !== null,
-  );
 }
 
 // --- Valeurs de colonne -----------------------------------------------------
