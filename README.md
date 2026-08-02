@@ -82,9 +82,29 @@ cat supabase/migrations/*.sql | pbcopy
 
 ## Sécurité
 
-L'isolation entre espaces est appliquée **dans la base**, par la RLS, et non
-dans l'interface : un client qui interrogerait l'API REST directement avec son
-propre jeton n'obtiendrait toujours aucune ligne d'un autre espace.
+> ⚠️ **L'application est actuellement en accès ouvert.** Aucune connexion n'est
+> demandée, et toute personne disposant de l'URL voit l'ensemble des espaces :
+> plannings, budgets de sponsorisation, captions, chiffres de performance.
+>
+> C'est un choix assumé le temps de la mise au point, pas un oubli. Pour
+> refermer, une seule variable d'environnement suffit — le code
+> d'authentification est resté entièrement en place :
+>
+> ```sh
+> ANTIDOTES_REQUIRE_LOGIN=true
+> ```
+>
+> Tant que l'accès est ouvert, un bandeau rouge « Accès public » s'affiche dans
+> l'en-tête. Une application ouverte qu'on croit fermée est bien plus dangereuse
+> qu'une application ouverte qu'on sait ouverte. À refermer **avant** d'ajouter
+> un deuxième client : ses données ne vous appartiennent pas.
+>
+> Détail du mécanisme : [`src/lib/access-mode.ts`](src/lib/access-mode.ts).
+
+Une fois l'authentification rétablie, l'isolation entre espaces est appliquée
+**dans la base**, par la RLS, et non dans l'interface : un client qui
+interrogerait l'API REST directement avec son propre jeton n'obtiendrait
+toujours aucune ligne d'un autre espace.
 [`tests/isolation.test.ts`](tests/isolation.test.ts) le prouve en ouvrant de
 vraies sessions et en tentant les accès interdits.
 

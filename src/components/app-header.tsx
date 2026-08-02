@@ -12,6 +12,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { isOpenAccess } from "@/lib/access-mode";
 import type { Viewer } from "@/lib/auth";
 
 export function AppHeader({
@@ -43,6 +44,18 @@ export function AppHeader({
         ) : null}
 
         <div className="ml-auto flex items-center gap-1">
+          {/* Un bandeau qu'on ne peut pas manquer : une application ouverte
+              qu'on croit fermée est bien plus dangereuse qu'une application
+              ouverte qu'on sait ouverte. */}
+          {isOpenAccess() ? (
+            <span
+              className="border-brand-red/40 text-brand-red mr-2 rounded-full border px-2 py-0.5 text-[11px] font-medium"
+              title="Aucune authentification : toute personne ayant l'URL voit l'ensemble des espaces. ANTIDOTES_REQUIRE_LOGIN=true pour refermer."
+            >
+              Accès public
+            </span>
+          ) : null}
+
           <ThemeToggle />
 
           <DropdownMenu>
