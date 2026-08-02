@@ -18,17 +18,29 @@
 -- n'est en lecture seule.
 -- ===========================================================================
 
--- Reprise en cas de réapplication : le module a changé de forme entre deux
--- itérations de la branche, et l'ancien schéma n'a aucune donnée à préserver.
-drop table if exists planning_sync_runs cascade;
-drop table if exists planning_subjects cascade;
-drop table if exists planning_lanes cascade;
-drop table if exists planning_months cascade;
-drop table if exists planning_boards cascade;
-drop table if exists planning_members cascade;
-drop table if exists planning_clients cascade;
-drop type if exists planning_role cascade;
-drop type if exists planning_sync_direction cascade;
+-- Nettoyage de l'ancien schéma, et de lui seul.
+--
+-- Le module a changé de forme entre deux itérations : une première version
+-- vivait dans ses propres tables `planning_clients` / `planning_members`, hors
+-- des espaces. Ces tables-là n'ont aucune donnée à préserver et doivent partir.
+--
+-- La condition est essentielle. Un `drop table` inconditionnel effacerait un
+-- planning déjà rempli au moindre réexécution de cette migration. Ici, si
+-- l'ancien schéma est absent — le cas de toute base saine — rien n'est
+-- supprimé, et un second passage échoue proprement sur « la table existe
+-- déjà » sans avoir rien détruit.
+do $$
+begin
+  if to_regclass('public.planning_clients') is not null then
+    drop table if exists
+      planning_sync_runs, planning_subjects, planning_lanes, planning_months,
+      planning_boards, planning_members, planning_clients cascade;
+    drop type if exists
+      planning_role, planning_sync_direction, planning_platform,
+      planning_format, planning_status cascade;
+  end if;
+end
+$$;
 
 -- --- Types -----------------------------------------------------------------
 

@@ -128,6 +128,13 @@ on conflict (id) do update set
   file_size_limit = excluded.file_size_limit,
   allowed_mime_types = excluded.allowed_mime_types;
 
+-- Les politiques de `storage.objects` survivent à la suppression des tables du
+-- module : elles appartiennent au stockage. On les retire d'abord, sinon une
+-- réapplication échouerait sur « la politique existe déjà ».
+drop policy if exists planning_visuals_select on storage.objects;
+drop policy if exists planning_visuals_insert on storage.objects;
+drop policy if exists planning_visuals_delete on storage.objects;
+
 -- Comparaison en texte plutôt qu'en uuid : un chemin mal formé doit rendre la
 -- politique fausse, pas lever une erreur de conversion.
 create policy planning_visuals_select on storage.objects

@@ -26,10 +26,16 @@ with ws as (
   join organizations o on o.id = w.org_id
   where o.slug = 'antidotes' and w.slug = 'bondet'
 )
+-- Les littéraux sont castés explicitement : à travers un `select`, Postgres les
+-- type en `text` et ne les convertit pas tout seul vers l'enum, contrairement à
+-- un `insert ... values`.
 insert into planning_boards (workspace_id, kind, slug, name, year, position)
-select ws.id, 'editorial', 'pe-2026', 'Planning Éditorial 2026', 2026, 0 from ws
+select ws.id, 'editorial'::planning_board_kind, 'pe-2026',
+       'Planning Éditorial 2026', 2026::integer, 0
+from ws
 union all
-select ws.id, 'faq', 'faq', 'FAQ', null, 1 from ws
+select ws.id, 'faq'::planning_board_kind, 'faq', 'FAQ', null::integer, 1
+from ws
 on conflict (workspace_id, slug) do nothing;
 
 -- --- Les douze mois de 2026 -------------------------------------------------
