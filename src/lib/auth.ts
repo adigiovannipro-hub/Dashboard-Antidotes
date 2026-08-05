@@ -3,8 +3,11 @@ import "server-only";
 import { cache } from "react";
 import { redirect } from "next/navigation";
 
+import type { SupabaseClient, User } from "@supabase/supabase-js";
+
+import { isOpenAccess } from "@/lib/access-mode";
 import { createClient } from "@/lib/supabase/server";
-import type { Workspace, WorkspaceRole } from "@/lib/supabase/database.types";
+import type { Database, Workspace, WorkspaceRole } from "@/lib/supabase/database.types";
 
 /** Rôle effectif de l'utilisateur sur un espace donné. */
 export type EffectiveRole = "owner" | WorkspaceRole;
@@ -27,7 +30,9 @@ export const getViewer = cache(async () => {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) return null;
+  // En accès ouvert, l'absence de session n'est pas un refus : le visiteur est
+  // traité comme l'owner de l'organisation. Voir `lib/access-mode.ts`.
+  if (!user) return isOpenAccess() ? openAccessViewer(supabase) : null;
 
   // Une seule requête par table : la RLS filtre déjà à la source, il n'y a
   // aucun `where` à ajouter ici.
@@ -66,6 +71,48 @@ export const getViewer = cache(async () => {
     workspaces: accessible,
   };
 });
+
+/**
+ * Le visiteur en accès ouvert : l'owner de l'organisation, sans avoir eu à se
+ * connecter.
+ *
+ * Emprunter l'identité réelle de l'owner plutôt que d'inventer un utilisateur
+ * fictif n'est pas un détail : les commentaires et les journaux référencent un
+ * profil existant, et une identité inventée casserait ces liens.
+ */
+async function openAccessViewer(supabase: SupabaseClient<Database>) {
+  const [{ data: owner }, { data: workspaces }] = await Promise.all([
+    supabase
+      .from("organization_members")
+      .select("user_id, org_id")
+      .eq("role", "owner")
+      .limit(1)
+      .maybeSingle(),
+    supabase.from("workspaces").select("*").order("type").order("name"),
+  ]);
+
+  const { data: profile } = owner
+    ? await supabase
+        .from("profiles")
+        .select("email")
+        .eq("id", owner.user_id)
+        .maybeSingle()
+    : { data: null };
+
+  return {
+    user: { id: owner?.user_id ?? NIL_UUID } as User,
+    email: profile?.email ?? "accès ouvert",
+    isOwner: true,
+    ownedOrgIds: owner ? [owner.org_id] : [],
+    workspaces: ((workspaces ?? []) as Workspace[]).map((workspace) => ({
+      ...workspace,
+      role: "owner" as const,
+    })),
+  };
+}
+
+/** Aucun owner en base — l'application s'affiche, l'écriture échouera. */
+const NIL_UUID = "00000000-0000-0000-0000-000000000000";
 
 export type Viewer = NonNullable<Awaited<ReturnType<typeof getViewer>>>;
 

@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
+import { isOpenAccess } from "@/lib/access-mode";
 import { publicEnv } from "@/lib/env";
 
 /**
@@ -61,6 +62,10 @@ export async function updateSession(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const { pathname } = request.nextUrl;
+
+  // En accès ouvert, la session est rafraîchie si elle existe mais son absence
+  // n'arrête personne. Voir `lib/access-mode.ts` pour ce que cela expose.
+  if (isOpenAccess()) return response;
 
   if (!user && !isPublic(pathname)) {
     const redirect = request.nextUrl.clone();

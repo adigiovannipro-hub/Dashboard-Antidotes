@@ -4,14 +4,50 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 
+import { isOpenAccess } from "@/lib/access-mode";
 import { publicEnv, serverEnv } from "@/lib/env";
 import type { Database } from "./database.types";
 
 /**
+ * Client de lecture en accès ouvert.
+ *
+ * Volontairement distinct de `createAdminClient()` : celui-ci ne dépend que de
+ * la clé `service_role`, là où l'autre exige aussi les secrets de chiffrement
+ * et de cron. Sans cette séparation, une variable d'environnement manquante
+ * ferait planter l'affichage entier au lieu d'une fonctionnalité.
+ */
+function createOpenAccessClient() {
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!key) {
+    throw new Error(
+      "SUPABASE_SERVICE_ROLE_KEY est requise en accès ouvert : sans session, " +
+        "la RLS ne rendrait aucune ligne.",
+    );
+  }
+  return createSupabaseClient<Database>(publicEnv.NEXT_PUBLIC_SUPABASE_URL, key, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+}
+
+/**
  * Client serveur portant la session de l'utilisateur. Toutes les requêtes
  * passent par la RLS : c'est le client à utiliser par défaut.
+ *
+ * **En accès ouvert, il n'y a pas de session**, et la RLS ne rendrait donc
+ * aucune ligne. Les lectures basculent alors en `service_role`, ce qui lève
+ * l'isolation entre espaces. C'est le prix de l'ouverture, il est assumé et
+ * documenté dans `lib/access-mode.ts`.
  */
 export async function createClient() {
+  if (isOpenAccess()) {
+    // Lire les cookies sans s'en servir, uniquement pour empêcher le rendu
+    // statique. Sans cette ligne, Next ne voit plus aucune dépendance à la
+    // requête et fige le hub, la Modération et l'administration au moment du
+    // build — un dashboard gelé sur les données de la veille.
+    await cookies();
+    return createOpenAccessClient();
+  }
+
   const cookieStore = await cookies();
 
   return createServerClient<Database>(
