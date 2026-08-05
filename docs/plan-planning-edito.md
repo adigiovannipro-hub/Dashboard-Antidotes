@@ -11,13 +11,10 @@ L'objectif n'est pas de refléter Monday : c'est de **le remplacer**. Le plannin
 descend dans l'espace du client, à côté de son Reporting, avec les mêmes gestes
 et le même vocabulaire — pour que personne n'ait à réapprendre son outil.
 
-```
-Espace Bondet
-├── Planning Éditorial     ← la section, deux tableaux
-│   ├── Planning Éditorial 2026   (mois → réseau → publication)
-│   └── FAQ                        (alimentée par la Modération)
-└── Reporting              ← l'ancien dashboard « Meta »
-```
+L'espace Bondet porte donc deux sections : le **Planning Éditorial** — deux
+tableaux, l'année (mois → réseau → publication) et la FAQ alimentée par la
+Modération — puis le **Reporting**. La structure des écrans est décrite dans
+[`UI.md`](UI.md).
 
 Le dashboard de performance s'appelait « Meta », du nom de sa source. Il
 s'appelle désormais « Reporting », du nom de ce qu'il fait : TikTok et les

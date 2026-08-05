@@ -133,18 +133,9 @@ Chaque espace client porte deux sections : **Planning Éditorial** et
 bien plus souvent qu'on ne relit les chiffres du mois dernier.
 
 Le Planning Éditorial remplace le board Monday du client, avec la même
-structure et le même vocabulaire :
-
-```
-Planning Éditorial 2026        FAQ
-└── SEPTEMBRE                  └── questions / réponses
-    └── META                       (enrichie par la Modération)
-        ├── ANNONCE SILMO
-        └── RELANCE SILMO J-7
-```
-
-Un tableau par année, un groupe par mois, un couloir par réseau, une ligne par
-publication. Les colonnes : Sujet, retours client, Propriétaire, Statut, Type,
+structure et le même vocabulaire : un tableau par année et une FAQ à côté,
+enrichie par la Modération. Un groupe par mois, un couloir par réseau, une
+ligne par publication. Les colonnes : Sujet, retours client, Propriétaire, Statut, Type,
 Date, Visuel, Wording, Sponsorisation, Objectif et Statut Ads. Tout s'édite
 dans la cellule, sans bouton « enregistrer ».
 
@@ -197,8 +188,8 @@ Mise en place — Google Cloud, clés Airwallex, cron : [`docs/recus-setup.md`](
 
 ## Documentation
 
+- `docs/UI.md` — l'arbre des écrans et les principes d'interface
 - `docs/plan-planning-edito.md` — modèle de données et décisions du Planning Éditorial
 - `docs/plan-moderation.md` — modèle de données et décisions de la Modération
-- `docs/meta-setup.md` — création de l'app Meta et de l'utilisateur système *(étape 6)*
 - `docs/recus-setup.md` — accès Gmail, clés Airwallex et cadence du cron
-- `CLAUDE.md` — architecture, conventions, ajout d'un connecteur
+- `CLAUDE.md` — commandes, architecture et conventions pour Claude Code
