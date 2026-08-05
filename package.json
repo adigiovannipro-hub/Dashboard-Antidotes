@@ -21,7 +21,8 @@
     "import:monday": "tsx scripts/import-monday.ts",
     "seed:moderation": "tsx scripts/seed-moderation.ts",
     "seed:planning": "tsx scripts/seed-planning.ts",
-    "seed:finance": "tsx scripts/seed-finance.ts"
+    "seed:finance": "tsx scripts/seed-finance.ts",
+    "seed:mon-travail": "tsx scripts/seed-mon-travail.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.115.0",
