@@ -42,7 +42,7 @@ Un module interne renvoie **404 et non 403** à qui n'y a pas droit : un client 
 | Modération (interne) | `/moderation`, `src/lib/moderation/` | 13 tables, pgvector, FAQ sémantique, génération Claude, boucle d'apprentissage, inbox 3 colonnes. Architecture seulement, aucune connexion réelle aux plateformes |
 | Planning Éditorial | `/espace/[workspace]/planning`, `src/lib/planning/` | 6 tables, miroir du board Monday du client, import à sens unique, + analyses strategy / cadence / health |
 | Reçus | `/entreprise/recus`, `src/lib/recus/` | 5 tables, Gmail → facture → Airwallex, vérification d'accrochage, auto-transfert à 3 validations concordantes, cron quotidien 6h |
-| Finance (phase 1) | `/entreprise/finance`, `src/lib/finance/` | 8 tables, facturation à venir, trésorerie EUR, courbe de solde, dépenses carte. Écran complet sur données d'amorçage (`pnpm seed:finance`) : **aucune connexion Airwallex, et aucun cron déclaré** malgré la synchronisation horaire que le README décrit |
+| Finance (phase 1) | `/entreprise/finance`, `src/lib/finance/` | 8 tables, facturation à venir, trésorerie EUR, courbe de solde, dépenses carte. Écran complet sur données d'amorçage (`pnpm seed:finance`) : **aucune connexion Airwallex ni cron** — le README l'assume ; la synchronisation (schedule GitHub Actions, le plan Hobby refusant l'horaire) arrive en phase 2 |
 
 **Tout tourne sur données de démo.** Aucune API régie n'est branchée. Les données de démo Bondet sont calées au centime sur le Looker réel de juin 2026 : elles servent de référence visuelle, ne les modifie jamais sans que je le demande. Quand une source réelle arrive, elle ne remplace pas le jeu de démo, elle s'ajoute derrière un flag.
 

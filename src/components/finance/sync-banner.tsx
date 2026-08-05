@@ -1,10 +1,10 @@
 "use client";
 
-import { useTransition } from "react";
+import { useActionState, useEffect } from "react";
 import { RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 
-import { syncNow } from "@/app/actions/finance";
+import { syncNow, type FinanceActionResult } from "@/app/actions/finance";
 import { Button } from "@/components/ui/button";
 import type { FinanceSyncRun } from "@/lib/finance/types";
 
@@ -22,15 +22,16 @@ export function SyncBanner({
   lastRun: FinanceSyncRun | null;
   canDecide: boolean;
 }) {
-  const [pending, startTransition] = useTransition();
+  const [state, formAction, pending] = useActionState<
+    FinanceActionResult | null,
+    FormData
+  >(syncNow, null);
 
-  function handleSync() {
-    startTransition(async () => {
-      const result = await syncNow();
-      if (result.ok) toast.success(result.message);
-      else toast.error(result.error);
-    });
-  }
+  useEffect(() => {
+    if (!state) return;
+    if (state.ok) toast.success(state.message);
+    else toast.error(state.error);
+  }, [state]);
 
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
@@ -50,16 +51,15 @@ export function SyncBanner({
         )}
       </p>
       {canDecide ? (
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={handleSync}
-          disabled={pending}
-        >
-          <RefreshCw className={pending ? "animate-spin" : undefined} aria-hidden />
-          Synchroniser maintenant
-        </Button>
+        <form action={formAction}>
+          <Button type="submit" variant="outline" size="sm" disabled={pending}>
+            <RefreshCw
+              className={pending ? "animate-spin" : undefined}
+              aria-hidden
+            />
+            Synchroniser maintenant
+          </Button>
+        </form>
       ) : null}
     </div>
   );

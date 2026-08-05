@@ -206,10 +206,16 @@ client, trésorerie EUR consolidée, évolution du solde sur 7, 30 ou 90 jours,
 et le tableau des dépenses carte — la réplique locale de l'écran Airwallex,
 avec ses deux montants par ligne (« 158 800 IDR, financé avec 7,73 € »).
 
-Le dashboard ne parle jamais à Airwallex : la synchronisation horaire écrit
-dans Supabase, l'écran lit la base, et la bannière dit de quand datent les
-chiffres. L'historique de solde n'existe que par les instantanés que chaque
-passage dépose — l'API ne rend aucun passé.
+Le dashboard ne parle jamais à Airwallex : une synchronisation écrira dans
+Supabase, l'écran lit la base, et la bannière dit de quand datent les
+chiffres. L'historique de solde n'existera que par les instantanés que chaque
+passage déposera — l'API ne rend aucun passé.
+
+**Aucun cron Finance n'est déclaré pour l'instant**, et c'est délibéré : le
+plan Hobby de Vercel rejette tout déploiement dont un cron demande mieux que
+le quotidien, et il ne reste qu'un créneau sur les deux du plan — celui des
+Reçus est pris. La cadence horaire visée passera par un `schedule` GitHub
+Actions en phase 2, avec le pipeline qu'il appellera.
 
 `finance_transactions` a vocation à devenir l'unique miroir des dépenses
 Airwallex : le module Reçus s'y rebranchera, et `receipt_expenses` disparaîtra
