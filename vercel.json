@@ -4,6 +4,10 @@
     {
       "path": "/api/cron/recus",
       "schedule": "0 6 * * *"
+    },
+    {
+      "path": "/api/cron/mon-travail",
+      "schedule": "0 4 * * *"
     }
   ]
 }
