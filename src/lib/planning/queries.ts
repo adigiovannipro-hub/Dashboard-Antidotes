@@ -249,8 +249,11 @@ async function loadComments(
  * Le bucket est privé : une URL signée d'une heure est générée à chaque rendu.
  * Les valeurs déjà en `http` — un visuel importé depuis Monday — passent telles
  * quelles.
+ *
+ * Exportée pour « Mon travail », qui réplique les lignes du jour sur la page
+ * d'accueil et doit afficher les mêmes visuels sans dupliquer cette logique.
  */
-async function resolveVisuals(
+export async function resolveVisuals(
   subjects: PlanningSubject[],
 ): Promise<Map<string, ResolvedVisual[]>> {
   const resolved = new Map<string, ResolvedVisual[]>();

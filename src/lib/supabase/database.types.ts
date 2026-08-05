@@ -518,6 +518,16 @@ import type {
   FinanceTransaction,
 } from "@/lib/finance/types";
 
+/* --- Module Mon travail ----------------------------------------------------
+   Même principe : le détail vit dans `src/lib/mon-travail/types.ts`. */
+export type {
+  WorkCycle as WorkCycleRow,
+  WorkCycleStep as WorkCycleStepRow,
+  WorkTask as WorkTaskRow,
+} from "@/lib/mon-travail/types";
+
+import type { WorkCycle, WorkCycleStep, WorkTask } from "@/lib/mon-travail/types";
+
 type Table<Row, Insert = Partial<Row>, Update = Partial<Row>> = {
   Row: Row;
   Insert: Insert;
@@ -575,6 +585,9 @@ export type Database = {
       finance_transactions: Table<FinanceTransaction>;
       finance_receipts: Table<FinanceReceipt>;
       finance_sync_runs: Table<FinanceSyncRun>;
+      work_cycles: Table<WorkCycle>;
+      work_cycle_steps: Table<WorkCycleStep>;
+      work_tasks: Table<WorkTask>;
     };
     // `never` satisfait la contrainte `Record<string, GenericView>` de
     // postgrest-js tout en déclarant qu'il n'y a ni vue ni fonction exposée.
