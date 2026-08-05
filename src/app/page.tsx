@@ -1,6 +1,14 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ArrowRight, Briefcase, Lock, MessagesSquare, Users } from "lucide-react";
+import {
+  ArrowRight,
+  Briefcase,
+  Lock,
+  MessagesSquare,
+  Receipt,
+  Users,
+  Wallet,
+} from "lucide-react";
 
 import { AppHeader } from "@/components/app-header";
 import { Badge } from "@/components/ui/badge";
@@ -32,6 +40,25 @@ export default async function HubPage() {
           title: "Modération",
           description: "Messages et commentaires, réponses validées à la main",
           icon: MessagesSquare,
+        }
+      : null,
+    // Les modules « Mon entreprise » suivent la même garde que leur layout :
+    // être owner de l'organisation. Sans carte ici, ils n'existaient qu'en
+    // tapant l'URL.
+    viewer.isOwner
+      ? {
+          href: "/entreprise/finance",
+          title: "Finance",
+          description: "Facturation, trésorerie et dépenses Airwallex",
+          icon: Wallet,
+        }
+      : null,
+    viewer.isOwner
+      ? {
+          href: "/entreprise/recus",
+          title: "Reçus",
+          description: "Justificatifs collectés par mail, rangés dans Airwallex",
+          icon: Receipt,
         }
       : null,
   ].filter((tool) => tool !== null);

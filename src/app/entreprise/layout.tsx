@@ -1,8 +1,7 @@
-import Link from "next/link";
-
 import { AppHeader } from "@/components/app-header";
+import { EntrepriseNav } from "@/components/entreprise-nav";
 import { requireViewer } from "@/lib/auth";
-import { requireReceiptsAccess } from "@/lib/recus/access";
+import { requireFinanceAccess } from "@/lib/finance/access";
 
 /**
  * Espace « Mon Entreprise ».
@@ -12,7 +11,10 @@ import { requireReceiptsAccess } from "@/lib/recus/access";
  * distinction que celle qui a mis la Modération sur sa propre route.
  *
  * L'accès est vérifié dans le layout : les pages n'ont pas à le refaire, et
- * aucune sous-route ne peut être ajoutée en oubliant le contrôle.
+ * aucune sous-route ne peut être ajoutée en oubliant le contrôle. La garde du
+ * module Finance est celle de toute la section — être owner de l'organisation.
+ * Chaque module raffine ensuite ce dont il a besoin (Reçus recharge ses
+ * boîtes, par exemple).
  */
 export default async function EntrepriseLayout({
   children,
@@ -20,7 +22,7 @@ export default async function EntrepriseLayout({
   children: React.ReactNode;
 }) {
   const viewer = await requireViewer();
-  await requireReceiptsAccess();
+  await requireFinanceAccess();
 
   return (
     <>
@@ -34,17 +36,7 @@ export default async function EntrepriseLayout({
           <p className="text-muted-foreground mb-2 px-3 text-xs font-medium tracking-wide uppercase">
             Mon entreprise
           </p>
-          <ul className="flex gap-1 md:flex-col">
-            <li>
-              <Link
-                href="/entreprise/recus"
-                aria-current="page"
-                className="bg-muted text-foreground focus-visible:ring-ring block rounded-md px-3 py-2 text-sm font-medium focus-visible:ring-2 focus-visible:outline-none"
-              >
-                Reçus
-              </Link>
-            </li>
-          </ul>
+          <EntrepriseNav />
         </nav>
 
         <div className="flex min-w-0 flex-1 flex-col">{children}</div>

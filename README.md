@@ -62,6 +62,7 @@ préfixée `NEXT_PUBLIC_` ni atteindre le navigateur.
 | `pnpm import:monday` | Reprend un planning éditorial depuis Monday |
 | `pnpm seed:planning` | Amorce le Planning Éditorial de Bondet |
 | `pnpm seed:moderation` | Données de démonstration de la Modération |
+| `pnpm seed:finance` | Données de démonstration du module Finance |
 
 ## Base de données
 
@@ -174,6 +175,24 @@ soit proposé. Un rapprochement ambigu ou un fournisseur jamais approuvé ne
 partent jamais seuls, quel que soit le réglage.
 
 Mise en place — Google Cloud, clés Airwallex, cron : [`docs/recus-setup.md`](docs/recus-setup.md).
+
+## Module Finance
+
+`/entreprise/finance` est la vue d'ensemble comptable : facturation à venir par
+client, trésorerie EUR consolidée, évolution du solde sur 7, 30 ou 90 jours,
+et le tableau des dépenses carte — la réplique locale de l'écran Airwallex,
+avec ses deux montants par ligne (« 158 800 IDR, financé avec 7,73 € »).
+
+Le dashboard ne parle jamais à Airwallex : la synchronisation horaire écrit
+dans Supabase, l'écran lit la base, et la bannière dit de quand datent les
+chiffres. L'historique de solde n'existe que par les instantanés que chaque
+passage dépose — l'API ne rend aucun passé.
+
+`finance_transactions` a vocation à devenir l'unique miroir des dépenses
+Airwallex : le module Reçus s'y rebranchera, et `receipt_expenses` disparaîtra
+avec sa prochaine phase. Les intégrations (Airwallex, justificatifs par photo)
+arrivent en phase 2 ; en attendant, `pnpm seed:finance` remplit l'écran d'un
+jeu réaliste.
 
 ## Documentation
 

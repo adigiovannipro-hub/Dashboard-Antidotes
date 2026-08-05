@@ -494,6 +494,30 @@ import type {
   ReceiptSource,
 } from "@/lib/recus/types";
 
+/* --- Module Finance -------------------------------------------------------
+   Même principe : le détail vit dans `src/lib/finance/types.ts`. */
+export type {
+  FinanceAccount as FinanceAccountRow,
+  FinanceBalanceSnapshot as FinanceBalanceSnapshotRow,
+  FinanceInvoice as FinanceInvoiceRow,
+  FinanceCategory as FinanceCategoryRow,
+  FinanceCategoryRule as FinanceCategoryRuleRow,
+  FinanceTransaction as FinanceTransactionRow,
+  FinanceReceipt as FinanceReceiptRow,
+  FinanceSyncRun as FinanceSyncRunRow,
+} from "@/lib/finance/types";
+
+import type {
+  FinanceAccount,
+  FinanceBalanceSnapshot,
+  FinanceCategory,
+  FinanceCategoryRule,
+  FinanceInvoice,
+  FinanceReceipt,
+  FinanceSyncRun,
+  FinanceTransaction,
+} from "@/lib/finance/types";
+
 type Table<Row, Insert = Partial<Row>, Update = Partial<Row>> = {
   Row: Row;
   Insert: Insert;
@@ -543,6 +567,14 @@ export type Database = {
       receipt_documents: Table<ReceiptDocument>;
       receipt_merchant_rules: Table<ReceiptMerchantRule>;
       receipt_events: Table<ReceiptEvent>;
+      finance_accounts: Table<FinanceAccount>;
+      finance_balances_history: Table<FinanceBalanceSnapshot>;
+      finance_invoices: Table<FinanceInvoice>;
+      finance_categories: Table<FinanceCategory>;
+      finance_category_rules: Table<FinanceCategoryRule>;
+      finance_transactions: Table<FinanceTransaction>;
+      finance_receipts: Table<FinanceReceipt>;
+      finance_sync_runs: Table<FinanceSyncRun>;
     };
     // `never` satisfait la contrainte `Record<string, GenericView>` de
     // postgrest-js tout en déclarant qu'il n'y a ni vue ni fonction exposée.
