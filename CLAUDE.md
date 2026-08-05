@@ -55,13 +55,13 @@ Un module interne renvoie **404 et non 403** à qui n'y a pas droit : un client 
 - La couche i18n exigée par `PROMPT-V1.md:138` — tous les libellés sont en dur, `LOCALE = "fr-FR"` est une constante littérale.
 - `docs/meta-setup.md`, référencé par le README.
 
-**L'accès ouvert existe toujours, mais il se demande.** `isOpenAccess()` ne renvoie vrai que si `ANTIDOTES_OPEN_ACCESS === "true"` (`src/lib/access-mode.ts`) : un environnement qui ne dit rien est fermé. La variable précédente, `ANTIDOTES_REQUIRE_LOGIN`, ouvrait par défaut et n'est plus lue — la laisser en place est sans effet. Quand l'accès ouvert est activé, trois conséquences en cascade, toutes délibérées et commentées :
+**L'application est en accès ouvert, et la RLS ne protège donc plus rien.** La décision est une constante versionnée, `OUVERT_PENDANT_LA_CONSTRUCTION = true` dans `src/lib/access-mode.ts` — pas l'absence d'une variable d'environnement. La passer à `false` referme partout ; `ANTIDOTES_OPEN_ACCESS` permet de trancher par environnement sans toucher au code. L'ancienne variable `ANTIDOTES_REQUIRE_LOGIN` n'est plus lue. Trois conséquences en cascade, toutes délibérées et commentées :
 
 1. `src/lib/supabase/proxy.ts:68` — retour anticipé avant toute redirection vers `/login`.
 2. `src/lib/supabase/server.ts:42-49` — `createClient()`, le client de lecture par défaut, renvoie un client **`service_role`**. Les 79 politiques deviennent décoratives.
 3. `src/lib/auth.ts:35,83-112` — le visiteur anonyme **emprunte l'identité du premier owner en base**, avec `isOwner: true` sur tous les espaces. Les gardes `require*` et le 404 des modules internes ne s'appliquent donc plus à personne.
 
-Bandeau rouge « Accès public » dans l'en-tête (`src/components/app-header.tsx:50-57`) tant que le mode est actif. Le code d'auth n'a jamais été retiré.
+Bandeau rouge « Accès public » dans l'en-tête (`src/components/app-header.tsx:50-57`) tant que le mode est actif. Le code d'auth n'a jamais été retiré. À refermer avant le deuxième client : ses données ne t'appartiennent pas.
 
 ## Stack
 
@@ -247,9 +247,9 @@ Pour un test d'isolation RLS, le modèle reste `tests/planning-isolation.test.ts
 
 **Les tests d'isolation se sautent en silence.** Sans `.env.local` renseigné, la suite passe en `describe.skip` : `pnpm test` est vert **sans avoir rien prouvé** sur la RLS. Un vert n'est une preuve d'isolation que si les tests ont réellement tourné contre la base, migrations appliquées.
 
-**En accès ouvert, la RLS ne protège plus rien.** Voir la section État actuel. `ANTIDOTES_OPEN_ACCESS=true` ne se pose pas sur un environnement qui porte les données d'un client — c'est un réglage de mise au point, et il désarme les 92 politiques d'un coup.
+**En accès ouvert, la RLS ne protège plus rien.** Voir la section État actuel. L'accès ouvert désarme les 92 politiques d'un coup : c'est un réglage de construction, il n'a rien à faire sur un environnement qui porte les données d'un client.
 
-**`e2e/acces.spec.ts` suppose l'application fermée.** Ses trois cas vérifient la redirection vers `/login` : ils passent quand l'accès ouvert n'est pas activé, et échouent tous quand il l'est. La suite e2e n'est pas dans la CI — elle demande un navigateur et un vrai projet Supabase.
+**`e2e/acces.spec.ts` suppose l'application fermée.** Ses trois cas vérifient la redirection vers `/login` : ils échouent tant que l'accès ouvert est actif. La suite e2e n'est pas dans la CI — elle demande un navigateur et un vrai projet Supabase — donc rien ne le signale.
 
 **À vérifier, non tranché :** le cron des Reçus déclare `maxDuration = 300`, alors que le plan Hobby plafonne les fonctions bien plus bas. Rien ne l'a encore prouvé en conditions réelles — au premier vrai passage, regarder si la fonction est coupée en cours de route.
 

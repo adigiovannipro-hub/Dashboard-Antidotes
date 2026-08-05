@@ -83,16 +83,19 @@ cat supabase/migrations/*.sql | pbcopy
 
 ## Sécurité
 
-> ⚠️ **L'application peut tourner en accès ouvert.** Dans ce mode, aucune
-> connexion n'est demandée et toute personne disposant de l'URL voit l'ensemble
-> des espaces : plannings, budgets de sponsorisation, captions, chiffres de
-> performance.
+> ⚠️ **L'application est actuellement en accès ouvert.** Aucune connexion n'est
+> demandée, et toute personne disposant de l'URL voit l'ensemble des espaces :
+> plannings, budgets de sponsorisation, captions, chiffres de performance,
+> trésorerie.
 >
-> L'ouverture se demande explicitement, elle ne s'obtient pas par défaut. Un
-> environnement qui ne dit rien est fermé :
+> C'est un choix assumé le temps de la mise au point, écrit en clair plutôt que
+> subi : la constante `OUVERT_PENDANT_LA_CONSTRUCTION` dans
+> [`src/lib/access-mode.ts`](src/lib/access-mode.ts). La passer à `false`
+> referme partout — le code d'authentification est resté entièrement en place.
+> Pour refermer un seul environnement sans toucher au code :
 >
 > ```sh
-> ANTIDOTES_OPEN_ACCESS=true
+> ANTIDOTES_OPEN_ACCESS=false
 > ```
 >
 > Tant que l'accès est ouvert, un bandeau rouge « Accès public » s'affiche dans
