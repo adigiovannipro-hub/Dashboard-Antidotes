@@ -29,7 +29,7 @@ Règle absolue : toute nouvelle table est protégée par RLS et accompagnée d'u
 
 Le modèle à copier est **`tests/planning-isolation.test.ts`**. Il ouvre de vraies sessions Supabase, attaque l'API REST directement — hors de toute interface — et vérifie les **deux sens** de la règle : un client ne lit ni ne modifie l'espace voisin, **et** il écrit bien chez lui. C'est la moitié qu'on oublie de tester : une politique trop stricte casse le produit aussi sûrement qu'une politique trop large le rend dangereux. `tests/isolation.test.ts` couvre le socle (organisations, espaces, dashboards, liens de partage).
 
-Les quatre modules ont désormais leur suite : `tests/isolation.test.ts` (socle), `planning-isolation`, `receipts-isolation`, `finance-isolation`. Les deux dernières n'ont **jamais tourné contre un vrai Postgres** — écrites sans accès au projet Supabase, elles sautent tant que `.env.local` n'est pas renseigné. À faire tourner une fois avant de leur accorder le moindre crédit.
+Les cinq modules ont désormais leur suite : `tests/isolation.test.ts` (socle), `planning-isolation`, `receipts-isolation`, `finance-isolation`, `mon-travail-isolation`. Les trois dernières n'ont **jamais tourné contre le vrai projet Supabase** — elles sautent tant que `.env.local` n'est pas renseigné. Nuance pour `mon-travail` : ses politiques ont été exercées sur un Postgres 16 jetable en simulant `auth.uid()` (lecture, écriture et refus vérifiés dans les deux sens), mais jamais via de vraies sessions Supabase. À faire tourner une fois avant de leur accorder le moindre crédit.
 
 Un module interne renvoie **404 et non 403** à qui n'y a pas droit : un client ne doit pas apprendre l'existence de la Modération en tombant sur un « accès refusé ».
 
@@ -43,12 +43,13 @@ Un module interne renvoie **404 et non 403** à qui n'y a pas droit : un client 
 | Planning Éditorial | `/espace/[workspace]/planning`, `src/lib/planning/` | 6 tables, miroir du board Monday du client, import à sens unique, + analyses strategy / cadence / health |
 | Reçus | `/entreprise/recus`, `src/lib/recus/` | 5 tables, Gmail → facture → Airwallex, vérification d'accrochage, auto-transfert à 3 validations concordantes, cron quotidien 6h |
 | Finance (phase 1) | `/entreprise/finance`, `src/lib/finance/` | 8 tables, facturation à venir, trésorerie EUR, courbe de solde, dépenses carte. Écran complet sur données d'amorçage (`pnpm seed:finance`) : **aucune connexion Airwallex, et aucun cron déclaré** malgré la synchronisation horaire que le README décrit |
+| Mon travail (phase 1) | `/` (accueil), `src/lib/mon-travail/`, `src/components/mon-travail/` | 3 tables, todo unifiée : « À publier » répliqué des plannings (mêmes cellules, statut bidirectionnel sur la même ligne), tâches du jour + 4 jours, retards en rouge, archivé, ligne quotidienne et cycle mensuel par client générés par `/api/cron/mon-travail`, démo via `pnpm seed:mon-travail`. **Fathom et mails simulés** — phase 2 non branchée |
 
 **Tout tourne sur données de démo.** Aucune API régie n'est branchée. Les données de démo Bondet sont calées au centime sur le Looker réel de juin 2026 : elles servent de référence visuelle, ne les modifie jamais sans que je le demande. Quand une source réelle arrive, elle ne remplace pas le jeu de démo, elle s'ajoute derrière un flag.
 
 **Pas encore construit**, malgré ce que la section Architecture décrit comme cible :
 
-- La todo. Et la page Finance vit sous `/entreprise/finance`, pas sous `/finance` comme le décrit la section Architecture.
+- La page Finance vit sous `/entreprise/finance`, pas sous `/finance` comme le décrit la section Architecture.
 - Le connecteur Meta. Les tables d'accueil sont prêtes et vides (`ad_metrics_daily`, `ad_breakdowns_daily`, `social_followers`, `sync_runs`), mais il n'y a ni `src/lib/connectors/`, ni `scripts/sync.ts` — `pnpm sync` référence un fichier absent et échoue.
 - Sélecteur de période et comparaison, filtres croisés, drill-down.
 - Partage public : la table `share_links` existe et `/partage` est réservé dans `PUBLIC_PATHS`, mais **aucune route ne l'implémente**. Export PDF/PNG non plus.
@@ -78,9 +79,9 @@ Conséquences non négociables :
 
 ### Ce qui plafonne
 
-**Vercel Hobby — 2 crons, une fois par jour maximum.** La cadence est prouvée dans ce repo : une planification plus rapide ne fait pas que se dégrader, elle fait **rejeter le déploiement entier** (commit 9395d5c). Le plafond de deux crons vient de la doc Vercel, pas d'un essai ici. **Un seul cron est engagé aujourd'hui** : `/api/cron/recus` à `0 6 * * *`, seule entrée de `vercel.json`. Un cron de plus, ou plus fréquent, impose le passage en Pro — dis-le-moi avant de l'écrire. Le jour d'un passage en Pro, la cadence recommandée pour les Reçus est `*/15 * * * *`, et c'est ce que disent encore `docs/recus-setup.md:164,171` et `src/app/api/cron/recus/route.ts:22` : ces trois endroits contredisent `vercel.json` et n'ont pas été corrigés.
+**Vercel Hobby — 2 crons, une fois par jour maximum.** La cadence est prouvée dans ce repo : une planification plus rapide ne fait pas que se dégrader, elle fait **rejeter le déploiement entier** (commit 9395d5c). Le plafond de deux crons vient de la doc Vercel, pas d'un essai ici. **Les deux crons du plan sont engagés** : `/api/cron/recus` à `0 6 * * *` et `/api/cron/mon-travail` à `0 4 * * *`, seules entrées de `vercel.json`. Le plafond Hobby est atteint : tout cron supplémentaire — le connecteur Meta, par exemple — impose soit le passage en Pro, soit une consolidation dans un cron existant (la phase 2 de Mon travail est prévue pour se greffer sur le sien, pas pour en créer un). Dis-le-moi avant de l'écrire. Le jour d'un passage en Pro, la cadence recommandée pour les Reçus est `*/15 * * * *`, et c'est ce que disent encore `docs/recus-setup.md:164,171` et `src/app/api/cron/recus/route.ts:22` : ces trois endroits contredisent `vercel.json` et n'ont pas été corrigés.
 
-**Supabase Free — 500 Mo de base, 1 Go de Storage, 5 Go d'egress par mois, 50 000 MAU, 2 projets actifs.** Le schéma engagé aujourd'hui : **48 tables, 40 enums, 92 politiques, 47 index, 8 triggers, 14 fonctions `security definer`, 3 buckets privés, 2 716 lignes de SQL** sur 12 migrations. Le poste qui grossira le premier est la base : `ad_metrics_daily` au grain jour × entité, plus les embeddings pgvector 384d de la FAQ. Point d'attention réel : **un projet gratuit est mis en pause après une semaine sans activité**, et le symptôme est une application qui ne répond plus du tout.
+**Supabase Free — 500 Mo de base, 1 Go de Storage, 5 Go d'egress par mois, 50 000 MAU, 2 projets actifs.** Le schéma engagé aujourd'hui : **51 tables, 42 enums, 104 politiques, 51 index, 9 triggers, 15 fonctions `security definer`, 3 buckets privés, 2 919 lignes de SQL** sur 14 migrations. Le poste qui grossira le premier est la base : `ad_metrics_daily` au grain jour × entité, plus les embeddings pgvector 384d de la FAQ. Point d'attention réel : **un projet gratuit est mis en pause après une semaine sans activité**, et le symptôme est une application qui ne répond plus du tout.
 
 **Hors free tier.** Les appels Anthropic — brouillons de la Modération, lecture des factures des Reçus, tous deux en `claude-opus-5`, `max_tokens: 2000` — sont facturés à l'usage. C'est le seul poste payant du projet aujourd'hui. Sans `ANTHROPIC_API_KEY`, les Reçus retombent sur des règles simples à confiance plafonnée à 0,6, donc sans aucun transfert automatique possible : la dégradation est prévue, pas subie.
 
@@ -102,6 +103,7 @@ Conséquences non négociables :
 | `pnpm seed:planning` | Amorce le Planning Éditorial de Bondet (`--reset`) |
 | `pnpm seed:moderation` | Données de démonstration de la Modération (`--reset`) |
 | `pnpm seed:finance` | Données d'amorçage du module Finance |
+| `pnpm seed:mon-travail` | Démo de « Mon travail » : espaces clients fictifs, publications du jour, tâches, cycles (`--reset`) |
 | ~~`pnpm sync`~~ | **Cassée** — pointe sur `scripts/sync.ts`, qui n'existe pas encore |
 
 Un chantier est vérifié quand `pnpm typecheck`, `pnpm lint`, `pnpm build` et `pnpm test` passent tous les quatre. La CI les rejoue à chaque push, mais lance-les avant de pousser plutôt que de t'en servir comme d'un correcteur. Le typecheck seul ne prouve rien sur le comportement : les deux défauts du commit 588a864 passaient le typecheck et les tests.
@@ -115,13 +117,13 @@ Un chantier est vérifié quand `pnpm typecheck`, `pnpm lint`, `pnpm build` et `
 - Fichiers `NNNN_nom.sql` dans `supabase/migrations/`, **triés lexicographiquement** — le préfixe à 4 chiffres est structurant, pas décoratif.
 - Schéma et RLS sont **deux fichiers distincts** : `0006_planning_schema.sql` puis `0007_planning_rls.sql`. Suis ce découpage.
 - Une **transaction par fichier**, tracée dans `app.schema_migrations` (nom, checksum SHA-256, date). Une migration déjà appliquée dont le contenu change affiche `⚠ modifiée depuis` et **n'est pas rejouée** : ne modifie jamais une migration passée, ajoutes-en une.
-- Exige `SUPABASE_DB_URL`, qui **ne figure pas dans `.env.example`** et se lit depuis `.env.local`.
+- Exige `SUPABASE_DB_URL`, qui **ne figure pas dans `.env.example`** et se lit depuis `.env.local`. Pour le rejeu obligatoire sur un Postgres jetable local, ajouter `?sslmode=disable` à l'URI — le runner n'exige le TLS que pour Supabase.
 - **Le numéro 0009 n'existe pas** — deux branches parallèles ont réservé leurs numéros. Trou sans conséquence, ne pas chercher à le combler.
 - `supabase/seeds/` n'est **jamais lancé** par `db:migrate` : c'est du SQL à coller à la main dans l'éditeur Supabase. Les seeds exécutables sont les scripts TypeScript, idempotents par UUID stable dérivé d'un SHA-256.
 - Les migrations de données (`0003_seed`, `0008_planning_bondet`) sont bien appliquées par `db:migrate` et sont idempotentes.
 - Aucune migration n'est appliquée au déploiement. C'est une commande à lancer à la main.
 
-**`src/lib/supabase/database.types.ts` est écrit à la main**, pas généré — près de 600 lignes qui doivent rester alignées sur 2 716 lignes de SQL, sans commande de génération branchée et sans garde-fou. Toute migration qui touche une table oblige à mettre ce fichier à jour dans le même commit. Son `Enums` ne contient d'ailleurs que les 10 enums de `0001` sur les 40 déclarés : les 30 autres n'y sont jamais entrés.
+**`src/lib/supabase/database.types.ts` est écrit à la main**, pas généré — 610 lignes qui doivent rester alignées sur 2 919 lignes de SQL, sans commande de génération branchée et sans garde-fou. Toute migration qui touche une table oblige à mettre ce fichier à jour dans le même commit. Son `Enums` ne contient d'ailleurs que les 10 enums de `0001` sur les 42 déclarés : les 32 autres n'y sont jamais entrés.
 
 ## Conventions
 
@@ -136,7 +138,7 @@ Un chantier est vérifié quand `pnpm typecheck`, `pnpm lint`, `pnpm build` et `
   |---|---|---|---|
   | `workspace_id` | socle, dashboards, Planning | `organization_members` + `memberships` | `app.accessible_workspace_ids()`, `app.owns_workspace()` |
   | `client_id` | Modération (13 tables) | `moderation_members` | `app.moderation_client_ids()`, `app.moderation_writable_client_ids()`, `app.is_moderation_owner()` |
-  | `org_id` | Reçus (5 tables), Finance (8 tables) | `organization_members` | Reçus : `app.receipt_readable_org_ids()`, `app.is_receipt_owner()` — Finance : `app.member_org_ids()`, `app.is_org_owner()` |
+  | `org_id` | Reçus (5 tables), Finance (8 tables), Mon travail (3 tables) | `organization_members` | Reçus : `app.receipt_readable_org_ids()`, `app.is_receipt_owner()` — Finance : `app.member_org_ids()`, `app.is_org_owner()` — Mon travail : `app.is_org_owner()` seul, lecture comprise (owner-only) |
 
   Les helpers ne sont pas interchangeables. Tous sont `security definer` avec `set search_path = public, pg_temp` — reproduis-le, c'est ce qui empêche un détournement par schéma.
 - **Toutes les politiques ciblent `to authenticated`.** Aucune ne vise `anon`, `public` ou `service_role` ; aucune n'utilise `using (true)` ; toute policy `insert`/`update`/`all` porte un `with check`. Ne dévie pas de ces quatre règles.

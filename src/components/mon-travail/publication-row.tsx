@@ -112,7 +112,7 @@ export function PublicationRowView({
       </div>
 
       {/* Le planning n'a pas d'heure de publication : la date est l'échéance. */}
-      <div className="w-[7.5rem]">
+      <div className="w-[7.5rem] md:w-full">
         <DateCell
           value={row.subject.scheduled_on}
           onCommit={(next) => edit("scheduled_on", next)}

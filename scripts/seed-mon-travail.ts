@@ -424,13 +424,17 @@ async function main() {
 
     const cyclesForPlanning: CycleForPlanning[] = [];
     for (const workspace of clientWorkspaces) {
-      const cycleId = stableId(`cycle:${workspace.slug}`);
-      await db.query(
+      /* `returning id` après un upsert sans effet : si un cycle existe déjà
+         pour cet espace — créé à la main, autre id — c'est le sien que les
+         étapes doivent référencer, pas celui que le seed aurait choisi. */
+      const { rows: cycleRows } = await db.query<{ id: string }>(
         `insert into work_cycles (id, org_id, workspace_id, active)
          values ($1, $2, $3, true)
-         on conflict (workspace_id) do nothing`,
-        [cycleId, orgId, workspace.id],
+         on conflict (workspace_id) do update set workspace_id = excluded.workspace_id
+         returning id`,
+        [stableId(`cycle:${workspace.slug}`), orgId, workspace.id],
       );
+      const cycleId = cycleRows[0]!.id;
 
       const steps: CycleForPlanning["steps"] = [];
       for (const [position, step] of DEFAULT_CYCLE_STEPS.entries()) {

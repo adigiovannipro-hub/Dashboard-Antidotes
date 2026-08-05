@@ -77,7 +77,7 @@ export function TaskRowView({
         ) : (
           <TextCell
             value={task.title}
-            ariaLabel={`Libellé de la tâche`}
+            ariaLabel="Libellé de la tâche"
             className={cn("-mx-1.5", overdue && "text-brand-red")}
             onCommit={(next) =>
               run(() => updateTask({ taskId: task.id, field: "title", value: next }))
