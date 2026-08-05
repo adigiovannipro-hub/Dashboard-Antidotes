@@ -29,7 +29,7 @@ Règle absolue : toute nouvelle table est protégée par RLS et accompagnée d'u
 
 Le modèle à copier est **`tests/planning-isolation.test.ts`**. Il ouvre de vraies sessions Supabase, attaque l'API REST directement — hors de toute interface — et vérifie les **deux sens** de la règle : un client ne lit ni ne modifie l'espace voisin, **et** il écrit bien chez lui. C'est la moitié qu'on oublie de tester : une politique trop stricte casse le produit aussi sûrement qu'une politique trop large le rend dangereux. `tests/isolation.test.ts` couvre le socle (organisations, espaces, dashboards, liens de partage).
 
-**Le module Reçus n'a aucun test d'isolation** — ses 5 tables et ses 8 politiques (`0011_receipts_rls.sql`) ne sont prouvées par rien. C'est la dette la plus urgente sur ce sujet, et c'est le module qui déclenche des virements.
+Les quatre modules ont désormais leur suite : `tests/isolation.test.ts` (socle), `planning-isolation`, `receipts-isolation`, `finance-isolation`. Les deux dernières n'ont **jamais tourné contre un vrai Postgres** — écrites sans accès au projet Supabase, elles sautent tant que `.env.local` n'est pas renseigné. À faire tourner une fois avant de leur accorder le moindre crédit.
 
 Un module interne renvoie **404 et non 403** à qui n'y a pas droit : un client ne doit pas apprendre l'existence de la Modération en tombant sur un « accès refusé ».
 
@@ -42,31 +42,32 @@ Un module interne renvoie **404 et non 403** à qui n'y a pas droit : un client 
 | Modération (interne) | `/moderation`, `src/lib/moderation/` | 13 tables, pgvector, FAQ sémantique, génération Claude, boucle d'apprentissage, inbox 3 colonnes. Architecture seulement, aucune connexion réelle aux plateformes |
 | Planning Éditorial | `/espace/[workspace]/planning`, `src/lib/planning/` | 6 tables, miroir du board Monday du client, import à sens unique, + analyses strategy / cadence / health |
 | Reçus | `/entreprise/recus`, `src/lib/recus/` | 5 tables, Gmail → facture → Airwallex, vérification d'accrochage, auto-transfert à 3 validations concordantes, cron quotidien 6h |
+| Finance (phase 1) | `/entreprise/finance`, `src/lib/finance/` | 8 tables, facturation à venir, trésorerie EUR, courbe de solde, dépenses carte. Écran complet sur données d'amorçage (`pnpm seed:finance`) : **aucune connexion Airwallex, et aucun cron déclaré** malgré la synchronisation horaire que le README décrit |
 
 **Tout tourne sur données de démo.** Aucune API régie n'est branchée. Les données de démo Bondet sont calées au centime sur le Looker réel de juin 2026 : elles servent de référence visuelle, ne les modifie jamais sans que je le demande. Quand une source réelle arrive, elle ne remplace pas le jeu de démo, elle s'ajoute derrière un flag.
 
 **Pas encore construit**, malgré ce que la section Architecture décrit comme cible :
 
-- `/finance` et la todo — les pages n'existent pas. `/entreprise` ne sert aujourd'hui qu'aux Reçus.
+- La todo. Et la page Finance vit sous `/entreprise/finance`, pas sous `/finance` comme le décrit la section Architecture.
 - Le connecteur Meta. Les tables d'accueil sont prêtes et vides (`ad_metrics_daily`, `ad_breakdowns_daily`, `social_followers`, `sync_runs`), mais il n'y a ni `src/lib/connectors/`, ni `scripts/sync.ts` — `pnpm sync` référence un fichier absent et échoue.
 - Sélecteur de période et comparaison, filtres croisés, drill-down.
 - Partage public : la table `share_links` existe et `/partage` est réservé dans `PUBLIC_PATHS`, mais **aucune route ne l'implémente**. Export PDF/PNG non plus.
 - La couche i18n exigée par `PROMPT-V1.md:138` — tous les libellés sont en dur, `LOCALE = "fr-FR"` est une constante littérale.
 - `docs/meta-setup.md`, référencé par le README.
 
-**L'application est en accès ouvert et la RLS ne protège donc plus rien.** Le pilotage est une seule variable, **en opt-out** : `isOpenAccess()` renvoie vrai dès que `ANTIDOTES_REQUIRE_LOGIN !== "true"` (`src/lib/access-mode.ts:18`). Un déploiement qui oublie la variable est ouvert. Trois conséquences en cascade, toutes délibérées et commentées :
+**L'accès ouvert existe toujours, mais il se demande.** `isOpenAccess()` ne renvoie vrai que si `ANTIDOTES_OPEN_ACCESS === "true"` (`src/lib/access-mode.ts`) : un environnement qui ne dit rien est fermé. La variable précédente, `ANTIDOTES_REQUIRE_LOGIN`, ouvrait par défaut et n'est plus lue — la laisser en place est sans effet. Quand l'accès ouvert est activé, trois conséquences en cascade, toutes délibérées et commentées :
 
 1. `src/lib/supabase/proxy.ts:68` — retour anticipé avant toute redirection vers `/login`.
 2. `src/lib/supabase/server.ts:42-49` — `createClient()`, le client de lecture par défaut, renvoie un client **`service_role`**. Les 79 politiques deviennent décoratives.
 3. `src/lib/auth.ts:35,83-112` — le visiteur anonyme **emprunte l'identité du premier owner en base**, avec `isOwner: true` sur tous les espaces. Les gardes `require*` et le 404 des modules internes ne s'appliquent donc plus à personne.
 
-Bandeau rouge « Accès public » dans l'en-tête (`src/components/app-header.tsx:50-57`). Le code d'auth est intact et redevient actif avec `ANTIDOTES_REQUIRE_LOGIN=true`. À refermer avant le deuxième client.
+Bandeau rouge « Accès public » dans l'en-tête (`src/components/app-header.tsx:50-57`) tant que le mode est actif. Le code d'auth n'a jamais été retiré.
 
 ## Stack
 
 Next.js 16.2.12 · React 19.2.4 · TypeScript strict · Tailwind 4 + shadcn style `base-nova` sur `@base-ui/react` (pas Radix) · Supabase (Postgres, magic link, RLS, Storage) · Recharts · Vercel + Vercel Cron · Vitest 4 + Playwright · Node ≥ 22, pnpm 10.18.2.
 
-**Il n'y a aucune CI.** Pas de `.github/`, aucun workflow, aucune vérification automatique au push ni au déploiement. Rien ne lance les tests, le typecheck, le lint ou les migrations à ta place : ce que tu n'as pas lancé toi-même n'a pas été vérifié.
+**La CI est minimale** — `.github/workflows/ci.yml` lance `typecheck`, `lint`, `test` et `build` à chaque push et sur chaque pull request, rien d'autre. Elle ne joint aucun service : les suites d'isolation y sautent faute de `SUPABASE_SERVICE_ROLE_KEY`, et **son vert n'est donc pas une preuve d'isolation**. Ni les migrations, ni Playwright, ni le déploiement ne passent par elle.
 
 **Contrainte dure : rester dans les tiers gratuits.** Avant d'ajouter un cron, une dépendance, un service externe ou un appel LLM récurrent, vérifie que ça tient dans le free tier et dis-moi le coût estimé.
 
@@ -79,7 +80,7 @@ Conséquences non négociables :
 
 **Vercel Hobby — 2 crons, une fois par jour maximum.** La cadence est prouvée dans ce repo : une planification plus rapide ne fait pas que se dégrader, elle fait **rejeter le déploiement entier** (commit 9395d5c). Le plafond de deux crons vient de la doc Vercel, pas d'un essai ici. **Un seul cron est engagé aujourd'hui** : `/api/cron/recus` à `0 6 * * *`, seule entrée de `vercel.json`. Un cron de plus, ou plus fréquent, impose le passage en Pro — dis-le-moi avant de l'écrire. Le jour d'un passage en Pro, la cadence recommandée pour les Reçus est `*/15 * * * *`, et c'est ce que disent encore `docs/recus-setup.md:164,171` et `src/app/api/cron/recus/route.ts:22` : ces trois endroits contredisent `vercel.json` et n'ont pas été corrigés.
 
-**Supabase Free — 500 Mo de base, 1 Go de Storage, 5 Go d'egress par mois, 50 000 MAU, 2 projets actifs.** Le schéma engagé aujourd'hui : **40 tables, 35 enums, 79 politiques, 39 index, 5 triggers, 13 fonctions `security definer`, 2 buckets privés, 2 258 lignes de SQL** sur 10 migrations. Le poste qui grossira le premier est la base : `ad_metrics_daily` au grain jour × entité, plus les embeddings pgvector 384d de la FAQ. Point d'attention réel : **un projet gratuit est mis en pause après une semaine sans activité**, et le symptôme est une application qui ne répond plus du tout.
+**Supabase Free — 500 Mo de base, 1 Go de Storage, 5 Go d'egress par mois, 50 000 MAU, 2 projets actifs.** Le schéma engagé aujourd'hui : **48 tables, 40 enums, 92 politiques, 47 index, 8 triggers, 14 fonctions `security definer`, 3 buckets privés, 2 716 lignes de SQL** sur 12 migrations. Le poste qui grossira le premier est la base : `ad_metrics_daily` au grain jour × entité, plus les embeddings pgvector 384d de la FAQ. Point d'attention réel : **un projet gratuit est mis en pause après une semaine sans activité**, et le symptôme est une application qui ne répond plus du tout.
 
 **Hors free tier.** Les appels Anthropic — brouillons de la Modération, lecture des factures des Reçus, tous deux en `claude-opus-5`, `max_tokens: 2000` — sont facturés à l'usage. C'est le seul poste payant du projet aujourd'hui. Sans `ANTHROPIC_API_KEY`, les Reçus retombent sur des règles simples à confiance plafonnée à 0,6, donc sans aucun transfert automatique possible : la dégradation est prévue, pas subie.
 
@@ -100,9 +101,10 @@ Conséquences non négociables :
 | `pnpm import:monday` | Reprend un planning éditorial depuis Monday (`--list` pour explorer) |
 | `pnpm seed:planning` | Amorce le Planning Éditorial de Bondet (`--reset`) |
 | `pnpm seed:moderation` | Données de démonstration de la Modération (`--reset`) |
+| `pnpm seed:finance` | Données d'amorçage du module Finance |
 | ~~`pnpm sync`~~ | **Cassée** — pointe sur `scripts/sync.ts`, qui n'existe pas encore |
 
-Un chantier est vérifié quand `pnpm typecheck`, `pnpm lint`, `pnpm build` et `pnpm test` passent tous les quatre. Aucune CI ne les lancera à ta place. Le typecheck seul ne prouve rien sur le comportement : les deux défauts du commit 588a864 passaient le typecheck et les tests.
+Un chantier est vérifié quand `pnpm typecheck`, `pnpm lint`, `pnpm build` et `pnpm test` passent tous les quatre. La CI les rejoue à chaque push, mais lance-les avant de pousser plutôt que de t'en servir comme d'un correcteur. Le typecheck seul ne prouve rien sur le comportement : les deux défauts du commit 588a864 passaient le typecheck et les tests.
 
 À ne jamais lancer sans mon accord explicite : reset de base, push de migration en production, déploiement production.
 
@@ -119,14 +121,14 @@ Un chantier est vérifié quand `pnpm typecheck`, `pnpm lint`, `pnpm build` et `
 - Les migrations de données (`0003_seed`, `0008_planning_bondet`) sont bien appliquées par `db:migrate` et sont idempotentes.
 - Aucune migration n'est appliquée au déploiement. C'est une commande à lancer à la main.
 
-**`src/lib/supabase/database.types.ts` est écrit à la main**, pas généré — 565 lignes qui doivent rester alignées sur 2 258 lignes de SQL, sans commande de génération branchée et sans garde-fou. Toute migration qui touche une table oblige à mettre ce fichier à jour dans le même commit. Son `Enums` ne contient d'ailleurs que les 10 enums de `0001` sur les 35 déclarés.
+**`src/lib/supabase/database.types.ts` est écrit à la main**, pas généré — près de 600 lignes qui doivent rester alignées sur 2 716 lignes de SQL, sans commande de génération branchée et sans garde-fou. Toute migration qui touche une table oblige à mettre ce fichier à jour dans le même commit. Son `Enums` ne contient d'ailleurs que les 10 enums de `0001` sur les 40 déclarés : les 30 autres n'y sont jamais entrés.
 
 ## Conventions
 
 ### Base de données
 
 - **snake_case** partout, tables au pluriel, préfixe par module : `planning_*`, `receipt_*`, `moderation_*` / `faq_*` / `conversations`. Les tables du socle n'ont pas de préfixe (`workspaces`, `memberships`, `ad_metrics_daily`).
-- **Enums Postgres**, pas des `text` libres : 35 types déclarés. Un nouveau statut se déclare dans une migration, il ne s'invente pas dans le code.
+- **Enums Postgres**, pas des `text` libres : 40 types déclarés. Un nouveau statut se déclare dans une migration, il ne s'invente pas dans le code.
 - **La colonne de tenant est dénormalisée sur chaque table**, y compris les tables filles dont le parent la porte déjà (`planning_subjects` porte `lane_id`, `month_id`, `board_id` **et** `workspace_id`). Redondance assumée : elle permet à la politique RLS de trancher sans jointure.
 - **Trois colonnes de tenant coexistent**, une par génération de module. C'est un piège : vérifie laquelle s'applique avant d'écrire une politique.
 
@@ -134,13 +136,14 @@ Un chantier est vérifié quand `pnpm typecheck`, `pnpm lint`, `pnpm build` et `
   |---|---|---|---|
   | `workspace_id` | socle, dashboards, Planning | `organization_members` + `memberships` | `app.accessible_workspace_ids()`, `app.owns_workspace()` |
   | `client_id` | Modération (13 tables) | `moderation_members` | `app.moderation_client_ids()`, `app.moderation_writable_client_ids()`, `app.is_moderation_owner()` |
-  | `org_id` | Reçus (5 tables) | `organization_members` | `app.receipt_readable_org_ids()`, `app.is_receipt_owner()` |
+  | `org_id` | Reçus (5 tables), Finance (8 tables) | `organization_members` | Reçus : `app.receipt_readable_org_ids()`, `app.is_receipt_owner()` — Finance : `app.member_org_ids()`, `app.is_org_owner()` |
 
   Les helpers ne sont pas interchangeables. Tous sont `security definer` avec `set search_path = public, pg_temp` — reproduis-le, c'est ce qui empêche un détournement par schéma.
 - **Toutes les politiques ciblent `to authenticated`.** Aucune ne vise `anon`, `public` ou `service_role` ; aucune n'utilise `using (true)` ; toute policy `insert`/`update`/`all` porte un `with check`. Ne dévie pas de ces quatre règles.
 - Chaque migration RLS termine par un `revoke` nominatif de ses tables pour `anon` — le `revoke all on all tables` de `0002` ne couvre que les tables existant à cet instant.
 - **Dates** : `timestamptz` pour un instant — 77 colonnes, **zéro `timestamp` sans fuseau**, `default now()` partout, jamais `timezone('utc', now())`. `date` nu pour un jour métier (12 colonnes, dont 3 membres d'une clé primaire : `ad_metrics_daily.date`, `ad_breakdowns_daily.date`, `social_followers.date` ; `planning_months.month` calé au 1er du mois).
-- **Montants, trois régimes.** Comptabilité (Reçus) en **entiers de centimes** : `amount_cents bigint` + `currency char(3)`, jamais de flottant sur de l'argent qu'on rapproche. Métriques publicitaires en `numeric(14,4)` et sponsoring du planning en `numeric(12,2)`, tous deux **sans colonne de devise** — l'EUR y est codé en dur à l'affichage (`src/lib/format.ts:15-20`, `lane-table.tsx:74`, `month-group.tsx:91`). **Il n'y a ni devise pivot ni conversion** : rien n'est converti nulle part. Le jour où la page Finance agrège plusieurs devises, c'est une décision à prendre, pas un détail à improviser.
+- **Montants, deux régimes.** Comptabilité (Reçus, Finance) en **entiers de centimes** : `amount_cents bigint` + `currency char(3)` à côté, jamais de flottant sur de l'argent. La convention est `cents = montant × 100` **quelle que soit la devise**, y compris celles sans décimales à l'affichage : la division par 100 est un invariant de lecture, pas un calcul. Métriques publicitaires en `numeric(14,4)` et sponsoring du planning en `numeric(12,2)`, tous deux **sans colonne de devise** — l'EUR y est codé en dur à l'affichage (`src/lib/format.ts:15-20`, `lane-table.tsx:74`, `month-group.tsx:91`).
+- **Rien n'est jamais converti.** Aucune devise pivot, aucun taux de change nulle part. Les totaux se font **par devise** (`Record<string, number>`), et une dépense qui porte deux montants — facturé chez le commerçant, débité du wallet — les affiche côte à côte sans les additionner (`src/lib/finance/money.ts`). La seule somme inter-devises du repo sert à trier, jamais à afficher, et le dit dans son commentaire. Ne l'imite pas ailleurs.
 
 ### TypeScript
 
@@ -244,9 +247,9 @@ Pour un test d'isolation RLS, le modèle reste `tests/planning-isolation.test.ts
 
 **Les tests d'isolation se sautent en silence.** Sans `.env.local` renseigné, la suite passe en `describe.skip` : `pnpm test` est vert **sans avoir rien prouvé** sur la RLS. Un vert n'est une preuve d'isolation que si les tests ont réellement tourné contre la base, migrations appliquées.
 
-**En accès ouvert, la RLS ne protège plus rien.** Voir la section État actuel. C'est la conséquence directe de `ANTIDOTES_REQUIRE_LOGIN` non positionné, et la raison pour laquelle il faut refermer avant le deuxième client.
+**En accès ouvert, la RLS ne protège plus rien.** Voir la section État actuel. `ANTIDOTES_OPEN_ACCESS=true` ne se pose pas sur un environnement qui porte les données d'un client — c'est un réglage de mise au point, et il désarme les 92 politiques d'un coup.
 
-**`e2e/acces.spec.ts` teste le comportement qui a été désactivé.** Ses trois cas vérifient la redirection vers `/login` ; en accès ouvert ils échouent tous. La suite e2e est rouge par construction, et sans CI personne ne le voit.
+**`e2e/acces.spec.ts` suppose l'application fermée.** Ses trois cas vérifient la redirection vers `/login` : ils passent quand l'accès ouvert n'est pas activé, et échouent tous quand il l'est. La suite e2e n'est pas dans la CI — elle demande un navigateur et un vrai projet Supabase.
 
 **À vérifier, non tranché :** le cron des Reçus déclare `maxDuration = 300`, alors que le plan Hobby plafonne les fonctions bien plus bas. Rien ne l'a encore prouvé en conditions réelles — au premier vrai passage, regarder si la fonction est coupée en cours de route.
 

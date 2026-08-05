@@ -83,16 +83,16 @@ cat supabase/migrations/*.sql | pbcopy
 
 ## Sécurité
 
-> ⚠️ **L'application est actuellement en accès ouvert.** Aucune connexion n'est
-> demandée, et toute personne disposant de l'URL voit l'ensemble des espaces :
-> plannings, budgets de sponsorisation, captions, chiffres de performance.
+> ⚠️ **L'application peut tourner en accès ouvert.** Dans ce mode, aucune
+> connexion n'est demandée et toute personne disposant de l'URL voit l'ensemble
+> des espaces : plannings, budgets de sponsorisation, captions, chiffres de
+> performance.
 >
-> C'est un choix assumé le temps de la mise au point, pas un oubli. Pour
-> refermer, une seule variable d'environnement suffit — le code
-> d'authentification est resté entièrement en place :
+> L'ouverture se demande explicitement, elle ne s'obtient pas par défaut. Un
+> environnement qui ne dit rien est fermé :
 >
 > ```sh
-> ANTIDOTES_REQUIRE_LOGIN=true
+> ANTIDOTES_OPEN_ACCESS=true
 > ```
 >
 > Tant que l'accès est ouvert, un bandeau rouge « Accès public » s'affiche dans

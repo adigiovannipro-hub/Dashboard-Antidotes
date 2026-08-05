@@ -1,0 +1,75 @@
+# Vérification automatique des quatre commandes qui décident qu'un chantier
+# tient debout. Elles existaient déjà, mais rien ne les lançait : jusqu'ici,
+# seul ce qu'on pensait à taper à la main était vérifié.
+#
+# Ce que cette CI ne prouve pas, et qu'il ne faut pas lui faire dire :
+# les tests d'isolation RLS ont besoin d'un vrai projet Supabase et se sautent
+# en silence sans lui. Ils sont donc SAUTÉS ici, volontairement — voir la note
+# de l'étape « Tests ». Un vert sur cette CI n'est pas une preuve d'isolation.
+
+name: CI
+
+on:
+  push:
+  pull_request:
+
+# Un push qui en remplace un autre annule la course précédente : sur un plan
+# gratuit, les minutes se dépensent une seule fois.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verifier:
+    name: Types, lint, tests, build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.18.2
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Installation
+        run: pnpm install --frozen-lockfile
+
+      - name: Types
+        run: pnpm typecheck
+
+      - name: Lint
+        run: pnpm lint
+
+      # Les variables publiques sont des valeurs de façade : `src/lib/env.ts`
+      # valide au chargement du module, et un test qui importe la chaîne des
+      # requêtes échouerait sans elles.
+      #
+      # `SUPABASE_SERVICE_ROLE_KEY` est délibérément ABSENTE : c'est elle qui
+      # fait basculer les suites d'isolation en `describe.skip`. Les brancher
+      # sur un vrai projet depuis la CI voudrait dire y créer et y détruire des
+      # comptes à chaque push — ces suites se lancent à la main, contre la base.
+      - name: Tests
+        run: pnpm test
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://ci-placeholder.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder-anon-key
+
+      # Le build ne joint aucun service : toutes les pages qui lisent la base
+      # appellent `cookies()`, ce qui les rend dynamiques et les exclut du
+      # pré-rendu. Les valeurs ci-dessous ne servent qu'à satisfaire la
+      # validation zod au chargement des modules.
+      - name: Build
+        run: pnpm build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://ci-placeholder.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder-anon-key
+          NEXT_PUBLIC_SITE_URL: http://localhost:3000
+          SUPABASE_SERVICE_ROLE_KEY: ci-placeholder-service-key
+          CREDENTIALS_ENCRYPTION_KEY: ci-placeholder-encryption-key
+          CRON_SECRET: ci-placeholder-cron-secret

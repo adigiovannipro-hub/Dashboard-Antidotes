@@ -50,7 +50,7 @@ export function AppHeader({
           {isOpenAccess() ? (
             <span
               className="border-brand-red/40 text-brand-red mr-2 rounded-full border px-2 py-0.5 text-[11px] font-medium"
-              title="Aucune authentification : toute personne ayant l'URL voit l'ensemble des espaces. ANTIDOTES_REQUIRE_LOGIN=true pour refermer."
+              title="Aucune authentification : toute personne ayant l'URL voit l'ensemble des espaces. Retirer ANTIDOTES_OPEN_ACCESS pour refermer."
             >
               Accès public
             </span>
