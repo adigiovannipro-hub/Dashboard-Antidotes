@@ -6,6 +6,12 @@
  * premiers, et postgrest-js en a besoin pour inférer les résultats de requête.
  */
 
+import type {
+  PlanningPlatform,
+  PlanningSubject,
+  ResolvedVisual,
+} from "@/lib/planning/types";
+
 export type WorkTaskSource = "manual" | "fathom" | "email" | "recurring";
 
 export const WORK_SOURCE_LABELS: Record<WorkTaskSource, string> = {
@@ -97,4 +103,18 @@ export type TaskWorkspace = {
   slug: string;
   name: string;
   accent_color: string | null;
+};
+
+/**
+ * Une ligne de planning telle que « À publier » l'affiche : la publication
+ * source, intacte, plus ce qu'il faut pour la situer — client, réseau,
+ * visuels résolus et tableau d'origine.
+ */
+export type PublicationRow = {
+  subject: PlanningSubject;
+  platform: PlanningPlatform;
+  lane_name: string;
+  visuals: ResolvedVisual[];
+  workspace: TaskWorkspace;
+  board_slug: string;
 };

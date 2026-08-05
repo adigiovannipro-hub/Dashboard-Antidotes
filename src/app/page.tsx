@@ -11,10 +11,22 @@ import {
 } from "lucide-react";
 
 import { AppHeader } from "@/components/app-header";
+import { ArchiveSection } from "@/components/mon-travail/archive-section";
+import { PublicationsSection } from "@/components/mon-travail/publications-section";
+import { TasksSection } from "@/components/mon-travail/tasks-section";
 import { Badge } from "@/components/ui/badge";
 import { requireViewer, roleLabel, type WorkspaceAccess } from "@/lib/auth";
 import { getModerationContext } from "@/lib/moderation/access";
 import { isModerationVisible } from "@/lib/moderation/permissions";
+import { addDays, todayInParis } from "@/lib/mon-travail/dates";
+import { UPCOMING_DAYS, organizeTasks } from "@/lib/mon-travail/organize";
+import {
+  listArchivedTasks,
+  listDayPublications,
+  listOpenTasks,
+} from "@/lib/mon-travail/queries";
+import type { TaskWorkspace } from "@/lib/mon-travail/types";
+import { DONE_STATUSES } from "@/lib/planning/types";
 import type { WorkspaceType } from "@/lib/supabase/database.types";
 
 const SECTIONS: { type: WorkspaceType; title: string; icon: typeof Users }[] = [
@@ -23,6 +35,16 @@ const SECTIONS: { type: WorkspaceType; title: string; icon: typeof Users }[] = [
   { type: "personal", title: "Perso", icon: Lock },
 ];
 
+/**
+ * La page d'accueil de mon espace : « Mon travail ».
+ *
+ * Trois étages, dans cet ordre — vérifier ce qui doit partir aujourd'hui,
+ * dérouler les tâches du jour et des quatre jours suivants, puis les cartes
+ * d'accès aux espaces et aux outils. L'archivé attend en bas de page.
+ *
+ * Un client, lui, ne voit que le hub d'origine : ses espaces. Le module
+ * n'existe pas pour lui — ni section vide, ni mention.
+ */
 export default async function HubPage() {
   const viewer = await requireViewer();
 
@@ -70,19 +92,34 @@ export default async function HubPage() {
     redirect(`/espace/${viewer.workspaces[0]!.slug}`);
   }
 
+  const travail = viewer.isOwner ? await loadTravail(viewer.workspaces) : null;
+
   return (
     <>
       <AppHeader viewer={viewer} />
 
-      <main className="mx-auto w-full max-w-6xl flex-1 space-y-10 p-6 md:p-10">
-        <div className="space-y-1">
-          <h1 className="text-2xl font-semibold tracking-tight">Espaces</h1>
-          <p className="text-muted-foreground text-sm">
-            {viewer.workspaces.length === 0
-              ? "Aucun espace ne vous est encore attribué."
-              : `${viewer.workspaces.length} espaces accessibles.`}
-          </p>
-        </div>
+      <main className="mx-auto w-full max-w-6xl flex-1 space-y-10 p-4 md:p-10">
+        {travail ? (
+          <>
+            <h1 className="sr-only">Mon travail</h1>
+            <PublicationsSection rows={travail.toPublish} />
+            <TasksSection
+              groups={travail.groups}
+              today={travail.today}
+              workspacesById={travail.workspacesById}
+              clientWorkspaces={travail.clientWorkspaces}
+            />
+          </>
+        ) : (
+          <div className="space-y-1">
+            <h1 className="text-2xl font-semibold tracking-tight">Espaces</h1>
+            <p className="text-muted-foreground text-sm">
+              {viewer.workspaces.length === 0
+                ? "Aucun espace ne vous est encore attribué."
+                : `${viewer.workspaces.length} espaces accessibles.`}
+            </p>
+          </div>
+        )}
 
         {viewer.workspaces.length === 0 ? <EmptyState email={viewer.email} /> : null}
 
@@ -141,9 +178,55 @@ export default async function HubPage() {
             </ul>
           </section>
         ) : null}
+
+        {travail ? (
+          <ArchiveSection
+            tasks={travail.archivedTasks}
+            publications={travail.published}
+            workspacesById={travail.workspacesById}
+            clientWorkspaces={travail.clientWorkspaces}
+          />
+        ) : null}
       </main>
     </>
   );
+}
+
+/** Tout ce que les sections « Mon travail » consomment, chargé d'un bloc. */
+async function loadTravail(workspaces: WorkspaceAccess[]) {
+  const today = todayInParis();
+
+  const [publications, openTasks, archivedTasks] = await Promise.all([
+    listDayPublications({ day: today }),
+    listOpenTasks({ until: addDays(today, UPCOMING_DAYS) }),
+    listArchivedTasks({}),
+  ]);
+
+  const asTaskWorkspace = (workspace: WorkspaceAccess): TaskWorkspace => ({
+    id: workspace.id,
+    slug: workspace.slug,
+    name: workspace.name,
+    accent_color: workspace.accent_color,
+  });
+
+  return {
+    today,
+    groups: organizeTasks(openTasks, today),
+    // Ce qui est déjà parti rejoint l'archivé ; le reste est à vérifier.
+    toPublish: publications.filter(
+      (row) => !DONE_STATUSES.includes(row.subject.status),
+    ),
+    published: publications.filter((row) =>
+      DONE_STATUSES.includes(row.subject.status),
+    ),
+    archivedTasks,
+    workspacesById: Object.fromEntries(
+      workspaces.map((workspace) => [workspace.id, asTaskWorkspace(workspace)]),
+    ),
+    clientWorkspaces: workspaces
+      .filter((workspace) => workspace.type === "client")
+      .map(asTaskWorkspace),
+  };
 }
 
 function WorkspaceCard({ workspace }: { workspace: WorkspaceAccess }) {

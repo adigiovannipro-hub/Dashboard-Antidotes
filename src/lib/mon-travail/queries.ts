@@ -1,14 +1,9 @@
 import "server-only";
 
 import { resolveVisuals } from "@/lib/planning/queries";
-import type {
-  PlanningLane,
-  PlanningPlatform,
-  PlanningSubject,
-  ResolvedVisual,
-} from "@/lib/planning/types";
+import type { PlanningLane, PlanningSubject } from "@/lib/planning/types";
 import { createClient } from "@/lib/supabase/server";
-import type { TaskWorkspace, WorkTask } from "./types";
+import type { PublicationRow, TaskWorkspace, WorkTask } from "./types";
 
 /**
  * Lectures de « Mon travail ».
@@ -18,16 +13,6 @@ import type { TaskWorkspace, WorkTask } from "./types";
  * n'a de toute façon jamais cette page — mais si ces requêtes tournaient sous
  * sa session, il ne verrait que son propre espace, par construction.
  */
-
-/** Une ligne de planning telle que la page d'accueil l'affiche. */
-export type PublicationRow = {
-  subject: PlanningSubject;
-  platform: PlanningPlatform;
-  lane_name: string;
-  visuals: ResolvedVisual[];
-  workspace: TaskWorkspace;
-  board_slug: string;
-};
 
 export async function listDayPublications(options: {
   day: string;
