@@ -3,7 +3,9 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
+import { getViewer } from "@/lib/auth";
 import { getFinanceContext } from "@/lib/finance/access";
+import { runFinanceSync } from "@/lib/finance/sync";
 import { createClient } from "@/lib/supabase/server";
 
 /**
@@ -22,12 +24,8 @@ export type FinanceActionResult =
 const FINANCE_PATH = "/entreprise/finance";
 
 /**
- * « Synchroniser maintenant ».
- *
- * Tant que les intégrations de la phase 2 ne sont pas branchées, l'action le
- * dit — elle ne consigne pas un passage fantôme au journal, et elle ne fait
- * pas semblant d'avoir synchronisé. Quand le pipeline existera, elle le
- * déclenchera en le marquant `manual`.
+ * « Synchroniser maintenant » — le même pipeline que le cron, marqué `manual`
+ * au journal avec son demandeur.
  *
  * Sans paramètre, et néanmoins branchée sur `useActionState` : une fonction
  * qui ignore l'état précédent et le FormData n'a pas à faire semblant de les
@@ -37,15 +35,38 @@ export async function syncNow(): Promise<FinanceActionResult> {
   const context = await getFinanceContext();
   if (!context?.canDecide) return { ok: false, error: "Action indisponible." };
 
-  if (!process.env.AIRWALLEX_API_KEY) {
+  if (!process.env.AIRWALLEX_API_KEY || !process.env.AIRWALLEX_CLIENT_ID) {
     return {
       ok: false,
       error:
-        "Aucune intégration Airwallex configurée. La synchronisation arrive en phase 2 — l'écran travaille sur les données d'amorçage.",
+        "Aucune intégration Airwallex configurée : clés absentes de l'environnement. L'écran travaille sur les données d'amorçage.",
     };
   }
 
-  return { ok: false, error: "Le pipeline de synchronisation arrive en phase 2." };
+  const viewer = await getViewer();
+  const report = await runFinanceSync({
+    orgId: context.orgId,
+    triggeredVia: "manual",
+    requestedBy: viewer?.user.id ?? null,
+  });
+
+  revalidatePath(FINANCE_PATH);
+
+  const errors = report.filter((step) => step.status === "error");
+  if (errors.length > 0) {
+    return {
+      ok: false,
+      error: `Synchronisation partielle — ${errors
+        .map((step) => `${step.kind} : ${step.error}`)
+        .join(" ; ")}`,
+    };
+  }
+
+  const rows = Object.fromEntries(report.map((step) => [step.kind, step.rows]));
+  return {
+    ok: true,
+    message: `Synchronisation terminée : ${rows.balances ?? 0} soldes, ${rows.transactions ?? 0} dépenses, ${rows.invoices ?? 0} factures.`,
+  };
 }
 
 const recategorizeAction = z.object({

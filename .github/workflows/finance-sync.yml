@@ -1,0 +1,53 @@
+# La cadence horaire du module Finance, que Vercel Hobby ne sait pas offrir :
+# son plan rejette tout déploiement dont un cron demande mieux que le
+# quotidien (vercel.json n'en sait rien, et doit n'en rien savoir). GitHub
+# Actions n'a pas cette limite — ce workflow appelle la route, qui se protège
+# elle-même par CRON_SECRET.
+#
+# Coût : ~720 exécutions de moins d'une minute par mois, sur les 2 000 minutes
+# gratuites d'un dépôt privé — la CI comprise, on reste large.
+#
+# Deux choses à savoir sur les schedules GitHub :
+#   • l'heure n'est pas garantie à la minute près — un décalage de quelques
+#     minutes est normal, et sans conséquence ici ;
+#   • GitHub suspend les schedules d'un dépôt inactif 60 jours — un simple
+#     commit les relance.
+#
+# Secrets requis (Settings → Secrets and variables → Actions) : CRON_SECRET —
+# la même valeur que sur Vercel. Variable requise (onglet Variables) :
+# APP_URL, l'URL de production, sans barre oblique finale.
+
+name: Synchronisation Finance
+
+on:
+  schedule:
+    # Minute 17 et non 0 : les pics de la pleine heure sont les moments où
+    # GitHub retarde le plus ses schedules.
+    - cron: "17 * * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: finance-sync
+  cancel-in-progress: false
+
+jobs:
+  synchroniser:
+    name: Appel de la route de synchronisation
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Appeler /api/cron/sync-finance
+        run: |
+          if [ -z "${{ vars.APP_URL }}" ]; then
+            echo "::error::La variable APP_URL n'est pas définie (Settings → Secrets and variables → Actions → Variables)."
+            exit 1
+          fi
+          reponse=$(curl -sS --max-time 120 \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "${{ vars.APP_URL }}/api/cron/sync-finance")
+          echo "$reponse"
+          # La route répond 200 même en échec partiel — c'est le corps qui dit
+          # la vérité. On échoue le job si `ok` est faux, pour que l'onglet
+          # Actions montre du rouge plutôt qu'un vert menteur.
+          echo "$reponse" | grep -q '"ok":true' || exit 1

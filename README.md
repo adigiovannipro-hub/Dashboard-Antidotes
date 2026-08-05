@@ -211,11 +211,18 @@ Supabase, l'écran lit la base, et la bannière dit de quand datent les
 chiffres. L'historique de solde n'existera que par les instantanés que chaque
 passage déposera — l'API ne rend aucun passé.
 
-**Aucun cron Finance n'est déclaré pour l'instant**, et c'est délibéré : le
-plan Hobby de Vercel rejette tout déploiement dont un cron demande mieux que
-le quotidien, et il ne reste qu'un créneau sur les deux du plan — celui des
-Reçus est pris. La cadence horaire visée passera par un `schedule` GitHub
-Actions en phase 2, avec le pipeline qu'il appellera.
+La synchronisation tourne **toutes les heures via GitHub Actions**
+(`.github/workflows/finance-sync.yml`) — pas par Vercel Cron, dont le plan
+Hobby rejette tout déploiement demandant mieux que le quotidien. Pour
+l'activer : le secret `CRON_SECRET` (même valeur que sur Vercel) et la
+variable `APP_URL` dans *Settings → Secrets and variables → Actions*, plus les
+clés `AIRWALLEX_*` sur Vercel. Sans elles, la route répond poliment qu'elle ne
+peut rien faire — et le dit dans l'onglet Actions.
+
+Le dépôt s'administre **sans terminal** : le workflow *Base de données*
+(*Actions → Base de données → Run workflow*) applique les migrations, amorce
+les données de démonstration et lance les tests d'isolation RLS contre la
+vraie base, au choix.
 
 `finance_transactions` a vocation à devenir l'unique miroir des dépenses
 Airwallex : le module Reçus s'y rebranchera, et `receipt_expenses` disparaîtra

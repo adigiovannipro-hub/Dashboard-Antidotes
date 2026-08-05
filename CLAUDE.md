@@ -42,7 +42,7 @@ Un module interne renvoie **404 et non 403** à qui n'y a pas droit : un client 
 | Modération (interne) | `/moderation`, `src/lib/moderation/` | 13 tables, pgvector, FAQ sémantique, génération Claude, boucle d'apprentissage, inbox 3 colonnes. Architecture seulement, aucune connexion réelle aux plateformes |
 | Planning Éditorial | `/espace/[workspace]/planning`, `src/lib/planning/` | 6 tables, miroir du board Monday du client, import à sens unique, + analyses strategy / cadence / health |
 | Reçus | `/entreprise/recus`, `src/lib/recus/` | 5 tables, Gmail → facture → Airwallex, vérification d'accrochage, auto-transfert à 3 validations concordantes, cron quotidien 6h |
-| Finance (phase 1) | `/entreprise/finance`, `src/lib/finance/` | 8 tables, facturation à venir, trésorerie EUR, courbe de solde, dépenses carte. Écran complet sur données d'amorçage (`pnpm seed:finance`) : **aucune connexion Airwallex ni cron** — le README l'assume ; la synchronisation (schedule GitHub Actions, le plan Hobby refusant l'horaire) arrive en phase 2 |
+| Finance (phase 1) | `/entreprise/finance`, `src/lib/finance/` | 8 tables, facturation à venir, trésorerie EUR, courbe de solde, dépenses carte. Écran complet sur données d'amorçage (`pnpm seed:finance`) : pipeline de synchro écrit (soldes, dépenses, factures) + schedule GitHub Actions horaire — **jamais exécuté contre l'API réelle**, clés absentes ; endpoint factures à confirmer au premier passage |
 
 **Tout tourne sur données de démo.** Aucune API régie n'est branchée. Les données de démo Bondet sont calées au centime sur le Looker réel de juin 2026 : elles servent de référence visuelle, ne les modifie jamais sans que je le demande. Quand une source réelle arrive, elle ne remplace pas le jeu de démo, elle s'ajoute derrière un flag.
 
@@ -67,7 +67,7 @@ Bandeau rouge « Accès public » dans l'en-tête (`src/components/app-header.ts
 
 Next.js 16.2.12 · React 19.2.4 · TypeScript strict · Tailwind 4 + shadcn style `base-nova` sur `@base-ui/react` (pas Radix) · Supabase (Postgres, magic link, RLS, Storage) · Recharts · Vercel + Vercel Cron · Vitest 4 + Playwright · Node ≥ 22, pnpm 10.18.2.
 
-**La CI est minimale** — `.github/workflows/ci.yml` lance `typecheck`, `lint`, `test` et `build` à chaque push et sur chaque pull request, rien d'autre. Elle ne joint aucun service : les suites d'isolation y sautent faute de `SUPABASE_SERVICE_ROLE_KEY`, et **son vert n'est donc pas une preuve d'isolation**. Ni les migrations, ni Playwright, ni le déploiement ne passent par elle.
+**La CI est minimale** — `.github/workflows/ci.yml` lance `typecheck`, `lint`, `test` et `build` à chaque push et sur chaque pull request. Deux workflows l'accompagnent : `db-admin.yml` (manuel — migrations, seed Finance, tests d'isolation contre la vraie base) et `finance-sync.yml` (horaire — appelle `/api/cron/sync-finance`). Elle ne joint aucun service : les suites d'isolation y sautent faute de `SUPABASE_SERVICE_ROLE_KEY`, et **son vert n'est donc pas une preuve d'isolation**. Ni les migrations, ni Playwright, ni le déploiement ne passent par elle.
 
 **Contrainte dure : rester dans les tiers gratuits.** Avant d'ajouter un cron, une dépendance, un service externe ou un appel LLM récurrent, vérifie que ça tient dans le free tier et dis-moi le coût estimé.
 
