@@ -41,8 +41,12 @@ async function main() {
   const client = new Client({
     connectionString,
     // Supabase impose TLS mais présente un certificat que Node ne valide pas
-    // sans son CA : on chiffre sans vérifier la chaîne.
-    ssl: { rejectUnauthorized: false },
+    // sans son CA : on chiffre sans vérifier la chaîne. `sslmode=disable`
+    // reste possible pour le rejeu obligatoire sur un Postgres jetable local,
+    // qui n'a pas de TLS du tout.
+    ssl: connectionString.includes("sslmode=disable")
+      ? false
+      : { rejectUnauthorized: false },
   });
   await client.connect();
 
