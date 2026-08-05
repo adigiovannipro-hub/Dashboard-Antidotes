@@ -9,7 +9,6 @@ import {
   flattenSubjects,
   getBoard,
   getBoardContent,
-  listBoards,
   listFaqEntries,
 } from "@/lib/planning/queries";
 import { deduceStrategy } from "@/lib/planning/strategy";
@@ -51,17 +50,14 @@ export default async function PlanningBoardPage({ params }: { params: Params }) 
   if (!loaded) notFound();
 
   const { workspace, board } = loaded;
-  const boards = await listBoards(workspace.id);
   const scope = { workspace: workspace.slug, board: board.slug };
 
   if (board.kind === "faq") {
     return (
       <FaqBoardView
         scope={scope}
-        boards={boards}
         board={board}
         entries={await listFaqEntries(board.id)}
-        workspaceSlug={workspace.slug}
       />
     );
   }
@@ -90,13 +86,11 @@ export default async function PlanningBoardPage({ params }: { params: Params }) 
   return (
     <PlanningBoardView
       scope={scope}
-      boards={boards}
       board={board}
       months={months}
       owners={owners}
       issues={issues}
       currentMonthKey={currentMonthKey}
-      workspaceSlug={workspace.slug}
     />
   );
 }

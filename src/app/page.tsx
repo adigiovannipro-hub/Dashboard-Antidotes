@@ -1,19 +1,26 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ArrowRight, Briefcase, Lock, MessagesSquare, Users } from "lucide-react";
+import { ArrowRight, MessagesSquare, ReceiptText } from "lucide-react";
 
 import { AppHeader } from "@/components/app-header";
-import { Badge } from "@/components/ui/badge";
-import { requireViewer, roleLabel, type WorkspaceAccess } from "@/lib/auth";
+import { requireViewer, type WorkspaceAccess } from "@/lib/auth";
 import { getModerationContext } from "@/lib/moderation/access";
 import { isModerationVisible } from "@/lib/moderation/permissions";
+import { getReceiptsContext } from "@/lib/recus/access";
 import type { WorkspaceType } from "@/lib/supabase/database.types";
 
-const SECTIONS: { type: WorkspaceType; title: string; icon: typeof Users }[] = [
-  { type: "client", title: "Clients", icon: Users },
-  { type: "business", title: "Mon entreprise", icon: Briefcase },
-  { type: "personal", title: "Perso", icon: Lock },
-];
+const TYPE_LABELS: Record<WorkspaceType, string> = {
+  client: "Client",
+  business: "Entreprise",
+  personal: "Perso",
+};
+
+/** Clients d'abord : c'est pour eux qu'on ouvre la plateforme. */
+const TYPE_ORDER: Record<WorkspaceType, number> = {
+  client: 0,
+  business: 1,
+  personal: 2,
+};
 
 export default async function HubPage() {
   const viewer = await requireViewer();
@@ -23,7 +30,10 @@ export default async function HubPage() {
   // client, à côté de son Reporting. La RLS a déjà filtré — un client du
   // dashboard n'a aucun rattachement, donc aucun outil, et n'apprend pas leur
   // existence.
-  const moderation = await getModerationContext();
+  const [moderation, receipts] = await Promise.all([
+    getModerationContext(),
+    getReceiptsContext(),
+  ]);
 
   const tools = [
     isModerationVisible(moderation.access)
@@ -32,6 +42,14 @@ export default async function HubPage() {
           title: "Modération",
           description: "Messages et commentaires, réponses validées à la main",
           icon: MessagesSquare,
+        }
+      : null,
+    receipts !== null
+      ? {
+          href: "/entreprise/recus",
+          title: "Reçus",
+          description: "Factures reçues par mail, rapprochées d'Airwallex",
+          icon: ReceiptText,
         }
       : null,
   ].filter((tool) => tool !== null);
@@ -43,44 +61,35 @@ export default async function HubPage() {
     redirect(`/espace/${viewer.workspaces[0]!.slug}`);
   }
 
+  const workspaces = [...viewer.workspaces].sort(
+    (a, b) => TYPE_ORDER[a.type] - TYPE_ORDER[b.type] || a.name.localeCompare(b.name),
+  );
+
   return (
     <>
       <AppHeader viewer={viewer} />
 
-      <main className="mx-auto w-full max-w-6xl flex-1 space-y-10 p-6 md:p-10">
+      <main className="mx-auto w-full max-w-5xl flex-1 space-y-8 p-6 md:p-8">
         <div className="space-y-1">
           <h1 className="text-2xl font-semibold tracking-tight">Espaces</h1>
           <p className="text-muted-foreground text-sm">
             {viewer.workspaces.length === 0
               ? "Aucun espace ne vous est encore attribué."
-              : `${viewer.workspaces.length} espaces accessibles.`}
+              : "Chaque espace porte le planning et les chiffres d'un client — ou les vôtres."}
           </p>
         </div>
 
-        {viewer.workspaces.length === 0 ? <EmptyState email={viewer.email} /> : null}
-
-        {SECTIONS.map(({ type, title, icon: Icon }) => {
-          const workspaces = viewer.workspaces.filter(
-            (workspace) => workspace.type === type,
-          );
-          if (workspaces.length === 0) return null;
-
-          return (
-            <section key={type} className="space-y-3">
-              <h2 className="text-muted-foreground flex items-center gap-2 text-xs font-medium tracking-wide uppercase">
-                <Icon className="size-3.5" aria-hidden />
-                {title}
-              </h2>
-              <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {workspaces.map((workspace) => (
-                  <li key={workspace.id}>
-                    <WorkspaceCard workspace={workspace} />
-                  </li>
-                ))}
-              </ul>
-            </section>
-          );
-        })}
+        {viewer.workspaces.length === 0 ? (
+          <EmptyState email={viewer.email} />
+        ) : (
+          <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {workspaces.map((workspace) => (
+              <li key={workspace.id}>
+                <WorkspaceCard workspace={workspace} />
+              </li>
+            ))}
+          </ul>
+        )}
 
         {tools.length > 0 ? (
           <section className="space-y-3">
@@ -92,22 +101,26 @@ export default async function HubPage() {
                 <li key={tool.href}>
                   <Link
                     href={tool.href}
-                    className="group border-border hover:border-foreground/20 focus-visible:ring-ring block rounded-xl border p-5 transition-colors focus-visible:ring-2 focus-visible:outline-none"
+                    className="group border-border hover:border-foreground/20 focus-visible:ring-ring flex items-center gap-3 rounded-xl border p-4 transition-colors focus-visible:ring-2 focus-visible:outline-none"
                   >
-                    <div className="flex items-start justify-between gap-3">
+                    <span className="bg-muted flex size-9 shrink-0 items-center justify-center rounded-lg">
                       <tool.icon
-                        className="text-muted-foreground size-5"
+                        className="text-muted-foreground size-4"
                         aria-hidden
                       />
-                      <ArrowRight
-                        className="text-muted-foreground size-4 transition-transform group-hover:translate-x-0.5"
-                        aria-hidden
-                      />
-                    </div>
-                    <p className="mt-4 font-medium">{tool.title}</p>
-                    <p className="text-muted-foreground mt-1 text-xs">
-                      {tool.description}
-                    </p>
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-medium">
+                        {tool.title}
+                      </span>
+                      <span className="text-muted-foreground block truncate text-xs">
+                        {tool.description}
+                      </span>
+                    </span>
+                    <ArrowRight
+                      className="text-muted-foreground size-4 shrink-0 transition-transform group-hover:translate-x-0.5"
+                      aria-hidden
+                    />
                   </Link>
                 </li>
               ))}
@@ -123,27 +136,29 @@ function WorkspaceCard({ workspace }: { workspace: WorkspaceAccess }) {
   return (
     <Link
       href={`/espace/${workspace.slug}`}
-      className="group border-border bg-card hover:border-foreground/20 focus-visible:ring-ring block rounded-xl border p-5 transition-colors focus-visible:ring-2 focus-visible:outline-none"
+      className="group border-border bg-card hover:border-foreground/20 focus-visible:ring-ring flex items-center gap-3 rounded-xl border p-4 transition-colors focus-visible:ring-2 focus-visible:outline-none"
     >
-      <div className="flex items-start justify-between gap-3">
-        <span
-          aria-hidden
-          className="bg-muted size-8 shrink-0 rounded-lg"
-          style={
-            workspace.accent_color
-              ? { backgroundColor: workspace.accent_color }
-              : undefined
-          }
-        />
-        <ArrowRight
-          className="text-muted-foreground size-4 transition-transform group-hover:translate-x-0.5"
-          aria-hidden
-        />
-      </div>
-      <p className="mt-4 font-medium">{workspace.name}</p>
-      <Badge variant="secondary" className="mt-2">
-        {roleLabel(workspace.role)}
-      </Badge>
+      <span
+        aria-hidden
+        className="bg-muted-foreground/20 flex size-9 shrink-0 items-center justify-center rounded-lg text-sm font-semibold text-white"
+        style={
+          workspace.accent_color
+            ? { backgroundColor: workspace.accent_color }
+            : undefined
+        }
+      >
+        {workspace.name[0]?.toUpperCase()}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-sm font-medium">{workspace.name}</span>
+        <span className="text-muted-foreground block text-xs">
+          {TYPE_LABELS[workspace.type]}
+        </span>
+      </span>
+      <ArrowRight
+        className="text-muted-foreground size-4 shrink-0 transition-transform group-hover:translate-x-0.5"
+        aria-hidden
+      />
     </Link>
   );
 }

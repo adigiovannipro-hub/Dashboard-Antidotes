@@ -53,15 +53,20 @@ function DropdownMenuGroup({ ...props }: MenuPrimitive.Group.Props) {
   return <MenuPrimitive.Group data-slot="dropdown-menu-group" {...props} />
 }
 
+/**
+ * Libellé de section. Volontairement un simple `div` : le `GroupLabel` de
+ * Base UI exige un parent `<Menu.Group>` et fait crasher tout le popup sans
+ * lui — un menu qui ne s'ouvre pas, silencieusement, en production.
+ */
 function DropdownMenuLabel({
   className,
   inset,
   ...props
-}: MenuPrimitive.GroupLabel.Props & {
+}: React.ComponentProps<"div"> & {
   inset?: boolean
 }) {
   return (
-    <MenuPrimitive.GroupLabel
+    <div
       data-slot="dropdown-menu-label"
       data-inset={inset}
       className={cn(

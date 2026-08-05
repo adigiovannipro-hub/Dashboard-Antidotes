@@ -70,12 +70,12 @@ export function HeroFigure({
   const hasComparison = delta && delta.ratio !== null;
 
   return (
-    <div className="bg-card flex flex-col justify-between gap-6 rounded-lg p-6">
+    <div className="bg-card flex flex-col justify-between gap-4 rounded-lg p-5">
       <div>
         <p className="text-muted-foreground text-xs tracking-wide uppercase">
           {definition.label}
         </p>
-        <p className="text-foreground mt-2 text-5xl leading-none font-bold sm:text-6xl">
+        <p className="text-foreground mt-2 text-5xl leading-none font-bold">
           {formatMetric(metric, value)}
         </p>
         {hasComparison ? (

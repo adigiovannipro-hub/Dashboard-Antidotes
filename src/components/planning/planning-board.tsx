@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { AlertTriangle, ChevronRight, Info, Plus } from "lucide-react";
 
 import { createMonth } from "@/app/actions/planning";
@@ -33,22 +32,18 @@ import { cn } from "@/lib/utils";
  */
 export function PlanningBoardView({
   scope,
-  boards,
   board,
   months,
   owners,
   issues,
   currentMonthKey,
-  workspaceSlug,
 }: {
   scope: Scope;
-  boards: PlanningBoard[];
   board: PlanningBoard;
   months: MonthWithLanes[];
   owners: PlanningOwner[];
   issues: CadenceIssue[];
   currentMonthKey: string;
-  workspaceSlug: string;
 }) {
   const { run, pending } = useCellAction();
 
@@ -65,9 +60,20 @@ export function PlanningBoardView({
     ),
   );
 
+  const publications = months
+    .flatMap((month) => month.lanes)
+    .flatMap((lane) => lane.subjects)
+    .filter((subject) => subject.status !== "dropped").length;
+
   return (
     <div className="min-w-0 flex-1 p-4 md:p-6">
-      <BoardTabs boards={boards} current={board} workspaceSlug={workspaceSlug} />
+      <header className="mb-4 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+        <h1 className="text-lg font-semibold tracking-tight">{board.name}</h1>
+        <p className="text-muted-foreground text-xs tabular-nums">
+          {publications} publication{publications > 1 ? "s" : ""}
+          {" sur l'année"}
+        </p>
+      </header>
 
       <CadenceStrip issues={issues} />
 
@@ -113,36 +119,6 @@ export function PlanningBoardView({
         </DropdownMenu>
       ) : null}
     </div>
-  );
-}
-
-export function BoardTabs({
-  boards,
-  current,
-  workspaceSlug,
-}: {
-  boards: PlanningBoard[];
-  current: PlanningBoard;
-  workspaceSlug: string;
-}) {
-  return (
-    <nav aria-label="Tableaux" className="mb-4 flex items-center gap-1">
-      {boards.map((board) => (
-        <Link
-          key={board.id}
-          href={`/espace/${workspaceSlug}/planning/${board.slug}`}
-          aria-current={board.id === current.id ? "page" : undefined}
-          className={cn(
-            "rounded-md px-3 py-1.5 text-sm transition-colors",
-            board.id === current.id
-              ? "bg-card text-foreground font-medium"
-              : "text-muted-foreground hover:text-foreground",
-          )}
-        >
-          {board.name}
-        </Link>
-      ))}
-    </nav>
   );
 }
 

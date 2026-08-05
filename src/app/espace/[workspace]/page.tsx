@@ -1,9 +1,13 @@
 import { notFound, redirect } from "next/navigation";
 
 import { getWorkspace } from "@/lib/auth";
+import { listBoards } from "@/lib/planning/queries";
 import { createClient } from "@/lib/supabase/server";
 
-/** Un espace n'est qu'une porte : on entre directement dans son premier dashboard. */
+/**
+ * Un espace n'est qu'une porte : on entre directement dans sa première
+ * section — le Planning Éditorial s'il existe, sinon le premier dashboard.
+ */
 export default async function WorkspaceIndexPage({
   params,
 }: {
@@ -13,11 +17,15 @@ export default async function WorkspaceIndexPage({
   const workspace = await getWorkspace(slug);
   if (!workspace) notFound();
 
+  const boards = await listBoards(workspace.id);
+  if (boards.length > 0) redirect(`/espace/${workspace.slug}/planning`);
+
   const supabase = await createClient();
   const { data: dashboards } = await supabase
     .from("dashboards")
     .select("slug")
     .eq("workspace_id", workspace.id)
+    .neq("slug", "planning")
     .order("position")
     .limit(1);
 

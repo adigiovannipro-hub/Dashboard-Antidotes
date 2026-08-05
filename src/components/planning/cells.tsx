@@ -172,7 +172,7 @@ export function DateCell({
       value={value ?? ""}
       aria-label="Date de publication"
       onChange={(event) => onCommit(event.target.value || null)}
-      className="focus-visible:ring-brand w-full rounded-sm bg-transparent px-1.5 py-1 text-sm tabular-nums outline-none focus-visible:ring-2"
+      className="focus-visible:ring-brand w-full rounded-sm bg-transparent px-1.5 py-1 text-sm tabular-nums outline-none focus-visible:ring-2 [&::-webkit-calendar-picker-indicator]:opacity-30 [&::-webkit-calendar-picker-indicator]:hover:opacity-70"
     />
   );
 }
@@ -213,12 +213,15 @@ export function ChipSelect<T extends string>({
       <DropdownMenuTrigger
         aria-label={ariaLabel}
         className={cn(
-          "focus-visible:ring-brand flex h-7 w-full items-center justify-center rounded-sm px-2 text-[11px] font-semibold tracking-wide text-white uppercase outline-none focus-visible:ring-2",
+          "focus-visible:ring-brand flex h-6 w-full items-center justify-center rounded-sm px-2 text-[11px] font-semibold tracking-wide text-white uppercase outline-none focus-visible:ring-2",
+          // Une pastille vide se voit : un pointillé discret dit « cliquable »
+          // là où un blanc total dit « rien ici ».
+          !current && "border-border hover:border-muted-foreground/40 border border-dashed",
           className,
         )}
         style={{ backgroundColor: current?.color ?? "transparent" }}
       >
-        <span className={cn("truncate", !current && "text-muted-foreground")}>
+        <span className={cn("truncate", !current && "text-muted-foreground font-normal")}>
           {current?.label ?? "—"}
         </span>
       </DropdownMenuTrigger>

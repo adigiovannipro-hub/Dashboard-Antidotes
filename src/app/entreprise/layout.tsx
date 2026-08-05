@@ -1,6 +1,5 @@
-import Link from "next/link";
-
 import { AppHeader } from "@/components/app-header";
+import { DashboardNav } from "@/components/dashboard-nav";
 import { requireViewer } from "@/lib/auth";
 import { requireReceiptsAccess } from "@/lib/recus/access";
 
@@ -27,25 +26,17 @@ export default async function EntrepriseLayout({
       <AppHeader viewer={viewer} />
 
       <div className="flex flex-1 flex-col md:flex-row">
-        <nav
-          aria-label="Mon entreprise"
-          className="border-border shrink-0 border-b p-3 md:w-56 md:border-r md:border-b-0 md:p-4"
-        >
-          <p className="text-muted-foreground mb-2 px-3 text-xs font-medium tracking-wide uppercase">
-            Mon entreprise
-          </p>
-          <ul className="flex gap-1 md:flex-col">
-            <li>
-              <Link
-                href="/entreprise/recus"
-                aria-current="page"
-                className="bg-muted text-foreground focus-visible:ring-ring block rounded-md px-3 py-2 text-sm font-medium focus-visible:ring-2 focus-visible:outline-none"
-              >
-                Reçus
-              </Link>
-            </li>
-          </ul>
-        </nav>
+        <DashboardNav
+          ariaLabel="Mon entreprise"
+          sections={[
+            {
+              label: "Mon entreprise",
+              items: [
+                { segment: "recus", href: "/entreprise/recus", name: "Reçus" },
+              ],
+            },
+          ]}
+        />
 
         <div className="flex min-w-0 flex-1 flex-col">{children}</div>
       </div>

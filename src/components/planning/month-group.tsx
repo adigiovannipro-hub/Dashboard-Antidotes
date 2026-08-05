@@ -49,12 +49,16 @@ export function MonthGroup({
   const subjects = month.lanes.flatMap((lane) => lane.subjects);
   const live = subjects.filter((subject) => subject.status !== "dropped");
   const sponsoring = totalSponsoring(subjects);
+  const empty = live.length === 0;
 
   const usedPlatforms = new Set(month.lanes.map((lane) => lane.platform));
 
   return (
-    <section className="mb-6" aria-label={month.label}>
-      <header className="mb-2 flex items-center gap-2">
+    <section
+      className={cn("mb-4", open && "mb-6")}
+      aria-label={month.label}
+    >
+      <header className="flex items-center gap-2">
         <button
           type="button"
           onClick={() => setOpen((value) => !value)}
@@ -68,22 +72,32 @@ export function MonthGroup({
           />
         </button>
 
-        <span aria-hidden className="bg-brand-red h-5 w-1 rounded-full" />
+        {/* Un mois vide reste visible — l'année entière se parcourt — mais en
+            retrait : neuf « 0 publication » alignés ne sont pas une information. */}
+        <span
+          aria-hidden
+          className={cn("bg-brand-red h-5 w-1 rounded-full", empty && !open && "opacity-30")}
+        />
 
         <div className="w-44">
           <TextCell
             value={month.label}
             ariaLabel="Nom du mois"
-            className="text-brand-red text-sm font-semibold tracking-wide uppercase"
+            className={cn(
+              "text-brand-red text-sm font-semibold tracking-wide uppercase",
+              empty && !open && "text-brand-red/50",
+            )}
             onCommit={(next) =>
               run(() => renameMonth(scope, { monthId: month.id, label: next }))
             }
           />
         </div>
 
-        <span className="text-muted-foreground text-xs tabular-nums">
-          {live.length} publication{live.length > 1 ? "s" : ""}
-        </span>
+        {empty ? null : (
+          <span className="text-muted-foreground text-xs tabular-nums">
+            {live.length} publication{live.length > 1 ? "s" : ""}
+          </span>
+        )}
 
         {sponsoring > 0 ? (
           <span className="text-muted-foreground text-xs tabular-nums">
@@ -143,7 +157,7 @@ export function MonthGroup({
       </header>
 
       {open ? (
-        <div className="ml-6 space-y-3">
+        <div className="mt-2 ml-6 space-y-3">
           {month.lanes.length === 0 ? (
             <p className="text-muted-foreground border-border/60 rounded-md border border-dashed px-3 py-4 text-center text-xs">
               Aucun réseau pour ce mois. Ajoutez-en un pour commencer à poser des

@@ -8,7 +8,6 @@ import {
   updateFaqEntry,
 } from "@/app/actions/planning";
 import { DeleteRowButton, TextCell, useCellAction } from "@/components/planning/cells";
-import { BoardTabs } from "@/components/planning/planning-board";
 import type { Scope } from "@/components/planning/subject-row";
 import type { FaqEntry, PlanningBoard } from "@/lib/planning/types";
 import { cn } from "@/lib/utils";
@@ -26,22 +25,24 @@ const FAQ_GRID =
 
 export function FaqBoardView({
   scope,
-  boards,
   board,
   entries,
-  workspaceSlug,
 }: {
   scope: Scope;
-  boards: PlanningBoard[];
   board: PlanningBoard;
   entries: FaqEntry[];
-  workspaceSlug: string;
 }) {
   const { run, pending } = useCellAction();
 
   return (
     <div className="min-w-0 flex-1 p-4 md:p-6">
-      <BoardTabs boards={boards} current={board} workspaceSlug={workspaceSlug} />
+      <header className="mb-4 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+        <h1 className="text-lg font-semibold tracking-tight">{board.name}</h1>
+        <p className="text-muted-foreground text-xs tabular-nums">
+          {entries.length} entrée{entries.length > 1 ? "s" : ""} · enrichie par la
+          Modération
+        </p>
+      </header>
 
       <div className="border-border overflow-hidden rounded-md border">
         <div

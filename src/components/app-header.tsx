@@ -49,7 +49,7 @@ export function AppHeader({
               ouverte qu'on sait ouverte. */}
           {isOpenAccess() ? (
             <span
-              className="border-brand-red/40 text-brand-red mr-2 rounded-full border px-2 py-0.5 text-[11px] font-medium"
+              className="border-brand-red/40 text-brand-red mr-2 rounded-full border px-2 py-0.5 text-[11px] font-medium whitespace-nowrap"
               title="Aucune authentification : toute personne ayant l'URL voit l'ensemble des espaces. ANTIDOTES_REQUIRE_LOGIN=true pour refermer."
             >
               Accès public
@@ -80,6 +80,7 @@ export function AppHeader({
               ) : null}
               <form action={signOut}>
                 <DropdownMenuItem
+                  nativeButton
                   render={<button type="submit" className="w-full text-left" />}
                 >
                   Se déconnecter

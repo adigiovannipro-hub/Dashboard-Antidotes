@@ -91,36 +91,49 @@ export function LaneTable({
 
       {open ? (
         <>
-          <div
-            className={cn(
-              "border-border/60 text-muted-foreground border-b px-2 py-1 text-[10px] font-medium tracking-wide uppercase",
-              ROW_GRID,
-            )}
-          >
-            <span className="px-1.5">Sujet</span>
-            <span className="sr-only">Retours</span>
-            <span className="sr-only">Propriétaire</span>
-            <span className="text-center">Statut</span>
-            <span className="text-center">Type</span>
-            <span className="px-1.5">Date</span>
-            <span className="text-center">Visuel</span>
-            <span className="px-1.5">Wording</span>
-            <span className="px-1.5 text-right">Sponso</span>
-            <span className="px-1.5">Objectif</span>
-            <span className="text-center">Ads</span>
-            <span />
-          </div>
+          {/* Douze colonnes ne tiennent pas toujours dans la fenêtre : le
+              tableau défile dans son cadre plutôt que de déborder de la page. */}
+          <div className="overflow-x-auto">
+            <div className="min-w-fit">
+              <div
+                className={cn(
+                  "border-border/60 text-muted-foreground border-b px-2 py-1 text-[10px] font-medium tracking-wide uppercase",
+                  ROW_GRID,
+                )}
+              >
+                <span className="px-1.5">Sujet</span>
+                {/* Cellules pleines et non `sr-only` : un enfant en position
+                    absolue sort du flux de la grille et décale tous les
+                    libellés de deux colonnes. */}
+                <span>
+                  <span className="sr-only">Retours</span>
+                </span>
+                <span>
+                  <span className="sr-only">Propriétaire</span>
+                </span>
+                <span className="text-center">Statut</span>
+                <span className="text-center">Type</span>
+                <span className="px-1.5">Date</span>
+                <span className="text-center">Visuel</span>
+                <span className="px-1.5">Wording</span>
+                <span className="px-1.5 text-right">Sponso</span>
+                <span className="px-1.5">Objectif</span>
+                <span className="text-center">Ads</span>
+                <span />
+              </div>
 
-          {lane.subjects.map((subject) => (
-            <SubjectRowView
-              key={subject.id}
-              scope={scope}
-              row={subject}
-              owners={owners}
-              objectives={objectives}
-              flagged={flagged.has(subject.id)}
-            />
-          ))}
+              {lane.subjects.map((subject) => (
+                <SubjectRowView
+                  key={subject.id}
+                  scope={scope}
+                  row={subject}
+                  owners={owners}
+                  objectives={objectives}
+                  flagged={flagged.has(subject.id)}
+                />
+              ))}
+            </div>
+          </div>
 
           <button
             type="button"

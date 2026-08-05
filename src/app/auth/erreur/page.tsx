@@ -27,7 +27,9 @@ export default async function AuthErrorPage({
           {(raison && REASONS[raison]) ?? "Le lien de connexion n'a pas pu être validé."}{" "}
           Demandez-en un nouveau, il ne prend qu&apos;un instant.
         </p>
-        <Button render={<Link href="/login" />}>Retour à la connexion</Button>
+        <Button nativeButton={false} render={<Link href="/login" />}>
+          Retour à la connexion
+        </Button>
       </div>
     </main>
   );

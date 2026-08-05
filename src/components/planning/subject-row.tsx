@@ -64,7 +64,7 @@ export type Scope = { workspace: string; board: string };
  * l'en-tête reste aligné sur les cellules quand une colonne change de largeur.
  */
 export const ROW_GRID =
-  "grid grid-cols-[minmax(160px,1.6fr)_34px_44px_150px_120px_116px_64px_minmax(200px,2fr)_96px_128px_96px_28px] items-center gap-x-1";
+  "grid grid-cols-[minmax(150px,1.6fr)_30px_40px_124px_100px_108px_56px_minmax(150px,1.4fr)_84px_108px_88px_26px] items-center gap-x-1";
 
 const STATUS_OPTIONS = STATUS_ORDER.filter((status) => status !== "idea").map(
   (status) => ({

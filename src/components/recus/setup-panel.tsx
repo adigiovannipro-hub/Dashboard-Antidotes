@@ -82,7 +82,7 @@ export function SetupPanel({
         </section>
 
         {canDecide ? (
-          <Button render={<Link href="/api/recus/connexion" />}>
+          <Button nativeButton={false} render={<Link href="/api/recus/connexion" />}>
             <Mail aria-hidden />
             Connecter une boîte Gmail
             <ArrowRight aria-hidden />
