@@ -13,6 +13,12 @@
       "skillPath": "skills/azure-aigateway/SKILL.md",
       "computedHash": "d8073cb540d8799c446148a2605965d9cd0ff2205c0fe8911c4350df499c46d5"
     },
+    "caveman": {
+      "source": "juliusbrussee/caveman",
+      "sourceType": "github",
+      "skillPath": "skills/caveman/SKILL.md",
+      "computedHash": "59e1fe0d3eeb4189ee5c467efde567672e5cacb41f157c477a6152ca907d44ea"
+    },
     "design-an-interface": {
       "source": "mattpocock/skills",
       "sourceType": "github",
