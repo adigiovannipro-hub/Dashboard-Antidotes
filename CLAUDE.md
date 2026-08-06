@@ -109,6 +109,8 @@ Conséquences non négociables :
 
 Un chantier est vérifié quand `pnpm typecheck`, `pnpm lint`, `pnpm build` et `pnpm test` passent tous les quatre. La CI les rejoue à chaque push, mais lance-les avant de pousser plutôt que de t'en servir comme d'un correcteur. Le typecheck seul ne prouve rien sur le comportement : les deux défauts du commit 588a864 passaient le typecheck et les tests.
 
+**Dès qu'un chantier touche à l'interface, les quatre commandes ne suffisent plus** : il faut avoir regardé l'écran et rejoué l'audit de contraste. Voir « Vérifier une interface ».
+
 À ne jamais lancer sans mon accord explicite : reset de base, push de migration en production, déploiement production.
 
 ## Migrations
@@ -165,7 +167,7 @@ Un chantier est vérifié quand `pnpm typecheck`, `pnpm lint`, `pnpm build` et `
 
 ### Système visuel
 
-**Toutes les valeurs vivent dans `src/styles/tokens.css`, et nulle part ailleurs.** `globals.css` ne fait que les brancher sur Tailwind et sur le vocabulaire shadcn (`--card`, `--muted`, `--primary`…) : repointer ces alias suffit à faire basculer l'application entière sans rouvrir un composant. Aucun hex dans un `.tsx` — sauf les couleurs de statut du board Monday, qui sont des **données** du client.
+**Toutes les valeurs vivent dans `src/styles/tokens.css`, et nulle part ailleurs.** `globals.css` ne fait que les brancher sur Tailwind et sur le vocabulaire shadcn (`--card`, `--muted`, `--primary`…) : repointer ces alias suffit à faire basculer l'application entière sans rouvrir un composant. Aucun hex dans un `.tsx` — sauf les couleurs de statut du board Monday, qui sont des **données** du client. Celles-là ne se retouchent pas : c'est l'encre du libellé qui s'adapte, choisie d'après la luminance du fond (`chipInk`, `planning/cells.tsx`). Du blanc sur « EN BROUILLON » tombait à 1,79:1.
 
 - **Canvas `--canvas`, surfaces `--surface`.** Les cartes ressortent en blanc sur un gris chaud, bordées et posées sur `shadow-card`. L'inverse — cartes grises sur fond blanc — les enfonçait.
 - **Couleur vive ≠ couleur de texte.** Le vert de marque est à 2,71:1 sur blanc : illisible en texte, et le blanc posé dessus l'est autant. Chaque famille a donc deux jetons — la teinte vive pour les fonds, les points et les marques, une **encre** (`--accent-ink`, `--danger-ink`, `--warning-ink`, `--info-ink`) pour tout ce qui se lit. Le bouton primaire est l'encre, jamais le vert. `--text-tertiary` (2,79:1) est réservé aux icônes.
@@ -174,6 +176,45 @@ Un chantier est vérifié quand `pnpm typecheck`, `pnpm lint`, `pnpm build` et `
 - **Aucune valeur inventée.** Une source absente affiche `—` et le dit ; l'absence de ligne pour un espace vaut zéro, pas « inconnu » (`NO_WORKSPACE_ACTIVITY`).
 - Le mode sombre est **maintenu** : chaque token est redéclaré sous `.dark`.
 - Contraste : le seuil de 4,5:1 se vérifie **dans le navigateur**, jamais sur le papier. Attention, Tailwind émet les opacités en `oklab(...)` — un audit qui parse les couleurs à la main produit de faux positifs ; faire résoudre les couleurs par un canvas.
+
+Le reste du vocabulaire, à ne pas réinventer :
+
+- **Rayons** `--r-sm` 8 / `--r-md` 12 / `--r-lg` 16 / `--r-xl` 20 / `--r-pill`. Une carte est en `rounded-lg`, un bouton et un champ en `rounded-md`, une pastille en `rounded-pill`.
+- **Espacements** : l'échelle Tailwind native suffit (`gap-5` = 20 px entre cartes, `p-5` dans un panneau, `space-y-5` entre blocs d'une page). Aucune valeur arbitraire entre crochets.
+- **Mouvement** : `duration-(--motion-duration) ease-standard` — 150 ms, une seule courbe. Les transitions portent sur `background`, `border-color`, `box-shadow`, `transform`, `opacity`, jamais sur `all`.
+- **Icônes Lucide, `strokeWidth={1.75}`**, `size-4` dans le texte, `size-4.5` dans une navigation, `size-5` dans un état vide. Une icône est décorative : `aria-hidden`, et l'information est dans le texte à côté.
+- **Boutons** : hauteur 40 px par défaut (`size="sm"` = 32 px pour une action secondaire dans un en-tête). Le primaire est l'encre `#1A1A1A`. La variante `accent` — vert foncé, texte blanc — est **réservée à la création** (« Ajouter »). Un seul aplat d'accent par écran.
+- **Champs** : hauteur 40 px, bordure `--border-line`, anneau de focus `2px` en `--accent` à 20 %. Le focus clavier est visible partout, sans exception.
+
+### Composer une page
+
+Toute page applicative suit la même charpente. Ce n'est pas un goût, c'est ce qui fait qu'un écran nouveau se lit sans mode d'emploi.
+
+1. **`<AppShell viewer title subtitle>`**, jamais autre chose. Il fournit le rail, la barre de page collante, le conteneur 1440 px **et le `<main>`** — une page qui ouvre le sien produit un `main` imbriqué et une double marge. Le titre est passé par le layout qui connaît la section ; la page n'affiche pas de `h1` à elle, sinon le nom apparaît deux fois.
+2. **Une bande de mesures** en tête, quand le module a des chiffres : `<StatGrid>` et quatre `<StatCard>` au plus, `grid-cols-2 lg:grid-cols-4`. Elles répondent aux quatre questions qu'on se pose en ouvrant la page. Chaque carte porte un libellé en `type-overline`, un chiffre, et **une phrase de contexte** — sans elle, « 12 » ne renseigne sur rien. Les indicateurs ne se cachent pas à l'intérieur des blocs.
+3. **Le contenu en `Panel`**, un par sujet, avec `PanelHeader` (titre, compteur, description, action à droite) puis `PanelBody` ou `PanelRows` pour une liste qui doit toucher les bords. Les titres de section entre panneaux sont des `SectionHeader`, pas des libellés gris pâle en capitales.
+4. **Les cartes en grille** : `grid-cols-1 md:grid-cols-2 xl:grid-cols-3`, `gap-5`. Jamais une carte seule sur toute la largeur.
+5. **L'archivé, l'accessoire et le rare descendent en bas de page.**
+
+Les règles qui se sont payées cher :
+
+- **Une liste longue, c'est un panneau, pas N cartes.** Douze mois de planning en douze cartes flottantes donnaient le même poids visuel aux onze mois vides qu'au seul qu'on vient regarder. Un `Panel` + un rang par élément, l'élément courant ouvert et surligné.
+- **Deux niveaux de navigation ne se ressemblent pas.** Les onglets de section sont des pastilles à encre pleine dans une gouttière creuse (`DashboardNav`) ; les onglets d'un cran plus bas sont **soulignés** (`BoardTabs`). Deux rangées de pastilles identiques mentent sur la hiérarchie.
+- **Un état d'entité est une `StatusPill`**, jamais un badge maison. Le ton est sémantique : `positive` favorable, `warning` ce qui attend une action de ma part, `danger` retard ou échec, `info` planifié, `neutral` archivé ou sans qualité. Le point reprend l'encre, pas la teinte vive — à 6 px, l'ambre vif tombe à 2:1.
+- **Un état vide est court et donne une sortie.** Hauteur réduite, une phrase, un bouton. Mieux encore : quand des données voisines existent, les montrer à la place — « rien à publier aujourd'hui » devient les trois prochaines publications datées.
+- **Les filtres vivent dans l'URL, en français** (`?statut=`, `?periode=`). Un filtre se partage par copie du lien et survit au retour arrière. Les groupes de filtres sont des `FilterPills`.
+- **Mobile-first pour de vrai.** Une ligne dense se replie en trois niveaux — repère, sujet, puis date et statut. Ce qui ne sert pas au téléphone sort (`hidden md:block`) : sur « À publier », la caption et la vignette mangeaient une ligne entière pour afficher un tiret.
+- **Une préférence d'affichage se mémorise dans un cookie, pas dans le stockage local** : c'est le serveur qui rend la première image, c'est donc lui qui doit la connaître. Voir `src/lib/ui-preferences.ts`.
+- **Aucun `<main>`, aucun `<h1>`, aucune marge de page dans un composant.** Ils appartiennent au cadre.
+
+### Vérifier une interface
+
+`typecheck`, `lint`, `test` et `build` ne prouvent **rien** sur une interface : les défauts les plus coûteux de cette session passaient les quatre. Une refonte n'est vérifiée que regardée.
+
+- **Sur `pnpm build && pnpm start`, jamais sur `pnpm dev` seul.** Dans un bac à sable sans WebSocket, le HMR échoue et React ne s'hydrate pas : tout composant client paraît mort.
+- **Prendre une capture et la regarder.** C'est ce qui a montré un bouton dont le texte avait disparu, un rail replié aux libellés tronqués, une ligne mobile cassée.
+- **Rejouer l'audit de contraste au navigateur** sur chaque page touchée : parcourir les nœuds de texte, composer la pile de fonds avec leur alpha, comparer au seuil (4,5:1, ou 3:1 au-delà de 24 px). Faire résoudre chaque couleur par un `canvas` — Tailwind émet `oklab(...)` et une lecture naïve produit de faux positifs.
+- **Faire tourner l'application sans Supabase, si besoin** : un binaire PostgREST devant le Postgres jetable, plus un petit proxy qui traduit `/rest/v1/*`, répond 401 sur `/auth/v1` (l'accès ouvert bascule alors sur l'owner) et `[]` sur `/storage/v1`. Penser à relayer l'en-tête `Content-Range`, sans quoi toute pagination affiche « 0 élément » alors que les lignes sont là. Et se souvenir que **les `NEXT_PUBLIC_*` sont figées à la compilation** : changer de cible impose de rebuilder, sinon l'application interroge l'ancienne adresse et rend des 404 inexplicables.
 
 ### Nommage et langue
 
@@ -222,14 +263,16 @@ Modèle : `src/app/api/cron/recus/route.ts`.
 - **Lectures** : un `lib/<module>/queries.ts`, `import "server-only"` en ligne 1, un objet d'options nommé (jamais de paramètres positionnels), `Promise<T[]>` explicite, `limit(options.limit ?? 100)`, `const { data } = await query` sans gérer l'erreur.
 - **Écritures** : uniquement des Server Actions dans `src/app/actions/`, un fichier par module, jamais d'action inline. Signature `(_previous: XResult | null, formData: FormData)` imposée par `useActionState`. `safeParse` en entrée, gardes qui `throw`, `try/catch` qui convertit en union discriminée `{ ok: true, message } | { ok: false, error }`, `revalidatePath`, puis toast `sonner` côté client.
 
-### Les cinq fichiers à lire avant d'écrire
+### Les fichiers à lire avant d'écrire
 
 | Pour écrire… | Lire d'abord | Ce qu'il faut en copier |
 |---|---|---|
 | un cron | `src/app/api/cron/recus/route.ts` (111 l.) | Garde `Bearer` + `timingSafeEqual`, `try/catch` par unité de travail accumulé dans `errors[]`, réponse 200 `{ ok, report, errors }` |
 | de la logique métier | `src/lib/recus/auto-forward.ts` (177 l.) + `src/lib/recus/types.ts` | Fonction **pure**, zéro import Supabase, état passé par un `type XContext`, retour en union discriminée, union de refus doublée d'un `REFUSAL_LABELS` |
 | une lecture en base | `src/lib/moderation/queries.ts` (177 l.) | `server-only`, `export type XFilters`, `let query` enrichie par `if (filters.x)`, cast `as unknown as T[]` |
-| une page | `src/app/moderation/[client]/page.tsx` (70 l.) | `type Params = Promise<…>` awaité, `generateMetadata` séparée, garde `require*` qui `notFound()`, filtres lus en query params français, `Promise.all`, tout passé en props à un seul composant client |
+| une page (données) | `src/app/moderation/[client]/page.tsx` (70 l.) | `type Params = Promise<…>` awaité, `generateMetadata` séparée, garde `require*` qui `notFound()`, filtres lus en query params français, `Promise.all`, tout passé en props à un seul composant client |
+| une page (interface) | `src/app/entreprise/finance/page.tsx` | `AppShell` → `SectionHeader` → `StatGrid` de quatre `StatCard` → `Panel` par sujet. Chiffres réels ou `—`, jamais de valeur inventée |
+| un composant du système | `src/components/ds/surface.tsx` (165 l.) | Trois formes de carte et pas une de plus, `BASE` partagé, survol réservé au cliquable, en-tête à titre + compteur + action |
 | un test | `src/lib/recus/matching.test.ts` (188 l.) | Colocalisation, import relatif du sujet, fabriques de fixtures en arrow avec `Partial<T>`, un `describe` par fonction exportée nommé du nom exact de la fonction, `it()` en français, zéro mock |
 
 Pour un test d'isolation RLS, le modèle reste `tests/planning-isolation.test.ts`. Avant d'écrire un nouveau module, lis le module existant le plus proche et suis son pattern plutôt que d'en inventer un.
