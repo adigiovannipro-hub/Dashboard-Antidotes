@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 
-import { AppHeader } from "@/components/app-header";
+import { AppShell } from "@/components/ds/app-shell";
 import { DashboardNav, type NavItem } from "@/components/dashboard-nav";
 import { getWorkspace, requireViewer } from "@/lib/auth";
 import { listBoards } from "@/lib/planning/queries";
@@ -50,14 +50,15 @@ export default async function WorkspaceLayout({
     })),
   ];
 
+  // Les sections de l'espace passent en onglets horizontaux : le rail latéral
+  // porte déjà la navigation entre espaces, et deux rails verticaux côte à
+  // côte se disputaient la lecture.
   return (
-    <>
-      <AppHeader viewer={viewer} currentWorkspaceSlug={workspace.slug} />
-
-      <div className="flex flex-1 flex-col md:flex-row">
+    <AppShell viewer={viewer} title={workspace.name}>
+      <div className="flex min-w-0 flex-col gap-6">
         <DashboardNav workspaceName={workspace.name} items={items} />
-        <div className="min-w-0 flex-1">{children}</div>
+        <div className="min-w-0">{children}</div>
       </div>
-    </>
+    </AppShell>
   );
 }

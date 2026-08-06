@@ -1,19 +1,30 @@
 import type { Metadata } from "next";
-import { Montserrat } from "next/font/google";
+import { Inter, Montserrat } from "next/font/google";
 
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
 
 /**
- * Charte Antidotes : Montserrat pour les titres, Arial pour le corps.
+ * Montserrat pour les titres, Inter pour l'interface.
  *
- * Arial n'est pas chargée — c'est une police système, présente partout, et
- * l'appeler par sa pile évite une requête réseau. Montserrat est la seule
- * fonte téléchargée, et seulement pour les titres.
+ * Arial tenait le corps de texte jusqu'ici. Elle sort de l'écran — ses formes
+ * se ferment sous 14 px et ses chiffres n'ont pas de chasse tabulaire, deux
+ * défauts rédhibitoires pour un tableau de bord. Elle reste la police des
+ * exports PPT et PDF, où la compatibilité prime sur le rendu.
+ *
+ * Les deux fontes sont découpées au sous-ensemble latin et chargées en
+ * `swap` : le texte s'affiche immédiatement dans la pile système, puis
+ * bascule. Coût réseau borné, aucun écran blanc.
  */
 const montserrat = Montserrat({
   variable: "--font-heading-family",
+  subsets: ["latin"],
+  display: "swap",
+});
+
+const inter = Inter({
+  variable: "--font-body-family",
   subsets: ["latin"],
   display: "swap",
 });
@@ -38,12 +49,7 @@ export default function RootLayout({
       // `suppressHydrationWarning` est requis par next-themes, qui applique la
       // classe de thème avant l'hydratation pour éviter le flash de couleur.
       suppressHydrationWarning
-      className={`${montserrat.variable} h-full antialiased`}
-      style={
-        {
-          "--font-body": 'Arial, Helvetica, "Liberation Sans", sans-serif',
-        } as React.CSSProperties
-      }
+      className={`${montserrat.variable} ${inter.variable} h-full antialiased`}
     >
       <body className="bg-background text-foreground flex min-h-full flex-col">
         <ThemeProvider>

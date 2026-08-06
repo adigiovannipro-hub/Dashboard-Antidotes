@@ -112,7 +112,7 @@ export function ConversationThread({
 
   if (!conversation) {
     return (
-      <div className="text-muted-foreground flex flex-1 items-center justify-center p-8 text-sm">
+      <div className="type-body flex flex-1 items-center justify-center p-8 text-text-secondary">
         Sélectionnez une conversation.
       </div>
     );
@@ -133,20 +133,20 @@ export function ConversationThread({
   return (
     <div className="flex min-w-0 flex-1 flex-col">
       {/* En-tête du fil */}
-      <div className="border-border border-b px-5 py-3">
+      <div className="border-b border-border px-5 py-3.5">
         <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-          <h2 className="text-base font-semibold">
+          <h2 className="type-h3 text-text-primary">
             {conversation.participant_handle ?? "Inconnu"}
           </h2>
-          <span className="text-muted-foreground text-xs">
+          <span className="type-caption text-text-secondary">
             {CHANNEL_LABELS[conversation.channel]} ·{" "}
             {KIND_LABELS[conversation.kind]} ·{" "}
             {STATUS_LABELS[conversation.status]}
           </span>
           <span
             className={cn(
-              "ml-auto inline-flex items-center gap-1 text-xs",
-              eligibility.canSend ? "text-muted-foreground" : "text-brand-red",
+              "type-caption ml-auto inline-flex items-center gap-1",
+              eligibility.canSend ? "text-text-secondary" : "text-danger-ink",
             )}
           >
             <Clock className="size-3.5" aria-hidden />
@@ -155,8 +155,8 @@ export function ConversationThread({
         </div>
 
         {conversation.flags.length > 0 ? (
-          <p className="text-brand-red mt-2 inline-flex items-center gap-1.5 text-xs font-medium">
-            <AlertTriangle className="size-3.5" aria-hidden />
+          <p className="type-caption mt-2 inline-flex items-center gap-1.5 rounded-md bg-danger-subtle px-2.5 py-1.5 font-medium text-danger-ink">
+            <AlertTriangle className="size-3.5 shrink-0" aria-hidden />
             {conversation.flags.map((flag) => FLAG_LABELS[flag]).join(" · ")} —
             lecture humaine obligatoire, jamais d&apos;envoi automatique.
           </p>
@@ -208,7 +208,7 @@ export function ConversationThread({
               </span>
               <span>Langue détectée : {draft.locale.toUpperCase()}</span>
               {draft.translated_from_fr ? (
-                <span className="text-brand-red">
+                <span className="text-danger-ink">
                   Traduit depuis le français — réponse EN absente de la FAQ
                 </span>
               ) : null}
@@ -222,7 +222,7 @@ export function ConversationThread({
                     <li key={source.faq_entry_id}>
                       <a
                         href={`/moderation/${clientSlug}/faq?entree=${source.faq_entry_id}`}
-                        className="text-brand text-xs underline-offset-2 hover:underline"
+                        className="type-caption text-accent-ink underline-offset-2 hover:underline"
                       >
                         {source.question}
                       </a>
@@ -347,9 +347,16 @@ function HiddenFields({
   );
 }
 
+/**
+ * Le raccourci clavier d'un bouton.
+ *
+ * `currentColor` à 20 % pour le fond : la lettre garde l'encre du bouton qui
+ * la porte, donc son contraste, qu'elle soit posée sur l'encre pleine du
+ * bouton principal ou sur une surface claire.
+ */
 function Kbd({ children }: { children: React.ReactNode }) {
   return (
-    <kbd className="bg-background/60 ml-1 rounded px-1 font-mono text-[10px] leading-none">
+    <kbd className="ml-1 rounded-sm bg-current/20 px-1 font-mono text-[10px] leading-none">
       {children}
     </kbd>
   );

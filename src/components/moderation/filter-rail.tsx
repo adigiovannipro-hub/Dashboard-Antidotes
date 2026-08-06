@@ -43,7 +43,7 @@ export function FilterRail({
   return (
     <nav
       aria-label="Filtres"
-      className="border-border w-52 shrink-0 overflow-y-auto border-r p-3"
+      className="w-52 shrink-0 overflow-y-auto border-r border-border bg-surface-sunken p-3"
     >
       <Section title="Canal">
         <FilterLink param="canal" value={undefined} active={!filters.channel}>
@@ -125,10 +125,8 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <div className="mb-4">
-      <h2 className="text-muted-foreground mb-1 px-2 text-[11px] font-medium tracking-wide uppercase">
-        {title}
-      </h2>
+    <div className="mb-4 last:mb-0">
+      <h2 className="type-overline mb-1.5 px-2 text-text-secondary">{title}</h2>
       <ul className="space-y-0.5">{children}</ul>
     </div>
   );
@@ -163,15 +161,24 @@ function FilterLink({
         href={`${pathname}?${next}`}
         aria-current={active ? "true" : undefined}
         className={cn(
-          "flex items-center justify-between rounded-md px-2 py-1 text-xs transition-colors",
+          "type-caption focus-visible:ring-ring flex items-center justify-between rounded-md px-2 py-1.5 transition-colors duration-(--motion-duration) ease-standard focus-visible:ring-2 focus-visible:outline-none",
+          // Même signature que le rail de navigation : une sélection se lit à
+          // la menthe et à l'encre verte, partout dans l'application.
           active
-            ? "bg-card text-foreground font-medium"
-            : "text-muted-foreground hover:text-foreground hover:bg-card/60",
+            ? "bg-accent-subtle font-medium text-accent-ink"
+            : "text-text-secondary hover:bg-surface hover:text-text-primary",
         )}
       >
         <span className="truncate">{children}</span>
         {count !== undefined && count > 0 ? (
-          <span className="text-muted-foreground ml-2 shrink-0 tabular-nums">
+          <span
+            className={cn(
+              // Un compteur est du texte : jamais la teinte tertiaire, qui ne
+              // tient pas le contraste.
+              "ml-2 shrink-0 tabular-nums",
+              active ? "text-accent-ink" : "text-text-secondary",
+            )}
+          >
             {count}
           </span>
         ) : null}

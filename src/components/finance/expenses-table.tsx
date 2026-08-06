@@ -4,7 +4,7 @@ import { useId } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ArrowDown, ArrowUp, Download } from "lucide-react";
 
-import { Badge } from "@/components/ui/badge";
+import { StatusPill, type StatusTone } from "@/components/ds/status-pill";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -348,31 +348,25 @@ function Amount({ row }: { row: DisplayExpense }) {
   );
 }
 
-const TONE_CLASSES: Record<BadgeTone, string | undefined> = {
-  neutral: undefined,
-  positive: "text-(--brand)",
-  warning: undefined,
-  critical: undefined,
+/* Le vocabulaire d'Airwallex vers celui du système : une dépense incomplète
+   attend une action de ma part, une contestation est une alerte. */
+const TONES: Record<BadgeTone, StatusTone> = {
+  neutral: "neutral",
+  positive: "positive",
+  warning: "warning",
+  critical: "danger",
 };
 
 function StatusBadge({ status }: { status: string | null }) {
   const { label, tone } = transactionStatusLabel(status);
-  const variant =
-    tone === "critical" ? "destructive" : tone === "neutral" ? "outline" : "secondary";
-  return (
-    <Badge variant={variant} className={TONE_CLASSES[tone]}>
-      {label}
-    </Badge>
-  );
+  return <StatusPill tone={TONES[tone]}>{label}</StatusPill>;
 }
 
 function ReceiptBadge({ present }: { present: boolean }) {
-  return present ? (
-    <Badge variant="outline" className="text-(--brand)">
-      Reçu
-    </Badge>
-  ) : (
-    <Badge variant="secondary">Manquant</Badge>
+  return (
+    <StatusPill tone={present ? "positive" : "warning"}>
+      {present ? "Reçu" : "Manquant"}
+    </StatusPill>
   );
 }
 

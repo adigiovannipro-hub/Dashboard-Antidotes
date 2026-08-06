@@ -53,8 +53,17 @@ export function MonthGroup({
   const usedPlatforms = new Set(month.lanes.map((lane) => lane.platform));
 
   return (
-    <section className="mb-6" aria-label={month.label}>
-      <header className="mb-2 flex items-center gap-2">
+    <section
+      aria-label={month.label}
+      className="border-b border-border last:border-b-0"
+    >
+      <header
+        className={cn(
+          "flex items-center gap-2 px-3 py-2.5 transition-colors",
+          // Un mois ouvert se détache du fond : c'est celui qu'on lit.
+          open ? "bg-surface-sunken" : "hover:bg-muted/40",
+        )}
+      >
         <button
           type="button"
           onClick={() => setOpen((value) => !value)}
@@ -68,13 +77,15 @@ export function MonthGroup({
           />
         </button>
 
-        <span aria-hidden className="bg-brand-red h-5 w-1 rounded-full" />
+        {/* Repère neutre, et non plus le rouge de marque : un mois n'est ni un
+            retard ni une alerte, et la couleur d'état ne sert qu'à ça. */}
+        <span aria-hidden className="bg-border-strong h-5 w-1 rounded-pill" />
 
         <div className="w-44">
           <TextCell
             value={month.label}
             ariaLabel="Nom du mois"
-            className="text-brand-red text-sm font-semibold tracking-wide uppercase"
+            className="text-text-primary text-sm font-semibold tracking-wide uppercase"
             onCommit={(next) =>
               run(() => renameMonth(scope, { monthId: month.id, label: next }))
             }
@@ -135,7 +146,7 @@ export function MonthGroup({
             type="button"
             onClick={() => run(() => deleteMonth(scope, { monthId: month.id }))}
             aria-label={`Supprimer le mois ${month.label}`}
-            className="text-muted-foreground hover:text-brand-red focus-visible:ring-ring rounded p-1 focus-visible:ring-2 focus-visible:outline-none"
+            className="text-muted-foreground hover:text-danger-ink focus-visible:ring-ring rounded p-1 focus-visible:ring-2 focus-visible:outline-none"
           >
             <Trash2 className="size-3.5" aria-hidden />
           </button>
@@ -143,9 +154,9 @@ export function MonthGroup({
       </header>
 
       {open ? (
-        <div className="ml-6 space-y-3">
+        <div className="space-y-3 border-t border-border p-3">
           {month.lanes.length === 0 ? (
-            <p className="text-muted-foreground border-border/60 rounded-md border border-dashed px-3 py-4 text-center text-xs">
+            <p className="type-caption rounded-md border border-dashed border-border px-3 py-4 text-center text-text-secondary">
               Aucun réseau pour ce mois. Ajoutez-en un pour commencer à poser des
               publications.
             </p>

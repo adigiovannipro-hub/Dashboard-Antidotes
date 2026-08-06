@@ -3,6 +3,8 @@
 import { useMemo, useState } from "react";
 import { AlertTriangle, Search } from "lucide-react";
 
+import { StatusPill } from "@/components/ds/status-pill";
+import { Panel, PanelHeader } from "@/components/ds/surface";
 import { Input } from "@/components/ui/input";
 import { needsRework } from "@/lib/moderation/faq-search";
 import { directValidationRate } from "@/lib/moderation/learning";
@@ -58,39 +60,45 @@ export function FaqTable({
   const reworkCount = entries.filter(needsRework).length;
 
   return (
-    <div className="space-y-3">
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="relative max-w-xs flex-1">
-          <Search
-            className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2"
-            aria-hidden
-          />
-          <Input
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="Rechercher une question, une variante, une réponse"
-            aria-label="Rechercher dans la FAQ"
-            className="pl-8"
-          />
-        </div>
+    <Panel>
+      <PanelHeader
+        title="Entrées"
+        count={rows.length}
+        action={
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="relative w-56">
+              <Search
+                className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-text-tertiary"
+                aria-hidden
+              />
+              <Input
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Rechercher…"
+                aria-label="Rechercher dans la FAQ"
+                className="pl-9"
+              />
+            </div>
 
-        <label className="flex items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            checked={reworkOnly}
-            onChange={(event) => setReworkOnly(event.target.checked)}
-            className="accent-brand"
-          />
-          À retravailler
-          {reworkCount > 0 ? (
-            <span className="bg-brand-red/10 text-brand-red rounded-full px-1.5 py-0.5 text-[11px] font-medium tabular-nums">
-              {reworkCount}
-            </span>
-          ) : null}
-        </label>
-      </div>
+            <label className="type-label flex items-center gap-2 text-text-primary">
+              <input
+                type="checkbox"
+                checked={reworkOnly}
+                onChange={(event) => setReworkOnly(event.target.checked)}
+                className="accent-brand size-4"
+              />
+              À retravailler
+              {reworkCount > 0 ? (
+                <StatusPill tone="danger" dot={false}>
+                  {reworkCount}
+                </StatusPill>
+              ) : null}
+            </label>
+          </div>
+        }
+      />
 
-      <div className="overflow-x-auto">
+      <div className="overflow-x-auto p-5 pt-4">
         <table className="w-full min-w-max text-sm">
           <thead>
             <tr className="text-muted-foreground border-b border-[var(--viz-grid)] text-left text-xs">
@@ -121,7 +129,7 @@ export function FaqTable({
                     <span className="flex items-start gap-1.5">
                       {rework ? (
                         <AlertTriangle
-                          className="text-brand-red mt-0.5 size-3.5 shrink-0"
+                          className="text-danger-ink mt-0.5 size-3.5 shrink-0"
                           aria-label="À retravailler"
                         />
                       ) : null}
@@ -155,7 +163,7 @@ export function FaqTable({
                   <td
                     className={cn(
                       "px-2 py-2 text-right tabular-nums",
-                      entry.correction_count > 0 && rework && "text-brand-red font-medium",
+                      entry.correction_count > 0 && rework && "text-danger-ink font-medium",
                     )}
                   >
                     {entry.correction_count}
@@ -171,18 +179,18 @@ export function FaqTable({
       </div>
 
       {rows.length === 0 ? (
-        <p className="text-muted-foreground py-8 text-center text-sm">
+        <p className="type-body py-8 text-center text-text-secondary">
           Aucune entrée ne correspond.
         </p>
       ) : null}
 
-      <p className="text-muted-foreground text-xs">
+      <p className="type-caption border-t border-border bg-surface-sunken px-5 py-3 text-text-secondary">
         Une entrée est signalée « à retravailler » dès qu&apos;un tiers de ses
         utilisations finit en correction, ou que sa confiance passe sous 60 %.
         {canEdit
           ? " L'édition et l'import CSV arrivent avec la connexion des canaux."
           : " Votre rôle est en lecture seule."}
       </p>
-    </div>
+    </Panel>
   );
 }

@@ -17,10 +17,17 @@ export interface MetricsTableRow {
   raw: RawMetrics;
 }
 
-/** Libellés de colonne du rapport actuel, conservés tels quels. */
+/**
+ * Libellés raccourcis pour l'en-tête du tableau, où la place manque.
+ *
+ * Ils reprenaient le rapport Looker, en anglais ; la table est lue par le
+ * client, elle est donc en français comme le reste de l'interface. Seule la
+ * longueur justifie l'écart avec `METRIC_DEFINITIONS`.
+ */
 const COLUMN_LABEL_OVERRIDES: Partial<Record<MetricId, string>> = {
-  impressions: "View",
-  spend: "Spent",
+  impressions: "Vues",
+  spend: "Budget",
+  landingPageViews: "Vues page",
 };
 
 function columnLabel(metric: MetricId): string {

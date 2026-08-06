@@ -1,5 +1,6 @@
 "use client";
 
+import { Panel, PanelBody, PanelHeader } from "@/components/ds/surface";
 import { BarList, BarListTable } from "@/components/viz/bar-list";
 import { Donut, DonutTable } from "@/components/viz/donut";
 import { MetricsTable } from "@/components/viz/metrics-table";
@@ -74,10 +75,10 @@ export function MetaDashboard({
   }));
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       {/* Le ROAS répond seul à « est-ce que ça a marché » : un chiffre héros par
           vue, contre dix cartes de poids égal sur le rapport actuel. */}
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
         <HeroFigure
           metric="roas"
           value={computeMetric("roas", total, mode)}
@@ -86,7 +87,7 @@ export function MetaDashboard({
           period={`${period.label} · comparé à ${period.comparison}`}
         />
 
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           {SECONDARY_KPIS.map((metric) => (
             <StatTile
               key={metric}
@@ -98,7 +99,7 @@ export function MetaDashboard({
         </div>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid gap-5 lg:grid-cols-2">
         <VizCard
           title="Abonnés Instagram"
           subtitle="Meta n'expose que 30 jours d'historique — l'antériorité s'importe en CSV"
@@ -134,15 +135,21 @@ export function MetaDashboard({
         />
       </div>
 
-      <section className="bg-card rounded-lg p-5">
-        <h3 className="mb-4 text-sm font-semibold">Performance par ad set</h3>
-        <MetricsTable
-          rows={adSets}
-          columns={TOP_POSTS_COLUMNS}
-          total={total}
-          mode={mode}
+      <Panel>
+        <PanelHeader
+          title="Performance par ad set"
+          count={adSets.length}
+          description="Trié par budget dépensé, du plus au moins investi."
         />
-      </section>
+        <PanelBody>
+          <MetricsTable
+            rows={adSets}
+            columns={TOP_POSTS_COLUMNS}
+            total={total}
+            mode={mode}
+          />
+        </PanelBody>
+      </Panel>
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 
-import { AppHeader } from "@/components/app-header";
+import { AppShell } from "@/components/ds/app-shell";
 import { InviteForm } from "./invite-form";
 import { AccessTable } from "./access-table";
 import { requireOwner } from "@/lib/auth";
@@ -70,24 +70,15 @@ export default async function AccessPage() {
   );
 
   return (
-    <>
-      <AppHeader viewer={viewer} />
-
-      <main className="mx-auto w-full max-w-4xl flex-1 space-y-10 p-6 md:p-10">
-        <div className="space-y-1">
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Gestion des accès
-          </h1>
-          <p className="text-muted-foreground text-sm">
-            Seules les adresses invitées peuvent se connecter à un espace.
-            L&apos;espace Perso n&apos;est jamais partageable.
-          </p>
-        </div>
-
+    <AppShell
+      viewer={viewer}
+      title="Gestion des accès"
+      subtitle="Seules les adresses invitées peuvent se connecter à un espace. L'espace Perso n'est jamais partageable."
+    >
+      <div className="max-w-4xl space-y-8">
         <InviteForm workspaces={invitable} />
-
         <AccessTable members={rows} invitations={pending} />
-      </main>
-    </>
+      </div>
+    </AppShell>
   );
 }

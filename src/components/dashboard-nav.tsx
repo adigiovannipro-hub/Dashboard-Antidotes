@@ -12,6 +12,14 @@ export type NavItem = {
   name: string;
 };
 
+/**
+ * Les sections d'un espace client, en onglets.
+ *
+ * Horizontal et non plus vertical : depuis que le rail latéral porte la
+ * navigation entre espaces, deux colonnes de liens se faisaient concurrence.
+ * L'onglet actif se lit à l'encre pleine, comme les filtres — c'est une
+ * sélection, pas un état favorable.
+ */
 export function DashboardNav({
   workspaceName,
   items,
@@ -24,11 +32,8 @@ export function DashboardNav({
   if (items.length === 0) return null;
 
   return (
-    <nav
-      aria-label={`Sections de ${workspaceName}`}
-      className="border-border shrink-0 border-b p-3 md:w-56 md:border-r md:border-b-0 md:p-4"
-    >
-      <ul className="flex gap-1 md:flex-col">
+    <nav aria-label={`Sections de ${workspaceName}`}>
+      <ul className="inline-flex items-center gap-1 rounded-pill bg-surface-sunken p-1">
         {items.map((item) => {
           const active = segment === item.segment;
           return (
@@ -37,10 +42,10 @@ export function DashboardNav({
                 href={item.href}
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "focus-visible:ring-ring block rounded-md px-3 py-2 text-sm transition-colors focus-visible:ring-2 focus-visible:outline-none",
+                  "type-caption focus-visible:ring-ring block rounded-pill px-3.5 py-1.5 font-medium transition-colors duration-(--motion-duration) ease-standard focus-visible:ring-2 focus-visible:outline-none",
                   active
-                    ? "bg-muted text-foreground font-medium"
-                    : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
+                    ? "bg-primary text-primary-foreground"
+                    : "text-text-secondary hover:text-text-primary",
                 )}
               >
                 {item.name}

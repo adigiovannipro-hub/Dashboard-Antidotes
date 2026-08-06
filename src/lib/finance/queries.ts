@@ -277,6 +277,57 @@ export async function listExpensesForExport({
 
 // --- Catégories ------------------------------------------------------------
 
+/**
+ * Deux mesures de dépense pour la bande haute.
+ *
+ * Le mois en cours est compté sur le **montant débité du wallet**
+ * (`billing_amount_cents`), pas sur le montant facturé par le commerçant :
+ * une course en roupies ne s'additionne pas à un abonnement en euros, et
+ * c'est le débit qui a réellement quitté le compte. Les lignes sans montant
+ * débité — une dépense saisie à la main, par exemple — sont donc hors du
+ * total, et le compteur de justificatifs, lui, les compte toutes.
+ */
+export type ExpenseSummary = {
+  month_billed_cents: number;
+  month_count: number;
+  missing_receipts: number;
+};
+
+export async function getExpenseSummary(orgId: string): Promise<ExpenseSummary> {
+  const supabase = await createClient();
+  const monthStart = `${new Date().toISOString().slice(0, 7)}-01`;
+
+  const [{ data: monthRows }, { data: missingRows }] = await Promise.all([
+    supabase
+      .from("finance_transactions")
+      .select("billing_amount_cents, billing_currency")
+      .eq("org_id", orgId)
+      .gte("occurred_at", monthStart)
+      .limit(1000),
+    supabase
+      .from("finance_transactions")
+      .select("id")
+      .eq("org_id", orgId)
+      .eq("has_receipt", false)
+      .limit(1000),
+  ]);
+
+  const rows = (monthRows ?? []) as unknown as {
+    billing_amount_cents: number | null;
+    billing_currency: string | null;
+  }[];
+
+  return {
+    month_billed_cents: rows.reduce(
+      (sum, row) =>
+        row.billing_currency === "EUR" ? sum + (row.billing_amount_cents ?? 0) : sum,
+      0,
+    ),
+    month_count: rows.length,
+    missing_receipts: (missingRows ?? []).length,
+  };
+}
+
 export async function listCategories(orgId: string): Promise<FinanceCategory[]> {
   const supabase = await createClient();
 

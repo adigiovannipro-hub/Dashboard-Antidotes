@@ -57,6 +57,9 @@ async function guard(scope: Scope) {
 
 function revalidate(scope: Scope) {
   revalidatePath(`/espace/${scope.workspace}/planning/${scope.board}`);
+  // « Mon travail » réplique les lignes du jour sur la page d'accueil : les
+  // deux vues lisent la même ligne, toute écriture doit rafraîchir les deux.
+  revalidatePath("/");
 }
 
 function fail(error: unknown): PlanningResult {
