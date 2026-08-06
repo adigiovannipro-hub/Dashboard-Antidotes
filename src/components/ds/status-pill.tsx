@@ -42,7 +42,7 @@ export function StatusPill({
   return (
     <span
       className={cn(
-        "text-caption inline-flex items-center gap-1.5 rounded-pill px-2.5 py-0.5 font-medium whitespace-nowrap",
+        "type-caption inline-flex items-center gap-1.5 rounded-pill px-2.5 py-0.5 font-medium whitespace-nowrap",
         TONES[tone],
         className,
       )}

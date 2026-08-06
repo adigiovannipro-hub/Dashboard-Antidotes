@@ -43,7 +43,7 @@ export function StatCard({
   const body = (
     <>
       <div className="flex items-start justify-between gap-3">
-        <p className="text-overline text-text-secondary">{label}</p>
+        <p className="type-overline text-text-secondary">{label}</p>
         <span
           aria-hidden
           className="flex size-9 shrink-0 items-center justify-center rounded-md bg-surface-sunken"
@@ -56,7 +56,7 @@ export function StatCard({
         {pending ? (
           <Skeleton className="h-8 w-20" />
         ) : (
-          <p className="text-stat text-text-primary">{value ?? "—"}</p>
+          <p className="type-stat text-text-primary">{value ?? "—"}</p>
         )}
       </div>
 
@@ -65,7 +65,7 @@ export function StatCard({
           <StatusPill tone={tone}>{toneLabel}</StatusPill>
         ) : null}
         {context ? (
-          <span className="text-caption text-text-secondary">{context}</span>
+          <span className="type-caption text-text-secondary">{context}</span>
         ) : null}
       </div>
     </>

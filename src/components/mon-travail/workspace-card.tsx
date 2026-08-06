@@ -44,8 +44,8 @@ export function WorkspaceCard({
           style={accentColor ? { backgroundColor: accentColor } : undefined}
         />
         <div className="min-w-0">
-          <p className="text-h3 truncate text-text-primary">{name}</p>
-          <p className="text-caption text-text-secondary">{roleLabel}</p>
+          <p className="type-h3 truncate text-text-primary">{name}</p>
+          <p className="type-caption text-text-secondary">{roleLabel}</p>
         </div>
       </div>
 
@@ -103,10 +103,10 @@ function Metric({
         strokeWidth={1.75}
         className="size-3.5 shrink-0 text-text-tertiary"
       />
-      <dt className="text-caption min-w-0 flex-1 truncate text-text-secondary">
+      <dt className="type-caption min-w-0 flex-1 truncate text-text-secondary">
         {label}
       </dt>
-      <dd className="text-label text-text-primary tabular-nums">
+      <dd className="type-label text-text-primary tabular-nums">
         {value ?? (
           // TODO: valeur indisponible — la carte le dit plutôt que d'afficher
           // un zéro qui se lirait comme une mesure.
@@ -123,7 +123,7 @@ function MonthProgress({ done, total }: { done: number; total: number }) {
 
   return (
     <div className="mt-4">
-      <div className="text-caption mb-1.5 flex items-center justify-between text-text-secondary">
+      <div className="type-caption mb-1.5 flex items-center justify-between text-text-secondary">
         <span>Mois en cours</span>
         <span className="tabular-nums">
           {done}/{total}

@@ -56,12 +56,12 @@ export function PanelHeader({
       )}
     >
       <div className="min-w-0">
-        <h3 className="text-h3 flex items-center gap-2">
+        <h3 className="type-h3 flex items-center gap-2">
           {title}
           {count !== undefined ? <Counter value={count} /> : null}
         </h3>
         {description ? (
-          <p className="text-caption mt-0.5 text-text-secondary">{description}</p>
+          <p className="type-caption mt-0.5 text-text-secondary">{description}</p>
         ) : null}
       </div>
       {action ? <div className="shrink-0">{action}</div> : null}
@@ -124,7 +124,7 @@ export function NavCard({
 /** Le compteur gris qui suit un titre de section : « Clients 4 ». */
 export function Counter({ value }: { value: number }) {
   return (
-    <span className="text-caption rounded-pill bg-neutral-subtle px-2 py-0.5 font-medium text-neutral-ink tabular-nums">
+    <span className="type-caption rounded-pill bg-neutral-subtle px-2 py-0.5 font-medium text-neutral-ink tabular-nums">
       {value}
     </span>
   );
@@ -150,12 +150,12 @@ export function SectionHeader({
   return (
     <div className={cn("flex items-end justify-between gap-4", className)}>
       <div className="min-w-0">
-        <h2 className="text-h2 flex items-center gap-2 text-text-primary">
+        <h2 className="type-h2 flex items-center gap-2 text-text-primary">
           {title}
           {count !== undefined ? <Counter value={count} /> : null}
         </h2>
         {description ? (
-          <p className="text-caption mt-1 text-text-secondary">{description}</p>
+          <p className="type-caption mt-1 text-text-secondary">{description}</p>
         ) : null}
       </div>
       {action ? <div className="shrink-0">{action}</div> : null}

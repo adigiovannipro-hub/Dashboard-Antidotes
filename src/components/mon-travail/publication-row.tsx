@@ -84,14 +84,14 @@ export function PublicationRowView({
     >
       <div className="flex min-w-0 items-center gap-2">
         {dateBadge ? (
-          <span className="text-caption shrink-0 rounded-pill bg-info-subtle px-2 py-0.5 font-medium text-info-ink tabular-nums">
+          <span className="type-caption shrink-0 rounded-pill bg-info-subtle px-2 py-0.5 font-medium text-info-ink tabular-nums">
             {dateBadge}
           </span>
         ) : null}
         <WorkspaceChip workspace={row.workspace} boardSlug={row.board_slug} />
       </div>
 
-      <span className="text-overline text-text-secondary">{row.lane_name}</span>
+      <span className="type-overline text-text-secondary">{row.lane_name}</span>
 
       <div className="basis-full md:basis-auto">
         <TextCell

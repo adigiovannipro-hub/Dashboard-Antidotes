@@ -38,6 +38,7 @@ Un module interne renvoie **404 et non 403** à qui n'y a pas droit : un client 
 | Chantier | Où | État |
 |---|---|---|
 | Fondations | `supabase/migrations/0001-0003`, `src/lib/auth.ts`, `src/app/admin/acces` | 16 tables, RLS + tests d'isolation réels, auth magic link, hub, navigation, invitations |
+| Système visuel | `src/styles/tokens.css`, `src/app/globals.css`, `src/components/ds/` | Canvas gris chaud / surfaces blanches, tokens uniques, échelle typographique `type-*`, Inter + Montserrat, rail latéral repliable, primitives Panel / NavCard / StatCard / StatusPill. Contraste 4,5:1 vérifié au navigateur sur quatre pages |
 | Dashboard Bondet Meta | `src/components/viz/`, `src/lib/metrics/definitions.ts` | Design system, 10 cartes KPI, donuts Persona, courbe followers, tableau heatmap |
 | Modération (interne) | `/moderation`, `src/lib/moderation/` | 13 tables, pgvector, FAQ sémantique, génération Claude, boucle d'apprentissage, inbox 3 colonnes. Architecture seulement, aucune connexion réelle aux plateformes |
 | Planning Éditorial | `/espace/[workspace]/planning`, `src/lib/planning/` | 6 tables, miroir du board Monday du client, import à sens unique, + analyses strategy / cadence / health |
@@ -161,6 +162,18 @@ Un chantier est vérifié quand `pnpm typecheck`, `pnpm lint`, `pnpm build` et `
 - **Tout calcul de date se fait en UTC** (`Date.UTC`, `getUTC*`, `timeZone: "UTC"`). Un mois qui commence à minuit heure de Paris décalerait toutes les agrégations. `Europe/Paris` n'apparaît qu'à **un seul endroit** de `src/` (`subject-row.tsx:334`) et dans `playwright.config.ts` — cinq autres formatages de date omettent le fuseau et dépendent donc du serveur : ne recopie pas cet oubli, passe `timeZone` explicitement.
 - Formats français centralisés dans `src/lib/format.ts` — jamais de `toLocaleString` en dur dans un composant. Espace insécable fine pour les milliers, virgule décimale, `2 572,22 €`, `0,73 %`. Une métrique non définie s'affiche `—`, un delta sans comparaison `N/A`.
 - **Seules les grandeurs additives sont stockées.** Tout ratio (CPA, ROAS, CTR, CPM, CPC, CPL) est recalculé depuis les agrégats bruts de la période affichée. Une moyenne de moyennes est fausse, et c'est le piège classique de ce genre d'outil.
+
+### Système visuel
+
+**Toutes les valeurs vivent dans `src/styles/tokens.css`, et nulle part ailleurs.** `globals.css` ne fait que les brancher sur Tailwind et sur le vocabulaire shadcn (`--card`, `--muted`, `--primary`…) : repointer ces alias suffit à faire basculer l'application entière sans rouvrir un composant. Aucun hex dans un `.tsx` — sauf les couleurs de statut du board Monday, qui sont des **données** du client.
+
+- **Canvas `--canvas`, surfaces `--surface`.** Les cartes ressortent en blanc sur un gris chaud, bordées et posées sur `shadow-card`. L'inverse — cartes grises sur fond blanc — les enfonçait.
+- **Couleur vive ≠ couleur de texte.** Le vert de marque est à 2,71:1 sur blanc : illisible en texte, et le blanc posé dessus l'est autant. Chaque famille a donc deux jetons — la teinte vive pour les fonds, les points et les marques, une **encre** (`--accent-ink`, `--danger-ink`, `--warning-ink`, `--info-ink`) pour tout ce qui se lit. Le bouton primaire est l'encre, jamais le vert. `--text-tertiary` (2,79:1) est réservé aux icônes.
+- **L'échelle typographique est préfixée `type-`**, pas `text-` : `type-h1`, `type-body`, `type-overline`, `type-stat`… Ce n'est pas cosmétique — tailwind-merge range tout `text-*` dans le même groupe que les couleurs et **en supprime une des deux** au passage dans `cn()`. Trois libellés étaient muets avant qu'un audit du rendu ne le montre. Ne recrée jamais une classe utilitaire préfixée `text-`.
+- **Une carte a trois formes et pas une de plus** (`src/components/ds/surface.tsx`) : `Panel` (contenant), `NavCard` (cliquable, doit porter des métriques), `StatCard` (un chiffre). Seule `NavCard` réagit au survol — un effet sur une carte non cliquable ment sur ce qui va se passer.
+- **Aucune valeur inventée.** Une source absente affiche `—` et le dit ; l'absence de ligne pour un espace vaut zéro, pas « inconnu » (`NO_WORKSPACE_ACTIVITY`).
+- Le mode sombre est **maintenu** : chaque token est redéclaré sous `.dark`.
+- Contraste : le seuil de 4,5:1 se vérifie **dans le navigateur**, jamais sur le papier. Attention, Tailwind émet les opacités en `oklab(...)` — un audit qui parse les couleurs à la main produit de faux positifs ; faire résoudre les couleurs par un canvas.
 
 ### Nommage et langue
 

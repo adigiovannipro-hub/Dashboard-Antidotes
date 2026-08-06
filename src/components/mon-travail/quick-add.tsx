@@ -41,7 +41,7 @@ export function QuickAdd({
   }, [result]);
 
   const field =
-    "text-body h-10 rounded-md border border-input bg-surface px-3 outline-none transition-colors duration-(--motion-duration) ease-standard focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/20";
+    "type-body h-10 rounded-md border border-input bg-surface px-3 outline-none transition-colors duration-(--motion-duration) ease-standard focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/20";
 
   return (
     <form ref={formRef} action={action} className="flex flex-col gap-2 sm:flex-row">

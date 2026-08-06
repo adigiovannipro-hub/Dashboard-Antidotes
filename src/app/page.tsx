@@ -246,11 +246,11 @@ async function loadTravail(workspaces: WorkspaceAccess[], today: string) {
 function EmptyState({ email }: { email: string }) {
   return (
     <div className="rounded-lg border border-dashed border-border bg-surface p-10 text-center">
-      <p className="text-body text-text-secondary">
+      <p className="type-body text-text-secondary">
         Le compte <span className="font-medium text-text-primary">{email}</span>{" "}
         n&apos;a encore accès à aucun espace.
       </p>
-      <p className="text-caption mt-1 text-text-secondary">
+      <p className="type-caption mt-1 text-text-secondary">
         Un accès doit être accordé à cette adresse depuis l&apos;administration.
       </p>
     </div>

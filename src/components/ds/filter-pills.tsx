@@ -44,7 +44,7 @@ export function FilterPills({
             href={option.href}
             aria-current={active ? "page" : undefined}
             className={cn(
-              "text-caption focus-visible:ring-ring rounded-pill px-3 py-1.5 font-medium transition-colors duration-(--motion-duration) ease-standard focus-visible:ring-2 focus-visible:outline-none",
+              "type-caption focus-visible:ring-ring rounded-pill px-3 py-1.5 font-medium transition-colors duration-(--motion-duration) ease-standard focus-visible:ring-2 focus-visible:outline-none",
               active
                 ? "bg-primary text-primary-foreground"
                 : "text-text-secondary hover:text-text-primary",

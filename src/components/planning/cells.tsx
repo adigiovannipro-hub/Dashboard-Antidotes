@@ -186,6 +186,27 @@ export type ChipOption<T extends string> = {
 };
 
 /**
+ * L'encre d'une pastille, déduite de son fond.
+ *
+ * Les couleurs viennent du board Monday et ne se négocient pas — mais du blanc
+ * posé sur « EN BROUILLON » (#9cd326) tombe à 1,79:1, illisible. Plutôt que de
+ * retoucher la palette du client, on choisit l'encre : sombre sur les teintes
+ * claires, blanche sur les foncées. Le seuil 0,45 de luminance relative place
+ * la bascule là où les deux options se valent.
+ */
+function chipInk(color: string): string {
+  const hex = color.replace("#", "");
+  if (hex.length !== 6) return "#ffffff";
+  const channel = (start: number) => {
+    const value = parseInt(hex.slice(start, start + 2), 16) / 255;
+    return value <= 0.04045 ? value / 12.92 : Math.pow((value + 0.055) / 1.055, 2.4);
+  };
+  const luminance =
+    0.2126 * channel(0) + 0.7152 * channel(2) + 0.0722 * channel(4);
+  return luminance > 0.45 ? "#1a1a1a" : "#ffffff";
+}
+
+/**
  * Pastille colorée avec sélecteur, à la manière des colonnes « status » de
  * Monday. Les couleurs sont celles du board d'origine : l'équipe les lit depuis
  * des mois, et un orange qui ne veut plus dire « en cours » coûterait plus cher
@@ -213,10 +234,13 @@ export function ChipSelect<T extends string>({
       <DropdownMenuTrigger
         aria-label={ariaLabel}
         className={cn(
-          "focus-visible:ring-brand flex h-7 w-full items-center justify-center rounded-sm px-2 text-[11px] font-semibold tracking-wide text-white uppercase outline-none focus-visible:ring-2",
+          "focus-visible:ring-brand flex h-7 w-full items-center justify-center rounded-sm px-2 text-[11px] font-semibold tracking-wide uppercase outline-none focus-visible:ring-2",
           className,
         )}
-        style={{ backgroundColor: current?.color ?? "transparent" }}
+        style={{
+          backgroundColor: current?.color ?? "transparent",
+          color: current ? chipInk(current.color) : undefined,
+        }}
       >
         <span className={cn("truncate", !current && "text-muted-foreground")}>
           {current?.label ?? "—"}
@@ -230,8 +254,8 @@ export function ChipSelect<T extends string>({
               key={option.value}
               type="button"
               onClick={() => onSelect(option.value)}
-              className="focus-visible:ring-ring flex h-8 items-center justify-center rounded-md px-2 text-[11px] font-semibold tracking-wide text-white uppercase outline-none focus-visible:ring-2"
-              style={{ backgroundColor: option.color }}
+              className="focus-visible:ring-ring flex h-8 items-center justify-center rounded-md px-2 text-[11px] font-semibold tracking-wide uppercase outline-none focus-visible:ring-2"
+              style={{ backgroundColor: option.color, color: chipInk(option.color) }}
             >
               <span className="truncate">{option.label}</span>
               {option.value === value ? (

@@ -145,7 +145,7 @@ export function Sidebar({
             {collapsed ? (
               <span
                 aria-hidden
-                className="text-h3 hidden text-accent-ink md:block"
+                className="type-h3 hidden text-accent-ink md:block"
               >
                 A
               </span>
@@ -169,7 +169,9 @@ export function Sidebar({
             <div key={group.title} className="mb-5 last:mb-0">
               <p
                 className={cn(
-                  "text-overline mb-1.5 px-2 text-text-tertiary",
+                  // `--text-tertiary` ne monte qu'à 2,79:1 : il est réservé aux
+                  // icônes et aux ornements, jamais à du texte.
+                  "type-overline mb-1.5 px-2 text-text-secondary",
                   collapsed && "md:sr-only",
                 )}
               >
@@ -198,7 +200,7 @@ export function Sidebar({
             aria-label={collapsed ? "Déplier la navigation" : "Replier la navigation"}
             aria-pressed={collapsed}
             className={cn(
-              "text-label hover:bg-muted focus-visible:ring-ring flex w-full items-center gap-3 rounded-md px-2.5 py-2 text-text-secondary transition-colors duration-(--motion-duration) ease-standard focus-visible:ring-2 focus-visible:outline-none",
+              "type-label hover:bg-muted focus-visible:ring-ring flex w-full items-center gap-3 rounded-md px-2.5 py-2 text-text-secondary transition-colors duration-(--motion-duration) ease-standard focus-visible:ring-2 focus-visible:outline-none",
               collapsed && "justify-center",
             )}
           >
@@ -237,7 +239,7 @@ function SidebarLink({
       aria-current={active ? "page" : undefined}
       title={collapsed ? entry.label : undefined}
       className={cn(
-        "text-label focus-visible:ring-ring relative flex items-center gap-3 rounded-md py-2 pr-2.5 transition-colors duration-(--motion-duration) ease-standard focus-visible:ring-2 focus-visible:outline-none",
+        "type-label focus-visible:ring-ring relative flex items-center gap-3 rounded-md py-2 pr-2.5 transition-colors duration-(--motion-duration) ease-standard focus-visible:ring-2 focus-visible:outline-none",
         // La barre active occupe le retrait gauche : sans lui, elle décalerait
         // l'icône de trois pixels en devenant visible.
         "pl-2.5",

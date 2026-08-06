@@ -68,9 +68,9 @@ export function ShellFrame({
             </button>
 
             <div className="min-w-0 flex-1">
-              <h1 className="text-h1 truncate text-text-primary">{title}</h1>
+              <h1 className="type-h1 truncate text-text-primary">{title}</h1>
               {subtitle ? (
-                <p className="text-caption mt-0.5 truncate text-text-secondary">
+                <p className="type-caption mt-0.5 truncate text-text-secondary">
                   {subtitle}
                 </p>
               ) : null}
@@ -84,7 +84,7 @@ export function ShellFrame({
                   ouverte qu'on sait ouverte. */}
               {openAccess ? (
                 <span
-                  className="text-caption hidden rounded-pill border border-danger/40 px-2.5 py-1 font-medium text-danger-ink sm:inline"
+                  className="type-caption hidden rounded-pill border border-danger/40 px-2.5 py-1 font-medium text-danger-ink sm:inline"
                   title="Aucune authentification : toute personne ayant l'URL voit l'ensemble des espaces. Passer ANTIDOTES_OPEN_ACCESS à false pour refermer."
                 >
                   Accès public
@@ -95,14 +95,14 @@ export function ShellFrame({
 
               <DropdownMenu>
                 <DropdownMenuTrigger
-                  className="text-caption bg-surface-sunken hover:text-foreground focus-visible:ring-ring flex size-9 items-center justify-center rounded-pill border border-border font-medium text-text-secondary focus-visible:ring-2 focus-visible:outline-none"
+                  className="type-caption bg-surface-sunken hover:text-foreground focus-visible:ring-ring flex size-9 items-center justify-center rounded-pill border border-border font-medium text-text-secondary focus-visible:ring-2 focus-visible:outline-none"
                   aria-label="Menu du compte"
                 >
                   {initial}
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56">
                   <DropdownMenuLabel className="truncate font-normal">
-                    <span className="text-caption block text-text-secondary">
+                    <span className="type-caption block text-text-secondary">
                       Connecté en tant que
                     </span>
                     {email}

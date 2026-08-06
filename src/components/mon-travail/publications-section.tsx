@@ -56,7 +56,7 @@ export function PublicationsSection({
             strokeWidth={1.75}
             className="size-5 shrink-0 text-text-tertiary"
           />
-          <p className="text-body min-w-0 flex-1 text-text-secondary">
+          <p className="type-body min-w-0 flex-1 text-text-secondary">
             Aucune publication programmée, ni aujourd&apos;hui ni ensuite.
           </p>
         </div>

@@ -54,7 +54,7 @@ export function TasksSection({
             strokeWidth={1.75}
             className="size-5 shrink-0 text-text-tertiary"
           />
-          <p className="text-body min-w-0 flex-1 text-text-secondary">
+          <p className="type-body min-w-0 flex-1 text-text-secondary">
             Rien pour aujourd&apos;hui.
             {groups.upcoming.length > 0
               ? " Les jours suivants sont ci-dessous."
@@ -86,7 +86,7 @@ export function TasksSection({
 
       {groups.upcoming.map((group) => (
         <div key={group.day}>
-          <p className="text-overline border-y border-border bg-surface-sunken px-5 py-2 text-text-secondary">
+          <p className="type-overline border-y border-border bg-surface-sunken px-5 py-2 text-text-secondary">
             {upcomingDayLabel(group.day, today)}
           </p>
           <PanelRows>
