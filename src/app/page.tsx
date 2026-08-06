@@ -32,7 +32,7 @@ import {
 } from "@/lib/mon-travail/queries";
 import type { TaskWorkspace } from "@/lib/mon-travail/types";
 import { DONE_STATUSES } from "@/lib/planning/types";
-import { formatMoneyCompact } from "@/lib/finance/money";
+import { formatMoney } from "@/lib/finance/money";
 import type { WorkspaceType } from "@/lib/supabase/database.types";
 
 const SECTIONS: { type: WorkspaceType; title: string; icon: typeof Users }[] = [
@@ -120,7 +120,7 @@ export default async function HubPage() {
                 label="Factures émises"
                 value={
                   travail.stats.invoices
-                    ? formatMoneyCompact(travail.stats.invoices.pendingCents, "EUR")
+                    ? formatMoney(travail.stats.invoices.pendingCents, "EUR")
                     : null
                 }
                 context={

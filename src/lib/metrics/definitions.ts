@@ -40,7 +40,7 @@ export const METRIC_DEFINITIONS: Record<MetricId, MetricDefinition> = {
   },
   purchases: {
     id: "purchases",
-    label: "Purchase",
+    label: "Achats",
     format: "integer",
     direction: "up-good",
     compute: (r) => r.purchases,
@@ -73,7 +73,7 @@ export const METRIC_DEFINITIONS: Record<MetricId, MetricDefinition> = {
   },
   spend: {
     id: "spend",
-    label: "Amount spent (EUR)",
+    label: "Budget dépensé",
     format: "currency",
     // Dépenser plus n'est ni bon ni mauvais en soi, mais sur une plateforme de
     // reporting client la hausse du budget se lit comme une progression.
@@ -82,14 +82,14 @@ export const METRIC_DEFINITIONS: Record<MetricId, MetricDefinition> = {
   },
   earn: {
     id: "earn",
-    label: "Earn",
+    label: "Chiffre d'affaires",
     format: "currency",
     direction: "up-good",
     compute: (r) => r.purchaseValue,
   },
   landingPageViews: {
     id: "landingPageViews",
-    label: "Landing page views",
+    label: "Vues de page",
     format: "integer",
     direction: "up-good",
     compute: (r) => r.landingPageViews,
@@ -112,21 +112,21 @@ export const METRIC_DEFINITIONS: Record<MetricId, MetricDefinition> = {
   },
   comments: {
     id: "comments",
-    label: "Comments",
+    label: "Commentaires",
     format: "integer",
     direction: "up-good",
     compute: (r) => r.comments,
   },
   saves: {
     id: "saves",
-    label: "Saves",
+    label: "Enregistrements",
     format: "integer",
     direction: "up-good",
     compute: (r) => r.saves,
   },
   shares: {
     id: "shares",
-    label: "Shares",
+    label: "Partages",
     format: "integer",
     direction: "up-good",
     compute: (r) => r.shares,

@@ -53,8 +53,17 @@ export function MonthGroup({
   const usedPlatforms = new Set(month.lanes.map((lane) => lane.platform));
 
   return (
-    <section className="mb-6" aria-label={month.label}>
-      <header className="mb-2 flex items-center gap-2">
+    <section
+      aria-label={month.label}
+      className="border-b border-border last:border-b-0"
+    >
+      <header
+        className={cn(
+          "flex items-center gap-2 px-3 py-2.5 transition-colors",
+          // Un mois ouvert se détache du fond : c'est celui qu'on lit.
+          open ? "bg-surface-sunken" : "hover:bg-muted/40",
+        )}
+      >
         <button
           type="button"
           onClick={() => setOpen((value) => !value)}
@@ -145,9 +154,9 @@ export function MonthGroup({
       </header>
 
       {open ? (
-        <div className="ml-6 space-y-3">
+        <div className="space-y-3 border-t border-border p-3">
           {month.lanes.length === 0 ? (
-            <p className="text-muted-foreground border-border/60 rounded-md border border-dashed px-3 py-4 text-center text-xs">
+            <p className="type-caption rounded-md border border-dashed border-border px-3 py-4 text-center text-text-secondary">
               Aucun réseau pour ce mois. Ajoutez-en un pour commencer à poser des
               publications.
             </p>

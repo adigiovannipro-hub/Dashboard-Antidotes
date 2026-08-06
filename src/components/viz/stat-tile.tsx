@@ -8,8 +8,10 @@ import { cn } from "@/lib/utils";
 /**
  * Tuile de statistique : libellé, valeur, variation.
  *
- * La hiérarchie tient à la taille et au poids, sans ornement : la carte qui
- * la porte apporte déjà sa bordure et son ombre.
+ * Même gabarit que la `StatCard` du système — surblanc bordé, libellé en
+ * capitales fines, chiffre à chasse tabulaire — mais sans icône : dix tuiles
+ * côte à côte avec dix pictogrammes deviennent un mur de symboles, et aucune
+ * des dix ne se lit plus.
  */
 export function StatTile({
   metric,
@@ -25,21 +27,25 @@ export function StatTile({
   const definition = METRIC_DEFINITIONS[metric];
 
   return (
-    <div className={cn("bg-card rounded-lg p-4", className)}>
-      <p className="text-muted-foreground truncate text-xs" title={definition.label}>
+    <div
+      className={cn(
+        "rounded-lg border border-border bg-surface p-4 shadow-card",
+        className,
+      )}
+    >
+      <p
+        className="type-overline truncate text-text-secondary"
+        title={definition.label}
+      >
         {definition.label}
       </p>
       {/* Chiffres proportionnels : `tabular-nums` sur une grande valeur isolée
           donnerait des chasses égales et un rendu lâche. */}
-      <p className="text-foreground mt-1 text-2xl leading-none font-semibold">
+      <p className="mt-2 text-2xl leading-none font-semibold text-text-primary">
         {formatMetric(metric, value)}
       </p>
       {delta ? (
-        <Delta
-          ratio={delta.ratio}
-          sentiment={delta.sentiment}
-          className="mt-2"
-        />
+        <Delta ratio={delta.ratio} sentiment={delta.sentiment} className="mt-2" />
       ) : null}
     </div>
   );
@@ -70,22 +76,16 @@ export function HeroFigure({
   const hasComparison = delta && delta.ratio !== null;
 
   return (
-    <div className="bg-card flex flex-col justify-between gap-6 rounded-lg p-6">
+    <div className="flex flex-col justify-between gap-6 rounded-lg border border-border bg-surface p-6 shadow-card">
       <div>
-        <p className="text-muted-foreground text-xs tracking-wide uppercase">
-          {definition.label}
-        </p>
-        <p className="text-foreground mt-2 text-5xl leading-none font-bold sm:text-6xl">
+        <p className="type-overline text-text-secondary">{definition.label}</p>
+        <p className="mt-2 text-5xl leading-none font-bold text-text-primary sm:text-6xl">
           {formatMetric(metric, value)}
         </p>
         {hasComparison ? (
-          <Delta
-            ratio={delta.ratio}
-            sentiment={delta.sentiment}
-            className="mt-3"
-          />
+          <Delta ratio={delta.ratio} sentiment={delta.sentiment} className="mt-3" />
         ) : (
-          <p className="text-muted-foreground mt-3 text-xs">
+          <p className="type-caption mt-3 text-text-secondary">
             Pas de comparaison disponible sur la période précédente.
           </p>
         )}
@@ -94,10 +94,10 @@ export function HeroFigure({
       {/* Le bas de la carte porte la lecture en clair plutôt qu'un vide : c'est
           la phrase qu'on recopierait dans un mail au client. */}
       {sentence ? (
-        <p className="text-foreground text-sm leading-relaxed">
+        <p className="type-body leading-relaxed text-text-primary">
           {sentence}
           {period ? (
-            <span className="text-muted-foreground block pt-1 text-xs">
+            <span className="type-caption block pt-1 text-text-secondary">
               {period}
             </span>
           ) : null}

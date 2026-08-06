@@ -1,6 +1,10 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { PlugZap } from "lucide-react";
 
+import { EmptyState } from "@/components/ds/empty-state";
+import { StatusPill } from "@/components/ds/status-pill";
+import { SectionHeader } from "@/components/ds/surface";
 import { MetaDashboard } from "@/components/viz/meta-dashboard";
 import { getWorkspace } from "@/lib/auth";
 import {
@@ -61,20 +65,14 @@ export default async function DashboardPage({ params }: { params: Params }) {
 
   return (
     <div className="space-y-5">
-      <header className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <p className="text-muted-foreground text-xs">{workspace.name}</p>
-          <h1 className="mt-0.5 text-2xl font-bold tracking-tight">
-            {dashboard.name}
-          </h1>
-        </div>
-        <p className="text-muted-foreground text-xs">
-          {BONDET_PERIOD.label}
-          <span className="bg-brand-mint text-heading ml-2 rounded px-1.5 py-0.5 text-[11px] font-medium">
-            Données de démonstration
-          </span>
-        </p>
-      </header>
+      {/* Le nom de l'espace est déjà le titre de la page, porté par le cadre :
+          le répéter ici volait deux lignes au contenu. Ne reste que ce que le
+          cadre ne peut pas savoir — la période et l'origine des chiffres. */}
+      <SectionHeader
+        title={dashboard.name}
+        description={`${BONDET_PERIOD.label} · comparé à ${BONDET_PERIOD.comparison}`}
+        action={<StatusPill tone="info">Données de démonstration</StatusPill>}
+      />
 
       {isBondetMeta ? (
         <MetaDashboard
@@ -88,9 +86,10 @@ export default async function DashboardPage({ params }: { params: Params }) {
           period={BONDET_PERIOD}
         />
       ) : (
-        <div className="bg-card text-muted-foreground rounded-lg p-12 text-center text-sm">
-          Aucune source de données n&apos;est connectée à cet espace.
-        </div>
+        <EmptyState
+          icon={PlugZap}
+          message="Aucune source de données n'est connectée à cet espace."
+        />
       )}
     </div>
   );

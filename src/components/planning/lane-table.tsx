@@ -41,8 +41,11 @@ export function LaneTable({
   const sponsoring = totalSponsoring(lane.subjects);
 
   return (
-    <section className="border-border/60 rounded-md border" aria-label={lane.name}>
-      <header className="bg-card/60 flex items-center gap-2 rounded-t-md px-2 py-1.5">
+    <section
+      className="overflow-hidden rounded-md border border-border"
+      aria-label={lane.name}
+    >
+      <header className="flex items-center gap-2 bg-surface-sunken px-2 py-1.5">
         <button
           type="button"
           onClick={() => setOpen((value) => !value)}
