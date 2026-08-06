@@ -7,8 +7,10 @@
  * Chaque fichier tourne dans une transaction et son nom est enregistré dans
  * `app.schema_migrations` : un second passage ne réapplique rien.
  *
- * Nécessite `SUPABASE_DB_URL` (Supabase > Project Settings > Database >
- * Connection string > URI).
+ * Nécessite `SUPABASE_DB_URL` : bouton « Connect » en haut du tableau de bord
+ * Supabase, option **Session pooler** — hôte `…pooler.supabase.com`, port
+ * 5432. Pas « Direct connection » : elle est en IPv6 seulement, et les
+ * runners GitHub Actions n'ont que de l'IPv4.
  */
 import { createHash } from "node:crypto";
 import { readdir, readFile } from "node:fs/promises";
@@ -28,8 +30,9 @@ async function main() {
 
   if (!connectionString) {
     console.error(
-      "SUPABASE_DB_URL est absent de .env.local.\n" +
-        "Supabase > Project Settings > Database > Connection string (URI).",
+      "SUPABASE_DB_URL est absent.\n" +
+        "Supabase > bouton « Connect » en haut > Session pooler " +
+        "(hôte …pooler.supabase.com, port 5432).",
     );
     process.exit(1);
   }

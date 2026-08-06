@@ -70,9 +70,19 @@ Les migrations vivent dans `supabase/migrations/`, numérotées et appliquées
 dans l'ordre. `pnpm db:migrate` les joue une par une, chacune dans sa propre
 transaction, et retient ce qui a déjà tourné dans `app.schema_migrations`.
 
-Cela demande `SUPABASE_DB_URL` dans `.env.local` — *Project Settings →
-Database → Connection string (URI)*, en remplaçant `[YOUR-PASSWORD]` par le mot
-de passe de la base.
+Cela demande `SUPABASE_DB_URL` : bouton **Connect** en haut du tableau de bord
+Supabase, option **Session pooler**, en remplaçant `[YOUR-PASSWORD]` par le mot
+de passe de la base. Deux repères pour la reconnaître — l'hôte contient
+`pooler.supabase.com`, le port est `5432`.
+
+Pas « Direct connection » : elle n'écoute qu'en IPv6, et les runners GitHub
+Actions n'ont que de l'IPv4 — la connexion échouerait sur une erreur réseau
+qui ne dit pas son nom. Pas « Transaction pooler » (port 6543) non plus : il
+ne tient pas les transactions dont chaque migration a besoin.
+
+**Sans terminal**, tout cela se déclenche depuis *Actions → Base de données →
+Run workflow* ; le seul secret nécessaire pour appliquer les migrations et
+amorcer les données est `SUPABASE_DB_URL`.
 
 À défaut, le contenu des fichiers peut être collé tel quel dans le SQL Editor
 de Supabase, dans l'ordre des numéros :
