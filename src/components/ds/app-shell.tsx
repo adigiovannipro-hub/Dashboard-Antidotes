@@ -1,7 +1,10 @@
+import { cookies } from "next/headers";
+
 import { ShellFrame } from "@/components/ds/shell-frame";
 import { isOpenAccess } from "@/lib/access-mode";
 import type { Viewer } from "@/lib/auth";
 import { getAppNavigation } from "@/lib/navigation";
+import { RAIL_COOKIE } from "@/lib/ui-preferences";
 
 /**
  * Enveloppe de tout écran applicatif : rail, barre de page, conteneur.
@@ -24,7 +27,7 @@ export async function AppShell({
   actions?: React.ReactNode;
   children: React.ReactNode;
 }) {
-  const groups = await getAppNavigation();
+  const [groups, cookieStore] = await Promise.all([getAppNavigation(), cookies()]);
 
   return (
     <ShellFrame
@@ -35,6 +38,9 @@ export async function AppShell({
       title={title}
       subtitle={subtitle}
       actions={actions}
+      // Le repli est rendu juste dès le serveur : pas de rail qui se replie
+      // après coup, et aucun libellé tronqué en attendant l'hydratation.
+      railCollapsed={cookieStore.get(RAIL_COOKIE)?.value === "1"}
     >
       {children}
     </ShellFrame>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -20,6 +20,7 @@ import type { LucideIcon } from "lucide-react";
 
 import { Wordmark } from "@/components/wordmark";
 import type { NavEntry, NavGroup, NavIcon } from "@/lib/navigation";
+import { PREFERENCE_MAX_AGE, RAIL_COOKIE } from "@/lib/ui-preferences";
 import { cn } from "@/lib/utils";
 
 /**
@@ -28,51 +29,17 @@ import { cn } from "@/lib/utils";
  * Il remplace le hub comme point de passage obligé : jusqu'ici, aller de la
  * Finance au planning d'un client demandait un aller-retour par l'accueil.
  *
- * Repliable vers un rail d'icônes de 64 px, choix mémorisé dans le
- * navigateur. Le repli est lu **après** l'hydratation et non pendant le rendu
- * serveur, qui n'a pas accès au stockage local : appliquer l'état trop tôt
- * ferait diverger les deux rendus. La transition est neutralisée au premier
- * peint pour que la restitution du repli ne s'anime pas.
+ * Repliable vers un rail d'icônes de 64 px, choix mémorisé dans un **cookie**
+ * et non dans le stockage local. La raison est décisive : le cookie est lu par
+ * le serveur, qui rend donc d'emblée le rail dans le bon état. Une valeur
+ * gardée côté navigateur obligerait à corriger après coup — et une première
+ * tentative par `useSyncExternalStore` ne se resynchronisait jamais après
+ * l'hydratation, laissant les libellés visibles et tronqués dans un rail de
+ * 64 px, avec un `aria-pressed` faux.
  */
 
-const STORAGE_KEY = "antidotes:rail-replie";
-const CHANGE_EVENT = "antidotes:rail-change";
-
-/**
- * Le repli, lu là où il est vraiment : sur le document.
- *
- * `useSyncExternalStore` plutôt qu'un `useState` synchronisé dans un effet —
- * l'état ne vit pas dans React, il vit dans le stockage local et dans un
- * attribut posé par le script d'amorçage. Le lire ainsi évite le rendu en
- * cascade qu'un `setState` dans un effet provoquerait à chaque montage.
- */
-function subscribeToRail(onChange: () => void) {
-  window.addEventListener(CHANGE_EVENT, onChange);
-  // Un second onglet qui replie son rail replie aussi celui-ci.
-  window.addEventListener("storage", onChange);
-  return () => {
-    window.removeEventListener(CHANGE_EVENT, onChange);
-    window.removeEventListener("storage", onChange);
-  };
-}
-
-function readRail(): boolean {
-  return document.documentElement.dataset.railReplie === "1";
-}
-
-/** Le serveur ne connaît pas le choix : il rend le rail déplié. */
-function readRailOnServer(): boolean {
-  return false;
-}
-
-function setRail(collapsed: boolean) {
-  document.documentElement.dataset.railReplie = collapsed ? "1" : "0";
-  try {
-    window.localStorage.setItem(STORAGE_KEY, collapsed ? "1" : "0");
-  } catch {
-    // Navigation privée, stockage refusé : le repli vaut pour cette session.
-  }
-  window.dispatchEvent(new Event(CHANGE_EVENT));
+function remember(collapsed: boolean) {
+  document.cookie = `${RAIL_COOKIE}=${collapsed ? "1" : "0"}; path=/; max-age=${PREFERENCE_MAX_AGE}; samesite=lax`;
 }
 
 const ICONS: Record<NavIcon, LucideIcon> = {
@@ -95,17 +62,23 @@ export function Sidebar({
   groups,
   mobileOpen,
   onCloseMobile,
+  initialCollapsed,
 }: {
   groups: NavGroup[];
   mobileOpen: boolean;
   onCloseMobile: () => void;
+  /** Lu du cookie par le serveur : le premier rendu est déjà le bon. */
+  initialCollapsed: boolean;
 }) {
   const pathname = usePathname();
-  const collapsed = useSyncExternalStore(
-    subscribeToRail,
-    readRail,
-    readRailOnServer,
-  );
+  const [collapsed, setCollapsed] = useState(initialCollapsed);
+
+  function toggle() {
+    setCollapsed((previous) => {
+      remember(!previous);
+      return !previous;
+    });
+  }
 
   return (
     <>
@@ -125,9 +98,10 @@ export function Sidebar({
         data-collapsed={collapsed ? "" : undefined}
         className={cn(
           "fixed inset-y-0 left-0 z-50 flex w-[17rem] shrink-0 flex-col overflow-hidden border-r border-border bg-sidebar",
-          "md:sticky md:top-0 md:z-30 md:h-dvh md:w-(--rail-width) md:translate-x-0",
+          "md:sticky md:top-0 md:z-30 md:h-dvh md:translate-x-0",
           "transition-[width,transform] duration-(--motion-duration) ease-standard",
           mobileOpen ? "translate-x-0" : "-translate-x-full",
+          collapsed ? "md:w-16" : "md:w-60",
         )}
       >
         <div
@@ -196,7 +170,7 @@ export function Sidebar({
         <div className="hidden shrink-0 border-t border-border p-3 md:block">
           <button
             type="button"
-            onClick={() => setRail(!collapsed)}
+            onClick={toggle}
             aria-label={collapsed ? "Déplier la navigation" : "Replier la navigation"}
             aria-pressed={collapsed}
             className={cn(

@@ -258,6 +258,10 @@ Pour un test d'isolation RLS, le modèle reste `tests/planning-isolation.test.ts
 
 **Un `unique` sur une colonne nullable ne contraint rien.** `planning_lanes` et `planning_subjects` portent `unique (board_id, external_id)`, mais `external_id` est nullable : deux lignes créées hors import ne sont pas dédupliquées, `NULL` n'égalant pas `NULL`.
 
+**Une constante exportée d'un fichier `"use client"` n'est plus une constante côté serveur.** Importée par un composant serveur, elle devient une référence opaque : la comparaison échoue en silence, rien ne casse, le réglage ne se souvient simplement de rien. Le nom du cookie du rail vit donc dans `src/lib/ui-preferences.ts`, un module sans directive, lisible des deux côtés.
+
+**Le mode développement ne s'hydrate pas dans un bac à sable sans WebSocket.** Le HMR de Next échoue, React ne s'attache à rien, et tout composant client paraît mort — un clic sans effet, un `aria-pressed` figé. Ce n'est pas le code : vérifier tout comportement interactif sur `pnpm build && pnpm start`, jamais sur `pnpm dev` seul.
+
 **Les scripts Node ne lisent pas `.env.local` tout seuls.** Next le fait nativement, `dotenv/config` ne lit que `.env`. Un script lancé à la main doit pointer explicitement sur `.env.local`.
 
 **Les tests d'isolation se sautent en silence.** Sans `.env.local` renseigné, la suite passe en `describe.skip` : `pnpm test` est vert **sans avoir rien prouvé** sur la RLS. Un vert n'est une preuve d'isolation que si les tests ont réellement tourné contre la base, migrations appliquées.

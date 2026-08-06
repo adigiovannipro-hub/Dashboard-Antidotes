@@ -33,6 +33,7 @@ export function ShellFrame({
   title,
   subtitle,
   actions,
+  railCollapsed,
   children,
 }: {
   groups: NavGroup[];
@@ -42,6 +43,7 @@ export function ShellFrame({
   title: string;
   subtitle?: string;
   actions?: React.ReactNode;
+  railCollapsed: boolean;
   children: React.ReactNode;
 }) {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -53,6 +55,7 @@ export function ShellFrame({
         groups={groups}
         mobileOpen={mobileOpen}
         onCloseMobile={() => setMobileOpen(false)}
+        initialCollapsed={railCollapsed}
       />
 
       <div className="flex min-w-0 flex-1 flex-col">
