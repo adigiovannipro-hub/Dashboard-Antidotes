@@ -59,11 +59,13 @@ export function TaskRowView({
         onClick={() => run(() => toggleTask({ taskId: task.id, done: !archived }))}
         className={cn(
           "focus-visible:ring-brand flex size-5 shrink-0 items-center justify-center rounded-full border-2 outline-none focus-visible:ring-2",
+          // Encre et non vert de marque : le blanc de la coche ne tient pas
+          // le contraste sur `--accent`.
           archived
-            ? "bg-brand border-brand text-white"
+            ? "border-accent-ink bg-accent-ink text-white"
             : overdue
-              ? "border-brand-red hover:bg-brand-red/10"
-              : "border-border hover:border-foreground/40",
+              ? "border-danger hover:bg-danger-subtle"
+              : "border-border-strong hover:border-text-secondary",
         )}
       >
         {archived ? <Check className="size-3" aria-hidden /> : null}

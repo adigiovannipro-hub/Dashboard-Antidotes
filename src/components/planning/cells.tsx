@@ -439,12 +439,14 @@ export function VisualsCell({
   uploading,
   onUpload,
   onRemove,
+  className,
 }: {
   visuals: ResolvedVisual[];
   subjectName: string;
   uploading: boolean;
   onUpload: (file: File) => void;
   onRemove: (path: string) => void;
+  className?: string;
 }) {
   const [open, setOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -454,7 +456,10 @@ export function VisualsCell({
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger
         aria-label={`Visuels de ${subjectName || "la publication"} (${visuals.length})`}
-        className="hover:bg-muted/60 focus-visible:ring-brand flex w-full items-center justify-center gap-1 rounded-sm px-1 py-1 outline-none focus-visible:ring-2"
+        className={cn(
+          "hover:bg-muted/60 focus-visible:ring-brand flex w-full items-center justify-center gap-1 rounded-sm px-1 py-1 outline-none focus-visible:ring-2",
+          className,
+        )}
       >
         {first ? (
           <>

@@ -51,6 +51,15 @@ export default function RootLayout({
       suppressHydrationWarning
       className={`${montserrat.variable} ${inter.variable} h-full antialiased`}
     >
+      {/* Restitue le repli du rail avant le premier peint. Sans lui, le rail
+          s'afficherait déplié puis se replierait d'un coup à l'hydratation :
+          le serveur n'a aucun moyen de connaître un choix stocké dans le
+          navigateur. Même mécanique que celle de next-themes pour la couleur. */}
+      <script
+        dangerouslySetInnerHTML={{
+          __html: `try{document.documentElement.dataset.railReplie=localStorage.getItem("antidotes:rail-replie")==="1"?"1":"0"}catch(e){}`,
+        }}
+      />
       <body className="bg-background text-foreground flex min-h-full flex-col">
         <ThemeProvider>
           {children}

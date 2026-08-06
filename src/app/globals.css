@@ -179,6 +179,21 @@
   --seq-5: #b7e99b;
 }
 
+/* Largeur du rail de navigation.
+
+   Portée par une variable et non par une classe conditionnelle : le script
+   d'amorçage de `layout.tsx` pose l'attribut avant le premier peint, si bien
+   que le rail s'affiche d'emblée à la bonne largeur. Passer par l'état React
+   aurait fait sauter la mise en page d'une image à chaque chargement, le
+   serveur n'ayant aucun moyen de connaître le choix mémorisé. */
+:root {
+  --rail-width: 15rem;
+}
+
+[data-rail-replie="1"] {
+  --rail-width: 4rem;
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

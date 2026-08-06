@@ -1,5 +1,4 @@
-import { AppHeader } from "@/components/app-header";
-import { EntrepriseNav } from "@/components/entreprise-nav";
+import { AppShell } from "@/components/ds/app-shell";
 import { requireViewer } from "@/lib/auth";
 import { requireFinanceAccess } from "@/lib/finance/access";
 
@@ -24,23 +23,12 @@ export default async function EntrepriseLayout({
   const viewer = await requireViewer();
   await requireFinanceAccess();
 
+  // Le rail latéral porte désormais Finance et Reçus : le second rail de
+  // section qui vivait ici faisait doublon, chaque écran ayant deux
+  // navigations verticales côte à côte.
   return (
-    <>
-      <AppHeader viewer={viewer} />
-
-      <div className="flex flex-1 flex-col md:flex-row">
-        <nav
-          aria-label="Mon entreprise"
-          className="border-border shrink-0 border-b p-3 md:w-56 md:border-r md:border-b-0 md:p-4"
-        >
-          <p className="text-muted-foreground mb-2 px-3 text-xs font-medium tracking-wide uppercase">
-            Mon entreprise
-          </p>
-          <EntrepriseNav />
-        </nav>
-
-        <div className="flex min-w-0 flex-1 flex-col">{children}</div>
-      </div>
-    </>
+    <AppShell viewer={viewer} title="Mon entreprise">
+      {children}
+    </AppShell>
   );
 }

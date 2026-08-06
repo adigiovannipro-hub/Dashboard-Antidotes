@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 
-import { AppHeader } from "@/components/app-header";
+import { AppShell } from "@/components/ds/app-shell";
 import { requireViewer } from "@/lib/auth";
 import { requireModeration } from "@/lib/moderation/access";
 
@@ -24,9 +24,12 @@ export default async function ModerationLayout({
   await requireModeration();
 
   return (
-    <>
-      <AppHeader viewer={viewer} />
+    <AppShell
+      viewer={viewer}
+      title="Modération"
+      subtitle="Messages et commentaires, réponses validées à la main"
+    >
       <div className="flex min-h-0 flex-1 flex-col">{children}</div>
-    </>
+    </AppShell>
   );
 }

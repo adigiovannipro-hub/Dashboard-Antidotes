@@ -14,24 +14,18 @@ import type { PublicationRow, TaskWorkspace, WorkTask } from "./types";
  * sa session, il ne verrait que son propre espace, par construction.
  */
 
-export async function listDayPublications(options: {
-  day: string;
-  limit?: number;
-}): Promise<PublicationRow[]> {
-  const supabase = await createClient();
-
-  const { data } = await supabase
-    .from("planning_subjects")
-    .select("*")
-    .eq("scheduled_on", options.day)
-    // Un contenu non retenu n'a jamais existé pour le lecteur.
-    .neq("status", "dropped")
-    .order("created_at")
-    .limit(options.limit ?? 100);
-
-  const subjects = (data ?? []) as unknown as PlanningSubject[];
+/**
+ * Habille des publications brutes de ce que l'affichage réclame : réseau,
+ * client, visuels signés, tableau d'origine.
+ *
+ * Partagé par les deux lectures de publications — celles du jour et celles
+ * qui suivent — pour qu'un même sujet s'affiche à l'identique où qu'il
+ * apparaisse.
+ */
+async function decorate(subjects: PlanningSubject[]): Promise<PublicationRow[]> {
   if (subjects.length === 0) return [];
 
+  const supabase = await createClient();
   const laneIds = [...new Set(subjects.map((subject) => subject.lane_id))];
   const boardIds = [...new Set(subjects.map((subject) => subject.board_id))];
   const workspaceIds = [...new Set(subjects.map((subject) => subject.workspace_id))];
@@ -50,9 +44,7 @@ export async function listDayPublications(options: {
   const laneById = new Map(
     ((lanes ?? []) as unknown as PlanningLane[]).map((lane) => [lane.id, lane]),
   );
-  const boardSlugById = new Map(
-    (boards ?? []).map((board) => [board.id, board.slug]),
-  );
+  const boardSlugById = new Map((boards ?? []).map((board) => [board.id, board.slug]));
   const workspaceById = new Map(
     ((workspaces ?? []) as unknown as TaskWorkspace[]).map((workspace) => [
       workspace.id,
@@ -77,15 +69,59 @@ export async function listDayPublications(options: {
     });
   }
 
+  return rows;
+}
+
+export async function listDayPublications(options: {
+  day: string;
+  limit?: number;
+}): Promise<PublicationRow[]> {
+  const supabase = await createClient();
+
+  const { data } = await supabase
+    .from("planning_subjects")
+    .select("*")
+    .eq("scheduled_on", options.day)
+    // Un contenu non retenu n'a jamais existé pour le lecteur.
+    .neq("status", "dropped")
+    .order("created_at")
+    .limit(options.limit ?? 100);
+
+  const rows = await decorate((data ?? []) as unknown as PlanningSubject[]);
+
   // Une lecture par client, puis par réseau : l'ordre dans lequel on vérifie.
-  rows.sort((a, b) => {
+  return rows.sort((a, b) => {
     if (a.workspace.name !== b.workspace.name) {
       return a.workspace.name.localeCompare(b.workspace.name, "fr");
     }
     return a.platform.localeCompare(b.platform);
   });
+}
 
-  return rows;
+/**
+ * Les prochaines publications après un jour donné.
+ *
+ * Sert le repli de la section « À publier » : quand la journée est vide, une
+ * page qui affiche « rien à publier aujourd'hui » et s'arrête là occupe sa
+ * meilleure zone pour ne rien dire. Montrer ce qui vient ensuite répond à la
+ * question suivante avant qu'elle soit posée.
+ */
+export async function listNextPublications(options: {
+  after: string;
+  limit?: number;
+}): Promise<PublicationRow[]> {
+  const supabase = await createClient();
+
+  const { data } = await supabase
+    .from("planning_subjects")
+    .select("*")
+    .gt("scheduled_on", options.after)
+    .neq("status", "dropped")
+    .neq("status", "published")
+    .order("scheduled_on")
+    .limit(options.limit ?? 3);
+
+  return decorate((data ?? []) as unknown as PlanningSubject[]);
 }
 
 /**

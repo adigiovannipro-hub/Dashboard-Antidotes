@@ -16,9 +16,11 @@ import type { TaskWorkspace } from "@/lib/mon-travail/types";
 export function QuickAdd({
   clientWorkspaces,
   today,
+  autoFocus,
 }: {
   clientWorkspaces: TaskWorkspace[];
   today: string;
+  autoFocus?: boolean;
 }) {
   const [result, action, pending] = useActionState<TravailResult | null, FormData>(
     createTask,
@@ -39,7 +41,7 @@ export function QuickAdd({
   }, [result]);
 
   const field =
-    "border-input bg-background focus-visible:ring-brand rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:outline-none";
+    "text-body h-10 rounded-md border border-input bg-surface px-3 outline-none transition-colors duration-(--motion-duration) ease-standard focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/20";
 
   return (
     <form ref={formRef} action={action} className="flex flex-col gap-2 sm:flex-row">
@@ -47,6 +49,9 @@ export function QuickAdd({
         name="title"
         required
         maxLength={300}
+        // Le champ n'existe qu'après un clic explicite sur « Ajouter » : le
+        // focus est attendu, il ne détourne l'attention de personne.
+        autoFocus={autoFocus}
         placeholder="Ajouter une tâche…"
         aria-label="Nouvelle tâche"
         autoComplete="off"
@@ -58,7 +63,7 @@ export function QuickAdd({
           name="workspaceId"
           aria-label="Client rattaché"
           defaultValue=""
-          className={`${field} text-muted-foreground min-w-0 flex-1 sm:w-40 sm:flex-none`}
+          className={`${field} min-w-0 flex-1 text-text-secondary sm:w-40 sm:flex-none`}
         >
           <option value="">Aucun client</option>
           {clientWorkspaces.map((workspace) => (

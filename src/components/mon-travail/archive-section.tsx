@@ -1,7 +1,6 @@
-import { Archive } from "lucide-react";
-
 import { PublicationRowView } from "@/components/mon-travail/publication-row";
 import { TaskRowView } from "@/components/mon-travail/task-row";
+import { Panel, PanelHeader, PanelRows } from "@/components/ds/surface";
 import type {
   PublicationRow,
   TaskWorkspace,
@@ -25,16 +24,17 @@ export function ArchiveSection({
   workspacesById: Record<string, TaskWorkspace>;
   clientWorkspaces: TaskWorkspace[];
 }) {
-  if (tasks.length === 0 && publications.length === 0) return null;
+  const total = tasks.length + publications.length;
+  if (total === 0) return null;
 
   return (
-    <section className="space-y-3">
-      <h2 className="text-muted-foreground flex items-center gap-2 text-xs font-medium tracking-wide uppercase">
-        <Archive className="size-3.5" aria-hidden />
-        Archivé
-      </h2>
-
-      <div className="border-border overflow-hidden rounded-xl border">
+    <Panel className="opacity-75 transition-opacity duration-(--motion-duration) ease-standard hover:opacity-100">
+      <PanelHeader
+        title="Archivé"
+        count={total}
+        description="Terminé aujourd'hui et les jours précédents."
+      />
+      <PanelRows>
         {publications.map((row) => (
           <PublicationRowView key={row.subject.id} row={row} archived />
         ))}
@@ -49,7 +49,7 @@ export function ArchiveSection({
             clientWorkspaces={clientWorkspaces}
           />
         ))}
-      </div>
-    </section>
+      </PanelRows>
+    </Panel>
   );
 }

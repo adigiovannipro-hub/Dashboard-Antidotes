@@ -44,17 +44,27 @@ const STATUS_OPTIONS = STATUS_ORDER.filter((status) => status !== "idea").map(
   }),
 );
 
-/** Gabarit desktop : client, réseau, sujet, visuel, caption, date, statut. */
+/**
+ * Gabarit desktop : client, réseau, sujet, visuel, caption, date, statut.
+ *
+ * En dessous de `md`, la ligne se replie en trois niveaux — repère, sujet,
+ * puis date et statut. La caption sort de l'affichage : sur un téléphone, elle
+ * mangeait une ligne entière pour montrer un tiret, et sa place est de toute
+ * façon dans le planning.
+ */
 const ROW_GRID =
   "md:grid md:grid-cols-[minmax(120px,1fr)_92px_minmax(150px,1.5fr)_56px_minmax(170px,1.8fr)_118px_136px] md:items-center md:gap-x-1";
 
 export function PublicationRowView({
   row,
   archived,
+  dateBadge,
 }: {
   row: Row;
   /** Une publication partie est grisée dans « Archivé », mais reste éditable. */
   archived?: boolean;
+  /** Date affichée en tête quand la ligne ne concerne pas aujourd'hui. */
+  dateBadge?: string;
 }) {
   const { run, pending } = useCellAction();
   const scope = { workspace: row.workspace.slug, board: row.board_slug };
@@ -72,11 +82,16 @@ export function PublicationRowView({
         archived && "opacity-60",
       )}
     >
-      <WorkspaceChip workspace={row.workspace} boardSlug={row.board_slug} />
+      <div className="flex min-w-0 items-center gap-2">
+        {dateBadge ? (
+          <span className="text-caption shrink-0 rounded-pill bg-info-subtle px-2 py-0.5 font-medium text-info-ink tabular-nums">
+            {dateBadge}
+          </span>
+        ) : null}
+        <WorkspaceChip workspace={row.workspace} boardSlug={row.board_slug} />
+      </div>
 
-      <span className="text-muted-foreground text-[11px] font-semibold tracking-wide uppercase">
-        {row.lane_name}
-      </span>
+      <span className="text-overline text-text-secondary">{row.lane_name}</span>
 
       <div className="basis-full md:basis-auto">
         <TextCell
@@ -88,7 +103,10 @@ export function PublicationRowView({
         />
       </div>
 
+      {/* Comme la caption : une vignette de 56 px ne vaut pas une ligne entière
+          sur un téléphone, où la question est « est-ce parti ? ». */}
       <VisualsCell
+        className="hidden md:flex"
         visuals={row.visuals}
         subjectName={row.subject.name}
         uploading={pending}
@@ -103,7 +121,7 @@ export function PublicationRowView({
         }
       />
 
-      <div className="min-w-0 flex-1 md:flex-none">
+      <div className="hidden min-w-0 md:block">
         <WordingCell
           value={row.subject.wording}
           subjectName={row.subject.name}
@@ -119,7 +137,7 @@ export function PublicationRowView({
         />
       </div>
 
-      <div className="basis-full md:basis-auto">
+      <div className="w-[8.5rem] md:w-full">
         <ChipSelect<PlanningStatus>
           value={row.subject.status === "idea" ? null : row.subject.status}
           options={STATUS_OPTIONS}
