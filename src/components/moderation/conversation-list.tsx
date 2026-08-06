@@ -112,7 +112,7 @@ function Tag({
       className={cn(
         "rounded px-1.5 py-0.5 text-[10px] leading-none font-medium",
         tone === "alert"
-          ? "bg-brand-red/10 text-brand-red"
+          ? "bg-danger-subtle text-danger-ink"
           : "bg-muted text-muted-foreground",
       )}
     >

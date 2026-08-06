@@ -87,7 +87,7 @@ export function DocumentList({
                     rapprochée
                   </span>
                 ) : (
-                  <span className="text-brand-red inline-flex items-center gap-1">
+                  <span className="text-danger-ink inline-flex items-center gap-1">
                     <Link2Off className="size-3" aria-hidden />
                     sans ligne
                   </span>

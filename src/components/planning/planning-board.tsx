@@ -193,7 +193,7 @@ function CadenceStrip({ issues }: { issues: CadenceIssue[] }) {
             >
               {issue.severity === "warning" ? (
                 <AlertTriangle
-                  className="text-brand-red mt-0.5 size-3 shrink-0"
+                  className="text-danger-ink mt-0.5 size-3 shrink-0"
                   aria-label="Avertissement"
                 />
               ) : (

@@ -120,7 +120,7 @@ export function DocumentDetail({
             {amount ? (
               <p className="font-heading text-xl tabular-nums">{amount}</p>
             ) : (
-              <p className="text-brand-red text-sm font-medium">Montant introuvable</p>
+              <p className="text-danger-ink text-sm font-medium">Montant introuvable</p>
             )}
             <p className="text-muted-foreground mt-0.5 text-xs">
               {KIND_LABELS[document.kind]}
@@ -197,7 +197,7 @@ export function DocumentDetail({
               </p>
             </div>
           ) : (
-            <p className="text-brand-red mt-2 flex items-start gap-2 text-sm">
+            <p className="text-danger-ink mt-2 flex items-start gap-2 text-sm">
               <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden />
               Aucune dépense carte ne correspond. La pièce peut tout de même être
               envoyée — Airwallex tentera son propre rapprochement — mais rien ne
@@ -364,7 +364,7 @@ function ConfidenceBadge({ value }: { value: number }) {
           ? "bg-brand-mint text-heading"
           : value >= 0.6
             ? "bg-muted text-foreground"
-            : "text-brand-red border-brand-red/40 border",
+            : "text-danger-ink border-brand-red/40 border",
       )}
     >
       Confiance {level} · {percent} %

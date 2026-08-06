@@ -43,7 +43,7 @@ export default async function FaqPage({
   const tone = client.tone_settings;
 
   return (
-    <main className="mx-auto w-full max-w-6xl flex-1 space-y-6 p-6">
+    <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <Link
@@ -87,7 +87,7 @@ export default async function FaqPage({
         highlightId={entree ?? null}
         canEdit={context.access.role !== "viewer"}
       />
-    </main>
+    </div>
   );
 }
 

@@ -130,13 +130,13 @@ export function Inbox({
         </span>
 
         {counters.unmatched > 0 ? (
-          <span className="text-brand-red text-xs font-medium">
+          <span className="text-danger-ink text-xs font-medium">
             {counters.unmatched} non rapprochées par Airwallex
           </span>
         ) : null}
 
         {counters.failed > 0 ? (
-          <span className="text-brand-red text-xs font-medium">
+          <span className="text-danger-ink text-xs font-medium">
             {counters.failed} en échec
           </span>
         ) : null}
@@ -171,7 +171,7 @@ export function Inbox({
               className={cn(
                 "inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs transition-colors",
                 emergencyStopped
-                  ? "bg-brand-red/10 text-brand-red font-medium"
+                  ? "bg-danger-subtle text-danger-ink font-medium"
                   : "text-muted-foreground hover:text-foreground",
               )}
             >
@@ -189,7 +189,7 @@ export function Inbox({
       ) : null}
 
       {failing.length > 0 ? (
-        <p role="alert" className="text-brand-red border-border border-b px-4 py-2 text-xs">
+        <p role="alert" className="text-danger-ink border-border border-b px-4 py-2 text-xs">
           {failing[0]!.email_address} : {failing[0]!.last_error}
         </p>
       ) : null}

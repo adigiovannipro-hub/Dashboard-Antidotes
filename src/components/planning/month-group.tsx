@@ -68,13 +68,15 @@ export function MonthGroup({
           />
         </button>
 
-        <span aria-hidden className="bg-brand-red h-5 w-1 rounded-full" />
+        {/* Repère neutre, et non plus le rouge de marque : un mois n'est ni un
+            retard ni une alerte, et la couleur d'état ne sert qu'à ça. */}
+        <span aria-hidden className="bg-border-strong h-5 w-1 rounded-pill" />
 
         <div className="w-44">
           <TextCell
             value={month.label}
             ariaLabel="Nom du mois"
-            className="text-brand-red text-sm font-semibold tracking-wide uppercase"
+            className="text-text-primary text-sm font-semibold tracking-wide uppercase"
             onCommit={(next) =>
               run(() => renameMonth(scope, { monthId: month.id, label: next }))
             }
@@ -135,7 +137,7 @@ export function MonthGroup({
             type="button"
             onClick={() => run(() => deleteMonth(scope, { monthId: month.id }))}
             aria-label={`Supprimer le mois ${month.label}`}
-            className="text-muted-foreground hover:text-brand-red focus-visible:ring-ring rounded p-1 focus-visible:ring-2 focus-visible:outline-none"
+            className="text-muted-foreground hover:text-danger-ink focus-visible:ring-ring rounded p-1 focus-visible:ring-2 focus-visible:outline-none"
           >
             <Trash2 className="size-3.5" aria-hidden />
           </button>

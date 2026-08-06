@@ -8,8 +8,8 @@ import { cn } from "@/lib/utils";
 /**
  * Tuile de statistique : libellé, valeur, variation.
  *
- * Pas de bordure — la card #F2F2F2 de la charte structure à elle seule. La
- * hiérarchie tient à la taille et au poids, sans ornement.
+ * La hiérarchie tient à la taille et au poids, sans ornement : la carte qui
+ * la porte apporte déjà sa bordure et son ombre.
  */
 export function StatTile({
   metric,

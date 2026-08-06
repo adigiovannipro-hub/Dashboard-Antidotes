@@ -156,7 +156,7 @@ export function Inbox({
         </span>
 
         {counters.highPriority > 0 ? (
-          <span className="text-brand-red inline-flex items-center gap-1 text-xs font-medium">
+          <span className="text-danger-ink inline-flex items-center gap-1 text-xs font-medium">
             <AlertTriangle className="size-3.5" aria-hidden />
             {counters.highPriority} signalées
           </span>
@@ -168,7 +168,7 @@ export function Inbox({
           <span
             className={cn(
               "inline-flex items-center gap-1 text-xs",
-              staleHours > 24 ? "text-brand-red font-medium" : "text-muted-foreground",
+              staleHours > 24 ? "text-danger-ink font-medium" : "text-muted-foreground",
             )}
           >
             <Clock className="size-3.5" aria-hidden />

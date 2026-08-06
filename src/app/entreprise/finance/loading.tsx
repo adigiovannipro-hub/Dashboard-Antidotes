@@ -6,7 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
  */
 export default function FinanceLoading() {
   return (
-    <main className="mx-auto w-full max-w-6xl flex-1 space-y-6 p-4 md:p-8">
+    <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="space-y-2">
           <Skeleton className="h-7 w-32" />
@@ -22,6 +22,6 @@ export default function FinanceLoading() {
 
       <Skeleton className="h-80 rounded-xl" />
       <Skeleton className="h-96 rounded-xl" />
-    </main>
+    </div>
   );
 }

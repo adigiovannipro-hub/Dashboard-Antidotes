@@ -83,7 +83,7 @@ export function LaneTable({
           type="button"
           onClick={() => run(() => deleteLane(scope, { laneId: lane.id }))}
           aria-label={`Supprimer le réseau ${lane.name}`}
-          className="text-muted-foreground hover:text-brand-red focus-visible:ring-ring ml-auto rounded p-1 focus-visible:ring-2 focus-visible:outline-none"
+          className="text-muted-foreground hover:text-danger-ink focus-visible:ring-ring ml-auto rounded p-1 focus-visible:ring-2 focus-visible:outline-none"
         >
           <Trash2 className="size-3.5" aria-hidden />
         </button>

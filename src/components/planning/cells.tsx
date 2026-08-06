@@ -572,7 +572,7 @@ export function DeleteRowButton({
       type="button"
       onClick={onDelete}
       aria-label={`Supprimer ${label}`}
-      className="text-muted-foreground hover:text-brand-red focus-visible:ring-ring rounded p-1 opacity-0 transition group-hover/row:opacity-100 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:outline-none"
+      className="text-muted-foreground hover:text-danger-ink focus-visible:ring-ring rounded p-1 opacity-0 transition group-hover/row:opacity-100 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:outline-none"
     >
       <Trash2 className="size-3.5" aria-hidden />
     </button>

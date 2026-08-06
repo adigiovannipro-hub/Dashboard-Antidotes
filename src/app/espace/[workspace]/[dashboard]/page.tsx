@@ -60,7 +60,7 @@ export default async function DashboardPage({ params }: { params: Params }) {
     (dashboard.slug === "reporting" || dashboard.slug === "meta");
 
   return (
-    <main className="space-y-5 p-5 md:p-8">
+    <div className="space-y-5">
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="text-muted-foreground text-xs">{workspace.name}</p>
@@ -92,6 +92,6 @@ export default async function DashboardPage({ params }: { params: Params }) {
           Aucune source de données n&apos;est connectée à cet espace.
         </div>
       )}
-    </main>
+    </div>
   );
 }

@@ -25,11 +25,11 @@ export default async function WorkspaceIndexPage({
   if (first) redirect(`/espace/${workspace.slug}/${first.slug}`);
 
   return (
-    <main className="flex flex-1 items-center justify-center p-10">
+    <div className="flex flex-1 items-center justify-center py-10">
       <div className="text-muted-foreground max-w-sm space-y-2 text-center text-sm">
         <p className="text-foreground font-medium">{workspace.name}</p>
         <p>Cet espace ne contient encore aucun dashboard.</p>
       </div>
-    </main>
+    </div>
   );
 }

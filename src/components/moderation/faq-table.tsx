@@ -83,7 +83,7 @@ export function FaqTable({
           />
           À retravailler
           {reworkCount > 0 ? (
-            <span className="bg-brand-red/10 text-brand-red rounded-full px-1.5 py-0.5 text-[11px] font-medium tabular-nums">
+            <span className="bg-danger-subtle text-danger-ink rounded-full px-1.5 py-0.5 text-[11px] font-medium tabular-nums">
               {reworkCount}
             </span>
           ) : null}
@@ -121,7 +121,7 @@ export function FaqTable({
                     <span className="flex items-start gap-1.5">
                       {rework ? (
                         <AlertTriangle
-                          className="text-brand-red mt-0.5 size-3.5 shrink-0"
+                          className="text-danger-ink mt-0.5 size-3.5 shrink-0"
                           aria-label="À retravailler"
                         />
                       ) : null}
@@ -155,7 +155,7 @@ export function FaqTable({
                   <td
                     className={cn(
                       "px-2 py-2 text-right tabular-nums",
-                      entry.correction_count > 0 && rework && "text-brand-red font-medium",
+                      entry.correction_count > 0 && rework && "text-danger-ink font-medium",
                     )}
                   >
                     {entry.correction_count}

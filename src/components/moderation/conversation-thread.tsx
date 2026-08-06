@@ -146,7 +146,7 @@ export function ConversationThread({
           <span
             className={cn(
               "ml-auto inline-flex items-center gap-1 text-xs",
-              eligibility.canSend ? "text-muted-foreground" : "text-brand-red",
+              eligibility.canSend ? "text-muted-foreground" : "text-danger-ink",
             )}
           >
             <Clock className="size-3.5" aria-hidden />
@@ -155,7 +155,7 @@ export function ConversationThread({
         </div>
 
         {conversation.flags.length > 0 ? (
-          <p className="text-brand-red mt-2 inline-flex items-center gap-1.5 text-xs font-medium">
+          <p className="text-danger-ink mt-2 inline-flex items-center gap-1.5 text-xs font-medium">
             <AlertTriangle className="size-3.5" aria-hidden />
             {conversation.flags.map((flag) => FLAG_LABELS[flag]).join(" · ")} —
             lecture humaine obligatoire, jamais d&apos;envoi automatique.
@@ -208,7 +208,7 @@ export function ConversationThread({
               </span>
               <span>Langue détectée : {draft.locale.toUpperCase()}</span>
               {draft.translated_from_fr ? (
-                <span className="text-brand-red">
+                <span className="text-danger-ink">
                   Traduit depuis le français — réponse EN absente de la FAQ
                 </span>
               ) : null}

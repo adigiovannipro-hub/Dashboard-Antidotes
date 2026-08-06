@@ -80,7 +80,7 @@ export function TaskRowView({
           <TextCell
             value={task.title}
             ariaLabel="Libellé de la tâche"
-            className={cn("-mx-1.5", overdue && "text-brand-red")}
+            className={cn("-mx-1.5", overdue && "text-danger-ink")}
             onCommit={(next) =>
               run(() => updateTask({ taskId: task.id, field: "title", value: next }))
             }
@@ -89,7 +89,7 @@ export function TaskRowView({
 
         <div className="text-muted-foreground mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 px-0 text-[11px]">
           {overdue ? (
-            <span className="text-brand-red font-semibold tracking-wide uppercase">
+            <span className="text-danger-ink font-semibold tracking-wide uppercase">
               En retard — {shortDate(task.due_date)}
             </span>
           ) : null}
@@ -125,7 +125,7 @@ export function TaskRowView({
               }}
               className={cn(
                 "focus-visible:ring-brand w-[6.6rem] rounded-sm bg-transparent tabular-nums outline-none focus-visible:ring-2",
-                overdue && "text-brand-red",
+                overdue && "text-danger-ink",
               )}
             />
           ) : null}
@@ -136,7 +136,7 @@ export function TaskRowView({
         type="button"
         aria-label={`Supprimer « ${task.title} »`}
         onClick={() => run(() => deleteTask({ taskId: task.id }))}
-        className="text-muted-foreground hover:text-brand-red focus-visible:ring-ring rounded p-1 opacity-40 transition group-hover/row:opacity-100 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:outline-none md:opacity-0"
+        className="text-muted-foreground hover:text-danger-ink focus-visible:ring-ring rounded p-1 opacity-40 transition group-hover/row:opacity-100 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:outline-none md:opacity-0"
       >
         <Trash2 className="size-3.5" aria-hidden />
       </button>
