@@ -1,92 +1,121 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
+@import "../styles/tokens.css";
 
 @custom-variant dark (&:is(.dark *));
 
+/* ===========================================================================
+   Câblage des tokens sur Tailwind.
+
+   Les valeurs vivent dans `styles/tokens.css` et **uniquement** là. Ce fichier
+   ne fait que deux choses : brancher ces tokens sur les utilitaires Tailwind,
+   et donner à shadcn les noms sémantiques qu'il attend (`--card`,
+   `--muted`, `--primary`…). Repointer ces alias suffit à faire basculer
+   l'application entière : les cinquante composants existants suivent sans être
+   rouverts.
+   =========================================================================== */
+
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-heading: var(--heading);
-  --color-brand: var(--brand);
-  --color-brand-mint: var(--brand-mint);
-  --color-brand-red: var(--brand-red);
-  /* Corps en Arial comme la charte, titres en Montserrat. */
-  --font-sans: var(--font-body);
+  /* --- Surfaces et texte, vocabulaire shadcn ---------------------------- */
+  --color-background: var(--canvas);
+  --color-foreground: var(--text-primary);
+  --color-card: var(--surface);
+  --color-card-foreground: var(--text-primary);
+  --color-popover: var(--surface);
+  --color-popover-foreground: var(--text-primary);
+  --color-muted: var(--surface-sunken);
+  --color-muted-foreground: var(--text-secondary);
+  --color-secondary: var(--surface-sunken);
+  --color-secondary-foreground: var(--text-primary);
+  --color-border: var(--border-line);
+  --color-input: var(--border-line);
+
+  /* Le bouton primaire est l'encre, pas le vert : du blanc sur le vert de
+     marque ne monte qu'à 2,71:1. */
+  --color-primary: var(--text-primary);
+  --color-primary-foreground: var(--surface);
+
+  /* `accent` au sens shadcn — le survol neutre des menus — reste neutre.
+     L'accent de marque, lui, s'atteint par `brand` et `accent-subtle`. */
+  --color-accent: var(--surface-sunken);
+  --color-accent-foreground: var(--text-primary);
+
+  --color-destructive: var(--danger-ink);
+  --color-ring: var(--accent);
+
+  /* --- Surfaces et texte, vocabulaire du produit ------------------------ */
+  --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-surface-sunken: var(--surface-sunken);
+  --color-border-strong: var(--border-strong);
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-tertiary: var(--text-tertiary);
+
+  /* --- Marque et états --------------------------------------------------- */
+  --color-brand: var(--accent);
+  --color-brand-hover: var(--accent-hover);
+  --color-brand-mint: var(--accent-subtle);
+  --color-brand-red: var(--danger);
+  --color-accent-subtle: var(--accent-subtle);
+  --color-accent-ink: var(--accent-ink);
+  --color-accent-hover: var(--accent-hover);
+
+  --color-danger: var(--danger);
+  --color-danger-subtle: var(--danger-subtle);
+  --color-danger-ink: var(--danger-ink);
+  --color-warning: var(--warning);
+  --color-warning-subtle: var(--warning-subtle);
+  --color-warning-ink: var(--warning-ink);
+  --color-info: var(--info);
+  --color-info-subtle: var(--info-subtle);
+  --color-info-ink: var(--info-ink);
+  --color-neutral-subtle: var(--neutral-subtle);
+  --color-neutral-ink: var(--neutral-ink);
+
+  /* --- Rayons ------------------------------------------------------------ */
+  --radius-sm: var(--r-sm);
+  --radius-md: var(--r-md);
+  --radius-lg: var(--r-lg);
+  --radius-xl: var(--r-xl);
+  --radius-2xl: var(--r-xl);
+  --radius-3xl: var(--r-xl);
+  --radius-4xl: var(--r-xl);
+
+  /* --- Ombres, mouvement, polices ---------------------------------------- */
+  --shadow-card: var(--elevation-card);
+  --shadow-card-hover: var(--elevation-card-hover);
+  --ease-standard: var(--motion-ease);
+  --font-sans: var(--font-body-stack);
+  --font-heading: var(--font-heading-stack);
   --font-mono: ui-monospace, "SF Mono", Menlo, monospace;
-  --font-heading: var(--font-heading-family);
-  --color-sidebar-ring: var(--sidebar-ring);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar: var(--sidebar);
-  --color-chart-5: var(--chart-5);
-  --color-chart-4: var(--chart-4);
-  --color-chart-3: var(--chart-3);
-  --color-chart-2: var(--chart-2);
-  --color-chart-1: var(--chart-1);
-  --color-ring: var(--ring);
-  --color-input: var(--input);
-  --color-border: var(--border);
-  --color-destructive: var(--destructive);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-accent: var(--accent);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-muted: var(--muted);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-secondary: var(--secondary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-primary: var(--primary);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-popover: var(--popover);
-  --color-card-foreground: var(--card-foreground);
-  --color-card: var(--card);
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
-  --radius-3xl: calc(var(--radius) * 2.2);
-  --radius-4xl: calc(var(--radius) * 2.6);
+
+  /* --- Rail latéral ------------------------------------------------------ */
+  --color-sidebar: var(--surface);
+  --color-sidebar-foreground: var(--text-primary);
+  --color-sidebar-primary: var(--text-primary);
+  --color-sidebar-primary-foreground: var(--surface);
+  --color-sidebar-accent: var(--accent-subtle);
+  --color-sidebar-accent-foreground: var(--accent-ink);
+  --color-sidebar-border: var(--border-line);
+  --color-sidebar-ring: var(--accent);
+
+  /* --- Visualisation ------------------------------------------------------ */
+  --color-chart-1: var(--series-1);
+  --color-chart-2: var(--series-2);
+  --color-chart-3: var(--series-3);
 }
 
 :root {
-  /* Charte Antidotes : fond blanc, cards #F2F2F2 pour structurer plutôt que
-     des bordures, corps #000000, secondaire #888888. */
-  --background: #ffffff;
-  --foreground: #000000;
-  --card: #f2f2f2;
-  --card-foreground: #000000;
-  --popover: #ffffff;
-  --popover-foreground: #000000;
-  --primary: #222222;
-  --primary-foreground: #ffffff;
-  --secondary: #f2f2f2;
-  --secondary-foreground: #222222;
-  --muted: #f2f2f2;
-  --muted-foreground: #888888;
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  /* --- Identité Antidotes -------------------------------------------------
-     Le vert est une ponctuation — chiffres clés, puces, accents — jamais un
-     fond plein large.
-  --------------------------------------------------------------------------- */
-  --heading: #222222;
-  --brand: #70ad47;
-  --brand-mint: #d9facf;
-  --brand-mint-alt: #d8fdd6;
-  --brand-red: #ff003a;
+  --heading: var(--text-primary);
+  --brand-mint-alt: var(--accent-subtle);
 
   /* --- Palette de visualisation -------------------------------------------
      Enracinée dans le vert de marque, puis validée par le script du skill
-     dataviz sur la surface réelle des cards (#F2F2F2) — pas jugée à l'œil.
+     dataviz. Elle avait été jugée sur des cartes #F2F2F2 ; le passage des
+     surfaces au blanc **relève** tous les rapports — un fond plus clair
+     augmente le contraste d'encres foncées — donc aucun pas n'a été retouché.
 
      Trois slots catégoriels seulement, et c'est délibéré : ils passent le
      contrôle *toutes paires* (donut, nuage) sans un seul échec dans les deux
@@ -99,8 +128,7 @@
   --series-3: #e87ba4; /* magenta */
 
   /* Rampe ordinale mono-teinte pour les catégories ordonnées (tranches d'âge).
-     Démarre au vert de marque : les pas plus pâles tombent sous le plancher
-     de 2:1 contre #F2F2F2 et deviennent invisibles. */
+     Démarre au vert de marque : les pas plus pâles deviennent invisibles. */
   --ordinal-1: #70ad47;
   --ordinal-2: #498316;
   --ordinal-3: #2e6100;
@@ -119,56 +147,20 @@
      Le rouge de marque reste rare, réservé au réellement critique : une
      variation défavorable ordinaire se lit à la flèche et à l'encre
      secondaire, pas à une alarme rouge. */
-  --status-good: #70ad47;
-  --status-critical: #ff003a;
-  --delta-good: #2e6100;
-  --delta-bad: #888888;
+  --status-good: var(--accent);
+  --status-critical: var(--danger);
+  --delta-good: var(--accent-ink);
+  --delta-bad: var(--text-secondary);
 
   /* Chrome des graphiques — filets discrets, un cran hors surface. */
-  --viz-grid: #e2e2e2;
-  --viz-axis: #cccccc;
-  --viz-muted: #888888;
-  --viz-surface: #f2f2f2;
-
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --viz-grid: var(--border-line);
+  --viz-axis: var(--border-strong);
+  --viz-muted: var(--text-secondary);
+  --viz-surface: var(--surface);
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  /* Le mode sombre est choisi, pas déduit par inversion : chaque pas est
-     re-étagé pour la surface sombre puis revalidé séparément. Le vert de
-     marque passe de L 0,684 à 0,66 — au-dessus, il sortait de la bande de
-     clarté du mode sombre. */
-  --heading: #f5f5f5;
-  --brand: #69a63f;
-  --brand-mint: #2e6100;
-  --brand-mint-alt: #2e6100;
-  --brand-red: #ff003a;
+  --heading: var(--text-primary);
 
   --series-1: #69a63f;
   --series-2: #3987e5;
@@ -184,25 +176,6 @@
   --seq-3: #70ad47;
   --seq-4: #9ad07a;
   --seq-5: #b7e99b;
-
-  --status-good: #69a63f;
-  --status-critical: #ff003a;
-  --delta-good: #9ad07a;
-  --delta-bad: #888888;
-
-  --viz-grid: #262626;
-  --viz-axis: #383838;
-  --viz-muted: #888888;
-  --viz-surface: #171717;
-
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
 }
 
 @layer base {
@@ -215,8 +188,8 @@
   html {
     @apply font-sans;
   }
-  /* Charte : la hiérarchie est portée par la taille et le poids. Montserrat
-     n'habille que les titres ; tout le reste reste en Arial. */
+  /* La hiérarchie est portée par la taille et le poids. Montserrat n'habille
+     que les titres ; l'interface est en Inter. */
   h1,
   h2,
   h3,
@@ -229,5 +202,74 @@
   th,
   td {
     font-variant-numeric: tabular-nums;
+  }
+}
+
+/* ===========================================================================
+   Échelle typographique.
+
+   Neuf classes, et rien d'autre : un composant qui a besoin d'une taille de
+   texte en prend une ici plutôt que de composer `text-[13px] font-medium` à
+   la main. C'est ce qui empêche l'échelle de se déliter au fil des écrans.
+   =========================================================================== */
+@layer components {
+  .text-display {
+    font-family: var(--font-heading);
+    font-size: 32px;
+    line-height: 1.15;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+  .text-h1 {
+    font-family: var(--font-heading);
+    font-size: 24px;
+    line-height: 1.25;
+    font-weight: 600;
+    letter-spacing: -0.015em;
+  }
+  .text-h2 {
+    font-family: var(--font-heading);
+    font-size: 18px;
+    line-height: 1.35;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+  .text-h3 {
+    font-family: var(--font-heading);
+    font-size: 15px;
+    line-height: 1.4;
+    font-weight: 600;
+  }
+  .text-body {
+    font-size: 14px;
+    line-height: 1.5;
+    font-weight: 400;
+  }
+  .text-label {
+    font-size: 13px;
+    line-height: 1.4;
+    font-weight: 500;
+  }
+  .text-caption {
+    font-size: 12px;
+    line-height: 1.4;
+    font-weight: 400;
+  }
+  .text-overline {
+    font-size: 11px;
+    line-height: 1.3;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  /* Le chiffre d'une carte KPI. Chasses égales : deux cartes côte à côte
+     alignent leurs chiffres au lieu de danser d'un pixel. */
+  .text-stat {
+    font-family: var(--font-heading);
+    font-size: 28px;
+    line-height: 1.1;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
   }
 }
