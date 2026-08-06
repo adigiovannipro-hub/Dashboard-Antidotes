@@ -51,7 +51,41 @@ async function main() {
       ? false
       : { rejectUnauthorized: false },
   });
-  await client.connect();
+
+  /* Deux échecs de connexion reviennent assez souvent pour mériter leur
+     explication : le message brut de `pg` ne dit ni où prendre la bonne
+     chaîne, ni que le mot de passe de la base n'est pas celui du compte
+     Supabase. */
+  try {
+    await client.connect();
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
+
+    if (/password authentication failed/i.test(detail)) {
+      console.error(
+        `Connexion refusée : ${detail}\n\n` +
+          "Le mot de passe de la base n'est pas celui du compte Supabase.\n" +
+          "  • Supabase > bouton « Connect » > lien de réinitialisation du mot de passe ;\n" +
+          "  • le choisir sans caractère spécial (@ # ? / :), qui casserait l'URI ;\n" +
+          "  • vérifier que `[YOUR-PASSWORD]` a bien été remplacé dans la chaîne.",
+      );
+      process.exit(1);
+    }
+
+    // ENETUNREACH sur une adresse IPv6 : la connexion directe de Supabase
+    // n'écoute qu'en IPv6, qu'un runner GitHub Actions ne sait pas joindre.
+    if (/ENETUNREACH|EHOSTUNREACH/i.test(detail)) {
+      console.error(
+        `Connexion impossible : ${detail}\n\n` +
+          "Chaîne « Direct connection » depuis un réseau sans IPv6 ?\n" +
+          "Prendre l'option **Session pooler** : hôte …pooler.supabase.com,\n" +
+          "port 5432, utilisateur postgres.<référence-du-projet>.",
+      );
+      process.exit(1);
+    }
+
+    throw error;
+  }
 
   try {
     await client.query("create schema if not exists app");
