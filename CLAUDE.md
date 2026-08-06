@@ -219,6 +219,27 @@ Modèle : `src/app/api/cron/recus/route.ts`.
 
 Pour un test d'isolation RLS, le modèle reste `tests/planning-isolation.test.ts`. Avant d'écrire un nouveau module, lis le module existant le plus proche et suis son pattern plutôt que d'en inventer un.
 
+## Skills
+
+Le dépôt embarque des skills dans `.claude/skills/`, certains en lien symbolique vers `.agents/skills/`. Rien ne les déclenche mécaniquement : ce qui suit est une consigne, pas un automatisme du harnais.
+
+**À charger d'office, sans qu'on te le demande :**
+
+| Skill | Avant de… |
+|---|---|
+| `supabase-postgres-best-practices` | écrire une migration, une politique RLS, un index, un trigger ou une fonction `security definer`. Ses pièges — `security definer` qui contourne la RLS, `update` sans `with check`, vue qui l'ignore par défaut — recoupent les conventions ci-dessus, et aucun ne se voit au typecheck ni aux tests. |
+| `supabase` | toucher à l'auth, aux clients Supabase, au Storage ou aux sessions. **Ignore sa section « Making and Committing Schema Changes »** : elle décrit la CLI Supabase, qui n'est pas utilisée ici. Les migrations passent par `scripts/migrate.ts` et des fichiers `NNNN_nom.sql` numérotés à la main. |
+| `dataviz` | écrire un graphe Recharts, une carte KPI, une jauge ou un écran de pilotage. À croiser avec le design system existant de `src/components/viz/`, qui fait foi en cas de contradiction. |
+| `vercel-react-best-practices` | écrire un composant serveur ou client non trivial, ou changer une frontière de rendu. |
+
+**À n'activer que si je le demande :**
+
+- `improve` — audit et plans d'implémentation. Utile en revue de chantier, trop coûteux en réflexe.
+- `caveman` — réponses compressées. Jamais en automatique : quand tu m'expliques un arbitrage, la clarté passe avant les tokens.
+- `agent-browser` — pilotage de navigateur, pour vérifier une preview.
+- `ui-ux-pro-max`, `ui-styling`, `banner-design`, `brand`, `design`, `design-system`, `slides` — production graphique. Les scripts de génération d'images exigent `GEMINI_API_KEY`, qui n'est pas fournie : ils échouent proprement sans elle.
+- `azure-aigateway` — sans rapport avec la stack, installé par curiosité.
+
 ## Git et livraison
 
 - `main` est la branche stable. Le travail se fait sur des branches / worktrees dédiés.
