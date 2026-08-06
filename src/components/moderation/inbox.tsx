@@ -3,8 +3,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { AlertTriangle, Clock, Search } from "lucide-react";
+import { AlertTriangle, Clock, MailOpen, MessagesSquare, Search } from "lucide-react";
 
+import { StatCard, StatGrid } from "@/components/ds/stat-card";
+import { Panel } from "@/components/ds/surface";
 import { ConversationThread } from "@/components/moderation/conversation-thread";
 import { FilterRail } from "@/components/moderation/filter-rail";
 import { ConversationList } from "@/components/moderation/conversation-list";
@@ -127,58 +129,37 @@ export function Inbox({
   const staleHours = counters.oldestActionableHours;
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      {/* En-tête : sélecteur de client, compteur global, ancienneté. */}
-      <div className="border-border flex flex-wrap items-center gap-3 border-b px-4 py-2">
-        <nav className="flex items-center gap-1" aria-label="Clients">
-          {clients.map((candidate) => (
-            <Link
-              key={candidate.id}
-              href={`/moderation/${candidate.slug}`}
-              aria-current={candidate.id === client.id ? "page" : undefined}
-              className={cn(
-                "rounded-md px-2.5 py-1 text-sm transition-colors",
-                candidate.id === client.id
-                  ? "bg-card text-foreground font-medium"
-                  : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              {candidate.name}
-            </Link>
-          ))}
-        </nav>
-
-        <span
-          className="bg-brand-mint text-heading rounded-full px-2 py-0.5 text-xs font-semibold tabular-nums"
-          title="Conversations à gérer"
-        >
-          {counters.actionable} à gérer
-        </span>
-
-        {counters.highPriority > 0 ? (
-          <span className="text-danger-ink inline-flex items-center gap-1 text-xs font-medium">
-            <AlertTriangle className="size-3.5" aria-hidden />
-            {counters.highPriority} signalées
-          </span>
-        ) : null}
-
-        {/* Ancienneté du plus vieux message : le seul signal d'alerte en V1,
-            puisqu'il n'y a volontairement aucune notification externe. */}
-        {staleHours !== null ? (
-          <span
-            className={cn(
-              "inline-flex items-center gap-1 text-xs",
-              staleHours > 24 ? "text-danger-ink font-medium" : "text-muted-foreground",
-            )}
-          >
-            <Clock className="size-3.5" aria-hidden />
-            Plus ancien : {formatAge(staleHours)}
-          </span>
-        ) : null}
+    <div className="flex min-h-0 flex-1 flex-col gap-5">
+      {/* Le client se choisit en onglets, comme les sections d'un espace. */}
+      <div className="flex flex-wrap items-center gap-3">
+        {clients.length > 1 ? (
+          <nav aria-label="Clients">
+            <ul className="inline-flex items-center gap-1 rounded-pill bg-surface-sunken p-1">
+              {clients.map((candidate) => (
+                <li key={candidate.id}>
+                  <Link
+                    href={`/moderation/${candidate.slug}`}
+                    aria-current={candidate.id === client.id ? "page" : undefined}
+                    className={cn(
+                      "type-caption focus-visible:ring-ring block rounded-pill px-3.5 py-1.5 font-medium transition-colors duration-(--motion-duration) ease-standard focus-visible:ring-2 focus-visible:outline-none",
+                      candidate.id === client.id
+                        ? "bg-primary text-primary-foreground"
+                        : "text-text-secondary hover:text-text-primary",
+                    )}
+                  >
+                    {candidate.name}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </nav>
+        ) : (
+          <h2 className="type-h2 text-text-primary">{client.name}</h2>
+        )}
 
         <form onSubmit={submitSearch} className="relative ml-auto">
           <Search
-            className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2"
+            className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-text-tertiary"
             aria-hidden
           />
           <Input
@@ -187,14 +168,52 @@ export function Inbox({
             onChange={(event) => setSearch(event.target.value)}
             placeholder="Rechercher   /"
             aria-label="Rechercher une conversation"
-            className="h-8 w-56 pl-8"
+            className="w-64 pl-9"
           />
         </form>
 
         <ShortcutsHint />
       </div>
 
-      <div className="flex min-h-0 flex-1">
+      {/* La même bande de mesures que les autres modules : ce qui attend, ce
+          qui alerte, ce qui n'a pas encore été ouvert, et depuis combien de
+          temps le plus vieux message patiente — seul signal d'urgence en V1,
+          puisqu'il n'y a volontairement aucune notification externe. */}
+      <StatGrid>
+        <StatCard
+          label="À gérer"
+          value={counters.actionable}
+          context="conversations ouvertes"
+          icon={MessagesSquare}
+        />
+        <StatCard
+          label="Signalées"
+          value={counters.highPriority}
+          context={counters.highPriority > 0 ? "lecture humaine" : "rien de signalé"}
+          tone={counters.highPriority > 0 ? "danger" : undefined}
+          toneLabel={counters.highPriority > 0 ? "prioritaire" : undefined}
+          icon={AlertTriangle}
+        />
+        <StatCard
+          label="Non lus"
+          value={counters.unread}
+          context="jamais ouverts"
+          icon={MailOpen}
+        />
+        <StatCard
+          label="Plus ancien"
+          value={staleHours === null ? "—" : formatAge(staleHours)}
+          context={staleHours === null ? "rien en attente" : "sans réponse"}
+          tone={staleHours !== null && staleHours > 24 ? "warning" : undefined}
+          toneLabel={staleHours !== null && staleHours > 24 ? "à traiter" : undefined}
+          icon={Clock}
+        />
+      </StatGrid>
+
+      {/* Les trois colonnes dans une seule surface : posées à même le fond,
+          elles se lisaient comme trois écrans juxtaposés plutôt que comme un
+          poste de travail. */}
+      <Panel className="flex min-h-0 flex-1">
         <FilterRail counters={counters} filters={filters} />
 
         <ConversationList
@@ -212,7 +231,7 @@ export function Inbox({
           draft={thread.draft}
           onAdvance={() => move(1)}
         />
-      </div>
+      </Panel>
     </div>
   );
 }

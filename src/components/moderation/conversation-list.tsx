@@ -2,13 +2,33 @@
 
 import { useEffect, useRef } from "react";
 
+import { StatusPill, type StatusTone } from "@/components/ds/status-pill";
 import {
   CHANNEL_LABELS,
   FLAG_LABELS,
   STATUS_LABELS,
   type Conversation,
+  type ConversationStatus,
 } from "@/lib/moderation/types";
 import { cn } from "@/lib/utils";
+
+/**
+ * Ce que chaque statut demande de moi.
+ *
+ * `to_process` et `awaiting_validation` attendent une action — ambre. Un envoi
+ * en échec est une alerte. `validated` est en route mais pas encore parti :
+ * favorable, sans être clos. Le reste est classé : ni bon, ni mauvais, neutre.
+ */
+const STATUS_TONES: Record<ConversationStatus, StatusTone> = {
+  to_process: "warning",
+  awaiting_validation: "warning",
+  validated: "positive",
+  snoozed: "neutral",
+  sent: "positive",
+  send_failed: "danger",
+  ignored: "neutral",
+  answered_elsewhere: "neutral",
+};
 
 /**
  * Colonne du milieu : la liste.
@@ -36,7 +56,7 @@ export function ConversationList({
 
   if (conversations.length === 0) {
     return (
-      <div className="border-border text-muted-foreground flex w-96 shrink-0 items-center justify-center border-r p-8 text-center text-sm">
+      <div className="type-body flex w-96 shrink-0 items-center justify-center border-r border-border p-8 text-center text-text-secondary">
         Aucune conversation ne correspond à ces filtres.
       </div>
     );
@@ -44,7 +64,7 @@ export function ConversationList({
 
   return (
     <ul
-      className="border-border w-96 shrink-0 overflow-y-auto border-r"
+      className="w-96 shrink-0 overflow-y-auto border-r border-border"
       aria-label="Conversations"
     >
       {conversations.map((conversation) => {
@@ -57,67 +77,63 @@ export function ConversationList({
               onClick={() => onSelect(conversation.id)}
               aria-current={active ? "true" : undefined}
               className={cn(
-                "border-border focus-visible:ring-brand w-full border-b px-3 py-2.5 text-left transition-colors focus-visible:ring-2 focus-visible:outline-none focus-visible:-outline-offset-2",
-                active ? "bg-card" : "hover:bg-card/60",
+                "focus-visible:ring-ring relative w-full border-b border-border px-3 py-2.5 text-left transition-colors duration-(--motion-duration) ease-standard focus-visible:ring-2 focus-visible:-outline-offset-2 focus-visible:outline-none",
+                // La sélection se marque par la menthe et un filet vert à
+                // gauche, comme partout ailleurs.
+                active ? "bg-accent-subtle/50" : "hover:bg-surface-sunken",
               )}
             >
+              {active ? (
+                <span
+                  aria-hidden
+                  className="absolute inset-y-0 left-0 w-[3px] bg-brand"
+                />
+              ) : null}
+
               <div className="flex items-baseline gap-2">
                 {conversation.unread ? (
                   <span
                     aria-label="Non lu"
-                    className="bg-brand mt-1.5 size-1.5 shrink-0 rounded-full"
+                    className="mt-1.5 size-1.5 shrink-0 rounded-pill bg-brand"
                   />
                 ) : (
                   <span className="mt-1.5 size-1.5 shrink-0" />
                 )}
-                <span className="text-foreground min-w-0 flex-1 truncate text-sm font-medium">
+                <span className="type-label min-w-0 flex-1 truncate text-text-primary">
                   {conversation.participant_handle ?? "Inconnu"}
                 </span>
-                <span className="text-muted-foreground shrink-0 text-[11px] tabular-nums">
+                <span className="type-caption shrink-0 text-text-secondary tabular-nums">
                   {relativeTime(conversation.last_message_at)}
                 </span>
               </div>
 
-              <p className="text-muted-foreground mt-1 line-clamp-2 pl-3.5 text-xs">
+              <p className="type-caption mt-1 line-clamp-2 pl-3.5 text-text-secondary">
                 {conversation.excerpt}
               </p>
 
               <div className="mt-1.5 flex flex-wrap items-center gap-1 pl-3.5">
-                <Tag>{CHANNEL_LABELS[conversation.channel]}</Tag>
-                <Tag>{STATUS_LABELS[conversation.status]}</Tag>
+                <StatusPill tone="neutral" dot={false}>
+                  {CHANNEL_LABELS[conversation.channel]}
+                </StatusPill>
+                <StatusPill tone={STATUS_TONES[conversation.status]}>
+                  {STATUS_LABELS[conversation.status]}
+                </StatusPill>
                 {conversation.flags.map((flag) => (
-                  <Tag key={flag} tone="alert">
+                  <StatusPill key={flag} tone="danger">
                     {FLAG_LABELS[flag]}
-                  </Tag>
+                  </StatusPill>
                 ))}
-                {conversation.detected_locale === "en" ? <Tag>EN</Tag> : null}
+                {conversation.detected_locale === "en" ? (
+                  <StatusPill tone="info" dot={false}>
+                    EN
+                  </StatusPill>
+                ) : null}
               </div>
             </button>
           </li>
         );
       })}
     </ul>
-  );
-}
-
-function Tag({
-  children,
-  tone = "neutral",
-}: {
-  children: React.ReactNode;
-  tone?: "neutral" | "alert";
-}) {
-  return (
-    <span
-      className={cn(
-        "rounded px-1.5 py-0.5 text-[10px] leading-none font-medium",
-        tone === "alert"
-          ? "bg-danger-subtle text-danger-ink"
-          : "bg-muted text-muted-foreground",
-      )}
-    >
-      {children}
-    </span>
   );
 }
 

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 
+import { Panel, PanelBody, PanelHeader, SectionHeader } from "@/components/ds/surface";
 import { FaqTable } from "@/components/moderation/faq-table";
 import { requireModerationClient } from "@/lib/moderation/access";
 import { listFaqEntries } from "@/lib/moderation/queries";
@@ -43,27 +44,31 @@ export default async function FaqPage({
   const tone = client.tone_settings;
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <Link
-            href={`/moderation/${client.slug}`}
-            className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-xs"
-          >
-            <ArrowLeft className="size-3.5" aria-hidden />
-            Retour à l&apos;inbox
-          </Link>
-          <h1 className="mt-1 text-2xl font-bold tracking-tight">
-            FAQ · {client.name}
-          </h1>
-          <p className="text-muted-foreground mt-0.5 text-sm">
-            {entries.length} entrées. C&apos;est la base sur laquelle chaque
-            brouillon est construit.
-          </p>
-        </div>
+    <div className="space-y-5">
+      <div className="space-y-3">
+        <Link
+          href={`/moderation/${client.slug}`}
+          className="type-caption focus-visible:ring-ring inline-flex items-center gap-1 rounded-sm text-text-secondary transition-colors hover:text-text-primary focus-visible:ring-2 focus-visible:outline-none"
+        >
+          <ArrowLeft className="size-3.5" aria-hidden />
+          Retour à l&apos;inbox
+        </Link>
 
-        {/* Réglages de ton : ils conditionnent chaque génération. */}
-        <dl className="bg-card grid gap-x-6 gap-y-1 rounded-lg p-3 text-xs sm:grid-cols-2">
+        <SectionHeader
+          title={`FAQ · ${client.name}`}
+          count={entries.length}
+          description="La base sur laquelle chaque brouillon est construit."
+        />
+      </div>
+
+      {/* Réglages de ton : ils conditionnent chaque génération, ils méritent
+          donc d'être lus avant la table plutôt qu'à côté. */}
+      <Panel>
+        <PanelHeader
+          title="Ton des réponses"
+          description="Appliqué à chaque brouillon généré pour ce client."
+        />
+        <PanelBody className="grid gap-x-8 gap-y-3 sm:grid-cols-2 lg:grid-cols-4">
           <Setting label="Adresse">
             {tone.address === "tu" ? "Tutoiement" : "Vouvoiement"}
           </Setting>
@@ -78,8 +83,8 @@ export default async function FaqPage({
           <Setting label="Langues">
             {client.locales_active.map((l) => l.toUpperCase()).join(" · ")}
           </Setting>
-        </dl>
-      </div>
+        </PanelBody>
+      </Panel>
 
       <FaqTable
         entries={entries}
@@ -99,9 +104,9 @@ function Setting({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex gap-2">
-      <dt className="text-muted-foreground">{label}</dt>
-      <dd className="text-foreground font-medium">{children}</dd>
+    <div>
+      <dt className="type-overline text-text-secondary">{label}</dt>
+      <dd className="type-label mt-1 text-text-primary">{children}</dd>
     </div>
   );
 }
