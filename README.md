@@ -206,10 +206,23 @@ client, trésorerie EUR consolidée, évolution du solde sur 7, 30 ou 90 jours,
 et le tableau des dépenses carte — la réplique locale de l'écran Airwallex,
 avec ses deux montants par ligne (« 158 800 IDR, financé avec 7,73 € »).
 
-Le dashboard ne parle jamais à Airwallex : la synchronisation horaire écrit
-dans Supabase, l'écran lit la base, et la bannière dit de quand datent les
-chiffres. L'historique de solde n'existe que par les instantanés que chaque
-passage dépose — l'API ne rend aucun passé.
+Le dashboard ne parle jamais à Airwallex : une synchronisation écrira dans
+Supabase, l'écran lit la base, et la bannière dit de quand datent les
+chiffres. L'historique de solde n'existera que par les instantanés que chaque
+passage déposera — l'API ne rend aucun passé.
+
+La synchronisation tourne **toutes les heures via GitHub Actions**
+(`.github/workflows/finance-sync.yml`) — pas par Vercel Cron, dont le plan
+Hobby rejette tout déploiement demandant mieux que le quotidien. Pour
+l'activer : le secret `CRON_SECRET` (même valeur que sur Vercel) et la
+variable `APP_URL` dans *Settings → Secrets and variables → Actions*, plus les
+clés `AIRWALLEX_*` sur Vercel. Sans elles, la route répond poliment qu'elle ne
+peut rien faire — et le dit dans l'onglet Actions.
+
+Le dépôt s'administre **sans terminal** : le workflow *Base de données*
+(*Actions → Base de données → Run workflow*) applique les migrations, amorce
+les données de démonstration et lance les tests d'isolation RLS contre la
+vraie base, au choix.
 
 `finance_transactions` a vocation à devenir l'unique miroir des dépenses
 Airwallex : le module Reçus s'y rebranchera, et `receipt_expenses` disparaîtra

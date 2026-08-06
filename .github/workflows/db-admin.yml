@@ -1,0 +1,74 @@
+# La télécommande base de données — pour un projet piloté sans terminal.
+#
+# Tout se déclenche depuis l'onglet Actions de GitHub : Actions →
+# « Base de données » → Run workflow, cocher ce qu'on veut, lancer.
+# C'est l'équivalent cloud des commandes qu'on taperait en local, et le seul
+# moyen prévu d'appliquer les migrations : rien ne les applique au déploiement,
+# et c'est délibéré — un schéma ne change pas par effet de bord d'un push.
+#
+# Les secrets se règlent une fois : Settings → Secrets and variables →
+# Actions. La liste exacte est dans le README.
+
+name: Base de données
+
+on:
+  workflow_dispatch:
+    inputs:
+      seed_finance:
+        description: "Amorcer les données de démonstration Finance"
+        type: boolean
+        default: false
+      seed_reset:
+        description: "… en effaçant d'abord les données Finance (--reset)"
+        type: boolean
+        default: false
+      isolation_tests:
+        description: "Lancer les tests d'isolation RLS contre la vraie base"
+        type: boolean
+        default: false
+
+jobs:
+  operer:
+    name: Migrations et opérations
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.18.2
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Installation
+        run: pnpm install --frozen-lockfile
+
+      # Toujours en premier : un seed sur un schéma en retard échouerait, et
+      # `db:migrate` ne rejoue jamais ce qui est déjà appliqué.
+      - name: Migrations
+        run: pnpm db:migrate
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+
+      - name: Amorçage Finance
+        if: ${{ inputs.seed_finance }}
+        run: pnpm seed:finance ${{ inputs.seed_reset && '--reset' || '' }}
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+
+      # Les suites d'isolation ouvrent de vraies sessions et écrivent des
+      # données préfixées (zz-fin-…, nettoyées en fin de suite). C'est ici
+      # qu'elles tournent « pour de vrai » — la CI de push les saute toujours.
+      - name: Tests d'isolation RLS
+        if: ${{ inputs.isolation_tests }}
+        run: pnpm vitest run tests/
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}

@@ -1,7 +1,11 @@
 import "server-only";
 
+import { call } from "@/lib/airwallex/transport";
+
+export { AirwallexError, checkConnection } from "@/lib/airwallex/transport";
+
 /**
- * Client Airwallex — lecture seule.
+ * Endpoints Airwallex du module Reçus — lecture seule.
  *
  * Le module n'écrit rien ici, et ce n'est pas un choix de conception : l'API
  * publique Spend expose `List card expenses`, `Get card expense` et un marqueur
@@ -9,130 +13,14 @@ import "server-only";
  * chemin d'écriture est le transfert de mail vers leur boîte de reçus, traité
  * dans `forward.ts`.
  *
- * Ce client sert donc à deux choses : alimenter le rapprochement local, et
- * vérifier après coup qu'une pièce transférée s'est bien accrochée. La seconde
- * est la plus importante — sans elle, on enverrait des mails dans le vide en
- * croyant tenir une comptabilité à jour.
+ * L'authentification et le cache de jeton vivent dans
+ * `src/lib/airwallex/transport.ts`, partagés avec le module Finance.
  *
  * Les noms de champs de la réponse ne sont pas figés par un contrat public
  * stable. `normalizeExpense` accepte donc plusieurs orthographes plausibles et
  * conserve la réponse brute : le jour où un champ change de nom, on retraite
  * l'historique sans avoir à resynchroniser douze mois.
  */
-
-export class AirwallexError extends Error {
-  constructor(
-    message: string,
-    readonly status?: number,
-    readonly retryable = false,
-  ) {
-    super(message);
-    this.name = "AirwallexError";
-  }
-}
-
-function credentials() {
-  const clientId = process.env.AIRWALLEX_CLIENT_ID;
-  const apiKey = process.env.AIRWALLEX_API_KEY;
-  if (!clientId || !apiKey) {
-    throw new AirwallexError(
-      "AIRWALLEX_CLIENT_ID et AIRWALLEX_API_KEY sont requis. Voir docs/recus-setup.md.",
-    );
-  }
-  return { clientId, apiKey };
-}
-
-/** Bascule bac à sable : on ne teste pas une chaîne comptable en production. */
-function baseUrl(): string {
-  return process.env.AIRWALLEX_ENV === "production"
-    ? "https://api.airwallex.com"
-    : "https://api.sandbox.airwallex.com";
-}
-
-/**
- * Jeton d'accès, mis en cache le temps de sa validité.
- *
- * Le cache est au niveau du module : sur un hébergement sans état, chaque
- * instance refera sa propre authentification, ce qui est sans conséquence — le
- * jeton dépend des seules variables d'environnement, jamais d'un utilisateur.
- * Aucune donnée de requête ne doit rejoindre cette variable.
- */
-let cachedToken: { value: string; expiresAt: number } | null = null;
-
-async function getToken(): Promise<string> {
-  if (cachedToken && cachedToken.expiresAt > Date.now() + 60_000) {
-    return cachedToken.value;
-  }
-
-  const { clientId, apiKey } = credentials();
-  const response = await fetch(`${baseUrl()}/api/v1/authentication/login`, {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      "x-client-id": clientId,
-      "x-api-key": apiKey,
-    },
-  });
-
-  if (!response.ok) {
-    const detail = await response.text();
-    throw new AirwallexError(
-      `Authentification Airwallex refusée (${response.status}) — ${detail.slice(0, 200)}`,
-      response.status,
-      response.status >= 500,
-    );
-  }
-
-  const payload = (await response.json()) as {
-    token: string;
-    expires_at?: string;
-  };
-
-  cachedToken = {
-    value: payload.token,
-    // Le jeton vaut trente minutes ; on s'aligne sur la valeur annoncée quand
-    // elle est présente, sur une durée prudente sinon.
-    expiresAt: payload.expires_at
-      ? new Date(payload.expires_at).getTime()
-      : Date.now() + 25 * 60 * 1000,
-  };
-  return cachedToken.value;
-}
-
-async function call<T>(path: string): Promise<T> {
-  const token = await getToken();
-  const response = await fetch(`${baseUrl()}${path}`, {
-    headers: { authorization: `Bearer ${token}` },
-  });
-
-  if (response.status === 401) {
-    // Jeton périmé plus tôt qu'annoncé : on le jette et on retente une fois.
-    cachedToken = null;
-    const retryToken = await getToken();
-    const retry = await fetch(`${baseUrl()}${path}`, {
-      headers: { authorization: `Bearer ${retryToken}` },
-    });
-    if (!retry.ok) {
-      throw new AirwallexError(
-        `Airwallex ${retry.status} sur ${path}`,
-        retry.status,
-        retry.status >= 500,
-      );
-    }
-    return (await retry.json()) as T;
-  }
-
-  if (!response.ok) {
-    const detail = await response.text();
-    throw new AirwallexError(
-      `Airwallex ${response.status} sur ${path} — ${detail.slice(0, 300)}`,
-      response.status,
-      response.status === 429 || response.status >= 500,
-    );
-  }
-
-  return (await response.json()) as T;
-}
 
 // --- Normalisation -----------------------------------------------------------
 
@@ -298,19 +186,4 @@ export async function getExpense(
     `/api/v1/spend/expenses/${encodeURIComponent(externalId)}`,
   );
   return normalizeExpense(raw);
-}
-
-/** Vrai si la connexion aboutit — utilisé par l'écran de configuration. */
-export async function checkConnection(): Promise<
-  { ok: true } | { ok: false; error: string }
-> {
-  try {
-    await getToken();
-    return { ok: true };
-  } catch (error) {
-    return {
-      ok: false,
-      error: error instanceof Error ? error.message : "Connexion impossible.",
-    };
-  }
 }

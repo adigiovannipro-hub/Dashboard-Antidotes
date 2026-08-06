@@ -38,12 +38,12 @@ Un module interne renvoie **404 et non 403** à qui n'y a pas droit : un client 
 | Chantier | Où | État |
 |---|---|---|
 | Fondations | `supabase/migrations/0001-0003`, `src/lib/auth.ts`, `src/app/admin/acces` | 16 tables, RLS + tests d'isolation réels, auth magic link, hub, navigation, invitations |
-| Système visuel | `src/styles/tokens.css`, `src/app/globals.css`, `src/components/ds/` | Canvas gris chaud / surfaces blanches, tokens uniques, échelle typographique `type-*`, Inter + Montserrat, rail latéral repliable, primitives Panel / NavCard / StatCard / StatusPill. Contraste 4,5:1 vérifié au navigateur sur quatre pages |
+| Système visuel | `src/styles/tokens.css`, `src/app/globals.css`, `src/components/ds/` | Canvas gris chaud / surfaces blanches, tokens uniques, échelle typographique `type-*`, Inter + Montserrat, rail latéral repliable, primitives Panel / NavCard / StatCard / StatusPill. Contraste 4,5:1 vérifié au navigateur sur les huit pages |
 | Dashboard Bondet Meta | `src/components/viz/`, `src/lib/metrics/definitions.ts` | Design system, 10 cartes KPI, donuts Persona, courbe followers, tableau heatmap |
 | Modération (interne) | `/moderation`, `src/lib/moderation/` | 13 tables, pgvector, FAQ sémantique, génération Claude, boucle d'apprentissage, inbox 3 colonnes dans un panneau unique + bande de mesures. Architecture seulement, aucune connexion réelle aux plateformes |
 | Planning Éditorial | `/espace/[workspace]/planning`, `src/lib/planning/` | 6 tables, miroir du board Monday du client, import à sens unique, + analyses strategy / cadence / health |
 | Reçus | `/entreprise/recus`, `src/lib/recus/` | 5 tables, Gmail → facture → Airwallex, vérification d'accrochage, auto-transfert à 3 validations concordantes, cron quotidien 6h |
-| Finance (phase 1) | `/entreprise/finance`, `src/lib/finance/` | 8 tables, facturation à venir, trésorerie EUR, courbe de solde, dépenses carte. Écran complet sur données d'amorçage (`pnpm seed:finance`) : **aucune connexion Airwallex, et aucun cron déclaré** malgré la synchronisation horaire que le README décrit |
+| Finance (phase 2.1) | `/entreprise/finance`, `src/lib/finance/` | 8 tables, bande de mesures (disponible, attendu, en retard, dépensé), facturation à venir, trésorerie EUR, courbe de solde, dépenses carte. Pipeline de synchro écrit (soldes, dépenses, factures) + schedule GitHub Actions horaire — **jamais exécuté contre l'API réelle**, clés absentes ; endpoint factures à confirmer au premier passage. Écran complet sur données d'amorçage (`pnpm seed:finance`) |
 | Mon travail (phase 1) | `/` (accueil), `src/lib/mon-travail/`, `src/components/mon-travail/` | 3 tables, todo unifiée : « À publier » répliqué des plannings (mêmes cellules, statut bidirectionnel sur la même ligne), tâches du jour + 4 jours, retards en rouge, archivé, ligne quotidienne et cycle mensuel par client générés par `/api/cron/mon-travail`, démo via `pnpm seed:mon-travail`. **Fathom et mails simulés** — phase 2 non branchée |
 
 **Tout tourne sur données de démo.** Aucune API régie n'est branchée. Les données de démo Bondet sont calées au centime sur le Looker réel de juin 2026 : elles servent de référence visuelle, ne les modifie jamais sans que je le demande. Quand une source réelle arrive, elle ne remplace pas le jeu de démo, elle s'ajoute derrière un flag.
@@ -69,7 +69,7 @@ Bandeau rouge « Accès public » dans l'en-tête (`src/components/app-header.ts
 
 Next.js 16.2.12 · React 19.2.4 · TypeScript strict · Tailwind 4 + shadcn style `base-nova` sur `@base-ui/react` (pas Radix) · Supabase (Postgres, magic link, RLS, Storage) · Recharts · Vercel + Vercel Cron · Vitest 4 + Playwright · Node ≥ 22, pnpm 10.18.2.
 
-**La CI est minimale** — `.github/workflows/ci.yml` lance `typecheck`, `lint`, `test` et `build` à chaque push et sur chaque pull request, rien d'autre. Elle ne joint aucun service : les suites d'isolation y sautent faute de `SUPABASE_SERVICE_ROLE_KEY`, et **son vert n'est donc pas une preuve d'isolation**. Ni les migrations, ni Playwright, ni le déploiement ne passent par elle.
+**La CI est minimale** — `.github/workflows/ci.yml` lance `typecheck`, `lint`, `test` et `build` à chaque push et sur chaque pull request. Deux workflows l'accompagnent : `db-admin.yml` (manuel — migrations, seed Finance, tests d'isolation contre la vraie base) et `finance-sync.yml` (horaire — appelle `/api/cron/sync-finance`). Elle ne joint aucun service : les suites d'isolation y sautent faute de `SUPABASE_SERVICE_ROLE_KEY`, et **son vert n'est donc pas une preuve d'isolation**. Ni les migrations, ni Playwright, ni le déploiement ne passent par elle.
 
 **Contrainte dure : rester dans les tiers gratuits.** Avant d'ajouter un cron, une dépendance, un service externe ou un appel LLM récurrent, vérifie que ça tient dans le free tier et dis-moi le coût estimé.
 
@@ -80,7 +80,7 @@ Conséquences non négociables :
 
 ### Ce qui plafonne
 
-**Vercel Hobby — 2 crons, une fois par jour maximum.** La cadence est prouvée dans ce repo : une planification plus rapide ne fait pas que se dégrader, elle fait **rejeter le déploiement entier** (commit 9395d5c). Le plafond de deux crons vient de la doc Vercel, pas d'un essai ici. **Les deux crons du plan sont engagés** : `/api/cron/recus` à `0 6 * * *` et `/api/cron/mon-travail` à `0 4 * * *`, seules entrées de `vercel.json`. Le plafond Hobby est atteint : tout cron supplémentaire — le connecteur Meta, par exemple — impose soit le passage en Pro, soit une consolidation dans un cron existant (la phase 2 de Mon travail est prévue pour se greffer sur le sien, pas pour en créer un). Dis-le-moi avant de l'écrire. Le jour d'un passage en Pro, la cadence recommandée pour les Reçus est `*/15 * * * *`, et c'est ce que disent encore `docs/recus-setup.md:164,171` et `src/app/api/cron/recus/route.ts:22` : ces trois endroits contredisent `vercel.json` et n'ont pas été corrigés.
+**Vercel Hobby — 2 crons, une fois par jour maximum.** La cadence est prouvée dans ce repo : une planification plus rapide ne fait pas que se dégrader, elle fait **rejeter le déploiement entier** (commit 9395d5c). Le plafond de deux crons vient de la doc Vercel, pas d'un essai ici. **Les deux crons du plan sont engagés** : `/api/cron/recus` à `0 6 * * *` et `/api/cron/mon-travail` à `0 4 * * *`, seules entrées de `vercel.json`. Le plafond Hobby est atteint : tout cron supplémentaire — le connecteur Meta, par exemple — a **trois issues, et une seule est gratuite dans les trois cas**. Par ordre de préférence : se greffer sur un cron existant (la phase 2 de Mon travail est prévue pour ça) ; sortir la planification de Vercel vers une **GitHub Action**, ce que fait déjà `finance-sync.yml` toutes les heures en appelant `/api/cron/sync-finance` — c'est ainsi que la synchronisation Airwallex tourne à une cadence horaire sans consommer de créneau Vercel ; passer en Pro. Dis-le-moi avant de l'écrire. Le jour d'un passage en Pro, la cadence recommandée pour les Reçus est `*/15 * * * *`, et c'est ce que disent encore `docs/recus-setup.md:164,171` et `src/app/api/cron/recus/route.ts:22` : ces trois endroits contredisent `vercel.json` et n'ont pas été corrigés.
 
 **Supabase Free — 500 Mo de base, 1 Go de Storage, 5 Go d'egress par mois, 50 000 MAU, 2 projets actifs.** Le schéma engagé aujourd'hui : **51 tables, 42 enums, 104 politiques, 51 index, 9 triggers, 15 fonctions `security definer`, 3 buckets privés, 2 919 lignes de SQL** sur 14 migrations. Le poste qui grossira le premier est la base : `ad_metrics_daily` au grain jour × entité, plus les embeddings pgvector 384d de la FAQ. Point d'attention réel : **un projet gratuit est mis en pause après une semaine sans activité**, et le symptôme est une application qui ne répond plus du tout.
 
@@ -233,6 +233,27 @@ Modèle : `src/app/api/cron/recus/route.ts`.
 | un test | `src/lib/recus/matching.test.ts` (188 l.) | Colocalisation, import relatif du sujet, fabriques de fixtures en arrow avec `Partial<T>`, un `describe` par fonction exportée nommé du nom exact de la fonction, `it()` en français, zéro mock |
 
 Pour un test d'isolation RLS, le modèle reste `tests/planning-isolation.test.ts`. Avant d'écrire un nouveau module, lis le module existant le plus proche et suis son pattern plutôt que d'en inventer un.
+
+## Skills
+
+Le dépôt embarque des skills dans `.claude/skills/`, certains en lien symbolique vers `.agents/skills/`. Rien ne les déclenche mécaniquement : ce qui suit est une consigne, pas un automatisme du harnais.
+
+**À charger d'office, sans qu'on te le demande :**
+
+| Skill | Avant de… |
+|---|---|
+| `supabase-postgres-best-practices` | écrire une migration, une politique RLS, un index, un trigger ou une fonction `security definer`. Ses pièges — `security definer` qui contourne la RLS, `update` sans `with check`, vue qui l'ignore par défaut — recoupent les conventions ci-dessus, et aucun ne se voit au typecheck ni aux tests. |
+| `supabase` | toucher à l'auth, aux clients Supabase, au Storage ou aux sessions. **Ignore sa section « Making and Committing Schema Changes »** : elle décrit la CLI Supabase, qui n'est pas utilisée ici. Les migrations passent par `scripts/migrate.ts` et des fichiers `NNNN_nom.sql` numérotés à la main. |
+| `dataviz` | écrire un graphe Recharts, une carte KPI, une jauge ou un écran de pilotage. À croiser avec le design system existant de `src/components/viz/`, qui fait foi en cas de contradiction. |
+| `vercel-react-best-practices` | écrire un composant serveur ou client non trivial, ou changer une frontière de rendu. |
+
+**À n'activer que si je le demande :**
+
+- `improve` — audit et plans d'implémentation. Utile en revue de chantier, trop coûteux en réflexe.
+- `caveman` — réponses compressées. Jamais en automatique : quand tu m'expliques un arbitrage, la clarté passe avant les tokens.
+- `agent-browser` — pilotage de navigateur, pour vérifier une preview.
+- `ui-ux-pro-max`, `ui-styling`, `banner-design`, `brand`, `design`, `design-system`, `slides` — production graphique. Les scripts de génération d'images exigent `GEMINI_API_KEY`, qui n'est pas fournie : ils échouent proprement sans elle.
+- `azure-aigateway` — sans rapport avec la stack, installé par curiosité.
 
 ## Git et livraison
 
