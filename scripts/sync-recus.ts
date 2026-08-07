@@ -30,6 +30,14 @@ const REQUIRED = [
   "SUPABASE_SERVICE_ROLE_KEY",
   "AIRWALLEX_CLIENT_ID",
   "AIRWALLEX_API_KEY",
+] as const;
+
+/* Les secrets propres aux Reçus. Absents, le module n'est simplement pas
+   encore configuré : l'étape se saute en l'annonçant, sortie zéro — un
+   workflow horaire rouge pour une configuration à venir noierait les vrais
+   échecs. Les secrets du socle, eux, restent bloquants : leur absence est
+   une erreur, pas un état. */
+const RECEIPTS_SETUP = [
   "CREDENTIALS_ENCRYPTION_KEY",
   "GOOGLE_OAUTH_CLIENT_ID",
   "GOOGLE_OAUTH_CLIENT_SECRET",
@@ -40,6 +48,14 @@ async function main() {
   if (missing.length > 0) {
     console.error(`Variables absentes : ${missing.join(", ")}.`);
     process.exit(1);
+  }
+
+  const unconfigured = RECEIPTS_SETUP.filter((key) => !process.env[key]?.trim());
+  if (unconfigured.length > 0) {
+    console.log(
+      `Reçus non configurés — étape sautée. Secrets à poser côté GitHub : ${unconfigured.join(", ")}.`,
+    );
+    return;
   }
 
   if (!process.env.ANTHROPIC_API_KEY) {
