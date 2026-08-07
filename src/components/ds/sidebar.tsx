@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Briefcase,
+  CalendarClock,
   KeyRound,
   Lock,
   MessagesSquare,
@@ -49,6 +50,7 @@ const ICONS: Record<NavIcon, LucideIcon> = {
   perso: Lock,
   moderation: MessagesSquare,
   finance: Wallet,
+  echeances: CalendarClock,
   recus: Receipt,
   acces: KeyRound,
 };

@@ -61,3 +61,69 @@ export function formatCompact(value: number): string {
     maximumFractionDigits: 1,
   }).format(value);
 }
+
+// --- Dates saisies ----------------------------------------------------------
+
+/**
+ * Le format d'une date qu'on tape, par opposition à celle qu'on lit.
+ *
+ * `<input type="date">` affiche la date dans la langue du **navigateur**, pas
+ * dans celle de la page : le même écran montre 05/08/2026 à Paris et
+ * 08/05/2026 à New York, sans rien pour les distinguer. Un champ où la date se
+ * saisit doit donc rendre lui-même son texte.
+ *
+ * Le pivot reste l'ISO `AAAA-MM-JJ`, celui de l'URL et de la base ; le
+ * français ne vit que dans le champ.
+ */
+
+const DAY_FR = /^(\d{2})\/(\d{2})\/(\d{4})$/;
+
+/** `"2026-08-05"` → `"05/08/2026"`. Chaîne vide si l'entrée n'est pas une date. */
+export function formatDayFr(iso: string | null | undefined): string {
+  if (!iso) return "";
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+  if (!match) return "";
+  return `${match[3]}/${match[2]}/${match[1]}`;
+}
+
+/**
+ * `"05/08/2026"` → `"2026-08-05"`, `null` si la date n'existe pas.
+ *
+ * Le contrôle est calendaire, pas seulement syntaxique : `31/02/2026` a la
+ * bonne forme et n'est pas une date. Le tour par `Date.UTC` puis la relecture
+ * des composantes est ce qui l'attrape — un 31 février se range en 3 mars, et
+ * la comparaison échoue.
+ */
+export function parseDayFr(text: string): string | null {
+  const match = DAY_FR.exec(text.trim());
+  if (!match) return null;
+
+  const day = Number(match[1]);
+  const month = Number(match[2]);
+  const year = Number(match[3]);
+
+  const date = new Date(Date.UTC(year, month - 1, day));
+  if (
+    date.getUTCFullYear() !== year ||
+    date.getUTCMonth() !== month - 1 ||
+    date.getUTCDate() !== day
+  ) {
+    return null;
+  }
+
+  return date.toISOString().slice(0, 10);
+}
+
+/**
+ * Pose les barres obliques au fil de la frappe : `0508` → `05/08`.
+ *
+ * Sans elle, il faut taper les séparateurs, et une saisie au pavé numérique
+ * devient un exercice. Les caractères non chiffrés sont écartés, la longueur
+ * est plafonnée à huit chiffres.
+ */
+export function maskDayFr(text: string): string {
+  const digits = text.replace(/\D/g, "").slice(0, 8);
+  if (digits.length <= 2) return digits;
+  if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`;
+  return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
+}

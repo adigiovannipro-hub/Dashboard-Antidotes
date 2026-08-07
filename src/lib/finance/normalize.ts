@@ -178,14 +178,45 @@ export type NormalizedInvoice = {
  * Ramène le vocabulaire d'Airwallex sur nos quatre états. `overdue` n'existe
  * pas ici : le retard se calcule à la lecture, sur l'échéance.
  *
- * Un statut inconnu devient `draft` — le seul état qui ne pèse dans aucun
- * indicateur. Classer l'inconnu en `sent` gonflerait « attendu ce mois » avec
- * des factures dont on ignore tout.
+ * L'écran Airwallex sépare **deux champs** : le statut du document
+ * (« Finalisé ») et le statut de paiement (« Payé » / « Non payé »). Le
+ * paiement tranche en premier : une facture finalisée et payée est `paid`,
+ * finalisée et impayée est `sent` — c'est elle qu'on attend, elle qui peut
+ * être en retard. Le statut seul ne suffisait pas : tout arrivait en
+ * `FINALIZED`, inconnu du mapping, donc classé `draft` — et l'écran comptait
+ * zéro partout.
+ *
+ * Un couple inconnu devient `draft` — le seul état qui ne pèse dans aucun
+ * indicateur. Classer l'inconnu en `sent` gonflerait les attendus avec des
+ * factures dont on ignore tout.
  */
-export function mapInvoiceStatus(rawStatus: string | null): FinanceInvoiceStatus {
-  switch (rawStatus?.toUpperCase()) {
+export function mapInvoiceStatus(
+  rawStatus: string | null,
+  paymentStatus: string | null = null,
+): FinanceInvoiceStatus {
+  const status = rawStatus?.toUpperCase();
+
+  if (status === "VOID" || status === "VOIDED" || status === "CANCELLED") {
+    return "void";
+  }
+
+  switch (paymentStatus?.toUpperCase()) {
+    case "PAID":
+    case "SETTLED":
+      return "paid";
+    case "UNPAID":
+    case "PARTIALLY_PAID":
+    case "PARTIALLYPAID":
+      // Impayée, mais émise ? Seulement si le document est bien finalisé.
+      if (status === "DRAFT") return "draft";
+      return "sent";
+  }
+
+  switch (status) {
     case "DRAFT":
       return "draft";
+    case "FINALIZED":
+    case "FINALISED":
     case "SENT":
     case "OPEN":
     case "UNPAID":
@@ -195,13 +226,27 @@ export function mapInvoiceStatus(rawStatus: string | null): FinanceInvoiceStatus
     case "PAID":
     case "SETTLED":
       return "paid";
-    case "VOID":
-    case "VOIDED":
-    case "CANCELLED":
-      return "void";
     default:
       return "draft";
   }
+}
+
+/**
+ * Le nom d'un client de facturation, quelle que soit sa forme : une personne
+ * porte prénom + nom, une société une raison sociale. L'API ne renvoie pas la
+ * même chose pour les deux.
+ */
+export function extractCustomerName(raw: Record<string, unknown>): string | null {
+  const business = toText(
+    pick(raw, ["business_name", "company_name", "legal_name", "name"]),
+  );
+  if (business) return business;
+
+  const first = toText(pick(raw, ["first_name", "given_name"]));
+  const last = toText(pick(raw, ["last_name", "family_name"]));
+  if (first || last) return [first, last].filter(Boolean).join(" ");
+
+  return toText(pick(raw, ["email"]));
 }
 
 export function normalizeInvoice(
@@ -213,6 +258,7 @@ export function normalizeInvoice(
   if (!externalId || amount === null || !currency) return null;
 
   const rawStatus = toText(pick(raw, ["status", "invoice_status"]));
+  const paymentStatus = toText(pick(raw, ["payment_status", "paymentStatus"]));
 
   return {
     external_id: externalId,
@@ -226,11 +272,19 @@ export function normalizeInvoice(
           "recipient_name",
         ]),
       ) ?? "Client inconnu",
-    client_external_id: toText(pick(raw, ["customer.id", "customer_id", "contact.id"])),
+    /* `billing_customer_id` est ce que l'API renvoie réellement (préfixe
+       `bcus_`) — établi sur les 30 premières factures synchronisées. Les
+       autres orthographes restent en repli. */
+    client_external_id: toText(
+      pick(raw, ["billing_customer_id", "customer.id", "customer_id", "contact.id"]),
+    ),
     amount_cents: amount,
     currency: currency.toUpperCase().slice(0, 3),
-    status: mapInvoiceStatus(rawStatus),
-    raw_status: rawStatus,
+    status: mapInvoiceStatus(rawStatus, paymentStatus),
+    /* Les deux champs bruts, joints : « FINALIZED/UNPAID » se relit d'un coup
+       d'œil dans un diagnostic, là où « FINALIZED » seul cachait la moitié de
+       l'information. */
+    raw_status: paymentStatus ? `${rawStatus ?? "?"}/${paymentStatus}` : rawStatus,
     issued_on: toDateOnly(pick(raw, ["issue_date", "issued_at", "created_at"])),
     due_on: toDateOnly(pick(raw, ["due_date", "due_at"])),
     paid_at: toIso(pick(raw, ["paid_at", "settled_at"])),

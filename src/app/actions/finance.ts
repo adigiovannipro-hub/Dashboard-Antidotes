@@ -3,9 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
-import { getViewer } from "@/lib/auth";
 import { getFinanceContext } from "@/lib/finance/access";
-import { runFinanceSync } from "@/lib/finance/sync";
 import { createClient } from "@/lib/supabase/server";
 
 /**
@@ -23,51 +21,13 @@ export type FinanceActionResult =
 
 const FINANCE_PATH = "/entreprise/finance";
 
-/**
- * « Synchroniser maintenant » — le même pipeline que le cron, marqué `manual`
- * au journal avec son demandeur.
- *
- * Sans paramètre, et néanmoins branchée sur `useActionState` : une fonction
- * qui ignore l'état précédent et le FormData n'a pas à faire semblant de les
- * recevoir — TypeScript accepte une signature plus courte que l'attendue.
- */
-export async function syncNow(): Promise<FinanceActionResult> {
-  const context = await getFinanceContext();
-  if (!context?.canDecide) return { ok: false, error: "Action indisponible." };
-
-  if (!process.env.AIRWALLEX_API_KEY || !process.env.AIRWALLEX_CLIENT_ID) {
-    return {
-      ok: false,
-      error:
-        "Aucune intégration Airwallex configurée : clés absentes de l'environnement. L'écran travaille sur les données d'amorçage.",
-    };
-  }
-
-  const viewer = await getViewer();
-  const report = await runFinanceSync({
-    orgId: context.orgId,
-    triggeredVia: "manual",
-    requestedBy: viewer?.user.id ?? null,
-  });
-
-  revalidatePath(FINANCE_PATH);
-
-  const errors = report.filter((step) => step.status === "error");
-  if (errors.length > 0) {
-    return {
-      ok: false,
-      error: `Synchronisation partielle — ${errors
-        .map((step) => `${step.kind} : ${step.error}`)
-        .join(" ; ")}`,
-    };
-  }
-
-  const rows = Object.fromEntries(report.map((step) => [step.kind, step.rows]));
-  return {
-    ok: true,
-    message: `Synchronisation terminée : ${rows.balances ?? 0} soldes, ${rows.transactions ?? 0} dépenses, ${rows.invoices ?? 0} factures.`,
-  };
-}
+/* Il n'y a plus d'action « Synchroniser maintenant », et son retrait est un
+   correctif : Airwallex refuse les adresses IP de Vercel. Partant de
+   l'hébergeur, cette action se faisait renvoyer un « 403 Forbidden » à tous
+   les coups, et son seul effet observable était d'inscrire trois échecs au
+   journal. La synchronisation part d'une machine GitHub — voir
+   `.github/workflows/airwallex-sync.yml` — toutes les heures. Le pipeline
+   lui-même, `runFinanceSync`, n'a pas bougé d'une ligne. */
 
 const recategorizeAction = z.object({
   transactionId: z.uuid(),

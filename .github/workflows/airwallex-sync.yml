@@ -1,10 +1,11 @@
-# La synchronisation Airwallex, exécutée ici et non sur Vercel.
+# Les synchronisations Airwallex — Finance et Reçus — exécutées ici et non
+# sur Vercel.
 #
 # Deux raisons, dans cet ordre :
 #
 #   • Airwallex refuse les adresses IP de Vercel. Mêmes clés, même appel : un
 #     jeton depuis une machine GitHub, une page « 403 Forbidden » depuis une
-#     fonction Vercel. La sonde `airwallex-probe.yml` l'a établi.
+#     fonction Vercel. La sonde `airwallex-probe.yml` l’a établi, avant d’être supprimée.
 #   • Le plan Hobby de Vercel rejette de toute façon tout cron plus fréquent
 #     que le quotidien, et plafonne les fonctions à 60 secondes.
 #
@@ -22,9 +23,12 @@
 #
 # Secrets requis (Settings → Secrets and variables → Actions) :
 #   NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY,
-#   SUPABASE_SERVICE_ROLE_KEY, AIRWALLEX_CLIENT_ID, AIRWALLEX_API_KEY.
+#   SUPABASE_SERVICE_ROLE_KEY, AIRWALLEX_CLIENT_ID, AIRWALLEX_API_KEY —
+#   plus, pour les Reçus : CREDENTIALS_ENCRYPTION_KEY,
+#   GOOGLE_OAUTH_CLIENT_ID, GOOGLE_OAUTH_CLIENT_SECRET, et si on veut le
+#   transfert automatique, ANTHROPIC_API_KEY.
 
-name: Synchronisation Finance
+name: Synchronisation Airwallex
 
 on:
   schedule:
@@ -39,7 +43,7 @@ concurrency:
 
 jobs:
   synchroniser:
-    name: Soldes, dépenses et factures
+    name: Finance et Reçus
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
@@ -58,7 +62,7 @@ jobs:
       - name: Installation
         run: pnpm install --frozen-lockfile
 
-      - name: Synchroniser
+      - name: Synchroniser Finance
         run: pnpm sync:finance
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
@@ -68,3 +72,22 @@ jobs:
           AIRWALLEX_API_KEY: ${{ secrets.AIRWALLEX_API_KEY }}
           # Les vraies dépenses vivent en production ; le bac à sable est vide.
           AIRWALLEX_ENV: production
+
+      # Dans le même job que Finance : l'installation des dépendances coûte
+      # plus cher que les deux synchronisations réunies, la partager divise la
+      # consommation de minutes par deux. `if: always()` — un échec Finance ne
+      # doit pas priver les Reçus de leur passage, et réciproquement.
+      - name: Synchroniser les Reçus
+        if: always()
+        run: pnpm sync:recus
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          AIRWALLEX_CLIENT_ID: ${{ secrets.AIRWALLEX_CLIENT_ID }}
+          AIRWALLEX_API_KEY: ${{ secrets.AIRWALLEX_API_KEY }}
+          AIRWALLEX_ENV: production
+          CREDENTIALS_ENCRYPTION_KEY: ${{ secrets.CREDENTIALS_ENCRYPTION_KEY }}
+          GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
+          GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}

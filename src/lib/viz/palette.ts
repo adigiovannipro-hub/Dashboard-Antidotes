@@ -96,5 +96,10 @@ export function performanceRank(
 export function heatmapBackground(rank: number): string | undefined {
   if (rank <= 0.08) return undefined;
   const magnitude = Math.min(rank, 1);
-  return `color-mix(in oklch, var(--brand) ${(magnitude * 32).toFixed(1)}%, transparent)`;
+  /* `--accent` et non `--brand` : ce dernier n'existe pas. `globals.css`
+     déclare `--color-brand`, le nom que Tailwind attend pour fabriquer ses
+     utilitaires ; la variable CSS brute, celle que `var()` sait lire, reste
+     `--accent`. Un `var()` sur un nom inconnu ne rend rien du tout — ici un
+     `color-mix` invalide, donc une cellule jamais peinte. */
+  return `color-mix(in oklch, var(--accent) ${(magnitude * 32).toFixed(1)}%, transparent)`;
 }

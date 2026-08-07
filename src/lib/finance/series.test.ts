@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { buildBalanceSeries, seriesDelta, type SeriesSnapshot } from "./series";
+import {
+  buildBalanceSeries,
+  buildExpenseBuckets,
+  seriesDelta,
+  type SeriesExpense,
+  type SeriesSnapshot,
+} from "./series";
 
 /** Instantané abrégé : `snap("a", "2026-08-05T10:00", 100)`. */
 function snap(
@@ -107,5 +113,81 @@ describe("seriesDelta", () => {
     expect(
       seriesDelta([{ time: "2026-08-01T00:00:00.000Z", total_cents: 5 }]),
     ).toBeNull();
+  });
+});
+
+/** Dépense abrégée : `spend("2026-08-05T14:20", 773)`. */
+function spend(
+  iso: string,
+  billingCents: number | null,
+  billingCurrency: string | null = "EUR",
+): SeriesExpense {
+  return {
+    occurred_at: `${iso}:00.000Z`,
+    billing_amount_cents: billingCents,
+    billing_currency: billingCurrency,
+  };
+}
+
+describe("buildExpenseBuckets", () => {
+  it("range les dépenses sur les créneaux horaires à 7 jours", () => {
+    const buckets = buildExpenseBuckets(
+      [spend("2026-08-05T10:15", 500), spend("2026-08-05T10:50", 300)],
+      7,
+      NOW,
+    );
+
+    // Même créneau : les deux s'additionnent sur le point de 10 h.
+    expect(buckets["2026-08-05T10:00:00.000Z"]).toBe(800);
+  });
+
+  it("range les dépenses sur les créneaux quotidiens au-delà", () => {
+    const buckets = buildExpenseBuckets(
+      [spend("2026-08-05T10:15", 500), spend("2026-08-05T18:50", 300)],
+      30,
+      NOW,
+    );
+
+    expect(buckets["2026-08-05T00:00:00.000Z"]).toBe(800);
+  });
+
+  it("ne compte que les débits en euros", () => {
+    const buckets = buildExpenseBuckets(
+      [
+        spend("2026-08-05T10:15", 500),
+        // Une ligne débitée en dollars : rien ne dit combien elle a coûté en
+        // euros, et aucun taux de change n'existe dans ce projet.
+        spend("2026-08-05T10:20", 900, "USD"),
+        // Débit pas encore fixé par Airwallex.
+        spend("2026-08-05T10:30", null),
+      ],
+      7,
+      NOW,
+    );
+
+    expect(buckets["2026-08-05T10:00:00.000Z"]).toBe(500);
+  });
+
+  it("ignore ce qui tombe hors de la fenêtre", () => {
+    const buckets = buildExpenseBuckets(
+      [spend("2026-05-01T10:15", 500), spend("2026-08-05T10:15", 700)],
+      30,
+      NOW,
+    );
+
+    expect(Object.keys(buckets)).toEqual(["2026-08-05T00:00:00.000Z"]);
+  });
+
+  it("aligne ses clés sur celles de la courbe du solde", () => {
+    // C'est l'invariant qui fait tenir le graphe combiné : une dépense doit
+    // pouvoir se poser sur un point de solde sans réalignement.
+    const snapshots = [snap("a", "2026-08-05T09:00", 10_000)];
+    const points = buildBalanceSeries(snapshots, 7, NOW);
+    const buckets = buildExpenseBuckets([spend("2026-08-05T11:40", 250)], 7, NOW);
+
+    const times = new Set(points.map((point) => point.time));
+    for (const key of Object.keys(buckets)) {
+      expect(times.has(key)).toBe(true);
+    }
   });
 });

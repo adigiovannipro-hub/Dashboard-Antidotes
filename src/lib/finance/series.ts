@@ -95,6 +95,62 @@ function alignToStep(timestamp: number, step: number): number {
   return Math.floor(timestamp / step) * step;
 }
 
+/** Le pas de découpage d'une fenêtre — l'heure à 7 jours, le jour au-delà. */
+export function stepFor(window: ChartWindow): number {
+  return window <= HOURLY_WINDOW_DAYS ? HOUR : DAY;
+}
+
+export type SeriesExpense = {
+  /** ISO — `occurred_at` en base. */
+  occurred_at: string;
+  /** Ce qui a réellement quitté le wallet, en centimes. */
+  billing_amount_cents: number | null;
+  billing_currency: string | null;
+};
+
+/**
+ * Les dépenses regroupées sur la **même grille de créneaux** que la courbe du
+ * solde, indexées par le début de créneau au format ISO.
+ *
+ * Un `Record` et non un tableau : c'est ce qui permet à la courbe de poser une
+ * dépense sur son point de solde sans réaligner deux séries de longueurs
+ * différentes — un décalage d'un créneau ferait raconter au graphe qu'une
+ * sortie d'argent précède la baisse qu'elle provoque.
+ *
+ * Seuls les débits en euros sont comptés. Une course facturée en roupies a
+ * bien un montant en roupies **et** un débit en euros : c'est le second qui
+ * compte, parce que c'est lui qui creuse le solde que la courbe dessine.
+ * Une ligne dont Airwallex n'a pas encore fixé le débit ne compte pas — mieux
+ * vaut un creux manquant qu'un montant inventé.
+ */
+export function buildExpenseBuckets(
+  expenses: readonly SeriesExpense[],
+  window: ChartWindow,
+  now: Date = new Date(),
+): Record<string, number> {
+  const step = stepFor(window);
+  const lastBucket = alignToStep(now.getTime(), step);
+  const firstBucket = lastBucket - window * DAY + step;
+
+  const buckets: Record<string, number> = {};
+
+  for (const expense of expenses) {
+    if (expense.billing_currency !== "EUR") continue;
+    if (expense.billing_amount_cents === null) continue;
+
+    const at = Date.parse(expense.occurred_at);
+    if (Number.isNaN(at)) continue;
+
+    const bucket = alignToStep(at, step);
+    if (bucket < firstBucket || bucket > lastBucket) continue;
+
+    const key = new Date(bucket).toISOString();
+    buckets[key] = (buckets[key] ?? 0) + expense.billing_amount_cents;
+  }
+
+  return buckets;
+}
+
 /**
  * Variation entre les deux bouts de la série : ce que la fenêtre a coûté ou
  * rapporté. `null` quand la série a moins de deux points — une variation d'un

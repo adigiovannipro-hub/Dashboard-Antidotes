@@ -222,7 +222,7 @@ chiffres. L'historique de solde n'existera que par les instantanés que chaque
 passage déposera — l'API ne rend aucun passé.
 
 La synchronisation tourne **toutes les heures via GitHub Actions**
-(`.github/workflows/finance-sync.yml`) — pas par Vercel Cron, dont le plan
+(`.github/workflows/airwallex-sync.yml`) — pas par Vercel Cron, dont le plan
 Hobby rejette tout déploiement demandant mieux que le quotidien. Pour
 l'activer : le secret `CRON_SECRET` (même valeur que sur Vercel) et la
 variable `APP_URL` dans *Settings → Secrets and variables → Actions*, plus les

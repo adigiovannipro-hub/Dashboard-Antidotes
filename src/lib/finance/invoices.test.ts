@@ -51,18 +51,21 @@ describe("isOverdue", () => {
 });
 
 describe("invoiceKpis", () => {
-  it("attend ce mois-ci les factures envoyées à échéance dans le mois", () => {
+  it("compte comme facturé ce mois-ci ce qui a été émis dans le mois, payé ou non", () => {
+    // Le mois se mesure à l'émission : une facture émise le 6 août à échéance
+    // du 5 septembre appartient à août — c'est le total qu'affiche Airwallex.
     const kpis = invoiceKpis(
       [
-        invoice({ due_on: "2026-08-20", amount_cents: 250_000 }),
-        invoice({ due_on: "2026-08-28", amount_cents: 100_000 }),
-        invoice({ due_on: "2026-09-10", amount_cents: 999_999 }), // mois suivant
-        invoice({ due_on: "2026-08-12", status: "paid", amount_cents: 50_000 }),
-        invoice({ due_on: "2026-08-12", status: "draft", amount_cents: 50_000 }),
+        invoice({ issued_on: "2026-08-06", due_on: "2026-09-05", amount_cents: 250_000 }),
+        invoice({ issued_on: "2026-08-06", due_on: "2026-09-05", status: "paid", amount_cents: 100_000 }),
+        invoice({ issued_on: "2026-07-02", due_on: "2026-08-01", amount_cents: 999_999 }), // juillet
+        invoice({ issued_on: "2026-08-06", status: "draft", amount_cents: 50_000 }),
+        invoice({ issued_on: "2026-08-06", status: "void", amount_cents: 50_000 }),
       ],
       TODAY,
     );
-    expect(kpis.expected_this_month).toEqual({ EUR: 350_000 });
+    expect(kpis.issued_this_month).toEqual({ EUR: 350_000 });
+    expect(kpis.issued_this_month_count).toBe(2);
   });
 
   it("cumule le retard toutes échéances confondues, par devise", () => {
@@ -76,6 +79,7 @@ describe("invoiceKpis", () => {
       TODAY,
     );
     expect(kpis.overdue).toEqual({ EUR: 140_000, USD: 5_000 });
+    expect(kpis.overdue_count).toBe(3);
   });
 });
 

@@ -264,13 +264,25 @@
     letter-spacing: 0.06em;
   }
   /* Le chiffre d'une carte KPI. Chasses égales : deux cartes côte à côte
-     alignent leurs chiffres au lieu de danser d'un pixel. */
+     alignent leurs chiffres au lieu de danser d'un pixel.
+
+     Le seul pas responsive de l'échelle, et il est mesuré : la bande de
+     mesures tient deux colonnes dès le téléphone, ce qui laisse 113 px au
+     chiffre sur un écran de 390 px. « 8 742,19 € » en réclame 142 à 28 px —
+     il se coupait donc en trois lignes, « 8 », « 742,19 », « € ». À 20 px il
+     en réclame 101 et tient sur une ligne. Passé 640 px la carte est large,
+     et le chiffre reprend sa taille. */
   .type-stat {
     font-family: var(--font-heading);
-    font-size: 28px;
+    font-size: 20px;
     line-height: 1.1;
     font-weight: 600;
     font-variant-numeric: tabular-nums;
     letter-spacing: -0.02em;
+  }
+  @media (width >= 40rem) {
+    .type-stat {
+      font-size: 28px;
+    }
   }
 }

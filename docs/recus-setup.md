@@ -148,35 +148,36 @@ puis recommencer.
 
 ---
 
-## 6. Le cron
+## 6. Le passage planifié
 
-Une requête authentifiée sur :
-
-```
-GET /api/cron/recus
-Authorization: Bearer $CRON_SECRET
-```
+**Il part de GitHub Actions, pas de Vercel.** Airwallex refuse les adresses IP
+de Vercel : lancée de là-bas, la synchronisation des dépenses et la
+vérification d'accrochage recevraient un « 403 Forbidden » à chaque passage.
+L'étape « Synchroniser les Reçus » de
+`.github/workflows/airwallex-sync.yml` exécute donc `pnpm sync:recus` toutes
+les heures, dans la foulée de la synchronisation Finance — mêmes clés, même
+runner, une seule installation de dépendances.
 
 Elle enchaîne trois étapes : synchronisation des dépenses Airwallex, lecture de
 la boîte, vérification des accrochages en attente. Une étape en échec n'annule
-pas les autres.
+pas les autres. Toutes les heures suffit largement — une facture n'est jamais
+urgente, et interroger Gmail plus souvent consomme du quota pour rien.
 
-**Toutes les quinze minutes suffit.** Une facture n'est jamais urgente, et
-interroger Gmail plus souvent consomme du quota pour rien.
+Secrets côté GitHub (Settings → Secrets and variables → Actions), en plus de
+ceux de Finance : `CREDENTIALS_ENCRYPTION_KEY`, `GOOGLE_OAUTH_CLIENT_ID`,
+`GOOGLE_OAUTH_CLIENT_SECRET`, et `ANTHROPIC_API_KEY` pour le transfert
+automatique.
 
-Sur Vercel, ajouter à `vercel.json` :
-
-```json
-{
-  "crons": [{ "path": "/api/cron/recus", "schedule": "*/15 * * * *" }]
-}
-```
-
-Pour déclencher à la main :
+Pour déclencher à la main : onglet **Actions** → « Synchronisation Airwallex »
+→ **Run workflow**. En local :
 
 ```sh
-curl -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron/recus
+pnpm sync:recus
 ```
+
+La route `/api/cron/recus` reste en place comme point d'entrée de secours
+(`Authorization: Bearer $CRON_SECRET`), en sachant que ses étapes Airwallex
+échouent tant qu'elle s'exécute chez Vercel.
 
 ---
 

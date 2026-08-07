@@ -1,7 +1,8 @@
 import "server-only";
 
-import { call } from "@/lib/airwallex/transport";
+import { AirwallexError, call } from "@/lib/airwallex/transport";
 import {
+  extractCustomerName,
   normalizeBalance,
   normalizeFinanceExpense,
   normalizeInvoice,
@@ -11,6 +12,42 @@ import {
 } from "./normalize";
 
 export { AirwallexError, checkConnection } from "@/lib/airwallex/transport";
+
+// --- Clients de facturation --------------------------------------------------
+
+/* Les deux chemins plausibles pour un identifiant `bcus_` : la documentation
+   du produit facturation ne tranche pas, le premier passage réel tranchera.
+   Un chemin qui répond 404 ou 400 est écarté sans bruit ; toute autre erreur
+   remonte — un 401 signifierait un vrai problème, pas un mauvais chemin. */
+const CUSTOMER_PATHS = [
+  (id: string) => `/api/v1/customers/${id}`,
+  (id: string) => `/api/v1/billing/customers/${id}`,
+  (id: string) => `/api/v1/invoicing/customers/${id}`,
+];
+
+/**
+ * Le nom d'un client de facturation, résolu depuis son identifiant `bcus_…`.
+ * `null` quand aucun chemin ne le connaît — la facture gardera « Client
+ * inconnu » plutôt qu'un nom inventé.
+ */
+export async function getCustomerName(customerId: string): Promise<string | null> {
+  for (const buildPath of CUSTOMER_PATHS) {
+    try {
+      const raw = await call<Record<string, unknown>>(buildPath(customerId));
+      const name = extractCustomerName(raw);
+      if (name) return name;
+    } catch (error) {
+      if (
+        error instanceof AirwallexError &&
+        (error.status === 404 || error.status === 400 || error.status === 405)
+      ) {
+        continue;
+      }
+      throw error;
+    }
+  }
+  return null;
+}
 
 /**
  * Endpoints Airwallex du module Finance — lecture seule, comme les Reçus.
