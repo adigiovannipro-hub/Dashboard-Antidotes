@@ -117,16 +117,21 @@ function Metric({
   );
 }
 
-/** Avancement du mois en cours : publié sur planifié. */
+/**
+ * Avancement du mois en cours : publié sur planifié.
+ *
+ * Le libellé dit ce que compte la barre. « Mois en cours 0/6 » laissait
+ * deviner : six quoi, sur quoi ?
+ */
 function MonthProgress({ done, total }: { done: number; total: number }) {
   const ratio = total === 0 ? 0 : done / total;
 
   return (
     <div className="mt-4">
-      <div className="type-caption mb-1.5 flex items-center justify-between text-text-secondary">
-        <span>Mois en cours</span>
-        <span className="tabular-nums">
-          {done}/{total}
+      <div className="type-caption mb-1.5 flex items-center justify-between gap-2 text-text-secondary">
+        <span className="min-w-0 truncate">Publié ce mois-ci</span>
+        <span className="shrink-0 tabular-nums">
+          {done} sur {total}
         </span>
       </div>
       <div
@@ -146,14 +151,16 @@ function MonthProgress({ done, total }: { done: number; total: number }) {
   );
 }
 
-/** L'état d'ensemble de l'espace, quand il y a quelque chose à signaler. */
+/**
+ * L'état d'ensemble de l'espace, quand il y a quelque chose à signaler.
+ *
+ * La modération n'y figure plus : « Messages en attente » la donne déjà,
+ * chiffrée, deux lignes plus haut. Une pastille qui répète la ligne du dessus
+ * fait deux alertes pour un seul fait.
+ */
 function stateOf(
   stats: WorkspaceStats | null,
 ): { tone: StatusTone; label: string } | null {
-  if (!stats) return null;
-  if (stats.moderation !== null && stats.moderation > 0) {
-    return { tone: "warning", label: "Modération à traiter" };
-  }
-  if (stats.upcoming === 0) return null;
+  if (!stats || stats.upcoming === 0) return null;
   return { tone: "info", label: `${stats.upcoming} programmées` };
 }
