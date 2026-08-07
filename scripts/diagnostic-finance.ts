@@ -104,6 +104,24 @@ async function main() {
       group by 1 order by 1 desc limit 6`);
     console.table(spendByMonth);
 
+    console.log("═══ RAPPROCHEMENT — les deux côtés de la comparaison ═══");
+    const { rows: mirror } = await db.query(`
+      select merchant, amount_cents, currency,
+             billing_amount_cents, billing_currency,
+             transaction_date::text, expense_status
+      from receipt_expenses
+      where transaction_date >= current_date - 3 or transaction_date is null
+      order by transaction_date desc nulls first limit 10`);
+    console.table(mirror);
+
+    const { rows: pending } = await db.query(`
+      select merchant, amount_cents, currency, document_date::text,
+             status, match_method, expense_id is not null as rapprochee
+      from receipt_documents
+      where status = 'awaiting_validation'
+      order by received_at desc limit 10`);
+    console.table(pending);
+
     console.log("═══ VESTIGES DE DÉMO ═══");
     const { rows: demo } = await db.query(`
       select 'comptes acct_antidotes' as quoi,
