@@ -2,11 +2,11 @@
 
 import { useId } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { ArrowDown, ArrowUp, Download } from "lucide-react";
+import { ArrowDown, ArrowUp, Download, Store } from "lucide-react";
 
+import { DateField } from "@/components/ds/date-field";
 import { StatusPill, type StatusTone } from "@/components/ds/status-pill";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Table,
@@ -16,6 +16,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { merchantInitials } from "@/lib/finance/merchant-logo";
 import { formatDualAmount } from "@/lib/finance/money";
 import {
   transactionStatusLabel,
@@ -95,40 +96,26 @@ export function ExpensesTable({
     <div className="space-y-4">
       {/* --- Filtres --------------------------------------------------- */}
       <div className="flex flex-wrap items-end gap-3">
-        <div className="grid gap-1">
-          <Label htmlFor={`${fieldId}-du`} className="text-muted-foreground text-xs">
-            Du
-          </Label>
-          <Input
-            id={`${fieldId}-du`}
-            type="date"
-            className="h-8 w-36"
-            value={searchParams.get("du") ?? ""}
-            onChange={(event) => update({ du: event.target.value || null })}
-          />
-        </div>
-        <div className="grid gap-1">
-          <Label htmlFor={`${fieldId}-au`} className="text-muted-foreground text-xs">
-            Au
-          </Label>
-          <Input
-            id={`${fieldId}-au`}
-            type="date"
-            className="h-8 w-36"
-            value={searchParams.get("au") ?? ""}
-            onChange={(event) => update({ au: event.target.value || null })}
-          />
-        </div>
+        <DateField
+          label="Du"
+          value={searchParams.get("du")}
+          onChange={(iso) => update({ du: iso })}
+        />
+        <DateField
+          label="Au"
+          value={searchParams.get("au")}
+          onChange={(iso) => update({ au: iso })}
+        />
         <div className="grid gap-1">
           <Label
             htmlFor={`${fieldId}-categorie`}
-            className="text-muted-foreground text-xs"
+            className="type-overline text-text-secondary"
           >
             Catégorie
           </Label>
           <select
             id={`${fieldId}-categorie`}
-            className="border-input bg-background focus-visible:ring-ring h-8 rounded-md border px-2 text-sm focus-visible:ring-2 focus-visible:outline-none"
+            className="border-border-line bg-surface focus-visible:ring-ring type-body text-text-primary h-10 rounded-md border px-2 focus-visible:ring-2 focus-visible:outline-none"
             value={searchParams.get("categorie") ?? ""}
             onChange={(event) => update({ categorie: event.target.value || null })}
           >
@@ -141,7 +128,7 @@ export function ExpensesTable({
             ))}
           </select>
         </div>
-        <label className="flex h-8 items-center gap-2 text-sm">
+        <label className="type-body flex h-10 items-center gap-2">
           <input
             type="checkbox"
             className="accent-(--accent) size-4"
@@ -216,15 +203,8 @@ export function ExpensesTable({
                     <TableCell className="text-muted-foreground whitespace-nowrap tabular-nums">
                       {formatDate(row.occurred_at)}
                     </TableCell>
-                    <TableCell className="max-w-56">
-                      <p className="truncate font-medium">
-                        {row.merchant ?? row.merchant_raw ?? "—"}
-                      </p>
-                      {row.card_last_four ? (
-                        <p className="text-muted-foreground text-xs">
-                          Carte •••• {row.card_last_four}
-                        </p>
-                      ) : null}
+                    <TableCell className="max-w-64">
+                      <Merchant row={row} />
                     </TableCell>
                     <TableCell className="text-right">
                       <Amount row={row} />
@@ -247,15 +227,13 @@ export function ExpensesTable({
           {/* --- Cartes (mobile) -------------------------------------- */}
           <ul className="space-y-2 md:hidden">
             {rows.map((row) => (
-              <li key={row.id} className="bg-background rounded-lg p-3">
+              <li key={row.id} className="bg-surface-sunken rounded-lg p-3">
                 <div className="flex items-start justify-between gap-3">
-                  <p className="min-w-0 truncate font-medium">
-                    {row.merchant ?? row.merchant_raw ?? "—"}
-                  </p>
+                  <Merchant row={row} />
                   <Amount row={row} />
                 </div>
                 <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                  <span className="text-muted-foreground mr-auto text-xs tabular-nums">
+                  <span className="type-caption text-text-secondary mr-auto tabular-nums">
                     {formatDate(row.occurred_at)}
                     {row.category_label ? ` · ${row.category_label}` : ""}
                   </span>
@@ -331,6 +309,42 @@ function SortableHead({
         ) : null}
       </button>
     </TableHead>
+  );
+}
+
+/**
+ * Le marchand : sa marque, son nom, et la carte qui a payé, dessous.
+ *
+ * La marque porte des initiales et non le vrai logo — les trois façons d'avoir
+ * un logo de marque coûtent toutes quelque chose que ce projet ne paie pas.
+ * Le raisonnement complet est en tête de `merchant-logo.ts`.
+ */
+function Merchant({ row }: { row: DisplayExpense }) {
+  const raw = row.merchant ?? row.merchant_raw;
+  const initials = merchantInitials(raw);
+
+  return (
+    <div className="flex min-w-0 items-start gap-2.5">
+      <span
+        aria-hidden
+        className="border-border-line bg-surface-sunken text-text-secondary type-caption flex size-9 shrink-0 items-center justify-center rounded-md border font-semibold"
+      >
+        {/* Rien à tirer du libellé : une icône générique plutôt qu'un carré
+            vide, et surtout jamais une lettre inventée. */}
+        {initials || <Store strokeWidth={1.75} className="size-4" />}
+      </span>
+      <div className="min-w-0">
+        <p className="type-label text-text-primary truncate">{raw ?? "—"}</p>
+        {/* Masqué au téléphone : la carte est toujours la même, et la ligne
+            volait la largeur au nom du marchand, qui se retrouvait tronqué à
+            « Black Sand… ». Ce qui ne sert pas au petit écran en sort. */}
+        {row.card_last_four ? (
+          <p className="type-caption text-text-secondary hidden tabular-nums md:block">
+            Carte •••• {row.card_last_four}
+          </p>
+        ) : null}
+      </div>
+    </div>
   );
 }
 

@@ -138,10 +138,17 @@ function Chart({
   const max = Math.max(...balances);
   const pad = Math.max((max - min) * 0.15, 100);
 
-  // L'axe des dépenses ouvre à zéro — une barre dont la base est ailleurs ment
-  // sur son propre rapport de longueur. Un plafond minimal évite qu'une
-  // journée sans dépense ne fasse exploser une unique petite barre.
-  const spentMax = Math.max(...data.map((point) => point.depense), 1_000);
+  /* L'axe des dépenses ouvre à zéro — une barre dont la base est ailleurs ment
+     sur son propre rapport de longueur. Un plafond minimal évite qu'une seule
+     petite barre n'occupe toute la hauteur un jour creux.
+
+     Le facteur 2,4 est le point d'équilibre entre les deux lectures : à
+     l'échelle naturelle, les barres montaient jusqu'au plafond et la courbe
+     disparaissait derrière elles. La plus haute plafonne désormais aux deux
+     cinquièmes du cadre — assez pour comparer les jours entre eux, ce qui est
+     tout ce qu'on demande à une barre ici, et pas assez pour voler la vedette
+     au solde, qui est le sujet. */
+  const spentMax = Math.max(...data.map((point) => point.depense), 1_000) * 2.4;
 
   const last = points.at(-1);
 
@@ -213,9 +220,9 @@ function Chart({
               dataKey="depense"
               name="Dépenses"
               fill="var(--danger)"
-              fillOpacity={0.55}
+              fillOpacity={0.8}
               radius={[2, 2, 0, 0]}
-              maxBarSize={14}
+              maxBarSize={10}
               isAnimationActive={false}
             />
             <Line

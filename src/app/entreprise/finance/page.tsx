@@ -1,11 +1,11 @@
 import { cookies } from "next/headers";
 import type { Metadata } from "next";
-import { CreditCard, Landmark, ReceiptText, TriangleAlert } from "lucide-react";
+import { CreditCard, ReceiptText, TriangleAlert } from "lucide-react";
 
 import { StatCard, StatGrid } from "@/components/ds/stat-card";
 import { Panel, PanelBody, PanelHeader, SectionHeader } from "@/components/ds/surface";
 import { BalanceChart } from "@/components/finance/balance-chart";
-import { CashAmount } from "@/components/finance/cash-amount";
+import { CashStatCard } from "@/components/finance/cash-stat-card";
 import { ExpensesTable, type DisplayExpense } from "@/components/finance/expenses-table";
 import { InvoicesBlock } from "@/components/finance/invoices-block";
 import { SyncBanner } from "@/components/finance/sync-banner";
@@ -105,20 +105,10 @@ export default async function FinancePage({
       />
 
       <StatGrid>
-        <StatCard
-          label="Disponible"
-          value={
-            <CashAmount
-              value={hasTreasury ? formatMoney(treasury.total_cents, "EUR") : null}
-              initialHidden={cookieStore.get(CASH_HIDDEN_COOKIE)?.value === "1"}
-            />
-          }
-          context={
-            hasTreasury
-              ? `${treasury.accounts.length} wallet${treasury.accounts.length > 1 ? "s" : ""} EUR`
-              : "aucun compte synchronisé"
-          }
-          icon={Landmark}
+        <CashStatCard
+          value={hasTreasury ? formatMoney(treasury.total_cents, "EUR") : null}
+          accountCount={treasury.accounts.length}
+          initialHidden={cookieStore.get(CASH_HIDDEN_COOKIE)?.value === "1"}
         />
         <StatCard
           label="Attendu ce mois"
