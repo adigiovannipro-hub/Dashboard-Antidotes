@@ -105,12 +105,16 @@ async function main() {
     console.table(spendByMonth);
 
     console.log("═══ GRAND LIVRE — entrées / sorties EUR par mois ═══");
+    // Même exclusion que l'écran : les autorisations carte (HOLD / RELEASE)
+    // se compensent et gonfleraient les deux colonnes du même montant.
     const { rows: ledger } = await db.query(`
       select to_char(occurred_at, 'YYYY-MM') as mois,
              count(*)::int as n,
              sum(amount_cents) filter (where amount_cents > 0)::bigint as entrees_cents,
              sum(-amount_cents) filter (where amount_cents < 0)::bigint as sorties_cents
       from finance_ledger_entries where currency = 'EUR'
+        and (transaction_type is null or transaction_type not in
+             ('ISSUING_AUTHORISATION_HOLD', 'ISSUING_AUTHORISATION_RELEASE'))
       group by 1 order by 1 desc limit 8`);
     console.table(ledger);
 
