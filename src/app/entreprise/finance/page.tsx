@@ -1,13 +1,14 @@
+import { cookies } from "next/headers";
 import type { Metadata } from "next";
 import { CreditCard, Landmark, ReceiptText, TriangleAlert } from "lucide-react";
 
 import { StatCard, StatGrid } from "@/components/ds/stat-card";
 import { Panel, PanelBody, PanelHeader, SectionHeader } from "@/components/ds/surface";
 import { BalanceChart } from "@/components/finance/balance-chart";
+import { CashAmount } from "@/components/finance/cash-amount";
 import { ExpensesTable, type DisplayExpense } from "@/components/finance/expenses-table";
 import { InvoicesBlock } from "@/components/finance/invoices-block";
 import { SyncBanner } from "@/components/finance/sync-banner";
-import { TreasuryBlock } from "@/components/finance/treasury-block";
 import { requireFinanceAccess } from "@/lib/finance/access";
 import { resolveCategory } from "@/lib/finance/categories";
 import { invoiceKpis } from "@/lib/finance/invoices";
@@ -15,6 +16,7 @@ import { formatMoney } from "@/lib/finance/money";
 import { parseExpenseParams } from "@/lib/finance/params";
 import {
   getBalanceSeries,
+  getExpenseSeries,
   getExpenseSummary,
   getSyncOverview,
   getTreasury,
@@ -23,6 +25,7 @@ import {
   listExpenses,
   listInvoices,
 } from "@/lib/finance/queries";
+import { CASH_HIDDEN_COOKIE } from "@/lib/ui-preferences";
 import type { CurrencyTotals } from "@/lib/finance/invoices";
 
 export const metadata: Metadata = { title: "Finance · Mon entreprise" };
@@ -49,22 +52,34 @@ export default async function FinancePage({
   const context = await requireFinanceAccess();
   const params = parseExpenseParams(await searchParams);
 
-  const [treasury, series, invoices, categories, rules, expenses, sync, summary] =
-    await Promise.all([
-      getTreasury(context.orgId),
-      getBalanceSeries(context.orgId),
-      listInvoices(context.orgId),
-      listCategories(context.orgId),
-      listCategoryRules(context.orgId),
-      listExpenses({
-        orgId: context.orgId,
-        filters: params.filters,
-        sort: params.sort,
-        page: params.page,
-      }),
-      getSyncOverview(context.orgId),
-      getExpenseSummary(context.orgId),
-    ]);
+  const [
+    treasury,
+    series,
+    spentSeries,
+    invoices,
+    categories,
+    rules,
+    expenses,
+    sync,
+    summary,
+    cookieStore,
+  ] = await Promise.all([
+    getTreasury(context.orgId),
+    getBalanceSeries(context.orgId),
+    getExpenseSeries(context.orgId),
+    listInvoices(context.orgId),
+    listCategories(context.orgId),
+    listCategoryRules(context.orgId),
+    listExpenses({
+      orgId: context.orgId,
+      filters: params.filters,
+      sort: params.sort,
+      page: params.page,
+    }),
+    getSyncOverview(context.orgId),
+    getExpenseSummary(context.orgId),
+    cookies(),
+  ]);
 
   const categoryNames = new Map(
     categories.map((category) => [category.id, category.name]),
@@ -85,14 +100,19 @@ export default async function FinancePage({
     <div className="space-y-6">
       <SectionHeader
         title="Finance"
-        description="Facturation, trésorerie et dépenses — miroir Airwallex."
-        action={<SyncBanner lastRun={sync.last_run} canDecide={context.canDecide} />}
+        description="Facturation, trésorerie et dépenses."
+        action={<SyncBanner lastRun={sync.last_run} />}
       />
 
       <StatGrid>
         <StatCard
           label="Disponible"
-          value={hasTreasury ? formatMoney(treasury.total_cents, "EUR") : null}
+          value={
+            <CashAmount
+              value={hasTreasury ? formatMoney(treasury.total_cents, "EUR") : null}
+              initialHidden={cookieStore.get(CASH_HIDDEN_COOKIE)?.value === "1"}
+            />
+          }
           context={
             hasTreasury
               ? `${treasury.accounts.length} wallet${treasury.accounts.length > 1 ? "s" : ""} EUR`
@@ -145,26 +165,21 @@ export default async function FinancePage({
           </PanelBody>
         </Panel>
 
+        {/* La courbe a pris la place de la carte « Trésorerie EUR », qui
+            occupait une demi-largeur pour répéter un total déjà affiché dans
+            la bande de mesures. Le détail par wallet manque à qui en a plus
+            d'un ; ce n'est pas le cas ici, et une carte qui redit le chiffre
+            d'à côté ne mérite pas sa surface. */}
         <Panel>
           <PanelHeader
-            title="Trésorerie EUR"
-            description="Seuls les wallets en euros se totalisent."
+            title="Solde et dépenses"
+            description="Le disponible en vert, ce qui en sort en rouge."
           />
           <PanelBody>
-            <TreasuryBlock treasury={treasury} />
+            <BalanceChart series={series} expenses={spentSeries} />
           </PanelBody>
         </Panel>
       </div>
-
-      <Panel>
-        <PanelHeader
-          title="Évolution du solde disponible"
-          description="Un instantané par heure, laissé par chaque passage de la synchronisation."
-        />
-        <PanelBody>
-          <BalanceChart series={series} />
-        </PanelBody>
-      </Panel>
 
       <Panel>
         <PanelHeader

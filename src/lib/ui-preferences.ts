@@ -15,5 +15,14 @@
 /** Rail de navigation replié. `"1"` replié, tout le reste déplié. */
 export const RAIL_COOKIE = "antidotes_rail";
 
+/**
+ * Montants de trésorerie masqués sur l'écran Finance. `"1"` masqué.
+ *
+ * Le défaut est « visible » : c'est un écran privé, et un chiffre caché par
+ * défaut obligerait à un clic à chaque ouverture. Le masque sert au moment où
+ * quelqu'un regarde par-dessus l'épaule, pas en permanence.
+ */
+export const CASH_HIDDEN_COOKIE = "antidotes_cash_hidden";
+
 /** Un an, limité à ce site : une préférence d'affichage ne voyage pas. */
 export const PREFERENCE_MAX_AGE = 31_536_000;

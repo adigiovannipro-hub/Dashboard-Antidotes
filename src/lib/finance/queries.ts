@@ -1,7 +1,12 @@
 import "server-only";
 
 import { createClient } from "@/lib/supabase/server";
-import { buildBalanceSeries, type SeriesPoint } from "./series";
+import {
+  buildBalanceSeries,
+  buildExpenseBuckets,
+  type SeriesExpense,
+  type SeriesPoint,
+} from "./series";
 import type {
   ChartWindow,
   FinanceAccount,
@@ -127,6 +132,43 @@ export async function getBalanceSeries(
       buildBalanceSeries(snapshots, window, now),
     ]),
   ) as BalanceSeriesByWindow;
+}
+
+/** Dépenses agrégées par créneau, indexées par le début de créneau ISO. */
+export type ExpenseBucketsByWindow = Record<ChartWindow, Record<string, number>>;
+
+/**
+ * Ce qui est sorti du wallet, sur la même grille que la courbe du solde.
+ *
+ * Le graphe superpose les deux : la ligne verte dit où en est la trésorerie,
+ * les barres rouges disent ce qui l'a fait bouger. Sans elles, un décrochage
+ * de la courbe ne se distingue pas d'un trou de synchronisation.
+ */
+export async function getExpenseSeries(
+  orgId: string,
+  now: Date = new Date(),
+): Promise<ExpenseBucketsByWindow> {
+  const supabase = await createClient();
+
+  const oldest = new Date(now.getTime() - 91 * 24 * 3_600_000).toISOString();
+  const { data, error } = await supabase
+    .from("finance_transactions")
+    .select("occurred_at, billing_amount_cents, billing_currency")
+    .eq("org_id", orgId)
+    .eq("billing_currency", "EUR")
+    .gte("occurred_at", oldest)
+    .order("occurred_at")
+    .limit(5_000);
+  if (error) throw new Error(`Lecture des dépenses de la courbe : ${error.message}`);
+
+  const expenses = (data ?? []) as unknown as SeriesExpense[];
+
+  return Object.fromEntries(
+    CHART_WINDOWS.map((window) => [
+      window,
+      buildExpenseBuckets(expenses, window, now),
+    ]),
+  ) as ExpenseBucketsByWindow;
 }
 
 // --- Factures --------------------------------------------------------------

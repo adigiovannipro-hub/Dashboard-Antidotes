@@ -374,22 +374,12 @@ async function main() {
       ],
     );
 
-    // --- Journal de synchronisation : rejoué à chaque amorçage ---
-    await db.query("delete from finance_sync_runs where org_id = $1", [orgId]);
-    const finished = new Date(now - 12 * 60_000).toISOString();
-    const started = new Date(now - 13 * 60_000).toISOString();
-    for (const [kind, rowCount] of [
-      ["balances", 2],
-      ["transactions", TRANSACTIONS.length],
-      ["invoices", INVOICES.length],
-    ] as const) {
-      await db.query(
-        `insert into finance_sync_runs
-           (org_id, kind, status, triggered_via, started_at, finished_at, rows_synced)
-         values ($1, $2, 'success', 'cron', $3, $4, $5)`,
-        [orgId, kind, started, finished, rowCount],
-      );
-    }
+    /* Aucune ligne n'est écrite dans `finance_sync_runs`, et c'est le
+       correctif d'un mensonge : l'amorçage y inscrivait trois passages
+       « réussis » datés de la minute, si bien que l'écran annonçait une
+       synchronisation Airwallex qui n'avait jamais eu lieu. Un amorçage ne
+       synchronise rien. Tant que rien n'a tourné, la bande affiche « Aucune
+       synchronisation encore passée », ce qui est la vérité. */
 
     console.log(
       `Amorçage Finance terminé : ${CATEGORIES.length} catégories, ` +

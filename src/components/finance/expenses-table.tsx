@@ -144,7 +144,7 @@ export function ExpensesTable({
         <label className="flex h-8 items-center gap-2 text-sm">
           <input
             type="checkbox"
-            className="accent-(--brand) size-4"
+            className="accent-(--accent) size-4"
             checked={searchParams.get("justificatif") === "manquant"}
             onChange={(event) =>
               update({ justificatif: event.target.checked ? "manquant" : null })

@@ -19,7 +19,9 @@ import { cn } from "@/lib/utils";
 
 export type StatCardProps = {
   label: string;
-  value: string | number | null;
+  /** `ReactNode` et non `string` : certaines cartes portent une commande à
+      côté de leur chiffre — l'œil qui masque la trésorerie, par exemple. */
+  value: React.ReactNode;
   /** La phrase de contexte : « dont 3 en retard », « sur 7 jours ». */
   context?: string;
   /** Qualifie le chiffre lui-même, quand il porte un état. */

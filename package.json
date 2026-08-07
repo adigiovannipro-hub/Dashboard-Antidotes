@@ -22,6 +22,7 @@
     "seed:moderation": "tsx scripts/seed-moderation.ts",
     "seed:planning": "tsx scripts/seed-planning.ts",
     "seed:finance": "tsx scripts/seed-finance.ts",
+    "purge:finance-demo": "tsx scripts/purge-finance-demo.ts",
     "seed:mon-travail": "tsx scripts/seed-mon-travail.ts",
     "sync:finance": "node --conditions=react-server --import tsx scripts/sync-finance.ts"
   },

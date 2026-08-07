@@ -22,6 +22,10 @@ on:
         description: "… en effaçant d'abord les données Finance (--reset)"
         type: boolean
         default: false
+      purge_finance_demo:
+        description: "Effacer les données de démonstration Finance (garde les vraies)"
+        type: boolean
+        default: false
       isolation_tests:
         description: "Lancer les tests d'isolation RLS contre la vraie base"
         type: boolean
@@ -58,6 +62,15 @@ jobs:
       - name: Amorçage Finance
         if: ${{ inputs.seed_finance }}
         run: pnpm seed:finance ${{ inputs.seed_reset && '--reset' || '' }}
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+
+      # Après l'amorçage, jamais avant : l'ordre inverse effacerait ce que
+      # l'étape précédente vient d'écrire. Cette étape ne touche qu'aux lignes
+      # préfixées par le seed — les vraies dépenses Airwallex restent.
+      - name: Purge des données de démonstration Finance
+        if: ${{ inputs.purge_finance_demo }}
+        run: pnpm purge:finance-demo
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
 
