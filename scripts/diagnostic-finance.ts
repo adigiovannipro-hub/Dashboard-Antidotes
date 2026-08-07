@@ -48,8 +48,8 @@ async function main() {
     const { rows: payFields } = await db.query(`
       select raw->>'status' as status,
              raw->>'payment_status' as payment_status,
-             raw->>'invoice_number' as numero,
-             coalesce(raw#>>'{customer,name}', raw->>'customer_name') as client,
+             raw->>'number' as numero,
+             client_name as client,
              (amount_cents / 100.0)::text as montant,
              issued_on::text, due_on::text
       from finance_invoices
