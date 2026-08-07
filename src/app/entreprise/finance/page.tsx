@@ -2,28 +2,31 @@ import { cookies } from "next/headers";
 import type { Metadata } from "next";
 import { CreditCard, ReceiptText, TriangleAlert } from "lucide-react";
 
+import { FilterPills, type FilterOption } from "@/components/ds/filter-pills";
 import { StatCard, StatGrid } from "@/components/ds/stat-card";
 import { Panel, PanelBody, PanelHeader, SectionHeader } from "@/components/ds/surface";
 import { BalanceChart } from "@/components/finance/balance-chart";
 import { CashStatCard } from "@/components/finance/cash-stat-card";
 import { ExpensesTable, type DisplayExpense } from "@/components/finance/expenses-table";
-import { InvoicesBlock, type UpcomingLine } from "@/components/finance/invoices-block";
+import { InvoicesBlock } from "@/components/finance/invoices-block";
 import { SyncBanner } from "@/components/finance/sync-banner";
-import { listEngagements, listInstallments } from "@/lib/billing/queries";
-import { addMonths, currentMonth, scheduleKpis } from "@/lib/billing/schedule";
 import { requireFinanceAccess } from "@/lib/finance/access";
 import { resolveCategory } from "@/lib/finance/categories";
+import { invoiceKpis } from "@/lib/finance/invoices";
 import { formatMoney } from "@/lib/finance/money";
 import { parseExpenseParams } from "@/lib/finance/params";
+import { merchantKey } from "@/lib/finance/merchant-logo";
 import {
   getBalanceSeries,
   getExpenseSeries,
   getExpenseSummary,
+  getMerchantLogoUrls,
   getSyncOverview,
   getTreasury,
   listCategories,
   listCategoryRules,
   listExpenses,
+  listInvoices,
 } from "@/lib/finance/queries";
 import { CASH_HIDDEN_COOKIE } from "@/lib/ui-preferences";
 
@@ -55,8 +58,7 @@ export default async function FinancePage({
     treasury,
     series,
     spentSeries,
-    engagements,
-    installments,
+    invoices,
     categories,
     rules,
     expenses,
@@ -67,14 +69,7 @@ export default async function FinancePage({
     getTreasury(context.orgId),
     getBalanceSeries(context.orgId),
     getExpenseSeries(context.orgId),
-    listEngagements({ orgId: context.orgId }),
-    /* Les échéances du module Échéances, pas les factures synchronisées
-       d'Airwallex : leurs noms de clients ne correspondaient pas. */
-    listInstallments({
-      orgId: context.orgId,
-      filters: { statuses: ["pending", "issued"] },
-      limit: 300,
-    }),
+    listInvoices(context.orgId),
     listCategories(context.orgId),
     listCategoryRules(context.orgId),
     listExpenses({
@@ -84,40 +79,41 @@ export default async function FinancePage({
       page: params.page,
     }),
     getSyncOverview(context.orgId),
-    getExpenseSummary(context.orgId),
+    getExpenseSummary(context.orgId, params.month),
     cookies(),
   ]);
 
   const categoryNames = new Map(
     categories.map((category) => [category.id, category.name]),
   );
+
+  /* Les logos de la page courante seulement — vingt-cinq URL signées au plus,
+     pas une par marchand de la base. */
+  const logoUrls = await getMerchantLogoUrls(
+    context.orgId,
+    [...new Set(
+      expenses.rows
+        .map((transaction) => merchantKey(transaction.merchant ?? transaction.merchant_raw))
+        .filter(Boolean),
+    )],
+  );
+
   const rows: DisplayExpense[] = expenses.rows.map((transaction) => ({
     ...transaction,
     category_label: transaction.category_id
       ? (categoryNames.get(transaction.category_id) ?? null)
       : (resolveCategory(transaction.category_raw, rules, categories)?.name ??
         transaction.category_raw),
+    logo_url:
+      logoUrls[merchantKey(transaction.merchant ?? transaction.merchant_raw)] ??
+      null,
   }));
 
-  const kpis = scheduleKpis(installments);
+  /* Les indicateurs de facturation lisent le miroir Airwallex, la réalité
+     comptable — les noms de clients sont ceux des vraies factures. Le module
+     Échéances, lié dans le bloc, porte le prévisionnel. */
+  const kpis = invoiceKpis(invoices);
   const hasTreasury = treasury.accounts.length > 0;
-
-  /* Le bloc « Facturation à venir » montre les trois prochains mois : ce qui
-     est dû, ce qui vient. Chaque ligne porte le nom de son engagement. */
-  const engagementNames = new Map(
-    engagements.map((engagement) => [
-      engagement.id,
-      { client: engagement.client_name, label: engagement.label },
-    ]),
-  );
-  const upcomingHorizon = addMonths(currentMonth(), 3);
-  const upcoming: UpcomingLine[] = installments
-    .filter((line) => line.status === "pending" && line.issue_on < upcomingHorizon)
-    .map((line) => ({
-      ...line,
-      client_name: engagementNames.get(line.engagement_id)?.client ?? "—",
-      engagement_label: engagementNames.get(line.engagement_id)?.label ?? "",
-    }));
 
   return (
     <div className="space-y-6">
@@ -134,29 +130,35 @@ export default async function FinancePage({
           initialHidden={cookieStore.get(CASH_HIDDEN_COOKIE)?.value === "1"}
         />
         <StatCard
-          label="À facturer ce mois"
+          label="Facturé ce mois"
           value={
-            kpis.thisMonth.count > 0 ? formatTotals(kpis.thisMonth.totals) : null
+            kpis.issued_this_month_count > 0
+              ? formatTotals(kpis.issued_this_month)
+              : formatMoney(0, "EUR")
           }
           context={
-            kpis.thisMonth.count > 0
-              ? `${kpis.thisMonth.count} échéance${kpis.thisMonth.count > 1 ? "s" : ""} ce mois-ci`
-              : "aucune échéance enregistrée"
+            kpis.issued_this_month_count > 0
+              ? `${kpis.issued_this_month_count} facture${kpis.issued_this_month_count > 1 ? "s" : ""} émise${kpis.issued_this_month_count > 1 ? "s" : ""}`
+              : "aucune facture émise ce mois-ci"
           }
           icon={ReceiptText}
         />
         <StatCard
           label="En retard"
-          value={kpis.late.count > 0 ? formatTotals(kpis.late.totals) : "0 €"}
-          context={
-            kpis.late.count > 0 ? "jour d'émission dépassé" : "rien en retard"
+          value={
+            kpis.overdue_count > 0 ? formatTotals(kpis.overdue) : formatMoney(0, "EUR")
           }
-          tone={kpis.late.count > 0 ? "danger" : undefined}
-          toneLabel={kpis.late.count > 0 ? "à émettre" : undefined}
+          context={
+            kpis.overdue_count > 0
+              ? `${kpis.overdue_count} facture${kpis.overdue_count > 1 ? "s" : ""} impayée${kpis.overdue_count > 1 ? "s" : ""}, échéance dépassée`
+              : "rien d'échu"
+          }
+          tone={kpis.overdue_count > 0 ? "danger" : undefined}
+          toneLabel={kpis.overdue_count > 0 ? "à relancer" : undefined}
           icon={TriangleAlert}
         />
         <StatCard
-          label="Dépensé ce mois"
+          label={`Dépensé en ${monthName(params.month ?? currentMonthParam())}`}
           value={formatMoney(summary.month_billed_cents, "EUR")}
           context={`${summary.month_count} dépense${summary.month_count > 1 ? "s" : ""}`}
           tone={summary.missing_receipts > 0 ? "warning" : undefined}
@@ -172,11 +174,11 @@ export default async function FinancePage({
       <div className="grid gap-5 lg:grid-cols-2">
         <Panel>
           <PanelHeader
-            title="Facturation à venir"
-            description="Les échéances des trois prochains mois, client par client."
+            title="Facturation"
+            description="L'encours réel Airwallex, client par client."
           />
           <PanelBody>
-            <InvoicesBlock lines={upcoming} />
+            <InvoicesBlock invoices={invoices} />
           </PanelBody>
         </Panel>
 
@@ -201,6 +203,13 @@ export default async function FinancePage({
           title="Dépenses"
           count={expenses.total}
           description="Montant facturé par le commerçant, et ce qui a réellement quitté le wallet."
+          action={
+            <FilterPills
+              ariaLabel="Mois observé"
+              options={monthOptions()}
+              current={params.month ?? ""}
+            />
+          }
         />
         <PanelBody>
           <ExpensesTable
@@ -226,3 +235,41 @@ function formatTotals(totals: Record<string, number>): string {
     .join(" + ");
 }
 
+/* --- Sélecteur de mois ------------------------------------------------------
+   Les trois derniers mois en pastilles, plus « Tout ». Le filtre vit dans
+   l'URL (`?mois=2026-06`) : il se partage par lien et survit au retour
+   arrière. Les pastilles effacent les bornes libres — deux filtres de période
+   concurrents mentiraient sur ce que le tableau montre. */
+
+function currentMonthParam(): string {
+  return new Date().toISOString().slice(0, 7);
+}
+
+function monthOptions(): FilterOption[] {
+  const now = new Date();
+  const options: FilterOption[] = [];
+
+  for (let back = 2; back >= 0; back -= 1) {
+    const date = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - back, 1));
+    const value = date.toISOString().slice(0, 7);
+    options.push({
+      value,
+      label: monthName(value),
+      href: `/entreprise/finance?mois=${value}`,
+    });
+  }
+
+  options.push({ value: "", label: "Tout", href: "/entreprise/finance" });
+  return options;
+}
+
+const MONTH_NAME = new Intl.DateTimeFormat("fr-FR", {
+  month: "long",
+  timeZone: "UTC",
+});
+
+function monthName(isoMonth: string): string {
+  const date = new Date(`${isoMonth}-01T00:00:00.000Z`);
+  if (Number.isNaN(date.getTime())) return isoMonth;
+  return MONTH_NAME.format(date);
+}

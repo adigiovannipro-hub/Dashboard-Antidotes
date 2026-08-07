@@ -106,6 +106,17 @@ describe("mapInvoiceStatus", () => {
     expect(mapInvoiceStatus("MYSTERY")).toBe("draft");
     expect(mapInvoiceStatus(null)).toBe("draft");
   });
+
+  it("laisse le statut de paiement trancher — le vocabulaire réel du compte", () => {
+    // L'écran Airwallex sépare document et paiement : « Finalisé » + « Non
+    // payé » est une facture émise qu'on attend, « Finalisé » + « Payé » est
+    // close. C'est le couple observé sur les vraies factures du compte.
+    expect(mapInvoiceStatus("FINALIZED", "UNPAID")).toBe("sent");
+    expect(mapInvoiceStatus("FINALIZED", "PAID")).toBe("paid");
+    expect(mapInvoiceStatus("FINALIZED", null)).toBe("sent");
+    expect(mapInvoiceStatus("DRAFT", "UNPAID")).toBe("draft");
+    expect(mapInvoiceStatus("VOIDED", "UNPAID")).toBe("void");
+  });
 });
 
 describe("normalizeInvoice", () => {

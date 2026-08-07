@@ -2,10 +2,9 @@
 
 import { useState } from "react";
 import {
-  Bar,
+  Area,
   CartesianGrid,
   ComposedChart,
-  Line,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -23,14 +22,17 @@ import { CHART_WINDOWS, type ChartWindow } from "@/lib/finance/types";
 /**
  * Évolution du solde EUR disponible et des dépenses, sur 7, 30 ou 90 jours.
  *
- * Deux lectures dans un seul graphe : la **ligne verte** dit où en est la
- * trésorerie, les **barres rouges** disent ce qui l'a fait bouger. Séparées,
- * elles obligeaient à faire l'aller-retour entre deux blocs pour relier un
- * décrochage à sa cause.
+ * Deux aires dans un seul graphe, à la manière des courbes de ventes des
+ * outils de reporting : la **ligne verte** et son dégradé disent où en est la
+ * trésorerie, la **ligne rouge** dit ce qui en sort. Séparées, elles
+ * obligeaient à l'aller-retour entre deux blocs pour relier un décrochage à
+ * sa cause. Le rouge est `--danger-ink` — celui de la pastille « à
+ * relancer » — et non le rouge vif : une dépense ordinaire n'est pas une
+ * alarme, la charte réserve le rouge saturé au réellement critique.
  *
- * Deux axes, et c'est nécessaire : un solde à quelques milliers d'euros et une
- * dépense à quelques dizaines n'ont pas d'échelle commune — sur un axe unique,
- * les barres seraient un trait au ras du zéro.
+ * Deux axes, et c'est nécessaire : un solde à quelques milliers d'euros et
+ * une dépense à quelques dizaines n'ont pas d'échelle commune — sur un axe
+ * unique, la ligne des dépenses raserait le zéro.
  *
  * Les trois fenêtres arrivent pré-calculées du serveur : le sélecteur est un
  * simple changement d'état, sans aller-retour.
@@ -109,8 +111,8 @@ function Legend() {
       <span className="type-caption text-text-secondary flex items-center gap-1.5">
         <span
           aria-hidden
-          className="h-2.5 w-2 rounded-sm"
-          style={{ background: "var(--danger)" }}
+          className="h-0.5 w-4 rounded-pill"
+          style={{ background: "var(--danger-ink)" }}
         />
         Dépenses
       </span>
@@ -138,17 +140,11 @@ function Chart({
   const max = Math.max(...balances);
   const pad = Math.max((max - min) * 0.15, 100);
 
-  /* L'axe des dépenses ouvre à zéro — une barre dont la base est ailleurs ment
-     sur son propre rapport de longueur. Un plafond minimal évite qu'une seule
-     petite barre n'occupe toute la hauteur un jour creux.
-
-     Le facteur 2,4 est le point d'équilibre entre les deux lectures : à
-     l'échelle naturelle, les barres montaient jusqu'au plafond et la courbe
-     disparaissait derrière elles. La plus haute plafonne désormais aux deux
-     cinquièmes du cadre — assez pour comparer les jours entre eux, ce qui est
-     tout ce qu'on demande à une barre ici, et pas assez pour voler la vedette
-     au solde, qui est le sujet. */
-  const spentMax = Math.max(...data.map((point) => point.depense), 1_000) * 2.4;
+  /* L'axe des dépenses ouvre à zéro — une aire dont la base est ailleurs ment
+     sur ses proportions. Le facteur 2,2 borne la série au bas du cadre :
+     assez pour comparer les jours entre eux, pas assez pour concurrencer le
+     solde, qui est le sujet. */
+  const spentMax = Math.max(...data.map((point) => point.depense), 1_000) * 2.2;
 
   const last = points.at(-1);
 
@@ -160,6 +156,21 @@ function Chart({
             data={data}
             margin={{ top: 16, right: 8, bottom: 4, left: 0 }}
           >
+            {/* Les dégradés qui donnent la lecture « aire » de la référence :
+                chaque ligne s'appuie sur un voile de sa propre couleur, qui
+                s'éteint vers le bas. Les stops sont volontairement bas —
+                au-delà, les deux voiles se mélangent en brun là où ils se
+                croisent. */}
+            <defs>
+              <linearGradient id="fin-solde" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="var(--accent)" stopOpacity={0.28} />
+                <stop offset="100%" stopColor="var(--accent)" stopOpacity={0.02} />
+              </linearGradient>
+              <linearGradient id="fin-depense" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="var(--danger-ink)" stopOpacity={0.16} />
+                <stop offset="100%" stopColor="var(--danger-ink)" stopOpacity={0.02} />
+              </linearGradient>
+            </defs>
             <CartesianGrid
               stroke="var(--viz-grid)"
               strokeWidth={1}
@@ -189,7 +200,7 @@ function Chart({
               hide
             />
             <Tooltip
-              cursor={{ fill: "var(--viz-grid)", fillOpacity: 0.5 }}
+              cursor={{ stroke: "var(--viz-axis)", strokeWidth: 1 }}
               content={({ active, payload, label }) => {
                 if (!active || !payload?.length) return null;
                 const point = payload[0]?.payload as
@@ -213,27 +224,33 @@ function Chart({
                 );
               }}
             />
-            {/* Les barres d'abord : posées après la ligne, elles la
-                recouvriraient là où elles sont hautes. */}
-            <Bar
+            {/* Les dépenses d'abord : posées après le solde, leur voile
+                passerait par-dessus sa ligne. */}
+            <Area
               yAxisId="depense"
+              type="monotone"
               dataKey="depense"
               name="Dépenses"
-              fill="var(--danger)"
-              fillOpacity={0.8}
-              radius={[2, 2, 0, 0]}
-              maxBarSize={10}
+              stroke="var(--danger-ink)"
+              strokeWidth={1.75}
+              fill="url(#fin-depense)"
+              dot={false}
+              activeDot={{
+                r: 4,
+                fill: "var(--danger-ink)",
+                stroke: "var(--viz-surface)",
+                strokeWidth: 2,
+              }}
               isAnimationActive={false}
             />
-            <Line
+            <Area
               yAxisId="solde"
               type="monotone"
               dataKey="solde"
               name="Solde disponible"
               stroke="var(--series-1)"
               strokeWidth={2.5}
-              strokeLinecap="round"
-              strokeLinejoin="round"
+              fill="url(#fin-solde)"
               dot={false}
               activeDot={{
                 r: 5,

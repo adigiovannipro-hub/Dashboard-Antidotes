@@ -39,6 +39,8 @@ import {
 export type DisplayExpense = FinanceTransaction & {
   /** Catégorie résolue (plan Antidotes), sinon le libellé Airwallex brut. */
   category_label: string | null;
+  /** URL signée du logo du marchand, quand la synchronisation l'a trouvé. */
+  logo_url: string | null;
 };
 
 export function ExpensesTable({
@@ -327,11 +329,21 @@ function Merchant({ row }: { row: DisplayExpense }) {
     <div className="flex min-w-0 items-start gap-2.5">
       <span
         aria-hidden
-        className="border-border-line bg-surface-sunken text-text-secondary type-caption flex size-9 shrink-0 items-center justify-center rounded-md border font-semibold"
+        className="border-border-line text-text-secondary type-caption flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-md border bg-white font-semibold"
       >
-        {/* Rien à tirer du libellé : une icône générique plutôt qu'un carré
-            vide, et surtout jamais une lettre inventée. */}
-        {initials || <Store strokeWidth={1.75} className="size-4" />}
+        {/* Le vrai logo quand la synchronisation l'a trouvé ; sinon les
+            initiales ; sinon une icône générique — jamais une lettre
+            inventée, jamais un carré vide. Fond blanc dans les deux modes :
+            un favicon est dessiné pour un fond clair. */}
+        {row.logo_url ? (
+          /* `img` nu et non `next/image` : l'URL est signée et expire dans
+             l'heure — l'optimiseur la mettrait en cache au-delà de sa durée
+             de vie, et un favicon de 128 px n'a rien à optimiser. */
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={row.logo_url} alt="" className="size-6 object-contain" />
+        ) : (
+          initials || <Store strokeWidth={1.75} className="size-4" />
+        )}
       </span>
       <div className="min-w-0">
         <p className="type-label text-text-primary truncate">{raw ?? "—"}</p>

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { merchantInitials } from "./merchant-logo";
+import { domainCandidates, merchantInitials, merchantKey } from "./merchant-logo";
 
 describe("merchantInitials", () => {
   it("prend la première lettre des deux premiers mots", () => {
@@ -41,5 +41,26 @@ describe("merchantInitials", () => {
     // Un libellé qui ne commence que par un code de terminal.
     expect(merchantInitials(", LOMBOK, IDN, 537075 IDR payment")).toBe("");
     expect(merchantInitials("PT")).toBe("");
+  });
+});
+
+describe("merchantKey", () => {
+  it("range sous une clé stable, mêmes mots que les initiales", () => {
+    expect(merchantKey("Black Sand Brewery")).toBe("black-sand-brewery");
+    expect(merchantKey("Grab* A-9MXOR7UGWAE9AV, 6281384748739, IDN")).toBe("grab");
+    expect(merchantKey("PT Unbranded Hospitality")).toBe("unbranded-hospitality");
+    expect(merchantKey(null)).toBe("");
+  });
+});
+
+describe("domainCandidates", () => {
+  it("propose les mots collés puis à tirets, en .com", () => {
+    expect(domainCandidates("Black Sand Brewery")).toEqual([
+      "blacksandbrewery.com",
+      "black-sand-brewery.com",
+    ]);
+    // Un seul mot : les deux formes coïncident, une seule proposition.
+    expect(domainCandidates("Grab")).toEqual(["grab.com"]);
+    expect(domainCandidates(null)).toEqual([]);
   });
 });

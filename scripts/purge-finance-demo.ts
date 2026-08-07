@@ -7,13 +7,14 @@
  * relais : les deux jeux cohabitent sinon dans les mêmes tables, et l'écran
  * additionne des dépenses inventées à des dépenses réelles sans rien signaler.
  *
- * Ce que le script efface se reconnaît à son identifiant externe, pas à sa
- * date : `scripts/seed-finance.ts` préfixe systématiquement ce qu'il crée, et
- * Airwallex n'emploie aucun de ces préfixes.
+ * Ce que le script efface se reconnaît à la **forme** de son identifiant
+ * externe, pas à sa date. Attention, le préfixe seul ne suffit pas : les
+ * vraies factures Airwallex commencent aussi par `inv_` (`inv_sgpdwdhb…`),
+ * établi par le diagnostic du 7 août. Ce qui les distingue du seed :
  *
  *   comptes        external_id = 'acct_antidotes'   (Airwallex : 'airwallex-wallet')
- *   factures       external_id like 'inv_%'
- *   dépenses       external_id like 'exp_%'
+ *   factures       'inv_<client>-<année>-<mois>' — les tirets ; le réel n'en a pas
+ *   dépenses       'exp_…' — les vraies sont des UUID, jamais préfixées
  *   justificatifs  storage_path like 'seed/%'
  *
  * Les soldes historiques partent avec leurs comptes, par cascade.
@@ -71,8 +72,11 @@ async function main() {
       "delete from finance_transactions where org_id = $1 and external_id like 'exp\\_%'",
       [orgId],
     );
+    /* Le regex et non le préfixe : `inv_bondet-2026-08` (seed) tombe,
+       `inv_sgpdwdhb5hl36cpai11` (réel) reste. */
     const invoices = await db.query(
-      "delete from finance_invoices where org_id = $1 and external_id like 'inv\\_%'",
+      String.raw`delete from finance_invoices
+        where org_id = $1 and external_id ~ '^inv_[a-z]+-[0-9]{4}-[0-9]{2}$'`,
       [orgId],
     );
     // Les instantanés d'abord : la contrainte de clé étrangère vers le compte

@@ -35,10 +35,13 @@ export function isOverdue(
 }
 
 export type InvoiceKpis = {
-  /** Factures envoyées, non payées, à échéance dans le mois en cours. */
-  expected_this_month: CurrencyTotals;
-  /** Factures envoyées dont l'échéance est dépassée. */
+  /** Factures émises dans le mois en cours, payées ou non — le chiffre
+      d'affaires facturé du mois, celui qu'on lit en haut d'Airwallex. */
+  issued_this_month: CurrencyTotals;
+  issued_this_month_count: number;
+  /** Factures envoyées, impayées, dont l'échéance est dépassée. */
   overdue: CurrencyTotals;
+  overdue_count: number;
 };
 
 export function invoiceKpis(
@@ -46,21 +49,36 @@ export function invoiceKpis(
   today: Date = new Date(),
 ): InvoiceKpis {
   const monthPrefix = toDateOnly(today).slice(0, 7);
-  const expected: CurrencyTotals = {};
+  const issued: CurrencyTotals = {};
   const overdue: CurrencyTotals = {};
+  let issuedCount = 0;
+  let overdueCount = 0;
 
   for (const invoice of invoices) {
-    if (invoice.status !== "sent") continue;
-
-    if (invoice.due_on?.startsWith(monthPrefix)) {
-      addTo(expected, invoice.currency, invoice.amount_cents);
+    /* Le mois se mesure à l'émission, pas à l'échéance : « qu'est-ce que j'ai
+       facturé en août » est la question posée, et une facture émise le 6 août
+       à échéance du 5 septembre appartient à août. Payée ou non, elle a été
+       émise ; seuls brouillons et annulées n'existent pas encore. */
+    if (
+      invoice.status !== "draft" &&
+      invoice.status !== "void" &&
+      invoice.issued_on?.startsWith(monthPrefix)
+    ) {
+      addTo(issued, invoice.currency, invoice.amount_cents);
+      issuedCount += 1;
     }
     if (isOverdue(invoice, today)) {
       addTo(overdue, invoice.currency, invoice.amount_cents);
+      overdueCount += 1;
     }
   }
 
-  return { expected_this_month: expected, overdue };
+  return {
+    issued_this_month: issued,
+    issued_this_month_count: issuedCount,
+    overdue,
+    overdue_count: overdueCount,
+  };
 }
 
 export type ClientInvoiceGroup = {

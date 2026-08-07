@@ -66,19 +66,11 @@ export function merchantInitials(name: string | null | undefined): string {
   if (!name) return "";
 
   /* Le nom brut d'un relevé traîne des identifiants de terminal et des codes
-     pays : « Grab* A-9MXOR7UGWAE9AV, 6281384748739, IDN ». On coupe à la
-     première virgule et on écarte les fragments qui contiennent un chiffre. */
-  const head = name.split(",")[0] ?? "";
-
-  const words = head
-    .replace(/[*/\\|]+/g, " ")
-    .split(/[\s.\-_]+/)
-    .map((word) => word.replace(/[^\p{L}\p{N}]/gu, ""))
-    /* Deux lettres au minimum : un fragment d'une seule lettre vient toujours
-       d'un code de terminal, jamais d'un nom — « Grab* A-9MXOR7UGWAE9AV »
-       laissait un « A » qui rendait « GA » au lieu de « GR ». */
-    .filter((word) => word.length >= 2 && !/\d/.test(word))
-    .filter((word) => !NOISE.has(word.toLowerCase()));
+     pays : « Grab* A-9MXOR7UGWAE9AV, 6281384748739, IDN ». `significantWords`
+     coupe à la première virgule, écarte les fragments chiffrés (deux lettres
+     au minimum — un fragment d'une lettre est un code de terminal) et le
+     bruit juridique. */
+  const words = significantWords(name);
 
   if (words.length === 0) return "";
 
@@ -90,4 +82,41 @@ export function merchantInitials(name: string | null | undefined): string {
   // Plusieurs mots : la première lettre des deux premiers. « Black Sand
   // Brewery » → « BS », « Google Wallet » → « GW ».
   return (words[0]![0]! + words[1]![0]!).toUpperCase();
+}
+
+/**
+ * Clé de rangement d'un marchand : les mêmes mots que les initiales, en
+ * minuscules, joints par des tirets. « Black Sand Brewery » → `black-sand-
+ * brewery`. C'est elle qui relie une ligne de dépense à son logo stocké.
+ */
+export function merchantKey(name: string | null | undefined): string {
+  return significantWords(name).join("-").toLowerCase();
+}
+
+/**
+ * Les domaines plausibles d'un marchand, du plus probable au moins : les mots
+ * collés puis tirets, en `.com`. « Black Sand Brewery » →
+ * `blacksandbrewery.com`, `black-sand-brewery.com`. C'est une heuristique :
+ * elle trouve les marques installées, rate les autres — et rater est prévu,
+ * l'écran retombe alors sur les initiales.
+ */
+export function domainCandidates(name: string | null | undefined): string[] {
+  const words = significantWords(name).map((word) => word.toLowerCase());
+  if (words.length === 0) return [];
+
+  const joined = words.join("");
+  const dashed = words.join("-");
+  return [...new Set([`${joined}.com`, `${dashed}.com`])];
+}
+
+/* Le nettoyage partagé par les initiales, la clé et les domaines. */
+function significantWords(name: string | null | undefined): string[] {
+  if (!name) return [];
+  const head = name.split(",")[0] ?? "";
+  return head
+    .replace(/[*/\\|]+/g, " ")
+    .split(/[\s.\-_]+/)
+    .map((word) => word.replace(/[^\p{L}\p{N}]/gu, ""))
+    .filter((word) => word.length >= 2 && !/\d/.test(word))
+    .filter((word) => !NOISE.has(word.toLowerCase()));
 }

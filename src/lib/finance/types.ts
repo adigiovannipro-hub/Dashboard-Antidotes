@@ -199,3 +199,13 @@ export const SOURCE_LABELS: Record<FinanceTransactionSource, string> = {
 
 export const CHART_WINDOWS = [7, 30, 90] as const;
 export type ChartWindow = (typeof CHART_WINDOWS)[number];
+
+export type FinanceMerchantLogo = {
+  id: string;
+  org_id: string;
+  merchant_key: string;
+  domain: string | null;
+  storage_path: string | null;
+  fetched_at: string;
+  created_at: string;
+};

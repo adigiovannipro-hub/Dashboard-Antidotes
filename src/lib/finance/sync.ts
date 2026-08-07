@@ -2,11 +2,13 @@ import "server-only";
 
 import { createAdminClient } from "@/lib/supabase/server";
 import {
+  getCustomerName,
   listBalances,
   listFinanceExpenses,
   listIssuedInvoices,
 } from "./airwallex";
 import { resolveCategory } from "./categories";
+import { syncMerchantLogos } from "./logos";
 import type {
   FinanceCategory,
   FinanceCategoryRule,
@@ -27,9 +29,10 @@ import type {
  * doubler.
  */
 
-/** Fenêtre de resynchronisation des dépenses : assez large pour rattraper des
-    statuts qui changent après coup, assez courte pour tenir dans un cron. */
-const EXPENSES_LOOKBACK_DAYS = 45;
+/** Fenêtre de resynchronisation des dépenses : assez large pour couvrir les
+    trois mois que l'écran sait filtrer, assez courte pour tenir dans un cron —
+    trois pages de cent lignes au rythme actuel. */
+const EXPENSES_LOOKBACK_DAYS = 92;
 
 export type SyncStepReport = {
   kind: FinanceSyncKind;
@@ -214,6 +217,16 @@ async function syncTransactions(orgId: string): Promise<number> {
 
   await applyCategoryRules(orgId, expenses);
 
+  /* Les logos dans la foulée des dépenses, en meilleur effort : un service
+     de favicons en panne ne doit pas faire passer l'étape en échec — le
+     tableau retombe sur les initiales, et le prochain passage retentera les
+     marchands jamais journalisés. */
+  try {
+    await syncMerchantLogos(orgId, expenses);
+  } catch {
+    // Silence assumé : rien d'actionnable, et l'étape a réussi son travail.
+  }
+
   return expenses.length;
 }
 
@@ -258,13 +271,31 @@ async function syncInvoices(orgId: string): Promise<number> {
   const invoices = await listIssuedInvoices();
   if (invoices.length === 0) return 0;
 
+  /* L'API des factures ne porte que l'identifiant du client (`bcus_…`), pas
+     son nom. Une résolution par client distinct — une poignée d'appels, pas
+     une par facture — et un échec de résolution laisse « Client inconnu »
+     plutôt que de faire échouer la synchronisation entière. */
+  const names = new Map<string, string | null>();
+  for (const invoice of invoices) {
+    const customerId = invoice.client_external_id;
+    if (!customerId || names.has(customerId)) continue;
+    try {
+      names.set(customerId, await getCustomerName(customerId));
+    } catch {
+      names.set(customerId, null);
+    }
+  }
+
   const { error } = await createAdminClient()
     .from("finance_invoices")
     .upsert(
       invoices.map((invoice) => ({
         org_id: orgId,
         external_id: invoice.external_id,
-        client_name: invoice.client_name,
+        client_name:
+          (invoice.client_external_id
+            ? names.get(invoice.client_external_id)
+            : null) ?? invoice.client_name,
         client_external_id: invoice.client_external_id,
         amount_cents: invoice.amount_cents,
         currency: invoice.currency,

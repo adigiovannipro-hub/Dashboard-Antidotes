@@ -335,9 +335,19 @@ export type ExpenseSummary = {
   missing_receipts: number;
 };
 
-export async function getExpenseSummary(orgId: string): Promise<ExpenseSummary> {
+export async function getExpenseSummary(
+  orgId: string,
+  /** Mois observé, `AAAA-MM`. Défaut : le mois en cours. */
+  month?: string | null,
+): Promise<ExpenseSummary> {
   const supabase = await createClient();
-  const monthStart = `${new Date().toISOString().slice(0, 7)}-01`;
+
+  const observed = month ?? new Date().toISOString().slice(0, 7);
+  const monthStart = `${observed}-01`;
+  const [year, monthNumber] = observed.split("-").map(Number);
+  const nextMonthStart = new Date(Date.UTC(year!, monthNumber!, 1))
+    .toISOString()
+    .slice(0, 10);
 
   const [{ data: monthRows }, { data: missingRows }] = await Promise.all([
     supabase
@@ -345,6 +355,7 @@ export async function getExpenseSummary(orgId: string): Promise<ExpenseSummary> 
       .select("billing_amount_cents, billing_currency")
       .eq("org_id", orgId)
       .gte("occurred_at", monthStart)
+      .lt("occurred_at", nextMonthStart)
       .limit(1000),
     supabase
       .from("finance_transactions")
@@ -425,4 +436,50 @@ export async function getSyncOverview(orgId: string): Promise<SyncOverview> {
   }
 
   return { last_run: runs[0] ?? null, by_kind: byKind };
+}
+
+// --- Logos de marchands ------------------------------------------------------
+
+/**
+ * Les URL signées des logos d'une liste de marchands, indexées par clé.
+ *
+ * Le client de service intervient ici pour signer les URL du bucket privé —
+ * même doctrine que les justificatifs : jamais servi directement, signé après
+ * que la page a déjà vérifié le droit de lecture (`requireFinanceAccess`).
+ * Une heure de validité : la page se re-rend bien avant.
+ */
+export async function getMerchantLogoUrls(
+  orgId: string,
+  merchantKeys: string[],
+): Promise<Record<string, string>> {
+  if (merchantKeys.length === 0) return {};
+
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("finance_merchant_logos")
+    .select("merchant_key, storage_path")
+    .eq("org_id", orgId)
+    .in("merchant_key", merchantKeys)
+    .not("storage_path", "is", null);
+
+  const rows = (data ?? []) as unknown as {
+    merchant_key: string;
+    storage_path: string;
+  }[];
+  if (rows.length === 0) return {};
+
+  const { createAdminClient } = await import("@/lib/supabase/server");
+  const { data: signed } = await createAdminClient()
+    .storage.from("merchant-logos")
+    .createSignedUrls(
+      rows.map((row) => row.storage_path),
+      3_600,
+    );
+
+  const urls: Record<string, string> = {};
+  for (const [index, row] of rows.entries()) {
+    const url = signed?.[index]?.signedUrl;
+    if (url) urls[row.merchant_key] = url;
+  }
+  return urls;
 }
