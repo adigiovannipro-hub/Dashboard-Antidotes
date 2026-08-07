@@ -104,6 +104,59 @@ async function main() {
       group by 1 order by 1 desc limit 6`);
     console.table(spendByMonth);
 
+    console.log("═══ GRAND LIVRE — entrées / sorties EUR par mois ═══");
+    const { rows: ledger } = await db.query(`
+      select to_char(occurred_at, 'YYYY-MM') as mois,
+             count(*)::int as n,
+             sum(amount_cents) filter (where amount_cents > 0)::bigint as entrees_cents,
+             sum(-amount_cents) filter (where amount_cents < 0)::bigint as sorties_cents
+      from finance_ledger_entries where currency = 'EUR'
+      group by 1 order by 1 desc limit 8`);
+    console.table(ledger);
+
+    console.log("═══ GRAND LIVRE — types de mouvements ═══");
+    const { rows: ledgerTypes } = await db.query(`
+      select transaction_type, count(*)::int as n,
+             min(amount_cents)::bigint as min_cents, max(amount_cents)::bigint as max_cents
+      from finance_ledger_entries group by 1 order by 2 desc limit 12`);
+    console.table(ledgerTypes);
+
+    console.log("═══ LOGOS DE MARCHANDS ═══");
+    const { rows: logos } = await db.query(`
+      select count(*)::int as journalises,
+             count(storage_path)::int as trouves,
+             (select count(distinct merchant)::int from finance_transactions
+              where merchant is not null) as marchands_en_base,
+             (select count(*)::int from finance_transactions where merchant is null)
+               as depenses_sans_marchand
+      from finance_merchant_logos`);
+    console.table(logos);
+
+    console.log("═══ CATÉGORIES ═══");
+    const { rows: categories } = await db.query(`
+      select (select count(*)::int from finance_categories) as categories,
+             (select count(*)::int from finance_category_rules) as regles,
+             (select count(*)::int from finance_transactions
+              where category_id is not null) as depenses_rangees,
+             (select count(*)::int from finance_transactions
+              where category_raw is not null) as avec_category_raw`);
+    console.table(categories);
+
+    console.log("═══ DÉPENSE RÉGLÉE — champs de catégorie et de marchand du brut ═══");
+    // Où l'API range la catégorie une fois la dépense réglée — le brut DRAFT
+    // n'en montrait aucune.
+    const { rows: settledRaws } = await db.query(`
+      select external_id, status, raw from finance_transactions
+      where status is distinct from 'DRAFT' and raw is not null
+      order by occurred_at desc limit 1`);
+    for (const row of settledRaws) {
+      console.log(`— dépense ${String(row.external_id).slice(0, 12)}… (${row.status ?? "?"})`);
+      console.log(`  clés racine : ${Object.keys(row.raw as object).join(", ")}`);
+      for (const [path, value] of flattenMatching(row.raw, /categor|merchant|tag|label/i)) {
+        console.log(`  ${path} = ${JSON.stringify(value)}`);
+      }
+    }
+
     console.log("═══ RAPPROCHEMENT — les deux côtés de la comparaison ═══");
     const { rows: mirror } = await db.query(`
       select merchant, amount_cents, currency,

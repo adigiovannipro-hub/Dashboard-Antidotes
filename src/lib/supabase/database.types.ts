@@ -504,6 +504,7 @@ export type {
   FinanceCategory as FinanceCategoryRow,
   FinanceCategoryRule as FinanceCategoryRuleRow,
   FinanceTransaction as FinanceTransactionRow,
+  FinanceLedgerEntry as FinanceLedgerEntryRow,
   FinanceReceipt as FinanceReceiptRow,
   FinanceSyncRun as FinanceSyncRunRow,
 } from "@/lib/finance/types";
@@ -515,6 +516,7 @@ import type {
   FinanceCategory,
   FinanceCategoryRule,
   FinanceInvoice,
+  FinanceLedgerEntry,
   FinanceReceipt,
   FinanceSyncRun,
   FinanceTransaction,
@@ -594,6 +596,7 @@ export type Database = {
       finance_categories: Table<FinanceCategory>;
       finance_category_rules: Table<FinanceCategoryRule>;
       finance_transactions: Table<FinanceTransaction>;
+      finance_ledger_entries: Table<FinanceLedgerEntry>;
       finance_receipts: Table<FinanceReceipt>;
       finance_sync_runs: Table<FinanceSyncRun>;
       finance_merchant_logos: Table<FinanceMerchantLogo>;

@@ -1,14 +1,7 @@
 import "server-only";
 
 import { createClient } from "@/lib/supabase/server";
-import {
-  buildBalanceSeries,
-  buildExpenseBuckets,
-  type SeriesExpense,
-  type SeriesPoint,
-} from "./series";
 import type {
-  ChartWindow,
   FinanceAccount,
   FinanceBalanceSnapshot,
   FinanceCategory,
@@ -18,7 +11,6 @@ import type {
   FinanceSyncRun,
   FinanceTransaction,
 } from "./types";
-import { CHART_WINDOWS } from "./types";
 
 /**
  * Lectures de l'écran Finance.
@@ -97,78 +89,68 @@ export async function getTreasury(orgId: string): Promise<Treasury> {
 
 // --- Courbe ----------------------------------------------------------------
 
-export type BalanceSeriesByWindow = Record<ChartWindow, SeriesPoint[]>;
+/** Un mois d'entrées et de sorties du wallet, en centimes EUR positifs. */
+export type MonthlyFlow = {
+  /** `AAAA-MM`, UTC. */
+  month: string;
+  in_cents: number;
+  out_cents: number;
+};
 
 /**
- * Les trois fenêtres d'un coup, construites côté serveur : le client reçoit
- * ~300 points au lieu des milliers d'instantanés horaires, et le toggle
- * 7 j / 30 j / 90 j n'a pas besoin d'un aller-retour.
+ * Les entrées et sorties du wallet, mois par mois, sur les six derniers mois.
+ *
+ * Lues du grand livre Airwallex (`finance_ledger_entries`), où chaque
+ * mouvement est signé : positif quand l'argent rentre, négatif quand il sort.
+ * EUR seulement — c'est la devise du wallet ; les mouvements dans une autre
+ * devise ne s'additionnent pas à ceux-ci, jamais de taux deviné.
+ *
+ * Chaque mois de la fenêtre a sa ligne, même sans mouvement : l'absence vaut
+ * zéro, pas « inconnu », et une courbe à trous mentirait sur la période.
  */
-export async function getBalanceSeries(
+export async function getMonthlyFlows(
   orgId: string,
+  months = 6,
   now: Date = new Date(),
-): Promise<BalanceSeriesByWindow> {
+): Promise<MonthlyFlow[]> {
   const supabase = await createClient();
 
-  const oldest = new Date(now.getTime() - 91 * 24 * 3_600_000).toISOString();
+  const start = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - (months - 1), 1),
+  );
+
   const { data, error } = await supabase
-    .from("finance_balances_history")
-    .select("account_id, available_cents, snapshot_hour")
+    .from("finance_ledger_entries")
+    .select("occurred_at, amount_cents, currency")
     .eq("org_id", orgId)
     .eq("currency", "EUR")
-    .gte("snapshot_hour", oldest)
-    .order("snapshot_hour");
-  if (error) throw new Error(`Lecture de l'historique : ${error.message}`);
+    .gte("occurred_at", start.toISOString())
+    .limit(10_000);
+  if (error) throw new Error(`Lecture du grand livre : ${error.message}`);
 
-  const snapshots = (data ?? []) as unknown as {
-    account_id: string;
-    available_cents: number;
-    snapshot_hour: string;
+  const flows = new Map<string, MonthlyFlow>();
+  for (let back = 0; back < months; back += 1) {
+    const month = new Date(
+      Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + back, 1),
+    )
+      .toISOString()
+      .slice(0, 7);
+    flows.set(month, { month, in_cents: 0, out_cents: 0 });
+  }
+
+  const rows = (data ?? []) as unknown as {
+    occurred_at: string;
+    amount_cents: number;
   }[];
+  for (const row of rows) {
+    const month = row.occurred_at.slice(0, 7);
+    const flow = flows.get(month);
+    if (!flow) continue;
+    if (row.amount_cents >= 0) flow.in_cents += row.amount_cents;
+    else flow.out_cents += -row.amount_cents;
+  }
 
-  return Object.fromEntries(
-    CHART_WINDOWS.map((window) => [
-      window,
-      buildBalanceSeries(snapshots, window, now),
-    ]),
-  ) as BalanceSeriesByWindow;
-}
-
-/** Dépenses agrégées par créneau, indexées par le début de créneau ISO. */
-export type ExpenseBucketsByWindow = Record<ChartWindow, Record<string, number>>;
-
-/**
- * Ce qui est sorti du wallet, sur la même grille que la courbe du solde.
- *
- * Le graphe superpose les deux : la ligne verte dit où en est la trésorerie,
- * les barres rouges disent ce qui l'a fait bouger. Sans elles, un décrochage
- * de la courbe ne se distingue pas d'un trou de synchronisation.
- */
-export async function getExpenseSeries(
-  orgId: string,
-  now: Date = new Date(),
-): Promise<ExpenseBucketsByWindow> {
-  const supabase = await createClient();
-
-  const oldest = new Date(now.getTime() - 91 * 24 * 3_600_000).toISOString();
-  const { data, error } = await supabase
-    .from("finance_transactions")
-    .select("occurred_at, billing_amount_cents, billing_currency")
-    .eq("org_id", orgId)
-    .eq("billing_currency", "EUR")
-    .gte("occurred_at", oldest)
-    .order("occurred_at")
-    .limit(5_000);
-  if (error) throw new Error(`Lecture des dépenses de la courbe : ${error.message}`);
-
-  const expenses = (data ?? []) as unknown as SeriesExpense[];
-
-  return Object.fromEntries(
-    CHART_WINDOWS.map((window) => [
-      window,
-      buildExpenseBuckets(expenses, window, now),
-    ]),
-  ) as ExpenseBucketsByWindow;
+  return [...flows.values()];
 }
 
 // --- Factures --------------------------------------------------------------

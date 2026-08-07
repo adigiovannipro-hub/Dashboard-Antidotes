@@ -5,6 +5,7 @@ import {
   normalizeBalance,
   normalizeFinanceExpense,
   normalizeInvoice,
+  normalizeLedgerEntry,
 } from "./normalize";
 
 describe("normalizeBalance", () => {
@@ -117,6 +118,44 @@ describe("normalizeFinanceExpense", () => {
         transaction_currency: "IDR",
       }),
     ).toBeNull();
+  });
+});
+
+describe("normalizeLedgerEntry", () => {
+  it("garde le signe : une entrée est positive, une sortie négative", () => {
+    const deposit = normalizeLedgerEntry({
+      id: "ft_1",
+      amount: "2500.00",
+      currency: "EUR",
+      created_at: "2026-07-02T08:00:00Z",
+      transaction_type: "DEPOSIT",
+      status: "SETTLED",
+    });
+    expect(deposit).toMatchObject({
+      external_id: "ft_1",
+      amount_cents: 250_000,
+      currency: "EUR",
+      transaction_type: "DEPOSIT",
+    });
+
+    const payout = normalizeLedgerEntry({
+      id: "ft_2",
+      amount: -7.56,
+      fee: 0,
+      net: -7.56,
+      currency: "EUR",
+      created_at: "2026-08-07T05:00:00Z",
+    });
+    expect(payout?.amount_cents).toBe(-756);
+    expect(payout?.net_cents).toBe(-756);
+  });
+
+  it("rejette un mouvement sans identifiant, montant, devise ou date", () => {
+    expect(normalizeLedgerEntry({ amount: 5, currency: "EUR" })).toBeNull();
+    expect(
+      normalizeLedgerEntry({ id: "ft_3", currency: "EUR", created_at: "2026-08-01T00:00:00Z" }),
+    ).toBeNull();
+    expect(normalizeLedgerEntry({ id: "ft_4", amount: 5, currency: "EUR" })).toBeNull();
   });
 });
 
