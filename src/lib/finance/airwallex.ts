@@ -15,38 +15,27 @@ export { AirwallexError, checkConnection } from "@/lib/airwallex/transport";
 
 // --- Clients de facturation --------------------------------------------------
 
-/* Les deux chemins plausibles pour un identifiant `bcus_` : la documentation
-   du produit facturation ne tranche pas, le premier passage réel tranchera.
-   Un chemin qui répond 404 ou 400 est écarté sans bruit ; toute autre erreur
-   remonte — un 401 signifierait un vrai problème, pas un mauvais chemin. */
-const CUSTOMER_PATHS = [
-  (id: string) => `/api/v1/customers/${id}`,
-  (id: string) => `/api/v1/billing/customers/${id}`,
-  (id: string) => `/api/v1/invoicing/customers/${id}`,
-];
-
 /**
  * Le nom d'un client de facturation, résolu depuis son identifiant `bcus_…`.
- * `null` quand aucun chemin ne le connaît — la facture gardera « Client
+ *
+ * Le chemin est `/api/v1/billing_customers/{id}` — établi par sonde sur le
+ * vrai compte le 7 août : c'est le seul des cinq candidats à répondre 200,
+ * avec un champ `name` en clair. Les variantes plausibles répondaient 401 et
+ * non 404, ce qui avait fait échouer le repli en silence.
+ *
+ * `null` quand l'API ne le connaît pas — la facture gardera « Client
  * inconnu » plutôt qu'un nom inventé.
  */
 export async function getCustomerName(customerId: string): Promise<string | null> {
-  for (const buildPath of CUSTOMER_PATHS) {
-    try {
-      const raw = await call<Record<string, unknown>>(buildPath(customerId));
-      const name = extractCustomerName(raw);
-      if (name) return name;
-    } catch (error) {
-      if (
-        error instanceof AirwallexError &&
-        (error.status === 404 || error.status === 400 || error.status === 405)
-      ) {
-        continue;
-      }
-      throw error;
-    }
+  try {
+    const raw = await call<Record<string, unknown>>(
+      `/api/v1/billing_customers/${customerId}`,
+    );
+    return extractCustomerName(raw);
+  } catch (error) {
+    if (error instanceof AirwallexError) return null;
+    throw error;
   }
-  return null;
 }
 
 /**
