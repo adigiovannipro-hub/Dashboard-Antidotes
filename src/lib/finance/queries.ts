@@ -105,9 +105,20 @@ export type MonthlyFlow = {
  * EUR seulement — c'est la devise du wallet ; les mouvements dans une autre
  * devise ne s'additionnent pas à ceux-ci, jamais de taux deviné.
  *
+ * Les autorisations carte sont écartées : chaque achat pose une réserve
+ * (`HOLD`, négatif) puis la relâche (`RELEASE`, positif) avant le débit réel
+ * (`CAPTURE`). Les compter gonflerait les deux courbes du même montant — le
+ * relevé de juillet affichait 7 780 € d'« entrées » quand les vrais dépôts
+ * n'en faisaient pas la moitié. Le miroir garde tout ; c'est la lecture qui
+ * trie.
+ *
  * Chaque mois de la fenêtre a sa ligne, même sans mouvement : l'absence vaut
  * zéro, pas « inconnu », et une courbe à trous mentirait sur la période.
  */
+const TECHNICAL_LEDGER_TYPES = new Set([
+  "ISSUING_AUTHORISATION_HOLD",
+  "ISSUING_AUTHORISATION_RELEASE",
+]);
 export async function getMonthlyFlows(
   orgId: string,
   months = 6,
@@ -121,7 +132,7 @@ export async function getMonthlyFlows(
 
   const { data, error } = await supabase
     .from("finance_ledger_entries")
-    .select("occurred_at, amount_cents, currency")
+    .select("occurred_at, amount_cents, currency, transaction_type")
     .eq("org_id", orgId)
     .eq("currency", "EUR")
     .gte("occurred_at", start.toISOString())
@@ -141,8 +152,12 @@ export async function getMonthlyFlows(
   const rows = (data ?? []) as unknown as {
     occurred_at: string;
     amount_cents: number;
+    transaction_type: string | null;
   }[];
   for (const row of rows) {
+    if (row.transaction_type && TECHNICAL_LEDGER_TYPES.has(row.transaction_type)) {
+      continue;
+    }
     const month = row.occurred_at.slice(0, 7);
     const flow = flows.get(month);
     if (!flow) continue;
