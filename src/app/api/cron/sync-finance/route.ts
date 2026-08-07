@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { timingSafeEqual } from "node:crypto";
 
-import { serverEnv } from "@/lib/env";
+import { missingServerEnv, serverEnv } from "@/lib/env";
 import { runFinanceSync } from "@/lib/finance/sync";
 import { createAdminClient } from "@/lib/supabase/server";
 
@@ -39,6 +39,20 @@ function authorized(request: Request): boolean {
 }
 
 export async function GET(request: Request) {
+  /* La configuration se vérifie avant l'autorisation, et c'est délibéré :
+     `authorized()` lit `serverEnv()`, qui lève sur une variable absente. La
+     route rendrait alors un 500 au corps vide, indiscernable d'un bug. On
+     nomme donc ce qui manque — des noms de variables, jamais leurs valeurs. */
+  const missing = missingServerEnv();
+  if (missing.length > 0) {
+    return NextResponse.json({
+      ok: false,
+      errors: [
+        `Configuration incomplète — variables absentes de l'environnement de déploiement : ${missing.join(", ")}.`,
+      ],
+    });
+  }
+
   if (!authorized(request)) {
     return NextResponse.json({ error: "Non autorisé." }, { status: 401 });
   }

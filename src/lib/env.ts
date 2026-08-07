@@ -41,3 +41,21 @@ export function serverEnv() {
     CRON_SECRET: process.env.CRON_SECRET,
   });
 }
+
+/**
+ * Noms des variables serveur absentes ou vides.
+ *
+ * `serverEnv()` lève une `ZodError` que l'hébergeur transforme en 500 au corps
+ * vide : côté appelant — un cron, par exemple — la panne est indiscernable
+ * d'un bug applicatif. Cette fonction permet de nommer ce qui manque avant
+ * d'appeler quoi que ce soit d'autre.
+ */
+export function missingServerEnv(): string[] {
+  const result = serverSchema.safeParse({
+    SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
+    CREDENTIALS_ENCRYPTION_KEY: process.env.CREDENTIALS_ENCRYPTION_KEY,
+    CRON_SECRET: process.env.CRON_SECRET,
+  });
+  if (result.success) return [];
+  return [...new Set(result.error.issues.map((issue) => String(issue.path[0])))];
+}
