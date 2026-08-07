@@ -103,19 +103,23 @@ export async function listFinanceExpenses(options: {
  * Le grand livre du wallet : chaque mouvement, dans les deux sens, signé.
  *
  * C'est un endpoint « core », pas Spend : sa pagination est par numéro de
- * page, pas par curseur. La boucle s'arrête aussi sur une page vide — un
- * `has_more` menteur ne doit pas la rendre infinie.
+ * page, pas par curseur. La garde d'arrêt est le jeu d'identifiants déjà
+ * vus, pas `has_more` : au premier passage réel, l'API a renvoyé la même
+ * page en boucle avec `has_more` à vrai — deux mille lignes collectées,
+ * toutes doublons, et l'upsert refusé (« cannot affect row a second
+ * time »). Une page qui n'apporte plus rien de neuf termine la lecture,
+ * et la liste rendue est dédupliquée par construction.
  */
 export async function listLedgerEntries(options: {
   fromDate?: Date;
   limit?: number;
 } = {}): Promise<NormalizedLedgerEntry[]> {
   const limit = options.limit ?? 2_000;
-  const collected: NormalizedLedgerEntry[] = [];
+  const byId = new Map<string, NormalizedLedgerEntry>();
   let pageNum = 0;
   let hasMore = true;
 
-  while (hasMore && collected.length < limit) {
+  while (hasMore && byId.size < limit) {
     const params = new URLSearchParams({
       page_size: "100",
       page_num: String(pageNum),
@@ -129,16 +133,19 @@ export async function listLedgerEntries(options: {
     );
 
     const items = page.items ?? [];
+    let fresh = 0;
     for (const item of items) {
       const normalized = normalizeLedgerEntry(item);
-      if (normalized) collected.push(normalized);
+      if (!normalized || byId.has(normalized.external_id)) continue;
+      byId.set(normalized.external_id, normalized);
+      fresh += 1;
     }
 
-    hasMore = Boolean(page.has_more) && items.length > 0;
+    hasMore = Boolean(page.has_more) && fresh > 0;
     pageNum += 1;
   }
 
-  return collected.slice(0, limit);
+  return [...byId.values()].slice(0, limit);
 }
 
 // --- Factures ----------------------------------------------------------------
