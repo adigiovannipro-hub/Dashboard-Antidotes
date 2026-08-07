@@ -37,7 +37,7 @@ function authorized(request: Request): boolean {
   if (!header?.startsWith("Bearer ")) return false;
 
   const provided = Buffer.from(header.slice("Bearer ".length));
-  const expected = Buffer.from(serverEnv().CRON_SECRET);
+  const expected = Buffer.from(serverEnv("CRON_SECRET").CRON_SECRET);
 
   // Comparaison à temps constant : un `===` fuiterait, par sa durée, combien
   // de caractères de tête sont corrects.

@@ -20,42 +20,63 @@ export const publicEnv = publicSchema.parse({
   NEXT_PUBLIC_SITE_URL: process.env.NEXT_PUBLIC_SITE_URL,
 });
 
-const serverSchema = z.object({
+/**
+ * Secrets serveur, validés **un par un** et non plus d'un seul bloc.
+ *
+ * Le bloc entier était exigé par chaque appelant, ce qui liait des chemins
+ * sans rapport : la synchronisation Airwallex échouait faute de
+ * `CREDENTIALS_ENCRYPTION_KEY`, qui ne chiffre que les jetons Gmail du module
+ * Reçus et qu'elle n'utilise jamais. Une route ne doit dépendre que de ce
+ * qu'elle lit.
+ */
+const serverSchema = {
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
   CREDENTIALS_ENCRYPTION_KEY: z.string().min(1),
   CRON_SECRET: z.string().min(1),
-});
+} as const;
+
+export type ServerEnvKey = keyof typeof serverSchema;
+
+const ALL_SERVER_KEYS = Object.keys(serverSchema) as ServerEnvKey[];
 
 /**
- * Secrets serveur. Volontairement paresseux : appeler cette fonction depuis un
- * composant client déclencherait une erreur immédiate plutôt que d'embarquer
- * silencieusement la clé `service_role` dans le bundle navigateur.
+ * Secrets demandés, validés à l'appel.
+ *
+ * Volontairement paresseux : appeler cette fonction depuis un composant client
+ * déclencherait une erreur immédiate plutôt que d'embarquer silencieusement la
+ * clé `service_role` dans le bundle navigateur.
  */
-export function serverEnv() {
+export function serverEnv<K extends ServerEnvKey>(
+  ...keys: K[]
+): Record<K, string> {
   if (typeof window !== "undefined") {
     throw new Error("serverEnv() ne doit jamais être appelé côté navigateur.");
   }
-  return serverSchema.parse({
-    SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
-    CREDENTIALS_ENCRYPTION_KEY: process.env.CREDENTIALS_ENCRYPTION_KEY,
-    CRON_SECRET: process.env.CRON_SECRET,
-  });
+
+  const missing = missingServerEnv(...keys);
+  if (missing.length > 0) {
+    throw new Error(
+      `Variables d'environnement absentes : ${missing.join(", ")}.`,
+    );
+  }
+
+  return Object.fromEntries(
+    keys.map((key) => [key, process.env[key] as string]),
+  ) as Record<K, string>;
 }
 
 /**
- * Noms des variables serveur absentes ou vides.
+ * Noms des variables absentes ou vides, parmi celles demandées — toutes si
+ * aucune n'est nommée.
  *
- * `serverEnv()` lève une `ZodError` que l'hébergeur transforme en 500 au corps
- * vide : côté appelant — un cron, par exemple — la panne est indiscernable
- * d'un bug applicatif. Cette fonction permet de nommer ce qui manque avant
+ * `serverEnv()` lève, et l'hébergeur transforme la levée en 500 au corps vide :
+ * côté appelant — un cron, par exemple — la panne est alors indiscernable d'un
+ * bug applicatif. Cette fonction permet de nommer ce qui manque **avant**
  * d'appeler quoi que ce soit d'autre.
  */
-export function missingServerEnv(): string[] {
-  const result = serverSchema.safeParse({
-    SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
-    CREDENTIALS_ENCRYPTION_KEY: process.env.CREDENTIALS_ENCRYPTION_KEY,
-    CRON_SECRET: process.env.CRON_SECRET,
-  });
-  if (result.success) return [];
-  return [...new Set(result.error.issues.map((issue) => String(issue.path[0])))];
+export function missingServerEnv(...keys: ServerEnvKey[]): ServerEnvKey[] {
+  const checked = keys.length > 0 ? keys : ALL_SERVER_KEYS;
+  return checked.filter(
+    (key) => !serverSchema[key].safeParse(process.env[key]).success,
+  );
 }

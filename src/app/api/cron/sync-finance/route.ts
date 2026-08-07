@@ -30,7 +30,7 @@ function authorized(request: Request): boolean {
   if (!header?.startsWith("Bearer ")) return false;
 
   const provided = Buffer.from(header.slice("Bearer ".length));
-  const expected = Buffer.from(serverEnv().CRON_SECRET);
+  const expected = Buffer.from(serverEnv("CRON_SECRET").CRON_SECRET);
 
   // Comparaison à temps constant : un `===` fuiterait, par sa durée, combien
   // de caractères de tête sont corrects.
@@ -40,10 +40,14 @@ function authorized(request: Request): boolean {
 
 export async function GET(request: Request) {
   /* La configuration se vérifie avant l'autorisation, et c'est délibéré :
-     `authorized()` lit `serverEnv()`, qui lève sur une variable absente. La
-     route rendrait alors un 500 au corps vide, indiscernable d'un bug. On
-     nomme donc ce qui manque — des noms de variables, jamais leurs valeurs. */
-  const missing = missingServerEnv();
+     `authorized()` lit le secret, dont l'absence lèverait. La route rendrait
+     alors un 500 au corps vide, indiscernable d'un bug. On nomme donc ce qui
+     manque — des noms de variables, jamais leurs valeurs.
+
+     Deux secrets seulement : celui qui authentifie l'appel, celui qui écrit en
+     base. `CREDENTIALS_ENCRYPTION_KEY` n'entre pas ici, elle ne chiffre que
+     les jetons Gmail des Reçus. */
+  const missing = missingServerEnv("CRON_SECRET", "SUPABASE_SERVICE_ROLE_KEY");
   if (missing.length > 0) {
     return NextResponse.json({
       ok: false,
