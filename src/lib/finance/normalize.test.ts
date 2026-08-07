@@ -59,6 +59,33 @@ describe("normalizeFinanceExpense", () => {
     });
   });
 
+  it("lit le montant local sous card_transaction sur une dépense DRAFT", () => {
+    // Le brut réel du 7 août : tant que la dépense est DRAFT, la racine ne
+    // porte que le débit EUR — le local (IDR) vit sous `card_transaction`,
+    // et `merchant` est une chaîne nue, pas un objet.
+    const normalized = normalizeFinanceExpense({
+      id: "exp_draft",
+      status: "DRAFT",
+      merchant: "Grab",
+      billing_amount: "7.56",
+      billing_currency: "EUR",
+      card_transaction: {
+        amount: "154400.00",
+        currency: "IDR",
+        status: "AUTHORIZED",
+      },
+      line_items: [{ transaction_amount: "154400.00" }],
+      created_at: "2026-08-07T05:00:00Z",
+    });
+    expect(normalized).toMatchObject({
+      amount_cents: 15_440_000,
+      currency: "IDR",
+      billing_amount_cents: 756,
+      billing_currency: "EUR",
+      merchant: "Grab",
+    });
+  });
+
   it("se rabat sur le montant débité quand le local manque", () => {
     const normalized = normalizeFinanceExpense({
       id: "exp_9",
