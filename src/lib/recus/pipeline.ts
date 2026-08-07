@@ -128,6 +128,8 @@ export async function syncExpenses(
     merchant: expense.merchant,
     amount_cents: expense.amount_cents,
     currency: expense.currency,
+    billing_amount_cents: expense.billing_amount_cents,
+    billing_currency: expense.billing_currency,
     transaction_date: expense.transaction_date,
     posted_at: expense.posted_at,
     card_last_four: expense.card_last_four,
@@ -162,12 +164,92 @@ async function candidateExpenses(
 
   const { data } = await admin
     .from("receipt_expenses")
-    .select("id, amount_cents, currency, transaction_date, posted_at, merchant, attachment_count")
+    .select(
+      "id, amount_cents, currency, billing_amount_cents, billing_currency, transaction_date, posted_at, merchant, attachment_count",
+    )
     .eq("org_id", orgId)
     .gte("transaction_date", from.toISOString().slice(0, 10))
     .lte("transaction_date", to.toISOString().slice(0, 10));
 
   return (data ?? []) as unknown as MatchableExpense[];
+}
+
+/**
+ * Re-rapprocher les pièces encore en attente contre le miroir rafraîchi.
+ *
+ * Deux raisons d'exister, toutes deux constatées : une dépense carte peut
+ * arriver **après** le mail qui la justifie — Airwallex comptabilise avec des
+ * jours de retard — et une correction du miroir (le montant local rétabli le
+ * 7 août) doit profiter aux pièces déjà lues sans les faire relire au modèle.
+ * Ne touche qu'aux pièces qui attendent une décision : une pièce validée,
+ * transférée ou ignorée est de l'histoire.
+ */
+export async function rematchPendingDocuments(orgId: string): Promise<{
+  examined: number;
+  updated: number;
+}> {
+  const admin = createAdminClient();
+
+  const { data, error } = await admin
+    .from("receipt_documents")
+    .select("id, amount_cents, currency, document_date, received_at, merchant, expense_id, match_confidence")
+    .eq("org_id", orgId)
+    .eq("status", "awaiting_validation")
+    .is("forwarded_at", null);
+  if (error) throw new Error(`Lecture des pièces en attente : ${error.message}`);
+
+  const documents = (data ?? []) as unknown as Pick<
+    ReceiptDocument,
+    | "id"
+    | "amount_cents"
+    | "currency"
+    | "document_date"
+    | "received_at"
+    | "merchant"
+    | "expense_id"
+    | "match_confidence"
+  >[];
+
+  let updated = 0;
+  for (const document of documents) {
+    const around = new Date(document.document_date ?? document.received_at);
+    const expenses = await candidateExpenses(admin, orgId, around);
+    const match = matchDocument(
+      {
+        amount_cents: document.amount_cents,
+        currency: document.currency,
+        document_date: document.document_date,
+        received_at: document.received_at,
+        merchant: document.merchant,
+      },
+      expenses,
+    );
+
+    const nextExpenseId = match.best?.expense_id ?? null;
+    const nextConfidence = match.best?.confidence ?? null;
+    if (
+      nextExpenseId === document.expense_id &&
+      nextConfidence === document.match_confidence
+    ) {
+      continue; // Rien de neuf : ne pas réécrire pour réécrire.
+    }
+
+    const { error: updateError } = await admin
+      .from("receipt_documents")
+      .update({
+        expense_id: nextExpenseId,
+        match_confidence: nextConfidence,
+        match_method: match.best?.method ?? "none",
+        match_candidates: match.candidates as never,
+      } as never)
+      .eq("id", document.id);
+    if (updateError) {
+      throw new Error(`Re-rapprochement impossible : ${updateError.message}`);
+    }
+    updated += 1;
+  }
+
+  return { examined: documents.length, updated };
 }
 
 // --- Ingestion --------------------------------------------------------------

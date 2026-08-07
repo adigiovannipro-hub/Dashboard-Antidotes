@@ -149,8 +149,11 @@ export type ReceiptExpense = {
   org_id: string;
   external_id: string;
   merchant: string | null;
+  /** Montant local — celui des reçus. Le débité est à côté, jamais converti. */
   amount_cents: number;
   currency: string;
+  billing_amount_cents: number | null;
+  billing_currency: string | null;
   transaction_date: string | null;
   posted_at: string | null;
   card_last_four: string | null;

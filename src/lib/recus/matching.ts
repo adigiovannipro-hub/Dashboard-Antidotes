@@ -32,8 +32,14 @@ export type MatchableDocument = {
 
 export type MatchableExpense = {
   id: string;
+  /** Montant local — celui que portent les reçus. */
   amount_cents: number;
   currency: string;
+  /** Le débité du wallet, quand Airwallex l'a fixé. Une pièce peut être
+      libellée d'un côté comme de l'autre : un e-reçu Grab parle en IDR, une
+      facture d'abonnement européenne parle en EUR. */
+  billing_amount_cents: number | null;
+  billing_currency: string | null;
   transaction_date: string | null;
   posted_at: string | null;
   merchant: string | null;
@@ -172,6 +178,25 @@ function expenseDate(expense: MatchableExpense): Date | null {
 
 type Score = { value: number; reason: string } | null;
 
+/** Les montants d'une dépense, dans l'ordre où on les confronte à la pièce :
+    le local d'abord — c'est lui que portent les reçus — puis le débité. */
+function expenseAmounts(
+  expense: MatchableExpense,
+): { cents: number; currency: string }[] {
+  const pairs = [{ cents: expense.amount_cents, currency: expense.currency }];
+  if (
+    expense.billing_amount_cents !== null &&
+    expense.billing_currency !== null &&
+    expense.billing_currency !== expense.currency
+  ) {
+    pairs.push({
+      cents: expense.billing_amount_cents,
+      currency: expense.billing_currency,
+    });
+  }
+  return pairs;
+}
+
 function scoreAmount(
   document: MatchableDocument,
   expense: MatchableExpense,
@@ -183,28 +208,38 @@ function scoreAmount(
     return { value: 0, reason: "Montant absent de la pièce" };
   }
 
-  if (document.currency && document.currency !== expense.currency) {
-    /* Devises différentes : le mail est peut-être libellé dans la devise du
-       marchand et la carte dans celle du compte. Comparer les nombres n'aurait
-       aucun sens, et appliquer un taux de change deviné en aurait encore moins. */
-    return null;
-  }
-
-  const gap = Math.abs(document.amount_cents - expense.amount_cents);
-  if (gap === 0) {
-    return { value: 0.55, reason: "Montant identique" };
-  }
-
-  const tolerance = Math.max(
-    AMOUNT_TOLERANCE_CENTS,
-    Math.round(expense.amount_cents * AMOUNT_TOLERANCE_RATIO),
+  /* La pièce se compare au montant de la **même devise** : un e-reçu Grab en
+     IDR se confronte aux 154 400 IDR facturés, une facture en EUR au débit
+     EUR. Rien n'est jamais converti — si aucune devise ne coïncide, comparer
+     les nombres n'aurait aucun sens, et appliquer un taux de change deviné en
+     aurait encore moins. */
+  const comparable = expenseAmounts(expense).filter(
+    (pair) => !document.currency || document.currency === pair.currency,
   );
-  if (gap <= tolerance) {
-    // Frais de service, arrondi, pourboire : l'écart est plausible.
-    return { value: 0.4, reason: "Montant proche" };
+  if (comparable.length === 0) return null;
+
+  let best: Score = null;
+  for (const pair of comparable) {
+    const gap = Math.abs(document.amount_cents - pair.cents);
+
+    let candidate: Score = null;
+    if (gap === 0) {
+      candidate = { value: 0.55, reason: "Montant identique" };
+    } else {
+      const tolerance = Math.max(
+        AMOUNT_TOLERANCE_CENTS,
+        Math.round(pair.cents * AMOUNT_TOLERANCE_RATIO),
+      );
+      if (gap <= tolerance) {
+        // Frais de service, arrondi, pourboire : l'écart est plausible.
+        candidate = { value: 0.4, reason: "Montant proche" };
+      }
+    }
+
+    if (candidate && (!best || candidate.value > best.value)) best = candidate;
   }
 
-  return null;
+  return best;
 }
 
 function scoreDate(document: MatchableDocument, expense: MatchableExpense): Score {

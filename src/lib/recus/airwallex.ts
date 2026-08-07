@@ -27,8 +27,14 @@ export { AirwallexError, checkConnection } from "@/lib/airwallex/transport";
 export type NormalizedExpense = {
   external_id: string;
   merchant: string | null;
+  /** Montant **local** — celui que le commerçant a facturé, celui que portent
+      les reçus. Une course Grab est en IDR ici, jamais en EUR. */
   amount_cents: number;
   currency: string;
+  /** Ce qui a réellement quitté le wallet — null tant qu'Airwallex n'a pas
+      fixé le débit. */
+  billing_amount_cents: number | null;
+  billing_currency: string | null;
   transaction_date: string | null;
   posted_at: string | null;
   card_last_four: string | null;
@@ -81,18 +87,29 @@ export function normalizeExpense(
   raw: Record<string, unknown>,
 ): NormalizedExpense | null {
   const externalId = pick(raw, ["id", "expense_id", "transaction_id"]);
-  const amount = toCents(
-    pick(raw, ["amount", "billing_amount", "transaction_amount", "total_amount"]),
+
+  /* Le montant **local d'abord** — c'est lui que portent les reçus. L'ancien
+     ordre piochait `billing_amount` en premier : une course Grab entrait à
+     « 7,56 EUR » quand son e-reçu disait « 154 400 IDR », et le rapprochement
+     ne pouvait jamais aboutir. Le débité reste conservé, à côté. */
+  const localAmount = toCents(
+    pick(raw, ["transaction_amount", "amount", "total_amount"]),
   );
-  const currency = pick(raw, [
-    "currency",
-    "billing_currency",
-    "transaction_currency",
-  ]);
+  const localCurrency = pick(raw, ["transaction_currency", "currency"]);
+  const billingAmount = toCents(pick(raw, ["billing_amount"]));
+  const billingCurrency = pick(raw, ["billing_currency"]);
+
+  const amount = localAmount ?? billingAmount;
+  const currency =
+    typeof localCurrency === "string"
+      ? localCurrency
+      : typeof billingCurrency === "string"
+        ? billingCurrency
+        : null;
 
   // Sans identifiant, montant ou devise, la ligne n'est bonne à rien : ni à
   // rapprocher, ni à afficher. Mieux vaut la laisser tomber bruyamment.
-  if (typeof externalId !== "string" || amount === null || typeof currency !== "string") {
+  if (typeof externalId !== "string" || amount === null || currency === null) {
     return null;
   }
 
@@ -109,6 +126,11 @@ export function normalizeExpense(
       ]) as string | undefined) ?? null,
     amount_cents: amount,
     currency: currency.toUpperCase().slice(0, 3),
+    billing_amount_cents: billingAmount,
+    billing_currency:
+      typeof billingCurrency === "string"
+        ? billingCurrency.toUpperCase().slice(0, 3)
+        : null,
     transaction_date: toDateOnly(
       pick(raw, ["transaction_date", "transaction_time", "created_at"]),
     ),

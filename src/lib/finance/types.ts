@@ -169,6 +169,9 @@ export type BadgeTone = "neutral" | "positive" | "warning" | "critical";
  * invariant sur lequel bâtir.
  */
 const TRANSACTION_STATUS_LABELS: Record<string, { label: string; tone: BadgeTone }> = {
+  // Une dépense qui vient d'être créée chez Airwallex, pas encore finalisée —
+  // observée sur les lignes du jour, affichée « DRAFT » brut avant d'être ici.
+  draft: { label: "Nouvelle", tone: "neutral" },
   incomplete: { label: "Incomplet", tone: "warning" },
   pending: { label: "En attente", tone: "neutral" },
   pending_approval: { label: "En attente d'approbation", tone: "neutral" },
