@@ -1,39 +1,144 @@
 /**
- * Résolution d'une catégorie Airwallex vers le plan de catégories d'Antidotes.
+ * Résolution de la catégorie d'une dépense vers le plan de catégories
+ * d'Antidotes.
  *
- * Deux étages, dans cet ordre :
+ * Airwallex n'envoie **aucune catégorie** dans ses payloads — établi sur le
+ * brut réel du 7 août, dépenses fraîches et réglées confondues. Le seul
+ * matériau fiable est donc le nom du marchand. Trois étages, dans cet ordre :
  *
  *   1. les règles de correspondance (`finance_category_rules`), éditées depuis
- *      l'écran — c'est la volonté explicite ;
- *   2. l'égalité de nom avec une catégorie du plan — le cas où le plan reprend
- *      simplement le vocabulaire d'Airwallex ne mérite pas une règle.
+ *      l'écran — c'est la volonté explicite, elle prime toujours. Une règle
+ *      s'applique si son motif égale le libellé brut, ou s'il apparaît dans le
+ *      nom du marchand ;
+ *   2. l'égalité de nom entre libellé brut et catégorie du plan ;
+ *   3. les correspondances embarquées marchand → catégorie ci-dessous — le
+ *      rangement automatique par défaut, que les règles peuvent contredire.
  *
- * Aucune correspondance : `null`. La ligne garde alors son libellé brut à
- * l'affichage — mieux vaut montrer « Transports » non mappé que d'inventer un
- * rangement.
+ * Aucune correspondance : `null`. La ligne reste « sans catégorie » — mieux
+ * vaut une case vide qu'un rangement inventé.
  */
 
 import type { FinanceCategory, FinanceCategoryRule } from "./types";
 
 function normalize(value: string): string {
-  return value.trim().toLowerCase();
+  return value
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "");
 }
 
+/** Ce qu'une dépense offre pour se faire ranger. */
+export type CategorySource = {
+  category_raw: string | null;
+  merchant: string | null;
+};
+
+/**
+ * Le plan de catégories par défaut, créé chez l'organisation s'il n'existe
+ * pas. Les slugs sont l'identité stable — les noms se renomment sans casser
+ * les correspondances.
+ */
+export const DEFAULT_CATEGORIES: readonly { slug: string; name: string }[] = [
+  { slug: "restauration", name: "Restauration" },
+  { slug: "transports", name: "Transports" },
+  { slug: "logiciels", name: "Logiciels & abonnements" },
+  { slug: "marketing", name: "Marketing & publicité" },
+  { slug: "voyages", name: "Voyages & hébergement" },
+  { slug: "frais", name: "Frais bancaires" },
+];
+
+/**
+ * Marchand → slug de catégorie, premier motif trouvé gagnant — « google ads »
+ * doit donc précéder « google ». Grab est en restauration sur consigne
+ * explicite : c'est l'usage réel du compte, pas une taxonomie théorique.
+ */
+const MERCHANT_CATEGORY_HINTS: readonly [string, string][] = [
+  ["grab", "restauration"],
+  ["starbucks", "restauration"],
+  ["coffee", "restauration"],
+  ["cafe", "restauration"],
+  ["eatery", "restauration"],
+  ["restaurant", "restauration"],
+  ["warung", "restauration"],
+  ["bakery", "restauration"],
+  ["bar ", "restauration"],
+  ["mcdonald", "restauration"],
+  ["burger", "restauration"],
+  ["pizza", "restauration"],
+  ["gojek", "transports"],
+  ["uber", "transports"],
+  ["bolt", "transports"],
+  ["taxi", "transports"],
+  ["sncf", "transports"],
+  ["google ads", "marketing"],
+  ["meta ", "marketing"],
+  ["facebook", "marketing"],
+  ["instagram", "marketing"],
+  ["tiktok", "marketing"],
+  ["linkedin", "marketing"],
+  ["google play", "logiciels"],
+  ["google", "logiciels"],
+  ["apple", "logiciels"],
+  ["notion", "logiciels"],
+  ["figma", "logiciels"],
+  ["adobe", "logiciels"],
+  ["canva", "logiciels"],
+  ["openai", "logiciels"],
+  ["anthropic", "logiciels"],
+  ["vercel", "logiciels"],
+  ["supabase", "logiciels"],
+  ["github", "logiciels"],
+  ["spotify", "logiciels"],
+  ["netflix", "logiciels"],
+  ["dropbox", "logiciels"],
+  ["microsoft", "logiciels"],
+  ["slack", "logiciels"],
+  ["airbnb", "voyages"],
+  ["booking", "voyages"],
+  ["agoda", "voyages"],
+  ["hotel", "voyages"],
+  ["hostel", "voyages"],
+  ["airline", "voyages"],
+  ["airasia", "voyages"],
+  ["garuda", "voyages"],
+  ["airwallex", "frais"],
+];
+
 export function resolveCategory(
-  rawLabel: string | null,
+  source: CategorySource,
   rules: readonly FinanceCategoryRule[],
   categories: readonly FinanceCategory[],
 ): FinanceCategory | null {
-  if (!rawLabel) return null;
-  const needle = normalize(rawLabel);
-  if (needle === "") return null;
+  const rawNeedle = source.category_raw ? normalize(source.category_raw) : "";
+  const merchantNeedle = source.merchant ? normalize(source.merchant) : "";
 
-  const rule = rules.find((candidate) => normalize(candidate.matcher) === needle);
+  const rule = rules.find((candidate) => {
+    const matcher = normalize(candidate.matcher);
+    if (matcher === "") return false;
+    if (rawNeedle !== "" && matcher === rawNeedle) return true;
+    return merchantNeedle !== "" && merchantNeedle.includes(matcher);
+  });
   if (rule) {
     return categories.find((category) => category.id === rule.category_id) ?? null;
   }
 
-  return (
-    categories.find((category) => normalize(category.name) === needle) ?? null
-  );
+  if (rawNeedle !== "") {
+    const named = categories.find(
+      (category) => normalize(category.name) === rawNeedle,
+    );
+    if (named) return named;
+  }
+
+  if (merchantNeedle !== "") {
+    const hint = MERCHANT_CATEGORY_HINTS.find(([keyword]) =>
+      merchantNeedle.includes(keyword),
+    );
+    if (hint) {
+      const bySlug = categories.find((category) => category.slug === hint[1]);
+      if (bySlug) return bySlug;
+    }
+  }
+
+  return null;
 }

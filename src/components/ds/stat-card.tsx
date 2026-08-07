@@ -27,9 +27,18 @@ export type StatCardProps = {
   /** Qualifie le chiffre lui-même, quand il porte un état. */
   tone?: StatusTone;
   toneLabel?: string;
+  /** Colore le chiffre. Toujours une **encre** de la charte, jamais la teinte
+      vive — le vert de marque est à 2,71:1 sur blanc, illisible en texte. */
+  valueTone?: "accent" | "warning" | "danger";
   icon: LucideIcon;
   href?: string;
   pending?: boolean;
+};
+
+const VALUE_TONE_CLASS: Record<NonNullable<StatCardProps["valueTone"]>, string> = {
+  accent: "text-accent-ink",
+  warning: "text-warning-ink",
+  danger: "text-danger-ink",
 };
 
 export function StatCard({
@@ -38,6 +47,7 @@ export function StatCard({
   context,
   tone,
   toneLabel,
+  valueTone,
   icon: Icon,
   href,
   pending,
@@ -58,7 +68,14 @@ export function StatCard({
         {pending ? (
           <Skeleton className="h-8 w-20" />
         ) : (
-          <p className="type-stat text-text-primary">{value ?? "—"}</p>
+          <p
+            className={cn(
+              "type-stat",
+              valueTone ? VALUE_TONE_CLASS[valueTone] : "text-text-primary",
+            )}
+          >
+            {value ?? "—"}
+          </p>
         )}
       </div>
 
