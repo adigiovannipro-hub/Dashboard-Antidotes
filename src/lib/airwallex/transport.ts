@@ -1,5 +1,7 @@
 import "server-only";
 
+import { baseUrl } from "./base-url";
+
 /**
  * Transport Airwallex : authentification, cache de jeton, appels GET.
  *
@@ -32,12 +34,6 @@ function credentials() {
   return { clientId, apiKey };
 }
 
-/** Bascule bac à sable : on ne teste pas une chaîne comptable en production. */
-function baseUrl(): string {
-  return process.env.AIRWALLEX_ENV === "production"
-    ? "https://api.airwallex.com"
-    : "https://api.sandbox.airwallex.com";
-}
 
 /**
  * Jeton d'accès, mis en cache le temps de sa validité.
@@ -66,8 +62,16 @@ async function getToken(): Promise<string> {
 
   if (!response.ok) {
     const detail = await response.text();
+
+    /* L'hôte appelé fait partie du diagnostic : un corps HTML plutôt que
+       JSON signe une adresse qui n'est pas cette API, et le message ne le
+       disait pas — on cherchait une clé fausse là où l'URL était en cause. */
+    const kind = detail.trimStart().startsWith("<")
+      ? " — réponse HTML et non JSON : cette adresse n'est probablement pas l'API Airwallex"
+      : ` — ${detail.slice(0, 200)}`;
+
     throw new AirwallexError(
-      `Authentification Airwallex refusée (${response.status}) — ${detail.slice(0, 200)}`,
+      `Authentification Airwallex refusée (${response.status}) sur ${baseUrl()}${kind}`,
       response.status,
       response.status >= 500,
     );
