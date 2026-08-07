@@ -30,6 +30,10 @@ on:
         description: "Lancer les tests d'isolation RLS contre la vraie base"
         type: boolean
         default: false
+      diagnostic_finance:
+        description: "Diagnostic Finance (lecture seule) : statuts, soldes, dépenses"
+        type: boolean
+        default: false
 
 jobs:
   operer:
@@ -71,6 +75,12 @@ jobs:
       - name: Purge des données de démonstration Finance
         if: ${{ inputs.purge_finance_demo }}
         run: pnpm purge:finance-demo
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+
+      - name: Diagnostic Finance
+        if: ${{ inputs.diagnostic_finance }}
+        run: pnpm tsx scripts/diagnostic-finance.ts
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
 
