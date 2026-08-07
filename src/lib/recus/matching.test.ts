@@ -13,6 +13,8 @@ const expense = (
 ): MatchableExpense => ({
   amount_cents: 2450,
   currency: "EUR",
+  billing_amount_cents: null,
+  billing_currency: null,
   transaction_date: "2026-07-12",
   posted_at: null,
   merchant: "GRAB",
@@ -184,5 +186,63 @@ describe("matchDocument", () => {
   it("explique chaque candidat en clair", () => {
     const result = matchDocument(document(), [expense({ id: "a" })]);
     expect(result.best?.reason).toContain("Montant identique");
+  });
+});
+
+describe("matchDocument — les deux montants d'une dépense", () => {
+  it("rapproche un e-reçu en devise locale d'une dépense au débit converti", () => {
+    // Le cas Grab du 7 août : l'e-reçu dit 154 400 IDR, la carte a débité
+    // 7,56 EUR. La pièce doit se comparer au montant local, pas au débit.
+    const result = matchDocument(
+      document({ amount_cents: 15_440_000, currency: "IDR", merchant: "Grab" }),
+      [
+        expense({
+          id: "grab",
+          amount_cents: 15_440_000,
+          currency: "IDR",
+          billing_amount_cents: 756,
+          billing_currency: "EUR",
+        }),
+      ],
+    );
+
+    expect(result.best?.expense_id).toBe("grab");
+    expect(result.best?.method).toBe("exact");
+  });
+
+  it("rapproche aussi une pièce libellée dans la devise du débit", () => {
+    // L'inverse existe : une facture d'abonnement européenne parle en EUR,
+    // même si la ligne carte est portée en devise locale.
+    const result = matchDocument(
+      document({ amount_cents: 756, currency: "EUR", merchant: "Grab" }),
+      [
+        expense({
+          id: "grab",
+          amount_cents: 15_440_000,
+          currency: "IDR",
+          billing_amount_cents: 756,
+          billing_currency: "EUR",
+        }),
+      ],
+    );
+
+    expect(result.best?.expense_id).toBe("grab");
+  });
+
+  it("refuse toujours quand aucune devise ne coïncide — jamais de taux deviné", () => {
+    const result = matchDocument(
+      document({ amount_cents: 999, currency: "USD" }),
+      [
+        expense({
+          id: "grab",
+          amount_cents: 15_440_000,
+          currency: "IDR",
+          billing_amount_cents: 756,
+          billing_currency: "EUR",
+        }),
+      ],
+    );
+
+    expect(result.best).toBeNull();
   });
 });

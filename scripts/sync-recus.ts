@@ -65,9 +65,8 @@ async function main() {
   }
 
   const { createAdminClient } = await import("../src/lib/supabase/server");
-  const { ingestSource, syncExpenses, verifyAttachments } = await import(
-    "../src/lib/recus/pipeline"
-  );
+  const { ingestSource, rematchPendingDocuments, syncExpenses, verifyAttachments } =
+    await import("../src/lib/recus/pipeline");
 
   const admin = createAdminClient();
 
@@ -108,6 +107,19 @@ async function main() {
     } catch (error) {
       errors.push(`boîte ${source.email_address}`);
       console.error(`✗ boîte ${source.email_address} : ${message(error)}`);
+    }
+  }
+
+  /* Après l'ingestion : une dépense carte arrive parfois des jours après le
+     mail qui la justifie — ce passage redonne leur chance aux pièces en
+     attente, contre le miroir tout juste rafraîchi. */
+  for (const orgId of orgIds) {
+    try {
+      const report = await rematchPendingDocuments(orgId);
+      console.log(`✓ re-rapprochement ${orgId} : ${JSON.stringify(report)}`);
+    } catch (error) {
+      errors.push(`re-rapprochement ${orgId}`);
+      console.error(`✗ re-rapprochement ${orgId} : ${message(error)}`);
     }
   }
 
