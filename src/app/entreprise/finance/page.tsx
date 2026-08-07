@@ -53,8 +53,11 @@ export default async function FinancePage({
   const context = await requireFinanceAccess();
   const params = parseExpenseParams(await searchParams);
 
+  /* La trésorerie d'abord, seule : la courbe du solde est ancrée sur le
+     disponible réel, elle ne peut pas se calculer avant de le connaître. */
+  const treasury = await getTreasury(context.orgId);
+
   const [
-    treasury,
     flows,
     invoices,
     categories,
@@ -64,8 +67,10 @@ export default async function FinancePage({
     summary,
     cookieStore,
   ] = await Promise.all([
-    getTreasury(context.orgId),
-    getMonthlyFlows(context.orgId),
+    getMonthlyFlows({
+      orgId: context.orgId,
+      balanceNowCents: treasury.total_cents,
+    }),
     listInvoices(context.orgId),
     listCategories(context.orgId),
     listCategoryRules(context.orgId),
@@ -99,8 +104,14 @@ export default async function FinancePage({
     ...transaction,
     category_label: transaction.category_id
       ? (categoryNames.get(transaction.category_id) ?? null)
-      : (resolveCategory(transaction.category_raw, rules, categories)?.name ??
-        transaction.category_raw),
+      : (resolveCategory(
+          {
+            category_raw: transaction.category_raw,
+            merchant: transaction.merchant ?? transaction.merchant_raw,
+          },
+          rules,
+          categories,
+        )?.name ?? transaction.category_raw),
     logo_url:
       logoUrls[merchantKey(transaction.merchant ?? transaction.merchant_raw)] ??
       null,
@@ -140,6 +151,8 @@ export default async function FinancePage({
           }
           icon={ReceiptText}
         />
+        {/* Orange et non rouge : une facture en retard attend une action de
+            ma part — une relance — ce n'est pas encore un échec. */}
         <StatCard
           label="En retard"
           value={
@@ -150,20 +163,22 @@ export default async function FinancePage({
               ? `${kpis.overdue_count} facture${kpis.overdue_count > 1 ? "s" : ""} impayée${kpis.overdue_count > 1 ? "s" : ""}, échéance dépassée`
               : "rien d'échu"
           }
-          tone={kpis.overdue_count > 0 ? "danger" : undefined}
+          tone={kpis.overdue_count > 0 ? "warning" : undefined}
           toneLabel={kpis.overdue_count > 0 ? "à relancer" : undefined}
+          valueTone={kpis.overdue_count > 0 ? "warning" : undefined}
           icon={TriangleAlert}
         />
         <StatCard
           label={`Dépensé en ${monthName(params.month ?? currentMonthParam())}`}
           value={formatMoney(summary.month_billed_cents, "EUR")}
           context={`${summary.month_count} dépense${summary.month_count > 1 ? "s" : ""}`}
-          tone={summary.missing_receipts > 0 ? "warning" : undefined}
+          tone={summary.missing_receipts > 0 ? "danger" : undefined}
           toneLabel={
             summary.missing_receipts > 0
               ? `${summary.missing_receipts} sans reçu`
               : undefined
           }
+          valueTone="danger"
           icon={CreditCard}
         />
       </StatGrid>
@@ -186,7 +201,7 @@ export default async function FinancePage({
         <Panel>
           <PanelHeader
             title="Entrées et sorties"
-            description="Ce qui rentre et ce qui sort du wallet, mois par mois."
+            description="Le solde du wallet en vert, ce qui en sort en rouge, mois par mois."
           />
           <PanelBody>
             <FlowsChart flows={flows} />

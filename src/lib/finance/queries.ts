@@ -89,28 +89,37 @@ export async function getTreasury(orgId: string): Promise<Treasury> {
 
 // --- Courbe ----------------------------------------------------------------
 
-/** Un mois d'entrées et de sorties du wallet, en centimes EUR positifs. */
+/** Un mois du wallet : où en est le solde, ce qui est entré, ce qui est sorti. */
 export type MonthlyFlow = {
   /** `AAAA-MM`, UTC. */
   month: string;
+  /** Le solde EUR en fin de mois — celui du wallet, pas un calcul à part.
+      Pour le mois en cours : le solde d'aujourd'hui. */
+  balance_cents: number;
   in_cents: number;
   out_cents: number;
 };
 
 /**
- * Les entrées et sorties du wallet, mois par mois, sur les six derniers mois.
+ * Le wallet mois par mois, sur les douze derniers mois : solde de fin de
+ * mois, entrées et sorties.
  *
- * Lues du grand livre Airwallex (`finance_ledger_entries`), où chaque
- * mouvement est signé : positif quand l'argent rentre, négatif quand il sort.
- * EUR seulement — c'est la devise du wallet ; les mouvements dans une autre
+ * Lu du grand livre Airwallex (`finance_ledger_entries`), où chaque mouvement
+ * est signé : positif quand l'argent rentre, négatif quand il sort. EUR
+ * seulement — c'est la devise du wallet ; les mouvements dans une autre
  * devise ne s'additionnent pas à ceux-ci, jamais de taux deviné.
  *
- * Les autorisations carte sont écartées : chaque achat pose une réserve
- * (`HOLD`, négatif) puis la relâche (`RELEASE`, positif) avant le débit réel
- * (`CAPTURE`). Les compter gonflerait les deux courbes du même montant — le
- * relevé de juillet affichait 7 780 € d'« entrées » quand les vrais dépôts
- * n'en faisaient pas la moitié. Le miroir garde tout ; c'est la lecture qui
- * trie.
+ * Le solde n'est pas une somme à part : il est **ancré sur le disponible
+ * réel** (`balanceNowCents`, le chiffre de la carte « Disponible ») et
+ * remonte le temps en retranchant les mouvements — le dernier point de la
+ * courbe est donc, par construction, le montant du wallet. La marche arrière
+ * prend **tous** les mouvements, réserves comprises : ce sont eux qui font
+ * le solde.
+ *
+ * Les entrées / sorties du mois, elles, écartent les autorisations carte :
+ * chaque achat pose une réserve (`HOLD`, négatif) puis la relâche
+ * (`RELEASE`, positif) avant le débit réel (`CAPTURE`) — les compter
+ * gonflerait les deux mesures du même montant.
  *
  * Chaque mois de la fenêtre a sa ligne, même sans mouvement : l'absence vaut
  * zéro, pas « inconnu », et une courbe à trous mentirait sur la période.
@@ -119,12 +128,17 @@ const TECHNICAL_LEDGER_TYPES = new Set([
   "ISSUING_AUTHORISATION_HOLD",
   "ISSUING_AUTHORISATION_RELEASE",
 ]);
-export async function getMonthlyFlows(
-  orgId: string,
-  months = 6,
-  now: Date = new Date(),
-): Promise<MonthlyFlow[]> {
+
+export async function getMonthlyFlows(options: {
+  orgId: string;
+  /** Le solde EUR disponible aujourd'hui, en centimes — l'ancre de la courbe. */
+  balanceNowCents: number;
+  months?: number;
+  now?: Date;
+}): Promise<MonthlyFlow[]> {
   const supabase = await createClient();
+  const months = options.months ?? 12;
+  const now = options.now ?? new Date();
 
   const start = new Date(
     Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - (months - 1), 1),
@@ -133,12 +147,13 @@ export async function getMonthlyFlows(
   const { data, error } = await supabase
     .from("finance_ledger_entries")
     .select("occurred_at, amount_cents, currency, transaction_type")
-    .eq("org_id", orgId)
+    .eq("org_id", options.orgId)
     .eq("currency", "EUR")
     .gte("occurred_at", start.toISOString())
     .limit(10_000);
   if (error) throw new Error(`Lecture du grand livre : ${error.message}`);
 
+  const monthKeys: string[] = [];
   const flows = new Map<string, MonthlyFlow>();
   for (let back = 0; back < months; back += 1) {
     const month = new Date(
@@ -146,26 +161,39 @@ export async function getMonthlyFlows(
     )
       .toISOString()
       .slice(0, 7);
-    flows.set(month, { month, in_cents: 0, out_cents: 0 });
+    monthKeys.push(month);
+    flows.set(month, { month, balance_cents: 0, in_cents: 0, out_cents: 0 });
   }
 
+  const netAllByMonth = new Map<string, number>();
   const rows = (data ?? []) as unknown as {
     occurred_at: string;
     amount_cents: number;
     transaction_type: string | null;
   }[];
   for (const row of rows) {
+    const month = row.occurred_at.slice(0, 7);
+    netAllByMonth.set(month, (netAllByMonth.get(month) ?? 0) + row.amount_cents);
+
+    const flow = flows.get(month);
+    if (!flow) continue;
     if (row.transaction_type && TECHNICAL_LEDGER_TYPES.has(row.transaction_type)) {
       continue;
     }
-    const month = row.occurred_at.slice(0, 7);
-    const flow = flows.get(month);
-    if (!flow) continue;
     if (row.amount_cents >= 0) flow.in_cents += row.amount_cents;
     else flow.out_cents += -row.amount_cents;
   }
 
-  return [...flows.values()];
+  // Marche arrière depuis aujourd'hui : le solde de fin de mois M est le
+  // disponible actuel moins tout ce qui a bougé après M.
+  let balance = options.balanceNowCents;
+  for (let index = monthKeys.length - 1; index >= 0; index -= 1) {
+    const month = monthKeys[index]!;
+    flows.get(month)!.balance_cents = balance;
+    balance -= netAllByMonth.get(month) ?? 0;
+  }
+
+  return monthKeys.map((month) => flows.get(month)!);
 }
 
 // --- Factures --------------------------------------------------------------

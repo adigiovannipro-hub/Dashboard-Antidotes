@@ -8,7 +8,7 @@ import {
   listIssuedInvoices,
   listLedgerEntries,
 } from "./airwallex";
-import { resolveCategory } from "./categories";
+import { DEFAULT_CATEGORIES, resolveCategory } from "./categories";
 import { syncMerchantLogos } from "./logos";
 import type {
   FinanceCategory,
@@ -35,9 +35,9 @@ import type {
     trois pages de cent lignes au rythme actuel. */
 const EXPENSES_LOOKBACK_DAYS = 92;
 
-/** Fenêtre du grand livre : la courbe des entrées / sorties couvre six mois,
-    la resynchronisation doit donc en couvrir un peu plus. */
-const LEDGER_LOOKBACK_DAYS = 200;
+/** Fenêtre du grand livre : la courbe du solde couvre douze mois, la
+    resynchronisation doit donc en couvrir un peu plus. */
+const LEDGER_LOOKBACK_DAYS = 400;
 
 export type SyncStepReport = {
   kind: FinanceSyncKind;
@@ -238,9 +238,29 @@ async function syncTransactions(orgId: string): Promise<number> {
 
 async function applyCategoryRules(
   orgId: string,
-  expenses: { external_id: string; category_raw: string | null }[],
+  expenses: {
+    external_id: string;
+    category_raw: string | null;
+    merchant: string | null;
+    merchant_raw: string | null;
+  }[],
 ): Promise<void> {
   const admin = createAdminClient();
+
+  /* Le plan par défaut est garanti avant de ranger : Airwallex n'envoie
+     aucune catégorie, tout le rangement se déduit du marchand — sans
+     catégories en base, il ne se passerait simplement rien. Idempotent :
+     les slugs déjà présents ne bougent pas, les renommages survivent. */
+  const { error: seedError } = await admin.from("finance_categories").upsert(
+    DEFAULT_CATEGORIES.map((entry, index) => ({
+      org_id: orgId,
+      name: entry.name,
+      slug: entry.slug,
+      position: index,
+    })) as never,
+    { onConflict: "org_id,slug", ignoreDuplicates: true },
+  );
+  if (seedError) throw new Error(`Plan de catégories : ${seedError.message}`);
 
   const [{ data: categoriesData }, { data: rulesData }] = await Promise.all([
     admin.from("finance_categories").select("*").eq("org_id", orgId),
@@ -253,7 +273,14 @@ async function applyCategoryRules(
   // Un update par catégorie visée, pas un par ligne.
   const byCategory = new Map<string, string[]>();
   for (const expense of expenses) {
-    const category = resolveCategory(expense.category_raw, rules, categories);
+    const category = resolveCategory(
+      {
+        category_raw: expense.category_raw,
+        merchant: expense.merchant ?? expense.merchant_raw,
+      },
+      rules,
+      categories,
+    );
     if (!category) continue;
     const list = byCategory.get(category.id) ?? [];
     list.push(expense.external_id);
