@@ -5,14 +5,12 @@
  *
  * Pourquoi ce script existe : Airwallex refuse les adresses IP de Vercel. Le
  * même appel, avec les mêmes clés, obtient un jeton depuis une machine GitHub
- * et une page « 403 Forbidden » depuis une fonction Vercel — prouvé par la
- * sonde `airwallex-probe.yml`. La route `/api/cron/sync-finance` reste en
- * place et reste correcte ; elle ne peut simplement pas aboutir de là où elle
- * s'exécute.
+ * et une page « 403 Forbidden » depuis une fonction Vercel — prouvé par une
+ * sonde jouée des deux endroits. La route `/api/cron/sync-finance` ne
+ * pouvait pas aboutir de là où elle s'exécutait — elle a été retirée.
  *
- * Le pipeline n'est pas réécrit : c'est le même `runFinanceSync` que la route
- * et que le bouton « Synchroniser maintenant ». Seul l'endroit d'où il part
- * change. Il faut pour cela neutraliser `server-only`, ce que fait la
+ * Le pipeline n'est pas réécrit : c'est le même `runFinanceSync`. Seul
+ * l'endroit d'où il part change. Il faut pour cela neutraliser `server-only`, ce que fait la
  * condition `react-server` de Node — voir le script `sync:finance` du
  * package.json. Ce n'est pas un contournement : nous *sommes* le serveur.
  *

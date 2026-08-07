@@ -24,7 +24,8 @@
     "seed:finance": "tsx scripts/seed-finance.ts",
     "purge:finance-demo": "tsx scripts/purge-finance-demo.ts",
     "seed:mon-travail": "tsx scripts/seed-mon-travail.ts",
-    "sync:finance": "node --conditions=react-server --import tsx scripts/sync-finance.ts"
+    "sync:finance": "node --conditions=react-server --import tsx scripts/sync-finance.ts",
+    "sync:recus": "node --conditions=react-server --import tsx scripts/sync-recus.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.115.0",

@@ -9,6 +9,16 @@ import type { ReceiptSource } from "@/lib/recus/types";
 /**
  * Le passage régulier du module Reçus.
  *
+ * **Cette route n'est plus planifiée.** Le passage part d'une machine GitHub,
+ * toutes les heures — étape « Synchroniser les Reçus » de
+ * `.github/workflows/airwallex-sync.yml`, qui exécute `pnpm sync:recus` —
+ * parce qu'Airwallex refuse les adresses IP de Vercel : d'ici, la
+ * synchronisation des dépenses et la vérification d'accrochage recevraient un
+ * « 403 Forbidden » à chaque passage, et seule la lecture Gmail aboutirait.
+ * La route reste en place comme point d'entrée manuel de secours, `Bearer
+ * CRON_SECRET` exigé — en sachant que ses étapes Airwallex échoueront tant
+ * qu'elle s'exécute chez Vercel.
+ *
  * Trois étapes dans l'ordre, et l'ordre compte : les dépenses d'abord, pour que
  * les mails lus juste après aient de quoi se rapprocher ; l'ingestion ensuite ;
  * la vérification en dernier, sur ce qui a été transféré aux passages
@@ -18,9 +28,6 @@ import type { ReceiptSource } from "@/lib/recus/types";
  * Une étape en échec n'annule pas les autres. Perdre la synchronisation
  * Airwallex ne doit pas empêcher de lire la boîte : les pièces attendront un
  * rapprochement plutôt que de ne pas être détectées du tout.
- *
- * Cadence conseillée : toutes les quinze minutes. Plus souvent ne sert à rien —
- * une facture n'est jamais urgente — et consomme du quota Gmail pour rien.
  */
 
 export const dynamic = "force-dynamic";
