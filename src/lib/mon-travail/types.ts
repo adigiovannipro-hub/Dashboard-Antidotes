@@ -117,4 +117,11 @@ export type PublicationRow = {
   visuals: ResolvedVisual[];
   workspace: TaskWorkspace;
   board_slug: string;
+  /**
+   * Les objectifs publicitaires proposés par le tableau d'origine.
+   *
+   * Ils vivent dans `planning_boards.settings` et diffèrent d'un client à
+   * l'autre : la colonne « Objectif » ne peut pas être une liste partagée.
+   */
+  objectives: string[];
 };

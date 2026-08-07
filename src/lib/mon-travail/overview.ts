@@ -19,11 +19,18 @@ import { addDays, lastDayOfMonth } from "./dates";
  * cadre déjà ce qui est visible, il n'y a pas de filtre défensif à ajouter.
  */
 
-/** L'horizon de la carte « publications programmées ». */
+/**
+ * L'horizon des cartes d'espace — « à publier sous N jours ».
+ *
+ * La bande de mesures, elle, ne parle plus que du **jour même** : « 5 à
+ * publier sur 7 jours » ne dit pas si la journée est finie, et c'est la seule
+ * question qu'on pose à un indicateur en haut de page.
+ */
 export const PUBLICATION_HORIZON_DAYS = 7;
 
 export type OverviewStats = {
-  publications: { total: number; horizonDays: number };
+  /** Ce qui doit encore partir aujourd'hui, et ce qui en est déjà parti. */
+  publications: { today: number; publishedToday: number };
   moderation: { pending: number } | null;
   tasks: { open: number; overdue: number };
   invoices: { pendingCents: number; count: number; overdue: number } | null;
@@ -168,6 +175,11 @@ export async function getOverview(options: {
       !DONE_STATUSES.includes(subject.status as never),
   );
 
+  const dayPlanned = planned.filter((subject) => subject.scheduled_on === today);
+  const dayDone = dayPlanned.filter((subject) =>
+    DONE_STATUSES.includes(subject.status as never),
+  );
+
   // --- Tâches ---------------------------------------------------------------
   const tasks = (taskRows ?? []) as unknown as {
     workspace_id: string | null;
@@ -230,8 +242,8 @@ export async function getOverview(options: {
   return {
     stats: {
       publications: {
-        total: upcoming.length,
-        horizonDays: PUBLICATION_HORIZON_DAYS,
+        today: dayPlanned.length - dayDone.length,
+        publishedToday: dayDone.length,
       },
       moderation: moderationPending
         ? { pending: moderationPending.get("__total__") ?? 0 }

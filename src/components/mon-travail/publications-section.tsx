@@ -1,10 +1,12 @@
 import Link from "next/link";
 import { CalendarDays } from "lucide-react";
 
-import { PublicationRowView } from "@/components/mon-travail/publication-row";
+import {
+  PublicationHeader,
+  PublicationRowView,
+} from "@/components/mon-travail/publication-row";
 import { Panel, PanelHeader, PanelRows } from "@/components/ds/surface";
 import { Button } from "@/components/ui/button";
-import { shortDate } from "@/lib/mon-travail/dates";
 import type { PublicationRow } from "@/lib/mon-travail/types";
 
 /**
@@ -33,8 +35,8 @@ export function PublicationsSection({
         count={empty ? undefined : rows.length}
         description={
           empty
-            ? "Rien à publier aujourd'hui — voici ce qui arrive."
-            : "Aujourd'hui, tous clients confondus."
+            ? "Rien à publier aujourd'hui — voici ce qui arrive, par réseau."
+            : "Aujourd'hui, groupé par réseau."
         }
         action={
           empty && next.length > 0 ? (
@@ -61,19 +63,17 @@ export function PublicationsSection({
           </p>
         </div>
       ) : (
-        <PanelRows>
-          {(empty ? next : rows).map((row) => (
-            <PublicationRowView
-              key={row.subject.id}
-              row={row}
-              dateBadge={
-                empty && row.subject.scheduled_on
-                  ? shortDate(row.subject.scheduled_on)
-                  : undefined
-              }
-            />
-          ))}
-        </PanelRows>
+        /* Onze colonnes ne tiennent pas toujours dans la largeur disponible :
+           le tableau défile dans son panneau plutôt que de comprimer chaque
+           cellule jusqu'à l'illisible. */
+        <div className="overflow-x-auto">
+          <PublicationHeader />
+          <PanelRows>
+            {(empty ? next : rows).map((row) => (
+              <PublicationRowView key={row.subject.id} row={row} />
+            ))}
+          </PanelRows>
+        </div>
       )}
     </Panel>
   );
