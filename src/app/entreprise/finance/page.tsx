@@ -5,7 +5,7 @@ import { CreditCard, ReceiptText, TriangleAlert } from "lucide-react";
 import { FilterPills, type FilterOption } from "@/components/ds/filter-pills";
 import { StatCard, StatGrid } from "@/components/ds/stat-card";
 import { Panel, PanelBody, PanelHeader, SectionHeader } from "@/components/ds/surface";
-import { BalanceChart } from "@/components/finance/balance-chart";
+import { FlowsChart } from "@/components/finance/flows-chart";
 import { CashStatCard } from "@/components/finance/cash-stat-card";
 import { ExpensesTable, type DisplayExpense } from "@/components/finance/expenses-table";
 import { InvoicesBlock } from "@/components/finance/invoices-block";
@@ -17,9 +17,8 @@ import { formatMoney } from "@/lib/finance/money";
 import { parseExpenseParams } from "@/lib/finance/params";
 import { merchantKey } from "@/lib/finance/merchant-logo";
 import {
-  getBalanceSeries,
-  getExpenseSeries,
   getExpenseSummary,
+  getMonthlyFlows,
   getMerchantLogoUrls,
   getSyncOverview,
   getTreasury,
@@ -56,8 +55,7 @@ export default async function FinancePage({
 
   const [
     treasury,
-    series,
-    spentSeries,
+    flows,
     invoices,
     categories,
     rules,
@@ -67,8 +65,7 @@ export default async function FinancePage({
     cookieStore,
   ] = await Promise.all([
     getTreasury(context.orgId),
-    getBalanceSeries(context.orgId),
-    getExpenseSeries(context.orgId),
+    getMonthlyFlows(context.orgId),
     listInvoices(context.orgId),
     listCategories(context.orgId),
     listCategoryRules(context.orgId),
@@ -182,18 +179,17 @@ export default async function FinancePage({
           </PanelBody>
         </Panel>
 
-        {/* La courbe a pris la place de la carte « Trésorerie EUR », qui
-            occupait une demi-largeur pour répéter un total déjà affiché dans
-            la bande de mesures. Le détail par wallet manque à qui en a plus
-            d'un ; ce n'est pas le cas ici, et une carte qui redit le chiffre
-            d'à côté ne mérite pas sa surface. */}
+        {/* Le grand livre Airwallex remonte six mois d'historique dès la
+            première synchronisation — contrairement à l'ancienne courbe du
+            solde, qui ne pouvait se dessiner qu'au fil des instantanés
+            horaires et restait vide des semaines. */}
         <Panel>
           <PanelHeader
-            title="Solde et dépenses"
-            description="Le disponible en vert, ce qui en sort en rouge."
+            title="Entrées et sorties"
+            description="Ce qui rentre et ce qui sort du wallet, mois par mois."
           />
           <PanelBody>
-            <BalanceChart series={series} expenses={spentSeries} />
+            <FlowsChart flows={flows} />
           </PanelBody>
         </Panel>
       </div>

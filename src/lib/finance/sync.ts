@@ -6,6 +6,7 @@ import {
   listBalances,
   listFinanceExpenses,
   listIssuedInvoices,
+  listLedgerEntries,
 } from "./airwallex";
 import { resolveCategory } from "./categories";
 import { syncMerchantLogos } from "./logos";
@@ -34,6 +35,10 @@ import type {
     trois pages de cent lignes au rythme actuel. */
 const EXPENSES_LOOKBACK_DAYS = 92;
 
+/** Fenêtre du grand livre : la courbe des entrées / sorties couvre six mois,
+    la resynchronisation doit donc en couvrir un peu plus. */
+const LEDGER_LOOKBACK_DAYS = 200;
+
 export type SyncStepReport = {
   kind: FinanceSyncKind;
   status: "success" | "error";
@@ -53,6 +58,7 @@ export async function runFinanceSync(options: {
     { kind: "balances", work: syncBalances },
     { kind: "transactions", work: syncTransactions },
     { kind: "invoices", work: syncInvoices },
+    { kind: "ledger", work: syncLedger },
   ];
 
   const reports: SyncStepReport[] = [];
@@ -263,6 +269,36 @@ async function applyCategoryRules(
       .is("category_id", null);
     if (error) throw new Error(`Catégorisation : ${error.message}`);
   }
+}
+
+// --- Grand livre -------------------------------------------------------------
+
+async function syncLedger(orgId: string): Promise<number> {
+  const fromDate = new Date(Date.now() - LEDGER_LOOKBACK_DAYS * 24 * 3_600_000);
+  const entries = await listLedgerEntries({ fromDate });
+  if (entries.length === 0) return 0;
+
+  const { error } = await createAdminClient().from("finance_ledger_entries").upsert(
+    entries.map((entry) => ({
+      org_id: orgId,
+      external_id: entry.external_id,
+      occurred_at: entry.occurred_at,
+      amount_cents: entry.amount_cents,
+      fee_cents: entry.fee_cents,
+      net_cents: entry.net_cents,
+      currency: entry.currency,
+      transaction_type: entry.transaction_type,
+      source_type: entry.source_type,
+      description: entry.description,
+      status: entry.status,
+      raw: entry.raw,
+      synced_at: new Date().toISOString(),
+    })) as never,
+    { onConflict: "org_id,external_id" },
+  );
+  if (error) throw new Error(`Grand livre : ${error.message}`);
+
+  return entries.length;
 }
 
 // --- Factures ----------------------------------------------------------------

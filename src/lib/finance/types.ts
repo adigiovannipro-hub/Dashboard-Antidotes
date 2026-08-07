@@ -22,7 +22,7 @@ export type FinanceMatchStatus =
   | "confirmed"
   | "rejected";
 
-export type FinanceSyncKind = "balances" | "transactions" | "invoices";
+export type FinanceSyncKind = "balances" | "transactions" | "invoices" | "ledger";
 
 export type FinanceSyncStatus = "running" | "success" | "error";
 
@@ -109,6 +109,26 @@ export type FinanceTransaction = {
   synced_at: string;
   created_at: string;
   updated_at: string;
+};
+
+/** Un mouvement du grand livre Airwallex — signé : positif quand l'argent
+    rentre, négatif quand il sort. */
+export type FinanceLedgerEntry = {
+  id: string;
+  org_id: string;
+  external_id: string;
+  occurred_at: string;
+  amount_cents: number;
+  fee_cents: number | null;
+  net_cents: number | null;
+  currency: string;
+  transaction_type: string | null;
+  source_type: string | null;
+  description: string | null;
+  status: string | null;
+  raw: Record<string, unknown> | null;
+  synced_at: string;
+  created_at: string;
 };
 
 export type FinanceReceipt = {
@@ -200,8 +220,9 @@ export const SOURCE_LABELS: Record<FinanceTransactionSource, string> = {
 
 // --- Fenêtres de la courbe -------------------------------------------------
 
-export const CHART_WINDOWS = [7, 30, 90] as const;
-export type ChartWindow = (typeof CHART_WINDOWS)[number];
+/** Fenêtres d'observation des entrées / sorties, en mois. */
+export const FLOW_WINDOWS = [1, 3, 6] as const;
+export type FlowWindow = (typeof FLOW_WINDOWS)[number];
 
 export type FinanceMerchantLogo = {
   id: string;

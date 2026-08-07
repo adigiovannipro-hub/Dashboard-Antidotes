@@ -188,6 +188,47 @@ export function normalizeFinanceExpense(
   };
 }
 
+// --- Grand livre -------------------------------------------------------------
+
+/** Un mouvement du wallet, signé — positif quand l'argent rentre. */
+export type NormalizedLedgerEntry = {
+  external_id: string;
+  occurred_at: string;
+  amount_cents: number;
+  fee_cents: number | null;
+  net_cents: number | null;
+  currency: string;
+  transaction_type: string | null;
+  source_type: string | null;
+  description: string | null;
+  status: string | null;
+  raw: Record<string, unknown>;
+};
+
+export function normalizeLedgerEntry(
+  raw: Record<string, unknown>,
+): NormalizedLedgerEntry | null {
+  const externalId = toText(pick(raw, ["id", "transaction_id"]));
+  const amount = toCents(pick(raw, ["amount"]));
+  const currency = toText(pick(raw, ["currency"]));
+  const occurredAt = toIso(pick(raw, ["created_at", "posted_at", "settled_at"]));
+  if (!externalId || amount === null || !currency || !occurredAt) return null;
+
+  return {
+    external_id: externalId,
+    occurred_at: occurredAt,
+    amount_cents: amount,
+    fee_cents: toCents(pick(raw, ["fee"])),
+    net_cents: toCents(pick(raw, ["net"])),
+    currency: currency.toUpperCase().slice(0, 3),
+    transaction_type: toText(pick(raw, ["transaction_type", "type"])),
+    source_type: toText(pick(raw, ["source_type"])),
+    description: toText(pick(raw, ["description"])),
+    status: toText(pick(raw, ["status"])),
+    raw,
+  };
+}
+
 // --- Factures ----------------------------------------------------------------
 
 export type NormalizedInvoice = {

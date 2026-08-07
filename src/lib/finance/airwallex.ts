@@ -6,9 +6,11 @@ import {
   normalizeBalance,
   normalizeFinanceExpense,
   normalizeInvoice,
+  normalizeLedgerEntry,
   type NormalizedBalance,
   type NormalizedFinanceExpense,
   type NormalizedInvoice,
+  type NormalizedLedgerEntry,
 } from "./normalize";
 
 export { AirwallexError, checkConnection } from "@/lib/airwallex/transport";
@@ -91,6 +93,50 @@ export async function listFinanceExpenses(options: {
 
     pageAfter = page.has_more ? page.page_after : undefined;
   } while (pageAfter && collected.length < limit);
+
+  return collected.slice(0, limit);
+}
+
+// --- Grand livre -------------------------------------------------------------
+
+/**
+ * Le grand livre du wallet : chaque mouvement, dans les deux sens, signé.
+ *
+ * C'est un endpoint « core », pas Spend : sa pagination est par numéro de
+ * page, pas par curseur. La boucle s'arrête aussi sur une page vide — un
+ * `has_more` menteur ne doit pas la rendre infinie.
+ */
+export async function listLedgerEntries(options: {
+  fromDate?: Date;
+  limit?: number;
+} = {}): Promise<NormalizedLedgerEntry[]> {
+  const limit = options.limit ?? 2_000;
+  const collected: NormalizedLedgerEntry[] = [];
+  let pageNum = 0;
+  let hasMore = true;
+
+  while (hasMore && collected.length < limit) {
+    const params = new URLSearchParams({
+      page_size: "100",
+      page_num: String(pageNum),
+    });
+    if (options.fromDate) {
+      params.set("from_created_at", options.fromDate.toISOString());
+    }
+
+    const page = await call<Page>(
+      `/api/v1/financial_transactions?${params.toString()}`,
+    );
+
+    const items = page.items ?? [];
+    for (const item of items) {
+      const normalized = normalizeLedgerEntry(item);
+      if (normalized) collected.push(normalized);
+    }
+
+    hasMore = Boolean(page.has_more) && items.length > 0;
+    pageNum += 1;
+  }
 
   return collected.slice(0, limit);
 }

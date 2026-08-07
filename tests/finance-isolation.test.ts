@@ -4,7 +4,7 @@
  * Ce module porte la trésorerie, les factures clients et les dépenses carte
  * d'Antidotes. Comme les Reçus, il se cloisonne par `org_id` et lit
  * l'appartenance dans `organization_members` — mais il partage la lecture plus
- * largement : les huit tables se lisent dès qu'on est membre de
+ * largement : les neuf tables se lisent dès qu'on est membre de
  * l'organisation, alors que toute écriture reste réservée à l'owner.
  *
  * Ces tests ouvrent de vraies sessions et attaquent l'API REST directement,
@@ -55,6 +55,8 @@ suite("isolation du module Finance (RLS)", () => {
     categoryB: "",
     transactionA: "",
     transactionB: "",
+    ledgerA: "",
+    ledgerB: "",
   };
   const userIds: Record<keyof typeof emails, string> = {} as never;
   const clients: Record<keyof typeof emails, SupabaseClient> = {} as never;
@@ -134,6 +136,19 @@ suite("isolation du module Finance (RLS)", () => {
       .select("id")
       .single();
 
+    const { data: ledger } = await admin
+      .from("finance_ledger_entries")
+      .insert({
+        org_id: org.id,
+        external_id: `ft-${slug}`,
+        occurred_at: "2026-07-02T08:00:00Z",
+        amount_cents: 250_000,
+        currency: "EUR",
+        transaction_type: "DEPOSIT",
+      })
+      .select("id")
+      .single();
+
     return {
       orgId: org.id,
       accountId: account.id,
@@ -141,6 +156,7 @@ suite("isolation du module Finance (RLS)", () => {
       invoiceId: invoice!.id,
       categoryId: category!.id,
       transactionId: transaction!.id,
+      ledgerId: ledger!.id,
     };
   }
 
@@ -158,12 +174,14 @@ suite("isolation du module Finance (RLS)", () => {
     ids.accountA = a.accountId;
     ids.categoryA = a.categoryId;
     ids.transactionA = a.transactionId;
+    ids.ledgerA = a.ledgerId;
     ids.orgB = b.orgId;
     ids.accountB = b.accountId;
     ids.balanceB = b.balanceId;
     ids.invoiceB = b.invoiceId;
     ids.categoryB = b.categoryId;
     ids.transactionB = b.transactionId;
+    ids.ledgerB = b.ledgerId;
 
     // L'espace client sert uniquement à fabriquer un utilisateur qui a bien un
     // accès à la plateforme, mais aucune appartenance à l'organisation.
@@ -232,6 +250,14 @@ suite("isolation du module Finance (RLS)", () => {
       ]);
       expect(accounts).toEqual([]);
       expect(balances).toEqual([]);
+    });
+
+    it("ne lit aucun mouvement du grand livre de l'autre organisation", async () => {
+      const { data } = await clients.ownerA
+        .from("finance_ledger_entries")
+        .select("id")
+        .in("id", [ids.ledgerA, ids.ledgerB]);
+      expect(data?.map((row) => row.id)).toEqual([ids.ledgerA]);
     });
 
     it("ne lit aucune facture de l'autre organisation", async () => {
@@ -346,6 +372,17 @@ suite("isolation du module Finance (RLS)", () => {
       expect(after?.name).toContain("Antidotes A");
     });
 
+    it("un owner ne peut pas inventer un mouvement du grand livre", async () => {
+      const { error } = await clients.ownerA.from("finance_ledger_entries").insert({
+        org_id: ids.orgA,
+        external_id: "ft-invente",
+        occurred_at: "2026-08-01T00:00:00Z",
+        amount_cents: 1,
+        currency: "EUR",
+      });
+      expect(error).not.toBeNull();
+    });
+
     it("un owner ne peut pas supprimer une dépense", async () => {
       await clients.ownerA.from("finance_transactions").delete().eq("id", ids.transactionA);
 
@@ -395,8 +432,8 @@ suite("isolation du module Finance (RLS)", () => {
   });
 
   describe("qui n'est pas de l'organisation ne voit rien", () => {
-    it("un client d'espace ne lit aucune des huit tables", async () => {
-      const [accounts, balances, invoices, categories, rules, transactions, receipts, runs] =
+    it("un client d'espace ne lit aucune des neuf tables", async () => {
+      const [accounts, balances, invoices, categories, rules, transactions, receipts, runs, ledger] =
         await Promise.all([
           clients.client.from("finance_accounts").select("id"),
           clients.client.from("finance_balances_history").select("id"),
@@ -406,6 +443,7 @@ suite("isolation du module Finance (RLS)", () => {
           clients.client.from("finance_transactions").select("id"),
           clients.client.from("finance_receipts").select("id"),
           clients.client.from("finance_sync_runs").select("id"),
+          clients.client.from("finance_ledger_entries").select("id"),
         ]);
       expect(accounts.data).toEqual([]);
       expect(balances.data).toEqual([]);
@@ -415,6 +453,7 @@ suite("isolation du module Finance (RLS)", () => {
       expect(transactions.data).toEqual([]);
       expect(receipts.data).toEqual([]);
       expect(runs.data).toEqual([]);
+      expect(ledger.data).toEqual([]);
     });
 
     it("un visiteur anonyme n'obtient rien", async () => {
