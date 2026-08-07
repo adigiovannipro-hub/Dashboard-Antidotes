@@ -22,7 +22,8 @@
     "seed:moderation": "tsx scripts/seed-moderation.ts",
     "seed:planning": "tsx scripts/seed-planning.ts",
     "seed:finance": "tsx scripts/seed-finance.ts",
-    "seed:mon-travail": "tsx scripts/seed-mon-travail.ts"
+    "seed:mon-travail": "tsx scripts/seed-mon-travail.ts",
+    "sync:finance": "node --conditions=react-server --import tsx scripts/sync-finance.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.115.0",

@@ -1,11 +1,18 @@
-# La cadence horaire du module Finance, que Vercel Hobby ne sait pas offrir :
-# son plan rejette tout déploiement dont un cron demande mieux que le
-# quotidien (vercel.json n'en sait rien, et doit n'en rien savoir). GitHub
-# Actions n'a pas cette limite — ce workflow appelle la route, qui se protège
-# elle-même par CRON_SECRET.
+# La synchronisation Airwallex, exécutée ici et non sur Vercel.
 #
-# Coût : ~720 exécutions de moins d'une minute par mois, sur les 2 000 minutes
-# gratuites d'un dépôt privé — la CI comprise, on reste large.
+# Deux raisons, dans cet ordre :
+#
+#   • Airwallex refuse les adresses IP de Vercel. Mêmes clés, même appel : un
+#     jeton depuis une machine GitHub, une page « 403 Forbidden » depuis une
+#     fonction Vercel. La sonde `airwallex-probe.yml` l'a établi.
+#   • Le plan Hobby de Vercel rejette de toute façon tout cron plus fréquent
+#     que le quotidien, et plafonne les fonctions à 60 secondes.
+#
+# La route `/api/cron/sync-finance` reste en place et reste correcte — elle ne
+# peut simplement pas aboutir de là où elle s'exécute.
+#
+# Coût : ~720 exécutions d'une minute par mois, sur les 2 000 minutes
+# gratuites d'un dépôt privé. La CI comprise, on reste large.
 #
 # Deux choses à savoir sur les schedules GitHub :
 #   • l'heure n'est pas garantie à la minute près — un décalage de quelques
@@ -13,9 +20,9 @@
 #   • GitHub suspend les schedules d'un dépôt inactif 60 jours — un simple
 #     commit les relance.
 #
-# Secrets requis (Settings → Secrets and variables → Actions) : CRON_SECRET —
-# la même valeur que sur Vercel. Variable requise (onglet Variables) :
-# APP_URL, l'URL de production, sans barre oblique finale.
+# Secrets requis (Settings → Secrets and variables → Actions) :
+#   NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY,
+#   SUPABASE_SERVICE_ROLE_KEY, AIRWALLEX_CLIENT_ID, AIRWALLEX_API_KEY.
 
 name: Synchronisation Finance
 
@@ -32,56 +39,32 @@ concurrency:
 
 jobs:
   synchroniser:
-    name: Appel de la route de synchronisation
+    name: Soldes, dépenses et factures
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
 
     steps:
-      - name: Appeler /api/cron/sync-finance
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.18.2
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Installation
+        run: pnpm install --frozen-lockfile
+
+      - name: Synchroniser
+        run: pnpm sync:finance
         env:
-          APP_URL: ${{ vars.APP_URL }}
-          CRON_SECRET: ${{ secrets.CRON_SECRET }}
-        run: |
-          if [ -z "$APP_URL" ]; then
-            echo "::error::La variable APP_URL n'est pas définie (Settings → Secrets and variables → Actions → Variables)."
-            exit 1
-          fi
-          if [ -z "$CRON_SECRET" ]; then
-            echo "::error::Le secret CRON_SECRET n'est pas défini, ou ne porte pas la même valeur que dans Vercel."
-            exit 1
-          fi
-
-          # Une URL collée depuis la barre d'adresse finit souvent par « / » :
-          # sans ce nettoyage, l'appel viserait une double barre oblique.
-          base="${APP_URL%/}"
-
-          # Le code HTTP est capturé à part : une 401 rend un corps sans
-          # « ok », et le message serait resté « synchronisation en échec »
-          # sans dire que c'est le secret qui ne correspond pas.
-          reponse=$(curl -sS --max-time 120 -w $'\n%{http_code}' \
-            -H "Authorization: Bearer $CRON_SECRET" \
-            "$base/api/cron/sync-finance") || {
-              echo "::error::Appel impossible — $base est-il bien déployé ?"
-              exit 1
-            }
-
-          code=$(printf '%s' "$reponse" | tail -n1)
-          corps=$(printf '%s' "$reponse" | sed '$d')
-          echo "$corps"
-
-          if [ "$code" = "401" ]; then
-            echo "::error::401 — CRON_SECRET diffère de celui de Vercel. Les deux valeurs doivent être identiques."
-            exit 1
-          fi
-          if [ "$code" != "200" ]; then
-            echo "::error::La route a répondu $code."
-            exit 1
-          fi
-
-          # La route répond 200 même en échec partiel — c'est le corps qui dit
-          # la vérité. On échoue le job si `ok` est faux, pour que l'onglet
-          # Actions montre du rouge plutôt qu'un vert menteur.
-          printf '%s' "$corps" | grep -q '"ok":true' || {
-            echo "::error::Synchronisation en échec — voir les erreurs ci-dessus."
-            exit 1
-          }
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          AIRWALLEX_CLIENT_ID: ${{ secrets.AIRWALLEX_CLIENT_ID }}
+          AIRWALLEX_API_KEY: ${{ secrets.AIRWALLEX_API_KEY }}
+          # Les vraies dépenses vivent en production ; le bac à sable est vide.
+          AIRWALLEX_ENV: production
