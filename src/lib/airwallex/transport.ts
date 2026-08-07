@@ -55,9 +55,15 @@ async function getToken(): Promise<string> {
     method: "POST",
     headers: {
       "content-type": "application/json",
+      accept: "application/json",
+      // Le pare-feu d'Airwallex rend une page HTML 403 à ce qu'il n'aime pas,
+      // avant que l'API ne voie la requête. Un POST déclaré JSON sans corps et
+      // sans agent nommé en fait partie chez beaucoup d'hébergeurs.
+      "user-agent": "Antidotes/1.0",
       "x-client-id": clientId,
       "x-api-key": apiKey,
     },
+    body: "{}",
   });
 
   if (!response.ok) {
