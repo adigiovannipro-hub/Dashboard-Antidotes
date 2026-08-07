@@ -114,6 +114,24 @@ async function main() {
       order by transaction_date desc nulls first limit 10`);
     console.table(mirror);
 
+    console.log("═══ RAPPROCHEMENT — le JSON brut d'une dépense DRAFT ═══");
+    // Les lignes DRAFT du miroir portent amount == billing en EUR alors que
+    // l'écran Airwallex montre 154 400 IDR : le montant local vit donc sous
+    // une autre clé dans cet état. On liste les champs du brut dont le nom
+    // parle de montant, de devise, de marchand ou de statut — valeurs
+    // comprises, ce sont des montants, pas des données personnelles.
+    const { rows: draftRaws } = await db.query(`
+      select external_id, raw from receipt_expenses
+      where expense_status = 'DRAFT' and raw is not null
+      order by transaction_date desc nulls last limit 2`);
+    for (const row of draftRaws) {
+      console.log(`— dépense ${String(row.external_id).slice(0, 12)}…`);
+      console.log(`  clés racine : ${Object.keys(row.raw as object).join(", ")}`);
+      for (const [path, value] of flattenMatching(row.raw, /amount|currency|merchant|status|rate/i)) {
+        console.log(`  ${path} = ${JSON.stringify(value)}`);
+      }
+    }
+
     const { rows: pending } = await db.query(`
       select merchant, amount_cents, currency, document_date::text,
              status, match_method, expense_id is not null as rapprochee
@@ -138,6 +156,26 @@ async function main() {
   } finally {
     await db.end();
   }
+}
+
+/**
+ * Aplati un JSON en couples chemin → valeur et ne garde que les chemins dont
+ * une clé correspond au motif. Les tableaux sont parcourus par index.
+ */
+function flattenMatching(
+  value: unknown,
+  pattern: RegExp,
+  path = "",
+): [string, unknown][] {
+  if (value === null || typeof value !== "object") {
+    return pattern.test(path) ? [[path, value]] : [];
+  }
+  const entries = Array.isArray(value)
+    ? value.map((item, index) => [String(index), item] as const)
+    : Object.entries(value);
+  return entries.flatMap(([key, child]) =>
+    flattenMatching(child, pattern, path ? `${path}.${key}` : key),
+  );
 }
 
 main().catch((error) => {
