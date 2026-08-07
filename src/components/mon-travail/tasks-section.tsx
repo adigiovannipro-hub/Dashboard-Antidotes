@@ -1,7 +1,7 @@
 import { CheckCircle2 } from "lucide-react";
 
 import { AddTask } from "@/components/mon-travail/add-task";
-import { TaskRowView } from "@/components/mon-travail/task-row";
+import { TaskHeader, TaskRowView } from "@/components/mon-travail/task-row";
 import { Panel, PanelHeader, PanelRows } from "@/components/ds/surface";
 import { StatusPill } from "@/components/ds/status-pill";
 import { dayLabel, upcomingDayLabel } from "@/lib/mon-travail/dates";
@@ -21,11 +21,14 @@ export function TasksSection({
   today,
   workspacesById,
   clientWorkspaces,
+  defaultWorkspaceId,
 }: {
   groups: OrganizedTasks;
   today: string;
   workspacesById: Record<string, TaskWorkspace>;
   clientWorkspaces: TaskWorkspace[];
+  /** Client filtré, préchoisi à l'ajout. */
+  defaultWorkspaceId?: string | null;
 }) {
   const todayCount = groups.overdue.length + groups.today.length;
 
@@ -42,7 +45,11 @@ export function TasksSection({
                 {groups.overdue.length} en retard
               </StatusPill>
             ) : null}
-            <AddTask clientWorkspaces={clientWorkspaces} today={today} />
+            <AddTask
+              clientWorkspaces={clientWorkspaces}
+              today={today}
+              defaultWorkspaceId={defaultWorkspaceId}
+            />
           </div>
         }
       />
@@ -62,26 +69,29 @@ export function TasksSection({
           </p>
         </div>
       ) : (
-        <PanelRows>
-          {groups.overdue.map((task) => (
-            <Row
-              key={task.id}
-              task={task}
-              variant="overdue"
-              workspacesById={workspacesById}
-              clientWorkspaces={clientWorkspaces}
-            />
-          ))}
-          {groups.today.map((task) => (
-            <Row
-              key={task.id}
-              task={task}
-              variant="normal"
-              workspacesById={workspacesById}
-              clientWorkspaces={clientWorkspaces}
-            />
-          ))}
-        </PanelRows>
+        <>
+          <TaskHeader />
+          <PanelRows>
+            {groups.overdue.map((task) => (
+              <Row
+                key={task.id}
+                task={task}
+                variant="overdue"
+                workspacesById={workspacesById}
+                clientWorkspaces={clientWorkspaces}
+              />
+            ))}
+            {groups.today.map((task) => (
+              <Row
+                key={task.id}
+                task={task}
+                variant="normal"
+                workspacesById={workspacesById}
+                clientWorkspaces={clientWorkspaces}
+              />
+            ))}
+          </PanelRows>
+        </>
       )}
 
       {groups.upcoming.map((group) => (

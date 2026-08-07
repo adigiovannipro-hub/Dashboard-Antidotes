@@ -14,9 +14,11 @@ import type { TaskWorkspace } from "@/lib/mon-travail/types";
  * consulte ses tâches cent fois pour une qu'on en ajoute. Il reste à une
  * frappe — le bouton donne le focus au champ dès l'ouverture.
  */
-export function AddTask({ clientWorkspaces, today }: {
+export function AddTask({ clientWorkspaces, today, defaultWorkspaceId }: {
   clientWorkspaces: TaskWorkspace[];
   today: string;
+  /** Le client filtré, préchoisi — sinon la tâche créée disparaît aussitôt. */
+  defaultWorkspaceId?: string | null;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -43,7 +45,12 @@ export function AddTask({ clientWorkspaces, today }: {
 
       {open ? (
         <div className="absolute inset-x-0 top-full z-10 border-b border-border bg-surface-sunken p-4">
-          <QuickAdd clientWorkspaces={clientWorkspaces} today={today} autoFocus />
+          <QuickAdd
+            clientWorkspaces={clientWorkspaces}
+            today={today}
+            defaultWorkspaceId={defaultWorkspaceId}
+            autoFocus
+          />
         </div>
       ) : null}
     </>

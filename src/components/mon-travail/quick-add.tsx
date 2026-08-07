@@ -12,14 +12,23 @@ import type { TaskWorkspace } from "@/lib/mon-travail/types";
  * L'ajout en deux secondes : un champ, entrée, c'est noté. Le rattachement
  * client et la date sont là mais n'exigent rien — leurs valeurs par défaut
  * (« aucun client », aujourd'hui) sont les bonnes neuf fois sur dix.
+ *
+ * Le formulaire est fait pour **enchaîner** : `Entrée` comme `⌘/Ctrl+Entrée`
+ * valident et rendent la main au champ, vidé du seul libellé. Le client et
+ * l'échéance, eux, restent — on ajoute rarement une tâche isolée, et
+ * resélectionner le même client trois fois de suite est exactement ce qui
+ * fait renoncer à noter la troisième.
  */
 export function QuickAdd({
   clientWorkspaces,
   today,
+  defaultWorkspaceId,
   autoFocus,
 }: {
   clientWorkspaces: TaskWorkspace[];
   today: string;
+  /** Client préchoisi quand la page est filtrée sur l'un d'eux. */
+  defaultWorkspaceId?: string | null;
   autoFocus?: boolean;
 }) {
   const [result, action, pending] = useActionState<TravailResult | null, FormData>(
@@ -27,14 +36,18 @@ export function QuickAdd({
     null,
   );
   const formRef = useRef<HTMLFormElement>(null);
+  const titleRef = useRef<HTMLInputElement>(null);
   const lastResult = useRef<TravailResult | null>(null);
 
   useEffect(() => {
     if (!result || result === lastResult.current) return;
     lastResult.current = result;
     if (result.ok) {
-      formRef.current?.reset();
-      formRef.current?.querySelector<HTMLInputElement>("input[name=title]")?.focus();
+      // Vider le libellé seul, et non `form.reset()` : le client et la date
+      // choisis valent pour la tâche suivante.
+      if (titleRef.current) titleRef.current.value = "";
+      titleRef.current?.focus();
+      toast.success(result.message ?? "Tâche ajoutée.");
     } else {
       toast.error(result.error);
     }
@@ -46,15 +59,25 @@ export function QuickAdd({
   return (
     <form ref={formRef} action={action} className="flex flex-col gap-2 sm:flex-row">
       <input
+        ref={titleRef}
         name="title"
         required
         maxLength={300}
         // Le champ n'existe qu'après un clic explicite sur « Ajouter » : le
         // focus est attendu, il ne détourne l'attention de personne.
         autoFocus={autoFocus}
-        placeholder="Ajouter une tâche…"
+        placeholder="Ajouter une tâche…   ⌘↵ pour enchaîner"
         aria-label="Nouvelle tâche"
         autoComplete="off"
+        onKeyDown={(event) => {
+          // `Entrée` seul soumet déjà, nativement. `⌘↵` ne le fait pas — et
+          // c'est pourtant le geste qu'on a dans les doigts pour « valider et
+          // continuer ».
+          if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+            event.preventDefault();
+            formRef.current?.requestSubmit();
+          }
+        }}
         className={`${field} min-w-0 flex-1`}
       />
 
@@ -62,7 +85,7 @@ export function QuickAdd({
         <select
           name="workspaceId"
           aria-label="Client rattaché"
-          defaultValue=""
+          defaultValue={defaultWorkspaceId ?? ""}
           className={`${field} min-w-0 flex-1 text-text-secondary sm:w-40 sm:flex-none`}
         >
           <option value="">Aucun client</option>

@@ -1,12 +1,9 @@
 "use client";
 
+import { useRef } from "react";
 import { Check, ExternalLink, Trash2, Users } from "lucide-react";
 
-import {
-  deleteTask,
-  toggleTask,
-  updateTask,
-} from "@/app/actions/mon-travail";
+import { deleteTask, toggleTask, updateTask } from "@/app/actions/mon-travail";
 import { TextCell, useCellAction } from "@/components/planning/cells";
 import {
   DropdownMenu,
@@ -28,7 +25,41 @@ import { cn } from "@/lib/utils";
  * Tout s'édite en place — y compris les tâches générées, rien n'est
  * verrouillé. La coche archive ; l'archive garde la coche, pour ressusciter
  * une tâche fermée trop vite.
+ *
+ * Les quatre informations sont en colonnes alignées et titrées. Elles vivaient
+ * en vrac sur une seconde ligne, où rien ne disait laquelle était le client et
+ * laquelle la source.
  */
+
+/** Gabarit partagé par l'en-tête et les lignes. */
+const TASK_GRID =
+  "md:grid md:grid-cols-[1.25rem_minmax(0,1fr)_9rem_7rem_8rem_1.75rem] md:items-center md:gap-x-3";
+
+export function TaskHeader() {
+  return (
+    <div
+      className={cn(
+        "type-overline hidden border-b border-border bg-surface-sunken px-3 py-1.5 text-text-secondary",
+        TASK_GRID,
+      )}
+    >
+      {/* Le libellé masqué est **imbriqué** : `sr-only` passe en
+          `position: absolute`, et une cellule absolue sort du flux de la
+          grille — les cinq colonnes suivantes se décalaient d'un cran. */}
+      <span>
+        <span className="sr-only">Fait</span>
+      </span>
+      <span>Tâche</span>
+      <span>Client</span>
+      <span>Source</span>
+      <span>Échéance</span>
+      <span>
+        <span className="sr-only">Supprimer</span>
+      </span>
+    </div>
+  );
+}
+
 export function TaskRowView({
   task,
   workspace,
@@ -47,14 +78,19 @@ export function TaskRowView({
   return (
     <div
       className={cn(
-        "group/row border-border/60 flex items-center gap-2.5 border-b px-2 py-2 transition-colors md:py-1.5",
+        "group/row flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-border/60 px-3 py-2 transition-colors md:py-1.5",
         "hover:bg-muted/40",
+        TASK_GRID,
         pending && "opacity-60",
       )}
     >
       <button
         type="button"
-        aria-label={archived ? `Rouvrir « ${task.title} »` : `Marquer « ${task.title} » comme faite`}
+        aria-label={
+          archived
+            ? `Rouvrir « ${task.title} »`
+            : `Marquer « ${task.title} » comme faite`
+        }
         aria-pressed={archived}
         onClick={() => run(() => toggleTask({ taskId: task.id, done: !archived }))}
         className={cn(
@@ -73,7 +109,7 @@ export function TaskRowView({
 
       <div className="min-w-0 flex-1">
         {archived ? (
-          <p className="text-muted-foreground truncate text-sm line-through">
+          <p className="type-body truncate text-text-secondary line-through">
             {task.title}
           </p>
         ) : (
@@ -86,61 +122,110 @@ export function TaskRowView({
             }
           />
         )}
+        {overdue ? (
+          <p className="type-caption px-0 font-semibold tracking-wide text-danger-ink uppercase">
+            En retard — {shortDate(task.due_date)}
+          </p>
+        ) : null}
+      </div>
 
-        <div className="text-muted-foreground mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 px-0 text-[11px]">
-          {overdue ? (
-            <span className="text-danger-ink font-semibold tracking-wide uppercase">
-              En retard — {shortDate(task.due_date)}
-            </span>
-          ) : null}
+      {/* Rupture de ligne au téléphone : sans elle, le libellé partageait sa
+          ligne avec le client, la source et la date, et se réduisait à deux
+          caractères. `md:hidden` la retire du flux de la grille — un élément
+          en `display:none` n'est pas une cellule. */}
+      <span aria-hidden className="basis-full md:hidden" />
 
-          <WorkspaceSelect
-            task={task}
-            workspace={workspace}
-            clientWorkspaces={clientWorkspaces}
-            disabled={archived}
-            onSelect={(workspaceId) =>
+      <div className="type-caption min-w-0 text-text-secondary">
+        <WorkspaceSelect
+          task={task}
+          workspace={workspace}
+          clientWorkspaces={clientWorkspaces}
+          disabled={archived}
+          onSelect={(workspaceId) =>
+            run(() =>
+              updateTask({
+                taskId: task.id,
+                field: "workspace_id",
+                value: workspaceId,
+              }),
+            )
+          }
+        />
+      </div>
+
+      <div className="type-caption min-w-0 text-text-secondary">
+        <SourceBadge task={task} />
+      </div>
+
+      <div className="type-caption text-text-secondary">
+        {archived ? (
+          <span className="tabular-nums">{shortDate(task.due_date)}</span>
+        ) : (
+          <DueDateCell
+            value={task.due_date}
+            overdue={overdue}
+            onCommit={(next) =>
               run(() =>
-                updateTask({ taskId: task.id, field: "workspace_id", value: workspaceId }),
+                updateTask({ taskId: task.id, field: "due_date", value: next }),
               )
             }
           />
-
-          <SourceBadge task={task} />
-
-          {!archived ? (
-            <input
-              type="date"
-              value={task.due_date}
-              aria-label="Échéance de la tâche"
-              onChange={(event) => {
-                if (!event.target.value) return;
-                run(() =>
-                  updateTask({
-                    taskId: task.id,
-                    field: "due_date",
-                    value: event.target.value,
-                  }),
-                );
-              }}
-              className={cn(
-                "focus-visible:ring-brand w-[6.6rem] rounded-sm bg-transparent tabular-nums outline-none focus-visible:ring-2",
-                overdue && "text-danger-ink",
-              )}
-            />
-          ) : null}
-        </div>
+        )}
       </div>
 
       <button
         type="button"
         aria-label={`Supprimer « ${task.title} »`}
         onClick={() => run(() => deleteTask({ taskId: task.id }))}
-        className="text-muted-foreground hover:text-danger-ink focus-visible:ring-ring rounded p-1 opacity-40 transition group-hover/row:opacity-100 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:outline-none md:opacity-0"
+        className="text-muted-foreground hover:text-danger-ink focus-visible:ring-ring ml-auto rounded p-1 opacity-40 transition group-hover/row:opacity-100 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:outline-none md:ml-0 md:opacity-0"
       >
         <Trash2 className="size-3.5" aria-hidden />
       </button>
     </div>
+  );
+}
+
+/**
+ * L'échéance, éditable.
+ *
+ * Le clic sur les **chiffres** ouvre le calendrier, pas seulement le clic sur
+ * la petite icône : viser une cible de douze pixels pour changer une date est
+ * une punition. `showPicker()` n'existe pas partout — sans lui, le champ garde
+ * son comportement natif, qui reste éditable au clavier.
+ */
+function DueDateCell({
+  value,
+  overdue,
+  onCommit,
+}: {
+  value: string;
+  overdue: boolean;
+  onCommit: (next: string) => void;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  return (
+    <input
+      ref={inputRef}
+      type="date"
+      value={value}
+      aria-label="Échéance de la tâche"
+      onPointerDown={(event) => {
+        const input = inputRef.current;
+        if (!input || typeof input.showPicker !== "function") return;
+        event.preventDefault();
+        input.focus();
+        input.showPicker();
+      }}
+      onChange={(event) => {
+        if (!event.target.value) return;
+        onCommit(event.target.value);
+      }}
+      className={cn(
+        "focus-visible:ring-brand w-full cursor-pointer rounded-sm bg-transparent tabular-nums outline-none focus-visible:ring-2",
+        overdue && "text-danger-ink",
+      )}
+    />
   );
 }
 
@@ -166,12 +251,15 @@ function WorkspaceSelect({
     <DropdownMenu>
       <DropdownMenuTrigger
         aria-label={`Client rattaché à « ${task.title} »`}
-        className="focus-visible:ring-brand hover:text-foreground flex items-center gap-1 rounded-sm outline-none focus-visible:ring-2"
+        className="focus-visible:ring-brand hover:text-foreground flex min-w-0 items-center gap-1 rounded-sm outline-none focus-visible:ring-2"
       >
         {workspace ? (
           <WorkspaceDot workspace={workspace} />
         ) : (
-          <Users className="size-3 opacity-50" aria-hidden />
+          <span className="inline-flex items-center gap-1 text-text-tertiary">
+            <Users className="size-3" aria-hidden />
+            <span className="text-text-secondary">Aucun</span>
+          </span>
         )}
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-48 min-w-48">
@@ -193,7 +281,7 @@ function WorkspaceSelect({
 
 function WorkspaceDot({ workspace }: { workspace: TaskWorkspace }) {
   return (
-    <span className="flex items-center gap-1">
+    <span className="flex min-w-0 items-center gap-1.5">
       <span
         aria-hidden
         className="bg-muted size-2 shrink-0 rounded-full"
@@ -203,16 +291,18 @@ function WorkspaceDot({ workspace }: { workspace: TaskWorkspace }) {
             : undefined
         }
       />
-      {workspace.name}
+      <span className="truncate">{workspace.name}</span>
     </span>
   );
 }
 
 /** D'où vient la tâche — et le lien vers sa source quand il existe. */
 function SourceBadge({ task }: { task: WorkTask }) {
-  if (task.source === "manual") return null;
-
   const label = WORK_SOURCE_LABELS[task.source];
+
+  if (task.source === "manual") {
+    return <span className="text-text-secondary">{label}</span>;
+  }
 
   if (task.source_url) {
     return (
@@ -221,7 +311,7 @@ function SourceBadge({ task }: { task: WorkTask }) {
         target="_blank"
         rel="noreferrer"
         title={task.source_label ?? label}
-        className="border-border hover:text-foreground focus-visible:ring-brand flex items-center gap-1 rounded-full border px-1.5 py-px outline-none focus-visible:ring-2"
+        className="border-border hover:text-foreground focus-visible:ring-brand inline-flex items-center gap-1 rounded-full border px-1.5 py-px outline-none focus-visible:ring-2"
       >
         {label}
         <ExternalLink className="size-2.5" aria-hidden />
@@ -232,7 +322,7 @@ function SourceBadge({ task }: { task: WorkTask }) {
   return (
     <span
       title={task.source_label ?? undefined}
-      className="border-border rounded-full border px-1.5 py-px"
+      className="border-border inline-block rounded-full border px-1.5 py-px"
     >
       {label}
     </span>
