@@ -83,6 +83,41 @@ function toDateOnly(value: unknown): string | null {
   return Number.isNaN(date.getTime()) ? null : date.toISOString().slice(0, 10);
 }
 
+/* Le montant local se déplace avec l'état de la dépense : à plat une fois
+   réglée, sous `card_transaction` tant qu'elle est DRAFT — établi sur le brut
+   du 7 août, où seul le débit EUR vivait à la racine. Montant et devise se
+   lisent du **même** bloc : panacher deux origines fabriquerait un
+   « 154 400 EUR ». */
+const LOCAL_AMOUNT_SOURCES: readonly [string, string][] = [
+  ["transaction_amount", "transaction_currency"],
+  ["card_transaction.amount", "card_transaction.currency"],
+  ["line_items.0.transaction_amount", "line_items.0.transaction_currency"],
+  ["amount", "currency"],
+  ["total_amount", "currency"],
+];
+
+function pickLocalAmount(
+  raw: Record<string, unknown>,
+): { cents: number; currency: string } | null {
+  for (const [amountKey, currencyKey] of LOCAL_AMOUNT_SOURCES) {
+    const cents = toCents(pick(raw, [amountKey]));
+    const currency = pick(raw, [currencyKey]);
+    if (cents !== null && typeof currency === "string" && currency.trim() !== "") {
+      return { cents, currency };
+    }
+  }
+  return null;
+}
+
+/** `merchant` est tantôt une chaîne nue (état DRAFT), tantôt un objet à `name`. */
+function merchantName(raw: Record<string, unknown>): string | null {
+  if (typeof raw.merchant === "string" && raw.merchant.trim() !== "") {
+    return raw.merchant;
+  }
+  const nested = pick(raw, ["merchant.name", "merchant_name", "description", "vendor"]);
+  return typeof nested === "string" ? nested : null;
+}
+
 export function normalizeExpense(
   raw: Record<string, unknown>,
 ): NormalizedExpense | null {
@@ -92,20 +127,14 @@ export function normalizeExpense(
      ordre piochait `billing_amount` en premier : une course Grab entrait à
      « 7,56 EUR » quand son e-reçu disait « 154 400 IDR », et le rapprochement
      ne pouvait jamais aboutir. Le débité reste conservé, à côté. */
-  const localAmount = toCents(
-    pick(raw, ["transaction_amount", "amount", "total_amount"]),
-  );
-  const localCurrency = pick(raw, ["transaction_currency", "currency"]);
+  const local = pickLocalAmount(raw);
   const billingAmount = toCents(pick(raw, ["billing_amount"]));
   const billingCurrency = pick(raw, ["billing_currency"]);
 
-  const amount = localAmount ?? billingAmount;
+  const amount = local?.cents ?? billingAmount;
   const currency =
-    typeof localCurrency === "string"
-      ? localCurrency
-      : typeof billingCurrency === "string"
-        ? billingCurrency
-        : null;
+    local?.currency ??
+    (typeof billingCurrency === "string" ? billingCurrency : null);
 
   // Sans identifiant, montant ou devise, la ligne n'est bonne à rien : ni à
   // rapprocher, ni à afficher. Mieux vaut la laisser tomber bruyamment.
@@ -117,13 +146,7 @@ export function normalizeExpense(
 
   return {
     external_id: externalId,
-    merchant:
-      (pick(raw, [
-        "merchant.name",
-        "merchant_name",
-        "description",
-        "vendor",
-      ]) as string | undefined) ?? null,
+    merchant: merchantName(raw),
     amount_cents: amount,
     currency: currency.toUpperCase().slice(0, 3),
     billing_amount_cents: billingAmount,

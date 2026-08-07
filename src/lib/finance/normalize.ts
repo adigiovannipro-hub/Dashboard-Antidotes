@@ -101,6 +101,37 @@ export type NormalizedFinanceExpense = {
   raw: Record<string, unknown>;
 };
 
+/* Le montant local se déplace avec l'état de la dépense : à plat une fois
+   réglée, sous `card_transaction` tant qu'elle est DRAFT — établi sur le brut
+   du 7 août, où seul le débit EUR vivait à la racine. Montant et devise se
+   lisent du **même** bloc : panacher deux origines fabriquerait un
+   « 154 400 EUR ». */
+const LOCAL_AMOUNT_SOURCES: readonly [string, string][] = [
+  ["transaction_amount", "transaction_currency"],
+  ["card_transaction.amount", "card_transaction.currency"],
+  ["line_items.0.transaction_amount", "line_items.0.transaction_currency"],
+  ["amount", "currency"],
+  ["total_amount", "currency"],
+];
+
+function pickLocalAmount(
+  raw: Record<string, unknown>,
+): { cents: number; currency: string } | null {
+  for (const [amountKey, currencyKey] of LOCAL_AMOUNT_SOURCES) {
+    const cents = toCents(pick(raw, [amountKey]));
+    const currency = toText(pick(raw, [currencyKey]));
+    if (cents !== null && currency) return { cents, currency };
+  }
+  return null;
+}
+
+/** `merchant` est tantôt une chaîne nue (état DRAFT), tantôt un objet à `name`. */
+function merchantName(raw: Record<string, unknown>): string | null {
+  const direct = toText(raw.merchant);
+  if (direct) return direct;
+  return toText(pick(raw, ["merchant.name", "merchant_name", "vendor"]));
+}
+
 export function normalizeFinanceExpense(
   raw: Record<string, unknown>,
 ): NormalizedFinanceExpense | null {
@@ -109,13 +140,12 @@ export function normalizeFinanceExpense(
   // Le montant local d'abord — c'est lui que le commerçant a facturé. À
   // défaut, le débité fait office des deux : une ligne à un seul montant
   // reste une ligne.
-  const localAmount = toCents(pick(raw, ["transaction_amount", "amount", "total_amount"]));
-  const localCurrency = toText(pick(raw, ["transaction_currency", "currency"]));
+  const local = pickLocalAmount(raw);
   const billingAmount = toCents(pick(raw, ["billing_amount"]));
   const billingCurrency = toText(pick(raw, ["billing_currency"]));
 
-  const amount = localAmount ?? billingAmount;
-  const currency = localCurrency ?? billingCurrency;
+  const amount = local?.cents ?? billingAmount;
+  const currency = local?.currency ?? billingCurrency;
   const occurredAt = toIso(
     pick(raw, ["transaction_time", "transaction_date", "created_at"]),
   );
@@ -133,7 +163,7 @@ export function normalizeFinanceExpense(
     external_id: externalId,
     occurred_at: occurredAt,
     posted_at: toIso(pick(raw, ["posted_at", "posted_time", "updated_at"])),
-    merchant: toText(pick(raw, ["merchant.name", "merchant_name", "vendor"])),
+    merchant: merchantName(raw),
     merchant_raw: toText(
       pick(raw, ["merchant.description", "description", "merchant_raw", "narrative"]),
     ),
