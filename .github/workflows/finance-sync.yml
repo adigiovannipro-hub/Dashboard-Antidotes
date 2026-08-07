@@ -38,16 +38,50 @@ jobs:
 
     steps:
       - name: Appeler /api/cron/sync-finance
+        env:
+          APP_URL: ${{ vars.APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
-          if [ -z "${{ vars.APP_URL }}" ]; then
+          if [ -z "$APP_URL" ]; then
             echo "::error::La variable APP_URL n'est pas définie (Settings → Secrets and variables → Actions → Variables)."
             exit 1
           fi
-          reponse=$(curl -sS --max-time 120 \
-            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
-            "${{ vars.APP_URL }}/api/cron/sync-finance")
-          echo "$reponse"
+          if [ -z "$CRON_SECRET" ]; then
+            echo "::error::Le secret CRON_SECRET n'est pas défini, ou ne porte pas la même valeur que dans Vercel."
+            exit 1
+          fi
+
+          # Une URL collée depuis la barre d'adresse finit souvent par « / » :
+          # sans ce nettoyage, l'appel viserait une double barre oblique.
+          base="${APP_URL%/}"
+
+          # Le code HTTP est capturé à part : une 401 rend un corps sans
+          # « ok », et le message serait resté « synchronisation en échec »
+          # sans dire que c'est le secret qui ne correspond pas.
+          reponse=$(curl -sS --max-time 120 -w $'\n%{http_code}' \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            "$base/api/cron/sync-finance") || {
+              echo "::error::Appel impossible — $base est-il bien déployé ?"
+              exit 1
+            }
+
+          code=$(printf '%s' "$reponse" | tail -n1)
+          corps=$(printf '%s' "$reponse" | sed '$d')
+          echo "$corps"
+
+          if [ "$code" = "401" ]; then
+            echo "::error::401 — CRON_SECRET diffère de celui de Vercel. Les deux valeurs doivent être identiques."
+            exit 1
+          fi
+          if [ "$code" != "200" ]; then
+            echo "::error::La route a répondu $code."
+            exit 1
+          fi
+
           # La route répond 200 même en échec partiel — c'est le corps qui dit
           # la vérité. On échoue le job si `ok` est faux, pour que l'onglet
           # Actions montre du rouge plutôt qu'un vert menteur.
-          echo "$reponse" | grep -q '"ok":true' || exit 1
+          printf '%s' "$corps" | grep -q '"ok":true' || {
+            echo "::error::Synchronisation en échec — voir les erreurs ci-dessus."
+            exit 1
+          }
