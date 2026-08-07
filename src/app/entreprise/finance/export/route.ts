@@ -37,8 +37,14 @@ export async function GET(request: Request) {
     ...transaction,
     category_name: transaction.category_id
       ? (byId.get(transaction.category_id) ?? null)
-      : (resolveCategory(transaction.category_raw, rules, categories)?.name ??
-        null),
+      : (resolveCategory(
+          {
+            category_raw: transaction.category_raw,
+            merchant: transaction.merchant ?? transaction.merchant_raw,
+          },
+          rules,
+          categories,
+        )?.name ?? null),
   }));
 
   const stamp = new Date().toISOString().slice(0, 10);

@@ -88,6 +88,9 @@ export function CashStatCard({
           ? `${accountCount} wallet${accountCount > 1 ? "s" : ""} EUR`
           : "aucun compte synchronisé"
       }
+      /* Le vert de la charte, en encre lisible — pas la teinte vive. Retiré
+         quand le montant est masqué : des points verts n'annoncent rien. */
+      valueTone={hidden ? undefined : "accent"}
       icon={Landmark}
     />
   );

@@ -95,6 +95,11 @@ export function DateField({
           placeholder="JJ/MM/AAAA"
           value={text}
           onChange={(event) => handleText(event.target.value)}
+          /* Le calendrier s'ouvre aussi au clic sur le champ, pas seulement
+             sur l'icône : à la souris, c'est le geste attendu. La frappe
+             reste possible — le sélecteur natif n'avale pas le clavier, et
+             Échap le referme. */
+          onClick={openPicker}
           onBlur={() => {
             // À la sortie du champ, une saisie qui n'est pas une date se
             // rétracte sur la dernière valeur retenue plutôt que de rester à

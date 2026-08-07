@@ -220,8 +220,8 @@ export const SOURCE_LABELS: Record<FinanceTransactionSource, string> = {
 
 // --- Fenêtres de la courbe -------------------------------------------------
 
-/** Fenêtres d'observation des entrées / sorties, en mois. */
-export const FLOW_WINDOWS = [1, 3, 6] as const;
+/** Fenêtres d'observation du solde et des sorties, en mois. */
+export const FLOW_WINDOWS = [3, 6, 12] as const;
 export type FlowWindow = (typeof FLOW_WINDOWS)[number];
 
 export type FinanceMerchantLogo = {
