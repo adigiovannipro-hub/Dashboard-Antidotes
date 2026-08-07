@@ -27,6 +27,7 @@ export type NavIcon =
   | "perso"
   | "moderation"
   | "finance"
+  | "echeances"
   | "recus"
   | "acces";
 
@@ -79,6 +80,12 @@ export const getAppNavigation = cache(async (): Promise<NavGroup[]> => {
                 href: "/entreprise/finance",
                 label: "Finance",
                 icon: "finance",
+                match: "prefix",
+              },
+              {
+                href: "/entreprise/echeances",
+                label: "Échéances",
+                icon: "echeances",
                 match: "prefix",
               },
               {

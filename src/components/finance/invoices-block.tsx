@@ -1,92 +1,129 @@
-import { StatusPill, type StatusTone } from "@/components/ds/status-pill";
+import Link from "next/link";
+import { ArrowRight } from "lucide-react";
+
+import { StatusPill } from "@/components/ds/status-pill";
+import { isLate } from "@/lib/billing/schedule";
 import {
-  groupInvoicesByClient,
-  isOverdue,
-  type CurrencyTotals,
-} from "@/lib/finance/invoices";
+  INSTALLMENT_STATUS_LABELS,
+  LATE_LABEL,
+  type BillingInstallment,
+} from "@/lib/billing/types";
 import { formatMoney } from "@/lib/finance/money";
-import {
-  INVOICE_STATUS_LABELS,
-  OVERDUE_LABEL,
-  type FinanceInvoice,
-} from "@/lib/finance/types";
 
 /**
- * Facturation à venir : l'encours, client par client.
+ * Facturation à venir : les prochaines échéances, client par client.
  *
- * Les deux totaux — attendu ce mois, en retard — vivent désormais dans la
- * bande de mesures en tête de page, où on les lit sans chercher. Ce bloc ne
- * garde que ce qu'elle ne peut pas dire : qui doit quoi, et pour quand.
+ * Le bloc lit le module Échéances — la source que je maintiens — et non plus
+ * les factures synchronisées d'Airwallex, dont les noms de clients ne
+ * correspondaient pas à la réalité. Le détail et les actions vivent sur la
+ * page Échéances ; ici, la lecture d'un coup d'œil.
  */
-export function InvoicesBlock({ invoices }: { invoices: FinanceInvoice[] }) {
-  if (invoices.length === 0) {
+export type UpcomingLine = BillingInstallment & {
+  client_name: string;
+  engagement_label: string;
+};
+
+export function InvoicesBlock({ lines }: { lines: UpcomingLine[] }) {
+  if (lines.length === 0) {
     return (
-      <p className="type-body text-text-secondary">
-        Aucune facture synchronisée. Elles apparaîtront au premier passage de la
-        synchronisation Airwallex — ou après l&apos;amorçage
-        (<code className="type-caption">pnpm seed:finance</code>).
-      </p>
+      <div className="space-y-3">
+        <p className="type-body text-text-secondary">
+          Aucune échéance de facturation enregistrée.
+        </p>
+        <Link
+          href="/entreprise/echeances"
+          className="type-label text-accent-ink inline-flex items-center gap-1 hover:underline"
+        >
+          Ajouter un engagement
+          <ArrowRight strokeWidth={1.75} className="size-4" aria-hidden />
+        </Link>
+      </div>
     );
   }
 
-  const groups = groupInvoicesByClient(invoices);
+  const groups = groupByClient(lines);
 
   return (
-    <ul className="space-y-4">
-      {groups.map((group) => (
-        <li key={group.client_name}>
-          <div className="flex items-baseline justify-between gap-3">
-            <h4 className="type-label text-text-primary">{group.client_name}</h4>
-            <p className="type-caption text-text-secondary tabular-nums">
-              {sumOf(group.open_totals) > 0
-                ? `Encours : ${formatTotals(group.open_totals)}`
-                : "Soldé"}
-            </p>
-          </div>
-          <ul className="mt-1.5 space-y-1.5">
-            {group.invoices.map((invoice) => (
-              <InvoiceLine key={invoice.id} invoice={invoice} />
-            ))}
-          </ul>
-        </li>
-      ))}
-    </ul>
+    <div className="space-y-4">
+      <ul className="space-y-4">
+        {groups.map((group) => (
+          <li key={group.client}>
+            <div className="flex items-baseline justify-between gap-3">
+              <h4 className="type-label text-text-primary">{group.client}</h4>
+              <p className="type-caption text-text-secondary tabular-nums">
+                {formatTotals(group.totals)}
+              </p>
+            </div>
+            <ul className="mt-1.5 space-y-1.5">
+              {group.lines.map((line) => (
+                <InstallmentLine key={line.id} line={line} />
+              ))}
+            </ul>
+          </li>
+        ))}
+      </ul>
+
+      <Link
+        href="/entreprise/echeances"
+        className="type-label text-accent-ink inline-flex items-center gap-1 hover:underline"
+      >
+        Toutes les échéances
+        <ArrowRight strokeWidth={1.75} className="size-4" aria-hidden />
+      </Link>
+    </div>
   );
 }
 
-/** Une facture émise attend, une facture échue alerte, une payée est close. */
-const STATUS_TONES: Record<FinanceInvoice["status"], StatusTone> = {
-  draft: "neutral",
-  sent: "warning",
-  paid: "positive",
-  void: "neutral",
-};
-
-function InvoiceLine({ invoice }: { invoice: FinanceInvoice }) {
-  const overdue = isOverdue(invoice);
+function InstallmentLine({ line }: { line: UpcomingLine }) {
+  const late = isLate(line);
 
   return (
     <li className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
       <span className="flex min-w-0 items-center gap-2">
-        <StatusPill tone={overdue ? "danger" : STATUS_TONES[invoice.status]}>
-          {overdue ? OVERDUE_LABEL : INVOICE_STATUS_LABELS[invoice.status]}
+        <StatusPill tone={late ? "danger" : line.status === "issued" ? "warning" : "info"}>
+          {late ? LATE_LABEL : INSTALLMENT_STATUS_LABELS[line.status]}
         </StatusPill>
         <span className="type-caption truncate text-text-secondary">
-          {invoice.due_on
-            ? `échéance ${formatDay(invoice.due_on)}`
-            : "sans échéance"}
+          {line.engagement_label} — émission {dayLabel(line.issue_on)}
         </span>
       </span>
       <span className="type-label text-text-primary tabular-nums">
-        {formatMoney(invoice.amount_cents, invoice.currency)}
+        {formatMoney(line.amount_cents, line.currency)}
       </span>
     </li>
   );
 }
 
+function groupByClient(lines: UpcomingLine[]) {
+  const byClient = new Map<string, UpcomingLine[]>();
+  for (const line of lines) {
+    const list = byClient.get(line.client_name) ?? [];
+    list.push(line);
+    byClient.set(line.client_name, list);
+  }
+
+  return [...byClient.entries()]
+    .map(([client, clientLines]) => ({
+      client,
+      lines: clientLines,
+      totals: totalsOf(clientLines),
+    }))
+    /* Le client dont l'échéance est la plus proche en premier : c'est la
+       question que pose le bloc. */
+    .sort((a, b) => a.lines[0]!.issue_on.localeCompare(b.lines[0]!.issue_on));
+}
+
+function totalsOf(lines: UpcomingLine[]): Record<string, number> {
+  const totals: Record<string, number> = {};
+  for (const line of lines) {
+    totals[line.currency] = (totals[line.currency] ?? 0) + line.amount_cents;
+  }
+  return totals;
+}
+
 /* Une somme par devise, jointes par « + » : additionner des euros et des
    dollars dans un seul nombre serait une invention. */
-function formatTotals(totals: CurrencyTotals): string {
+function formatTotals(totals: Record<string, number>): string {
   const entries = Object.entries(totals).filter(([, cents]) => cents !== 0);
   if (entries.length === 0) return formatMoney(0, "EUR");
   return entries
@@ -94,14 +131,14 @@ function formatTotals(totals: CurrencyTotals): string {
     .join(" + ");
 }
 
-function sumOf(totals: CurrencyTotals): number {
-  return Object.values(totals).reduce((sum, cents) => sum + cents, 0);
-}
+const DAY = new Intl.DateTimeFormat("fr-FR", {
+  day: "numeric",
+  month: "short",
+  timeZone: "UTC",
+});
 
-const DAY = new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "short" });
-
-function formatDay(date: string): string {
-  const parsed = new Date(`${date}T00:00:00`);
+function dayLabel(date: string): string {
+  const parsed = new Date(`${date}T00:00:00.000Z`);
   if (Number.isNaN(parsed.getTime())) return date;
   return DAY.format(parsed);
 }

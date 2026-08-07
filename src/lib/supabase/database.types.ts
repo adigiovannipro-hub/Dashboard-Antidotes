@@ -518,6 +518,15 @@ import type {
   FinanceTransaction,
 } from "@/lib/finance/types";
 
+/* --- Module Échéances de facturation ---------------------------------------
+   Même principe : le détail vit dans `src/lib/billing/types.ts`. */
+export type {
+  BillingEngagement as BillingEngagementRow,
+  BillingInstallment as BillingInstallmentRow,
+} from "@/lib/billing/types";
+
+import type { BillingEngagement, BillingInstallment } from "@/lib/billing/types";
+
 /* --- Module Mon travail ----------------------------------------------------
    Même principe : le détail vit dans `src/lib/mon-travail/types.ts`. */
 export type {
@@ -585,6 +594,8 @@ export type Database = {
       finance_transactions: Table<FinanceTransaction>;
       finance_receipts: Table<FinanceReceipt>;
       finance_sync_runs: Table<FinanceSyncRun>;
+      billing_engagements: Table<BillingEngagement>;
+      billing_installments: Table<BillingInstallment>;
       work_cycles: Table<WorkCycle>;
       work_cycle_steps: Table<WorkCycleStep>;
       work_tasks: Table<WorkTask>;

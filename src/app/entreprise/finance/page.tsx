@@ -7,11 +7,12 @@ import { Panel, PanelBody, PanelHeader, SectionHeader } from "@/components/ds/su
 import { BalanceChart } from "@/components/finance/balance-chart";
 import { CashStatCard } from "@/components/finance/cash-stat-card";
 import { ExpensesTable, type DisplayExpense } from "@/components/finance/expenses-table";
-import { InvoicesBlock } from "@/components/finance/invoices-block";
+import { InvoicesBlock, type UpcomingLine } from "@/components/finance/invoices-block";
 import { SyncBanner } from "@/components/finance/sync-banner";
+import { listEngagements, listInstallments } from "@/lib/billing/queries";
+import { addMonths, currentMonth, scheduleKpis } from "@/lib/billing/schedule";
 import { requireFinanceAccess } from "@/lib/finance/access";
 import { resolveCategory } from "@/lib/finance/categories";
-import { invoiceKpis } from "@/lib/finance/invoices";
 import { formatMoney } from "@/lib/finance/money";
 import { parseExpenseParams } from "@/lib/finance/params";
 import {
@@ -23,10 +24,8 @@ import {
   listCategories,
   listCategoryRules,
   listExpenses,
-  listInvoices,
 } from "@/lib/finance/queries";
 import { CASH_HIDDEN_COOKIE } from "@/lib/ui-preferences";
-import type { CurrencyTotals } from "@/lib/finance/invoices";
 
 export const metadata: Metadata = { title: "Finance · Mon entreprise" };
 
@@ -56,7 +55,8 @@ export default async function FinancePage({
     treasury,
     series,
     spentSeries,
-    invoices,
+    engagements,
+    installments,
     categories,
     rules,
     expenses,
@@ -67,7 +67,14 @@ export default async function FinancePage({
     getTreasury(context.orgId),
     getBalanceSeries(context.orgId),
     getExpenseSeries(context.orgId),
-    listInvoices(context.orgId),
+    listEngagements({ orgId: context.orgId }),
+    /* Les échéances du module Échéances, pas les factures synchronisées
+       d'Airwallex : leurs noms de clients ne correspondaient pas. */
+    listInstallments({
+      orgId: context.orgId,
+      filters: { statuses: ["pending", "issued"] },
+      limit: 300,
+    }),
     listCategories(context.orgId),
     listCategoryRules(context.orgId),
     listExpenses({
@@ -92,9 +99,25 @@ export default async function FinancePage({
         transaction.category_raw),
   }));
 
-  const kpis = invoiceKpis(invoices);
-  const overdueCents = sumOf(kpis.overdue);
+  const kpis = scheduleKpis(installments);
   const hasTreasury = treasury.accounts.length > 0;
+
+  /* Le bloc « Facturation à venir » montre les trois prochains mois : ce qui
+     est dû, ce qui vient. Chaque ligne porte le nom de son engagement. */
+  const engagementNames = new Map(
+    engagements.map((engagement) => [
+      engagement.id,
+      { client: engagement.client_name, label: engagement.label },
+    ]),
+  );
+  const upcomingHorizon = addMonths(currentMonth(), 3);
+  const upcoming: UpcomingLine[] = installments
+    .filter((line) => line.status === "pending" && line.issue_on < upcomingHorizon)
+    .map((line) => ({
+      ...line,
+      client_name: engagementNames.get(line.engagement_id)?.client ?? "—",
+      engagement_label: engagementNames.get(line.engagement_id)?.label ?? "",
+    }));
 
   return (
     <div className="space-y-6">
@@ -111,23 +134,25 @@ export default async function FinancePage({
           initialHidden={cookieStore.get(CASH_HIDDEN_COOKIE)?.value === "1"}
         />
         <StatCard
-          label="Attendu ce mois"
+          label="À facturer ce mois"
           value={
-            invoices.length > 0 ? formatTotals(kpis.expected_this_month) : null
+            kpis.thisMonth.count > 0 ? formatTotals(kpis.thisMonth.totals) : null
           }
           context={
-            invoices.length > 0
-              ? "factures émises, échéance ce mois"
-              : "aucune facture synchronisée"
+            kpis.thisMonth.count > 0
+              ? `${kpis.thisMonth.count} échéance${kpis.thisMonth.count > 1 ? "s" : ""} ce mois-ci`
+              : "aucune échéance enregistrée"
           }
           icon={ReceiptText}
         />
         <StatCard
           label="En retard"
-          value={invoices.length > 0 ? formatTotals(kpis.overdue) : null}
-          context={overdueCents > 0 ? "échéance dépassée" : "rien d'échu"}
-          tone={overdueCents > 0 ? "danger" : undefined}
-          toneLabel={overdueCents > 0 ? "à relancer" : undefined}
+          value={kpis.late.count > 0 ? formatTotals(kpis.late.totals) : "0 €"}
+          context={
+            kpis.late.count > 0 ? "jour d'émission dépassé" : "rien en retard"
+          }
+          tone={kpis.late.count > 0 ? "danger" : undefined}
+          toneLabel={kpis.late.count > 0 ? "à émettre" : undefined}
           icon={TriangleAlert}
         />
         <StatCard
@@ -148,10 +173,10 @@ export default async function FinancePage({
         <Panel>
           <PanelHeader
             title="Facturation à venir"
-            description="Encours client par client, du plus proche au plus lointain."
+            description="Les échéances des trois prochains mois, client par client."
           />
           <PanelBody>
-            <InvoicesBlock invoices={invoices} />
+            <InvoicesBlock lines={upcoming} />
           </PanelBody>
         </Panel>
 
@@ -193,7 +218,7 @@ export default async function FinancePage({
 
 /* Une somme par devise, jointes par « + » : additionner des euros et des
    dollars dans un seul nombre serait une invention. */
-function formatTotals(totals: CurrencyTotals): string {
+function formatTotals(totals: Record<string, number>): string {
   const entries = Object.entries(totals).filter(([, cents]) => cents !== 0);
   if (entries.length === 0) return formatMoney(0, "EUR");
   return entries
@@ -201,6 +226,3 @@ function formatTotals(totals: CurrencyTotals): string {
     .join(" + ");
 }
 
-function sumOf(totals: CurrencyTotals): number {
-  return Object.values(totals).reduce((sum, cents) => sum + cents, 0);
-}
