@@ -185,25 +185,45 @@ export type ChipOption<T extends string> = {
   color: string;
 };
 
+const INK_DARK = "#1a1a1a";
+const INK_LIGHT = "#ffffff";
+
+/** Luminance relative WCAG d'un `#rrggbb`, `null` si la chaîne n'en est pas un. */
+function relativeLuminance(color: string): number | null {
+  const hex = color.replace("#", "");
+  if (!/^[0-9a-f]{6}$/i.test(hex)) return null;
+  const channel = (start: number) => {
+    const value = parseInt(hex.slice(start, start + 2), 16) / 255;
+    return value <= 0.04045 ? value / 12.92 : Math.pow((value + 0.055) / 1.055, 2.4);
+  };
+  return 0.2126 * channel(0) + 0.7152 * channel(2) + 0.0722 * channel(4);
+}
+
 /**
  * L'encre d'une pastille, déduite de son fond.
  *
  * Les couleurs viennent du board Monday et ne se négocient pas — mais du blanc
  * posé sur « EN BROUILLON » (#9cd326) tombe à 1,79:1, illisible. Plutôt que de
- * retoucher la palette du client, on choisit l'encre : sombre sur les teintes
- * claires, blanche sur les foncées. Le seuil 0,45 de luminance relative place
- * la bascule là où les deux options se valent.
+ * retoucher la palette du client, on choisit l'encre.
+ *
+ * On **compare les deux contrastes** au lieu de trancher sur un seuil de
+ * luminance. Le seuil qui vivait ici, 0,45, était mal calé : la bascule réelle
+ * est vers 0,20, et tout ce qui tombait entre les deux recevait du blanc alors
+ * que le sombre était meilleur. « PUBLIÉ » (#00c875) sortait ainsi à 2,21:1 au
+ * lieu de 7,88:1, et « WORDING À FAIRE » (#ff6d3b) à 2,82:1 au lieu de 6,19:1.
+ * Un calcul ne se dérègle pas ; une constante, si.
  */
 function chipInk(color: string): string {
-  const hex = color.replace("#", "");
-  if (hex.length !== 6) return "#ffffff";
-  const channel = (start: number) => {
-    const value = parseInt(hex.slice(start, start + 2), 16) / 255;
-    return value <= 0.04045 ? value / 12.92 : Math.pow((value + 0.055) / 1.055, 2.4);
-  };
-  const luminance =
-    0.2126 * channel(0) + 0.7152 * channel(2) + 0.0722 * channel(4);
-  return luminance > 0.45 ? "#1a1a1a" : "#ffffff";
+  const background = relativeLuminance(color);
+  if (background === null) return INK_LIGHT;
+
+  const contrast = (ink: number) =>
+    ink > background
+      ? (ink + 0.05) / (background + 0.05)
+      : (background + 0.05) / (ink + 0.05);
+
+  const dark = relativeLuminance(INK_DARK) ?? 0;
+  return contrast(dark) >= contrast(1) ? INK_DARK : INK_LIGHT;
 }
 
 /**

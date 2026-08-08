@@ -1,7 +1,11 @@
 import "server-only";
 
 import { resolveVisuals } from "@/lib/planning/queries";
-import type { PlanningLane, PlanningSubject } from "@/lib/planning/types";
+import type {
+  PlanningBoard,
+  PlanningLane,
+  PlanningSubject,
+} from "@/lib/planning/types";
 import { createClient } from "@/lib/supabase/server";
 import type { PublicationRow, TaskWorkspace, WorkTask } from "./types";
 
@@ -33,7 +37,7 @@ async function decorate(subjects: PlanningSubject[]): Promise<PublicationRow[]> 
   const [{ data: lanes }, { data: boards }, { data: workspaces }, visualsById] =
     await Promise.all([
       supabase.from("planning_lanes").select("*").in("id", laneIds),
-      supabase.from("planning_boards").select("id, slug").in("id", boardIds),
+      supabase.from("planning_boards").select("id, slug, settings").in("id", boardIds),
       supabase
         .from("workspaces")
         .select("id, slug, name, accent_color")
@@ -44,7 +48,9 @@ async function decorate(subjects: PlanningSubject[]): Promise<PublicationRow[]> 
   const laneById = new Map(
     ((lanes ?? []) as unknown as PlanningLane[]).map((lane) => [lane.id, lane]),
   );
-  const boardSlugById = new Map((boards ?? []).map((board) => [board.id, board.slug]));
+  const boardById = new Map(
+    ((boards ?? []) as unknown as PlanningBoard[]).map((board) => [board.id, board]),
+  );
   const workspaceById = new Map(
     ((workspaces ?? []) as unknown as TaskWorkspace[]).map((workspace) => [
       workspace.id,
@@ -56,8 +62,8 @@ async function decorate(subjects: PlanningSubject[]): Promise<PublicationRow[]> 
   for (const subject of subjects) {
     const lane = laneById.get(subject.lane_id);
     const workspace = workspaceById.get(subject.workspace_id);
-    const boardSlug = boardSlugById.get(subject.board_id);
-    if (!lane || !workspace || !boardSlug) continue;
+    const board = boardById.get(subject.board_id);
+    if (!lane || !workspace || !board) continue;
 
     rows.push({
       subject,
@@ -65,7 +71,8 @@ async function decorate(subjects: PlanningSubject[]): Promise<PublicationRow[]> 
       lane_name: lane.name,
       visuals: visualsById.get(subject.id) ?? [],
       workspace,
-      board_slug: boardSlug,
+      board_slug: board.slug,
+      objectives: board.settings.ad_objectives,
     });
   }
 
@@ -74,27 +81,42 @@ async function decorate(subjects: PlanningSubject[]): Promise<PublicationRow[]> 
 
 export async function listDayPublications(options: {
   day: string;
+  /** Restreint à un espace client — le filtre de la page d'accueil. */
+  workspaceId?: string | null;
   limit?: number;
 }): Promise<PublicationRow[]> {
   const supabase = await createClient();
 
-  const { data } = await supabase
+  let query = supabase
     .from("planning_subjects")
     .select("*")
     .eq("scheduled_on", options.day)
     // Un contenu non retenu n'a jamais existé pour le lecteur.
-    .neq("status", "dropped")
-    .order("created_at")
-    .limit(options.limit ?? 100);
+    .neq("status", "dropped");
 
-  const rows = await decorate((data ?? []) as unknown as PlanningSubject[]);
+  if (options.workspaceId) query = query.eq("workspace_id", options.workspaceId);
 
-  // Une lecture par client, puis par réseau : l'ordre dans lequel on vérifie.
-  return rows.sort((a, b) => {
+  const { data } = await query.order("created_at").limit(options.limit ?? 100);
+
+  return byNetwork(await decorate((data ?? []) as unknown as PlanningSubject[]));
+}
+
+/**
+ * Tri par réseau, puis par client, puis par sujet.
+ *
+ * On publie réseau par réseau — on ouvre Instagram, on vérifie tout ce qui
+ * devait y partir, on passe à LinkedIn. Trier par client obligeait à revenir
+ * trois fois sur le même onglet.
+ */
+function byNetwork(rows: PublicationRow[]): PublicationRow[] {
+  return [...rows].sort((a, b) => {
+    if (a.lane_name !== b.lane_name) {
+      return a.lane_name.localeCompare(b.lane_name, "fr");
+    }
     if (a.workspace.name !== b.workspace.name) {
       return a.workspace.name.localeCompare(b.workspace.name, "fr");
     }
-    return a.platform.localeCompare(b.platform);
+    return a.subject.name.localeCompare(b.subject.name, "fr");
   });
 }
 
@@ -108,20 +130,30 @@ export async function listDayPublications(options: {
  */
 export async function listNextPublications(options: {
   after: string;
+  workspaceId?: string | null;
   limit?: number;
 }): Promise<PublicationRow[]> {
   const supabase = await createClient();
 
-  const { data } = await supabase
+  let query = supabase
     .from("planning_subjects")
     .select("*")
     .gt("scheduled_on", options.after)
     .neq("status", "dropped")
-    .neq("status", "published")
-    .order("scheduled_on")
-    .limit(options.limit ?? 3);
+    .neq("status", "published");
 
-  return decorate((data ?? []) as unknown as PlanningSubject[]);
+  if (options.workspaceId) query = query.eq("workspace_id", options.workspaceId);
+
+  const { data } = await query.order("scheduled_on").limit(options.limit ?? 3);
+
+  // La date prime ici — c'est « et ensuite ? » — puis le réseau départage.
+  const rows = await decorate((data ?? []) as unknown as PlanningSubject[]);
+  return rows.sort((a, b) => {
+    const dateA = a.subject.scheduled_on ?? "";
+    const dateB = b.subject.scheduled_on ?? "";
+    if (dateA !== dateB) return dateA.localeCompare(dateB);
+    return a.lane_name.localeCompare(b.lane_name, "fr");
+  });
 }
 
 /**
@@ -130,15 +162,20 @@ export async function listNextPublications(options: {
  */
 export async function listOpenTasks(options: {
   until: string;
+  workspaceId?: string | null;
   limit?: number;
 }): Promise<WorkTask[]> {
   const supabase = await createClient();
 
-  const { data } = await supabase
+  let query = supabase
     .from("work_tasks")
     .select("*")
     .eq("status", "pending")
-    .lte("due_date", options.until)
+    .lte("due_date", options.until);
+
+  if (options.workspaceId) query = query.eq("workspace_id", options.workspaceId);
+
+  const { data } = await query
     .order("due_date")
     .order("created_at")
     .limit(options.limit ?? 200);
@@ -148,14 +185,16 @@ export async function listOpenTasks(options: {
 
 /** Les dernières tâches faites, pour la section « Archivé » en bas de page. */
 export async function listArchivedTasks(options: {
+  workspaceId?: string | null;
   limit?: number;
 }): Promise<WorkTask[]> {
   const supabase = await createClient();
 
-  const { data } = await supabase
-    .from("work_tasks")
-    .select("*")
-    .eq("status", "done")
+  let query = supabase.from("work_tasks").select("*").eq("status", "done");
+
+  if (options.workspaceId) query = query.eq("workspace_id", options.workspaceId);
+
+  const { data } = await query
     .order("done_at", { ascending: false })
     .limit(options.limit ?? 40);
 

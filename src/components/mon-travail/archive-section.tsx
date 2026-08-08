@@ -1,5 +1,8 @@
-import { PublicationRowView } from "@/components/mon-travail/publication-row";
-import { TaskRowView } from "@/components/mon-travail/task-row";
+import {
+  PublicationHeader,
+  PublicationRowView,
+} from "@/components/mon-travail/publication-row";
+import { TaskHeader, TaskRowView } from "@/components/mon-travail/task-row";
 import { Panel, PanelHeader, PanelRows } from "@/components/ds/surface";
 import type {
   PublicationRow,
@@ -12,6 +15,11 @@ import type {
  * descendent — et s'y décochent, pour rattraper une coche trop rapide — et
  * les publications du jour déjà parties y attendent, statut modifiable si le
  * réel dit autre chose.
+ *
+ * Les lignes se révèlent en opacité à mesure qu'on descend (`reveal-on-scroll`,
+ * voir `globals.css`). Le panneau, lui, est à pleine opacité : le voile de 25 %
+ * qu'il portait auparavant s'appliquait aussi au texte déjà gris et le faisait
+ * passer sous le seuil de contraste.
  */
 export function ArchiveSection({
   tasks,
@@ -28,28 +36,52 @@ export function ArchiveSection({
   if (total === 0) return null;
 
   return (
-    <Panel className="opacity-75 transition-opacity duration-(--motion-duration) ease-standard hover:opacity-100">
+    /* `overflow-clip` et non `overflow-hidden` : les deux découpent les angles
+       arrondis, mais `hidden` fait du panneau un conteneur de défilement, et
+       l'apparition ci-dessous se calerait alors sur lui — où chaque ligne est
+       toujours entièrement visible. `clip` n'en fait pas un. */
+    <Panel className="overflow-clip">
       <PanelHeader
         title="Archivé"
         count={total}
         description="Terminé aujourd'hui et les jours précédents."
       />
-      <PanelRows>
-        {publications.map((row) => (
-          <PublicationRowView key={row.subject.id} row={row} archived />
-        ))}
-        {tasks.map((task) => (
-          <TaskRowView
-            key={task.id}
-            task={task}
-            variant="archived"
-            workspace={
-              task.workspace_id ? (workspacesById[task.workspace_id] ?? null) : null
-            }
-            clientWorkspaces={clientWorkspaces}
-          />
-        ))}
-      </PanelRows>
+      {publications.length > 0 ? (
+        /* Le bloc entier plutôt que ligne à ligne : le défilement horizontal
+           du tableau est, lui, un vrai conteneur de défilement. */
+        <div className="reveal-on-scroll">
+          <div className="overflow-x-auto">
+            <PublicationHeader />
+            <PanelRows>
+              {publications.map((row) => (
+                <PublicationRowView key={row.subject.id} row={row} />
+              ))}
+            </PanelRows>
+          </div>
+        </div>
+      ) : null}
+
+      {tasks.length > 0 ? (
+        <>
+          <TaskHeader />
+          <PanelRows>
+            {tasks.map((task) => (
+              <div key={task.id} className="reveal-on-scroll">
+                <TaskRowView
+                  task={task}
+                  variant="archived"
+                  workspace={
+                    task.workspace_id
+                      ? (workspacesById[task.workspace_id] ?? null)
+                      : null
+                  }
+                  clientWorkspaces={clientWorkspaces}
+                />
+              </div>
+            ))}
+          </PanelRows>
+        </>
+      ) : null}
     </Panel>
   );
 }

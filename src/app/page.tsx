@@ -1,15 +1,8 @@
 import { redirect } from "next/navigation";
-import {
-  Briefcase,
-  ListChecks,
-  Lock,
-  MessagesSquare,
-  Send,
-  Users,
-  Wallet,
-} from "lucide-react";
+import { ListChecks, MessagesSquare, Send, Wallet } from "lucide-react";
 
 import { AppShell } from "@/components/ds/app-shell";
+import { FilterPills, type FilterOption } from "@/components/ds/filter-pills";
 import { StatCard, StatGrid } from "@/components/ds/stat-card";
 import { SectionHeader } from "@/components/ds/surface";
 import { ArchiveSection } from "@/components/mon-travail/archive-section";
@@ -33,25 +26,26 @@ import {
 import type { TaskWorkspace } from "@/lib/mon-travail/types";
 import { DONE_STATUSES } from "@/lib/planning/types";
 import { formatMoney } from "@/lib/finance/money";
-import type { WorkspaceType } from "@/lib/supabase/database.types";
 
-const SECTIONS: { type: WorkspaceType; title: string; icon: typeof Users }[] = [
-  { type: "client", title: "Clients", icon: Users },
-  { type: "business", title: "Mon entreprise", icon: Briefcase },
-  { type: "personal", title: "Perso", icon: Lock },
-];
+/** Le filtre client, dans l'URL comme partout : `?client=bondet`. */
+const CLIENT_PARAM = "client";
+type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
 /**
  * La page d'accueil de mon espace : « Mon travail ».
  *
  * Quatre étages, du général au particulier — la bande de mesures pour savoir
  * en un regard si la journée tient, ce qui doit partir aujourd'hui, les
- * tâches, puis les espaces. L'archivé attend en bas de page.
+ * tâches, puis les espaces clients. L'archivé attend en bas de page.
  *
  * Un client, lui, ne voit que ses espaces. Le module n'existe pas pour lui —
  * ni section vide, ni mention.
  */
-export default async function HubPage() {
+export default async function HubPage({
+  searchParams,
+}: {
+  searchParams: SearchParams;
+}) {
   const viewer = await requireViewer();
 
   // Un client n'a qu'un seul espace et aucun outil interne : lui présenter un
@@ -61,7 +55,21 @@ export default async function HubPage() {
   }
 
   const today = todayInParis();
-  const travail = viewer.isOwner ? await loadTravail(viewer.workspaces, today) : null;
+  const clientWorkspaces = viewer.workspaces.filter(
+    (workspace) => workspace.type === "client",
+  );
+
+  // Un slug inconnu ne filtre rien plutôt que de vider la page : un lien
+  // partagé après le renommage d'un espace doit rester lisible.
+  const requested = (await searchParams)[CLIENT_PARAM];
+  const selected =
+    clientWorkspaces.find(
+      (workspace) => workspace.slug === (Array.isArray(requested) ? requested[0] : requested),
+    ) ?? null;
+
+  const travail = viewer.isOwner
+    ? await loadTravail(viewer.workspaces, today, selected?.id ?? null)
+    : null;
 
   return (
     <AppShell
@@ -69,14 +77,25 @@ export default async function HubPage() {
       title={travail ? "Mon travail" : "Espaces"}
       subtitle={travail ? dayLabel(today) : `${viewer.workspaces.length} espaces accessibles`}
     >
-      <div className="space-y-8">
+      {/* `pb-16` : l'archivé s'allume en montant dans la fenêtre, et la
+          dernière ligne d'une page ne finit jamais d'y entrer — elle serait
+          restée à 0,83 d'opacité, donc sous le seuil de contraste. Soixante
+          pixels de fond de page lui laissent terminer sa course. */}
+      <div className="space-y-8 pb-16">
         {travail ? (
           <>
+            {/* La bande de mesures reste globale : elle répond à « la journée
+                tient-elle ? », tous clients confondus. Le filtre ci-dessous
+                cadre le travail lui-même. */}
             <StatGrid>
               <StatCard
                 label="À publier"
-                value={travail.stats.publications.total}
-                context={`sur ${travail.stats.publications.horizonDays} jours`}
+                value={travail.stats.publications.today}
+                context={
+                  travail.stats.publications.publishedToday > 0
+                    ? `${travail.stats.publications.publishedToday} déjà partie${travail.stats.publications.publishedToday > 1 ? "s" : ""} aujourd'hui`
+                    : "aujourd'hui"
+                }
                 icon={Send}
               />
               <StatCard
@@ -143,6 +162,17 @@ export default async function HubPage() {
               />
             </StatGrid>
 
+            {clientWorkspaces.length > 1 ? (
+              <div className="flex flex-wrap items-center gap-3">
+                <span className="type-overline text-text-secondary">Client</span>
+                <FilterPills
+                  ariaLabel="Filtrer le travail par client"
+                  current={selected?.slug ?? ""}
+                  options={clientFilterOptions(clientWorkspaces)}
+                />
+              </div>
+            ) : null}
+
             <PublicationsSection rows={travail.toPublish} next={travail.next} />
 
             <TasksSection
@@ -150,41 +180,37 @@ export default async function HubPage() {
               today={travail.today}
               workspacesById={travail.workspacesById}
               clientWorkspaces={travail.clientWorkspaces}
+              defaultWorkspaceId={selected?.id ?? null}
             />
           </>
         ) : null}
 
         {viewer.workspaces.length === 0 ? <EmptyState email={viewer.email} /> : null}
 
-        {SECTIONS.map(({ type, title }) => {
-          const workspaces = viewer.workspaces.filter(
-            (workspace) => workspace.type === type,
-          );
-          if (workspaces.length === 0) return null;
-
-          return (
-            <section key={type} className="space-y-4">
-              <SectionHeader title={title} count={workspaces.length} />
-              <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
-                {workspaces.map((workspace) => (
-                  <WorkspaceCard
-                    key={workspace.id}
-                    href={`/espace/${workspace.slug}`}
-                    name={workspace.name}
-                    roleLabel={roleLabel(workspace.role)}
-                    accentColor={workspace.accent_color}
-                    stats={
-                      travail
-                        ? (travail.byWorkspace.get(workspace.id) ??
-                          NO_WORKSPACE_ACTIVITY)
-                        : null
-                    }
-                  />
-                ))}
-              </div>
-            </section>
-          );
-        })}
+        {/* Seuls les espaces clients ont leur carte ici. « Mon entreprise » et
+            « Perso » restent dans le rail : sur la page de travail, ils
+            occupaient deux sections pour un lien chacun. */}
+        {clientWorkspaces.length > 0 ? (
+          <section className="space-y-4">
+            <SectionHeader title="Clients" count={clientWorkspaces.length} />
+            <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
+              {clientWorkspaces.map((workspace) => (
+                <WorkspaceCard
+                  key={workspace.id}
+                  href={`/espace/${workspace.slug}`}
+                  name={workspace.name}
+                  roleLabel={roleLabel(workspace.role)}
+                  accentColor={workspace.accent_color}
+                  stats={
+                    travail
+                      ? (travail.byWorkspace.get(workspace.id) ?? NO_WORKSPACE_ACTIVITY)
+                      : null
+                  }
+                />
+              ))}
+            </div>
+          </section>
+        ) : null}
 
         {travail ? (
           <ArchiveSection
@@ -199,13 +225,34 @@ export default async function HubPage() {
   );
 }
 
+/**
+ * Les options du filtre client — un par espace, plus « Tous ».
+ *
+ * La liste se construit depuis les espaces accessibles : un client ajouté
+ * demain apparaît sans qu'une constante soit touchée.
+ */
+function clientFilterOptions(workspaces: WorkspaceAccess[]): FilterOption[] {
+  return [
+    { value: "", label: "Tous", href: "/" },
+    ...workspaces.map((workspace) => ({
+      value: workspace.slug,
+      label: workspace.name,
+      href: `/?${CLIENT_PARAM}=${encodeURIComponent(workspace.slug)}`,
+    })),
+  ];
+}
+
 /** Tout ce que les sections « Mon travail » consomment, chargé d'un bloc. */
-async function loadTravail(workspaces: WorkspaceAccess[], today: string) {
+async function loadTravail(
+  workspaces: WorkspaceAccess[],
+  today: string,
+  workspaceId: string | null,
+) {
   const [publications, next, openTasks, archivedTasks, overview] = await Promise.all([
-    listDayPublications({ day: today }),
-    listNextPublications({ after: today, limit: 3 }),
-    listOpenTasks({ until: addDays(today, UPCOMING_DAYS) }),
-    listArchivedTasks({}),
+    listDayPublications({ day: today, workspaceId }),
+    listNextPublications({ after: today, workspaceId, limit: 3 }),
+    listOpenTasks({ until: addDays(today, UPCOMING_DAYS), workspaceId }),
+    listArchivedTasks({ workspaceId }),
     getOverview({
       today,
       isOwner: true,

@@ -286,3 +286,44 @@
     }
   }
 }
+
+/* ===========================================================================
+   Apparition au défilement.
+
+   Réservée à l'archivé : ce qui est fait n'a pas à se présenter d'un bloc en
+   bas de page. Chaque ligne se révèle en montant dans la fenêtre, ce qui
+   rend la section franchement secondaire sans la rendre illisible.
+
+   Animation pilotée par le défilement, sans JavaScript ni observateur. Là où
+   `animation-timeline` n'existe pas — Firefox, Safari à ce jour — la règle
+   ne s'applique pas du tout et les lignes sont simplement visibles : la
+   dégradation est le comportement normal, pas un état cassé. Idem si le
+   système demande moins d'animation.
+   =========================================================================== */
+@keyframes reveal-on-scroll {
+  from {
+    opacity: 0.08;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .reveal-on-scroll {
+      animation: reveal-on-scroll linear both;
+      animation-timeline: view();
+      /* Mesuré sur `cover`, pas sur `entry` : `entry` ne dure que la hauteur
+         de l'élément — une ligne de 36 px s'allumait d'un coup, en trente
+         pixels de défilement. `cover` compte la fenêtre entière, et 22 % en
+         font une petite centaine : le temps de voir la ligne arriver.
+
+         Pourquoi si court : l'archivé est en **bas de page**, et la dernière
+         ligne n'entre jamais complètement — la page ne peut pas défiler plus
+         loin. À 22 %, elle restait à 0,39 d'opacité définitivement, illisible.
+         Le seuil de contraste ne se négocie pas, fût-ce au nom d'un effet. */
+      animation-range: cover 0% cover 9%;
+    }
+  }
+}
