@@ -45,8 +45,21 @@ export const DEFAULT_CATEGORIES: readonly { slug: string; name: string }[] = [
   { slug: "logiciels", name: "Logiciels & abonnements" },
   { slug: "marketing", name: "Marketing & publicité" },
   { slug: "voyages", name: "Voyages & hébergement" },
+  { slug: "virements", name: "Virements" },
   { slug: "frais", name: "Frais bancaires" },
 ];
+
+/**
+ * Les mouvements du grand livre se rangent sur leur **type**, pas sur un mot
+ * du marchand : l'égalité exacte évite les collisions qu'une recherche par
+ * fragment provoquerait — « fee » se trouve dans « Border Coffee ».
+ */
+const LEDGER_TYPE_CATEGORIES: Record<string, string> = {
+  payout: "virements",
+  transfer: "virements",
+  conversion: "virements",
+  fee: "frais",
+};
 
 /**
  * Marchand → slug de catégorie, premier motif trouvé gagnant — « google ads »
@@ -128,6 +141,12 @@ export function resolveCategory(
       (category) => normalize(category.name) === rawNeedle,
     );
     if (named) return named;
+
+    const ledgerSlug = LEDGER_TYPE_CATEGORIES[rawNeedle];
+    if (ledgerSlug) {
+      const bySlug = categories.find((category) => category.slug === ledgerSlug);
+      if (bySlug) return bySlug;
+    }
   }
 
   if (merchantNeedle !== "") {

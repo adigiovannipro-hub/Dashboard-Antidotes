@@ -89,20 +89,19 @@ export async function getTreasury(orgId: string): Promise<Treasury> {
 
 // --- Courbe ----------------------------------------------------------------
 
-/** Un mois du wallet : où en est le solde, ce qui est entré, ce qui est sorti. */
-export type MonthlyFlow = {
-  /** `AAAA-MM`, UTC. */
-  month: string;
-  /** Le solde EUR en fin de mois — celui du wallet, pas un calcul à part.
-      Pour le mois en cours : le solde d'aujourd'hui. */
+/** Une période du wallet : où en est le solde, ce qui est entré, ce qui est sorti. */
+export type PeriodFlow = {
+  /** `AAAA-MM` pour un mois, `AAAA-MM-JJ` pour un jour. UTC. */
+  period: string;
+  /** Le solde EUR à la fin de la période — celui du wallet, pas un calcul à
+      part. Pour la période en cours : le solde d'aujourd'hui. */
   balance_cents: number;
   in_cents: number;
   out_cents: number;
 };
 
 /**
- * Le wallet mois par mois, sur les douze derniers mois : solde de fin de
- * mois, entrées et sorties.
+ * Le wallet période par période : solde de fin de période, entrées, sorties.
  *
  * Lu du grand livre Airwallex (`finance_ledger_entries`), où chaque mouvement
  * est signé : positif quand l'argent rentre, négatif quand il sort. EUR
@@ -116,66 +115,64 @@ export type MonthlyFlow = {
  * prend **tous** les mouvements, réserves comprises : ce sont eux qui font
  * le solde.
  *
- * Les entrées / sorties du mois, elles, écartent les autorisations carte :
- * chaque achat pose une réserve (`HOLD`, négatif) puis la relâche
+ * Les entrées / sorties de la période, elles, écartent les autorisations
+ * carte : chaque achat pose une réserve (`HOLD`, négatif) puis la relâche
  * (`RELEASE`, positif) avant le débit réel (`CAPTURE`) — les compter
  * gonflerait les deux mesures du même montant.
  *
- * Chaque mois de la fenêtre a sa ligne, même sans mouvement : l'absence vaut
- * zéro, pas « inconnu », et une courbe à trous mentirait sur la période.
+ * Chaque période de la fenêtre a sa ligne, même sans mouvement : l'absence
+ * vaut zéro, pas « inconnu », et une courbe à trous mentirait sur la période.
  */
 const TECHNICAL_LEDGER_TYPES = new Set([
   "ISSUING_AUTHORISATION_HOLD",
   "ISSUING_AUTHORISATION_RELEASE",
 ]);
 
-export async function getMonthlyFlows(options: {
-  orgId: string;
-  /** Le solde EUR disponible aujourd'hui, en centimes — l'ancre de la courbe. */
-  balanceNowCents: number;
-  months?: number;
-  now?: Date;
-}): Promise<MonthlyFlow[]> {
-  const supabase = await createClient();
-  const months = options.months ?? 12;
-  const now = options.now ?? new Date();
+type LedgerRow = {
+  occurred_at: string;
+  amount_cents: number;
+  transaction_type: string | null;
+};
 
-  const start = new Date(
-    Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - (months - 1), 1),
-  );
+/**
+ * Le cœur commun aux deux granularités. `periods` est la liste des clés
+ * attendues, de la plus ancienne à la plus récente ; `keyOf` range un
+ * mouvement dans l'une d'elles.
+ */
+async function buildFlows(options: {
+  orgId: string;
+  balanceNowCents: number;
+  since: Date;
+  periods: string[];
+  keyOf: (occurredAt: string) => string;
+}): Promise<PeriodFlow[]> {
+  const supabase = await createClient();
 
   const { data, error } = await supabase
     .from("finance_ledger_entries")
     .select("occurred_at, amount_cents, currency, transaction_type")
     .eq("org_id", options.orgId)
     .eq("currency", "EUR")
-    .gte("occurred_at", start.toISOString())
+    .gte("occurred_at", options.since.toISOString())
     .limit(10_000);
   if (error) throw new Error(`Lecture du grand livre : ${error.message}`);
 
-  const monthKeys: string[] = [];
-  const flows = new Map<string, MonthlyFlow>();
-  for (let back = 0; back < months; back += 1) {
-    const month = new Date(
-      Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + back, 1),
-    )
-      .toISOString()
-      .slice(0, 7);
-    monthKeys.push(month);
-    flows.set(month, { month, balance_cents: 0, in_cents: 0, out_cents: 0 });
-  }
+  const flows = new Map<string, PeriodFlow>(
+    options.periods.map((period) => [
+      period,
+      { period, balance_cents: 0, in_cents: 0, out_cents: 0 },
+    ]),
+  );
 
-  const netAllByMonth = new Map<string, number>();
-  const rows = (data ?? []) as unknown as {
-    occurred_at: string;
-    amount_cents: number;
-    transaction_type: string | null;
-  }[];
-  for (const row of rows) {
-    const month = row.occurred_at.slice(0, 7);
-    netAllByMonth.set(month, (netAllByMonth.get(month) ?? 0) + row.amount_cents);
+  const netAllByPeriod = new Map<string, number>();
+  for (const row of (data ?? []) as unknown as LedgerRow[]) {
+    const period = options.keyOf(row.occurred_at);
+    netAllByPeriod.set(
+      period,
+      (netAllByPeriod.get(period) ?? 0) + row.amount_cents,
+    );
 
-    const flow = flows.get(month);
+    const flow = flows.get(period);
     if (!flow) continue;
     if (row.transaction_type && TECHNICAL_LEDGER_TYPES.has(row.transaction_type)) {
       continue;
@@ -184,16 +181,87 @@ export async function getMonthlyFlows(options: {
     else flow.out_cents += -row.amount_cents;
   }
 
-  // Marche arrière depuis aujourd'hui : le solde de fin de mois M est le
-  // disponible actuel moins tout ce qui a bougé après M.
+  // Marche arrière depuis aujourd'hui : le solde de fin de période P est le
+  // disponible actuel moins tout ce qui a bougé après P.
   let balance = options.balanceNowCents;
-  for (let index = monthKeys.length - 1; index >= 0; index -= 1) {
-    const month = monthKeys[index]!;
-    flows.get(month)!.balance_cents = balance;
-    balance -= netAllByMonth.get(month) ?? 0;
+  for (let index = options.periods.length - 1; index >= 0; index -= 1) {
+    const period = options.periods[index]!;
+    flows.get(period)!.balance_cents = balance;
+    balance -= netAllByPeriod.get(period) ?? 0;
   }
 
-  return monthKeys.map((month) => flows.get(month)!);
+  return options.periods.map((period) => flows.get(period)!);
+}
+
+/** Les douze derniers mois, du plus ancien au plus récent. */
+export async function getMonthlyFlows(options: {
+  orgId: string;
+  /** Le solde EUR disponible aujourd'hui, en centimes — l'ancre de la courbe. */
+  balanceNowCents: number;
+  months?: number;
+  now?: Date;
+}): Promise<PeriodFlow[]> {
+  const months = options.months ?? 12;
+  const now = options.now ?? new Date();
+
+  const start = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - (months - 1), 1),
+  );
+
+  const periods = Array.from({ length: months }, (_, back) =>
+    new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + back, 1))
+      .toISOString()
+      .slice(0, 7),
+  );
+
+  return buildFlows({
+    orgId: options.orgId,
+    balanceNowCents: options.balanceNowCents,
+    since: start,
+    periods,
+    keyOf: (occurredAt) => occurredAt.slice(0, 7),
+  });
+}
+
+/**
+ * Les sept derniers jours, du plus ancien au plus récent.
+ *
+ * Même construction que les mois — c'est le grain qui change, pas la règle.
+ * Utile quand la carte vient de bouger : à l'échelle du mois, une course à
+ * 7 € ne se voit pas.
+ */
+export async function getDailyFlows(options: {
+  orgId: string;
+  balanceNowCents: number;
+  days?: number;
+  now?: Date;
+}): Promise<PeriodFlow[]> {
+  const days = options.days ?? 7;
+  const now = options.now ?? new Date();
+
+  const start = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - (days - 1)),
+  );
+
+  const periods = Array.from({ length: days }, (_, forward) =>
+    new Date(
+      Date.UTC(
+        start.getUTCFullYear(),
+        start.getUTCMonth(),
+        start.getUTCDate() + forward,
+      ),
+    )
+      .toISOString()
+      .slice(0, 10),
+  );
+
+  return buildFlows({
+    orgId: options.orgId,
+    balanceNowCents: options.balanceNowCents,
+    since: start,
+    periods,
+    keyOf: (occurredAt) => occurredAt.slice(0, 10),
+  });
 }
 
 // --- Factures --------------------------------------------------------------
@@ -272,7 +340,11 @@ function expenseQuery(
   } else if (filters.categoryId) {
     query = query.eq("category_id", filters.categoryId);
   }
-  if (filters.missingReceipt) query = query.eq("has_receipt", false);
+  // Même exclusion que le compteur : un virement n'a pas de justificatif
+  // manquant, il n'en attend pas.
+  if (filters.missingReceipt) {
+    query = query.eq("has_receipt", false).neq("source", "ledger");
+  }
 
   const ascending = sort.direction === "asc";
   if (sort.field === "billing") {
@@ -382,11 +454,15 @@ export async function getExpenseSummary(
       .gte("occurred_at", monthStart)
       .lt("occurred_at", nextMonthStart)
       .limit(1000),
+    /* Les sorties du compte — virements émis, frais — n'attendent aucun
+       justificatif : les compter réclamerait éternellement une pièce qui
+       n'existe pas. */
     supabase
       .from("finance_transactions")
       .select("id")
       .eq("org_id", orgId)
       .eq("has_receipt", false)
+      .neq("source", "ledger")
       .limit(1000),
   ]);
 

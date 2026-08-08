@@ -32,6 +32,8 @@ const CATEGORIES = [
   category("cat-transport", "Déplacements", "transports"),
   category("cat-resto", "Restauration", "restauration"),
   category("cat-logiciels", "Logiciels & abonnements", "logiciels"),
+  category("cat-virements", "Virements", "virements"),
+  category("cat-frais", "Frais bancaires", "frais"),
 ];
 
 describe("resolveCategory", () => {
@@ -83,6 +85,31 @@ describe("resolveCategory", () => {
     expect(
       resolveCategory(source({ merchant: "Grab" }), rules, CATEGORIES)?.id,
     ).toBe("cat-transport");
+  });
+
+  it("range un mouvement du compte sur son type, pas sur un fragment", () => {
+    expect(
+      resolveCategory(
+        { category_raw: "PAYOUT", merchant: "Virement émis" },
+        [],
+        CATEGORIES,
+      )?.id,
+    ).toBe("cat-virements");
+    expect(
+      resolveCategory(
+        { category_raw: "FEE", merchant: "Frais Airwallex" },
+        [],
+        CATEGORIES,
+      )?.id,
+    ).toBe("cat-frais");
+  });
+
+  it("ne confond pas « Coffee » avec des frais bancaires", () => {
+    // Le piège de la recherche par fragment : « fee » est dans « Coffee ».
+    expect(
+      resolveCategory(source({ merchant: "Border Coffee & Eatery" }), [], CATEGORIES)
+        ?.id,
+    ).toBe("cat-resto");
   });
 
   it("rend null plutôt que d'inventer un rangement", () => {

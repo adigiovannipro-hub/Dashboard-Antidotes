@@ -229,6 +229,111 @@ export function normalizeLedgerEntry(
   };
 }
 
+/**
+ * Une sortie du grand livre vue comme une dépense du tableau.
+ *
+ * Un virement émis par RIB quitte le wallet exactement comme une course
+ * payée à la carte : il a sa place dans les dépenses. Deux exclusions, et
+ * elles sont structurantes :
+ *
+ *   • les mouvements `ISSUING_*` sont le reflet comptable des dépenses
+ *     **carte**, déjà présentes par l'API Spend — les reprendre créerait un
+ *     doublon pour chaque achat ;
+ *   • les entrées (montant positif) ne sont pas des dépenses.
+ *
+ * L'identifiant est préfixé `ledger:` : le grand livre et les dépenses carte
+ * sont deux ressources Airwallex distinctes, rien ne garantit que leurs
+ * identifiants ne se croisent jamais.
+ */
+export type NormalizedLedgerExpense = {
+  external_id: string;
+  occurred_at: string;
+  merchant: string;
+  merchant_raw: string | null;
+  amount_cents: number;
+  currency: string;
+  category_raw: string | null;
+  status: string | null;
+};
+
+/** Le libellé français d'un mouvement, quand Airwallex n'en donne pas. */
+const LEDGER_TYPE_LABELS: Record<string, string> = {
+  payout: "Virement émis",
+  fee: "Frais Airwallex",
+  conversion: "Conversion de devise",
+  refund: "Remboursement",
+};
+
+/* Airwallex décrit un virement par une phrase toute faite :
+   « Pay 20437926.30 IDR to DI GIOVANNI (Juillet) ». Le montant y est répété —
+   il est déjà dans sa colonne, en euros — et la référence, seule information
+   qui dise *pourquoi* le virement est parti, est noyée en fin de ligne. */
+const PAYOUT_SENTENCE = /^pay\s+[\d\s.,]+[a-z]{3}\s+to\s+(.+)$/i;
+const TRAILING_REFERENCE = /^(.*?)\s*\(([^)]*)\)\s*$/;
+
+/**
+ * « Bénéficiaire — objet », depuis la phrase d'Airwallex.
+ *
+ * La description d'origine n'est pas perdue pour autant : elle reste intacte
+ * dans `finance_ledger_entries.description`, dont cette table n'est qu'une
+ * projection lisible.
+ */
+export function describeLedgerMovement(description: string | null): string | null {
+  const text = toText(description);
+  if (!text) return null;
+
+  const paid = PAYOUT_SENTENCE.exec(text);
+  if (!paid) return text;
+
+  const rest = paid[1]!.trim();
+  const withReference = TRAILING_REFERENCE.exec(rest);
+  if (!withReference) return rest;
+
+  const beneficiary = withReference[1]!.trim();
+  const reference = withReference[2]!.trim();
+
+  // Une référence qui répète le bénéficiaire n'ajoute rien.
+  if (
+    reference === "" ||
+    reference.toLowerCase() === beneficiary.toLowerCase()
+  ) {
+    return beneficiary;
+  }
+
+  return `${beneficiary} — ${reference}`;
+}
+
+export function ledgerOutflowToExpense(entry: {
+  external_id: string;
+  occurred_at: string;
+  amount_cents: number;
+  currency: string;
+  transaction_type: string | null;
+  description: string | null;
+  status: string | null;
+}): NormalizedLedgerExpense | null {
+  if (entry.amount_cents >= 0) return null;
+
+  const type = entry.transaction_type?.trim() ?? "";
+  if (type.toUpperCase().startsWith("ISSUING")) return null;
+
+  const label = LEDGER_TYPE_LABELS[type.toLowerCase()];
+  const description = describeLedgerMovement(entry.description);
+
+  return {
+    external_id: `ledger:${entry.external_id}`,
+    occurred_at: entry.occurred_at,
+    // Le libellé français d'abord : c'est lui qui est stable et catégorisable,
+    // là où la description varie d'un virement à l'autre.
+    merchant: label ?? description ?? type ?? "Mouvement du compte",
+    merchant_raw: description,
+    amount_cents: -entry.amount_cents,
+    currency: entry.currency,
+    category_raw: type === "" ? null : type,
+    status: entry.status,
+  };
+}
+
 // --- Factures ----------------------------------------------------------------
 
 export type NormalizedInvoice = {
