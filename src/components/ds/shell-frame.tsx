@@ -11,7 +11,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -104,12 +103,19 @@ export function ShellFrame({
                   {initial}
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56">
-                  <DropdownMenuLabel className="truncate font-normal">
+                  {/* Un `<div>` et non `DropdownMenuLabel` : celui-ci est un
+                      `Menu.GroupLabel`, que Base UI exige à l'intérieur d'un
+                      `Menu.Group`. Posé seul, il jetait l'erreur #31 à
+                      l'ouverture — le menu restait vide, et ni la gestion des
+                      accès ni la déconnexion n'étaient atteignables. Le nom du
+                      compte n'est de toute façon pas l'intitulé d'un groupe :
+                      c'est l'en-tête du menu. */}
+                  <div className="truncate px-2 py-1.5 text-sm">
                     <span className="type-caption block text-text-secondary">
                       Connecté en tant que
                     </span>
                     {email}
-                  </DropdownMenuLabel>
+                  </div>
                   <DropdownMenuSeparator />
                   {isOwner ? (
                     <DropdownMenuItem render={<Link href="/admin/acces" />}>

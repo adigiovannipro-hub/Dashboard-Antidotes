@@ -49,14 +49,16 @@ export const getAppNavigation = cache(async (): Promise<NavGroup[]> => {
 
   const moderation = await getModerationContext();
 
-  const workspacesOfType = (type: "client" | "business" | "personal") =>
+  // Plus de `"personal"` : le rail ne porte plus de section Perso, et laisser
+  // le cas ouvert aurait gardé une branche que rien n'emprunte.
+  const workspacesOfType = (type: "client" | "business") =>
     viewer.workspaces
       .filter((workspace) => workspace.type === type)
       .map(
         (workspace): NavEntry => ({
           href: `/espace/${workspace.slug}`,
           label: workspace.name,
-          icon: type === "client" ? "client" : type === "business" ? "entreprise" : "perso",
+          icon: type === "client" ? "client" : "entreprise",
           accent: workspace.accent_color,
           match: "prefix",
         }),
@@ -64,9 +66,21 @@ export const getAppNavigation = cache(async (): Promise<NavGroup[]> => {
 
   const groups: NavGroup[] = [
     {
+      // La Modération monte juste sous « Mon travail » : c'est le deuxième
+      // geste de la journée, pas un outil qu'on va chercher en bas du rail.
       title: "Aujourd'hui",
       entries: [
         { href: "/", label: "Mon travail", icon: "aujourdhui", match: "exact" },
+        ...(isModerationVisible(moderation.access)
+          ? ([
+              {
+                href: "/moderation",
+                label: "Modération",
+                icon: "moderation",
+                match: "prefix",
+              },
+            ] satisfies NavEntry[])
+          : []),
       ],
     },
     { title: "Clients", entries: workspacesOfType("client") },
@@ -98,32 +112,10 @@ export const getAppNavigation = cache(async (): Promise<NavGroup[]> => {
           : []),
       ],
     },
-    { title: "Perso", entries: workspacesOfType("personal") },
-    {
-      title: "Outils internes",
-      entries: [
-        ...(isModerationVisible(moderation.access)
-          ? ([
-              {
-                href: "/moderation",
-                label: "Modération",
-                icon: "moderation",
-                match: "prefix",
-              },
-            ] satisfies NavEntry[])
-          : []),
-        ...(viewer.isOwner
-          ? ([
-              {
-                href: "/admin/acces",
-                label: "Gestion des accès",
-                icon: "acces",
-                match: "prefix",
-              },
-            ] satisfies NavEntry[])
-          : []),
-      ],
-    },
+    // Plus de section « Perso » ni « Outils internes ». La première n'avait
+    // qu'une entrée ; la seconde a vu la Modération remonter et la Gestion des
+    // accès rejoindre le menu du compte, en haut à droite — un réglage de
+    // compte se cherche là, pas dans une navigation de travail.
   ];
 
   return groups.filter((group) => group.entries.length > 0);
