@@ -325,7 +325,126 @@ Trois règles d'exécution, héritées des pièges connus :
 
 ## Fiches par plateforme
 
-_(à compléter — recherches en cours)_
+Chaque fiche donne : ce que tu as à faire (des clics, pas du code), les
+secrets à me transmettre, ce que l'API fournit réellement, et la profondeur
+d'historique récupérable au premier branchement. Constat transversal : les
+API ne gardent presque rien — c'est la base locale qui fabrique l'« historique
+illimité », et chaque mois sans synchronisation est un trou définitif. D'où
+l'intérêt de lancer les démarches d'accès dès la phase 1.
+
+### Meta — Ads, Instagram, Facebook
+
+_(recherche en cours — fiche à venir)_
+
+### LinkedIn — organique et Ads
+
+Le produit qui couvre l'analytics organique des Pages est la **Community
+Management API** ; le reporting publicitaire passe par l'**Advertising API**
+(`adAnalytics`). Les deux se demandent sur la même app développeur, et un
+**seul jeton** — celui d'un membre admin des Pages clientes, donc toi —
+couvre tous les clients à la fois : pas d'OAuth par client.
+
+**Ce que tu as à faire :**
+
+1. Vérifier que la Page LinkedIn de l'agence existe et que tu en es super
+   admin — l'app développeur doit être **vérifiée par la Page** de
+   l'entreprise (LinkedIn n'accorde ce produit qu'aux entités enregistrées,
+   pas aux particuliers ; il faudra raison sociale, site web, politique de
+   confidentialité).
+2. Créer l'app sur `developer.linkedin.com`, l'associer à la Page, cliquer le
+   lien de vérification.
+3. Dans l'onglet Products, demander **Community Management API** et
+   **Advertising API**. Motif à déclarer : outil de reporting interne pour
+   les pages que l'agence administre. Délai annoncé : **jusqu'à 30 jours
+   ouvrés** (souvent moins) ; un questionnaire de vérification peut arriver,
+   à répondre sous 21 jours.
+4. Être admin de chaque Page cliente (déjà le cas) et avoir au moins un rôle
+   lecteur sur les comptes publicitaires clients.
+5. Au premier branchement : un écran OAuth à valider une fois (scopes
+   `r_organization_admin`, `r_ads`, `r_ads_reporting`), puis **une
+   reconnexion par an** — l'application te préviendra à l'approche de
+   l'échéance.
+
+**Secrets à me transmettre :** `Client ID` + `Client Secret` de l'app (onglet
+Auth). Le jeton, lui, naît de l'écran OAuth et vit chiffré en base
+(access token 60 jours, refresh token 365 jours, rafraîchi par la
+synchronisation quotidienne).
+
+**Ce que l'API donne** (→ ce qu'en font les écrans) :
+
+| Donnée | Endpoint | Historique |
+|---|---|---|
+| Abonnés totaux | `networkSizes` | instantané → relevé quotidien chez nous |
+| Abonnés gagnés (organique / payant) par jour | `organizationalEntityFollowerStatistics` | **12 mois glissants**, à J-2 |
+| Impressions, clics, likes, commentaires, partages des posts | `organizationalEntityShareStatistics` | **12 mois glissants** |
+| Vues de la Page (par section, desktop/mobile) | `organizationPageStatistics` | 12 mois probables |
+| Démographie des abonnés (secteur, fonction, séniorité, géo) | facettes follower statistics | instantané → snapshots `social_demographics` |
+| Ads : dépense, impressions, clics, conversions, leads | `adAnalytics` (pivot campagne/créa) | **10 mois** en quotidien, 2 ans en mensuel |
+
+**Pièges retenus :** l'accès démarre en palier « Development » (suffisant pour
+~10 clients en lecture) mais il faut passer au palier Standard sous 12 mois —
+formulaire + vidéo de démonstration, à anticiper. Le taux d'engagement fourni
+par LinkedIn est ignoré : on stocke les bruts et on recalcule, règle maison.
+L'en-tête de version (`LinkedIn-Version: YYYYMM`) se périme en ~1 an — le
+connecteur le remontera régulièrement. Enfin, si le refresh token n'était pas
+émis au premier échange (réservé en théorie aux apps approuvées), la
+reconnexion serait tous les 60 jours — on le saura au premier branchement, et
+l'alerte d'expiration couvre les deux cas.
+
+### TikTok — organique (puis Ads)
+
+Le produit qui convient est la **Business Account API** de TikTok API for
+Business (les comptes clients doivent être des comptes professionnels, déjà
+le cas). Contrairement à LinkedIn, l'autorisation est **par compte client** :
+chaque titulaire clique une fois par an sur un lien d'autorisation.
+
+**Ce que tu as à faire :**
+
+1. Créer un compte TikTok For Business au nom de l'agence, puis s'inscrire
+   comme développeur sur le portail (`business-api.tiktok.com/portal`) —
+   validation ~3 jours ouvrés.
+2. Créer l'app développeur (nom, logo obligatoire, URL de retour vers
+   l'application) et demander les scopes « TikTok Accounts » : infos de
+   compte, `user.insights`, `video.list`, `video.insights`. Revue manuelle :
+   quelques jours à deux semaines.
+3. Vérifier sur chaque compte client que l'onglet Analytics est activé dans
+   l'app TikTok (sinon l'API ne renvoie rien).
+4. Une fois l'app approuvée : envoyer à chaque client (ou cliquer toi-même si
+   tu détiens les identifiants) le **lien d'autorisation** de l'app — deux
+   minutes par compte, **à refaire chaque année** (l'application te
+   préviendra).
+
+**Secrets à me transmettre :** `Client ID` + `Client Secret` de l'app. Les
+jetons par compte naissent des autorisations (access token 24 h rafraîchi à
+chaque synchronisation, refresh token 1 an, chiffrés en base).
+
+**Ce que l'API donne :**
+
+| Donnée | Historique |
+|---|---|
+| Abonnés (total quotidien, gagnés / perdus par jour) | **60 jours maximum** |
+| Vues vidéo, vues de profil, likes, commentaires, partages, clics bio, par jour | **60 jours maximum** |
+| Par vidéo (lifetime) : vues, portée, watch time, complétion, nouveaux abonnés, sources d'impression | figées 365 j après publication |
+| Démographie d'audience (âge, genre, pays, villes — comptes ≥ 100 abonnés) | instantané → snapshots |
+
+**Pièges retenus :** le mur des **60 jours** est le plus dur de toutes les
+plateformes — brancher TikTok tôt, même si son dashboard arrive après, juste
+pour accumuler. `video_views` mélange organique et Spark Ads : l'écran le dira
+(« vues totales »), pas de faux « organique pur ». Les métriques riches d'une
+vidéo (portée, watch time) disparaissent si elle reste inactive plus de
+7 jours consécutifs : le connecteur garde la dernière valeur connue en base,
+il n'écrase jamais une valeur par du vide. Latence 24-48 h : la
+synchronisation re-upserte J-2 et J-1. **TikTok Ads** (Marketing API) attendra
+un client qui en fait : même app, autorisation annonceur séparée, historique
+profond (2016) par tranches de 30 jours — aucune urgence d'accumulation.
+
+### Site — Shopify et GA4
+
+_(recherche en cours — fiche à venir)_
+
+### Pinterest / Snapchat
+
+_(recherche en cours — fiche à venir)_
 
 ## Ce que ça coûte
 
