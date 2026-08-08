@@ -1,0 +1,59 @@
+# La synchronisation quotidienne du Reporting — toutes les plateformes.
+#
+# Même logique qu'Airwallex : la machine GitHub est l'endroit le moins
+# contraint (pas de plafond de durée, pas de cron Vercel Hobby consommé, et
+# l'ingestion est quotidienne même si la lecture des dashboards est
+# mensuelle — un point d'abonnés raté un 1er du mois serait irrécupérable).
+#
+# Un passage par jour à 5 h 37 UTC — minute décalée, les pleines heures sont
+# les moments où GitHub retarde le plus ses schedules. Tant qu'aucune source
+# n'est connectée, le passage se termine en quelques secondes sur « aucune
+# source à synchroniser ».
+#
+# Coût : ~30 exécutions de 1 à 3 minutes par mois, en plus des ~720 minutes
+# d'Airwallex — on reste large sous les 2 000 minutes gratuites.
+#
+# Secrets requis (Settings → Secrets and variables → Actions) :
+#   NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY,
+#   SUPABASE_SERVICE_ROLE_KEY — déjà en place pour Airwallex. Les jetons de
+#   plateformes s'ajouteront connecteur par connecteur (META_SYSTEM_USER_TOKEN
+#   en premier).
+
+name: Synchronisation Reporting
+
+on:
+  schedule:
+    - cron: "37 5 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: social-sync
+  cancel-in-progress: false
+
+jobs:
+  synchroniser:
+    name: Sources sociales
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.18.2
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Installation
+        run: pnpm install --frozen-lockfile
+
+      - name: Synchroniser le Reporting
+        run: pnpm sync
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
