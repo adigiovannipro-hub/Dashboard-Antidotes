@@ -232,6 +232,24 @@ async function main() {
       order by d.forwarded_at desc nulls last limit 10`);
     console.table(forwards);
 
+    /* Ce qui est réellement parti dans le mail. `pdf_origin` à « none »
+       signifie un transfert sans pièce jointe : Airwallex reçoit alors un
+       courrier sans rien à accrocher, et son silence n'a rien de mystérieux. */
+    console.log("═══ TRANSFERTS — la pièce jointe envoyée ═══");
+    const { rows: attachments } = await db.query(`
+      select merchant, pdf_origin::text, pdf_filename, pdf_size_bytes,
+             forwarded_message_id is not null as mail_parti
+      from receipt_documents
+      where forwarded_at is not null
+      order by forwarded_at desc limit 10`);
+    console.table(attachments);
+
+    console.log("═══ BOÎTES CONNECTÉES — adresse d'envoi et destination ═══");
+    const { rows: sources } = await db.query(`
+      select email_address, forward_to, status::text, last_polled_at::text
+      from receipt_sources`);
+    console.table(sources);
+
     const { rows: events } = await db.query(`
       select action, created_at::text
       from receipt_events order by created_at desc limit 12`);
