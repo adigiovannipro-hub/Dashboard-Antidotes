@@ -164,10 +164,11 @@ Même charpente que le gabarit Ads, mais le héros change de question :
 - **chiffre héros : abonnés** — total actuel et variation nette sur la
   période, avec la phrase de contexte (« +842 abonnés en juin, 24 512 au
   30 juin ») ;
-- tuiles : portée · vues · interactions · taux d'engagement (interactions ÷
-  portée, recalculé) · visites de profil · clics vers le site · publications
-  sur la période — adaptées par plateforme (les fiches plus bas listent ce
-  que chaque API donne réellement) ;
+- tuiles : portée · vues · interactions · comptes engagés · taux d'engagement
+  (interactions ÷ portée, recalculé) · abonnés gagnés / perdus · clics sur les
+  liens du profil · publications sur la période — adaptées par plateforme :
+  chaque API n'expose pas tout (les fiches plus bas listent le réel), et une
+  tuile sans donnée disparaît plutôt que d'afficher un faux zéro ;
 - courbe d'abonnés du réseau (quotidienne sur la période, mensuelle au long
   cours) ;
 - **Persona organique** quand la plateforme l'expose (démographie des
@@ -250,10 +251,14 @@ social_platform +  linkedin, pinterest, snapchat
 social_metrics_daily        (nouveau) — l'équivalent organique de
                             ad_metrics_daily. Grain jour × source, colonnes
                             additives uniquement : reach, views, interactions,
-                            likes, comments, shares, saves, profile_views,
-                            website_clicks, follows, posts_published.
-                            PK (data_source_id, date). Les taux (engagement…)
-                            sont recalculés à la lecture, jamais stockés.
+                            likes, comments, shares, saves, engaged_accounts,
+                            profile_views (TikTok, Page FB), profile_link_taps
+                            (IG), website_clicks (clics bio TikTok), follows,
+                            unfollows, posts_published. Chaque plateforme
+                            remplit ce qu'elle a ; les écrans n'affichent que
+                            ce qui existe. PK (data_source_id, date). Les taux
+                            (engagement…) sont recalculés à la lecture,
+                            jamais stockés.
 
 social_demographics         (nouveau) — instantanés de la démographie des
                             abonnés (le Persona organique). Grain jour ×
@@ -334,7 +339,77 @@ l'intérêt de lancer les démarches d'accès dès la phase 1.
 
 ### Meta — Ads, Instagram, Facebook
 
-_(recherche en cours — fiche à venir)_
+Un seul montage couvre les trois sources : une app de type « Business », un
+**utilisateur système** dans ton Business Manager, et un **jeton qui n'expire
+jamais**. Aucune revue d'app tant que l'outil ne sert que ton entreprise sur
+des actifs qu'elle possède ou gère en accès partenaire — le cas exact
+d'Antidotes. C'est la fiche prioritaire : elle débloque Bondet et la
+majorité des clients d'un coup.
+
+**Ce que tu as à faire (une fois, ~30 minutes dans Business Manager) :**
+
+1. Si Meta le réclame en chemin : vérification d'entreprise
+   (business.facebook.com → Centre de sécurité).
+2. `developers.facebook.com` → Créer une app → parcours « Autre » → type
+   **Business**, rattachée à ton Business Portfolio. Ajouter les produits
+   **Marketing API** et **Instagram** (variante « Facebook Login »). Passer
+   l'app en mode Live.
+3. Paramètres du Business → Utilisateurs → **Utilisateurs système** → créer
+   « robot-reporting » (rôle Employé suffit).
+4. Lui **attribuer les actifs** : les Pages clientes (accès « Analyser »),
+   les comptes publicitaires (« Consulter les performances »), et l'app
+   elle-même. Les comptes Instagram professionnels suivent automatiquement la
+   Page à laquelle ils sont liés.
+5. **Générer le jeton** : expiration « **Jamais** », permissions
+   `instagram_basic`, `instagram_manage_insights`, `pages_show_list`,
+   `pages_read_engagement`, `read_insights`, `ads_read`,
+   `business_management`. Le copier immédiatement (il ne sera plus jamais
+   affiché) et me le transmettre en secret.
+6. Pour chaque nouveau client ensuite : accès partenaire à ses actifs vers
+   ton Business Manager, puis rejouer l'étape 4. Rien d'autre — côté
+   application, le client apparaîtra dans le sélecteur de comptes de l'écran
+   admin.
+
+**Secrets à me transmettre :** ce seul jeton. Les identifiants de comptes se
+listent ensuite par API — c'est ce qui alimente le sélecteur « choisis la
+page / le compte » à la connexion d'un client.
+
+**Ce que l'API donne :**
+
+| Source | Contenu | Historique au branchement |
+|---|---|---|
+| Meta Ads (Insights) | dépense, impressions, portée, clics, achats et valeur, vues de page, par jour × campagne / ad set / ad ; Persona (âge, genre, région) ; répartition Facebook / Instagram (`publisher_platform`) | **37 mois** (à étaler en jobs asynchrones) |
+| Instagram organique | `views` (les ex-impressions), `reach`, `total_interactions` et le détail (likes, commentaires, partages, enregistrements), `accounts_engaged`, `profile_links_taps`, abonnements / désabonnements ; démographie des abonnés (âge, genre, pays, villes) en instantané ; par publication : vues, portée, interactions, visites de profil, watch time des Reels | **2 ans** (par tranches de 30 jours) |
+| Facebook organique | nouvelle famille « vues » de la Page et des posts, `page_post_engagements`, abonnés (`page_follows`) et gagnés / perdus par jour (`page_daily_follows_unique`), vues du profil de Page | **2 ans** (par tranches de ~90 jours) |
+| Abonnés | `followers_count` IG / `page_follows` FB — valeur du moment uniquement | néant → relevé quotidien chez nous + ton import CSV |
+
+**Ce qui n'existe plus (et qu'on ne promettra pas) :**
+
+- l'« impression » organique est morte — Instagram depuis avril 2025,
+  Facebook en deux vagues (novembre 2025, juin 2026). Le vocabulaire officiel
+  est « **vues** », le schéma stocke `views`, les écrans diront « Vues » ;
+- les visites de profil et clics vers le site **au niveau du compte
+  Instagram** (supprimés janvier 2025). Restent les clics sur les liens du
+  profil (`profile_links_taps`) et les visites de profil **par publication** ;
+- l'historique du total d'abonnés, définitivement (voir la décision
+  scraping) ;
+- `follower_count` en série quotidienne ne couvre que 30 jours et exige un
+  compte ≥ 100 abonnés — c'est un complément, pas une mémoire.
+
+**Pièges retenus :** latence de 24-48 h sur l'organique (le cron synchronise
+J-2 / J-1 et re-upserte une fenêtre glissante) ; les Stories ne sont lisibles
+que pendant leurs 24 h de vie (lues à chaque passage, tant pis pour le très
+éphémère) ; Meta a purgé des centaines de métriques de Page en 2024-2026 et
+les noms exacts des remplaçantes « vues » se figeront **contre le changelog
+officiel au moment du build**, pas contre des tutoriels antérieurs à
+juin 2026 ; depuis janvier 2026 les fenêtres d'attribution « vue 7 j / 28 j »
+ont disparu (les chiffres re-requêtés d'anciennes périodes ne recolleront pas
+exactement avec tes vieux rapports Looker — c'est Meta, pas nous) et le
+connecteur alignera ses chiffres sur Ads Manager via l'attribution unifiée ;
+la version d'API (v25.0 aujourd'hui) s'épingle dans chaque appel et se
+remonte une fois par an ; enfin le jeton « Jamais » meurt quand même si le
+secret de l'app tourne ou qu'un actif est désassigné — l'alerte de sync en
+échec est là pour ça.
 
 ### LinkedIn — organique et Ads
 
@@ -520,8 +595,9 @@ jamais sur la provenance d'un chiffre.
 
 Rien en euros, du délai en validations :
 
-- **GitHub Actions** : +1 run quotidien ≈ 3-5 min ≈ **120-150 min/mois**, sur
-  les ~1 280 restantes après Airwallex et la CI. Large.
+- **GitHub Actions** : +1 run quotidien ≈ 3-5 min ≈ **120-150 min/mois**. Le
+  budget mensuel passe à ~850-900 min sur les 2 000 gratuites du dépôt privé,
+  CI comprise — large.
 - **Supabase** : ~10 clients × ~100 lignes/jour ≈ 370 k lignes/an, quelques
   dizaines de Mo — des années de marge sur les 500 Mo.
 - **Vercel** : zéro cron ajouté, le créneau libre reste libre.
@@ -543,7 +619,9 @@ Rien en euros, du délai en validations :
 3. **Dashboards organiques + Vue d'ensemble** — gabarits Instagram / Facebook,
    Persona organique, courbe multi-réseaux.
 4. **LinkedIn + TikTok** — dès que les accès développeur sont accordés
-   (démarches lancées en phase 1 pour absorber le délai).
+   (démarches lancées en phase 1 pour absorber le délai). La **collecte**
+   démarre le jour de l'accès — leurs fenêtres de 12 mois et 60 jours
+   n'attendent pas — les écrans suivent.
 5. **Site + duplication outillée** — Shopify / GA4, formulaire « Créer un
    espace client » (modules + sources), tâche mensuelle « relevé manuel » dans
    Mon travail pour les plateformes non connectées. Pinterest / Snapchat à la
@@ -554,5 +632,32 @@ navigateur, et une preview Vercel à valider — c'est toi qui clôtures.
 
 ## Ce que j'attends de toi
 
-_(à compléter avec les fiches — la liste exacte des clés et des clics par
-plateforme)_
+Dans l'ordre. Les points 2 à 4 peuvent partir en parallèle — ce sont les
+délais d'approbation qui dictent le calendrier, pas le code.
+
+1. **Valider (ou corriger) les trois arbitrages** : sources cochables par
+   espace, organique / payant séparés et réunis par la vue d'ensemble, relevé
+   d'abonnés quotidien par l'API plutôt que scraping.
+2. **Meta — en premier** : les six étapes de la fiche (~30 min dans Business
+   Manager), puis me transmettre le jeton de l'utilisateur système. Ça
+   débloque Meta Ads + Instagram + Facebook pour tous les clients déjà en
+   accès partenaire.
+3. **LinkedIn — à lancer tôt** (jusqu'à 30 jours ouvrés d'attente) : créer
+   l'app, demander Community Management API + Advertising API, me transmettre
+   Client ID et Client Secret.
+4. **TikTok — à lancer tôt aussi** (~1 à 2 semaines) : compte développeur +
+   app avec les scopes Accounts, me transmettre Client ID et Client Secret,
+   et vérifier qu'Analytics est activé sur chaque compte client.
+5. **Shopify** : me dire quelles boutiques clientes sont concernées, puis un
+   token de custom app par boutique (fiche Site).
+6. **GA4** : rien à créer de ton côté — je te donnerai l'adresse e-mail du
+   compte de service à ajouter en « Lecteur » sur chaque propriété cliente.
+7. **Ton historique d'abonnés** : le fichier (ou le tableau) mois ×
+   plateforme × compte × valeur que tu tiens à la main aujourd'hui, pour
+   peupler les courbes d'avant-branchement via l'import CSV.
+8. Pinterest / Snapchat : rien pour l'instant — au premier client concerné.
+
+Les secrets transitent hors du repo (variables d'environnement Vercel +
+secrets GitHub Actions ; jetons par client chiffrés en base via
+`CREDENTIALS_ENCRYPTION_KEY`, déjà en place). Aucun nouveau service à ouvrir :
+tout atterrit dans le projet Supabase existant.
