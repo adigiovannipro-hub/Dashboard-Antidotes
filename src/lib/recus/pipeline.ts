@@ -8,6 +8,7 @@ import { extractReceipt } from "./extraction";
 import {
   getAttachment,
   getMessage,
+  htmlToText,
   listMessages,
   refreshAccessToken,
   sendMessage,
@@ -22,6 +23,7 @@ import {
   receiptFilename,
   renderHtmlToPdf,
 } from "./pdf";
+import { renderTextToPdf } from "./text-pdf";
 import {
   DEFAULT_SOURCE_SETTINGS,
   MAX_ATTACH_CHECKS,
@@ -720,24 +722,51 @@ async function buildReceiptFile(context: {
     };
   }
 
+  const filename = receiptFilename({
+    merchant: document.merchant,
+    documentDate: document.document_date,
+    invoiceNumber: document.invoice_number,
+  });
+
+  // Le rendu fidèle par navigateur d'abord : il conserve la mise en page du
+  // commerçant. Il n'aboutit que là où Playwright est réellement installé.
   if (message.html) {
     const rendered = await renderHtmlToPdf(message.html);
     if (rendered && rendered.length <= MAX_ATTACHMENT_BYTES) {
       return {
         origin: "rendered",
-        filename: receiptFilename({
-          merchant: document.merchant,
-          documentDate: document.document_date,
-          invoiceNumber: document.invoice_number,
-        }),
+        filename,
         contentType: "application/pdf",
         content: rendered,
       };
     }
   }
 
-  // Ni PDF joint, ni rendu possible : le mail part en texte. L'OCR d'Airwallex
-  // sait le lire, et c'est mieux que de perdre le justificatif.
+  /* À défaut, le mail devient un PDF de texte. C'est le cas courant — Grab et
+     la plupart des reçus n'envoient que du HTML — et c'était jusqu'ici un
+     transfert **sans pièce jointe** : Airwallex recevait un courrier vide de
+     justificatif et n'accrochait rien, indéfiniment. */
+  const body = message.text?.trim() || (message.html ? htmlToText(message.html) : "");
+  if (body !== "") {
+    const content = renderTextToPdf({
+      title: document.subject ?? "Reçu",
+      meta: [
+        document.merchant ? `Marchand : ${document.merchant}` : "",
+        document.amount_cents !== null && document.currency
+          ? `Montant : ${formatAmount(document.amount_cents, document.currency)}`
+          : "",
+        document.document_date ? `Date : ${document.document_date}` : "",
+        document.invoice_number ? `Facture : ${document.invoice_number}` : "",
+        `Source : ${message.fromName ?? message.fromEmail}`,
+      ],
+      body,
+    });
+    if (content.length <= MAX_ATTACHMENT_BYTES) {
+      return { origin: "rendered", filename, contentType: "application/pdf", content };
+    }
+  }
+
+  // Un mail sans corps exploitable : il part tel quel, sans pièce.
   return { origin: "none" };
 }
 
