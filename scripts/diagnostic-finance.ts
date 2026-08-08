@@ -197,6 +197,26 @@ async function main() {
       order by received_at desc limit 10`);
     console.table(pending);
 
+    console.log("═══ TRANSFERTS — pièces envoyées à Airwallex et leur sort ═══");
+    // `attach_checks` compte les passages de vérification écoulés ;
+    // `baseline` vs `attachments_maintenant` dit si la pièce s'est accrochée
+    // côté Airwallex depuis l'envoi.
+    const { rows: forwards } = await db.query(`
+      select d.merchant, d.status::text, d.forwarded_at::text,
+             d.attach_checks, d.expense_attachment_baseline as baseline,
+             e.attachment_count as attachments_maintenant,
+             d.failure_reason
+      from receipt_documents d
+      left join receipt_expenses e on e.id = d.expense_id
+      where d.status in ('queued', 'forwarded', 'attached', 'unmatched', 'failed')
+      order by d.forwarded_at desc nulls last limit 10`);
+    console.table(forwards);
+
+    const { rows: events } = await db.query(`
+      select action, created_at::text
+      from receipt_events order by created_at desc limit 12`);
+    console.table(events);
+
     console.log("═══ VESTIGES DE DÉMO ═══");
     const { rows: demo } = await db.query(`
       select 'comptes acct_antidotes' as quoi,
