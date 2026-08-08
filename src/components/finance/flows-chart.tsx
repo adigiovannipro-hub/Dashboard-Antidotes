@@ -12,22 +12,31 @@ import {
 } from "recharts";
 
 import { formatMoney, formatMoneyCompact } from "@/lib/finance/money";
-import type { MonthlyFlow } from "@/lib/finance/queries";
-import { FLOW_WINDOWS, type FlowWindow } from "@/lib/finance/types";
+import type { PeriodFlow } from "@/lib/finance/queries";
+import { FLOW_RANGES, type FlowRangeId } from "@/lib/finance/types";
 
 /**
- * Le wallet mois par mois : la **courbe verte est le solde** — cumulée, ancrée
- * sur le disponible réel, son dernier point est le montant du wallet
- * aujourd'hui. La **courbe rouge est ce qui sort** chaque mois, en
- * `--danger-ink` — le rouge de la pastille « à relancer », pas le rouge vif :
- * une sortie d'argent ordinaire n'est pas une alarme.
+ * Le wallet période par période : la **courbe verte est le solde** — cumulée,
+ * ancrée sur le disponible réel, son dernier point est le montant du wallet
+ * aujourd'hui. La **courbe rouge est ce qui sort**, en `--danger-ink` — le
+ * rouge de la pastille « à relancer », pas le rouge vif : une sortie d'argent
+ * ordinaire n'est pas une alarme.
  *
- * Un seul axe : les deux séries sont en EUR. Trois fenêtres — 3, 6 ou
- * 12 mois — toutes servies par les mêmes douze mois pré-calculés côté
- * serveur, le sélecteur est un simple changement d'état.
+ * Un seul axe : les deux séries sont en EUR. Quatre fenêtres — 7 jours, puis
+ * 3, 6 ou 12 mois. Les deux grains arrivent pré-calculés du serveur, le
+ * sélecteur est un simple changement d'état.
  */
-export function FlowsChart({ flows }: { flows: MonthlyFlow[] }) {
-  const [window, setWindow] = useState<FlowWindow>(6);
+export function FlowsChart({
+  months,
+  days,
+}: {
+  months: PeriodFlow[];
+  days: PeriodFlow[];
+}) {
+  const [range, setRange] = useState<FlowRangeId>("6m");
+  const current = FLOW_RANGES.find((candidate) => candidate.id === range)!;
+  const flows =
+    current.kind === "day" ? days.slice(-current.span) : months.slice(-current.span);
 
   return (
     <div className="space-y-3">
@@ -37,32 +46,32 @@ export function FlowsChart({ flows }: { flows: MonthlyFlow[] }) {
           aria-label="Fenêtre d'observation"
           className="bg-surface-sunken inline-flex rounded-lg p-0.5"
         >
-          {FLOW_WINDOWS.map((candidate) => (
+          {FLOW_RANGES.map((candidate) => (
             <button
-              key={candidate}
+              key={candidate.id}
               type="button"
-              aria-pressed={window === candidate}
-              onClick={() => setWindow(candidate)}
+              aria-pressed={range === candidate.id}
+              onClick={() => setRange(candidate.id)}
               className={
-                window === candidate
+                range === candidate.id
                   ? "bg-primary text-primary-foreground focus-visible:ring-ring type-caption rounded-md px-3 py-1 font-medium focus-visible:ring-2 focus-visible:outline-none"
                   : "text-text-secondary hover:text-text-primary focus-visible:ring-ring type-caption rounded-md px-3 py-1 font-medium focus-visible:ring-2 focus-visible:outline-none"
               }
             >
-              {candidate} mois
+              {candidate.label}
             </button>
           ))}
         </div>
 
-        <Legend />
+        <Legend kind={current.kind} />
       </div>
 
-      <Chart flows={flows.slice(-window)} />
+      <Chart flows={flows} kind={current.kind} />
     </div>
   );
 }
 
-function Legend() {
+function Legend({ kind }: { kind: "day" | "month" }) {
   return (
     <div className="flex flex-wrap items-center gap-4">
       <span className="type-caption text-text-secondary flex items-center gap-1.5">
@@ -79,15 +88,15 @@ function Legend() {
           className="h-0.5 w-4 rounded-pill"
           style={{ background: "var(--danger-ink)" }}
         />
-        Sorties du mois
+        {kind === "day" ? "Sorties du jour" : "Sorties du mois"}
       </span>
     </div>
   );
 }
 
-function Chart({ flows }: { flows: MonthlyFlow[] }) {
+function Chart({ flows, kind }: { flows: PeriodFlow[]; kind: "day" | "month" }) {
   const data = flows.map((flow) => ({
-    label: monthLabel(flow.month),
+    label: periodLabel(flow.period, kind),
     solde: flow.balance_cents,
     entrees: flow.in_cents,
     sorties: flow.out_cents,
@@ -98,7 +107,7 @@ function Chart({ flows }: { flows: MonthlyFlow[] }) {
     1_000,
   );
   /* Le plancher reste à zéro tant que le solde n'est jamais négatif : une
-     aire dont la base flotte ment sur les proportions. Un mois à découvert
+     aire dont la base flotte ment sur les proportions. Un jour à découvert
      ferait descendre le cadre, pas disparaître la courbe. */
   const bottom = Math.min(...data.map((point) => point.solde), 0);
 
@@ -168,7 +177,7 @@ function Chart({ flows }: { flows: MonthlyFlow[] }) {
             <Area
               type="monotone"
               dataKey="sorties"
-              name="Sorties du mois"
+              name="Sorties"
               stroke="var(--danger-ink)"
               strokeWidth={1.75}
               fill="url(#flux-sorties)"
@@ -214,16 +223,23 @@ function Chart({ flows }: { flows: MonthlyFlow[] }) {
   );
 }
 
-/* « mars 26 » — l'année car une fenêtre de douze mois la traverse toujours.
-   Fuseau explicite : sans lui, le libellé dépend de la machine qui rend. */
+/* « mars 26 » sur les mois — l'année, car une fenêtre de douze mois la
+   traverse toujours ; « ven. 8 » sur les jours. Fuseau explicite : sans lui,
+   le libellé dépend de la machine qui rend la page. */
 const MONTH_TICK = new Intl.DateTimeFormat("fr-FR", {
   month: "short",
   year: "2-digit",
   timeZone: "UTC",
 });
+const DAY_TICK = new Intl.DateTimeFormat("fr-FR", {
+  weekday: "short",
+  day: "numeric",
+  timeZone: "UTC",
+});
 
-function monthLabel(isoMonth: string): string {
-  const date = new Date(`${isoMonth}-01T00:00:00.000Z`);
-  if (Number.isNaN(date.getTime())) return isoMonth;
-  return MONTH_TICK.format(date);
+function periodLabel(period: string, kind: "day" | "month"): string {
+  const iso = kind === "day" ? `${period}T00:00:00.000Z` : `${period}-01T00:00:00.000Z`;
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return period;
+  return kind === "day" ? DAY_TICK.format(date) : MONTH_TICK.format(date);
 }

@@ -17,6 +17,7 @@ import { formatMoney } from "@/lib/finance/money";
 import { parseExpenseParams } from "@/lib/finance/params";
 import { merchantKey } from "@/lib/finance/merchant-logo";
 import {
+  getDailyFlows,
   getExpenseSummary,
   getMonthlyFlows,
   getMerchantLogoUrls,
@@ -58,7 +59,8 @@ export default async function FinancePage({
   const treasury = await getTreasury(context.orgId);
 
   const [
-    flows,
+    monthlyFlows,
+    dailyFlows,
     invoices,
     categories,
     rules,
@@ -68,6 +70,10 @@ export default async function FinancePage({
     cookieStore,
   ] = await Promise.all([
     getMonthlyFlows({
+      orgId: context.orgId,
+      balanceNowCents: treasury.total_cents,
+    }),
+    getDailyFlows({
       orgId: context.orgId,
       balanceNowCents: treasury.total_cents,
     }),
@@ -201,10 +207,10 @@ export default async function FinancePage({
         <Panel>
           <PanelHeader
             title="Entrées et sorties"
-            description="Le solde du wallet en vert, ce qui en sort en rouge, mois par mois."
+            description="Le solde du wallet en vert, ce qui en sort en rouge."
           />
           <PanelBody>
-            <FlowsChart flows={flows} />
+            <FlowsChart months={monthlyFlows} days={dailyFlows} />
           </PanelBody>
         </Panel>
       </div>

@@ -220,9 +220,22 @@ export const SOURCE_LABELS: Record<FinanceTransactionSource, string> = {
 
 // --- Fenêtres de la courbe -------------------------------------------------
 
-/** Fenêtres d'observation du solde et des sorties, en mois. */
-export const FLOW_WINDOWS = [3, 6, 12] as const;
-export type FlowWindow = (typeof FLOW_WINDOWS)[number];
+/**
+ * Fenêtres d'observation du solde et des sorties.
+ *
+ * Deux grains, pas un : à l'échelle du mois, une course à 7 € disparaît — la
+ * fenêtre courte est là pour la semaine qui vient de passer. `span` compte
+ * des jours ou des mois selon `kind`.
+ */
+export const FLOW_RANGES = [
+  { id: "7j", label: "7 j", kind: "day", span: 7 },
+  { id: "3m", label: "3 mois", kind: "month", span: 3 },
+  { id: "6m", label: "6 mois", kind: "month", span: 6 },
+  { id: "12m", label: "12 mois", kind: "month", span: 12 },
+] as const;
+
+export type FlowRange = (typeof FLOW_RANGES)[number];
+export type FlowRangeId = FlowRange["id"];
 
 export type FinanceMerchantLogo = {
   id: string;
