@@ -197,6 +197,26 @@ async function main() {
       order by received_at desc limit 10`);
     console.table(pending);
 
+    console.log("═══ DÉPENSES — par nature de sortie ═══");
+    const { rows: bySource } = await db.query(`
+      select source::text, count(*)::int as n,
+             sum(billing_amount_cents) filter (where billing_currency = 'EUR')::bigint
+               as debit_eur_cents,
+             count(*) filter (where category_id is not null)::int as rangees
+      from finance_transactions group by 1 order by 2 desc`);
+    console.table(bySource);
+
+    console.log("═══ DÉPENSES — dernières sorties du compte (virements, frais) ═══");
+    const { rows: ledgerExpenses } = await db.query(`
+      select t.merchant, t.merchant_raw, (t.amount_cents / 100.0)::text as montant,
+             t.currency, t.occurred_at::date::text as date, t.category_raw,
+             c.name as categorie
+      from finance_transactions t
+      left join finance_categories c on c.id = t.category_id
+      where t.source = 'ledger'
+      order by t.occurred_at desc limit 8`);
+    console.table(ledgerExpenses);
+
     console.log("═══ TRANSFERTS — pièces envoyées à Airwallex et leur sort ═══");
     // `attach_checks` compte les passages de vérification écoulés ;
     // `baseline` vs `attachments_maintenant` dit si la pièce s'est accrochée
