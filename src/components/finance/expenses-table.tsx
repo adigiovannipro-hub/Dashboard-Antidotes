@@ -218,7 +218,7 @@ export function ExpensesTable({
                       <StatusBadge status={row.status} />
                     </TableCell>
                     <TableCell>
-                      <ReceiptBadge present={row.has_receipt} />
+                      <ReceiptBadge row={row} />
                     </TableCell>
                   </TableRow>
                 ))}
@@ -240,7 +240,7 @@ export function ExpensesTable({
                     {row.category_label ? ` · ${row.category_label}` : ""}
                   </span>
                   <StatusBadge status={row.status} />
-                  <ReceiptBadge present={row.has_receipt} />
+                  <ReceiptBadge row={row} />
                 </div>
               </li>
             ))}
@@ -355,6 +355,13 @@ function Merchant({ row }: { row: DisplayExpense }) {
             Carte •••• {row.card_last_four}
           </p>
         ) : null}
+        {/* Un virement n'a pas de carte : sa deuxième ligne dit le
+            bénéficiaire, sans quoi dix « Virement émis » se ressemblent. */}
+        {!row.card_last_four && row.source === "ledger" && row.merchant_raw ? (
+          <p className="type-caption text-text-secondary hidden truncate md:block">
+            {row.merchant_raw}
+          </p>
+        ) : null}
       </div>
     </div>
   );
@@ -388,10 +395,17 @@ function StatusBadge({ status }: { status: string | null }) {
   return <StatusPill tone={TONES[tone]}>{label}</StatusPill>;
 }
 
-function ReceiptBadge({ present }: { present: boolean }) {
+/* Un virement émis ou des frais bancaires n'attendent aucun justificatif :
+   les marquer « Manquant » réclamerait éternellement une pièce qui n'existe
+   pas. La colonne dit « sans objet », et le compteur de la bande haute les
+   écarte de la même façon. */
+function ReceiptBadge({ row }: { row: DisplayExpense }) {
+  if (row.source === "ledger") {
+    return <StatusPill tone="neutral">Sans objet</StatusPill>;
+  }
   return (
-    <StatusPill tone={present ? "positive" : "warning"}>
-      {present ? "Reçu" : "Manquant"}
+    <StatusPill tone={row.has_receipt ? "positive" : "warning"}>
+      {row.has_receipt ? "Reçu" : "Manquant"}
     </StatusPill>
   );
 }

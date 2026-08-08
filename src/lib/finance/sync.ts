@@ -9,6 +9,7 @@ import {
   listLedgerEntries,
 } from "./airwallex";
 import { DEFAULT_CATEGORIES, resolveCategory } from "./categories";
+import { ledgerOutflowToExpense } from "./normalize";
 import { syncMerchantLogos } from "./logos";
 import type {
   FinanceCategory,
@@ -301,11 +302,13 @@ async function applyCategoryRules(
 // --- Grand livre -------------------------------------------------------------
 
 async function syncLedger(orgId: string): Promise<number> {
+  const admin = createAdminClient();
+
   const fromDate = new Date(Date.now() - LEDGER_LOOKBACK_DAYS * 24 * 3_600_000);
   const entries = await listLedgerEntries({ fromDate });
   if (entries.length === 0) return 0;
 
-  const { error } = await createAdminClient().from("finance_ledger_entries").upsert(
+  const { error } = await admin.from("finance_ledger_entries").upsert(
     entries.map((entry) => ({
       org_id: orgId,
       external_id: entry.external_id,
@@ -325,7 +328,77 @@ async function syncLedger(orgId: string): Promise<number> {
   );
   if (error) throw new Error(`Grand livre : ${error.message}`);
 
+  await mirrorLedgerOutflows(orgId, entries);
+
   return entries.length;
+}
+
+/**
+ * Les sorties du grand livre — virements émis, frais — rejoignent le tableau
+ * des dépenses.
+ *
+ * Sans cela, un virement par RIB ne s'affichait nulle part : la courbe le
+ * voyait sortir du wallet, le tableau ne le connaissait pas. Les mouvements
+ * de carte sont écartés par `ledgerOutflowToExpense` — ils arrivent déjà par
+ * l'API Spend, avec leur marchand et leurs deux devises.
+ *
+ * `has_receipt` reste `false` — c'est la vérité, aucune pièce n'est attachée.
+ * C'est la **lecture** qui sait qu'un virement n'en attend pas : le compteur
+ * « sans reçu » les écarte et l'écran affiche « sans objet » plutôt qu'un
+ * manque. Mentir dans la colonne pour arranger un compteur se paierait
+ * partout ailleurs, à commencer par l'export comptable.
+ */
+async function mirrorLedgerOutflows(
+  orgId: string,
+  entries: readonly {
+    external_id: string;
+    occurred_at: string;
+    amount_cents: number;
+    currency: string;
+    transaction_type: string | null;
+    description: string | null;
+    status: string | null;
+  }[],
+): Promise<void> {
+  const outflows = entries
+    .map(ledgerOutflowToExpense)
+    .filter((entry): entry is NonNullable<typeof entry> => entry !== null);
+  if (outflows.length === 0) return;
+
+  const admin = createAdminClient();
+
+  const { error } = await admin.from("finance_transactions").upsert(
+    outflows.map((outflow) => ({
+      org_id: orgId,
+      external_id: outflow.external_id,
+      occurred_at: outflow.occurred_at,
+      merchant: outflow.merchant,
+      merchant_raw: outflow.merchant_raw,
+      amount_cents: outflow.amount_cents,
+      currency: outflow.currency,
+      /* Le débit vaut le montant : un mouvement du compte est déjà dans la
+         devise du wallet, il n'y a pas de conversion à afficher. */
+      billing_amount_cents: outflow.amount_cents,
+      billing_currency: outflow.currency,
+      category_raw: outflow.category_raw,
+      status: outflow.status,
+      source: "ledger",
+      has_receipt: false,
+      synced_at: new Date().toISOString(),
+    })) as never,
+    { onConflict: "org_id,external_id" },
+  );
+  if (error) throw new Error(`Sorties du compte : ${error.message}`);
+
+  await applyCategoryRules(
+    orgId,
+    outflows.map((outflow) => ({
+      external_id: outflow.external_id,
+      category_raw: outflow.category_raw,
+      merchant: outflow.merchant,
+      merchant_raw: outflow.merchant_raw,
+    })),
+  );
 }
 
 // --- Factures ----------------------------------------------------------------

@@ -11,7 +11,13 @@
 
 export type FinanceInvoiceStatus = "draft" | "sent" | "paid" | "void";
 
-export type FinanceTransactionSource = "airwallex" | "whatsapp" | "manual";
+/** `ledger` : une sortie du grand livre — virement émis, frais — par
+    opposition à `airwallex`, qui désigne une dépense **carte**. */
+export type FinanceTransactionSource =
+  | "airwallex"
+  | "ledger"
+  | "whatsapp"
+  | "manual";
 
 export type FinanceReceiptSource = "whatsapp" | "manual" | "email";
 
@@ -213,7 +219,8 @@ export function transactionStatusLabel(status: string | null): {
 }
 
 export const SOURCE_LABELS: Record<FinanceTransactionSource, string> = {
-  airwallex: "Airwallex",
+  airwallex: "Carte Airwallex",
+  ledger: "Compte Airwallex",
   whatsapp: "WhatsApp",
   manual: "Saisie manuelle",
 };

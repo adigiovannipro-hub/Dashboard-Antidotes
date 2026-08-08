@@ -340,7 +340,11 @@ function expenseQuery(
   } else if (filters.categoryId) {
     query = query.eq("category_id", filters.categoryId);
   }
-  if (filters.missingReceipt) query = query.eq("has_receipt", false);
+  // Même exclusion que le compteur : un virement n'a pas de justificatif
+  // manquant, il n'en attend pas.
+  if (filters.missingReceipt) {
+    query = query.eq("has_receipt", false).neq("source", "ledger");
+  }
 
   const ascending = sort.direction === "asc";
   if (sort.field === "billing") {
@@ -450,11 +454,15 @@ export async function getExpenseSummary(
       .gte("occurred_at", monthStart)
       .lt("occurred_at", nextMonthStart)
       .limit(1000),
+    /* Les sorties du compte — virements émis, frais — n'attendent aucun
+       justificatif : les compter réclamerait éternellement une pièce qui
+       n'existe pas. */
     supabase
       .from("finance_transactions")
       .select("id")
       .eq("org_id", orgId)
       .eq("has_receipt", false)
+      .neq("source", "ledger")
       .limit(1000),
   ]);
 

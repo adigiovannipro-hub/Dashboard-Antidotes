@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  ledgerOutflowToExpense,
   mapInvoiceStatus,
   normalizeBalance,
   normalizeFinanceExpense,
@@ -156,6 +157,67 @@ describe("normalizeLedgerEntry", () => {
       normalizeLedgerEntry({ id: "ft_3", currency: "EUR", created_at: "2026-08-01T00:00:00Z" }),
     ).toBeNull();
     expect(normalizeLedgerEntry({ id: "ft_4", amount: 5, currency: "EUR" })).toBeNull();
+  });
+});
+
+describe("ledgerOutflowToExpense", () => {
+  const payout = {
+    external_id: "ft_9",
+    occurred_at: "2026-08-07T09:00:00.000Z",
+    amount_cents: -100_000,
+    currency: "EUR",
+    transaction_type: "PAYOUT",
+    description: "Virement vers PT Nusa",
+    status: "SETTLED",
+  };
+
+  it("transforme un virement émis en dépense, montant rendu positif", () => {
+    expect(ledgerOutflowToExpense(payout)).toEqual({
+      external_id: "ledger:ft_9",
+      occurred_at: "2026-08-07T09:00:00.000Z",
+      merchant: "Virement émis",
+      merchant_raw: "Virement vers PT Nusa",
+      amount_cents: 100_000,
+      currency: "EUR",
+      category_raw: "PAYOUT",
+      status: "SETTLED",
+    });
+  });
+
+  it("écarte les mouvements de carte, déjà présents par l'API Spend", () => {
+    // Sans cette exclusion, chaque achat apparaîtrait deux fois : une ligne
+    // Spend avec son marchand, une ligne comptable avec le même montant.
+    for (const type of [
+      "ISSUING_CAPTURE",
+      "ISSUING_AUTHORISATION_HOLD",
+      "issuing_capture",
+    ]) {
+      expect(
+        ledgerOutflowToExpense({ ...payout, transaction_type: type }),
+      ).toBeNull();
+    }
+  });
+
+  it("écarte les entrées : une rentrée d'argent n'est pas une dépense", () => {
+    expect(
+      ledgerOutflowToExpense({ ...payout, amount_cents: 250_000 }),
+    ).toBeNull();
+    expect(ledgerOutflowToExpense({ ...payout, amount_cents: 0 })).toBeNull();
+  });
+
+  it("nomme les frais bancaires même sans description", () => {
+    const fee = ledgerOutflowToExpense({
+      ...payout,
+      amount_cents: -1_530,
+      transaction_type: "FEE",
+      description: null,
+    });
+    expect(fee?.merchant).toBe("Frais Airwallex");
+    expect(fee?.merchant_raw).toBeNull();
+  });
+
+  it("préfixe l'identifiant : grand livre et dépenses sont deux ressources", () => {
+    expect(ledgerOutflowToExpense(payout)?.external_id).toBe("ledger:ft_9");
   });
 });
 
