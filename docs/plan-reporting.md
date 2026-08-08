@@ -440,11 +440,81 @@ profond (2016) par tranches de 30 jours — aucune urgence d'accumulation.
 
 ### Site — Shopify et GA4
 
-_(recherche en cours — fiche à venir)_
+Deux connecteurs indépendants, cochables séparément ; un client peut avoir
+l'un, l'autre, ou les deux.
 
-### Pinterest / Snapchat
+**Shopify (CA, commandes, panier moyen).** Attention, la procédure a changé
+au 1er janvier 2026 : les « custom apps » ne se créent plus dans l'admin de
+la boutique mais via le **Dev Dashboard** Shopify. Par boutique cliente :
 
-_(recherche en cours — fiche à venir)_
+1. Être invité comme collaborateur de la boutique avec la permission
+   « Apps » (ou faire faire les clics au client).
+2. Admin Shopify → Settings → Apps → Develop apps → « Build apps in Dev
+   Dashboard » : créer l'app, scopes `read_orders` + `read_products`
+   (+ `read_reports` pour tenter les sessions), distribution « custom »,
+   installer sur la boutique.
+3. Me transmettre l'**Admin API access token** généré — il est **permanent**
+   tant que l'app reste installée, aucun renouvellement à gérer.
+
+Limites à connaître : `read_orders` ne remonte que **60 jours** de commandes —
+le backfill au-delà exige le scope `read_all_orders`, soumis à approbation
+Shopify (on la demandera si l'historique long compte pour ce client ; sinon le
+cron quotidien accumule et le problème disparaît de lui-même). Les
+**sessions** de la boutique sont théoriquement exposées depuis fin 2025
+(`shopifyqlQuery`, dataset `sessions`) mais l'accès est capricieux (conditions
+de plan incertaines, refus rapportés) : on le teste tôt sur la vraie boutique,
+et **GA4 est le plan B assumé** pour le trafic.
+
+**GA4 (sessions, visiteurs, sources de trafic, conversions).** La plus simple
+de toutes les intégrations — aucun jeton à rafraîchir, jamais :
+
+1. Une fois : je crée le projet Google Cloud + le **compte de service**, et je
+   te donne son adresse e-mail (la clé JSON va dans les secrets).
+2. Par client (2 minutes, faisable par le client) : GA4 → Admin → Gestion de
+   l'accès à la propriété → ajouter cette adresse en **Lecteur**. C'est tout.
+3. L'historique récupérable couvre **toute la vie de la propriété** (la
+   Data API n'est pas limitée par le réglage de rétention) : seul connecteur
+   où le backfill est complet dès le premier jour.
+
+Métriques : `sessions`, visiteurs, pages vues, sources / canaux, et
+`keyEvents` (le nom actuel des conversions GA4). Les chiffres GA4 et Shopify
+ne concordent jamais exactement (adblockers, consentement) : chaque chiffre
+affichera sa source, pas de fusion.
+
+### Pinterest — organique et Ads
+
+Prêt dans le catalogue, à activer au premier client concerné. L'accès
+« Trial » est immédiat (création d'app sur `developers.pinterest.com`,
+1 000 requêtes/jour — assez pour démarrer) ; le palier « Standard » se
+demande ensuite avec une vidéo de démonstration (délai constaté : 1 à
+4 semaines, parfois plus). OAuth par compte, access token 30 jours, refresh
+« continu » à fenêtre de 60 jours — la synchronisation quotidienne le fait
+tourner, et un arrêt de plus de 60 jours impose de refaire l'OAuth.
+
+Ce que l'API donne : impressions, engagements, clics sortants,
+enregistrements (90 jours d'historique **maximum** en organique — encore un
+cas où brancher tôt est la seule mémoire) ; par épingle, mêmes métriques
++ vidéo ; abonnés en **instantané uniquement** → relevé quotidien chez nous ;
+Ads dans la même API avec un historique profond (~2,5 ans) via les rapports
+asynchrones. Piège : les montants publicitaires arrivent en **micro-unités**
+(à diviser par 10⁶ avant stockage).
+
+### Snapchat — Ads automatisé, organique assumé manuel
+
+**Snapchat Ads** : accès ouvert, sans dossier — une OAuth App se crée dans le
+Business Manager Snap (redirect URI, `client_id` + `client_secret` à me
+transmettre), un seul jeton voit tous les comptes publicitaires accessibles à
+ton compte, et le **refresh token n'expire jamais**. Métriques complètes
+(dépense, impressions, swipes, vues vidéo, conversions et leur valeur),
+historique ≥ 2 ans par tranches d'un mois, montants en micro-devise.
+
+**Snapchat organique** : la « Public Profile API » existe mais est réservée à
+une **allowlist de partenaires** (Sprinklr, Emplifi…) négociée avec un
+contact commercial Snap — inaccessible à une agence de notre taille, et le
+scraping est exclu par principe. Réponse assumée : **relevé mensuel manuel**
+via la tâche générée dans « Mon travail » (abonnés + vues de Story saisis en
+deux minutes), affiché avec son origine `manual` — le dashboard ne ment
+jamais sur la provenance d'un chiffre.
 
 ## Ce que ça coûte
 
