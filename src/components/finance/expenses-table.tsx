@@ -355,10 +355,17 @@ function Merchant({ row }: { row: DisplayExpense }) {
             Carte •••• {row.card_last_four}
           </p>
         ) : null}
-        {/* Un virement n'a pas de carte : sa deuxième ligne dit le
-            bénéficiaire, sans quoi dix « Virement émis » se ressemblent. */}
+        {/* Un virement n'a pas de carte : sa deuxième ligne dit à qui il est
+            parti et pourquoi, sans quoi dix « Virement émis » se ressemblent.
+            Visible au téléphone, contrairement au numéro de carte : c'est ici
+            la vraie identité de la ligne, pas un détail. */}
         {!row.card_last_four && row.source === "ledger" && row.merchant_raw ? (
-          <p className="type-caption text-text-secondary hidden truncate md:block">
+          // `title` : une référence bancaire dépasse souvent la largeur de la
+          // colonne, et l'ellipse ne doit pas la rendre inaccessible.
+          <p
+            title={row.merchant_raw}
+            className="type-caption text-text-secondary truncate"
+          >
             {row.merchant_raw}
           </p>
         ) : null}

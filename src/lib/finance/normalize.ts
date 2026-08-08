@@ -264,6 +264,45 @@ const LEDGER_TYPE_LABELS: Record<string, string> = {
   refund: "Remboursement",
 };
 
+/* Airwallex décrit un virement par une phrase toute faite :
+   « Pay 20437926.30 IDR to DI GIOVANNI (Juillet) ». Le montant y est répété —
+   il est déjà dans sa colonne, en euros — et la référence, seule information
+   qui dise *pourquoi* le virement est parti, est noyée en fin de ligne. */
+const PAYOUT_SENTENCE = /^pay\s+[\d\s.,]+[a-z]{3}\s+to\s+(.+)$/i;
+const TRAILING_REFERENCE = /^(.*?)\s*\(([^)]*)\)\s*$/;
+
+/**
+ * « Bénéficiaire — objet », depuis la phrase d'Airwallex.
+ *
+ * La description d'origine n'est pas perdue pour autant : elle reste intacte
+ * dans `finance_ledger_entries.description`, dont cette table n'est qu'une
+ * projection lisible.
+ */
+export function describeLedgerMovement(description: string | null): string | null {
+  const text = toText(description);
+  if (!text) return null;
+
+  const paid = PAYOUT_SENTENCE.exec(text);
+  if (!paid) return text;
+
+  const rest = paid[1]!.trim();
+  const withReference = TRAILING_REFERENCE.exec(rest);
+  if (!withReference) return rest;
+
+  const beneficiary = withReference[1]!.trim();
+  const reference = withReference[2]!.trim();
+
+  // Une référence qui répète le bénéficiaire n'ajoute rien.
+  if (
+    reference === "" ||
+    reference.toLowerCase() === beneficiary.toLowerCase()
+  ) {
+    return beneficiary;
+  }
+
+  return `${beneficiary} — ${reference}`;
+}
+
 export function ledgerOutflowToExpense(entry: {
   external_id: string;
   occurred_at: string;
@@ -279,7 +318,7 @@ export function ledgerOutflowToExpense(entry: {
   if (type.toUpperCase().startsWith("ISSUING")) return null;
 
   const label = LEDGER_TYPE_LABELS[type.toLowerCase()];
-  const description = toText(entry.description);
+  const description = describeLedgerMovement(entry.description);
 
   return {
     external_id: `ledger:${entry.external_id}`,

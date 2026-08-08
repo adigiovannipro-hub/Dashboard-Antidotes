@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  describeLedgerMovement,
   ledgerOutflowToExpense,
   mapInvoiceStatus,
   normalizeBalance,
@@ -160,6 +161,45 @@ describe("normalizeLedgerEntry", () => {
   });
 });
 
+describe("describeLedgerMovement", () => {
+  it("rend « bénéficiaire — objet » depuis la phrase d'Airwallex", () => {
+    // Les quatre libellés réels du compte, au 8 août.
+    expect(
+      describeLedgerMovement("Pay 20437926.30 IDR to DI GIOVANNI (Juillet)"),
+    ).toBe("DI GIOVANNI — Juillet");
+    expect(
+      describeLedgerMovement(
+        "Pay 1800.00 EUR to Interactive Brokers LLC (U20399857 / ANTIDOTES Limited)",
+      ),
+    ).toBe("Interactive Brokers LLC — U20399857 / ANTIDOTES Limited");
+  });
+
+  it("tait une référence qui répète le bénéficiaire", () => {
+    expect(
+      describeLedgerMovement("Pay 1200.00 EUR to ANTIDOTES Limited (ANTIDOTES Limited )"),
+    ).toBe("ANTIDOTES Limited");
+  });
+
+  it("garde le bénéficiaire seul quand il n'y a pas de référence", () => {
+    expect(describeLedgerMovement("Pay 500.00 EUR to Catherine Osti")).toBe(
+      "Catherine Osti",
+    );
+  });
+
+  it("laisse intacte une description d'une autre forme", () => {
+    // Les frais parlent du compte crédité, pas d'un bénéficiaire : rien à
+    // reformuler, et inventer une structure serait pire que de recopier.
+    expect(
+      describeLedgerMovement("Deposit to account DE68202208000046374258"),
+    ).toBe("Deposit to account DE68202208000046374258");
+  });
+
+  it("rend null sur une description absente ou vide", () => {
+    expect(describeLedgerMovement(null)).toBeNull();
+    expect(describeLedgerMovement("   ")).toBeNull();
+  });
+});
+
 describe("ledgerOutflowToExpense", () => {
   const payout = {
     external_id: "ft_9",
@@ -167,7 +207,7 @@ describe("ledgerOutflowToExpense", () => {
     amount_cents: -100_000,
     currency: "EUR",
     transaction_type: "PAYOUT",
-    description: "Virement vers PT Nusa",
+    description: "Pay 17500000.00 IDR to PT Nusa (Loyer)",
     status: "SETTLED",
   };
 
@@ -176,7 +216,7 @@ describe("ledgerOutflowToExpense", () => {
       external_id: "ledger:ft_9",
       occurred_at: "2026-08-07T09:00:00.000Z",
       merchant: "Virement émis",
-      merchant_raw: "Virement vers PT Nusa",
+      merchant_raw: "PT Nusa — Loyer",
       amount_cents: 100_000,
       currency: "EUR",
       category_raw: "PAYOUT",
