@@ -14,12 +14,24 @@ export type DataProvider =
   | "meta_ads"
   | "meta_organic"
   | "tiktok_ads"
-  | "tiktok_organic";
+  | "tiktok_organic"
+  | "instagram_organic"
+  | "facebook_organic"
+  | "linkedin_organic"
+  | "linkedin_ads"
+  | "ga4";
 export type DataSourceStatus = "pending" | "connected" | "error" | "disabled";
 export type SyncStatus = "running" | "success" | "error";
 export type AdLevel = "campaign" | "adset" | "ad";
 export type BreakdownType = "age" | "gender" | "region";
-export type SocialPlatform = "instagram" | "facebook" | "tiktok";
+export type SocialPlatform = "instagram" | "facebook" | "tiktok" | "linkedin";
+export type AudienceDimension =
+  | "age"
+  | "gender"
+  | "city"
+  | "country"
+  | "industry"
+  | "job_function";
 
 export type Workspace = {
   id: string;
@@ -130,6 +142,7 @@ export type AdMetricsDaily = {
   comments: number;
   saves: number;
   shares: number;
+  leads: number;
   updated_at: string;
 }
 
@@ -171,6 +184,40 @@ export type SocialPost = {
   comments: number;
   saves: number;
   shares: number;
+  updated_at: string;
+}
+
+export type SocialMetricsDaily = {
+  data_source_id: string;
+  workspace_id: string;
+  platform: SocialPlatform;
+  date: string;
+  reach: number;
+  views: number;
+  interactions: number;
+  likes: number;
+  comments: number;
+  shares: number;
+  saves: number;
+  engaged_accounts: number;
+  profile_views: number;
+  profile_link_taps: number;
+  website_clicks: number;
+  follows: number;
+  unfollows: number;
+  posts_published: number;
+  updated_at: string;
+}
+
+export type SocialDemographic = {
+  data_source_id: string;
+  workspace_id: string;
+  platform: SocialPlatform;
+  date: string;
+  dimension: AudienceDimension;
+  value: string;
+  followers_count: number | null;
+  followers_share: number | null;
   updated_at: string;
 }
 
@@ -564,6 +611,8 @@ export type Database = {
       ad_breakdowns_daily: Table<AdBreakdownDaily>;
       social_followers: Table<SocialFollowers>;
       social_posts: Table<SocialPost>;
+      social_metrics_daily: Table<SocialMetricsDaily>;
+      social_demographics: Table<SocialDemographic>;
       dashboards: Table<Dashboard>;
       share_links: Table<ShareLink>;
       audit_log: Table<AuditLogEntry>;
