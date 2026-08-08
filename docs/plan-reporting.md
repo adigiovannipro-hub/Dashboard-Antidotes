@@ -26,7 +26,8 @@ Le besoin, tel qu'exprimé :
   automatiquement, avec le point de fin de mois enregistré au 1er du mois
   suivant.
 
-La cible, dans la continuité du Planning Éditorial :
+La cible, dans la continuité du Planning Éditorial — révisée après retours
+(pas de vue d'ensemble, le moins d'onglets possible, un par plateforme) :
 
 ```
 Espace client
@@ -34,13 +35,10 @@ Espace client
 │   ├── PE 2026
 │   └── FAQ
 └── Reporting                   ← ce chantier
-    ├── Vue d'ensemble          (toujours là)
-    ├── Meta Ads                ─┐
-    ├── Instagram               │ uniquement les sources
-    ├── Facebook                │ cochées pour ce client :
-    ├── TikTok                  │ pas d'onglet vide,
-    ├── LinkedIn                │ pas d'écran mort
-    └── Site                    ─┘
+    ├── Meta                    ─┐ payant + organique sur
+    ├── TikTok                  │ la même page ; seules
+    ├── LinkedIn                │ les plateformes cochées
+    └── Site                    ─┘ pour ce client
 ```
 
 Même mécanique de navigation que le Planning : la section « Reporting » dans
@@ -72,36 +70,46 @@ cellules du Planning sont les mêmes pour tous). C'est ce qui garde l'outil
 malin plutôt qu'industriel : on duplique une configuration, pas une mise en
 page.
 
-## Décision : l'organique et le payant sont des dashboards distincts, réunis par la vue d'ensemble
+## Décision (v2, après retours) : un dashboard par plateforme, payant et organique sur la même page
 
-La question posée : fusionner ou séparer ? **Séparer.** Trois raisons.
+Ma première proposition séparait les dashboards payants et organiques. Retour
+reçu : **le moins de dashboards possible**, fusionner ce qui est fusionnable,
+et montrer le payant vide à un client 100 % organique — un ROAS absent qui
+donne envie de sponsoriser. L'accord trouvé :
 
-1. **Ils ne répondent pas à la même question.** Le payant répond à « qu'est-ce
-   que l'investissement a rapporté » (ROAS, CPA, CA) ; l'organique répond à
-   « est-ce que l'audience grandit et réagit » (abonnés, portée, engagement).
-   Les fusionner produit un écran qui ne répond bien à aucune des deux.
-2. **Les chiffres ne s'additionnent pas.** Une portée payante et une portée
-   organique sommées comptent deux fois les personnes touchées par les deux ;
-   un post boosté verrait ses vues comptées dans les deux mondes. Toute
-   fusion crédible exigerait des métriques « blended » qu'aucune API ne
-   fournit proprement.
-3. **Tes clients sont asymétriques.** Le client 100 % payant coche Meta Ads et
-   n'a aucune case organique morte à l'écran ; le client qui t'a interdit les
-   ads coche Instagram / Facebook / TikTok organiques et n'a aucun ROAS à
-   `N/A`. La séparation par source fait que chacun n'a que des écrans pleins.
+- **Un onglet par plateforme** : Meta (Facebook + Instagram, ads + organique),
+  TikTok (organique + ads), LinkedIn (organique + ads), Site. Quatre onglets
+  maximum, pas huit.
+- Chaque page de plateforme a **trois zones** : une bande commune en tête
+  (abonnés + totaux combinés), une section **Sponsorisé**, une section
+  **Organique**. Les deux mondes restent lisibles séparément — parce que
+  leurs questions diffèrent — mais sur un seul écran.
+- **La bande commune n'additionne que ce qui s'additionne.** Ce qui est
+  légitime : les **interactions** (likes, commentaires, partages,
+  enregistrements — en ne comptant les posts boostés qu'une fois), la
+  **diffusion totale** (impressions payantes + vues organiques, libellée
+  comme telle), la **dépense**, les **abonnés** (par nature organiques). Ce
+  qui ne s'additionne jamais : la **portée** (les mêmes personnes comptées
+  deux fois) et tout **taux moyenné** — le taux d'engagement global est
+  recalculé comme interactions totales ÷ diffusion totale, pas comme une
+  moyenne des deux taux.
+- **Le payant vide reste visible, en compact** : pour le client sans
+  campagne, la section Sponsorisé se replie en une bande d'une ligne —
+  « Aucune campagne sur la période · ROAS — » — l'incitation voulue, sans
+  sacrifier une page entière à des tirets.
+- Conséquence de la fusion Meta : la répartition Facebook / Instagram
+  (breakdown `publisher_platform` côté ads, comptes séparés côté organique)
+  devient un bloc *dans* l'onglet Meta, et les courbes d'abonnés Instagram et
+  Facebook y vivent en deux séries.
 
-Concrètement :
+Là où je maintiens mon garde-fou : pas de métrique « blended » inventée. Une
+somme n'apparaît que si elle a un sens physique ; sinon les deux chiffres
+restent côte à côte avec leur origine. C'est la différence entre un
+dashboard qui simplifie et un dashboard qui ment.
 
-- **Meta Ads** est un seul dashboard payant Facebook + Instagram — c'est comme
-  ça que le média s'achète (placements automatiques) — avec un bloc de
-  répartition par placement (breakdown `publisher_platform`) pour voir la part
-  Facebook / Instagram sans inventer deux dashboards artificiels.
-- **Instagram** et **Facebook** sont des dashboards organiques, un par réseau.
-- **LinkedIn** et **LinkedIn Ads** sont deux onglets distincts si les deux
-  sont cochés — même logique pour **TikTok** / TikTok Ads plus tard.
-- La **Vue d'ensemble** est le seul endroit où les deux mondes se croisent :
-  une ligne par source avec ses trois chiffres clés, et la courbe d'abonnés
-  toutes plateformes. C'est l'écran d'ouverture du client et le tien.
+Il n'y a **pas de vue d'ensemble** : la section Reporting ouvre directement
+sur le premier onglet de plateforme (retour explicite — un écran de moins à
+maintenir, et la bande commune de chaque plateforme joue déjà ce rôle).
 
 ## Décision : pas de scraping pour les followers — un relevé quotidien par l'API, l'antériorité importée
 
@@ -113,11 +121,16 @@ d'abonnés *du moment*.
 
 Le mécanisme retenu :
 
-- la synchronisation quotidienne lit le total d'abonnés de chaque compte
-  connecté et l'upsert dans `social_followers` **à la date de la veille** —
-  le relevé du 1er juillet au matin enregistre le point « 30 juin », exactement
-  la convention demandée. Une courbe mensuelle se lit alors comme « le dernier
-  jour connu de chaque mois », et elle est même quotidienne si on veut zoomer ;
+- la synchronisation lit le total d'abonnés de chaque compte connecté et
+  l'upsert dans `social_followers` **à la date de la veille** — le relevé du
+  1er juillet au matin enregistre le point « 30 juin », exactement la
+  convention demandée. **La courbe affichée est mensuelle** (le dernier jour
+  connu de chaque mois) ; la capture, elle, reste quotidienne — non pas pour
+  afficher du jour par jour, mais parce qu'un point mensuel unique est
+  fragile : si le relevé du 1er échoue (API en panne, jeton expiré), le point
+  du mois est **irrécupérable** — aucune API ne donne l'historique des
+  totaux. Avec une capture quotidienne, le point de fin de mois existe même
+  quand un passage échoue, et ça ne coûte rien de plus ;
 - **l'antériorité** (tes relevés manuels actuels) s'importe une fois via
   `source = 'csv_import'`, prévu depuis la migration 0001. Un script
   d'import prendra ton fichier (mois, plateforme, valeur) et remplira la
@@ -130,73 +143,57 @@ Le mécanisme retenu :
 
 ## Les écrans
 
-### Vue d'ensemble
+### Le gabarit d'une plateforme (Meta, TikTok, LinkedIn)
 
-L'onglet d'arrivée du Reporting, pour chaque client :
+Une seule page par plateforme, trois zones, de haut en bas :
 
-- une bande de mesures : les 4 chiffres qui comptent pour *ce* client sur la
-  période (pilotés par les sources cochées — un client payant voit ROAS /
-  dépensé / CA / CPA, un client organique voit abonnés gagnés / portée /
-  interactions / publications) ;
-- **la courbe d'abonnés multi-réseaux** (une série par plateforme, la
-  fonctionnalité que le Looker n'a jamais bien faite) ;
-- une ligne par source connectée : nom, 3 KPI de la période avec delta, et la
-  pastille d'état de la dernière synchro — cliquer ouvre l'onglet.
+1. **Bande commune** — les abonnés (courbe mensuelle ; deux séries Instagram
+   + Facebook sur l'onglet Meta) et les totaux combinés légitimes de la
+   période : diffusion totale (impressions payantes + vues organiques),
+   interactions totales, taux d'engagement global (recalculé), dépense.
+   Chaque total dit son origine ; un total sans donnée affiche `—`.
+2. **Section Sponsorisé** — le dashboard Bondet actuel devient ce bloc :
+   chiffre héros ROAS, tuiles (dépensé · CA · achats · CPA · impressions ·
+   clics · CPM · CTR · vues de page), Persona Ads, tableau heatmap par
+   ad set, et pour Meta la répartition Facebook / Instagram par placement.
+   **Sans campagne sur la période : la section se replie en une bande d'une
+   ligne** (« Aucune campagne sur la période · ROAS — ») — visible, pas
+   envahissante.
+3. **Section Organique** — par réseau (deux sous-blocs sur Meta : Instagram,
+   Facebook) : tuiles vues · portée · interactions · comptes engagés · taux
+   d'engagement · abonnés gagnés / perdus · clics liens de profil ·
+   publications (adaptées à ce que chaque API expose — une tuile sans donnée
+   disparaît, pas de faux zéro) ; **Persona organique** quand la plateforme
+   l'expose (âge / genre / villes sur Instagram, secteurs / fonctions sur
+   LinkedIn) ; **Top publications** en tableau heatmap (vignette, date,
+   format, vues, portée, likes, commentaires, partages, enregistrements,
+   taux d'engagement), alimenté par `social_posts`. Sans compte organique
+   connecté, même repli en une ligne que le Sponsorisé.
 
-### Dashboards payants — Meta Ads, LinkedIn Ads, TikTok Ads
-
-Le gabarit existe : c'est le dashboard Bondet actuel (chiffre héros ROAS,
-9 tuiles, Persona, tableau heatmap par ad set). Il devient le gabarit « Ads »
-de toutes les régies, avec deux ajouts :
-
-- le **sélecteur de période + comparaison** (voir plus bas) ;
-- pour Meta : le bloc **répartition Facebook / Instagram** (spend,
-  impressions, résultats par placement).
-
-KPI : ROAS · dépensé · CA · achats · CPA · impressions · clics · CPM · CTR ·
-vues de page — inchangés, définis dans `src/lib/metrics/definitions.ts`, tous
-recalculés depuis les agrégats bruts.
-
-### Dashboards organiques — Instagram, Facebook, TikTok, LinkedIn
-
-Même charpente que le gabarit Ads, mais le héros change de question :
-
-- **chiffre héros : abonnés** — total actuel et variation nette sur la
-  période, avec la phrase de contexte (« +842 abonnés en juin, 24 512 au
-  30 juin ») ;
-- tuiles : portée · vues · interactions · comptes engagés · taux d'engagement
-  (interactions ÷ portée, recalculé) · abonnés gagnés / perdus · clics sur les
-  liens du profil · publications sur la période — adaptées par plateforme :
-  chaque API n'expose pas tout (les fiches plus bas listent le réel), et une
-  tuile sans donnée disparaît plutôt que d'afficher un faux zéro ;
-- courbe d'abonnés du réseau (quotidienne sur la période, mensuelle au long
-  cours) ;
-- **Persona organique** quand la plateforme l'expose (démographie des
-  abonnés : âge / genre / villes sur Instagram, secteurs / fonctions sur
-  LinkedIn) — même composants Donut / BarList que le Persona Ads ;
-- **Top publications** : le tableau heatmap existant, colonnes adaptées
-  (vignette, date, format, portée, vues, likes, commentaires, partages,
-  enregistrements, taux d'engagement), alimenté par `social_posts`.
+Le dashboard Bondet existant n'est pas jeté : il est **réorganisé** dans ce
+gabarit (sa partie ads devient la section Sponsorisé de l'onglet Meta, sa
+courbe d'abonnés monte dans la bande commune).
 
 ### Site
 
-Un seul onglet, deux sources possibles qui cohabitent :
-
-- **Shopify** : CA, commandes, panier moyen (CA ÷ commandes, recalculé) —
-  le chiffre d'affaires réel, celui qui clôt les débats d'attribution ;
-- **GA4** (optionnel, si le client l'a) : sessions, visiteurs, sources de
-  trafic — la partie « visites » quand le site n'est pas un Shopify.
+GA4 uniquement (Shopify écarté sur retour) : sessions, visiteurs, pages
+vues, sources / canaux de trafic, conversions (`keyEvents`). Le gabarit
+exact sera calé sur **l'exemple de dashboard GA4 à fournir en pièce jointe**
+— non reçu à ce jour, la fiche GA4 reste valable pour la connexion.
 
 ### Sélecteur de période et comparaison
 
 Le manque le plus visible du Reporting actuel, exigé par `PROMPT-V1.md` §5.1.
 Il arrive avec ce chantier, **porté par la section Reporting** (pas global à
-l'app) : préréglages (ce mois-ci, mois dernier, 7 / 30 / 90 jours, cette
-année, personnalisé) + mode de comparaison (période précédente, même période
-l'an dernier, aucune). Dans l'URL, en français (`?periode=`, `?comparaison=`),
-partagé par tous les onglets de la section — changer de plateforme garde la
-période. Tous les deltas se recalculent depuis les agrégats bruts des deux
-périodes ; une comparaison sans donnée affiche `N/A`, jamais un faux zéro.
+l'app) : préréglages (**mois dernier — le préréglage par défaut**, ce
+mois-ci, 7 / 30 / 90 jours, cette année, personnalisé) + mode de comparaison
+(période précédente, même période l'an dernier, aucune). La lecture est
+mensuelle par défaut — du 1er au dernier jour du mois écoulé — conformément
+au rythme réel de reporting. Dans l'URL, en français (`?periode=`,
+`?comparaison=`), partagé par tous les onglets de la section — changer de
+plateforme garde la période. Tous les deltas se recalculent depuis les
+agrégats bruts des deux périodes ; une comparaison sans donnée affiche
+`N/A`, jamais un faux zéro.
 
 C'est le seul composant véritablement nouveau du design system (popover +
 double calendrier, hauteur 40 px, focus visible). Tout le reste des écrans se
@@ -228,10 +225,10 @@ vivra le formulaire « Créer un espace client » (phase 5) qui enchaîne :
 espace → modules → sources.
 
 Seules exceptions au « tout niveau agence » : les plateformes à OAuth par
-compte (LinkedIn, TikTok organique, Shopify) demandent **un consentement par
-client ou par compte** — un clic sur « Connecter » qui ouvre l'OAuth, là
-aussi listé dans les fiches. Le callback OAuth suit le modèle existant des
-Reçus (`/api/recus/connexion` : état anti-rejeu en cookie `httpOnly`,
+compte (LinkedIn, TikTok) demandent **un consentement par client ou par
+compte** — un clic sur « Connecter » qui ouvre l'OAuth, là aussi listé dans
+les fiches. Le callback OAuth suit le modèle existant des Reçus
+(`/api/recus/connexion` : état anti-rejeu en cookie `httpOnly`,
 `timingSafeEqual`).
 
 ## Modèle de données
@@ -240,13 +237,14 @@ Extensions, pas de refonte — le socle 0001 avait vu juste :
 
 ```
 data_provider   +  instagram_organic, facebook_organic,
-                   linkedin_organic, linkedin_ads,
-                   tiktok_organic (existant), tiktok_ads (existant),
-                   pinterest_organic, snapchat_ads, shopify, ga4
+                   linkedin_organic, linkedin_ads, ga4
+                   (tiktok_organic et tiktok_ads existent depuis 0001 ;
+                   Pinterest et Snapchat écartés pour l'instant — leurs
+                   valeurs s'ajouteront au premier client concerné)
                    -- meta_organic (0001) reste dans l'enum mais ne sera
                    -- jamais peuplé : remplacé par les deux valeurs par réseau,
                    -- une ligne data_sources = un compte d'un réseau
-social_platform +  linkedin, pinterest, snapchat
+social_platform +  linkedin
 
 social_metrics_daily        (nouveau) — l'équivalent organique de
                             ad_metrics_daily. Grain jour × source, colonnes
@@ -267,10 +265,11 @@ social_demographics         (nouveau) — instantanés de la démographie des
                             industry, job_function). On lit le dernier
                             instantané de la période affichée.
 
-site_metrics_daily          (nouveau) — sessions, users, page_views, orders,
-                            revenue numeric(14,4). Même convention que les
-                            métriques publicitaires : EUR à l'affichage, pas
-                            de colonne devise.
+site_metrics_daily          (nouveau, différé) — sessions, visiteurs, pages
+                            vues, conversions GA4. Son schéma définitif sera
+                            calé sur l'exemple de dashboard GA4 attendu en
+                            pièce jointe : il part avec le connecteur GA4,
+                            pas avec le socle.
 
 ad_metrics_daily            +  leads bigint (LinkedIn Ads et campagnes lead
                             Meta ; le « CPL » actuel reste un coût par vue de
@@ -305,12 +304,26 @@ Trois règles d'exécution, héritées des pièges connus :
   l'orchestrateur : il parcourt les `data_sources` actives, appelle le bon
   connecteur, journalise dans `sync_runs`, et **teste chaque `error` Supabase**
   (règle des crons, pas celle des queries).
-- **Cadence : un passage quotidien vers 5 h 30 UTC** via une GitHub Action
+- **Cadence : l'affichage est mensuel, l'ingestion est quotidienne** — et
+  c'est un point où je te challenge, puisque tu proposes une synchronisation
+  mensuelle du 1er au 31. Une ingestion mensuelle perdrait des données de
+  façon irrécupérable, pour trois raisons concrètes : (1) le point d'abonnés
+  du mois n'existerait que si le passage du 1er réussit — un échec ce jour-là
+  et le point est perdu à jamais, aucune API ne redonne un total passé ;
+  (2) la série quotidienne d'abonnés Instagram ne couvre que 30 jours — un
+  mois de 31 jours relevé le 1er du suivant déborde déjà de la fenêtre ;
+  (3) Meta réattribue les conversions jusqu'à 7 jours après le clic — un
+  relevé unique au matin du 1er fige les derniers jours du mois avant leur
+  valeur définitive. L'ingestion quotidienne coûte zéro (mêmes minutes
+  GitHub, gratuites) et **ne change rien à ce que tu vois** : les écrans
+  s'ouvrent sur le mois écoulé, la courbe d'abonnés est mensuelle. La
+  cadence technique n'est pas une cadence de lecture.
+- **Un passage quotidien vers 5 h 30 UTC** via une GitHub Action
   `social-sync.yml`, comme Airwallex — aucun cron Vercel consommé, le créneau
   libre reste libre, pas de plafond `maxDuration`. Chaque passage
-  resynchronise une **fenêtre glissante de 28 jours** pour les Ads (Meta
-  réattribue les conversions plusieurs jours après — les « restatements » du
-  cahier des charges) et J-1/J-2 pour l'organique, plus le relevé d'abonnés.
+  resynchronise une **fenêtre glissante de 28 jours** pour les Ads (les
+  « restatements » Meta) et J-1/J-2 pour l'organique, plus le relevé
+  d'abonnés.
 - **Backfill à la connexion** : à la création d'une source, l'historique
   disponible est aspiré par tranches (ce que chaque API autorise est dans les
   fiches — 37 mois pour Meta Ads, beaucoup moins pour l'organique, d'où
@@ -323,10 +336,10 @@ Trois règles d'exécution, héritées des pièges connus :
   pastille rouge dans l'admin et bandeau discret sur le dashboard concerné
   (« dernière synchronisation : il y a 3 jours ») — jamais un chiffre
   silencieusement périmé.
-- Les données de démo Bondet ne bougent pas : la bascule démo → réel se fait
-  par la présence d'une source connectée sur l'espace, la démo restant la
-  référence visuelle tant que rien n'est branché (et derrière un flag ensuite,
-  conformément à la règle maison).
+- Les données de démo Bondet restent la référence visuelle **jusqu'à la
+  connexion réelle** : la bascule se fait par la présence d'une source
+  connectée sur l'espace. Retour acté : dès que le réel est branché et
+  validé, on retire la démo — pas de double régime prolongé.
 
 ## Fiches par plateforme
 
@@ -509,39 +522,19 @@ pour accumuler. `video_views` mélange organique et Spark Ads : l'écran le dira
 vidéo (portée, watch time) disparaissent si elle reste inactive plus de
 7 jours consécutifs : le connecteur garde la dernière valeur connue en base,
 il n'écrase jamais une valeur par du vide. Latence 24-48 h : la
-synchronisation re-upserte J-2 et J-1. **TikTok Ads** (Marketing API) attendra
-un client qui en fait : même app, autorisation annonceur séparée, historique
-profond (2016) par tranches de 30 jours — aucune urgence d'accumulation.
+synchronisation re-upserte J-2 et J-1. **TikTok Ads** est dans le périmètre
+(tu en fais) : même app développeur, une autorisation annonceur séparée via
+ton Business Center TikTok, historique profond (jusqu'à 2016) par tranches de
+30 jours — la section Sponsorisé de l'onglet TikTok s'en nourrit, aucune
+urgence d'accumulation contrairement à l'organique.
 
-### Site — Shopify et GA4
+### Site — GA4
 
-Deux connecteurs indépendants, cochables séparément ; un client peut avoir
-l'un, l'autre, ou les deux.
-
-**Shopify (CA, commandes, panier moyen).** Attention, la procédure a changé
-au 1er janvier 2026 : les « custom apps » ne se créent plus dans l'admin de
-la boutique mais via le **Dev Dashboard** Shopify. Par boutique cliente :
-
-1. Être invité comme collaborateur de la boutique avec la permission
-   « Apps » (ou faire faire les clics au client).
-2. Admin Shopify → Settings → Apps → Develop apps → « Build apps in Dev
-   Dashboard » : créer l'app, scopes `read_orders` + `read_products`
-   (+ `read_reports` pour tenter les sessions), distribution « custom »,
-   installer sur la boutique.
-3. Me transmettre l'**Admin API access token** généré — il est **permanent**
-   tant que l'app reste installée, aucun renouvellement à gérer.
-
-Limites à connaître : `read_orders` ne remonte que **60 jours** de commandes —
-le backfill au-delà exige le scope `read_all_orders`, soumis à approbation
-Shopify (on la demandera si l'historique long compte pour ce client ; sinon le
-cron quotidien accumule et le problème disparaît de lui-même). Les
-**sessions** de la boutique sont théoriquement exposées depuis fin 2025
-(`shopifyqlQuery`, dataset `sessions`) mais l'accès est capricieux (conditions
-de plan incertaines, refus rapportés) : on le teste tôt sur la vraie boutique,
-et **GA4 est le plan B assumé** pour le trafic.
-
-**GA4 (sessions, visiteurs, sources de trafic, conversions).** La plus simple
-de toutes les intégrations — aucun jeton à rafraîchir, jamais :
+Shopify est écarté (retour explicite) : l'onglet Site se nourrit de **GA4
+uniquement** — sessions, visiteurs, sources de trafic, conversions. Le
+gabarit d'écran sera calé sur ton exemple de dashboard GA4 (pièce jointe
+attendue). C'est la plus simple de toutes les intégrations — aucun jeton à
+rafraîchir, jamais :
 
 1. Une fois : je crée le projet Google Cloud + le **compte de service**, et je
    te donne son adresse e-mail (la clé JSON va dans les secrets).
@@ -552,44 +545,19 @@ de toutes les intégrations — aucun jeton à rafraîchir, jamais :
    où le backfill est complet dès le premier jour.
 
 Métriques : `sessions`, visiteurs, pages vues, sources / canaux, et
-`keyEvents` (le nom actuel des conversions GA4). Les chiffres GA4 et Shopify
-ne concordent jamais exactement (adblockers, consentement) : chaque chiffre
-affichera sa source, pas de fusion.
+`keyEvents` (le nom actuel des conversions GA4). À savoir : GA4 sous-compte
+structurellement (adblockers, refus de consentement) — les chiffres du site
+s'affichent avec leur source, on ne les mélange à rien d'autre.
 
-### Pinterest — organique et Ads
+### Plus tard — Pinterest et Snapchat
 
-Prêt dans le catalogue, à activer au premier client concerné. L'accès
-« Trial » est immédiat (création d'app sur `developers.pinterest.com`,
-1 000 requêtes/jour — assez pour démarrer) ; le palier « Standard » se
-demande ensuite avec une vidéo de démonstration (délai constaté : 1 à
-4 semaines, parfois plus). OAuth par compte, access token 30 jours, refresh
-« continu » à fenêtre de 60 jours — la synchronisation quotidienne le fait
-tourner, et un arrêt de plus de 60 jours impose de refaire l'OAuth.
-
-Ce que l'API donne : impressions, engagements, clics sortants,
-enregistrements (90 jours d'historique **maximum** en organique — encore un
-cas où brancher tôt est la seule mémoire) ; par épingle, mêmes métriques
-+ vidéo ; abonnés en **instantané uniquement** → relevé quotidien chez nous ;
-Ads dans la même API avec un historique profond (~2,5 ans) via les rapports
-asynchrones. Piège : les montants publicitaires arrivent en **micro-unités**
-(à diviser par 10⁶ avant stockage).
-
-### Snapchat — Ads automatisé, organique assumé manuel
-
-**Snapchat Ads** : accès ouvert, sans dossier — une OAuth App se crée dans le
-Business Manager Snap (redirect URI, `client_id` + `client_secret` à me
-transmettre), un seul jeton voit tous les comptes publicitaires accessibles à
-ton compte, et le **refresh token n'expire jamais**. Métriques complètes
-(dépense, impressions, swipes, vues vidéo, conversions et leur valeur),
-historique ≥ 2 ans par tranches d'un mois, montants en micro-devise.
-
-**Snapchat organique** : la « Public Profile API » existe mais est réservée à
-une **allowlist de partenaires** (Sprinklr, Emplifi…) négociée avec un
-contact commercial Snap — inaccessible à une agence de notre taille, et le
-scraping est exclu par principe. Réponse assumée : **relevé mensuel manuel**
-via la tâche générée dans « Mon travail » (abonnés + vues de Story saisis en
-deux minutes), affiché avec son origine `manual` — le dashboard ne ment
-jamais sur la provenance d'un chiffre.
+Écartés du périmètre sur retour, gardés en mémoire pour le premier client
+concerné : Pinterest a un accès immédiat en palier d'essai mais **90 jours
+d'historique organique maximum** et pas d'historique d'abonnés ; Snapchat
+Ads est en accès ouvert (refresh token sans expiration), mais **l'organique
+Snapchat n'a pas d'API accessible** (allowlist de gros partenaires) — le
+jour venu, ce sera relevé mensuel manuel via « Mon travail », pas du
+scraping. Le détail complet est dans l'historique de ce document.
 
 ## Ce que ça coûte
 
@@ -616,16 +584,18 @@ Rien en euros, du délai en validations :
 2. **Meta réel** — jeton system user, connecteurs `meta_ads` +
    `instagram_organic` + `facebook_organic`, backfill, Action quotidienne,
    relevé d'abonnés, import CSV de ton antériorité. Bondet passe en réel.
-3. **Dashboards organiques + Vue d'ensemble** — gabarits Instagram / Facebook,
-   Persona organique, courbe multi-réseaux.
-4. **LinkedIn + TikTok** — dès que les accès développeur sont accordés
-   (démarches lancées en phase 1 pour absorber le délai). La **collecte**
-   démarre le jour de l'accès — leurs fenêtres de 12 mois et 60 jours
-   n'attendent pas — les écrans suivent.
-5. **Site + duplication outillée** — Shopify / GA4, formulaire « Créer un
-   espace client » (modules + sources), tâche mensuelle « relevé manuel » dans
-   Mon travail pour les plateformes non connectées. Pinterest / Snapchat à la
-   première demande client réelle.
+3. **Gabarit unifié Meta** — bande commune (abonnés + totaux combinés),
+   réorganisation du dashboard Bondet en section Sponsorisé, section
+   Organique Instagram + Facebook avec Persona organique et Top publications,
+   import CSV de ton antériorité d'abonnés.
+4. **LinkedIn + TikTok, organique et Ads** — dès que les accès développeur
+   sont accordés (démarches lancées en phase 1 pour absorber le délai). La
+   **collecte** démarre le jour de l'accès — leurs fenêtres de 12 mois et
+   60 jours n'attendent pas — les écrans suivent.
+5. **Site (GA4) + duplication outillée** — gabarit calé sur ton exemple de
+   dashboard, formulaire « Créer un espace client » (modules + sources),
+   tâche mensuelle « relevé manuel » dans Mon travail pour les plateformes
+   non connectées.
 
 Chaque phase se termine par les quatre commandes vertes, l'audit visuel au
 navigateur, et une preview Vercel à valider — c'est toi qui clôtures.
@@ -635,9 +605,10 @@ navigateur, et une preview Vercel à valider — c'est toi qui clôtures.
 Dans l'ordre. Les points 2 à 4 peuvent partir en parallèle — ce sont les
 délais d'approbation qui dictent le calendrier, pas le code.
 
-1. **Valider (ou corriger) les trois arbitrages** : sources cochables par
-   espace, organique / payant séparés et réunis par la vue d'ensemble, relevé
-   d'abonnés quotidien par l'API plutôt que scraping.
+1. **Trancher les deux points où je te challenge** : la capture d'abonnés
+   quotidienne derrière un affichage mensuel (contre la capture du seul 1er
+   du mois), et le refus des sommes illégitimes dans la bande commune
+   (portée et taux jamais additionnés — les autres totaux combinés, oui).
 2. **Meta — en premier** : les six étapes de la fiche (~30 min dans Business
    Manager), puis me transmettre le jeton de l'utilisateur système. Ça
    débloque Meta Ads + Instagram + Facebook pour tous les clients déjà en
@@ -647,15 +618,15 @@ délais d'approbation qui dictent le calendrier, pas le code.
    Client ID et Client Secret.
 4. **TikTok — à lancer tôt aussi** (~1 à 2 semaines) : compte développeur +
    app avec les scopes Accounts, me transmettre Client ID et Client Secret,
-   et vérifier qu'Analytics est activé sur chaque compte client.
-5. **Shopify** : me dire quelles boutiques clientes sont concernées, puis un
-   token de custom app par boutique (fiche Site).
-6. **GA4** : rien à créer de ton côté — je te donnerai l'adresse e-mail du
-   compte de service à ajouter en « Lecteur » sur chaque propriété cliente.
-7. **Ton historique d'abonnés** : le fichier (ou le tableau) mois ×
+   vérifier qu'Analytics est activé sur chaque compte client — et pour
+   TikTok Ads, l'autorisation annonceur depuis ton Business Center.
+5. **GA4** : m'envoyer **l'exemple de dashboard site web** (la pièce jointe
+   annoncée, non reçue) ; côté accès, rien à créer — je te donnerai
+   l'adresse e-mail du compte de service à ajouter en « Lecteur » sur chaque
+   propriété cliente.
+6. **Ton historique d'abonnés** : le fichier (ou le tableau) mois ×
    plateforme × compte × valeur que tu tiens à la main aujourd'hui, pour
    peupler les courbes d'avant-branchement via l'import CSV.
-8. Pinterest / Snapchat : rien pour l'instant — au premier client concerné.
 
 Les secrets transitent hors du repo (variables d'environnement Vercel +
 secrets GitHub Actions ; jetons par client chiffrés en base via
