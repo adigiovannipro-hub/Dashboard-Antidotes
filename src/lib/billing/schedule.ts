@@ -10,6 +10,7 @@
  * mois — même convention que `planning_months.month`.
  */
 
+import type { FinanceInvoice } from "@/lib/finance/types";
 import type { BillingInstallment, InstallmentStage } from "./types";
 
 /** Une échéance à insérer, telle que la génération la produit. */
@@ -131,6 +132,28 @@ export function stageOf(
   return installment.issue_on <= today(now) ? "to_invoice" : "confirmed";
 }
 
+/** Une payée reste deux mois sous les yeux, puis s'archive. La même règle
+    vaut pour les mensualités (posée en base par le rapprochement) et pour les
+    factures hors devis (dérivée à la lecture, rien à poser nulle part). */
+export const ARCHIVE_AFTER_DAYS = 60;
+
+/**
+ * L'étape d'une facture Airwallex qui ne correspond à aucun devis — elle
+ * s'affiche quand même : l'écran reflète la facturation réelle, pas
+ * seulement ce qui a été planifié. `null` : brouillons et annulées n'ont pas
+ * de place sur le board.
+ */
+export function stageOfInvoice(
+  invoice: Pick<FinanceInvoice, "status" | "paid_at">,
+  now: Date = new Date(),
+): Extract<InstallmentStage, "invoiced" | "paid" | "archived"> | null {
+  if (invoice.status === "sent") return "invoiced";
+  if (invoice.status !== "paid") return null;
+  if (!invoice.paid_at) return "paid";
+  const ageDays = (now.getTime() - Date.parse(invoice.paid_at)) / 86_400_000;
+  return ageDays >= ARCHIVE_AFTER_DAYS ? "archived" : "paid";
+}
+
 /**
  * Une échéance dont le jour d'émission est arrivé — ou dépassé — et qui n'est
  * toujours pas facturée. C'est la ligne que l'écran doit mettre devant les
@@ -168,6 +191,16 @@ export function totalsOf(
   return totals;
 }
 
+/** Fusion de deux sommes par devise — mensualités et factures hors devis
+    s'additionnent dans les pieds de groupe et les cartes du haut. */
+export function addTotals(a: CurrencyTotals, b: CurrencyTotals): CurrencyTotals {
+  const merged: CurrencyTotals = { ...a };
+  for (const [currency, cents] of Object.entries(b)) {
+    merged[currency] = (merged[currency] ?? 0) + cents;
+  }
+  return merged;
+}
+
 /** Les mêmes sommes, en TTC — pour la seconde colonne des pieds de groupe. */
 export function ttcTotalsOf(
   installments: readonly Pick<
@@ -182,6 +215,51 @@ export function ttcTotalsOf(
       ttcCentsOf(installment.amount_cents, installment.vat_rate);
   }
   return totals;
+}
+
+/** Un mois du prévisionnel : ce que les devis signés feront facturer. */
+export type ForecastPoint = {
+  /** Mois d'émission, `AAAA-MM`. */
+  month: string;
+  amount_cents: number;
+  count: number;
+};
+
+/**
+ * Le prévisionnel de facturation, mois d'émission par mois d'émission, à
+ * partir du mois courant. Il ne lit que les mensualités des devis — jamais
+ * les factures libres d'Airwallex : c'est la promesse signée qu'on trace,
+ * pas le réalisé. Un mois sans mensualité vaut zéro, pas « inconnu ».
+ *
+ * EUR seul : le module crée tous les devis en euros, et additionner des
+ * devises dans une même courbe serait une invention.
+ */
+export function billingForecast(
+  installments: readonly Pick<
+    BillingInstallment,
+    "status" | "issue_on" | "amount_cents" | "currency"
+  >[],
+  options: { months: number; now?: Date },
+): ForecastPoint[] {
+  const start = currentMonth(options.now ?? new Date());
+
+  const points = Array.from({ length: options.months }, (_, index) => ({
+    month: addMonths(start, index).slice(0, 7),
+    amount_cents: 0,
+    count: 0,
+  }));
+  const byMonth = new Map(points.map((point) => [point.month, point]));
+
+  for (const line of installments) {
+    if (line.status === "skipped") continue;
+    if (line.currency !== "EUR") continue;
+    const point = byMonth.get(line.issue_on.slice(0, 7));
+    if (!point) continue;
+    point.amount_cents += line.amount_cents;
+    point.count += 1;
+  }
+
+  return points;
 }
 
 /**

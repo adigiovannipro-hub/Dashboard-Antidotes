@@ -7,17 +7,24 @@ import {
   INSTALLMENT_GRID,
   InstallmentRow,
   InstallmentsHeader,
-  type InstallmentLine,
+  InvoiceRow,
+  type BoardRow,
 } from "@/components/billing/installment-row";
 import { formatTotals } from "@/lib/billing/format";
-import { totalsOf, ttcTotalsOf } from "@/lib/billing/schedule";
+import {
+  addTotals,
+  totalsOf,
+  ttcTotalsOf,
+  type CurrencyTotals,
+} from "@/lib/billing/schedule";
 import type { InstallmentStage } from "@/lib/billing/types";
 
 /**
  * Un groupe de statut, calqué sur le board Monday : un titre encré de la
- * couleur du groupe, les lignes, et la somme HT / TTC en pied. Les groupes
- * froids — payé, archivé — se replient sur leur somme, comme le groupe
- * « Payée » du board se repliait sur ses 109 clients.
+ * couleur du groupe, les lignes — mensualités de devis et factures Airwallex
+ * hors devis mêlées — et la somme HT / TTC en pied. Les groupes froids —
+ * payé, archivé — se replient sur leur somme, comme le groupe « Payée » du
+ * board se repliait sur ses 109 clients.
  *
  * Repli en `<details>` natif : pas d'état client, pas d'hydratation — un
  * groupe replié reste dépliable même pendant que React se réveille.
@@ -36,7 +43,7 @@ export function StageGroup({
   tone,
   description,
   stage,
-  lines,
+  rows,
   canDecide,
   emptyText,
   collapsible = false,
@@ -47,7 +54,7 @@ export function StageGroup({
   tone: StatusTone;
   description?: string;
   stage: InstallmentStage;
-  lines: InstallmentLine[];
+  rows: BoardRow[];
   canDecide: boolean;
   /** Affiché à la place des lignes quand le groupe est vide. */
   emptyText: string;
@@ -58,12 +65,14 @@ export function StageGroup({
   /** Une phrase sous les lignes — « +N mensualités jusqu'en… ». */
   footnote?: string;
 }) {
+  const sums = groupSums(rows);
+
   const heading = (
     <div className="min-w-0">
       <h3 className={cn("type-h3 flex items-center gap-2", TITLE_TONES[tone])}>
         <span aria-hidden className="size-2 shrink-0 rounded-pill bg-current" />
         {title}
-        <Counter value={lines.length} />
+        <Counter value={rows.length} />
       </h3>
       {description ? (
         <p className="type-caption text-text-secondary mt-0.5">{description}</p>
@@ -72,7 +81,7 @@ export function StageGroup({
   );
 
   const body =
-    lines.length === 0 ? (
+    rows.length === 0 ? (
       <PanelBody>
         <p className="type-body text-text-secondary">{emptyText}</p>
       </PanelBody>
@@ -81,17 +90,21 @@ export function StageGroup({
         <InstallmentsHeader />
         <div className={capped ? "max-h-56 overflow-y-auto" : undefined}>
           <PanelRows>
-            {lines.map((line) => (
-              <InstallmentRow
-                key={line.id}
-                line={line}
-                stage={stage}
-                canDecide={canDecide}
-              />
-            ))}
+            {rows.map((row) =>
+              row.kind === "installment" ? (
+                <InstallmentRow
+                  key={row.line.id}
+                  line={row.line}
+                  stage={stage}
+                  canDecide={canDecide}
+                />
+              ) : (
+                <InvoiceRow key={row.invoice.id} invoice={row.invoice} stage={stage} />
+              ),
+            )}
           </PanelRows>
         </div>
-        <GroupFooter lines={lines} />
+        <GroupFooter count={rows.length} sums={sums} />
         {footnote ? (
           <p className="type-caption text-text-secondary border-t border-border px-5 py-2.5">
             {footnote}
@@ -117,10 +130,9 @@ export function StageGroup({
         <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-5 py-4 [&::-webkit-details-marker]:hidden">
           {heading}
           <div className="flex shrink-0 items-center gap-4">
-            {lines.length > 0 ? (
+            {rows.length > 0 ? (
               <p className="type-caption text-text-secondary hidden text-right sm:block">
-                {formatTotals(totalsOf(lines))} HT ·{" "}
-                {formatTotals(ttcTotalsOf(lines))} TTC
+                {formatTotals(sums.ht)} HT · {formatTotals(sums.ttc)} TTC
               </p>
             ) : null}
             <ChevronDown
@@ -136,8 +148,32 @@ export function StageGroup({
   );
 }
 
+/**
+ * Les sommes d'un groupe mixte. Une facture hors devis porte un montant
+ * unique — le total Airwallex — compté tel quel des deux côtés.
+ */
+function groupSums(rows: BoardRow[]): { ht: CurrencyTotals; ttc: CurrencyTotals } {
+  const installments = rows
+    .filter((row) => row.kind === "installment")
+    .map((row) => row.line);
+  const invoiceTotals = totalsOf(
+    rows.filter((row) => row.kind === "invoice").map((row) => row.invoice),
+  );
+
+  return {
+    ht: addTotals(totalsOf(installments), invoiceTotals),
+    ttc: addTotals(ttcTotalsOf(installments), invoiceTotals),
+  };
+}
+
 /** La ligne de somme du groupe, alignée sur les colonnes HT et TTC. */
-function GroupFooter({ lines }: { lines: InstallmentLine[] }) {
+function GroupFooter({
+  count,
+  sums,
+}: {
+  count: number;
+  sums: { ht: CurrencyTotals; ttc: CurrencyTotals };
+}) {
   return (
     <div
       className={cn(
@@ -146,14 +182,14 @@ function GroupFooter({ lines }: { lines: InstallmentLine[] }) {
       )}
     >
       <span className="type-caption text-text-secondary">
-        Somme · {lines.length} ligne{lines.length > 1 ? "s" : ""}
+        Somme · {count} ligne{count > 1 ? "s" : ""}
       </span>
       <span className="hidden md:block" />
       <span className="type-label text-text-primary text-left tabular-nums md:text-right">
-        {formatTotals(totalsOf(lines))}
+        {formatTotals(sums.ht)}
       </span>
       <span className="type-body text-text-secondary text-left tabular-nums md:text-right">
-        {formatTotals(ttcTotalsOf(lines))}
+        {formatTotals(sums.ttc)}
       </span>
       <span className="hidden md:block" />
     </div>

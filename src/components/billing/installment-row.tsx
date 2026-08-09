@@ -3,8 +3,10 @@ import { StatusPill } from "@/components/ds/status-pill";
 import { ArchiveAction } from "@/components/billing/archive-action";
 import { EditInstallment } from "@/components/billing/edit-installment";
 import { InstallmentAction } from "@/components/billing/installment-action";
-import { monthLabel, periodLabel } from "@/lib/billing/format";
+import { dayLabel, monthLabel, periodLabel } from "@/lib/billing/format";
 import { isLate, ttcCentsOf } from "@/lib/billing/schedule";
+import { isOverdue } from "@/lib/finance/invoices";
+import type { UnmatchedInvoice } from "@/lib/billing/queries";
 import { LATE_LABEL, type BillingInstallment, type InstallmentStage } from "@/lib/billing/types";
 import { formatMoney } from "@/lib/finance/money";
 
@@ -22,6 +24,15 @@ export type InstallmentLine = BillingInstallment & {
   client: string;
   project: string;
 };
+
+/**
+ * Une rangée du board : une mensualité de devis, ou une facture Airwallex
+ * qui n'en a pas trouvé — les deux cohabitent dans les mêmes groupes, parce
+ * que l'écran montre la facturation réelle, pas seulement la planifiée.
+ */
+export type BoardRow =
+  | { kind: "installment"; line: InstallmentLine }
+  | { kind: "invoice"; invoice: UnmatchedInvoice };
 
 /** Gabarit partagé par l'en-tête et les lignes. */
 export const INSTALLMENT_GRID =
@@ -95,6 +106,65 @@ export function InstallmentRow({
       ) : (
         <span />
       )}
+    </div>
+  );
+}
+
+/**
+ * Une facture Airwallex sans devis, dans les mêmes colonnes. Aucune action :
+ * son statut EST celui d'Airwallex, la synchronisation horaire le tient à
+ * jour — et le jour où un devis correspondant est saisi, le rapprochement la
+ * déplacera sur sa mensualité.
+ *
+ * Le montant Airwallex est le total de la facture, sans détail de taxe : il
+ * s'affiche tel quel dans les deux colonnes — exact tant que la facturation
+ * se fait sans TVA, et de toute façon la seule valeur connue.
+ */
+export function InvoiceRow({
+  invoice,
+  stage,
+}: {
+  invoice: UnmatchedInvoice;
+  stage: InstallmentStage;
+}) {
+  const overdue = stage === "invoiced" && isOverdue(invoice);
+  const chip =
+    stage === "invoiced"
+      ? invoice.issued_on
+        ? `émise le ${dayLabel(invoice.issued_on)}`
+        : "émise"
+      : invoice.paid_at
+        ? `payée le ${dayLabel(invoice.paid_at.slice(0, 10))}`
+        : "payée";
+
+  return (
+    <div
+      className={cn("flex flex-wrap items-center gap-x-4 gap-y-2 px-5 py-3", INSTALLMENT_GRID)}
+    >
+      <div className="min-w-0 basis-full md:basis-auto">
+        <p className="type-label text-text-primary flex items-center gap-2">
+          <span className="truncate">{invoice.client_name}</span>
+          {overdue ? <StatusPill tone="danger">{LATE_LABEL}</StatusPill> : null}
+          <StatusPill tone="positive">Airwallex</StatusPill>
+        </p>
+        <p className="type-caption text-text-secondary truncate">
+          Facture hors devis
+          {overdue && invoice.due_on ? ` · échéance dépassée le ${dayLabel(invoice.due_on)}` : ""}
+        </p>
+      </div>
+
+      <span className="type-caption bg-neutral-subtle text-neutral-ink inline-flex w-fit items-center rounded-pill px-2.5 py-0.5 font-medium whitespace-nowrap tabular-nums">
+        {chip}
+      </span>
+
+      <span className="type-label text-text-primary text-left tabular-nums md:text-right">
+        {formatMoney(invoice.amount_cents, invoice.currency)}
+      </span>
+      <span className="type-body text-text-secondary text-left tabular-nums md:text-right">
+        {formatMoney(invoice.amount_cents, invoice.currency)}
+      </span>
+
+      <span />
     </div>
   );
 }

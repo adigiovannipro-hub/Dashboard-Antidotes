@@ -26,7 +26,7 @@
  */
 
 import type { FinanceInvoice } from "@/lib/finance/types";
-import { ttcCentsOf } from "./schedule";
+import { ARCHIVE_AFTER_DAYS, ttcCentsOf } from "./schedule";
 import type { BillingInstallment } from "./types";
 
 /** Ce que le rapprochement doit savoir d'une échéance — le client vient de
@@ -67,9 +67,6 @@ export type ReconcileDecision = {
    rien décider. */
 export const MATCH_BEFORE_DAYS = 10;
 export const MATCH_AFTER_DAYS = 45;
-
-/** Une payée reste deux mois sous les yeux, puis s'archive. */
-export const ARCHIVE_AFTER_DAYS = 60;
 
 /**
  * « CHASSEURS DE GRAINES », « Chasseurs de graines » et « chasseurs  de

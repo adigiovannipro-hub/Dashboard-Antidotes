@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import {
   addMonths,
+  addTotals,
+  billingForecast,
   installmentsFor,
   isDue,
   isLate,
@@ -11,6 +13,7 @@ import {
   scheduleKpis,
   splitTotal,
   stageOf,
+  stageOfInvoice,
   totalsOf,
   ttcCentsOf,
   ttcTotalsOf,
@@ -124,6 +127,62 @@ describe("stageOf", () => {
     expect(stageOf({ status: "paid", issue_on: "2026-07-01", archived_at: null }, NOW)).toBe("paid");
     expect(stageOf({ status: "paid", issue_on: "2026-05-01", archived_at: "2026-08-01T00:00:00Z" }, NOW)).toBe("archived");
     expect(stageOf({ status: "skipped", issue_on: "2026-08-01", archived_at: null }, NOW)).toBe("skipped");
+  });
+});
+
+describe("billingForecast", () => {
+  const lines = [
+    // S'émet en août : déjà facturée ou non, elle compte dans le mois.
+    { status: "issued", issue_on: "2026-08-01", amount_cents: 170_000, currency: "EUR" },
+    { status: "pending", issue_on: "2026-08-01", amount_cents: 250_000, currency: "EUR" },
+    // Septembre.
+    { status: "pending", issue_on: "2026-09-01", amount_cents: 250_000, currency: "EUR" },
+    // Passée : un mois offert ne se facturera pas.
+    { status: "skipped", issue_on: "2026-09-01", amount_cents: 99_000, currency: "EUR" },
+    // Hors fenêtre de trois mois.
+    { status: "pending", issue_on: "2026-12-01", amount_cents: 111_000, currency: "EUR" },
+    // Une autre devise ne se mélange pas à la courbe.
+    { status: "pending", issue_on: "2026-08-01", amount_cents: 500, currency: "USD" },
+  ] as const;
+
+  it("cumule par mois d'émission, un mois vide vaut zéro", () => {
+    expect(billingForecast(lines, { months: 3, now: NOW })).toEqual([
+      { month: "2026-08", amount_cents: 420_000, count: 2 },
+      { month: "2026-09", amount_cents: 250_000, count: 1 },
+      { month: "2026-10", amount_cents: 0, count: 0 },
+    ]);
+  });
+
+  it("étend la fenêtre sans recalculer le passé", () => {
+    const points = billingForecast(lines, { months: 5, now: NOW });
+    expect(points).toHaveLength(5);
+    expect(points[4]).toEqual({ month: "2026-12", amount_cents: 111_000, count: 1 });
+  });
+});
+
+describe("stageOfInvoice", () => {
+  it("place une facture hors devis dans le bon groupe", () => {
+    expect(stageOfInvoice({ status: "sent", paid_at: null }, NOW)).toBe("invoiced");
+    expect(stageOfInvoice({ status: "paid", paid_at: "2026-08-01T00:00:00Z" }, NOW)).toBe("paid");
+    // Payée depuis plus de soixante jours : archivée, dérivé — rien en base.
+    expect(stageOfInvoice({ status: "paid", paid_at: "2026-05-15T00:00:00Z" }, NOW)).toBe("archived");
+    // Sans date de paiement, impossible de dater l'archivage : elle reste visible.
+    expect(stageOfInvoice({ status: "paid", paid_at: null }, NOW)).toBe("paid");
+  });
+
+  it("écarte brouillons et annulées", () => {
+    expect(stageOfInvoice({ status: "draft", paid_at: null }, NOW)).toBeNull();
+    expect(stageOfInvoice({ status: "void", paid_at: null }, NOW)).toBeNull();
+  });
+});
+
+describe("addTotals", () => {
+  it("fusionne devise par devise sans jamais les mélanger", () => {
+    expect(addTotals({ EUR: 100, USD: 50 }, { EUR: 25, GBP: 10 })).toEqual({
+      EUR: 125,
+      USD: 50,
+      GBP: 10,
+    });
   });
 });
 

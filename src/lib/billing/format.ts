@@ -18,10 +18,23 @@ const MONTH_LONG = new Intl.DateTimeFormat("fr-FR", {
   timeZone: "UTC",
 });
 
+const DAY = new Intl.DateTimeFormat("fr-FR", {
+  day: "numeric",
+  month: "short",
+  year: "numeric",
+  timeZone: "UTC",
+});
+
 /** « 2026-07-01 » → « juillet 2026 ». */
 export function monthLabel(isoMonth: string): string {
   const date = new Date(`${isoMonth}T00:00:00.000Z`);
   return Number.isNaN(date.getTime()) ? isoMonth : MONTH_LONG.format(date);
+}
+
+/** « 2026-08-05 » → « 5 août 2026 ». */
+export function dayLabel(isoDay: string): string {
+  const date = new Date(`${isoDay}T00:00:00.000Z`);
+  return Number.isNaN(date.getTime()) ? isoDay : DAY.format(date);
 }
 
 /**

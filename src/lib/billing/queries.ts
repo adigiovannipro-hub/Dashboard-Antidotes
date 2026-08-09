@@ -1,6 +1,7 @@
 import "server-only";
 
 import { createClient } from "@/lib/supabase/server";
+import type { FinanceInvoice } from "@/lib/finance/types";
 import type { BillingEngagement, BillingInstallment } from "./types";
 
 /**
@@ -61,6 +62,51 @@ export async function listInstallments(options: {
   const { data } = await query.limit(options.limit ?? 500);
 
   return (data ?? []) as unknown as BillingInstallment[];
+}
+
+/** Ce que le board sait montrer d'une facture Airwallex sans devis. */
+export type UnmatchedInvoice = Pick<
+  FinanceInvoice,
+  "id" | "client_name" | "amount_cents" | "currency" | "status" | "issued_on" | "due_on" | "paid_at"
+>;
+
+/**
+ * Les factures Airwallex qui ne correspondent à aucune mensualité — celles
+ * que le module Finance connaît déjà et que le board affiche telles quelles :
+ * l'écran reflète la facturation réelle, pas seulement ce qui a été planifié.
+ * Une facture rapprochée n'apparaît jamais deux fois : elle vit sur la ligne
+ * de sa mensualité.
+ */
+export async function listUnmatchedInvoices(options: {
+  orgId: string;
+}): Promise<UnmatchedInvoice[]> {
+  const supabase = await createClient();
+
+  const [{ data: matched }, { data: invoices }] = await Promise.all([
+    supabase
+      .from("billing_installments")
+      .select("matched_invoice_id")
+      .eq("org_id", options.orgId)
+      .not("matched_invoice_id", "is", null)
+      .limit(2000),
+    supabase
+      .from("finance_invoices")
+      .select("id, client_name, amount_cents, currency, status, issued_on, due_on, paid_at")
+      .eq("org_id", options.orgId)
+      .in("status", ["sent", "paid"])
+      .order("issued_on", { ascending: false })
+      .limit(500),
+  ]);
+
+  const matchedIds = new Set(
+    ((matched ?? []) as unknown as { matched_invoice_id: string }[]).map(
+      (row) => row.matched_invoice_id,
+    ),
+  );
+
+  return ((invoices ?? []) as unknown as UnmatchedInvoice[]).filter(
+    (invoice) => !matchedIds.has(invoice.id),
+  );
 }
 
 /**
