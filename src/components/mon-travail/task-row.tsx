@@ -76,6 +76,10 @@ export function TaskRowView({
   // ligne, avant de descendre dans « Archivé » au retour du serveur. Cocher et
   // voir la ligne s'évaporer ne dit pas ce qui s'est passé — on doute d'avoir
   // cliqué au bon endroit.
+  //
+  // La coche pleine et le libellé barré suffisent à le dire : le mot
+  // « Validé » écrit en dessous ajoutait une ligne à la hauteur du rang, ce qui
+  // faisait sauter toutes les suivantes au moment même du clic.
   const [justValidated, setJustValidated] = useState(false);
   const archived = variant === "archived";
   const validated = archived || justValidated;
@@ -138,11 +142,6 @@ export function TaskRowView({
         {overdue ? (
           <p className="type-caption px-0 font-semibold tracking-wide text-danger-ink uppercase">
             En retard — {shortDate(task.due_date)}
-          </p>
-        ) : null}
-        {justValidated && !archived ? (
-          <p className="type-caption px-0 font-semibold tracking-wide text-text-secondary uppercase">
-            Validé
           </p>
         ) : null}
       </div>
