@@ -10,12 +10,13 @@
  * mois — même convention que `planning_months.month`.
  */
 
-import type { BillingInstallment } from "./types";
+import type { BillingInstallment, InstallmentStage } from "./types";
 
 /** Une échéance à insérer, telle que la génération la produit. */
 export type InstallmentDraft = {
   service_month: string;
   amount_cents: number;
+  vat_rate: number;
   currency: string;
   issue_on: string;
 };
@@ -27,6 +28,21 @@ export function addMonths(isoMonth: string, count: number): string {
   return date.toISOString().slice(0, 10);
 }
 
+/** Nombre de mois de prestation, bornes comprises : août → juillet = 12. */
+export function monthsBetween(firstMonth: string, lastMonth: string): number {
+  const [firstYear, firstMonthNum] = firstMonth.split("-").map(Number);
+  const [lastYear, lastMonthNum] = lastMonth.split("-").map(Number);
+  return (lastYear! - firstYear!) * 12 + (lastMonthNum! - firstMonthNum!) + 1;
+}
+
+/** Le dernier mois de prestation d'un engagement, pour afficher sa période. */
+export function lastMonthOf(engagement: {
+  first_month: string;
+  months_count: number;
+}): string {
+  return addMonths(engagement.first_month, engagement.months_count - 1);
+}
+
 /**
  * Le jour où la facture d'un mois de prestation doit partir : le lendemain de
  * la fin du mois — c'est-à-dire le 1er du mois suivant.
@@ -36,22 +52,51 @@ export function issueDateFor(serviceMonth: string): string {
 }
 
 /**
+ * Le total d'un devis réparti en mensualités, au centime près : la somme des
+ * parts vaut exactement le total. Le reste de la division se distribue
+ * centime par centime sur les premiers mois — 100 € sur 3 mois donne
+ * 33,34 + 33,33 + 33,33, jamais 33,33 × 3 qui perdrait un centime.
+ */
+export function splitTotal(totalCents: number, count: number): number[] {
+  const base = Math.floor(totalCents / count);
+  const remainder = totalCents - base * count;
+  return Array.from({ length: count }, (_, index) =>
+    index < remainder ? base + 1 : base,
+  );
+}
+
+/**
+ * Le TTC d'un montant HT stocké en centimes. Calcul en entiers — jamais
+ * `× 1,2` en flottant, qui sème des centimes fantômes.
+ */
+export function ttcCentsOf(amountCents: number, vatRate: number): number {
+  return Math.round((amountCents * (100 + vatRate)) / 100);
+}
+
+/**
  * Les échéances d'un engagement, une par mois de prestation.
  *
- * Le montant est copié sur chaque ligne et non référencé : un mois révisé ou
- * offert s'ajuste ligne à ligne sans réécrire l'histoire des autres.
+ * Montant et taux sont copiés sur chaque ligne et non référencés : un mois
+ * révisé ou offert s'ajuste ligne à ligne sans réécrire l'histoire des
+ * autres.
  */
 export function installmentsFor(engagement: {
   first_month: string;
   months_count: number;
-  monthly_amount_cents: number;
+  total_amount_cents: number;
+  vat_rate: number;
   currency: string;
 }): InstallmentDraft[] {
-  return Array.from({ length: engagement.months_count }, (_, index) => {
+  const amounts = splitTotal(
+    engagement.total_amount_cents,
+    engagement.months_count,
+  );
+  return amounts.map((amount, index) => {
     const serviceMonth = addMonths(engagement.first_month, index);
     return {
       service_month: serviceMonth,
-      amount_cents: engagement.monthly_amount_cents,
+      amount_cents: amount,
+      vat_rate: engagement.vat_rate,
       currency: engagement.currency,
       issue_on: issueDateFor(serviceMonth),
     };
@@ -69,8 +114,27 @@ export function today(now: Date = new Date()): string {
 }
 
 /**
+ * L'étape affichée d'une échéance — le groupe de l'écran. La bascule
+ * « devis confirmé → à facturer » n'est pas un traitement planifié : elle se
+ * produit d'elle-même au passage du 1er du mois, parce qu'elle est dérivée
+ * de la date et non stockée.
+ */
+export function stageOf(
+  installment: Pick<BillingInstallment, "status" | "issue_on" | "archived_at">,
+  now: Date = new Date(),
+): InstallmentStage {
+  if (installment.status === "skipped") return "skipped";
+  if (installment.status === "paid") {
+    return installment.archived_at ? "archived" : "paid";
+  }
+  if (installment.status === "issued") return "invoiced";
+  return installment.issue_on <= today(now) ? "to_invoice" : "confirmed";
+}
+
+/**
  * Une échéance dont le jour d'émission est arrivé — ou dépassé — et qui n'est
- * toujours pas émise. C'est la ligne que l'écran doit mettre devant les yeux.
+ * toujours pas facturée. C'est la ligne que l'écran doit mettre devant les
+ * yeux.
  */
 export function isDue(
   installment: Pick<BillingInstallment, "status" | "issue_on">,
@@ -104,41 +168,65 @@ export function totalsOf(
   return totals;
 }
 
+/** Les mêmes sommes, en TTC — pour la seconde colonne des pieds de groupe. */
+export function ttcTotalsOf(
+  installments: readonly Pick<
+    BillingInstallment,
+    "amount_cents" | "currency" | "vat_rate"
+  >[],
+): CurrencyTotals {
+  const totals: CurrencyTotals = {};
+  for (const installment of installments) {
+    totals[installment.currency] =
+      (totals[installment.currency] ?? 0) +
+      ttcCentsOf(installment.amount_cents, installment.vat_rate);
+  }
+  return totals;
+}
+
 /**
  * La bande de mesures de l'écran, dérivée d'un seul passage sur les lignes.
  *
- *   • `due` — à émettre maintenant : le jour est arrivé, la facture non.
- *   • `late` — le sous-ensemble de `due` dont le jour est dépassé.
- *   • `thisMonth` — tout ce qui s'émet dans le mois calendaire en cours,
- *     émis ou non : c'est le chiffre d'affaires du mois en train de se
- *     facturer.
+ *   • `toInvoice` — à facturer maintenant : le mois de prestation est fini,
+ *     la facture n'est pas partie.
+ *   • `late` — le sous-ensemble de `toInvoice` dont le jour est dépassé.
+ *   • `awaitingPayment` — facturé, en attente de règlement du client.
+ *   • `paidThisMonth` — encaissé sur le mois calendaire en cours.
+ *
+ * Tous les montants sont HT — le pilotage se fait en HT, le TTC vit dans les
+ * pieds de groupe.
  */
 export function scheduleKpis(
   installments: readonly Pick<
     BillingInstallment,
-    "status" | "issue_on" | "amount_cents" | "currency"
+    "status" | "issue_on" | "amount_cents" | "currency" | "paid_at" | "archived_at"
   >[],
   now: Date = new Date(),
 ): {
-  due: { count: number; totals: CurrencyTotals };
+  toInvoice: { count: number; totals: CurrencyTotals };
   late: { count: number; totals: CurrencyTotals };
-  thisMonth: { count: number; totals: CurrencyTotals };
+  awaitingPayment: { count: number; totals: CurrencyTotals };
+  paidThisMonth: { count: number; totals: CurrencyTotals };
 } {
-  const monthStart = currentMonth(now);
-  const nextMonthStart = addMonths(monthStart, 1);
+  const month = currentMonth(now).slice(0, 7);
 
-  const due = installments.filter((installment) => isDue(installment, now));
-  const late = installments.filter((installment) => isLate(installment, now));
-  const thisMonth = installments.filter(
-    (installment) =>
-      installment.status !== "skipped" &&
-      installment.issue_on >= monthStart &&
-      installment.issue_on < nextMonthStart,
+  const toInvoice = installments.filter((line) => isDue(line, now));
+  const late = installments.filter((line) => isLate(line, now));
+  const awaitingPayment = installments.filter((line) => line.status === "issued");
+  const paidThisMonth = installments.filter(
+    (line) => line.status === "paid" && line.paid_at?.slice(0, 7) === month,
   );
 
   return {
-    due: { count: due.length, totals: totalsOf(due) },
+    toInvoice: { count: toInvoice.length, totals: totalsOf(toInvoice) },
     late: { count: late.length, totals: totalsOf(late) },
-    thisMonth: { count: thisMonth.length, totals: totalsOf(thisMonth) },
+    awaitingPayment: {
+      count: awaitingPayment.length,
+      totals: totalsOf(awaitingPayment),
+    },
+    paidThisMonth: {
+      count: paidThisMonth.length,
+      totals: totalsOf(paidThisMonth),
+    },
   };
 }

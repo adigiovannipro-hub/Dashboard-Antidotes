@@ -1,0 +1,301 @@
+import { describe, expect, it } from "vitest";
+
+import {
+  normalizeClientName,
+  reconcile,
+  type ReconcilableInstallment,
+  type ReconcilableInvoice,
+} from "./reconcile";
+
+const NOW = new Date("2026-08-07T10:00:00.000Z");
+
+const makeInstallment = (
+  overrides: Partial<ReconcilableInstallment> = {},
+): ReconcilableInstallment => ({
+  id: "inst-1",
+  status: "pending",
+  amount_cents: 250_000,
+  vat_rate: 20,
+  currency: "EUR",
+  issue_on: "2026-08-01",
+  matched_invoice_id: null,
+  archived_at: null,
+  paid_at: null,
+  client_name: "I-WAY",
+  ...overrides,
+});
+
+const makeInvoice = (
+  overrides: Partial<ReconcilableInvoice> = {},
+): ReconcilableInvoice => ({
+  id: "fac-1",
+  client_name: "I-WAY",
+  amount_cents: 300_000,
+  currency: "EUR",
+  status: "sent",
+  issued_on: "2026-08-01",
+  paid_at: null,
+  ...overrides,
+});
+
+describe("normalizeClientName", () => {
+  it("efface accents, casse et espaces surnuméraires", () => {
+    expect(normalizeClientName("CHASSEURS DE GRAINES")).toBe(
+      normalizeClientName("Chasseurs  de graines "),
+    );
+    expect(normalizeClientName("Échéance Café")).toBe("echeance cafe");
+  });
+});
+
+describe("reconcile", () => {
+  it("rapproche une échéance de sa facture et la passe facturée", () => {
+    const decisions = reconcile({
+      installments: [makeInstallment()],
+      invoices: [makeInvoice()],
+      now: NOW,
+    });
+
+    expect(decisions).toEqual([
+      {
+        installment_id: "inst-1",
+        set: {
+          matched_invoice_id: "fac-1",
+          status: "issued",
+          issued_at: "2026-08-01T00:00:00.000Z",
+        },
+        reason: "matched",
+      },
+    ]);
+  });
+
+  it("passe directement payée quand Airwallex dit la facture réglée", () => {
+    const decisions = reconcile({
+      installments: [makeInstallment()],
+      invoices: [
+        makeInvoice({ status: "paid", paid_at: "2026-08-04T08:00:00.000Z" }),
+      ],
+      now: NOW,
+    });
+
+    expect(decisions[0]?.set).toEqual({
+      matched_invoice_id: "fac-1",
+      status: "paid",
+      issued_at: "2026-08-01T00:00:00.000Z",
+      paid_at: "2026-08-04T08:00:00.000Z",
+    });
+  });
+
+  it("avance une échéance déjà rapprochée quand sa facture passe payée", () => {
+    const decisions = reconcile({
+      installments: [
+        makeInstallment({ status: "issued", matched_invoice_id: "fac-1" }),
+      ],
+      invoices: [
+        makeInvoice({ status: "paid", paid_at: "2026-08-06T08:00:00.000Z" }),
+      ],
+      now: NOW,
+    });
+
+    expect(decisions).toEqual([
+      {
+        installment_id: "inst-1",
+        set: { status: "paid", paid_at: "2026-08-06T08:00:00.000Z" },
+        reason: "advanced",
+      },
+    ]);
+  });
+
+  it("garde le statut posé à la main : la facture trouvée n'ajoute que le lien", () => {
+    // Marquée facturée avant que le rapprochement ne trouve la facture.
+    const decisions = reconcile({
+      installments: [makeInstallment({ status: "issued" })],
+      invoices: [makeInvoice()],
+      now: NOW,
+    });
+
+    expect(decisions).toEqual([
+      {
+        installment_id: "inst-1",
+        set: { matched_invoice_id: "fac-1" },
+        reason: "matched",
+      },
+    ]);
+  });
+
+  it("ne recule jamais : une payée reste payée même si la facture retombe", () => {
+    const decisions = reconcile({
+      installments: [
+        makeInstallment({
+          status: "paid",
+          matched_invoice_id: "fac-1",
+          paid_at: "2026-08-01T00:00:00.000Z",
+        }),
+      ],
+      invoices: [makeInvoice({ status: "sent" })],
+      now: NOW,
+    });
+
+    expect(decisions).toEqual([]);
+  });
+
+  it("refuse un montant TTC différent, un client différent, une devise différente", () => {
+    const decisions = reconcile({
+      installments: [makeInstallment()],
+      invoices: [
+        makeInvoice({ id: "fac-montant", amount_cents: 299_999 }),
+        makeInvoice({ id: "fac-client", client_name: "Bondet" }),
+        makeInvoice({ id: "fac-devise", currency: "USD" }),
+      ],
+      now: NOW,
+    });
+
+    expect(decisions).toEqual([]);
+  });
+
+  it("tolère accents, casse et espaces dans le nom du client", () => {
+    const decisions = reconcile({
+      installments: [makeInstallment({ client_name: "Chasseurs de Graines" })],
+      invoices: [makeInvoice({ client_name: "CHASSEURS  DE GRAINES" })],
+      now: NOW,
+    });
+
+    expect(decisions).toHaveLength(1);
+  });
+
+  it("ignore une facture émise hors fenêtre", () => {
+    const decisions = reconcile({
+      installments: [makeInstallment({ issue_on: "2026-08-01" })],
+      invoices: [
+        makeInvoice({ id: "fac-tot", issued_on: "2026-07-10" }),
+        makeInvoice({ id: "fac-tard", issued_on: "2026-09-20" }),
+      ],
+      now: NOW,
+    });
+
+    expect(decisions).toEqual([]);
+  });
+
+  it("n'apparie une facture qu'une seule fois", () => {
+    // Deux mensualités identiques, une seule facture : la plus ancienne gagne.
+    const decisions = reconcile({
+      installments: [
+        makeInstallment({ id: "inst-juillet", issue_on: "2026-08-01" }),
+        makeInstallment({ id: "inst-aout", issue_on: "2026-09-01" }),
+      ],
+      invoices: [makeInvoice({ issued_on: "2026-08-02" })],
+      now: new Date("2026-09-05T10:00:00.000Z"),
+    });
+
+    expect(decisions).toHaveLength(1);
+    expect(decisions[0]?.installment_id).toBe("inst-juillet");
+  });
+
+  it("apparie deux mensualités et deux factures dans l'ordre chronologique", () => {
+    const decisions = reconcile({
+      installments: [
+        makeInstallment({ id: "inst-aout", issue_on: "2026-09-01" }),
+        makeInstallment({ id: "inst-juillet", issue_on: "2026-08-01" }),
+      ],
+      invoices: [
+        makeInvoice({ id: "fac-septembre", issued_on: "2026-09-01" }),
+        makeInvoice({ id: "fac-aout", issued_on: "2026-08-01" }),
+      ],
+      now: new Date("2026-09-05T10:00:00.000Z"),
+    });
+
+    expect(decisions).toEqual([
+      expect.objectContaining({
+        installment_id: "inst-juillet",
+        set: expect.objectContaining({ matched_invoice_id: "fac-aout" }),
+      }),
+      expect.objectContaining({
+        installment_id: "inst-aout",
+        set: expect.objectContaining({ matched_invoice_id: "fac-septembre" }),
+      }),
+    ]);
+  });
+
+  it("ne touche jamais une échéance passée", () => {
+    const decisions = reconcile({
+      installments: [makeInstallment({ status: "skipped" })],
+      invoices: [makeInvoice()],
+      now: NOW,
+    });
+
+    expect(decisions).toEqual([]);
+  });
+
+  it("compare le TTC avec le taux de la ligne, pas un taux global", () => {
+    // TVA à 0 : la facture Airwallex porte le HT tel quel.
+    const decisions = reconcile({
+      installments: [makeInstallment({ vat_rate: 0, amount_cents: 250_000 })],
+      invoices: [makeInvoice({ amount_cents: 250_000 })],
+      now: NOW,
+    });
+
+    expect(decisions).toHaveLength(1);
+  });
+
+  it("archive une payée de plus de soixante jours, laisse la récente", () => {
+    const decisions = reconcile({
+      installments: [
+        makeInstallment({
+          id: "inst-vieille",
+          status: "paid",
+          paid_at: "2026-06-01T00:00:00.000Z",
+        }),
+        makeInstallment({
+          id: "inst-recente",
+          status: "paid",
+          paid_at: "2026-08-01T00:00:00.000Z",
+        }),
+      ],
+      invoices: [],
+      now: NOW,
+    });
+
+    expect(decisions).toEqual([
+      {
+        installment_id: "inst-vieille",
+        set: { archived_at: NOW.toISOString() },
+        reason: "archived",
+      },
+    ]);
+  });
+
+  it("n'archive pas une payée sans date de paiement ni une déjà archivée", () => {
+    const decisions = reconcile({
+      installments: [
+        makeInstallment({ id: "inst-sans-date", status: "paid", paid_at: null }),
+        makeInstallment({
+          id: "inst-archivee",
+          status: "paid",
+          paid_at: "2026-01-01T00:00:00.000Z",
+          archived_at: "2026-04-01T00:00:00.000Z",
+        }),
+      ],
+      invoices: [],
+      now: NOW,
+    });
+
+    expect(decisions).toEqual([]);
+  });
+
+  it("ne décide rien quand tout est déjà à jour", () => {
+    // L'idempotence est ce qui permet au rapprochement de tourner toutes les
+    // heures sans jamais réécrire l'histoire.
+    const decisions = reconcile({
+      installments: [
+        makeInstallment({
+          status: "paid",
+          matched_invoice_id: "fac-1",
+          paid_at: "2026-08-01T00:00:00.000Z",
+        }),
+      ],
+      invoices: [makeInvoice({ status: "paid", paid_at: "2026-08-01T00:00:00.000Z" })],
+      now: NOW,
+    });
+
+    expect(decisions).toEqual([]);
+  });
+});
