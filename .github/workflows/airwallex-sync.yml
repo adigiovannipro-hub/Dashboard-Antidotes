@@ -12,8 +12,9 @@
 # La route `/api/cron/sync-finance` reste en place et reste correcte — elle ne
 # peut simplement pas aboutir de là où elle s'exécute.
 #
-# Coût : ~720 exécutions d'une minute par mois, sur les 2 000 minutes
-# gratuites d'un dépôt privé. La CI comprise, on reste large.
+# Coût : ~720 exécutions d'une à deux minutes par mois, sur les 2 000 minutes
+# gratuites d'un dépôt privé. La CI comprise, on reste large. Le navigateur de
+# rendu ajoute une dizaine de secondes par passage, cache restauré.
 #
 # Deux choses à savoir sur les schedules GitHub :
 #   • l'heure n'est pas garantie à la minute près — un décalage de quelques
@@ -61,6 +62,24 @@ jobs:
 
       - name: Installation
         run: pnpm install --frozen-lockfile
+
+      # Le navigateur qui rend les mails en PDF fidèle. Il n'existe que sur ce
+      # runner : l'hébergeur, d'où part la validation manuelle, n'en a pas —
+      # d'où le rendu à la lecture du mail plutôt qu'au transfert.
+      #
+      # Mis en cache : le téléchargement coûte ~40 s, sa restauration ~10 s.
+      # Sur 720 exécutions mensuelles, l'écart pèse plus que tout le reste du
+      # job. `--with-deps` n'est posé qu'au premier passage, quand le cache est
+      # vide ; ensuite les bibliothèques système sont déjà là.
+      - name: Cache du navigateur
+        id: cache-navigateur
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ hashFiles('pnpm-lock.yaml') }}
+
+      - name: Navigateur de rendu
+        run: pnpm exec playwright install ${{ steps.cache-navigateur.outputs.cache-hit == 'true' && 'chromium' || '--with-deps chromium' }}
 
       - name: Synchroniser Finance
         run: pnpm sync:finance

@@ -480,6 +480,12 @@ async function ingestMessage(context: {
 
   if (!accountable) return "created";
 
+  /* Le rendu fidèle se fait ici, et pas au transfert : c'est ici qu'on a le
+     HTML du mail en main **et** un navigateur — la validation, elle, part de
+     l'hébergeur, qui n'en a pas. Meilleur effort : sans navigateur, le
+     transfert retombera sur le PDF de texte. */
+  await storeRenderedPdf(admin, document.id, source.org_id, message.html);
+
   // Le fournisseur est vu : la règle est créée dès maintenant, à zéro
   // validation, pour que l'écran puisse compter les approbations à venir.
   await touchMerchantRule(admin, source.org_id, domain, extraction.merchant);
@@ -518,6 +524,42 @@ async function ingestMessage(context: {
 
   await forwardDocument({ documentId: document.id, actorId: null, auto: true });
   return "auto_forwarded";
+}
+
+/** Le bucket privé où dort le mail rendu, entre sa lecture et son transfert. */
+const RENDERED_BUCKET = "receipt-pdfs";
+
+/**
+ * Rend le mail en PDF fidèle et le range, si un navigateur répond.
+ *
+ * Silencieux en cas d'échec, et c'est voulu : perdre la mise en page est une
+ * dégradation, perdre le justificatif serait une panne.
+ */
+async function storeRenderedPdf(
+  admin: Admin,
+  documentId: string,
+  orgId: string,
+  html: string | null,
+): Promise<void> {
+  if (!html) return;
+
+  try {
+    const pdf = await renderHtmlToPdf(html);
+    if (!pdf || pdf.length > MAX_ATTACHMENT_BYTES) return;
+
+    const path = `${orgId}/${documentId}.pdf`;
+    const { error } = await admin.storage
+      .from(RENDERED_BUCKET)
+      .upload(path, pdf, { contentType: "application/pdf", upsert: true });
+    if (error) return;
+
+    await admin
+      .from("receipt_documents")
+      .update({ pdf_storage_path: path })
+      .eq("id", documentId);
+  } catch {
+    // Rendu ou stockage en échec : le transfert utilisera le PDF de texte.
+  }
 }
 
 async function touchMerchantRule(
@@ -728,8 +770,23 @@ async function buildReceiptFile(context: {
     invoiceNumber: document.invoice_number,
   });
 
-  // Le rendu fidèle par navigateur d'abord : il conserve la mise en page du
-  // commerçant. Il n'aboutit que là où Playwright est réellement installé.
+  /* Le rendu fidèle, préparé à la lecture du mail là où un navigateur
+     répondait. C'est lui qui donne « le mail exporté en PDF » — logo,
+     couleurs, mise en page — que le transfert seul ne saurait produire. */
+  if (document.pdf_storage_path) {
+    const { data } = await createAdminClient()
+      .storage.from(RENDERED_BUCKET)
+      .download(document.pdf_storage_path);
+    if (data) {
+      const content = Buffer.from(await data.arrayBuffer());
+      if (content.length > 0 && content.length <= MAX_ATTACHMENT_BYTES) {
+        return { origin: "rendered", filename, contentType: "application/pdf", content };
+      }
+    }
+  }
+
+  // À défaut, un rendu à la volée — utile quand le transfert lui-même tourne
+  // sur une machine dotée d'un navigateur.
   if (message.html) {
     const rendered = await renderHtmlToPdf(message.html);
     if (rendered && rendered.length <= MAX_ATTACHMENT_BYTES) {

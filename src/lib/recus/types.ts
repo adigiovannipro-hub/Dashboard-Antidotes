@@ -198,6 +198,7 @@ export type ReceiptDocument = {
   pdf_origin: ReceiptPdfOrigin;
   pdf_filename: string | null;
   pdf_size_bytes: number | null;
+  /** Chemin du mail rendu en PDF fidèle, dans le bucket `receipt-pdfs`. */
   pdf_storage_path: string | null;
   external_attachment_id: string | null;
   status: ReceiptStatus;

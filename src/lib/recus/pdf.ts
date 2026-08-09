@@ -70,54 +70,76 @@ export const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024;
  * de production — plusieurs centaines de mégaoctets pour une fonctionnalité
  * facultative.
  */
+type BrowserPage = {
+  setContent: (html: string, options: object) => Promise<void>;
+  waitForLoadState: (state: string, options?: object) => Promise<void>;
+  pdf: (options: object) => Promise<Uint8Array>;
+};
+
 type BrowserLauncher = {
   chromium: {
-    launch: () => Promise<{
-      newPage: () => Promise<{
-        setContent: (html: string, options: object) => Promise<void>;
-        pdf: (options: object) => Promise<Uint8Array>;
-      }>;
+    launch: (options?: object) => Promise<{
+      newPage: (options?: object) => Promise<BrowserPage>;
       close: () => Promise<void>;
     }>;
   };
 };
 
 /**
- * Rend un corps HTML en PDF avec Playwright, s'il est disponible.
+ * Le paquet qui porte réellement le navigateur.
  *
- * Le spécificateur est construit à l'exécution : le bundler ne peut pas le
- * résoudre statiquement, donc ne l'embarque pas. Absent, le `catch` rend `null`
- * et l'appelant retombe sur le transfert en texte — un hébergement sans
- * navigateur reste parfaitement utilisable.
+ * `playwright` a longtemps été visé ici — il n'est jamais résolvable : c'est
+ * une dépendance **transitive** de `@playwright/test`, et pnpm ne hisse pas
+ * les transitives à la racine. L'import échouait donc toujours, en silence,
+ * et chaque reçu partait sans pièce jointe. Le spécificateur est assemblé à
+ * l'exécution pour que le bundler ne l'embarque pas.
+ */
+const BROWSER_PACKAGE = ["@playwright", "test"].join("/");
+
+/**
+ * Rend un corps HTML en PDF avec un vrai navigateur, s'il y en a un.
+ *
+ * C'est ce rendu qui donne « le mail exporté en PDF » : logo, couleurs et
+ * mise en page du commerçant. Il n'aboutit que là où Chromium est installé —
+ * le runner de la synchronisation — et rend `null` ailleurs, l'appelant
+ * retombant alors sur le PDF de texte.
  */
 export async function renderHtmlToPdf(html: string): Promise<Buffer | null> {
   try {
-    const specifier = "play" + "wright";
     const { chromium } = (await import(
-      /* webpackIgnore: true */ /* @vite-ignore */ specifier
+      /* webpackIgnore: true */ /* @vite-ignore */ BROWSER_PACKAGE
     )) as BrowserLauncher;
     const browser = await chromium.launch();
 
     try {
-      const page = await browser.newPage();
+      /* Un mail est composé pour une fenêtre étroite : à 1280 px, sa colonne
+         centrale flotte au milieu d'un désert blanc. 820 px donne une page
+         dense, proche de ce qu'affiche une application de messagerie. */
+      const page = await browser.newPage({ viewport: { width: 820, height: 1200 } });
 
-      /* `domcontentloaded` et non `networkidle` : les mails de facturation
-         embarquent des pixels de suivi qui ne répondent jamais, et attendre le
-         silence réseau ferait expirer chaque rendu. */
-      await page.setContent(html, { waitUntil: "domcontentloaded", timeout: 15_000 });
+      await page.setContent(html, { waitUntil: "domcontentloaded", timeout: 20_000 });
+
+      /* Puis les images, qui font tout l'intérêt du rendu fidèle — le logo du
+         commerçant en tête du reçu. Attente bornée et tolérante : un pixel de
+         suivi qui ne répond jamais ne doit pas coûter le PDF. */
+      try {
+        await page.waitForLoadState("load", { timeout: 8_000 });
+      } catch {
+        // Images incomplètes : le PDF part avec ce qui est arrivé.
+      }
 
       const pdf = await page.pdf({
         format: "A4",
         printBackground: true,
-        margin: { top: "12mm", bottom: "12mm", left: "12mm", right: "12mm" },
+        margin: { top: "10mm", bottom: "10mm", left: "8mm", right: "8mm" },
       });
       return Buffer.from(pdf);
     } finally {
       await browser.close();
     }
   } catch {
-    /* Playwright absent, navigateur non installé, rendu en échec : dans tous
-       les cas le mail partira en texte. Ce n'est pas une erreur à propager. */
+    /* Navigateur absent ou rendu en échec : dans tous les cas le mail partira
+       avec le PDF de texte. Ce n'est pas une erreur à propager. */
     return null;
   }
 }
