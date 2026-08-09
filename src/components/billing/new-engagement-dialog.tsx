@@ -18,8 +18,24 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { formatMoney } from "@/lib/finance/money";
 import { monthsBetween, splitTotal, ttcCentsOf } from "@/lib/billing/schedule";
+
+/* Antidotes facture sans TVA aujourd'hui — le 0 est le défaut, les taux
+   français restent à portée de main pour le jour où ça change. */
+const VAT_RATES: { value: string; label: string }[] = [
+  { value: "0", label: "Sans TVA (0 %)" },
+  { value: "5.5", label: "5,5 %" },
+  { value: "10", label: "10 %" },
+  { value: "20", label: "20 %" },
+];
 
 /**
  * La saisie d'un devis signé — le seul point d'entrée du module.
@@ -75,7 +91,7 @@ function NewEngagementForm({
   const [lastMonth, setLastMonth] = useState("");
   const [totalAmount, setTotalAmount] = useState("");
   const [monthlyAmount, setMonthlyAmount] = useState("");
-  const [vatRate, setVatRate] = useState("20");
+  const [vatRate, setVatRate] = useState("0");
 
   useEffect(() => {
     if (!state) return;
@@ -172,14 +188,23 @@ function NewEngagementForm({
       </div>
 
       <div className="grid gap-1">
-        <Label htmlFor="devis-tva">TVA (%)</Label>
-        <Input
-          id="devis-tva"
-          name="vatRate"
-          inputMode="decimal"
-          value={vatRate}
-          onChange={(event) => setVatRate(event.target.value)}
-        />
+        <Label htmlFor="devis-tva">TVA</Label>
+        <Select name="vatRate" value={vatRate} onValueChange={(value) => setVatRate(value ?? "0")}>
+          <SelectTrigger id="devis-tva" className="w-full">
+            <SelectValue>
+              {(value: string) =>
+                VAT_RATES.find((rate) => rate.value === value)?.label ?? "Sans TVA (0 %)"
+              }
+            </SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            {VAT_RATES.map((rate) => (
+              <SelectItem key={rate.value} value={rate.value}>
+                {rate.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
       <div className="grid gap-1">
         <Label htmlFor="devis-notes">Note</Label>
@@ -243,5 +268,10 @@ function buildPreview(fields: {
     ? `${count} mensualité${count > 1 ? "s" : ""} de ${formatMoney(firstPart, "EUR")} HT`
     : `${count} mensualités de ${formatMoney(firstPart, "EUR")} à ${formatMoney(lastPart, "EUR")} HT`;
 
-  return `${monthlyText} — ${formatMoney(ttcCentsOf(firstPart, vat), "EUR")} TTC/mois, ${formatMoney(totalCents, "EUR")} HT au total. Ajustable mois par mois ensuite.`;
+  const ttcText =
+    vat > 0
+      ? `${formatMoney(ttcCentsOf(firstPart, vat), "EUR")} TTC/mois, `
+      : "sans TVA, ";
+
+  return `${monthlyText} — ${ttcText}${formatMoney(totalCents, "EUR")} HT au total. Ajustable mois par mois ensuite.`;
 }

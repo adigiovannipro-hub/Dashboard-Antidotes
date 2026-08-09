@@ -87,7 +87,7 @@ export async function createEngagement(
     lastMonth: formData.get("lastMonth"),
     totalAmount: formData.get("totalAmount") || undefined,
     monthlyAmount: formData.get("monthlyAmount") || undefined,
-    vatRate: formData.get("vatRate") ?? "20",
+    vatRate: formData.get("vatRate") || "0",
     notes: formData.get("notes") || undefined,
   });
   if (!parsed.success) {

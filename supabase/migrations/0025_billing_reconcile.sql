@@ -10,7 +10,8 @@
 --   • `vat_rate` — le board Monday affichait HT et TTC côte à côte. Le HT
 --     reste la valeur stockée (`amount_cents`), le TTC se calcule ; le taux
 --     est copié de l'engagement sur chaque ligne à la génération, puis
---     indépendant — même doctrine que le montant.
+--     indépendant — même doctrine que le montant. Défaut à 0 : Antidotes
+--     facture aujourd'hui sans TVA, un taux se choisit devis par devis.
 --   • `matched_invoice_id` — le lien vers la facture Airwallex rapprochée.
 --     Unique : une facture ne solde qu'une échéance. `on delete set null` :
 --     si le miroir Finance est purgé puis resynchronisé, l'échéance garde son
@@ -22,11 +23,11 @@
 -- ===========================================================================
 
 alter table billing_engagements
-  add column vat_rate numeric(5, 2) not null default 20.00
+  add column vat_rate numeric(5, 2) not null default 0.00
     check (vat_rate >= 0 and vat_rate <= 100);
 
 alter table billing_installments
-  add column vat_rate numeric(5, 2) not null default 20.00
+  add column vat_rate numeric(5, 2) not null default 0.00
     check (vat_rate >= 0 and vat_rate <= 100),
   add column matched_invoice_id uuid references finance_invoices (id) on delete set null,
   add column archived_at timestamptz;
