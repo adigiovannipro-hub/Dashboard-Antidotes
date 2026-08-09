@@ -29,10 +29,8 @@ export async function listEngagements(options: {
 }
 
 export type InstallmentFilters = {
-  /** Statuts à retenir. Absent : tous. */
-  statuses?: BillingInstallment["status"][];
-  /** Ne garder que ce qui s'émet jusqu'à cette date incluse, `AAAA-MM-JJ`. */
-  issuedUpTo?: string;
+  /** `true` : seulement les archivées ; `false` (défaut) : tout le vivant. */
+  archived?: boolean;
 };
 
 export async function listInstallments(options: {
@@ -47,38 +45,43 @@ export async function listInstallments(options: {
     .select("*")
     .eq("org_id", options.orgId);
 
-  if (options.filters?.statuses) {
-    query = query.in("status", options.filters.statuses);
-  }
-  if (options.filters?.issuedUpTo) {
-    query = query.lte("issue_on", options.filters.issuedUpTo);
+  /* L'archivé se lit à part, du plus récent au plus ancien — c'est un bas de
+     page, pas un flux. Le vivant se lit dans l'ordre du calendrier. */
+  if (options.filters?.archived) {
+    query = query
+      .not("archived_at", "is", null)
+      .order("archived_at", { ascending: false });
+  } else {
+    query = query
+      .is("archived_at", null)
+      .order("issue_on")
+      .order("service_month");
   }
 
-  const { data } = await query
-    .order("issue_on")
-    .order("service_month")
-    .limit(options.limit ?? 200);
+  const { data } = await query.limit(options.limit ?? 500);
 
   return (data ?? []) as unknown as BillingInstallment[];
 }
 
 /**
- * Les dernières lignes émises ou payées — l'historique court de bas de page.
- * Triées du plus récent au plus ancien, contrairement au planning.
+ * Les clients connus d'Airwallex, pour la liste de suggestions du formulaire.
+ * Le rapprochement se fait sur le nom : le saisir à l'identique, c'est le
+ * brancher du premier coup.
  */
-export async function listRecentIssued(options: {
+export async function listKnownClients(options: {
   orgId: string;
-  limit?: number;
-}): Promise<BillingInstallment[]> {
+}): Promise<string[]> {
   const supabase = await createClient();
 
   const { data } = await supabase
-    .from("billing_installments")
-    .select("*")
+    .from("finance_invoices")
+    .select("client_name")
     .eq("org_id", options.orgId)
-    .in("status", ["issued", "paid"])
-    .order("issue_on", { ascending: false })
-    .limit(options.limit ?? 20);
+    .order("client_name")
+    .limit(1000);
 
-  return (data ?? []) as unknown as BillingInstallment[];
+  const names = ((data ?? []) as unknown as { client_name: string }[]).map(
+    (row) => row.client_name,
+  );
+  return [...new Set(names)].filter((name) => name && name !== "Client inconnu");
 }

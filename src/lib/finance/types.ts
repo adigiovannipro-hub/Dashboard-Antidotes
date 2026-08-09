@@ -28,7 +28,12 @@ export type FinanceMatchStatus =
   | "confirmed"
   | "rejected";
 
-export type FinanceSyncKind = "balances" | "transactions" | "invoices" | "ledger";
+export type FinanceSyncKind =
+  | "balances"
+  | "transactions"
+  | "invoices"
+  | "ledger"
+  | "billing";
 
 export type FinanceSyncStatus = "running" | "success" | "error";
 

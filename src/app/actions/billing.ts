@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { requireFinanceAccess } from "@/lib/finance/access";
-import { installmentsFor } from "@/lib/billing/schedule";
+import { installmentsFor, monthsBetween } from "@/lib/billing/schedule";
 import { createClient } from "@/lib/supabase/server";
 
 /**
@@ -17,6 +17,10 @@ import { createClient } from "@/lib/supabase/server";
  *
  * La garde est celle du module Finance : ces échéances sont l'autre moitié de
  * la même comptabilité, un droit distinct ne protégerait rien de plus.
+ *
+ * Les statuts, eux, avancent normalement tout seuls — rapprochement Airwallex
+ * horaire. Les actions de statut sont le filet manuel quand une facture sort
+ * du cadre : montant groupé, client renommé, avoir.
  */
 
 export type BillingActionResult =
@@ -32,26 +36,45 @@ function refresh() {
   revalidatePath(FINANCE_PATH);
 }
 
-// --- Créer un engagement -----------------------------------------------------
+/* Le formulaire parle en euros, la base en centimes. La virgule française
+   est admise : « 2500,50 » vaut 2 500,50 €. */
+const frenchAmount = z
+  .string()
+  .trim()
+  .min(1)
+  .transform((value) => Number(value.replace(/\s/g, "").replace(",", ".")))
+  .pipe(z.number().positive().finite());
 
-const createEngagementInput = z.object({
-  clientName: z.string().trim().min(1).max(200),
-  label: z.string().trim().min(1).max(200),
-  /* Le formulaire parle en euros, la base en centimes. La virgule française
-     est admise : « 2500,50 » vaut 2 500,50 €. */
-  monthlyAmount: z
-    .string()
-    .trim()
-    .transform((value) => Number(value.replace(/\s/g, "").replace(",", ".")))
-    .pipe(z.number().positive().finite()),
-  /* `<input type="month">` envoie `AAAA-MM` : on cale au 1er. */
-  firstMonth: z
-    .string()
-    .regex(/^\d{4}-\d{2}$/)
-    .transform((value) => `${value}-01`),
-  monthsCount: z.coerce.number().int().min(1).max(60),
-  notes: z.string().trim().max(2000).optional(),
-});
+/* `<input type="month">` envoie `AAAA-MM` : on cale au 1er. */
+const isoMonth = z
+  .string()
+  .regex(/^\d{4}-\d{2}$/)
+  .transform((value) => `${value}-01`);
+
+// --- Créer un devis ----------------------------------------------------------
+
+const createEngagementInput = z
+  .object({
+    clientName: z.string().trim().min(1).max(200),
+    label: z.string().trim().min(1).max(200),
+    firstMonth: isoMonth,
+    lastMonth: isoMonth,
+    /* L'un des deux suffit : le total se divise, le mensuel se multiplie. */
+    totalAmount: frenchAmount.optional(),
+    monthlyAmount: frenchAmount.optional(),
+    vatRate: z
+      .string()
+      .trim()
+      .transform((value) => Number(value.replace(",", ".")))
+      .pipe(z.number().min(0).max(100)),
+    notes: z.string().trim().max(2000).optional(),
+  })
+  .refine((data) => data.totalAmount || data.monthlyAmount, {
+    message: "montant absent",
+  })
+  .refine((data) => data.lastMonth >= data.firstMonth, {
+    message: "période inversée",
+  });
 
 export async function createEngagement(
   _previous: BillingActionResult | null,
@@ -60,19 +83,33 @@ export async function createEngagement(
   const parsed = createEngagementInput.safeParse({
     clientName: formData.get("clientName"),
     label: formData.get("label"),
-    monthlyAmount: formData.get("monthlyAmount"),
     firstMonth: formData.get("firstMonth"),
-    monthsCount: formData.get("monthsCount"),
+    lastMonth: formData.get("lastMonth"),
+    totalAmount: formData.get("totalAmount") || undefined,
+    monthlyAmount: formData.get("monthlyAmount") || undefined,
+    vatRate: formData.get("vatRate") ?? "20",
     notes: formData.get("notes") || undefined,
   });
   if (!parsed.success) {
-    return { ok: false, error: "Formulaire incomplet ou montant invalide." };
+    return {
+      ok: false,
+      error:
+        "Formulaire incomplet : il faut un client, une prestation, une période dans le bon sens et au moins un montant.",
+    };
   }
+
+  const monthsCount = monthsBetween(parsed.data.firstMonth, parsed.data.lastMonth);
+  if (monthsCount > 60) {
+    return { ok: false, error: "Plus de cinq ans : erreur de saisie probable." };
+  }
+
+  const totalCents = parsed.data.totalAmount
+    ? Math.round(parsed.data.totalAmount * 100)
+    : Math.round(parsed.data.monthlyAmount! * 100) * monthsCount;
 
   const context = await requireFinanceAccess();
   if (!context.canDecide) return { ok: false, error: "Action indisponible." };
 
-  const monthlyAmountCents = Math.round(parsed.data.monthlyAmount * 100);
   const supabase = await createClient();
 
   try {
@@ -82,10 +119,13 @@ export async function createEngagement(
         org_id: context.orgId,
         client_name: parsed.data.clientName,
         label: parsed.data.label,
-        monthly_amount_cents: monthlyAmountCents,
+        /* Le mensuel représentatif de l'engagement — les lignes portent la
+           division exacte, reste compris. */
+        monthly_amount_cents: Math.max(1, Math.round(totalCents / monthsCount)),
         currency: "EUR",
+        vat_rate: parsed.data.vatRate,
         first_month: parsed.data.firstMonth,
-        months_count: parsed.data.monthsCount,
+        months_count: monthsCount,
         notes: parsed.data.notes ?? null,
       } as never)
       .select("id")
@@ -95,8 +135,9 @@ export async function createEngagement(
     const engagementId = (engagement as { id: string }).id;
     const lines = installmentsFor({
       first_month: parsed.data.firstMonth,
-      months_count: parsed.data.monthsCount,
-      monthly_amount_cents: monthlyAmountCents,
+      months_count: monthsCount,
+      total_amount_cents: totalCents,
+      vat_rate: parsed.data.vatRate,
       currency: "EUR",
     });
 
@@ -108,7 +149,7 @@ export async function createEngagement(
       })) as never,
     );
     if (linesError) {
-      // Un engagement sans ses échéances serait un fantôme : on le retire
+      // Un devis sans ses échéances serait un fantôme : on le retire
       // plutôt que de laisser une coquille que rien n'affichera correctement.
       await supabase.from("billing_engagements").delete().eq("id", engagementId);
       throw new Error(linesError.message);
@@ -117,7 +158,7 @@ export async function createEngagement(
     refresh();
     return {
       ok: true,
-      message: `Engagement créé : ${lines.length} échéance${lines.length > 1 ? "s" : ""} générée${lines.length > 1 ? "s" : ""}.`,
+      message: `Devis créé : ${lines.length} mensualité${lines.length > 1 ? "s" : ""} générée${lines.length > 1 ? "s" : ""}.`,
     };
   } catch (error) {
     return {
@@ -125,6 +166,50 @@ export async function createEngagement(
       error: `Création refusée : ${error instanceof Error ? error.message : String(error)}`,
     };
   }
+}
+
+// --- Ajuster un mois ---------------------------------------------------------
+
+const updateInstallmentInput = z.object({
+  installmentId: z.uuid(),
+  amount: frenchAmount,
+  notes: z.string().trim().max(500).optional(),
+});
+
+/**
+ * Le montant d'un mois se retouche ligne à ligne — un mois offert, une
+ * rallonge, un avoir — sans réécrire l'histoire des autres.
+ */
+export async function updateInstallment(
+  _previous: BillingActionResult | null,
+  formData: FormData,
+): Promise<BillingActionResult> {
+  const parsed = updateInstallmentInput.safeParse({
+    installmentId: formData.get("installmentId"),
+    amount: formData.get("amount"),
+    notes: formData.get("notes") || undefined,
+  });
+  if (!parsed.success) return { ok: false, error: "Montant invalide." };
+
+  const context = await requireFinanceAccess();
+  if (!context.canDecide) return { ok: false, error: "Action indisponible." };
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("billing_installments")
+    .update({
+      amount_cents: Math.round(parsed.data.amount * 100),
+      notes: parsed.data.notes ?? null,
+    } as never)
+    .eq("id", parsed.data.installmentId)
+    .eq("org_id", context.orgId)
+    .select("id");
+
+  if (error) return { ok: false, error: `Mise à jour refusée : ${error.message}` };
+  if (!data || data.length === 0) return { ok: false, error: "Échéance introuvable." };
+
+  refresh();
+  return { ok: true, message: "Mensualité ajustée." };
 }
 
 // --- Faire avancer une échéance ----------------------------------------------
@@ -147,14 +232,25 @@ export async function setInstallmentStatus(
   const context = await requireFinanceAccess();
   if (!context.canDecide) return { ok: false, error: "Action indisponible." };
 
-  /* Les horodatages suivent le statut : marquer « émise » pose `issued_at`,
-     revenir à « à émettre » les efface. Un statut sans sa date raconterait une
-     histoire à moitié. */
+  /* Les horodatages suivent le statut. Rouvrir ou passer une ligne retire
+     aussi le lien Airwallex : le laisser ferait re-avancer la ligne au
+     passage suivant du rapprochement — l'automate gagnerait toujours contre
+     la main. */
   const stamps = {
-    pending: { issued_at: null, paid_at: null },
-    issued: { issued_at: new Date().toISOString(), paid_at: null },
+    pending: {
+      issued_at: null,
+      paid_at: null,
+      archived_at: null,
+      matched_invoice_id: null,
+    },
+    issued: { issued_at: new Date().toISOString(), paid_at: null, archived_at: null },
     paid: { paid_at: new Date().toISOString() },
-    skipped: { issued_at: null, paid_at: null },
+    skipped: {
+      issued_at: null,
+      paid_at: null,
+      archived_at: null,
+      matched_invoice_id: null,
+    },
   }[parsed.data.status];
 
   const supabase = await createClient();
@@ -174,13 +270,62 @@ export async function setInstallmentStatus(
   return { ok: true, message: "Échéance mise à jour." };
 }
 
-// --- Terminer un engagement --------------------------------------------------
+// --- Archiver / ressortir une payée ------------------------------------------
+
+const archiveInput = z.object({
+  installmentId: z.uuid(),
+  archived: z.enum(["1", "0"]),
+});
+
+/**
+ * L'archivage descend une payée en bas de page sans toucher à son statut.
+ * L'automate le fait seul au bout de deux mois ; le bouton sert à pousser
+ * plus tôt — ou à ressortir une ligne pour la revoir.
+ */
+export async function archiveInstallment(
+  _previous: BillingActionResult | null,
+  formData: FormData,
+): Promise<BillingActionResult> {
+  const parsed = archiveInput.safeParse({
+    installmentId: formData.get("installmentId"),
+    archived: formData.get("archived"),
+  });
+  if (!parsed.success) return { ok: false, error: "Requête incomplète." };
+
+  const context = await requireFinanceAccess();
+  if (!context.canDecide) return { ok: false, error: "Action indisponible." };
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("billing_installments")
+    .update({
+      archived_at: parsed.data.archived === "1" ? new Date().toISOString() : null,
+    } as never)
+    .eq("id", parsed.data.installmentId)
+    .eq("org_id", context.orgId)
+    // Seule une payée s'archive : les autres ont encore une vie devant elles.
+    .eq("status", "paid")
+    .select("id");
+
+  if (error) return { ok: false, error: `Archivage refusé : ${error.message}` };
+  if (!data || data.length === 0) {
+    return { ok: false, error: "Échéance introuvable ou pas encore payée." };
+  }
+
+  refresh();
+  return {
+    ok: true,
+    message: parsed.data.archived === "1" ? "Échéance archivée." : "Échéance ressortie.",
+  };
+}
+
+// --- Terminer un devis -------------------------------------------------------
 
 const endEngagementInput = z.object({ engagementId: z.uuid() });
 
 /**
- * Clore un engagement : résiliation, fin anticipée. Ses échéances encore à
- * émettre passent « passées » — les émises et payées, elles, sont de
+ * Clore un devis : résiliation, fin anticipée. Ses échéances encore à
+ * émettre passent « passées » — les facturées et payées, elles, sont de
  * l'histoire et ne bougent pas.
  */
 export async function endEngagement(
@@ -206,7 +351,7 @@ export async function endEngagement(
 
   const { error: linesError } = await supabase
     .from("billing_installments")
-    .update({ status: "skipped" } as never)
+    .update({ status: "skipped", matched_invoice_id: null } as never)
     .eq("engagement_id", parsed.data.engagementId)
     .eq("org_id", context.orgId)
     .eq("status", "pending");
@@ -215,17 +360,18 @@ export async function endEngagement(
   }
 
   refresh();
-  return { ok: true, message: "Engagement terminé, échéances restantes passées." };
+  return { ok: true, message: "Devis terminé, échéances restantes passées." };
 }
 
-// --- Supprimer un engagement -------------------------------------------------
+// --- Supprimer un devis ------------------------------------------------------
 
 const deleteEngagementInput = z.object({ engagementId: z.uuid() });
 
 /**
- * Suppression réelle, réservée à l'erreur de saisie : l'engagement part avec
- * toutes ses échéances, émises comprises (cascade). Pour une fin de contrat,
- * c'est `endEngagement` — l'historique de ce qui a été facturé se garde.
+ * Suppression réelle, réservée à l'erreur de saisie : le devis part avec
+ * toutes ses échéances, facturées comprises (cascade). Pour une fin de
+ * contrat, c'est `endEngagement` — l'historique de ce qui a été facturé se
+ * garde.
  */
 export async function deleteEngagement(
   _previous: BillingActionResult | null,
@@ -248,5 +394,5 @@ export async function deleteEngagement(
   if (error) return { ok: false, error: `Suppression refusée : ${error.message}` };
 
   refresh();
-  return { ok: true, message: "Engagement supprimé avec ses échéances." };
+  return { ok: true, message: "Devis supprimé avec ses échéances." };
 }

@@ -1,6 +1,7 @@
 import "server-only";
 
 import { createAdminClient } from "@/lib/supabase/server";
+import { reconcileBillingInstallments } from "@/lib/billing/sync";
 import {
   getCustomerName,
   listBalances,
@@ -20,7 +21,8 @@ import type {
 /**
  * Le passage de synchronisation du module Finance.
  *
- * Trois étapes indépendantes — soldes, dépenses, factures. Une étape en échec
+ * Cinq étapes indépendantes — soldes, dépenses, factures, grand livre, puis
+ * le rapprochement des Échéances qui les consomme. Une étape en échec
  * n'annule pas les autres : perdre les factures ne doit pas priver la courbe
  * de son instantané horaire. Chaque étape écrit sa ligne au journal
  * `finance_sync_runs`, réussie ou non — l'écran affiche le dernier passage, et
@@ -60,6 +62,10 @@ export async function runFinanceSync(options: {
     { kind: "transactions", work: syncTransactions },
     { kind: "invoices", work: syncInvoices },
     { kind: "ledger", work: syncLedger },
+    /* En dernier : le rapprochement des Échéances consomme les factures que
+       l'étape `invoices` vient de rafraîchir — aucun appel Airwallex, deux
+       tables locales croisées. */
+    { kind: "billing", work: reconcileBillingInstallments },
   ];
 
   const reports: SyncStepReport[] = [];
