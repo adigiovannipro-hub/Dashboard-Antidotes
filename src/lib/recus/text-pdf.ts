@@ -95,11 +95,41 @@ const WIN_ANSI_HIGH: Record<string, number> = {
   "Ÿ": 0x9f, // Ÿ
 };
 
+/* Espaces et traits que WinAnsi ne connaît pas mais qui abondent dans les
+   montants et les libellés. Sans cette translittération, « 381 700 » — dont
+   le séparateur est une espace insécable fine — sortait « 381?700 ». */
+const TRANSLITERATIONS: Record<string, string> = {
+  " ": " ", // insécable
+  " ": " ", // insécable fine
+  " ": " ", // espace chiffre
+  " ": " ",
+  " ": " ", // fine
+  " ": " ",
+  " ": " ",
+  " ": " ",
+  " ": " ",
+  " ": " ",
+  " ": " ",
+  "　": " ", // idéographique
+  "‐": "-",
+  "‑": "-",
+  "‒": "-",
+  "−": "-", // signe moins
+  "­": "", // trait conditionnel
+  "​": "", // largeur nulle
+  "﻿": "",
+};
+
 /** Texte → octets WinAnsi. Ce qui n'a pas d'équivalent devient « ? » plutôt
     que d'être tronqué en un octet arbitraire. */
 function toWinAnsi(text: string): Buffer {
   const bytes: number[] = [];
   for (const char of text) {
+    const swapped = TRANSLITERATIONS[char];
+    if (swapped !== undefined) {
+      for (const replacement of swapped) bytes.push(replacement.codePointAt(0)!);
+      continue;
+    }
     const high = WIN_ANSI_HIGH[char];
     if (high !== undefined) {
       bytes.push(high);
@@ -109,6 +139,40 @@ function toWinAnsi(text: string): Buffer {
     bytes.push(code <= 0xff ? code : 0x3f);
   }
   return Buffer.from(bytes);
+}
+
+/**
+ * Dégraisse le texte d'un mail avant mise en page.
+ *
+ * Un reçu HTML converti en texte arrive criblé de blancs : chaque cellule de
+ * tableau, chaque `div` de mise en forme laisse sa ligne vide. Rendu tel
+ * quel, le reçu Grab occupait cinq pages presque blanches — illisible pour
+ * un humain, et un justificatif comptable ne doit pas ressembler à ça.
+ *
+ * Trois passes : espaces exotiques ramenés à l'espace ordinaire, espaces
+ * multiples réduites, et **une seule ligne vide** conservée entre deux blocs
+ * — c'est elle qui porte la structure du reçu, au-delà elle ne porte rien.
+ */
+export function tidyBody(text: string): string {
+  const lines = text
+    .replace(/\r\n?/g, "\n")
+    .split("\n")
+    .map((line) => {
+      let cleaned = "";
+      for (const char of line) cleaned += TRANSLITERATIONS[char] ?? char;
+      return cleaned.replace(/[ \t]+/g, " ").trim();
+    });
+
+  const output: string[] = [];
+  for (const line of lines) {
+    if (line === "" && output.at(-1) === "") continue;
+    output.push(line);
+  }
+
+  while (output.at(0) === "") output.shift();
+  while (output.at(-1) === "") output.pop();
+
+  return output.join("\n");
 }
 
 /** Échappe ce qu'une chaîne PDF ne supporte pas nu. */
@@ -212,7 +276,7 @@ export type TextPdfOptions = {
  */
 export function renderTextToPdf(options: TextPdfOptions): Buffer {
   const meta = options.meta?.filter((line) => line.trim() !== "") ?? [];
-  const bodyLines = wrapLines(options.body);
+  const bodyLines = wrapLines(tidyBody(options.body));
   const allLines = meta.length > 0 ? [...meta, "", ...bodyLines] : bodyLines;
 
   const pages: string[][] = [];

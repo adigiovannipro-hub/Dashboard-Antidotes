@@ -1,6 +1,24 @@
 import { describe, expect, it } from "vitest";
 
-import { renderTextToPdf, textWidth, wrapLines } from "./text-pdf";
+import { renderTextToPdf, textWidth, tidyBody, wrapLines } from "./text-pdf";
+
+describe("tidyBody", () => {
+  it("réduit les blancs d'un HTML converti à une ligne vide au plus", () => {
+    // Un reçu HTML converti laisse une ligne par cellule de tableau : rendu
+    // tel quel, le reçu Grab tenait sur cinq pages presque blanches.
+    expect(tidyBody("Total\n\n\n\n\n381 700 IDR")).toBe("Total\n\n381 700 IDR");
+  });
+
+  it("supprime les blancs de tête et de queue", () => {
+    expect(tidyBody("\n\n  Reçu  \n\n\n")).toBe("Reçu");
+  });
+
+  it("ramène les espaces exotiques à l'espace ordinaire", () => {
+    // L'espace insécable fine des montants sortait « ? » à l'encodage.
+    expect(tidyBody("381 700 IDR")).toBe("381 700 IDR");
+    expect(tidyBody("a​b")).toBe("ab");
+  });
+});
 
 describe("textWidth", () => {
   it("distingue les capitales des bas de casse", () => {
@@ -68,6 +86,16 @@ describe("renderTextToPdf", () => {
     // L'euro vaut 0x80 en WinAnsi, une position vide en Latin-1 : sans la
     // table, il sortirait en caractère de contrôle.
     expect(avecEuro.includes(Buffer.from([0x80]))).toBe(true);
+  });
+
+  it("écrit un montant à espace fine sans point d'interrogation", () => {
+    const montant = renderTextToPdf({
+      title: "T",
+      meta: ["Montant : 381 700 IDR"],
+      body: "Total 381 700 IDR",
+    });
+    expect(montant.toString("latin1")).toContain("Montant : 381 700 IDR");
+    expect(montant.toString("latin1")).not.toContain("381?700");
   });
 
   it("échappe les caractères que la syntaxe PDF réserve", () => {
