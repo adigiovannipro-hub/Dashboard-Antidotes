@@ -18,18 +18,19 @@ import type { TaskWorkspace } from "@/lib/mon-travail/types";
  * l'échéance, eux, restent — on ajoute rarement une tâche isolée, et
  * resélectionner le même client trois fois de suite est exactement ce qui
  * fait renoncer à noter la troisième.
+ *
+ * Il vit au pied de la liste, en permanence. Pas d'`autoFocus` donc : la page
+ * s'ouvre sur ce qu'il y a à faire, pas sur un curseur qui clignote en bas.
  */
 export function QuickAdd({
   clientWorkspaces,
   today,
   defaultWorkspaceId,
-  autoFocus,
 }: {
   clientWorkspaces: TaskWorkspace[];
   today: string;
   /** Client préchoisi quand la page est filtrée sur l'un d'eux. */
   defaultWorkspaceId?: string | null;
-  autoFocus?: boolean;
 }) {
   const [result, action, pending] = useActionState<TravailResult | null, FormData>(
     createTask,
@@ -53,8 +54,11 @@ export function QuickAdd({
     }
   }, [result]);
 
+  // Le vert n'apparaît qu'au survol et au focus. Posé en permanence, un anneau
+  // d'accent au repos crie « remplis-moi » à chaque ouverture de la page — et
+  // l'écran ne porte qu'un seul aplat d'accent.
   const field =
-    "type-body h-10 rounded-md border border-input bg-surface px-3 outline-none transition-colors duration-(--motion-duration) ease-standard focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/20";
+    "type-body h-10 rounded-md border border-input bg-surface px-3 outline-none transition-colors duration-(--motion-duration) ease-standard hover:border-ring focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/20";
 
   return (
     <form ref={formRef} action={action} className="flex flex-col gap-2 sm:flex-row">
@@ -63,9 +67,6 @@ export function QuickAdd({
         name="title"
         required
         maxLength={300}
-        // Le champ n'existe qu'après un clic explicite sur « Ajouter » : le
-        // focus est attendu, il ne détourne l'attention de personne.
-        autoFocus={autoFocus}
         placeholder="Ajouter une tâche…   ⌘↵ pour enchaîner"
         aria-label="Nouvelle tâche"
         autoComplete="off"

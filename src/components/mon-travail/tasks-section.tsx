@@ -1,6 +1,6 @@
 import { CheckCircle2 } from "lucide-react";
 
-import { AddTask } from "@/components/mon-travail/add-task";
+import { QuickAdd } from "@/components/mon-travail/quick-add";
 import { TaskHeader, TaskRowView } from "@/components/mon-travail/task-row";
 import { Panel, PanelHeader, PanelRows } from "@/components/ds/surface";
 import { StatusPill } from "@/components/ds/status-pill";
@@ -13,8 +13,11 @@ import type { TaskWorkspace, WorkTask } from "@/lib/mon-travail/types";
  * quatre jours suivants groupés par jour. Une tâche non faite ne glisse
  * jamais au lendemain : elle reste à sa date et remonte ici comme retard.
  *
- * Le champ d'ajout est replié dans l'en-tête : posé en travers de la liste,
- * il coupait la lecture pour servir un geste cent fois plus rare.
+ * Le champ d'ajout est **posé en permanence au pied de la liste**, à la suite
+ * des tâches. Il était replié derrière un bouton dans l'en-tête : ouvert, son
+ * panneau se posait par-dessus la première ligne et la masquait, et il fallait
+ * un clic avant chaque note. Une ligne vide qui attend, c'est le geste d'un
+ * carnet — et l'en-tête récupère la place pour le compteur de retards.
  */
 export function TasksSection({
   groups,
@@ -33,24 +36,15 @@ export function TasksSection({
   const todayCount = groups.overdue.length + groups.today.length;
 
   return (
-    <Panel className="relative">
+    <Panel>
       <PanelHeader
         title="Mon travail"
         count={todayCount}
         description={dayLabel(today)}
         action={
-          <div className="flex items-center gap-2">
-            {groups.overdue.length > 0 ? (
-              <StatusPill tone="danger">
-                {groups.overdue.length} en retard
-              </StatusPill>
-            ) : null}
-            <AddTask
-              clientWorkspaces={clientWorkspaces}
-              today={today}
-              defaultWorkspaceId={defaultWorkspaceId}
-            />
-          </div>
+          groups.overdue.length > 0 ? (
+            <StatusPill tone="danger">{groups.overdue.length} en retard</StatusPill>
+          ) : null
         }
       />
 
@@ -65,7 +59,7 @@ export function TasksSection({
             Rien pour aujourd&apos;hui.
             {groups.upcoming.length > 0
               ? " Les jours suivants sont ci-dessous."
-              : " Ajoutez une tâche depuis l'en-tête."}
+              : " Le champ en bas attend la première."}
           </p>
         </div>
       ) : (
@@ -112,6 +106,15 @@ export function TasksSection({
           </PanelRows>
         </div>
       ))}
+
+      {/* La ligne vide, au pied de la liste et toujours là. */}
+      <div className="border-t border-border bg-surface-sunken p-4">
+        <QuickAdd
+          clientWorkspaces={clientWorkspaces}
+          today={today}
+          defaultWorkspaceId={defaultWorkspaceId}
+        />
+      </div>
     </Panel>
   );
 }

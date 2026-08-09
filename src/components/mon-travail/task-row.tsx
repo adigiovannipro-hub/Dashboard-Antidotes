@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { Check, ExternalLink, Trash2, Users } from "lucide-react";
 
 import { deleteTask, toggleTask, updateTask } from "@/app/actions/mon-travail";
@@ -72,8 +72,14 @@ export function TaskRowView({
   variant?: "normal" | "overdue" | "archived";
 }) {
   const { run, pending } = useCellAction();
+  // La tâche vient d'être cochée : elle s'affiche validée **sur place**, à sa
+  // ligne, avant de descendre dans « Archivé » au retour du serveur. Cocher et
+  // voir la ligne s'évaporer ne dit pas ce qui s'est passé — on doute d'avoir
+  // cliqué au bon endroit.
+  const [justValidated, setJustValidated] = useState(false);
   const archived = variant === "archived";
-  const overdue = variant === "overdue";
+  const validated = archived || justValidated;
+  const overdue = variant === "overdue" && !justValidated;
 
   return (
     <div
@@ -81,34 +87,41 @@ export function TaskRowView({
         "group/row flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-border/60 px-3 py-2 transition-colors md:py-1.5",
         "hover:bg-muted/40",
         TASK_GRID,
-        pending && "opacity-60",
+        // Pas de voile pendant la validation : la ligne doit rester lisible
+        // le temps qu'on lise « validé ».
+        pending && !justValidated && "opacity-60",
       )}
     >
       <button
         type="button"
         aria-label={
-          archived
+          validated
             ? `Rouvrir « ${task.title} »`
             : `Marquer « ${task.title} » comme faite`
         }
-        aria-pressed={archived}
-        onClick={() => run(() => toggleTask({ taskId: task.id, done: !archived }))}
+        aria-pressed={validated}
+        onClick={() => {
+          setJustValidated(!validated);
+          run(() => toggleTask({ taskId: task.id, done: !validated }));
+        }}
         className={cn(
-          "focus-visible:ring-brand flex size-5 shrink-0 items-center justify-center rounded-full border-2 outline-none focus-visible:ring-2",
-          // Encre et non vert de marque : le blanc de la coche ne tient pas
-          // le contraste sur `--accent`.
-          archived
-            ? "border-accent-ink bg-accent-ink text-white"
+          "focus-visible:ring-ring flex size-5 shrink-0 items-center justify-center rounded-full border-2 outline-none focus-visible:ring-2",
+          // Encre du texte, pas vert de marque : `--accent-ink` passe au vert
+          // clair en mode sombre, et la coche blanche y tombait à 1,6:1. Le
+          // couple primaire/surface se retourne proprement dans les deux
+          // thèmes, et « fait » n'a pas à être une couleur de marque.
+          validated
+            ? "border-text-primary bg-text-primary text-surface"
             : overdue
               ? "border-danger hover:bg-danger-subtle"
               : "border-border-strong hover:border-text-secondary",
         )}
       >
-        {archived ? <Check className="size-3" aria-hidden /> : null}
+        {validated ? <Check className="size-3" strokeWidth={3} aria-hidden /> : null}
       </button>
 
       <div className="min-w-0 flex-1">
-        {archived ? (
+        {validated ? (
           <p className="type-body truncate text-text-secondary line-through">
             {task.title}
           </p>
@@ -125,6 +138,11 @@ export function TaskRowView({
         {overdue ? (
           <p className="type-caption px-0 font-semibold tracking-wide text-danger-ink uppercase">
             En retard — {shortDate(task.due_date)}
+          </p>
+        ) : null}
+        {justValidated && !archived ? (
+          <p className="type-caption px-0 font-semibold tracking-wide text-text-secondary uppercase">
+            Validé
           </p>
         ) : null}
       </div>
@@ -296,12 +314,26 @@ function WorkspaceDot({ workspace }: { workspace: TaskWorkspace }) {
   );
 }
 
-/** D'où vient la tâche — et le lien vers sa source quand il existe. */
+/**
+ * D'où vient la tâche — et le lien vers sa source quand il existe.
+ *
+ * Les trois formes partagent **exactement la même boîte** : même bordure, même
+ * rayon, mêmes marges intérieures. « Manuel » n'a pas de pastille visible, mais
+ * il en porte le gabarit en transparent — sans quoi il flottait un pixel plus
+ * haut et deux pixels plus à gauche que « Récurrent », d'une ligne à l'autre.
+ */
+const SOURCE_BOX =
+  "inline-flex items-center gap-1 rounded-full border px-1.5 py-px leading-5";
+
 function SourceBadge({ task }: { task: WorkTask }) {
   const label = WORK_SOURCE_LABELS[task.source];
 
   if (task.source === "manual") {
-    return <span className="text-text-secondary">{label}</span>;
+    return (
+      <span className={cn(SOURCE_BOX, "border-transparent text-text-secondary")}>
+        {label}
+      </span>
+    );
   }
 
   if (task.source_url) {
@@ -311,7 +343,10 @@ function SourceBadge({ task }: { task: WorkTask }) {
         target="_blank"
         rel="noreferrer"
         title={task.source_label ?? label}
-        className="border-border hover:text-foreground focus-visible:ring-brand inline-flex items-center gap-1 rounded-full border px-1.5 py-px outline-none focus-visible:ring-2"
+        className={cn(
+          SOURCE_BOX,
+          "border-border hover:text-foreground focus-visible:ring-ring outline-none focus-visible:ring-2",
+        )}
       >
         {label}
         <ExternalLink className="size-2.5" aria-hidden />
@@ -322,7 +357,7 @@ function SourceBadge({ task }: { task: WorkTask }) {
   return (
     <span
       title={task.source_label ?? undefined}
-      className="border-border inline-block rounded-full border px-1.5 py-px"
+      className={cn(SOURCE_BOX, "border-border")}
     >
       {label}
     </span>
