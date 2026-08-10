@@ -29,7 +29,14 @@ import { addDays, lastDayOfMonth } from "./dates";
 export const PUBLICATION_HORIZON_DAYS = 7;
 
 export type OverviewStats = {
-  /** Ce qui doit encore partir aujourd'hui, et ce qui en est déjà parti. */
+  /**
+   * Ce qui doit encore partir aujourd'hui, et ce qui en est déjà parti.
+   *
+   * Le **retard** ne se compte pas ici : cette lecture démarre au 1er du mois,
+   * elle n'en verrait donc qu'une partie. Il vient de la liste complète
+   * chargée par la page, celle-là même qu'affiche le panneau « À publier » et
+   * que compte la pastille du rail — une seule source, trois affichages.
+   */
   publications: { today: number; publishedToday: number };
   moderation: { pending: number } | null;
   tasks: { open: number; overdue: number };

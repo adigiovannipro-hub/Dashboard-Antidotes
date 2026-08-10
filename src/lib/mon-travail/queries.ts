@@ -1,6 +1,7 @@
 import "server-only";
 
 import { resolveVisuals } from "@/lib/planning/queries";
+import { DONE_STATUSES, EXCLUDED_STATUSES } from "@/lib/planning/types";
 import type {
   PlanningBoard,
   PlanningLane,
@@ -79,8 +80,17 @@ async function decorate(subjects: PlanningSubject[]): Promise<PublicationRow[]> 
   return rows;
 }
 
-export async function listDayPublications(options: {
-  day: string;
+/**
+ * Ce qu'il reste à publier : le jour même **et les jours d'avant**.
+ *
+ * Une publication datée d'hier et jamais partie ne disparaît pas de l'écran
+ * parce que la date a tourné — c'est même la seule qui presse. C'est aussi ce
+ * que compte la pastille du rail : un compteur qui annonce des lignes que la
+ * page n'affiche pas envoie chercher quelque chose d'introuvable.
+ */
+export async function listPublicationsToDo(options: {
+  /** Date du jour, incluse. Tout ce qui est antérieur est un retard. */
+  until: string;
   /** Restreint à un espace client — le filtre de la page d'accueil. */
   workspaceId?: string | null;
   limit?: number;
@@ -90,26 +100,55 @@ export async function listDayPublications(options: {
   let query = supabase
     .from("planning_subjects")
     .select("*")
-    .eq("scheduled_on", options.day)
-    // Un contenu non retenu n'a jamais existé pour le lecteur.
-    .neq("status", "dropped");
+    .lte("scheduled_on", options.until)
+    // Un contenu non retenu n'a jamais existé pour le lecteur ; un contenu
+    // parti n'a plus rien à faire dans une liste de choses à faire. Le filtre
+    // est en base et non en mémoire : trié du plus ancien au plus récent, une
+    // limite de cent lignes sur un board d'un an couperait le jour même.
+    .not("status", "in", `(${[...EXCLUDED_STATUSES, ...DONE_STATUSES].join(",")})`);
 
   if (options.workspaceId) query = query.eq("workspace_id", options.workspaceId);
 
-  const { data } = await query.order("created_at").limit(options.limit ?? 100);
+  const { data } = await query.order("scheduled_on").limit(options.limit ?? 100);
+
+  return byNetwork(await decorate((data ?? []) as unknown as PlanningSubject[]));
+}
+
+/** Les publications parties dans la journée — la section « Archivé ». */
+export async function listPublishedOn(options: {
+  day: string;
+  workspaceId?: string | null;
+  limit?: number;
+}): Promise<PublicationRow[]> {
+  const supabase = await createClient();
+
+  let query = supabase
+    .from("planning_subjects")
+    .select("*")
+    .eq("scheduled_on", options.day)
+    .in("status", DONE_STATUSES);
+
+  if (options.workspaceId) query = query.eq("workspace_id", options.workspaceId);
+
+  const { data } = await query.limit(options.limit ?? 50);
 
   return byNetwork(await decorate((data ?? []) as unknown as PlanningSubject[]));
 }
 
 /**
- * Tri par réseau, puis par client, puis par sujet.
+ * Tri par date, puis par réseau, puis par client, puis par sujet.
  *
- * On publie réseau par réseau — on ouvre Instagram, on vérifie tout ce qui
- * devait y partir, on passe à LinkedIn. Trier par client obligeait à revenir
- * trois fois sur le même onglet.
+ * La date d'abord parce que le retard passe devant : ce qui aurait dû partir
+ * hier se traite avant ce qui doit partir ce soir. À date égale, on publie
+ * réseau par réseau — on ouvre Instagram, on vérifie tout ce qui devait y
+ * partir, on passe à LinkedIn. Trier par client obligeait à revenir trois fois
+ * sur le même onglet.
  */
 function byNetwork(rows: PublicationRow[]): PublicationRow[] {
   return [...rows].sort((a, b) => {
+    const dateA = a.subject.scheduled_on ?? "";
+    const dateB = b.subject.scheduled_on ?? "";
+    if (dateA !== dateB) return dateA.localeCompare(dateB);
     if (a.lane_name !== b.lane_name) {
       return a.lane_name.localeCompare(b.lane_name, "fr");
     }

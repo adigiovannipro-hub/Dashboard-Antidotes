@@ -6,6 +6,7 @@ import {
   PublicationRowView,
 } from "@/components/mon-travail/publication-row";
 import { Panel, PanelHeader, PanelRows } from "@/components/ds/surface";
+import { StatusPill } from "@/components/ds/status-pill";
 import { Button } from "@/components/ui/button";
 import type { PublicationRow } from "@/lib/mon-travail/types";
 
@@ -21,10 +22,13 @@ import type { PublicationRow } from "@/lib/mon-travail/types";
 export function PublicationsSection({
   rows,
   next,
+  late,
 }: {
   rows: PublicationRow[];
   /** Repli quand la journée est vide. */
   next: PublicationRow[];
+  /** Publications antérieures à aujourd'hui, comptées par la page. */
+  late: number;
 }) {
   const empty = rows.length === 0;
 
@@ -36,10 +40,16 @@ export function PublicationsSection({
         description={
           empty
             ? "Rien à publier aujourd'hui — voici ce qui arrive, par réseau."
-            : "Aujourd'hui, groupé par réseau."
+            : late > 0
+              ? "Les retards d'abord, puis aujourd'hui, groupé par réseau."
+              : "Aujourd'hui, groupé par réseau."
         }
         action={
-          empty && next.length > 0 ? (
+          late > 0 ? (
+            <StatusPill tone="danger">
+              {late} en retard
+            </StatusPill>
+          ) : empty && next.length > 0 ? (
             <Button
               render={<Link href={nextPlanningHref(next)} />}
               variant="outline"

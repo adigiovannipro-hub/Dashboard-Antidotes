@@ -19,12 +19,12 @@ import {
 } from "@/lib/mon-travail/overview";
 import {
   listArchivedTasks,
-  listDayPublications,
   listNextPublications,
   listOpenTasks,
+  listPublicationsToDo,
+  listPublishedOn,
 } from "@/lib/mon-travail/queries";
 import type { TaskWorkspace } from "@/lib/mon-travail/types";
-import { DONE_STATUSES } from "@/lib/planning/types";
 import { formatMoney } from "@/lib/finance/money";
 
 /** Le filtre client, dans l'URL comme partout : `?client=bondet`. */
@@ -96,6 +96,8 @@ export default async function HubPage({
                     ? `${travail.stats.publications.publishedToday} déjà partie${travail.stats.publications.publishedToday > 1 ? "s" : ""} aujourd'hui`
                     : "aujourd'hui"
                 }
+                tone={travail.late > 0 ? "danger" : undefined}
+                toneLabel={travail.late > 0 ? `${travail.late} en retard` : undefined}
                 icon={Send}
               />
               <StatCard
@@ -173,7 +175,11 @@ export default async function HubPage({
               </div>
             ) : null}
 
-            <PublicationsSection rows={travail.toPublish} next={travail.next} />
+            <PublicationsSection
+              rows={travail.toPublish}
+              next={travail.next}
+              late={travail.late}
+            />
 
             <TasksSection
               groups={travail.groups}
@@ -248,17 +254,19 @@ async function loadTravail(
   today: string,
   workspaceId: string | null,
 ) {
-  const [publications, next, openTasks, archivedTasks, overview] = await Promise.all([
-    listDayPublications({ day: today, workspaceId }),
-    listNextPublications({ after: today, workspaceId, limit: 3 }),
-    listOpenTasks({ until: addDays(today, UPCOMING_DAYS), workspaceId }),
-    listArchivedTasks({ workspaceId }),
-    getOverview({
-      today,
-      isOwner: true,
-      orgId: workspaces[0]?.org_id ?? null,
-    }),
-  ]);
+  const [toPublish, published, next, openTasks, archivedTasks, overview] =
+    await Promise.all([
+      listPublicationsToDo({ until: today, workspaceId }),
+      listPublishedOn({ day: today, workspaceId }),
+      listNextPublications({ after: today, workspaceId, limit: 3 }),
+      listOpenTasks({ until: addDays(today, UPCOMING_DAYS), workspaceId }),
+      listArchivedTasks({ workspaceId }),
+      getOverview({
+        today,
+        isOwner: true,
+        orgId: workspaces[0]?.org_id ?? null,
+      }),
+    ]);
 
   const asTaskWorkspace = (workspace: WorkspaceAccess): TaskWorkspace => ({
     id: workspace.id,
@@ -272,13 +280,15 @@ async function loadTravail(
     stats: overview.stats,
     byWorkspace: overview.byWorkspace as Map<string, WorkspaceStats>,
     groups: organizeTasks(openTasks, today),
-    // Ce qui est déjà parti rejoint l'archivé ; le reste est à vérifier.
-    toPublish: publications.filter(
-      (row) => !DONE_STATUSES.includes(row.subject.status),
-    ),
-    published: publications.filter((row) =>
-      DONE_STATUSES.includes(row.subject.status),
-    ),
+    // Deux lectures distinctes plutôt qu'un tri en mémoire : « à publier »
+    // remonte les retards des jours d'avant, l'archivé ne montre que la
+    // journée — mélanger les deux ramenait tout l'historique publié.
+    toPublish,
+    published,
+    // Compté une fois ici, affiché par la bande de mesures et par le panneau.
+    late: toPublish.filter(
+      (row) => row.subject.scheduled_on !== null && row.subject.scheduled_on < today,
+    ).length,
     next,
     archivedTasks,
     workspacesById: Object.fromEntries(
