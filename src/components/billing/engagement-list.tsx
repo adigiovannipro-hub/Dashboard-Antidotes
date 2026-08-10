@@ -1,7 +1,7 @@
 import { ChevronDown } from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import { Panel, PanelBody, PanelHeader, PanelRows } from "@/components/ds/surface";
+import { Counter, Panel, PanelBody, PanelRows } from "@/components/ds/surface";
 import { StatusPill } from "@/components/ds/status-pill";
 import { EditInstallment } from "@/components/billing/edit-installment";
 import { EngagementActions } from "@/components/billing/engagement-actions";
@@ -31,6 +31,9 @@ import { formatMoney } from "@/lib/finance/money";
  * offert. Le total affiché est la somme réelle des lignes, ajustements
  * compris, pas le montant théorique du devis.
  */
+/** Six devis visibles, le reste défile — même plafond que les groupes. */
+const SIX_ROWS = "max-h-96";
+
 export function EngagementList({
   engagements,
   linesByEngagement,
@@ -44,32 +47,54 @@ export function EngagementList({
 }) {
   return (
     <Panel>
-      <PanelHeader
-        title="Devis signés"
-        count={engagements.length}
-        description="Une ligne par devis, ses mensualités en dépliant. La saisie se fait une fois, le reste avance tout seul."
-        action={action}
-      />
-
-      {engagements.length === 0 ? (
-        <PanelBody>
-          <p className="type-body text-text-secondary">
-            Aucun devis. « Ajouter un devis » génère ses mensualités d&apos;un
-            coup — elles avancent ensuite toutes seules avec Airwallex.
-          </p>
-        </PanelBody>
-      ) : (
-        <PanelRows>
-          {engagements.map((engagement) => (
-            <EngagementDetails
-              key={engagement.id}
-              engagement={engagement}
-              lines={linesByEngagement[engagement.id] ?? []}
-              canDecide={canDecide}
+      <details className="group/devis-liste" open>
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-5 py-4 [&::-webkit-details-marker]:hidden">
+          <div className="min-w-0">
+            <h3 className="type-h3 flex items-center gap-2">
+              Devis signés
+              <Counter value={engagements.length} />
+            </h3>
+            <p className="type-caption text-text-secondary mt-0.5">
+              Une ligne par devis, ses mensualités en dépliant. La saisie se fait
+              une fois, le reste avance tout seul.
+            </p>
+          </div>
+          <div className="flex shrink-0 items-center gap-4">
+            {action}
+            <ChevronDown
+              aria-hidden
+              strokeWidth={1.75}
+              className="size-4.5 text-text-tertiary transition-transform duration-(--motion-duration) ease-standard group-open/devis-liste:rotate-180"
             />
-          ))}
-        </PanelRows>
-      )}
+          </div>
+        </summary>
+
+        <div className="border-t border-border">
+          {engagements.length === 0 ? (
+            <PanelBody>
+              <p className="type-body text-text-secondary">
+                Aucun devis. « Ajouter un devis » génère ses mensualités d&apos;un
+                coup — elles avancent ensuite toutes seules.
+              </p>
+            </PanelBody>
+          ) : (
+            /* Un devis déplié pousse ses mensualités **dans** la zone qui
+               défile : le panneau garde sa hauteur quoi qu'on ouvre. */
+            <div className={cn(SIX_ROWS, "overflow-y-auto")}>
+              <PanelRows>
+                {engagements.map((engagement) => (
+                  <EngagementDetails
+                    key={engagement.id}
+                    engagement={engagement}
+                    lines={linesByEngagement[engagement.id] ?? []}
+                    canDecide={canDecide}
+                  />
+                ))}
+              </PanelRows>
+            </div>
+          )}
+        </div>
+      </details>
     </Panel>
   );
 }

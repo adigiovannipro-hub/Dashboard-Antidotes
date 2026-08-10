@@ -223,6 +223,7 @@ export default async function EcheancesPage() {
         rows={groups.to_invoice}
         canDecide={context.canDecide}
         emptyText={`Rien à facturer aujourd'hui. La prochaine bascule aura lieu le 1er ${nextSwitch}.`}
+        defaultOpen
       />
 
       <StageGroup
@@ -232,6 +233,7 @@ export default async function EcheancesPage() {
         rows={groups.invoiced}
         canDecide={context.canDecide}
         emptyText="Aucune facture en attente de règlement."
+        defaultOpen
       />
 
       <StageGroup
@@ -241,7 +243,6 @@ export default async function EcheancesPage() {
         rows={groups.paid}
         canDecide={context.canDecide}
         emptyText="Aucun paiement récent."
-        collapsible
       />
 
       <StageGroup
@@ -251,6 +252,7 @@ export default async function EcheancesPage() {
         rows={confirmedSoon}
         canDecide={context.canDecide}
         emptyText="Aucune mensualité planifiée. « Ajouter un devis » génère les prochaines."
+        defaultOpen
         footnote={
           confirmedLater.length > 0 && lastPlanned
             ? `+ ${confirmedLater.length} mensualité${confirmedLater.length > 1 ? "s" : ""} planifiée${confirmedLater.length > 1 ? "s" : ""} jusqu'en ${monthLabel(lastPlanned.service_month)} — le détail vit dans chaque devis.`
@@ -272,8 +274,6 @@ export default async function EcheancesPage() {
           rows={groups.archived}
           canDecide={context.canDecide}
           emptyText=""
-          collapsible
-          capped
         />
       ) : null}
     </div>

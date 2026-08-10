@@ -22,12 +22,29 @@ import type { InstallmentStage } from "@/lib/billing/types";
  * Un groupe de statut de l'écran Échéances — le fond du board Monday qu'il
  * remplace (le flux par statut, les sommes par groupe), dans la forme du
  * dashboard : un panneau Antidotes ordinaire, titre sobre, la couleur vit
- * dans les pastilles de statut des lignes comme partout ailleurs. Les
- * groupes froids — payé, archivé — se replient sur leur somme.
+ * dans les pastilles de statut des lignes comme partout ailleurs.
+ *
+ * **Tous les groupes se replient**, et tous plafonnent à six lignes : une
+ * page dont chaque groupe s'étire à sa guise oblige à faire défiler des
+ * mètres pour atteindre le suivant. Les chauds s'ouvrent d'eux-mêmes, les
+ * froids attendent qu'on les demande, et la somme reste lisible dans les
+ * deux cas — repliée, elle est le seul chiffre qu'on vient chercher.
  *
  * Repli en `<details>` natif : pas d'état client, pas d'hydratation — un
  * groupe replié reste dépliable même pendant que React se réveille.
  */
+
+/**
+ * Six lignes, et le liseré de la septième.
+ *
+ * Mesuré au navigateur plutôt que déduit : une ligne d'échéance fait 60 à
+ * 63 px selon qu'elle porte une pastille de retard, soit 370 px pour six.
+ * Les quatorze pixels restants laissent dépasser le haut de la suivante,
+ * seule chose qui dise qu'il y en a une. Au téléphone, où la même ligne
+ * occupe 130 px, ce plafond en montre trois — et c'est tant mieux : six
+ * lignes y feraient 780 px, une page à elles seules.
+ */
+const SIX_ROWS = "max-h-96";
 
 export function StageGroup({
   title,
@@ -36,8 +53,7 @@ export function StageGroup({
   rows,
   canDecide,
   emptyText,
-  collapsible = false,
-  capped = false,
+  defaultOpen = false,
   footnote,
 }: {
   title: string;
@@ -47,10 +63,8 @@ export function StageGroup({
   canDecide: boolean;
   /** Affiché à la place des lignes quand le groupe est vide. */
   emptyText: string;
-  /** Replié sur son en-tête et ses sommes, dépliable d'un clic. */
-  collapsible?: boolean;
-  /** Plafonne la hauteur et fait défiler — pour l'archivé, façon todo. */
-  capped?: boolean;
+  /** Déplié au chargement — pour ce qui appelle une action aujourd'hui. */
+  defaultOpen?: boolean;
   /** Une phrase sous les lignes — « +N mensualités jusqu'en… ». */
   footnote?: string;
 }) {
@@ -76,7 +90,9 @@ export function StageGroup({
     ) : (
       <>
         <InstallmentsHeader />
-        <div className={capped ? "max-h-56 overflow-y-auto" : undefined}>
+        {/* Les lignes défilent, l'en-tête de colonnes et la somme restent :
+            ce sont les deux repères qu'on ne veut jamais perdre de vue. */}
+        <div className={cn(SIX_ROWS, "overflow-y-auto")}>
           <PanelRows>
             {rows.map((row) =>
               row.kind === "installment" ? (
@@ -101,20 +117,9 @@ export function StageGroup({
       </>
     );
 
-  if (!collapsible) {
-    return (
-      <Panel>
-        <div className="flex items-start justify-between gap-4 border-b border-border px-5 py-4">
-          {heading}
-        </div>
-        {body}
-      </Panel>
-    );
-  }
-
   return (
     <Panel>
-      <details className="group/repli">
+      <details className="group/repli" open={defaultOpen}>
         <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-5 py-4 [&::-webkit-details-marker]:hidden">
           {heading}
           <div className="flex shrink-0 items-center gap-4">
