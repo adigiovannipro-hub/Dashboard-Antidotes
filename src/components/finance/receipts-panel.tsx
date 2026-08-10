@@ -283,7 +283,7 @@ export function ReceiptsArchive({ rows }: { rows: ReceiptDocument[] }) {
                     </p>
                   </div>
                   <StatusPill tone={statusTone(row.status)}>
-                    {STATUS_LABELS[row.status]}
+                    {archiveLabel(row)}
                   </StatusPill>
                 </li>
               ))}
@@ -293,6 +293,19 @@ export function ReceiptsArchive({ rows }: { rows: ReceiptDocument[] }) {
       </Dialog>
     </>
   );
+}
+
+/**
+ * Le sort d'une pièce partie, dit sans mentir.
+ *
+ * Une pièce transférée puis archivée porte le statut `ignored`, faute d'en
+ * avoir un à elle. « Ignoré » serait faux : elle est partie, et on l'a rangée
+ * soi-même chez Airwallex. `forwarded_at` tranche, et il n'y a qu'ici que la
+ * nuance se voit — la liste de travail ne montre jamais de pièce archivée.
+ */
+function archiveLabel(row: ReceiptDocument): string {
+  if (row.status === "ignored") return "Archivé à la main";
+  return STATUS_LABELS[row.status];
 }
 
 /* Le rapprochement est la seule information dont dépend la décision : une
