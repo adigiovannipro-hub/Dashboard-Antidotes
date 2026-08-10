@@ -258,18 +258,32 @@ export async function setInstallmentStatus(
   const context = await requireFinanceAccess();
   if (!context.canDecide) return { ok: false, error: "Action indisponible." };
 
-  /* Les horodatages suivent le statut. Rouvrir ou passer une ligne retire
-     aussi le lien Airwallex : le laisser ferait re-avancer la ligne au
-     passage suivant du rapprochement — l'automate gagnerait toujours contre
-     la main. */
+  const supabase = await createClient();
+
+  /* La date d'émission déjà posée se relit avant d'écrire : redescendre une
+     ligne payée vers « facturée » ne doit pas la réémettre aujourd'hui. Sans
+     cette lecture, une facture partie le 1er juin comptait dans le facturé du
+     mois courant, simplement parce qu'on avait corrigé son statut. */
+  const { data: current } = await supabase
+    .from("billing_installments")
+    .select("issued_at")
+    .eq("id", parsed.data.installmentId)
+    .eq("org_id", context.orgId)
+    .maybeSingle();
+  const issuedAt = (current as { issued_at: string | null } | null)?.issued_at ?? null;
+
+  /* Les horodatages suivent le statut. Repasser une ligne « à facturer » ou
+     la passer retire le lien Airwallex — elle n'a alors plus de facture, par
+     définition. « Facturée » le garde au contraire : c'est lui qui porte
+     l'échéance de règlement, et sans échéance l'écran ne peut plus dire que
+     le client est en retard. */
   const stamps = {
     pending: { issued_at: null, paid_at: null, matched_invoice_id: null },
-    issued: { issued_at: new Date().toISOString(), paid_at: null },
+    issued: { issued_at: issuedAt ?? new Date().toISOString(), paid_at: null },
     paid: { paid_at: new Date().toISOString() },
     skipped: { issued_at: null, paid_at: null, matched_invoice_id: null },
   }[parsed.data.status];
 
-  const supabase = await createClient();
   const { data, error } = await supabase
     .from("billing_installments")
     .update({ status: parsed.data.status, ...stamps } as never)

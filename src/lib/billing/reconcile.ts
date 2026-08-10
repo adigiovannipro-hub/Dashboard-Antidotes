@@ -269,7 +269,11 @@ export function reconcile(options: {
     } else if (line.status === "pending") {
       set.status = "issued";
     }
-    if (!line.issued_at) set.issued_at = issuedAt;
+    /* La date d'émission est celle de la facture, pas celle du clic qui a
+       corrigé le statut. Comparaison au jour près : l'horodatage relu de
+       Postgres ne s'écrit pas comme celui qu'on fabrique, et une égalité
+       stricte réécrirait la même valeur à chaque passage. */
+    if (line.issued_at?.slice(0, 10) !== invoice.issued_on) set.issued_at = issuedAt;
 
     /* Le montant s'aligne sur la facture : le devis disait ce qui était
        prévu, la facture dit ce qui a été demandé au client. Sans cet

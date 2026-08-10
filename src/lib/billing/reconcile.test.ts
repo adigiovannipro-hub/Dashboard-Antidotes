@@ -172,6 +172,48 @@ describe("reconcile", () => {
     ]);
   });
 
+  it("rend son échéance de règlement à une ligne repassée à la main en facturée", () => {
+    /* Le cas vécu : la prestation de mai avait été dite payée par l'import
+       Monday, la banque disait le contraire. Repassée « facturée » à la
+       main, elle avait perdu son lien — donc la date d'échéance qui seule
+       permet de dire que le client est en retard — et portait la date
+       d'émission du clic au lieu de celle de la facture. */
+    const decisions = reconcile({
+      installments: [
+        makeInstallment({
+          status: "issued",
+          vat_rate: 0,
+          amount_cents: 210_200,
+          issue_on: "2026-06-01",
+          issued_at: "2026-08-10T09:00:00.000Z",
+          matched_invoice_id: null,
+          client_name: "CHASSEURS DE GRAINES",
+        }),
+      ],
+      invoices: [
+        makeInvoice({
+          client_name: "MEDIAPILOTE ANGERS",
+          amount_cents: 210_200,
+          status: "sent",
+          issued_on: "2026-06-01",
+        }),
+      ],
+      aliases: { "mediapilote angers": "CHASSEURS DE GRAINES" },
+      now: NOW,
+    });
+
+    expect(decisions).toEqual([
+      {
+        installment_id: "inst-1",
+        set: {
+          matched_invoice_id: "fac-1",
+          issued_at: "2026-06-01T00:00:00.000Z",
+        },
+        reason: "matched",
+      },
+    ]);
+  });
+
   it("aligne le montant d'une échéance rapprochée de longue date", () => {
     // Le cas qui faisait diverger cet écran et le dashboard Finance : le lien
     // était posé depuis un passage précédent, et seul le devis parlait.
@@ -231,10 +273,32 @@ describe("reconcile", () => {
     ]);
   });
 
-  it("ne réécrit pas une date d'émission déjà posée", () => {
+  it("corrige une date d'émission qui contredit la facture rapprochée", () => {
+    // La facture dit quand elle est partie ; un horodatage posé à la main ne
+    // fait que dire quand on a corrigé le statut.
     const decisions = reconcile({
       installments: [
         makeInstallment({ status: "issued", issued_at: "2026-07-30T09:00:00.000Z" }),
+      ],
+      invoices: [makeInvoice()],
+      now: NOW,
+    });
+
+    expect(decisions).toEqual([
+      {
+        installment_id: "inst-1",
+        set: { matched_invoice_id: "fac-1", issued_at: "2026-08-01T00:00:00.000Z" },
+        reason: "matched",
+      },
+    ]);
+  });
+
+  it("ne réécrit pas une date d'émission déjà d'accord avec la facture", () => {
+    // Le rapprochement tourne toutes les heures : il ne doit pas repousser la
+    // même valeur à chaque passage.
+    const decisions = reconcile({
+      installments: [
+        makeInstallment({ status: "issued", issued_at: "2026-08-01T00:00:00+00:00" }),
       ],
       invoices: [makeInvoice()],
       now: NOW,

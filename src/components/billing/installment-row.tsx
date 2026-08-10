@@ -237,10 +237,21 @@ function RowActions({ line, stage }: { line: InstallmentLine; stage: Installment
         </>
       );
     case "paid":
+      /* « Pas encaissée » plutôt que « Rouvrir » : le cas réel est une ligne
+         dite payée que la banque contredit. Elle redescend d'un cran, garde
+         sa facture — donc son échéance de règlement — et repasse « En
+         retard » toute seule si le délai est dépassé. « Rouvrir » la
+         remonterait jusqu'à « à facturer », ce qui nierait une facture bel
+         et bien partie. */
       return (
-        <InstallmentAction installmentId={line.id} status="pending" variant="ghost">
-          Rouvrir
-        </InstallmentAction>
+        <>
+          <InstallmentAction installmentId={line.id} status="issued" variant="outline">
+            Pas encaissée
+          </InstallmentAction>
+          <InstallmentAction installmentId={line.id} status="pending" variant="ghost">
+            Rouvrir
+          </InstallmentAction>
+        </>
       );
     case "skipped":
       return (
