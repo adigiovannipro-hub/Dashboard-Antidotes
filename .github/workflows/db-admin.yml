@@ -38,6 +38,10 @@ on:
         description: "Diagnostic Finance (lecture seule) : statuts, soldes, dépenses"
         type: boolean
         default: false
+      diagnostic_billing:
+        description: "Diagnostic Échéances (lecture seule) : groupes, doublons, TVA"
+        type: boolean
+        default: false
 
 jobs:
   operer:
@@ -91,6 +95,12 @@ jobs:
       - name: Diagnostic Finance
         if: ${{ inputs.diagnostic_finance }}
         run: pnpm tsx scripts/diagnostic-finance.ts
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+
+      - name: Diagnostic Échéances
+        if: ${{ inputs.diagnostic_billing }}
+        run: pnpm diagnostic:billing
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
 
