@@ -4,7 +4,11 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { requireFinanceAccess } from "@/lib/finance/access";
-import { installmentsFor, monthsBetween } from "@/lib/billing/schedule";
+import {
+  installmentsFor,
+  issueDateFor,
+  monthsBetween,
+} from "@/lib/billing/schedule";
 import { createClient } from "@/lib/supabase/server";
 
 /**
@@ -173,12 +177,20 @@ export async function createEngagement(
 const updateInstallmentInput = z.object({
   installmentId: z.uuid(),
   amount: frenchAmount,
+  /* Absent quand la ligne se modifie depuis un écran qui n'offre pas la
+     période — le mois reste alors tel qu'il est. */
+  serviceMonth: isoMonth.optional(),
   notes: z.string().trim().max(500).optional(),
 });
 
 /**
- * Le montant d'un mois se retouche ligne à ligne — un mois offert, une
- * rallonge, un avoir — sans réécrire l'histoire des autres.
+ * Une ligne se retouche entièrement : sa période, son montant, sa note. Un
+ * mois offert, une rallonge, une prestation décalée d'un mois — tout cela
+ * arrive, et rien n'oblige à reprendre le devis entier pour une ligne.
+ *
+ * Déplacer le mois de prestation déplace aussi le jour d'émission : la règle
+ * du module — on facture le lendemain de la fin du mois — vaut pour une
+ * ligne corrigée comme pour une ligne générée.
  */
 export async function updateInstallment(
   _previous: BillingActionResult | null,
@@ -187,9 +199,10 @@ export async function updateInstallment(
   const parsed = updateInstallmentInput.safeParse({
     installmentId: formData.get("installmentId"),
     amount: formData.get("amount"),
+    serviceMonth: formData.get("serviceMonth") || undefined,
     notes: formData.get("notes") || undefined,
   });
-  if (!parsed.success) return { ok: false, error: "Montant invalide." };
+  if (!parsed.success) return { ok: false, error: "Montant ou période invalide." };
 
   const context = await requireFinanceAccess();
   if (!context.canDecide) return { ok: false, error: "Action indisponible." };
@@ -200,12 +213,25 @@ export async function updateInstallment(
     .update({
       amount_cents: Math.round(parsed.data.amount * 100),
       notes: parsed.data.notes ?? null,
+      ...(parsed.data.serviceMonth
+        ? {
+            service_month: parsed.data.serviceMonth,
+            issue_on: issueDateFor(parsed.data.serviceMonth),
+          }
+        : {}),
     } as never)
     .eq("id", parsed.data.installmentId)
     .eq("org_id", context.orgId)
     .select("id");
 
-  if (error) return { ok: false, error: `Mise à jour refusée : ${error.message}` };
+  if (error) {
+    /* Un devis ne porte qu'une ligne par mois : déplacer une prestation sur
+       un mois déjà pris se refuse, et le message doit dire lequel. */
+    const message = error.message.includes("billing_installments_engagement_id_service_month")
+      ? "Ce devis a déjà une mensualité sur ce mois."
+      : error.message;
+    return { ok: false, error: `Mise à jour refusée : ${message}` };
+  }
   if (!data || data.length === 0) return { ok: false, error: "Échéance introuvable." };
 
   refresh();
@@ -237,20 +263,10 @@ export async function setInstallmentStatus(
      passage suivant du rapprochement — l'automate gagnerait toujours contre
      la main. */
   const stamps = {
-    pending: {
-      issued_at: null,
-      paid_at: null,
-      archived_at: null,
-      matched_invoice_id: null,
-    },
-    issued: { issued_at: new Date().toISOString(), paid_at: null, archived_at: null },
+    pending: { issued_at: null, paid_at: null, matched_invoice_id: null },
+    issued: { issued_at: new Date().toISOString(), paid_at: null },
     paid: { paid_at: new Date().toISOString() },
-    skipped: {
-      issued_at: null,
-      paid_at: null,
-      archived_at: null,
-      matched_invoice_id: null,
-    },
+    skipped: { issued_at: null, paid_at: null, matched_invoice_id: null },
   }[parsed.data.status];
 
   const supabase = await createClient();
@@ -268,55 +284,6 @@ export async function setInstallmentStatus(
 
   refresh();
   return { ok: true, message: "Échéance mise à jour." };
-}
-
-// --- Archiver / ressortir une payée ------------------------------------------
-
-const archiveInput = z.object({
-  installmentId: z.uuid(),
-  archived: z.enum(["1", "0"]),
-});
-
-/**
- * L'archivage descend une payée en bas de page sans toucher à son statut.
- * L'automate le fait seul au bout de deux mois ; le bouton sert à pousser
- * plus tôt — ou à ressortir une ligne pour la revoir.
- */
-export async function archiveInstallment(
-  _previous: BillingActionResult | null,
-  formData: FormData,
-): Promise<BillingActionResult> {
-  const parsed = archiveInput.safeParse({
-    installmentId: formData.get("installmentId"),
-    archived: formData.get("archived"),
-  });
-  if (!parsed.success) return { ok: false, error: "Requête incomplète." };
-
-  const context = await requireFinanceAccess();
-  if (!context.canDecide) return { ok: false, error: "Action indisponible." };
-
-  const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("billing_installments")
-    .update({
-      archived_at: parsed.data.archived === "1" ? new Date().toISOString() : null,
-    } as never)
-    .eq("id", parsed.data.installmentId)
-    .eq("org_id", context.orgId)
-    // Seule une payée s'archive : les autres ont encore une vie devant elles.
-    .eq("status", "paid")
-    .select("id");
-
-  if (error) return { ok: false, error: `Archivage refusé : ${error.message}` };
-  if (!data || data.length === 0) {
-    return { ok: false, error: "Échéance introuvable ou pas encore payée." };
-  }
-
-  refresh();
-  return {
-    ok: true,
-    message: parsed.data.archived === "1" ? "Échéance archivée." : "Échéance ressortie.",
-  };
 }
 
 // --- Terminer un devis -------------------------------------------------------

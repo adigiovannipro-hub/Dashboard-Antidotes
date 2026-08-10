@@ -20,7 +20,6 @@ const makeInstallment = (
   currency: "EUR",
   issue_on: "2026-08-01",
   matched_invoice_id: null,
-  archived_at: null,
   issued_at: null,
   paid_at: null,
   client_name: "I-WAY",
@@ -288,6 +287,43 @@ describe("reconcile", () => {
     expect(decisions).toHaveLength(1);
   });
 
+  it("ne fait pas glisser la série quand les premiers mois n'ont pas de facture", () => {
+    /* Le devis court de janvier à mars, la facturation n'a commencé qu'en
+       mars. Sans fenêtre resserrée, la facture de mars soldait janvier et
+       tout le reste suivait, décalé d'un cran. */
+    const decisions = reconcile({
+      installments: [
+        makeInstallment({ id: "jan", issue_on: "2026-02-01", vat_rate: 0 }),
+        makeInstallment({ id: "fev", issue_on: "2026-03-01", vat_rate: 0 }),
+        makeInstallment({ id: "mars", issue_on: "2026-04-01", vat_rate: 0 }),
+      ],
+      invoices: [
+        makeInvoice({ id: "f-mars", issued_on: "2026-03-04", amount_cents: 250_000 }),
+        makeInvoice({ id: "f-avril", issued_on: "2026-04-01", amount_cents: 250_000 }),
+      ],
+      now: new Date("2026-05-01T10:00:00.000Z"),
+    });
+
+    // Janvier reste sans facture ; février et mars trouvent les leurs.
+    expect(decisions.map((d) => [d.installment_id, d.set.matched_invoice_id])).toEqual([
+      ["fev", "f-mars"],
+      ["mars", "f-avril"],
+    ]);
+  });
+
+  it("préfère la facture la plus proche du jour prévu", () => {
+    const decisions = reconcile({
+      installments: [makeInstallment({ issue_on: "2026-08-01", vat_rate: 0 })],
+      invoices: [
+        makeInvoice({ id: "f-tardive", issued_on: "2026-08-18", amount_cents: 250_000 }),
+        makeInvoice({ id: "f-juste", issued_on: "2026-08-03", amount_cents: 250_000 }),
+      ],
+      now: NOW,
+    });
+
+    expect(decisions[0]?.set.matched_invoice_id).toBe("f-juste");
+  });
+
   it("ignore une facture émise hors fenêtre", () => {
     const decisions = reconcile({
       installments: [makeInstallment({ issue_on: "2026-08-01" })],
@@ -362,49 +398,28 @@ describe("reconcile", () => {
     expect(decisions).toHaveLength(1);
   });
 
-  it("archive une payée de plus de soixante jours, laisse la récente", () => {
+  it("aligne le montant sur la facture réellement émise", () => {
+    // Le devis Monday disait 2 102,50 ; Airwallex a facturé 2 102,00. Sans
+    // cet alignement, Finance et Échéances affichent deux chiffres pour la
+    // même créance.
     const decisions = reconcile({
-      installments: [
-        makeInstallment({
-          id: "inst-vieille",
-          status: "paid",
-          paid_at: "2026-06-01T00:00:00.000Z",
-        }),
-        makeInstallment({
-          id: "inst-recente",
-          status: "paid",
-          paid_at: "2026-08-01T00:00:00.000Z",
-        }),
-      ],
-      invoices: [],
+      installments: [makeInstallment({ vat_rate: 0, amount_cents: 210_250 })],
+      invoices: [makeInvoice({ amount_cents: 210_200 })],
       now: NOW,
     });
 
-    expect(decisions).toEqual([
-      {
-        installment_id: "inst-vieille",
-        set: { archived_at: NOW.toISOString() },
-        reason: "archived",
-      },
-    ]);
+    expect(decisions[0]?.set.amount_cents).toBe(210_200);
   });
 
-  it("n'archive pas une payée sans date de paiement ni une déjà archivée", () => {
+  it("dérive le hors-taxe quand la facture porte un TTC", () => {
     const decisions = reconcile({
-      installments: [
-        makeInstallment({ id: "inst-sans-date", status: "paid", paid_at: null }),
-        makeInstallment({
-          id: "inst-archivee",
-          status: "paid",
-          paid_at: "2026-01-01T00:00:00.000Z",
-          archived_at: "2026-04-01T00:00:00.000Z",
-        }),
-      ],
-      invoices: [],
+      installments: [makeInstallment({ vat_rate: 20, amount_cents: 250_000 })],
+      invoices: [makeInvoice({ amount_cents: 300_000 })],
       now: NOW,
     });
 
-    expect(decisions).toEqual([]);
+    // 300 000 TTC à 20 % = 250 000 HT : le montant est déjà juste, rien à écrire.
+    expect(decisions[0]?.set.amount_cents).toBeUndefined();
   });
 
   it("ne décide rien quand tout est déjà à jour", () => {

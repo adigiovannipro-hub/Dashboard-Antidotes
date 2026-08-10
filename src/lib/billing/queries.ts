@@ -30,14 +30,8 @@ export async function listEngagements(options: {
   return (data ?? []) as unknown as BillingEngagement[];
 }
 
-export type InstallmentFilters = {
-  /** `true` : seulement les archivées ; `false` (défaut) : tout le vivant. */
-  archived?: boolean;
-};
-
 export async function listInstallments(options: {
   orgId: string;
-  filters?: InstallmentFilters;
   limit?: number;
 }): Promise<BillingInstallment[]> {
   const supabase = await createClient();
@@ -50,20 +44,11 @@ export async function listInstallments(options: {
     .select("*, finance_invoices(due_on)")
     .eq("org_id", options.orgId);
 
-  /* L'archivé se lit à part, du plus récent au plus ancien — c'est un bas de
-     page, pas un flux. Le vivant se lit dans l'ordre du calendrier. */
-  if (options.filters?.archived) {
-    query = query
-      .not("archived_at", "is", null)
-      .order("archived_at", { ascending: false });
-  } else {
-    query = query
-      .is("archived_at", null)
-      .order("issue_on")
-      .order("service_month");
-  }
+  /* Tout se lit d'un coup, dans l'ordre du calendrier : il n'y a plus de
+     seconde liste où l'ancien irait se ranger. */
+  query = query.order("issue_on").order("service_month");
 
-  const { data } = await query.limit(options.limit ?? 500);
+  const { data } = await query.limit(options.limit ?? 1000);
 
   /* La jointure remonte un objet imbriqué ; la ligne reste plate, comme
      partout ailleurs dans le module. */
@@ -104,8 +89,6 @@ export async function listUnmatchedInvoices(options: {
   const supabase = await createClient();
 
   const [{ data: lines }, { data: invoices }, { data: aliasRows }] = await Promise.all([
-    /* Les archivées comptent ici : une facture dont la mensualité est
-       descendue dans l'histoire n'a pas à ressurgir en « hors devis ». */
     supabase
       .from("billing_installments")
       .select("matched_invoice_id, issue_on, status, billing_engagements!inner(client_name)")

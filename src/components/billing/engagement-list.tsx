@@ -3,23 +3,27 @@ import { ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Counter, Panel, PanelBody, PanelRows } from "@/components/ds/surface";
 import { StatusPill } from "@/components/ds/status-pill";
-import { EditInstallment } from "@/components/billing/edit-installment";
 import { EngagementActions } from "@/components/billing/engagement-actions";
 import { InstallmentAction } from "@/components/billing/installment-action";
-import type { InstallmentLine } from "@/components/billing/installment-row";
-import { formatTotals, monthLabel } from "@/lib/billing/format";
+import { InstallmentCells } from "@/components/billing/installment-cells";
 import {
+  ROW_LABELS,
+  STAGE_TONES,
+  type InstallmentLine,
+} from "@/components/billing/installment-row";
+import { formatTotals, monthLabel, periodLabel } from "@/lib/billing/format";
+import {
+  isLate,
+  isPaymentOverdue,
   lastMonthOf,
   stageOf,
   totalsOf,
-  ttcCentsOf,
   ttcTotalsOf,
 } from "@/lib/billing/schedule";
 import {
   ENGAGEMENT_STATUS_LABELS,
-  STAGE_LABELS,
+  LATE_LABEL,
   type BillingEngagement,
-  type InstallmentStage,
 } from "@/lib/billing/types";
 import { formatMoney } from "@/lib/finance/money";
 
@@ -100,7 +104,13 @@ export function EngagementList({
 }
 
 const MONTH_GRID =
-  "md:grid md:grid-cols-[minmax(0,1fr)_8.5rem_7.5rem_7.5rem_6.5rem] md:items-center md:gap-x-4";
+  "md:grid md:grid-cols-[8.5rem_8.5rem_6.5rem_6.5rem_minmax(0,1fr)_5rem] md:items-center md:gap-x-4";
+
+/* La colonne d'état ouvre la ligne, à la même largeur que dans les groupes du
+   board : l'œil descend une seule colonne d'étiquettes du haut de la page
+   jusqu'ici, au lieu de la chercher tantôt à gauche tantôt à droite. */
+const ENGAGEMENT_GRID =
+  "md:grid md:grid-cols-[8.5rem_minmax(0,1fr)_auto_auto] md:items-center md:gap-x-4";
 
 function EngagementDetails({
   engagement,
@@ -118,8 +128,17 @@ function EngagementDetails({
 
   return (
     <details className="group/devis">
-      <summary className="flex cursor-pointer list-none flex-wrap items-center gap-x-4 gap-y-2 px-5 py-3 [&::-webkit-details-marker]:hidden">
-        <div className="min-w-0 basis-full md:basis-auto md:min-w-0 md:flex-1">
+      <summary
+        className={cn(
+          "flex cursor-pointer list-none flex-wrap items-center gap-x-4 gap-y-2 px-5 py-3 [&::-webkit-details-marker]:hidden",
+          ENGAGEMENT_GRID,
+        )}
+      >
+        <StatusPill tone={active ? "positive" : "neutral"} className="w-fit">
+          {ENGAGEMENT_STATUS_LABELS[engagement.status]}
+        </StatusPill>
+
+        <div className="min-w-0 basis-full md:basis-auto">
           <p className="type-label text-text-primary truncate">
             {engagement.client_name}
             <span className="text-text-secondary font-normal"> · {engagement.label}</span>
@@ -130,11 +149,7 @@ function EngagementDetails({
           </p>
         </div>
 
-        <StatusPill tone={active ? "positive" : "neutral"}>
-          {ENGAGEMENT_STATUS_LABELS[engagement.status]}
-        </StatusPill>
-
-        <span className="type-label text-text-primary tabular-nums">
+        <span className="type-label text-text-primary tabular-nums md:text-right">
           {formatTotals(totalsOf(billable))}
           <span className="type-caption text-text-secondary font-normal"> HT</span>
         </span>
@@ -168,18 +183,6 @@ function EngagementDetails({
   );
 }
 
-/* La sémantique de la charte, identique au dashboard Finance : tout
-   l'en-cours non payé est orange — à émettre comme émise, le libellé fait la
-   différence —, l'encaissé est vert, le planifié bleu, le classé gris. */
-const MONTH_STAGE_TONES: Record<InstallmentStage, React.ComponentProps<typeof StatusPill>["tone"]> = {
-  confirmed: "info",
-  to_invoice: "warning",
-  invoiced: "warning",
-  paid: "positive",
-  archived: "neutral",
-  skipped: "neutral",
-};
-
 function EngagementMonthRow({
   line,
   canDecide,
@@ -189,34 +192,42 @@ function EngagementMonthRow({
 }) {
   const stage = stageOf(line);
   const skipped = line.status === "skipped";
+  /* La même ligne se lit à l'identique dans le board et ici : ton, libellé et
+     retard viennent du même endroit, sinon la mensualité d'août serait
+     « Envoyée » en haut de page et « Facturée » dans son devis. */
+  const enRetard = (stage === "to_invoice" && isLate(line)) || isPaymentOverdue(line);
 
   return (
     <div className={cn("flex flex-wrap items-center gap-x-4 gap-y-1.5 px-5 py-2", MONTH_GRID)}>
-      <p
-        className={cn(
-          "type-body min-w-0 basis-full truncate md:basis-auto",
-          skipped ? "text-text-secondary line-through" : "text-text-primary",
-        )}
-      >
-        {monthLabel(line.service_month)}
-        {line.notes ? (
-          <span className="type-caption text-text-secondary no-underline"> · {line.notes}</span>
-        ) : null}
-      </p>
+      <StatusPill tone={enRetard ? "danger" : STAGE_TONES[stage]} className="w-fit">
+        {enRetard ? LATE_LABEL : ROW_LABELS[stage]}
+      </StatusPill>
 
-      <StatusPill tone={MONTH_STAGE_TONES[stage]}>{STAGE_LABELS[stage]}</StatusPill>
+      {skipped ? (
+        <>
+          <span className="type-caption text-text-secondary line-through">
+            {periodLabel(line.service_month)}
+          </span>
+          <span className="type-body text-text-secondary text-left line-through tabular-nums md:text-right">
+            {formatMoney(line.amount_cents, line.currency)}
+          </span>
+          <span className="type-caption text-text-secondary text-left tabular-nums md:text-right">
+            —
+          </span>
+        </>
+      ) : (
+        <InstallmentCells
+          installmentId={line.id}
+          serviceMonth={line.service_month}
+          amountCents={line.amount_cents}
+          vatRate={line.vat_rate}
+          currency={line.currency}
+          notes={line.notes}
+          canEdit={canDecide}
+        />
+      )}
 
-      <span
-        className={cn(
-          "type-body text-left tabular-nums md:text-right",
-          skipped ? "text-text-secondary line-through" : "text-text-primary",
-        )}
-      >
-        {formatMoney(line.amount_cents, line.currency)}
-      </span>
-      <span className="type-caption text-text-secondary text-left tabular-nums md:text-right">
-        {skipped ? "—" : formatMoney(ttcCentsOf(line.amount_cents, line.vat_rate), line.currency)}
-      </span>
+      <span className="type-caption text-text-secondary truncate">{line.notes ?? ""}</span>
 
       {canDecide ? (
         <div className="flex items-center gap-1.5 md:justify-end">
@@ -224,13 +235,6 @@ function EngagementMonthRow({
             <InstallmentAction installmentId={line.id} status="pending" variant="ghost">
               Rétablir
             </InstallmentAction>
-          ) : line.status === "pending" ? (
-            <EditInstallment
-              installmentId={line.id}
-              monthLabel={monthLabel(line.service_month)}
-              amountCents={line.amount_cents}
-              notes={line.notes}
-            />
           ) : null}
         </div>
       ) : (

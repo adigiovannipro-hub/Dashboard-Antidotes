@@ -24,15 +24,15 @@ export type BillingInstallmentStatus = "pending" | "issued" | "paid" | "skipped"
 
 /**
  * L'étape affichée — les groupes de l'écran, calqués sur le board Monday
- * qu'il remplace. Dérivée du statut, de la date d'émission et de
- * l'archivage ; jamais stockée.
+ * qu'il remplace. Dérivée du statut et de la date d'émission ; jamais
+ * stockée. Il n'y a pas d'archivage : une fois payé, c'est payé, et un
+ * second classement par-dessus n'apprendrait rien de plus.
  */
 export type InstallmentStage =
   | "confirmed" // devis signé, mois de prestation pas encore fini
   | "to_invoice" // le mois est fini : la facture doit partir
   | "invoiced" // facture émise, en attente de règlement
   | "paid" // réglée
-  | "archived" // réglée et descendue en bas de page
   | "skipped"; // annulée : mois offert, avoir, résiliation
 
 export const STAGE_LABELS: Record<InstallmentStage, string> = {
@@ -40,7 +40,6 @@ export const STAGE_LABELS: Record<InstallmentStage, string> = {
   to_invoice: "À facturer",
   invoiced: "Facturée",
   paid: "Payée",
-  archived: "Archivée",
   skipped: "Passée",
 };
 
@@ -94,7 +93,8 @@ export type BillingInstallment = {
   paid_at: string | null;
   /** La facture Airwallex rapprochée — la preuve que l'automate a avancé. */
   matched_invoice_id: string | null;
-  /** Posé quand la ligne payée descend en bas de page ; jamais un statut. */
+  /** Vestige de l'archivage, retiré en 0028 : plus rien ne le pose ni ne le
+      lit. La colonne reste pour ne pas réécrire l'histoire des lignes. */
   archived_at: string | null;
   notes: string | null;
   created_at: string;

@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useEffect } from "react";
+import { Check } from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -21,11 +22,15 @@ export function InstallmentAction({
   status,
   children,
   variant = "outline",
+  icon,
 }: {
   installmentId: string;
   status: BillingInstallmentStatus;
   children: React.ReactNode;
   variant?: "outline" | "ghost";
+  /** Une coche devant le libellé — l'encaissement se confirme, il ne se
+      corrige pas : autant que le geste le dise. */
+  icon?: "check";
 }) {
   const [state, formAction, pending] = useActionState<
     BillingActionResult | null,
@@ -43,6 +48,9 @@ export function InstallmentAction({
       <input type="hidden" name="installmentId" value={installmentId} />
       <input type="hidden" name="status" value={status} />
       <Button type="submit" variant={variant} size="sm" disabled={pending}>
+        {icon === "check" ? (
+          <Check aria-hidden strokeWidth={1.75} data-icon="inline-start" />
+        ) : null}
         {children}
       </Button>
     </form>

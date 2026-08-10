@@ -43,15 +43,13 @@ async function main() {
   await client.connect();
 
   try {
-    /* Les archivées sont de l'histoire : rien ne les fait plus bouger. */
     const { rows: installments } = await client.query<ReconcilableInstallment>(
       `select i.id, i.status, i.amount_cents, i.vat_rate::float8 as vat_rate, i.currency,
               i.issue_on::text as issue_on, i.matched_invoice_id,
-              i.archived_at::text as archived_at, i.issued_at::text as issued_at,
+              i.issued_at::text as issued_at,
               i.paid_at::text as paid_at, e.client_name
          from billing_installments i
-         join billing_engagements e on e.id = i.engagement_id
-        where i.archived_at is null`,
+         join billing_engagements e on e.id = i.engagement_id`,
     );
 
     const { rows: invoices } = await client.query<ReconcilableInvoice>(

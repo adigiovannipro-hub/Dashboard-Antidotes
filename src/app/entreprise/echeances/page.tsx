@@ -45,17 +45,15 @@ export const metadata: Metadata = { title: "Échéances de facturation · Mon en
  * une fois ; ses mensualités traversent ensuite les groupes toutes seules :
  * « Devis confirmé » tant que le mois de prestation court, « À facturer »
  * dès le 1er du mois suivant (dérivé de la date, pas d'un traitement),
- * « Facturée » puis « Payée » au rythme du rapprochement Airwallex horaire,
- * l'archivage au bout de deux mois. Les boutons des lignes ne sont que le
- * filet manuel.
+ * « Facturée » puis « Payée » au rythme du rapprochement Airwallex horaire.
+ * Les boutons des lignes ne sont que le filet manuel.
  */
 export default async function EcheancesPage() {
   const context = await requireFinanceAccess();
 
-  const [engagements, living, archived, orphanInvoices, knownClients] = await Promise.all([
+  const [engagements, living, orphanInvoices, knownClients] = await Promise.all([
     listEngagements({ orgId: context.orgId }),
     listInstallments({ orgId: context.orgId }),
-    listInstallments({ orgId: context.orgId, filters: { archived: true }, limit: 500 }),
     listUnmatchedInvoices({ orgId: context.orgId }),
     listKnownClients({ orgId: context.orgId }),
   ]);
@@ -69,7 +67,6 @@ export default async function EcheancesPage() {
     project: engagementById.get(installment.engagement_id)?.label ?? "",
   });
   const lines = living.map(toLine);
-  const archivedLines = archived.map(toLine);
 
   const now = new Date();
 
@@ -78,7 +75,6 @@ export default async function EcheancesPage() {
     invoiced: [] as BoardRow[],
     paid: [] as BoardRow[],
     confirmed: [] as BoardRow[],
-    archived: archivedLines.map<BoardRow>((line) => ({ kind: "installment", line })),
   };
   for (const line of lines) {
     const stage = stageOf(line, now);
@@ -87,7 +83,7 @@ export default async function EcheancesPage() {
     }
   }
   for (const invoice of orphanInvoices) {
-    const stage = stageOfInvoice(invoice, now);
+    const stage = stageOfInvoice(invoice);
     if (stage) groups[stage].push({ kind: "invoice", invoice });
   }
   /* « Facturée » se lit dans l'ordre d'émission — les premières parties en
@@ -97,18 +93,10 @@ export default async function EcheancesPage() {
     if (lateGap !== 0) return lateGap;
     return issuedDateOf(a).localeCompare(issuedDateOf(b));
   });
-  groups.paid.sort(byBoardDate);
-  groups.archived.sort(byBoardDate);
+  /* Les payées, du plus récent au plus ancien : cent dix lignes d'histoire
+     se lisent du dernier encaissement vers le premier. */
+  groups.paid.sort((a, b) => byBoardDate(b, a));
 
-  /* « Devis confirmé » montre le proche utile — les mensualités qui basculent
-     dans les trois prochains mois — et compte le reste en pied de groupe. */
-  const horizon = addMonths(currentMonth(now), 3);
-  const confirmedLines = lines.filter((line) => stageOf(line, now) === "confirmed");
-  const confirmedSoon = groups.confirmed.filter(
-    (row) => row.kind === "installment" && row.line.issue_on <= horizon,
-  );
-  const confirmedLater = confirmedLines.filter((line) => line.issue_on > horizon);
-  const lastPlanned = confirmedLines.at(-1);
 
   /* Les cartes du haut : ce qui doit partir, ce qui est parti ce mois-ci face
      au prévu, ce qui traîne, et le loyer moyen des devis confirmés. */
@@ -142,9 +130,9 @@ export default async function EcheancesPage() {
   const averageMonthly = forecastAverage(forecast);
   const forecastMonths = forecast.filter((point) => point.count > 0).length;
 
-  /* Le détail d'un devis montre toute sa vie, mois archivés compris. */
+  /* Le détail d'un devis montre toute sa vie, du premier mois au dernier. */
   const linesByEngagement: Record<string, InstallmentLine[]> = {};
-  for (const line of [...lines, ...archivedLines].sort((a, b) =>
+  for (const line of [...lines].sort((a, b) =>
     a.service_month.localeCompare(b.service_month),
   )) {
     (linesByEngagement[line.engagement_id] ??= []).push(line);
@@ -238,7 +226,7 @@ export default async function EcheancesPage() {
 
       <StageGroup
         title="Payée"
-        description="Encaissées ces deux derniers mois — ensuite, l'archivage descend les lignes tout seul."
+        description="Tout ce qui est encaissé, du plus récent au plus ancien."
         stage="paid"
         rows={groups.paid}
         canDecide={context.canDecide}
@@ -249,15 +237,10 @@ export default async function EcheancesPage() {
         title="Devis confirmé"
         description="Les mensualités à venir : chacune passera « À facturer » le 1er du mois suivant sa prestation."
         stage="confirmed"
-        rows={confirmedSoon}
+        rows={groups.confirmed}
         canDecide={context.canDecide}
         emptyText="Aucune mensualité planifiée. « Ajouter un devis » génère les prochaines."
         defaultOpen
-        footnote={
-          confirmedLater.length > 0 && lastPlanned
-            ? `+ ${confirmedLater.length} mensualité${confirmedLater.length > 1 ? "s" : ""} planifiée${confirmedLater.length > 1 ? "s" : ""} jusqu'en ${monthLabel(lastPlanned.service_month)} — le détail vit dans chaque devis.`
-            : undefined
-        }
       />
 
       <EngagementList
@@ -265,17 +248,6 @@ export default async function EcheancesPage() {
         linesByEngagement={linesByEngagement}
         canDecide={context.canDecide}
       />
-
-      {groups.archived.length > 0 ? (
-        <StageGroup
-          title="Archivé"
-          description="Payées et classées — les soixante jours passés, tout descend ici."
-          stage="archived"
-          rows={groups.archived}
-          canDecide={context.canDecide}
-          emptyText=""
-        />
-      ) : null}
     </div>
   );
 }

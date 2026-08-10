@@ -1,22 +1,30 @@
 import { cn } from "@/lib/utils";
-import { StatusPill } from "@/components/ds/status-pill";
-import { ArchiveAction } from "@/components/billing/archive-action";
-import { EditInstallment } from "@/components/billing/edit-installment";
+import { StatusPill, type StatusTone } from "@/components/ds/status-pill";
 import { InstallmentAction } from "@/components/billing/installment-action";
-import { dayLabel, monthLabel, periodLabel } from "@/lib/billing/format";
-import { isLate, isPaymentOverdue, ttcCentsOf } from "@/lib/billing/schedule";
+import { InstallmentCells } from "@/components/billing/installment-cells";
+import { dayLabel } from "@/lib/billing/format";
+import { isLate, isPaymentOverdue } from "@/lib/billing/schedule";
 import { isOverdue } from "@/lib/finance/invoices";
 import type { UnmatchedInvoice } from "@/lib/billing/queries";
-import { LATE_LABEL, type BillingInstallment, type InstallmentStage } from "@/lib/billing/types";
+import {
+  LATE_LABEL,
+  STAGE_LABELS,
+  type BillingInstallment,
+  type InstallmentStage,
+} from "@/lib/billing/types";
 import { formatMoney } from "@/lib/finance/money";
 
 /**
- * Une échéance, dans n'importe quel groupe de l'écran : qui, quel mois,
- * combien HT, combien TTC — et le filet d'actions manuelles quand le
+ * Une échéance, dans n'importe quel groupe de l'écran : son état, qui, quel
+ * mois, combien HT, combien TTC — et le filet d'actions manuelles quand le
  * rapprochement Airwallex ne peut pas trancher seul.
  *
- * Au téléphone, la ligne se replie en trois niveaux : le client, puis la
- * période et les montants, puis les actions.
+ * L'état ouvre la ligne, à gauche du nom : c'est la première chose qu'on
+ * cherche en parcourant une colonne, et la chercher à droite obligeait à
+ * traverser le libellé à chaque ligne.
+ *
+ * Au téléphone, la ligne se replie en trois niveaux : l'état et le client,
+ * puis la période et les montants, puis les actions.
  */
 
 /** Une échéance aplatie avec son devis — ce que la page assemble. */
@@ -36,7 +44,7 @@ export type BoardRow =
 
 /** Gabarit partagé par l'en-tête et les lignes. */
 export const INSTALLMENT_GRID =
-  "md:grid md:grid-cols-[minmax(0,1.6fr)_8.5rem_7.5rem_7.5rem_minmax(9.5rem,auto)] md:items-center md:gap-x-4";
+  "md:grid md:grid-cols-[8.5rem_minmax(0,1.4fr)_8.5rem_7rem_7rem_minmax(9rem,auto)] md:items-center md:gap-x-4";
 
 export function InstallmentsHeader() {
   return (
@@ -46,6 +54,7 @@ export function InstallmentsHeader() {
         INSTALLMENT_GRID,
       )}
     >
+      <span>Statut</span>
       <span>Client · Projet</span>
       <span>Période</span>
       <span className="text-right">Montant HT</span>
@@ -56,6 +65,27 @@ export function InstallmentsHeader() {
     </div>
   );
 }
+
+/**
+ * Le ton d'un état, identique à celui du dashboard Finance : tout l'en-cours
+ * non réglé est orange, l'encaissé vert, le planifié bleu, le retard rouge.
+ */
+export const STAGE_TONES: Record<InstallmentStage, StatusTone> = {
+  confirmed: "info",
+  to_invoice: "warning",
+  invoiced: "warning",
+  paid: "positive",
+  skipped: "neutral",
+};
+
+/** « Facturée » se dit « Envoyée » sur une ligne : le groupe porte déjà le
+    statut, la pastille dit ce qui s'est passé — la facture est partie.
+    Exporté parce que le détail d'un devis affiche les mêmes lignes : deux
+    noms pour un seul état donneraient deux vérités. */
+export const ROW_LABELS: Record<InstallmentStage, string> = {
+  ...STAGE_LABELS,
+  invoiced: "Envoyée",
+};
 
 export function InstallmentRow({
   line,
@@ -68,18 +98,20 @@ export function InstallmentRow({
 }) {
   const late = stage === "to_invoice" && isLate(line);
   const overdue = isPaymentOverdue(line);
+  const enRetard = late || overdue;
 
   return (
     <div
       className={cn("flex flex-wrap items-center gap-x-4 gap-y-2 px-5 py-3", INSTALLMENT_GRID)}
     >
+      <StatusPill tone={enRetard ? "danger" : STAGE_TONES[stage]} className="w-fit">
+        {enRetard ? LATE_LABEL : ROW_LABELS[stage]}
+      </StatusPill>
+
       {/* Le nom prend sa propre ligne au téléphone : coincé dans le rang
           flex, il se faisait tronquer jusqu'à « Bon… ». */}
       <div className="min-w-0 basis-full md:basis-auto">
-        <p className="type-label text-text-primary flex items-center gap-2">
-          <span className="truncate">{line.client}</span>
-          {late || overdue ? <StatusPill tone="danger">{LATE_LABEL}</StatusPill> : null}
-        </p>
+        <p className="type-label text-text-primary truncate">{line.client}</p>
         <p className="type-caption text-text-secondary truncate">
           {line.project}
           {overdue && line.invoice_due_on
@@ -89,16 +121,15 @@ export function InstallmentRow({
         </p>
       </div>
 
-      <span className="type-caption bg-neutral-subtle text-neutral-ink inline-flex w-fit items-center rounded-pill px-2.5 py-0.5 font-medium whitespace-nowrap tabular-nums">
-        {periodLabel(line.service_month)}
-      </span>
-
-      <span className="type-label text-text-primary text-left tabular-nums md:text-right">
-        {formatMoney(line.amount_cents, line.currency)}
-      </span>
-      <span className="type-body text-text-secondary text-left tabular-nums md:text-right">
-        {formatMoney(ttcCentsOf(line.amount_cents, line.vat_rate), line.currency)}
-      </span>
+      <InstallmentCells
+        installmentId={line.id}
+        serviceMonth={line.service_month}
+        amountCents={line.amount_cents}
+        vatRate={line.vat_rate}
+        currency={line.currency}
+        notes={line.notes}
+        canEdit={canDecide}
+      />
 
       {canDecide ? (
         <div className="flex flex-wrap items-center gap-1.5 md:justify-end">
@@ -117,9 +148,9 @@ export function InstallmentRow({
  * jour — et le jour où un devis correspondant est saisi, le rapprochement la
  * déplacera sur sa mensualité.
  *
- * Le montant Airwallex est le total de la facture, sans détail de taxe : il
- * s'affiche tel quel dans les deux colonnes — exact tant que la facturation
- * se fait sans TVA, et de toute façon la seule valeur connue.
+ * Le montant est le total de la facture, sans détail de taxe : il s'affiche
+ * tel quel dans les deux colonnes — exact tant que la facturation se fait
+ * sans TVA, et de toute façon la seule valeur connue.
  */
 export function InvoiceRow({
   invoice,
@@ -142,11 +173,12 @@ export function InvoiceRow({
     <div
       className={cn("flex flex-wrap items-center gap-x-4 gap-y-2 px-5 py-3", INSTALLMENT_GRID)}
     >
+      <StatusPill tone={overdue ? "danger" : STAGE_TONES[stage]} className="w-fit">
+        {overdue ? LATE_LABEL : ROW_LABELS[stage]}
+      </StatusPill>
+
       <div className="min-w-0 basis-full md:basis-auto">
-        <p className="type-label text-text-primary flex items-center gap-2">
-          <span className="truncate">{invoice.client_name}</span>
-          {overdue ? <StatusPill tone="danger">{LATE_LABEL}</StatusPill> : null}
-        </p>
+        <p className="type-label text-text-primary truncate">{invoice.client_name}</p>
         <p className="type-caption text-text-secondary truncate">
           Facture hors devis
           {overdue && invoice.due_on ? ` · échéance dépassée le ${dayLabel(invoice.due_on)}` : ""}
@@ -175,32 +207,16 @@ export function InvoiceRow({
  * rapprochement horaire fait avancer les lignes tout seul.
  */
 function RowActions({ line, stage }: { line: InstallmentLine; stage: InstallmentStage }) {
-  const month = monthLabel(line.service_month);
-
   switch (stage) {
     case "confirmed":
       return (
-        <>
-          <EditInstallment
-            installmentId={line.id}
-            monthLabel={month}
-            amountCents={line.amount_cents}
-            notes={line.notes}
-          />
-          <InstallmentAction installmentId={line.id} status="skipped" variant="ghost">
-            Passer
-          </InstallmentAction>
-        </>
+        <InstallmentAction installmentId={line.id} status="skipped" variant="ghost">
+          Passer
+        </InstallmentAction>
       );
     case "to_invoice":
       return (
         <>
-          <EditInstallment
-            installmentId={line.id}
-            monthLabel={month}
-            amountCents={line.amount_cents}
-            notes={line.notes}
-          />
           <InstallmentAction installmentId={line.id} status="issued">
             Facturée
           </InstallmentAction>
@@ -212,7 +228,7 @@ function RowActions({ line, stage }: { line: InstallmentLine; stage: Installment
     case "invoiced":
       return (
         <>
-          <InstallmentAction installmentId={line.id} status="paid">
+          <InstallmentAction installmentId={line.id} status="paid" icon="check">
             Payée
           </InstallmentAction>
           <InstallmentAction installmentId={line.id} status="pending" variant="ghost">
@@ -222,20 +238,9 @@ function RowActions({ line, stage }: { line: InstallmentLine; stage: Installment
       );
     case "paid":
       return (
-        <>
-          <ArchiveAction installmentId={line.id} archived>
-            Archiver
-          </ArchiveAction>
-          <InstallmentAction installmentId={line.id} status="pending" variant="ghost">
-            Rouvrir
-          </InstallmentAction>
-        </>
-      );
-    case "archived":
-      return (
-        <ArchiveAction installmentId={line.id} archived={false} variant="ghost">
-          Ressortir
-        </ArchiveAction>
+        <InstallmentAction installmentId={line.id} status="pending" variant="ghost">
+          Rouvrir
+        </InstallmentAction>
       );
     case "skipped":
       return (

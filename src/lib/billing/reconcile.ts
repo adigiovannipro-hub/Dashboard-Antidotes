@@ -14,19 +14,17 @@
  * décalé — la ligne ne bouge pas : l'écran garde ses boutons manuels, et un
  * faux rapprochement coûterait plus cher qu'un rapprochement absent.
  *
- * Trois passes, trois raisons de bouger :
+ * Deux passes, deux raisons de bouger :
  *
  *   1. `advanced` — une échéance déjà rapprochée avance quand sa facture
  *      passe payée. Jamais l'inverse : le statut ne recule pas, même si la
  *      facture disparaît du miroir.
  *   2. `matched` — une échéance ouverte trouve sa facture. Elle passe
  *      facturée, ou payée directement si Airwallex la dit déjà réglée.
- *   3. `archived` — une payée depuis plus de soixante jours descend en bas
- *      de page, comme l'archivé de « Mon travail ».
  */
 
 import type { FinanceInvoice } from "@/lib/finance/types";
-import { ARCHIVE_AFTER_DAYS, ttcCentsOf } from "./schedule";
+import { ttcCentsOf } from "./schedule";
 import type { BillingInstallment } from "./types";
 
 /** Ce que le rapprochement doit savoir d'une échéance — le client vient de
@@ -40,7 +38,6 @@ export type ReconcilableInstallment = Pick<
   | "currency"
   | "issue_on"
   | "matched_invoice_id"
-  | "archived_at"
   | "issued_at"
   | "paid_at"
 > & { client_name: string };
@@ -58,16 +55,32 @@ export type ReconcileDecision = {
     matched_invoice_id?: string;
     issued_at?: string;
     paid_at?: string;
-    archived_at?: string;
+    /** Le montant réellement facturé, quand il diffère de la prévision. */
+    amount_cents?: number;
   };
-  reason: "matched" | "advanced" | "archived";
+  reason: "matched" | "advanced";
 };
 
-/* La facture part en principe le jour d'émission prévu. La fenêtre tolère
-   une avance de quelques jours et un envoi tardif — au-delà, mieux vaut ne
-   rien décider. */
+/**
+ * Le hors-taxe correspondant à un montant facturé. La facture porte ce que
+ * le client paie ; la mensualité stocke du HT.
+ */
+export function htCentsOf(billedCents: number, vatRate: number): number {
+  return Math.round((billedCents * 100) / (100 + vatRate));
+}
+
+/**
+ * La facture part en principe le jour d'émission prévu. La fenêtre tolère
+ * une avance de quelques jours et un envoi tardif de trois semaines.
+ *
+ * Elle ne peut pas être plus large : à quarante-cinq jours, elle couvrait le
+ * mois suivant en entier, et un devis dont les premiers mois n'ont jamais
+ * été facturés voyait **toute sa série glisser d'un cran** — la facture de
+ * février soldant janvier, celle de mars soldant février, jusqu'à ce que les
+ * échéances de règlement affichées n'aient plus rien à voir avec la réalité.
+ */
 export const MATCH_BEFORE_DAYS = 10;
-export const MATCH_AFTER_DAYS = 45;
+export const MATCH_AFTER_DAYS = 21;
 
 /**
  * L'écart de montant admis entre le devis et la facture réellement émise :
@@ -184,7 +197,7 @@ export function reconcile(options: {
   const openLines = options.installments
     .filter(
       (line) =>
-        line.status !== "skipped" && !line.matched_invoice_id && !line.archived_at,
+        line.status !== "skipped" && !line.matched_invoice_id,
     )
     .sort((a, b) => a.issue_on.localeCompare(b.issue_on));
 
@@ -203,14 +216,24 @@ export function reconcile(options: {
     const ttc = ttcCentsOf(line.amount_cents, line.vat_rate);
     const client = normalizeClientName(line.client_name);
 
-    const invoice = eligibleInvoices.find((candidate) => {
-      if (used.has(candidate.id)) return false;
-      if (candidate.currency !== line.currency) return false;
-      if (!amountsAgree(ttc, candidate.amount_cents)) return false;
-      if (resolveClient(candidate.client_name, aliases) !== client) return false;
+    /* La plus proche du jour prévu l'emporte, et non la première venue :
+       quand deux factures du même client tombent dans la fenêtre, celle qui
+       colle à la date attendue est la bonne — l'autre appartient au mois
+       voisin, qui viendra la chercher. */
+    let invoice: ReconcilableInvoice | undefined;
+    let bestOffset = Number.POSITIVE_INFINITY;
+    for (const candidate of eligibleInvoices) {
+      if (used.has(candidate.id)) continue;
+      if (candidate.currency !== line.currency) continue;
+      if (!amountsAgree(ttc, candidate.amount_cents)) continue;
+      if (resolveClient(candidate.client_name, aliases) !== client) continue;
       const offset = daysFrom(line.issue_on, candidate.issued_on!);
-      return offset >= -MATCH_BEFORE_DAYS && offset <= MATCH_AFTER_DAYS;
-    });
+      if (offset < -MATCH_BEFORE_DAYS || offset > MATCH_AFTER_DAYS) continue;
+      if (Math.abs(offset) < bestOffset) {
+        bestOffset = Math.abs(offset);
+        invoice = candidate;
+      }
+    }
     if (!invoice) continue;
 
     used.add(invoice.id);
@@ -227,21 +250,15 @@ export function reconcile(options: {
     }
     if (!line.issued_at) set.issued_at = issuedAt;
 
+    /* Le montant s'aligne sur la facture : le devis disait ce qui était
+       prévu, la facture dit ce qui a été demandé au client. Sans cet
+       alignement, le même impayé s'affiche à 2 102,50 sur cet écran et à
+       2 102,00 sur le dashboard Finance — deux chiffres pour une seule
+       créance, et plus personne ne sait lequel croire. */
+    const billedHt = htCentsOf(invoice.amount_cents, line.vat_rate);
+    if (billedHt !== line.amount_cents) set.amount_cents = billedHt;
+
     decisions.push({ installment_id: line.id, set, reason: "matched" });
-  }
-
-  // --- 3. Les payées anciennes descendent en archivé ------------------------
-
-  for (const line of options.installments) {
-    if (line.status !== "paid" || line.archived_at || !line.paid_at) continue;
-    const ageDays = (now.getTime() - Date.parse(line.paid_at)) / 86_400_000;
-    if (ageDays < ARCHIVE_AFTER_DAYS) continue;
-
-    decisions.push({
-      installment_id: line.id,
-      set: { archived_at: nowIso },
-      reason: "archived",
-    });
   }
 
   return decisions;

@@ -18,10 +18,10 @@
  *     saisi à la main, par exemple — est laissé intact, mensualités
  *     comprises. Le board ne corrige jamais la main.
  *
- * Les payées dont le mois est loin derrière descendent directement en
- * archivé : l'écran du matin doit montrer l'en-cours, pas trois ans
- * d'histoire dépliée. Leur date de paiement reste vide — Monday ne la
- * connaît pas, et une date inventée serait pire qu'une absence.
+ * Les payées arrivent payées, sans autre classement : l'écran n'archive
+ * plus rien. Leur date de paiement reste vide — Monday ne la connaît pas,
+ * et une date inventée serait pire qu'une absence ; le rapprochement la
+ * rapatriera de la facture correspondante.
  */
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
@@ -48,8 +48,6 @@ type ImportEngagement = {
   vat_rate: number;
   installments: ImportInstallment[];
 };
-
-const ARCHIVE_AFTER_DAYS = 60;
 
 /** UUID v4-forme, stable, dérivé du couple (client, projet). */
 function stableUuid(client: string, label: string): string {
@@ -121,9 +119,6 @@ async function main() {
     );
 
     const today = new Date().toISOString().slice(0, 10);
-    const archiveBefore = new Date(Date.now() - ARCHIVE_AFTER_DAYS * 86_400_000)
-      .toISOString()
-      .slice(0, 10);
 
     let created = 0;
     let skippedExisting = 0;
@@ -165,17 +160,12 @@ async function main() {
 
         for (const line of engagement.installments) {
           const issueOn = addMonths(line.service_month, 1);
-          /* L'histoire ancienne arrive déjà archivée ; les payées récentes
-             restent sous les yeux, comme si l'automate avait fait son
-             travail depuis le début. */
-          const archivedAt =
-            line.status === "paid" && issueOn < archiveBefore ? new Date().toISOString() : null;
 
           const result = await client.query(
             `insert into billing_installments
                (org_id, engagement_id, service_month, amount_cents, currency,
-                vat_rate, issue_on, status, archived_at, notes)
-             values ($1, $2, $3, $4, 'EUR', $5, $6, $7, $8, $9)
+                vat_rate, issue_on, status, notes)
+             values ($1, $2, $3, $4, 'EUR', $5, $6, $7, $8)
              on conflict (engagement_id, service_month) do nothing`,
             [
               orgId,
@@ -185,7 +175,6 @@ async function main() {
               engagement.vat_rate,
               issueOn,
               line.status,
-              archivedAt,
               line.notes,
             ],
           );

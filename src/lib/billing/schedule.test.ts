@@ -124,12 +124,13 @@ describe("stageOf", () => {
   it("dérive le groupe de l'écran du statut et du calendrier", () => {
     // La bascule « devis confirmé → à facturer » n'attend aucun traitement :
     // elle se produit d'elle-même au passage du 1er du mois.
-    expect(stageOf({ status: "pending", issue_on: "2026-09-01", archived_at: null }, NOW)).toBe("confirmed");
-    expect(stageOf({ status: "pending", issue_on: "2026-08-01", archived_at: null }, NOW)).toBe("to_invoice");
-    expect(stageOf({ status: "issued", issue_on: "2026-08-01", archived_at: null }, NOW)).toBe("invoiced");
-    expect(stageOf({ status: "paid", issue_on: "2026-07-01", archived_at: null }, NOW)).toBe("paid");
-    expect(stageOf({ status: "paid", issue_on: "2026-05-01", archived_at: "2026-08-01T00:00:00Z" }, NOW)).toBe("archived");
-    expect(stageOf({ status: "skipped", issue_on: "2026-08-01", archived_at: null }, NOW)).toBe("skipped");
+    expect(stageOf({ status: "pending", issue_on: "2026-09-01" }, NOW)).toBe("confirmed");
+    expect(stageOf({ status: "pending", issue_on: "2026-08-01" }, NOW)).toBe("to_invoice");
+    expect(stageOf({ status: "issued", issue_on: "2026-08-01" }, NOW)).toBe("invoiced");
+    expect(stageOf({ status: "paid", issue_on: "2026-07-01" }, NOW)).toBe("paid");
+    // Une payée le reste, si ancienne soit-elle : plus d'archivage.
+    expect(stageOf({ status: "paid", issue_on: "2024-05-01" }, NOW)).toBe("paid");
+    expect(stageOf({ status: "skipped", issue_on: "2026-08-01" }, NOW)).toBe("skipped");
   });
 });
 
@@ -165,17 +166,16 @@ describe("billingForecast", () => {
 
 describe("stageOfInvoice", () => {
   it("place une facture hors devis dans le bon groupe", () => {
-    expect(stageOfInvoice({ status: "sent", paid_at: null }, NOW)).toBe("invoiced");
-    expect(stageOfInvoice({ status: "paid", paid_at: "2026-08-01T00:00:00Z" }, NOW)).toBe("paid");
-    // Payée depuis plus de soixante jours : archivée, dérivé — rien en base.
-    expect(stageOfInvoice({ status: "paid", paid_at: "2026-05-15T00:00:00Z" }, NOW)).toBe("archived");
-    // Sans date de paiement, impossible de dater l'archivage : elle reste visible.
-    expect(stageOfInvoice({ status: "paid", paid_at: null }, NOW)).toBe("paid");
+    expect(stageOfInvoice({ status: "sent", paid_at: null })).toBe("invoiced");
+    expect(stageOfInvoice({ status: "paid", paid_at: "2026-08-01T00:00:00Z" })).toBe("paid");
+    // Payée il y a des mois : payée quand même, sans second classement.
+    expect(stageOfInvoice({ status: "paid", paid_at: "2024-05-15T00:00:00Z" })).toBe("paid");
+    expect(stageOfInvoice({ status: "paid", paid_at: null })).toBe("paid");
   });
 
   it("écarte brouillons et annulées", () => {
-    expect(stageOfInvoice({ status: "draft", paid_at: null }, NOW)).toBeNull();
-    expect(stageOfInvoice({ status: "void", paid_at: null }, NOW)).toBeNull();
+    expect(stageOfInvoice({ status: "draft", paid_at: null })).toBeNull();
+    expect(stageOfInvoice({ status: "void", paid_at: null })).toBeNull();
   });
 });
 

@@ -121,37 +121,30 @@ export function today(now: Date = new Date()): string {
  * de la date et non stockée.
  */
 export function stageOf(
-  installment: Pick<BillingInstallment, "status" | "issue_on" | "archived_at">,
+  installment: Pick<BillingInstallment, "status" | "issue_on">,
   now: Date = new Date(),
 ): InstallmentStage {
   if (installment.status === "skipped") return "skipped";
-  if (installment.status === "paid") {
-    return installment.archived_at ? "archived" : "paid";
-  }
+  if (installment.status === "paid") return "paid";
   if (installment.status === "issued") return "invoiced";
   return installment.issue_on <= today(now) ? "to_invoice" : "confirmed";
 }
-
-/** Une payée reste deux mois sous les yeux, puis s'archive. La même règle
-    vaut pour les mensualités (posée en base par le rapprochement) et pour les
-    factures hors devis (dérivée à la lecture, rien à poser nulle part). */
-export const ARCHIVE_AFTER_DAYS = 60;
 
 /**
  * L'étape d'une facture Airwallex qui ne correspond à aucun devis — elle
  * s'affiche quand même : l'écran reflète la facturation réelle, pas
  * seulement ce qui a été planifié. `null` : brouillons et annulées n'ont pas
  * de place sur le board.
+ *
+ * Une payée reste payée, sans horizon : ce qui est encaissé est encaissé, et
+ * un second classement par-dessus n'apprend rien de plus.
  */
 export function stageOfInvoice(
   invoice: Pick<FinanceInvoice, "status" | "paid_at">,
-  now: Date = new Date(),
-): Extract<InstallmentStage, "invoiced" | "paid" | "archived"> | null {
+): Extract<InstallmentStage, "invoiced" | "paid"> | null {
   if (invoice.status === "sent") return "invoiced";
-  if (invoice.status !== "paid") return null;
-  if (!invoice.paid_at) return "paid";
-  const ageDays = (now.getTime() - Date.parse(invoice.paid_at)) / 86_400_000;
-  return ageDays >= ARCHIVE_AFTER_DAYS ? "archived" : "paid";
+  if (invoice.status === "paid") return "paid";
+  return null;
 }
 
 /**

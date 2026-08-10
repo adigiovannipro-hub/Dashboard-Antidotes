@@ -28,15 +28,12 @@ type InstallmentRow = Omit<ReconcilableInstallment, "client_name"> & {
 export async function reconcileBillingInstallments(orgId: string): Promise<number> {
   const admin = createAdminClient();
 
-  /* Les archivées sont de l'histoire : rien ne les fait plus bouger, inutile
-     de les relire à chaque passage. */
   const { data: lines, error: linesError } = await admin
     .from("billing_installments")
     .select(
-      "id, status, amount_cents, vat_rate, currency, issue_on, matched_invoice_id, archived_at, issued_at, paid_at, billing_engagements!inner(client_name)",
+      "id, status, amount_cents, vat_rate, currency, issue_on, matched_invoice_id, issued_at, paid_at, billing_engagements!inner(client_name)",
     )
     .eq("org_id", orgId)
-    .is("archived_at", null)
     .limit(2000);
   if (linesError) {
     throw new Error(`Lecture des échéances : ${linesError.message}`);
