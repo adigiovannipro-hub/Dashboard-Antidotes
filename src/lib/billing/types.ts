@@ -64,6 +64,21 @@ export type BillingEngagement = {
   updated_at: string;
 };
 
+/**
+ * La correspondance entre un nom vu sur une facture — la raison sociale
+ * qu'Airwallex connaît — et le nom que les devis portent, celui de la
+ * marque. `client_name` à `null` : la facture n'est pas une prestation
+ * client, l'écran des échéances l'ignore.
+ */
+export type BillingClientAlias = {
+  id: string;
+  org_id: string;
+  alias: string;
+  client_name: string | null;
+  note: string | null;
+  created_at: string;
+};
+
 export type BillingInstallment = {
   id: string;
   org_id: string;
@@ -84,4 +99,8 @@ export type BillingInstallment = {
   notes: string | null;
   created_at: string;
   updated_at: string;
+  /** L'échéance de règlement de la facture rapprochée — jamais stockée sur
+      la mensualité, jointe à la lecture. Absente tant qu'aucun lien n'est
+      posé. */
+  invoice_due_on?: string | null;
 };

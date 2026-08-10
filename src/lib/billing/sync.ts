@@ -2,6 +2,7 @@ import "server-only";
 
 import { createAdminClient } from "@/lib/supabase/server";
 import {
+  aliasesFrom,
   reconcile,
   type ReconcilableInstallment,
   type ReconcilableInvoice,
@@ -49,19 +50,33 @@ export async function reconcileBillingInstallments(orgId: string): Promise<numbe
   );
   if (installments.length === 0) return 0;
 
-  const { data: invoices, error: invoicesError } = await admin
-    .from("finance_invoices")
-    .select("id, client_name, amount_cents, currency, status, issued_on, paid_at")
-    .eq("org_id", orgId)
-    .order("issued_on", { ascending: false })
-    .limit(1000);
+  const [{ data: invoices, error: invoicesError }, { data: aliasRows, error: aliasError }] =
+    await Promise.all([
+      admin
+        .from("finance_invoices")
+        .select("id, client_name, amount_cents, currency, status, issued_on, paid_at")
+        .eq("org_id", orgId)
+        .order("issued_on", { ascending: false })
+        .limit(1000),
+      admin
+        .from("billing_client_aliases")
+        .select("alias, client_name")
+        .eq("org_id", orgId)
+        .limit(500),
+    ]);
   if (invoicesError) {
     throw new Error(`Lecture des factures : ${invoicesError.message}`);
+  }
+  if (aliasError) {
+    throw new Error(`Lecture des correspondances de clients : ${aliasError.message}`);
   }
 
   const decisions = reconcile({
     installments,
     invoices: (invoices ?? []) as unknown as ReconcilableInvoice[],
+    aliases: aliasesFrom(
+      aliasRows as unknown as { alias: string; client_name: string | null }[] | null,
+    ),
   });
 
   for (const decision of decisions) {

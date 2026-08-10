@@ -8,6 +8,7 @@ import {
   installmentsFor,
   isDue,
   isLate,
+  isPaymentOverdue,
   issueDateFor,
   lastMonthOf,
   monthsBetween,
@@ -206,6 +207,19 @@ describe("isLate", () => {
   });
 });
 
+describe("isPaymentOverdue", () => {
+  it("signale un règlement client en retard, jamais autre chose", () => {
+    expect(isPaymentOverdue({ status: "issued", invoice_due_on: "2026-08-06" }, NOW)).toBe(true);
+    // Échéance du jour : dans les temps.
+    expect(isPaymentOverdue({ status: "issued", invoice_due_on: "2026-08-07" }, NOW)).toBe(false);
+    // Payée : plus rien à réclamer.
+    expect(isPaymentOverdue({ status: "paid", invoice_due_on: "2026-06-01" }, NOW)).toBe(false);
+    // Sans facture rapprochée, aucune échéance connue — on n'invente pas.
+    expect(isPaymentOverdue({ status: "issued", invoice_due_on: null }, NOW)).toBe(false);
+    expect(isPaymentOverdue({ status: "issued", invoice_due_on: undefined }, NOW)).toBe(false);
+  });
+});
+
 describe("totalsOf", () => {
   it("totalise par devise, jamais entre devises", () => {
     expect(
@@ -247,13 +261,14 @@ describe("scheduleKpis", () => {
 });
 
 describe("wasIssuedInMonth", () => {
-  it("juge sur la date d'émission réelle, jour prévu en secours", () => {
-    expect(wasIssuedInMonth({ status: "issued", issued_at: "2026-08-03T10:00:00Z", issue_on: "2026-07-01" }, "2026-08")).toBe(true);
-    // Reprise Monday sans date : le jour prévu fait foi.
-    expect(wasIssuedInMonth({ status: "paid", issued_at: null, issue_on: "2026-08-01" }, "2026-08")).toBe(true);
-    expect(wasIssuedInMonth({ status: "issued", issued_at: "2026-07-30T10:00:00Z", issue_on: "2026-08-01" }, "2026-08")).toBe(false);
-    // Pas encore émise : rien à compter.
-    expect(wasIssuedInMonth({ status: "pending", issued_at: null, issue_on: "2026-08-01" }, "2026-08")).toBe(false);
+  it("ne compte que les émissions réellement datées", () => {
+    expect(wasIssuedInMonth({ status: "issued", issued_at: "2026-08-03T10:00:00Z" }, "2026-08")).toBe(true);
+    expect(wasIssuedInMonth({ status: "paid", issued_at: "2026-08-01T00:00:00Z" }, "2026-08")).toBe(true);
+    expect(wasIssuedInMonth({ status: "issued", issued_at: "2026-07-30T10:00:00Z" }, "2026-08")).toBe(false);
+    // Marquée facturée sans date — reprise du board Monday : on ne devine pas
+    // quand elle est partie, elle ne gonfle donc pas le mois.
+    expect(wasIssuedInMonth({ status: "paid", issued_at: null }, "2026-08")).toBe(false);
+    expect(wasIssuedInMonth({ status: "pending", issued_at: null }, "2026-08")).toBe(false);
   });
 });
 

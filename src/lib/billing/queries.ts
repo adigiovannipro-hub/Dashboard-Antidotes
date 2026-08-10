@@ -2,6 +2,7 @@ import "server-only";
 
 import { createClient } from "@/lib/supabase/server";
 import type { FinanceInvoice } from "@/lib/finance/types";
+import { aliasesFrom, normalizeClientName, resolveClient } from "./reconcile";
 import type { BillingEngagement, BillingInstallment } from "./types";
 
 /**
@@ -41,9 +42,12 @@ export async function listInstallments(options: {
 }): Promise<BillingInstallment[]> {
   const supabase = await createClient();
 
+  /* L'échéance de règlement vient de la facture rapprochée : une mensualité
+     n'en porte pas, mais une fois reliée, c'est elle qui dit si le client a
+     dépassé le délai. */
   let query = supabase
     .from("billing_installments")
-    .select("*")
+    .select("*, finance_invoices(due_on)")
     .eq("org_id", options.orgId);
 
   /* L'archivé se lit à part, du plus récent au plus ancien — c'est un bas de
@@ -61,7 +65,14 @@ export async function listInstallments(options: {
 
   const { data } = await query.limit(options.limit ?? 500);
 
-  return (data ?? []) as unknown as BillingInstallment[];
+  /* La jointure remonte un objet imbriqué ; la ligne reste plate, comme
+     partout ailleurs dans le module. */
+  return ((data ?? []) as unknown as (BillingInstallment & {
+    finance_invoices: { due_on: string | null } | null;
+  })[]).map(({ finance_invoices, ...line }) => ({
+    ...line,
+    invoice_due_on: finance_invoices?.due_on ?? null,
+  }));
 }
 
 /** Ce que le board sait montrer d'une facture Airwallex sans devis. */
@@ -72,22 +83,32 @@ export type UnmatchedInvoice = Pick<
 
 /**
  * Les factures Airwallex qui ne correspondent à aucune mensualité — celles
- * que le module Finance connaît déjà et que le board affiche telles quelles :
- * l'écran reflète la facturation réelle, pas seulement ce qui a été planifié.
- * Une facture rapprochée n'apparaît jamais deux fois : elle vit sur la ligne
- * de sa mensualité.
+ * que le module Finance connaît déjà et que l'écran affiche telles quelles :
+ * il reflète la facturation réelle, pas seulement ce qui a été planifié.
+ *
+ * Trois familles sont écartées, et chacune pour une raison différente :
+ *
+ *   • les **rapprochées** — elles vivent sur la ligne de leur mensualité ;
+ *   • les **internes** — notre propre facturation, déclarée sans client dans
+ *     `billing_client_aliases` : elle appartient à Finance, pas à un écran
+ *     d'échéances client ;
+ *   • les **jumelles** — même client (alias résolu) et même mois d'émission
+ *     qu'une mensualité encore sans lien. C'est la même prestation ; tant
+ *     que le rapprochement n'a pas posé le lien, l'afficher en plus la
+ *     compterait deux fois. L'appariement est un pour un : deux factures le
+ *     même mois pour le même client n'en masquent qu'une.
  */
 export async function listUnmatchedInvoices(options: {
   orgId: string;
 }): Promise<UnmatchedInvoice[]> {
   const supabase = await createClient();
 
-  const [{ data: matched }, { data: invoices }] = await Promise.all([
+  const [{ data: lines }, { data: invoices }, { data: aliasRows }] = await Promise.all([
     supabase
       .from("billing_installments")
-      .select("matched_invoice_id")
+      .select("matched_invoice_id, issue_on, status, billing_engagements!inner(client_name)")
       .eq("org_id", options.orgId)
-      .not("matched_invoice_id", "is", null)
+      .is("archived_at", null)
       .limit(2000),
     supabase
       .from("finance_invoices")
@@ -96,17 +117,52 @@ export async function listUnmatchedInvoices(options: {
       .in("status", ["sent", "paid"])
       .order("issued_on", { ascending: false })
       .limit(500),
+    supabase
+      .from("billing_client_aliases")
+      .select("alias, client_name")
+      .eq("org_id", options.orgId)
+      .limit(500),
   ]);
 
-  const matchedIds = new Set(
-    ((matched ?? []) as unknown as { matched_invoice_id: string }[]).map(
-      (row) => row.matched_invoice_id,
-    ),
+  const installments = (lines ?? []) as unknown as {
+    matched_invoice_id: string | null;
+    issue_on: string;
+    status: string;
+    billing_engagements: { client_name: string };
+  }[];
+  const aliases = aliasesFrom(
+    aliasRows as unknown as { alias: string; client_name: string | null }[] | null,
   );
 
-  return ((invoices ?? []) as unknown as UnmatchedInvoice[]).filter(
-    (invoice) => !matchedIds.has(invoice.id),
+  const matchedIds = new Set(
+    installments
+      .map((line) => line.matched_invoice_id)
+      .filter((id): id is string => id !== null),
   );
+
+  /* Un compteur par (client, mois) : autant de factures masquées que de
+     mensualités encore sans lien, pas une de plus. */
+  const twins = new Map<string, number>();
+  for (const line of installments) {
+    if (line.matched_invoice_id || line.status === "skipped") continue;
+    const key = `${normalizeClientName(line.billing_engagements.client_name)}|${line.issue_on.slice(0, 7)}`;
+    twins.set(key, (twins.get(key) ?? 0) + 1);
+  }
+
+  return ((invoices ?? []) as unknown as UnmatchedInvoice[]).filter((invoice) => {
+    if (matchedIds.has(invoice.id)) return false;
+
+    const client = resolveClient(invoice.client_name, aliases);
+    if (client === null) return false;
+
+    const key = `${client}|${invoice.issued_on?.slice(0, 7) ?? ""}`;
+    const remaining = twins.get(key);
+    if (remaining) {
+      twins.set(key, remaining - 1);
+      return false;
+    }
+    return true;
+  });
 }
 
 /**

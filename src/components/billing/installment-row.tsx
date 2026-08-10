@@ -4,7 +4,7 @@ import { ArchiveAction } from "@/components/billing/archive-action";
 import { EditInstallment } from "@/components/billing/edit-installment";
 import { InstallmentAction } from "@/components/billing/installment-action";
 import { dayLabel, monthLabel, periodLabel } from "@/lib/billing/format";
-import { isLate, ttcCentsOf } from "@/lib/billing/schedule";
+import { isLate, isPaymentOverdue, ttcCentsOf } from "@/lib/billing/schedule";
 import { isOverdue } from "@/lib/finance/invoices";
 import type { UnmatchedInvoice } from "@/lib/billing/queries";
 import { LATE_LABEL, type BillingInstallment, type InstallmentStage } from "@/lib/billing/types";
@@ -67,6 +67,7 @@ export function InstallmentRow({
   canDecide: boolean;
 }) {
   const late = stage === "to_invoice" && isLate(line);
+  const overdue = isPaymentOverdue(line);
 
   return (
     <div
@@ -77,10 +78,13 @@ export function InstallmentRow({
       <div className="min-w-0 basis-full md:basis-auto">
         <p className="type-label text-text-primary flex items-center gap-2">
           <span className="truncate">{line.client}</span>
-          {late ? <StatusPill tone="danger">{LATE_LABEL}</StatusPill> : null}
+          {late || overdue ? <StatusPill tone="danger">{LATE_LABEL}</StatusPill> : null}
         </p>
         <p className="type-caption text-text-secondary truncate">
           {line.project}
+          {overdue && line.invoice_due_on
+            ? ` · échéance dépassée le ${dayLabel(line.invoice_due_on)}`
+            : ""}
           {line.notes ? ` · ${line.notes}` : ""}
         </p>
       </div>

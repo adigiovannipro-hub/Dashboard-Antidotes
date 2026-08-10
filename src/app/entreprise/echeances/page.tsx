@@ -18,6 +18,7 @@ import {
   billingForecast,
   currentMonth,
   forecastAverage,
+  isPaymentOverdue,
   scheduleKpis,
   stageOf,
   stageOfInvoice,
@@ -126,9 +127,17 @@ export default async function EcheancesPage() {
   const issuedMonthCount = issuedMonthLines.length + issuedMonthInvoices.length;
   const plannedThisMonth = forecast[0]?.amount_cents ?? 0;
 
+  /* Le retard a deux visages : ce que je n'ai pas encore émis, et ce que le
+     client n'a pas encore réglé — mensualités rapprochées et factures libres
+     confondues, c'est le même argent qui manque. */
   const overdueInvoices = orphanInvoices.filter((invoice) => isOverdue(invoice, now));
-  const lateTotals = addTotals(kpis.late.totals, totalsOf(overdueInvoices));
-  const lateCount = kpis.late.count + overdueInvoices.length;
+  const overdueLines = lines.filter((line) => isPaymentOverdue(line, now));
+  const lateTotals = addTotals(
+    kpis.late.totals,
+    addTotals(totalsOf(overdueInvoices), totalsOf(overdueLines)),
+  );
+  const unpaidCount = overdueInvoices.length + overdueLines.length;
+  const lateCount = kpis.late.count + unpaidCount;
 
   const averageMonthly = forecastAverage(forecast);
   const forecastMonths = forecast.filter((point) => point.count > 0).length;
@@ -180,7 +189,7 @@ export default async function EcheancesPage() {
           valueTone={lateCount > 0 ? "warning" : undefined}
           context={
             lateCount > 0
-              ? `${kpis.late.count} à émettre · ${overdueInvoices.length} impayée${overdueInvoices.length > 1 ? "s" : ""} échue${overdueInvoices.length > 1 ? "s" : ""}`
+              ? `${kpis.late.count} à émettre · ${unpaidCount} impayée${unpaidCount > 1 ? "s" : ""} échue${unpaidCount > 1 ? "s" : ""}`
               : "rien ne traîne"
           }
           icon={TriangleAlert}
@@ -290,9 +299,10 @@ function issuedDateOf(row: BoardRow): string {
   return row.invoice.issued_on ?? "9999-12-31";
 }
 
-/* Seule une facture émise porte une échéance de règlement : le retard de
-   paiement n'existe que sur les factures libres, une mensualité facturée n'a
-   pas de date limite propre. */
+/* Le retard de règlement se lit sur l'échéance de la facture : celle de la
+   facture libre, ou celle que la mensualité rapprochée a rapatriée. */
 function isRowOverdue(row: BoardRow, now: Date): boolean {
-  return row.kind === "invoice" && isOverdue(row.invoice, now);
+  return row.kind === "invoice"
+    ? isOverdue(row.invoice, now)
+    : isPaymentOverdue(row.line, now);
 }

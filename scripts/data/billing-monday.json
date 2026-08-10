@@ -1,5 +1,5 @@
 {
- "source": "Monday — ANTIDOTES I ÉCHÉANCES FACTURES (board 1481730251), extrait le 2026-08-09",
+ "source": "Monday — ANTIDOTES I ÉCHÉANCES FACTURES (board 1481730251), extrait le 2026-08-09 — sans TVA : les factures émises portent le montant hors taxe tel quel",
  "engagements": [
   {
    "client_name": "A&J RESTO",
@@ -7,7 +7,7 @@
    "first_month": "2024-04-01",
    "months_count": 5,
    "monthly_amount_cents": 168000,
-   "vat_rate": 20,
+   "vat_rate": 0,
    "installments": [
     {
      "service_month": "2024-04-01",
@@ -47,7 +47,7 @@
    "first_month": "2025-04-01",
    "months_count": 6,
    "monthly_amount_cents": 210000,
-   "vat_rate": 20,
+   "vat_rate": 0,
    "installments": [
     {
      "service_month": "2025-04-01",
@@ -93,7 +93,7 @@
    "first_month": "2024-02-01",
    "months_count": 5,
    "monthly_amount_cents": 96250,
-   "vat_rate": 20,
+   "vat_rate": 0,
    "installments": [
     {
      "service_month": "2024-02-01",
@@ -133,7 +133,7 @@
    "first_month": "2024-10-01",
    "months_count": 1,
    "monthly_amount_cents": 150000,
-   "vat_rate": 20,
+   "vat_rate": 0,
    "installments": [
     {
      "service_month": "2024-10-01",
@@ -149,7 +149,7 @@
    "first_month": "2024-04-01",
    "months_count": 2,
    "monthly_amount_cents": 170000,
-   "vat_rate": 20,
+   "vat_rate": 0,
    "installments": [
     {
      "service_month": "2024-04-01",
@@ -171,7 +171,7 @@
    "first_month": "2023-12-01",
    "months_count": 1,
    "monthly_amount_cents": 90000,
-   "vat_rate": 20,
+   "vat_rate": 0,
    "installments": [
     {
      "service_month": "2023-12-01",
@@ -187,7 +187,7 @@
    "first_month": "2026-04-01",
    "months_count": 5,
    "monthly_amount_cents": 170000,
-   "vat_rate": 20,
+   "vat_rate": 0,
    "installments": [
     {
      "service_month": "2026-04-01",
@@ -227,7 +227,7 @@
    "first_month": "2024-09-01",
    "months_count": 1,
    "monthly_amount_cents": 15000,
-   "vat_rate": 20,
+   "vat_rate": 0,
    "installments": [
     {
      "service_month": "2024-09-01",
@@ -243,7 +243,7 @@
    "first_month": "2024-10-01",
    "months_count": 1,
    "monthly_amount_cents": 120000,
-   "vat_rate": 20,
+   "vat_rate": 0,
    "installments": [
     {
      "service_month": "2024-10-01",
@@ -259,7 +259,7 @@
    "first_month": "2024-04-01",
    "months_count": 6,
    "monthly_amount_cents": 70000,
-   "vat_rate": 20,
+   "vat_rate": 0,
    "installments": [
     {
      "service_month": "2024-04-01",
@@ -305,7 +305,7 @@
    "first_month": "2026-01-01",
    "months_count": 9,
    "monthly_amount_cents": 50000,
-   "vat_rate": 20,
+   "vat_rate": 0,
    "installments": [
     {
      "service_month": "2026-01-01",
@@ -369,7 +369,7 @@
    "first_month": "2026-03-01",
    "months_count": 10,
    "monthly_amount_cents": 210250,
-   "vat_rate": 20,
+   "vat_rate": 0,
    "installments": [
     {
      "service_month": "2026-03-01",
@@ -439,7 +439,7 @@
    "first_month": "2024-12-01",
    "months_count": 1,
    "monthly_amount_cents": 200000,
-   "vat_rate": 20,
+   "vat_rate": 0,
    "installments": [
     {
      "service_month": "2024-12-01",
@@ -455,7 +455,7 @@
    "first_month": "2023-10-01",
    "months_count": 1,
    "monthly_amount_cents": 100000,
-   "vat_rate": 20,
+   "vat_rate": 0,
    "installments": [
     {
      "service_month": "2023-10-01",
@@ -471,7 +471,7 @@
    "first_month": "2026-01-01",
    "months_count": 1,
    "monthly_amount_cents": 75000,
-   "vat_rate": 20,
+   "vat_rate": 0,
    "installments": [
     {
      "service_month": "2026-01-01",
@@ -487,7 +487,7 @@
    "first_month": "2023-10-01",
    "months_count": 12,
    "monthly_amount_cents": 218500,
-   "vat_rate": 20,
+   "vat_rate": 0,
    "installments": [
     {
      "service_month": "2023-10-01",
@@ -569,7 +569,7 @@
    "first_month": "2024-10-01",
    "months_count": 15,
    "monthly_amount_cents": 200000,
-   "vat_rate": 20,
+   "vat_rate": 0,
    "installments": [
     {
      "service_month": "2024-10-01",
@@ -669,7 +669,7 @@
    "first_month": "2026-01-01",
    "months_count": 9,
    "monthly_amount_cents": 250000,
-   "vat_rate": 20,
+   "vat_rate": 0,
    "installments": [
     {
      "service_month": "2026-01-01",
@@ -733,7 +733,7 @@
    "first_month": "2025-01-01",
    "months_count": 1,
    "monthly_amount_cents": 200000,
-   "vat_rate": 20,
+   "vat_rate": 0,
    "installments": [
     {
      "service_month": "2025-01-01",
@@ -749,7 +749,7 @@
    "first_month": "2024-02-01",
    "months_count": 2,
    "monthly_amount_cents": 112500,
-   "vat_rate": 20,
+   "vat_rate": 0,
    "installments": [
     {
      "service_month": "2024-02-01",
@@ -771,7 +771,7 @@
    "first_month": "2026-09-01",
    "months_count": 12,
    "monthly_amount_cents": 200000,
-   "vat_rate": 20,
+   "vat_rate": 0,
    "installments": [
     {
      "service_month": "2026-09-01",
@@ -853,7 +853,7 @@
    "first_month": "2023-11-01",
    "months_count": 2,
    "monthly_amount_cents": 50000,
-   "vat_rate": 20,
+   "vat_rate": 0,
    "installments": [
     {
      "service_month": "2023-11-01",
@@ -875,7 +875,7 @@
    "first_month": "2024-01-01",
    "months_count": 12,
    "monthly_amount_cents": 77800,
-   "vat_rate": 20,
+   "vat_rate": 0,
    "installments": [
     {
      "service_month": "2024-01-01",
@@ -957,7 +957,7 @@
    "first_month": "2025-01-01",
    "months_count": 11,
    "monthly_amount_cents": 123716,
-   "vat_rate": 20,
+   "vat_rate": 0,
    "installments": [
     {
      "service_month": "2025-01-01",
@@ -1033,7 +1033,7 @@
    "first_month": "2024-06-01",
    "months_count": 1,
    "monthly_amount_cents": 100000,
-   "vat_rate": 20,
+   "vat_rate": 0,
    "installments": [
     {
      "service_month": "2024-06-01",
@@ -1049,7 +1049,7 @@
    "first_month": "2024-01-01",
    "months_count": 1,
    "monthly_amount_cents": 160000,
-   "vat_rate": 20,
+   "vat_rate": 0,
    "installments": [
     {
      "service_month": "2024-01-01",
@@ -1065,7 +1065,7 @@
    "first_month": "2024-09-01",
    "months_count": 4,
    "monthly_amount_cents": 106250,
-   "vat_rate": 20,
+   "vat_rate": 0,
    "installments": [
     {
      "service_month": "2024-09-01",
@@ -1099,7 +1099,7 @@
    "first_month": "2024-06-01",
    "months_count": 1,
    "monthly_amount_cents": 150000,
-   "vat_rate": 20,
+   "vat_rate": 0,
    "installments": [
     {
      "service_month": "2024-06-01",
@@ -1115,7 +1115,7 @@
    "first_month": "2024-05-01",
    "months_count": 1,
    "monthly_amount_cents": 213200,
-   "vat_rate": 20,
+   "vat_rate": 0,
    "installments": [
     {
      "service_month": "2024-05-01",
@@ -1131,7 +1131,7 @@
    "first_month": "2024-04-01",
    "months_count": 1,
    "monthly_amount_cents": 120000,
-   "vat_rate": 20,
+   "vat_rate": 0,
    "installments": [
     {
      "service_month": "2024-04-01",

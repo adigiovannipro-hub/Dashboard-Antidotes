@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   normalizeClientName,
   reconcile,
+  resolveClient,
   type ReconcilableInstallment,
   type ReconcilableInvoice,
 } from "./reconcile";
@@ -48,7 +49,73 @@ describe("normalizeClientName", () => {
   });
 });
 
+describe("resolveClient", () => {
+  const aliases = { "night session": "BONDET", "sasu antidotes": null };
+
+  it("traduit une raison sociale vers le nom du devis", () => {
+    expect(resolveClient("NIGHT SESSION", aliases)).toBe("bondet");
+  });
+
+  it("laisse passer un nom inconnu tel quel", () => {
+    expect(resolveClient("Catherine Osti", aliases)).toBe("catherine osti");
+  });
+
+  it("rend null pour une facture qui n'est pas une prestation client", () => {
+    expect(resolveClient("SASU Antidotes", aliases)).toBeNull();
+  });
+});
+
 describe("reconcile", () => {
+  it("rapproche à travers la raison sociale du client", () => {
+    // Le devis dit « BONDET », la facture dit « NIGHT SESSION ».
+    const decisions = reconcile({
+      installments: [
+        makeInstallment({ client_name: "BONDET", vat_rate: 0, amount_cents: 170_000 }),
+      ],
+      invoices: [makeInvoice({ client_name: "NIGHT SESSION", amount_cents: 170_000 })],
+      aliases: { "night session": "BONDET" },
+      now: NOW,
+    });
+
+    expect(decisions).toHaveLength(1);
+    expect(decisions[0]?.set.matched_invoice_id).toBe("fac-1");
+  });
+
+  it("ignore une facture interne, même si tout concorde", () => {
+    const decisions = reconcile({
+      installments: [
+        makeInstallment({ client_name: "SASU Antidotes", vat_rate: 0, amount_cents: 250_000 }),
+      ],
+      invoices: [makeInvoice({ client_name: "SASU Antidotes", amount_cents: 250_000 })],
+      aliases: { "sasu antidotes": null },
+      now: NOW,
+    });
+
+    expect(decisions).toEqual([]);
+  });
+
+  it("absorbe une coquille de saisie de quelques centimes", () => {
+    // Monday portait 2 102,50 ; la facture émise dit 2 102,00.
+    const decisions = reconcile({
+      installments: [makeInstallment({ vat_rate: 0, amount_cents: 210_250 })],
+      invoices: [makeInvoice({ amount_cents: 210_200 })],
+      now: NOW,
+    });
+
+    expect(decisions).toHaveLength(1);
+  });
+
+  it("refuse un écart de montant qui dépasse la tolérance", () => {
+    // 1 % de 2 102,50 € plafonné à 5 € : 20 € d'écart est une autre prestation.
+    const decisions = reconcile({
+      installments: [makeInstallment({ vat_rate: 0, amount_cents: 210_250 })],
+      invoices: [makeInvoice({ amount_cents: 208_250 })],
+      now: NOW,
+    });
+
+    expect(decisions).toEqual([]);
+  });
+
   it("rapproche une échéance de sa facture et la passe facturée", () => {
     const decisions = reconcile({
       installments: [makeInstallment()],
@@ -200,7 +267,8 @@ describe("reconcile", () => {
     const decisions = reconcile({
       installments: [makeInstallment()],
       invoices: [
-        makeInvoice({ id: "fac-montant", amount_cents: 299_999 }),
+        // Au-delà de la tolérance : une autre prestation, pas un arrondi.
+        makeInvoice({ id: "fac-montant", amount_cents: 280_000 }),
         makeInvoice({ id: "fac-client", client_name: "Bondet" }),
         makeInvoice({ id: "fac-devise", currency: "USD" }),
       ],

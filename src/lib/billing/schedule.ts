@@ -177,6 +177,21 @@ export function isLate(
   return installment.status === "pending" && installment.issue_on < today(now);
 }
 
+/**
+ * Le client a dépassé le délai de règlement : la facture est partie, son
+ * échéance est passée, l'argent n'est pas là. L'échéance vient de la facture
+ * rapprochée — une mensualité seule n'en a pas, et sans elle il n'y a rien à
+ * affirmer.
+ */
+export function isPaymentOverdue(
+  installment: Pick<BillingInstallment, "status" | "invoice_due_on">,
+  now: Date = new Date(),
+): boolean {
+  if (installment.status !== "issued") return false;
+  const due = installment.invoice_due_on;
+  return due !== null && due !== undefined && due < today(now);
+}
+
 /** Une somme par devise — jamais additionnées entre elles. */
 export type CurrencyTotals = Record<string, number>;
 
@@ -263,17 +278,21 @@ export function billingForecast(
 }
 
 /**
- * La mensualité facturée dans le mois calendaire donné (`AAAA-MM`). La date
- * d'émission réelle fait foi ; à défaut — statut repris du board Monday sans
- * date —, le jour prévu la remplace.
+ * La mensualité **réellement** émise dans le mois calendaire donné.
+ *
+ * Seule une date d'émission compte — celle que le rapprochement copie de la
+ * facture, ou que le bouton « Facturée » pose. Une mensualité sans date ne
+ * compte pas, même marquée facturée : son `issue_on` dit quand elle *devait*
+ * partir, pas quand elle est partie, et confondre les deux gonfle le chiffre
+ * du mois avec des factures émises ailleurs — ou déjà comptées par la
+ * facture Airwallex correspondante.
  */
 export function wasIssuedInMonth(
-  line: Pick<BillingInstallment, "status" | "issued_at" | "issue_on">,
+  line: Pick<BillingInstallment, "status" | "issued_at">,
   isoMonth: string,
 ): boolean {
   if (line.status !== "issued" && line.status !== "paid") return false;
-  const issued = line.issued_at?.slice(0, 7) ?? line.issue_on.slice(0, 7);
-  return issued === isoMonth;
+  return line.issued_at?.slice(0, 7) === isoMonth;
 }
 
 /**

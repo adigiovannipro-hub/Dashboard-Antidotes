@@ -525,11 +525,16 @@ import type {
 /* --- Module Échéances de facturation ---------------------------------------
    Même principe : le détail vit dans `src/lib/billing/types.ts`. */
 export type {
+  BillingClientAlias as BillingClientAliasRow,
   BillingEngagement as BillingEngagementRow,
   BillingInstallment as BillingInstallmentRow,
 } from "@/lib/billing/types";
 
-import type { BillingEngagement, BillingInstallment } from "@/lib/billing/types";
+import type {
+  BillingClientAlias,
+  BillingEngagement,
+  BillingInstallment,
+} from "@/lib/billing/types";
 
 /* --- Module Mon travail ----------------------------------------------------
    Même principe : le détail vit dans `src/lib/mon-travail/types.ts`. */
@@ -602,6 +607,7 @@ export type Database = {
       finance_merchant_logos: Table<FinanceMerchantLogo>;
       billing_engagements: Table<BillingEngagement>;
       billing_installments: Table<BillingInstallment>;
+      billing_client_aliases: Table<BillingClientAlias>;
       work_cycles: Table<WorkCycle>;
       work_cycle_steps: Table<WorkCycleStep>;
       work_tasks: Table<WorkTask>;

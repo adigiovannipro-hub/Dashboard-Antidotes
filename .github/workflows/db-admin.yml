@@ -22,6 +22,14 @@ on:
         description: "Reprendre le board Monday Échéances (une fois, sans doublon)"
         type: boolean
         default: false
+      dedupe_billing:
+        description: "Échéances : supprimer les devis en double"
+        type: boolean
+        default: false
+      reconcile_billing:
+        description: "Échéances : rapprocher les mensualités des factures émises"
+        type: boolean
+        default: false
       seed_reset:
         description: "… en effaçant d'abord les données Finance (--reset)"
         type: boolean
@@ -74,6 +82,21 @@ jobs:
       - name: Reprise du board Monday Échéances
         if: ${{ inputs.import_billing_monday }}
         run: pnpm import:billing-monday
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+
+      # Après l'import, jamais avant : c'est lui qui peut créer le doublon.
+      - name: Dédoublonnage des devis
+        if: ${{ inputs.dedupe_billing }}
+        run: pnpm dedupe:billing
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+
+      # En dernier des trois : le rapprochement lit l'état une fois qu'il est
+      # propre — sans doublon, et avec les correspondances de noms en place.
+      - name: Rapprochement des Échéances
+        if: ${{ inputs.reconcile_billing }}
+        run: pnpm reconcile:billing
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
 

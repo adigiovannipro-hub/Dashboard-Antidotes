@@ -70,6 +70,24 @@ export const MATCH_BEFORE_DAYS = 10;
 export const MATCH_AFTER_DAYS = 45;
 
 /**
+ * L'écart de montant admis entre le devis et la facture réellement émise :
+ * un pour cent, au plus cinq euros. Le devis est une intention saisie à la
+ * main, la facture est le réel — cinquante centimes d'écart sur une
+ * mensualité de deux mille euros est une coquille de saisie, pas une autre
+ * prestation. Au-delà, on ne devine pas.
+ */
+export const MATCH_AMOUNT_TOLERANCE = 0.01;
+export const MATCH_AMOUNT_TOLERANCE_CAP_CENTS = 500;
+
+function amountsAgree(expectedCents: number, actualCents: number): boolean {
+  const tolerance = Math.min(
+    Math.round(expectedCents * MATCH_AMOUNT_TOLERANCE),
+    MATCH_AMOUNT_TOLERANCE_CAP_CENTS,
+  );
+  return Math.abs(expectedCents - actualCents) <= tolerance;
+}
+
+/**
  * « CHASSEURS DE GRAINES », « Chasseurs de graines » et « chasseurs  de
  * graines » sont le même client : Airwallex et la saisie manuelle n'écrivent
  * jamais pareil.
@@ -90,13 +108,46 @@ function daysFrom(fromIso: string, toIso: string): number {
   );
 }
 
+/**
+ * La correspondance « nom vu sur la facture » → « nom porté par le devis ».
+ * Les clés sont normalisées. Une valeur `null` désigne une facture qui n'est
+ * pas une prestation client — notre propre facturation — et qui ne se
+ * rapproche donc de rien.
+ */
+export type ClientAliases = Record<string, string | null>;
+
+/** Le nom sous lequel comparer une facture : son alias, ou elle-même. */
+export function resolveClient(
+  rawName: string,
+  aliases: ClientAliases = {},
+): string | null {
+  const normalized = normalizeClientName(rawName);
+  if (!(normalized in aliases)) return normalized;
+  const target = aliases[normalized];
+  return target === null ? null : normalizeClientName(target);
+}
+
+/** Les lignes de `billing_client_aliases` en table de correspondance. */
+export function aliasesFrom(
+  rows: readonly { alias: string; client_name: string | null }[] | null,
+): ClientAliases {
+  const aliases: ClientAliases = {};
+  for (const row of rows ?? []) {
+    aliases[normalizeClientName(row.alias)] = row.client_name;
+  }
+  return aliases;
+}
+
 export function reconcile(options: {
   installments: readonly ReconcilableInstallment[];
   invoices: readonly ReconcilableInvoice[];
+  /** Raisons sociales d'Airwallex vers noms de devis — voir `resolveClient`. */
+  aliases?: ClientAliases;
   now?: Date;
 }): ReconcileDecision[] {
   const now = options.now ?? new Date();
   const nowIso = now.toISOString();
+  const aliases = options.aliases ?? {};
   const decisions: ReconcileDecision[] = [];
 
   // --- 1. Les rapprochées avancent avec leur facture ------------------------
@@ -141,7 +192,10 @@ export function reconcile(options: {
     .filter(
       (invoice) =>
         (invoice.status === "sent" || invoice.status === "paid") &&
-        invoice.issued_on !== null,
+        invoice.issued_on !== null &&
+        /* Une facture qui n'est pas une prestation client ne se rapproche de
+           rien : elle n'a pas de devis, et n'en aura jamais. */
+        resolveClient(invoice.client_name, aliases) !== null,
     )
     .sort((a, b) => a.issued_on!.localeCompare(b.issued_on!));
 
@@ -152,8 +206,8 @@ export function reconcile(options: {
     const invoice = eligibleInvoices.find((candidate) => {
       if (used.has(candidate.id)) return false;
       if (candidate.currency !== line.currency) return false;
-      if (candidate.amount_cents !== ttc) return false;
-      if (normalizeClientName(candidate.client_name) !== client) return false;
+      if (!amountsAgree(ttc, candidate.amount_cents)) return false;
+      if (resolveClient(candidate.client_name, aliases) !== client) return false;
       const offset = daysFrom(line.issue_on, candidate.issued_on!);
       return offset >= -MATCH_BEFORE_DAYS && offset <= MATCH_AFTER_DAYS;
     });
