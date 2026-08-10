@@ -126,7 +126,10 @@ export async function approveDocument(
  *   n'a pas su l'accrocher, on l'a fait à la main dans leur interface. Rien à
  *   reprocher à personne, le compteur du fournisseur ne bouge pas.
  *
- * C'est la distinction qui interdisait de réutiliser « ignoré » pour les deux.
+ * La distinction ne tient pas à un statut mais à `forwarded_at`, qui la porte
+ * déjà : le statut reste `ignored` dans les deux cas. C'est la seule façon que
+ * le bouton fonctionne sans dépendre d'une migration appliquée à la main —
+ * `archived`, ajouté par 0025, n'est écrit nulle part.
  */
 export async function archiveDocument(
   _previous: ReceiptResult | null,
@@ -139,15 +142,20 @@ export async function archiveDocument(
     const { viewer, document } = await requireDecider(parsed.data.documentId);
     const sent = document.forwarded_at !== null;
 
-    await createAdminClient()
+    /* L'erreur se teste, elle ne se suppose pas : sans ce test, une écriture
+       refusée renvoyait « Pièce archivée » et ne changeait rien. */
+    const { error: updateError } = await createAdminClient()
       .from("receipt_documents")
       .update({
-        status: sent ? "archived" : "ignored",
+        status: "ignored",
         decided_by: viewer.user.id,
         decided_at: new Date().toISOString(),
         auto_decided: false,
       })
       .eq("id", document.id);
+    if (updateError) {
+      return { ok: false, error: `Archivage refusé : ${updateError.message}` };
+    }
 
     if (!sent) await bumpRule(document, { rejections: 1, disableAuto: true });
 
@@ -155,9 +163,9 @@ export async function archiveDocument(
       orgId: document.org_id,
       documentId: document.id,
       actorId: viewer.user.id,
-      action: "document.archived",
+      action: sent ? "document.archived" : "document.ignored",
       before: { status: document.status },
-      after: { status: sent ? "archived" : "ignored" },
+      after: { status: "ignored" },
     });
 
     revalidatePath(RECEIPTS_PATH);
@@ -198,11 +206,23 @@ export async function setMerchantAutomation(
 
     const enabled = parsed.data.enabled === "true";
 
-    await createAdminClient()
+    /* Upsert et non update : un fournisseur qu'on approuve dès son premier
+       reçu n'a encore aucune règle en base, et un `update` sur zéro ligne ne
+       renvoie pas d'erreur — le bouton « Toujours » ne faisait rien du tout. */
+    const { error: ruleError } = await createAdminClient()
       .from("receipt_merchant_rules")
-      .update({ auto_forward: enabled })
-      .eq("org_id", context.orgId)
-      .eq("sender_domain", parsed.data.domain);
+      .upsert(
+        {
+          org_id: context.orgId,
+          sender_domain: parsed.data.domain,
+          auto_forward: enabled,
+          last_seen_at: new Date().toISOString(),
+        } as never,
+        { onConflict: "org_id,sender_domain" },
+      );
+    if (ruleError) {
+      return { ok: false, error: `Réglage refusé : ${ruleError.message}` };
+    }
 
     await createAdminClient()
       .from("receipt_events")
@@ -255,7 +275,7 @@ export async function toggleAutoForward(
     const admin = createAdminClient();
 
     for (const source of context.sources) {
-      await admin
+      const { error } = await admin
         .from("receipt_sources")
         .update({
           settings: {
@@ -264,6 +284,9 @@ export async function toggleAutoForward(
           } as never,
         })
         .eq("id", source.id);
+      if (error) {
+        return { ok: false, error: `Réglage refusé : ${error.message}` };
+      }
     }
 
     await admin.from("receipt_events").insert({
