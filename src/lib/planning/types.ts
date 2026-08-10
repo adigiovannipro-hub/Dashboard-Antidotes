@@ -306,9 +306,26 @@ export type PlanningSubject = {
   owner_id: string | null;
   /** Chemins dans le bucket `planning-visuals`, ou URL externes. */
   visual_urls: string[];
+  /** Valeurs des colonnes ajoutées, indexées par identifiant de colonne. */
+  custom: Record<string, string | number | boolean | null>;
   position: number;
   created_at: string;
   updated_at: string;
+  updated_by: string | null;
+};
+
+/** Une entrée du journal d'activité d'une publication. */
+export type PlanningActivity = {
+  id: number;
+  subject_id: string;
+  workspace_id: string;
+  actor_id: string | null;
+  /** `created`, ou le nom du champ modifié. */
+  field: string;
+  before: string | null;
+  after: string | null;
+  created_at: string;
+  actor: PlanningOwner | null;
 };
 
 /** Un visuel prêt à l'affichage : le chemin stocké et son URL signée. */
@@ -326,6 +343,10 @@ export type SubjectRow = PlanningSubject & {
   owner: PlanningOwner | null;
   comments: PlanningComment[];
   visuals: ResolvedVisual[];
+  /** Auteur de la dernière modification, résolu depuis `updated_by`. */
+  updater: PlanningOwner | null;
+  /** « 12 juil. 14:02 » — calculé côté serveur, l'affichage reste pur. */
+  updated_label: string;
 };
 
 export type PlanningComment = {

@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { getViewer, getWorkspace } from "@/lib/auth";
+import { defaultLabelsFor } from "@/lib/planning/columns";
+import type { ColumnType } from "@/lib/planning/columns";
 import { monthGroupLabel } from "@/lib/planning/monday-mapping";
 import {
   ACCEPTED_VISUAL_TYPES,
@@ -64,6 +66,43 @@ function revalidate(scope: Scope) {
 
 function fail(error: unknown): PlanningResult {
   return { ok: false, error: (error as Error).message };
+}
+
+/**
+ * Trace une modification au journal, et tamponne la ligne.
+ *
+ * En dehors de la transaction de la modification elle-même — Supabase JS n'en
+ * offre pas — donc en tolérance d'échec : perdre une ligne de journal ne doit
+ * jamais faire échouer la modification qu'elle décrit.
+ */
+async function logActivity(input: {
+  supabase: Awaited<ReturnType<typeof createClient>>;
+  subjectId: string;
+  workspaceId: string;
+  actorId: string;
+  field: string;
+  before?: unknown;
+  after?: unknown;
+}) {
+  const asText = (value: unknown): string | null =>
+    value === null || value === undefined || value === "" ? null : String(value);
+
+  try {
+    await input.supabase.from("planning_activity").insert({
+      subject_id: input.subjectId,
+      workspace_id: input.workspaceId,
+      actor_id: input.actorId,
+      field: input.field,
+      before: asText(input.before),
+      after: asText(input.after),
+    });
+    await input.supabase
+      .from("planning_subjects")
+      .update({ updated_by: input.actorId })
+      .eq("id", input.subjectId);
+  } catch {
+    // Voir plus haut : le journal est un témoin, pas un verrou.
+  }
 }
 
 // --- Structure ---------------------------------------------------------------
@@ -228,7 +267,7 @@ export async function createSubject(
   input: { laneId: string; monthId: string; boardId: string },
 ): Promise<PlanningResult> {
   try {
-    const { workspace } = await guard(scope);
+    const { viewer, workspace } = await guard(scope);
     const supabase = await createClient();
 
     const { data: last } = await supabase
@@ -240,14 +279,28 @@ export async function createSubject(
       .maybeSingle();
 
     // Créée vide : on tape directement dans la cellule, comme dans un tableur.
-    await supabase.from("planning_subjects").insert({
-      lane_id: input.laneId,
-      month_id: input.monthId,
-      board_id: input.boardId,
-      workspace_id: workspace.id,
-      name: "",
-      position: (last?.position ?? -1) + 1,
-    });
+    const { data: created } = await supabase
+      .from("planning_subjects")
+      .insert({
+        lane_id: input.laneId,
+        month_id: input.monthId,
+        board_id: input.boardId,
+        workspace_id: workspace.id,
+        name: "",
+        position: (last?.position ?? -1) + 1,
+      })
+      .select("id")
+      .single();
+
+    if (created) {
+      await logActivity({
+        supabase,
+        subjectId: created.id,
+        workspaceId: workspace.id,
+        actorId: viewer.user.id,
+        field: "created",
+      });
+    }
 
     revalidate(scope);
     return OK;
@@ -293,8 +346,16 @@ export async function updateSubject(
   }
 
   try {
-    await guard(scope);
+    const { viewer, workspace } = await guard(scope);
     const supabase = await createClient();
+
+    // L'ancienne valeur, pour le journal : « À VALIDER → EN ATTENTE » ne se
+    // reconstruit pas après coup.
+    const { data: before } = await supabase
+      .from("planning_subjects")
+      .select(input.field)
+      .eq("id", input.subjectId)
+      .maybeSingle();
 
     // La clé est dynamique mais bornée : `input.field` vient d'être validé
     // contre `EDITABLE_FIELDS`, seule porte d'entrée de cette fonction.
@@ -307,8 +368,72 @@ export async function updateSubject(
 
     if (error) throw new Error(error.message);
 
+    await logActivity({
+      supabase,
+      subjectId: input.subjectId,
+      workspaceId: workspace.id,
+      actorId: viewer.user.id,
+      field: input.field,
+      before: (before as Record<string, unknown> | null)?.[input.field],
+      after: parsed.data,
+    });
+
     revalidate(scope);
     return OK;
+  } catch (error) {
+    return fail(error);
+  }
+}
+
+/**
+ * Modification groupée — la barre d'actions de la sélection multiple.
+ *
+ * Même porte d'entrée que la modification unitaire : un champ hors
+ * `EDITABLE_FIELDS` est rejeté avant toute lecture.
+ */
+export async function bulkUpdateSubjects(
+  scope: Scope,
+  input: { subjectIds: string[]; field: EditableField; value: unknown },
+): Promise<PlanningResult> {
+  const schema = EDITABLE_FIELDS[input.field];
+  if (!schema) return { ok: false, error: "Colonne non modifiable." };
+  if (input.subjectIds.length === 0 || input.subjectIds.length > 200) {
+    return { ok: false, error: "Sélection vide ou trop large." };
+  }
+
+  const parsed = schema.safeParse(input.value);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Valeur invalide." };
+  }
+
+  try {
+    const { viewer, workspace } = await guard(scope);
+    const supabase = await createClient();
+
+    const patch = { [input.field]: parsed.data } as Partial<PlanningSubjectRow>;
+    const { error } = await supabase
+      .from("planning_subjects")
+      .update(patch)
+      .in("id", input.subjectIds);
+
+    if (error) throw new Error(error.message);
+
+    for (const subjectId of input.subjectIds) {
+      await logActivity({
+        supabase,
+        subjectId,
+        workspaceId: workspace.id,
+        actorId: viewer.user.id,
+        field: input.field,
+        after: parsed.data,
+      });
+    }
+
+    revalidate(scope);
+    return {
+      ok: true,
+      message: `${input.subjectIds.length} publication${input.subjectIds.length > 1 ? "s" : ""} modifiée${input.subjectIds.length > 1 ? "s" : ""}.`,
+    };
   } catch (error) {
     return fail(error);
   }
@@ -322,6 +447,269 @@ export async function deleteSubject(
     await guard(scope);
     const supabase = await createClient();
     await supabase.from("planning_subjects").delete().eq("id", input.subjectId);
+    revalidate(scope);
+    return OK;
+  } catch (error) {
+    return fail(error);
+  }
+}
+
+export async function bulkDeleteSubjects(
+  scope: Scope,
+  input: { subjectIds: string[] },
+): Promise<PlanningResult> {
+  if (input.subjectIds.length === 0 || input.subjectIds.length > 200) {
+    return { ok: false, error: "Sélection vide ou trop large." };
+  }
+
+  try {
+    await guard(scope);
+    const supabase = await createClient();
+    await supabase.from("planning_subjects").delete().in("id", input.subjectIds);
+    revalidate(scope);
+    return {
+      ok: true,
+      message: `${input.subjectIds.length} publication${input.subjectIds.length > 1 ? "s" : ""} supprimée${input.subjectIds.length > 1 ? "s" : ""}.`,
+    };
+  } catch (error) {
+    return fail(error);
+  }
+}
+
+// --- Valeurs des colonnes ajoutées -------------------------------------------
+
+const customValue = z.union([
+  z.string().max(2000),
+  z.number(),
+  z.boolean(),
+  z.null(),
+]);
+
+/**
+ * Écrit la valeur d'une colonne ajoutée dans le jsonb `custom`.
+ *
+ * La colonne doit exister sur ce tableau : on n'écrit pas dans un champ
+ * arbitraire du jsonb, sinon `custom` deviendrait un fourre-tout que rien ne
+ * relit.
+ */
+export async function updateCustomValue(
+  scope: Scope,
+  input: { subjectId: string; columnId: string; value: unknown },
+): Promise<PlanningResult> {
+  const parsed = customValue.safeParse(input.value);
+  if (!parsed.success) return { ok: false, error: "Valeur invalide." };
+
+  try {
+    const { viewer, workspace } = await guard(scope);
+    const supabase = await createClient();
+
+    const { data: column } = await supabase
+      .from("planning_columns")
+      .select("id, label")
+      .eq("id", input.columnId)
+      .is("builtin_key", null)
+      .maybeSingle();
+
+    if (!column) return { ok: false, error: "Colonne inconnue." };
+
+    const { data: subject } = await supabase
+      .from("planning_subjects")
+      .select("custom")
+      .eq("id", input.subjectId)
+      .maybeSingle();
+
+    const custom = {
+      ...((subject?.custom ?? {}) as Record<string, unknown>),
+      [input.columnId]: parsed.data,
+    };
+
+    const { error } = await supabase
+      .from("planning_subjects")
+      .update({ custom: custom as never })
+      .eq("id", input.subjectId);
+
+    if (error) throw new Error(error.message);
+
+    await logActivity({
+      supabase,
+      subjectId: input.subjectId,
+      workspaceId: workspace.id,
+      actorId: viewer.user.id,
+      field: column.label ?? "colonne",
+      before: (subject?.custom as Record<string, unknown> | undefined)?.[
+        input.columnId
+      ],
+      after: parsed.data,
+    });
+
+    revalidate(scope);
+    return OK;
+  } catch (error) {
+    return fail(error);
+  }
+}
+
+// --- Colonnes ---------------------------------------------------------------
+
+const BUILTIN_KEYS = [
+  "name",
+  "status",
+  "format",
+  "date",
+  "visual",
+  "wording",
+  "sponsoring",
+  "objective",
+  "ad_status",
+  "updated",
+] as const;
+
+const labelSchema = z.object({
+  id: z.string().min(1).max(60),
+  label: z.string().min(1).max(60),
+  color: z.string().regex(/^#[0-9a-fA-F]{6}$/, "Couleur invalide."),
+});
+
+const columnPatch = z.object({
+  label: z.string().trim().min(1).max(60).optional(),
+  hidden: z.boolean().optional(),
+  position: z.number().int().min(0).max(10_000).optional(),
+  labels: z.array(labelSchema).max(30).optional(),
+});
+
+/**
+ * Retouche une colonne — renommage, masquage, déplacement, étiquettes.
+ *
+ * Pour une colonne de base, la ligne d'écart est créée au premier écart : un
+ * tableau jamais retouché n'a rien en base, et c'est voulu.
+ */
+export async function updateColumn(
+  scope: Scope,
+  input: {
+    /** Clé de base (`status`…) ou uuid d'une colonne ajoutée. */
+    columnId: string;
+    patch: z.infer<typeof columnPatch>;
+  },
+): Promise<PlanningResult> {
+  const parsed = columnPatch.safeParse(input.patch);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Retouche invalide." };
+  }
+
+  try {
+    const { workspace } = await guard(scope);
+    const supabase = await createClient();
+
+    const { data: board } = await supabase
+      .from("planning_boards")
+      .select("id")
+      .eq("workspace_id", workspace.id)
+      .eq("slug", scope.board)
+      .maybeSingle();
+    if (!board) return { ok: false, error: "Tableau introuvable." };
+
+    const isBuiltin = (BUILTIN_KEYS as readonly string[]).includes(input.columnId);
+
+    const patch: Record<string, unknown> = {};
+    if (parsed.data.label !== undefined) patch.label = parsed.data.label;
+    if (parsed.data.hidden !== undefined) patch.hidden = parsed.data.hidden;
+    if (parsed.data.position !== undefined) patch.position = parsed.data.position;
+    if (parsed.data.labels !== undefined) {
+      patch.settings = { labels: parsed.data.labels };
+    }
+
+    if (isBuiltin) {
+      const { error } = await supabase.from("planning_columns").upsert(
+        {
+          board_id: board.id,
+          workspace_id: workspace.id,
+          builtin_key: input.columnId,
+          ...patch,
+        } as never,
+        { onConflict: "board_id,builtin_key" },
+      );
+      if (error) throw new Error(error.message);
+    } else {
+      const { error } = await supabase
+        .from("planning_columns")
+        .update(patch as never)
+        .eq("id", input.columnId)
+        .eq("board_id", board.id);
+      if (error) throw new Error(error.message);
+    }
+
+    revalidate(scope);
+    return OK;
+  } catch (error) {
+    return fail(error);
+  }
+}
+
+const ADDABLE: ColumnType[] = [
+  "status",
+  "dropdown",
+  "text",
+  "date",
+  "people",
+  "number",
+  "checkbox",
+];
+
+export async function addColumn(
+  scope: Scope,
+  input: { boardId: string; type: ColumnType; label: string },
+): Promise<PlanningResult> {
+  if (!ADDABLE.includes(input.type)) {
+    return { ok: false, error: "Type de colonne inconnu." };
+  }
+  const label = input.label.trim().slice(0, 60);
+  if (!label) return { ok: false, error: "La colonne doit avoir un nom." };
+
+  try {
+    const { workspace } = await guard(scope);
+    const supabase = await createClient();
+
+    const { data: last } = await supabase
+      .from("planning_columns")
+      .select("position")
+      .eq("board_id", input.boardId)
+      .order("position", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    const labels = defaultLabelsFor(input.type);
+    const { error } = await supabase.from("planning_columns").insert({
+      board_id: input.boardId,
+      workspace_id: workspace.id,
+      builtin_key: null,
+      type: input.type,
+      label,
+      // Après les colonnes de base (0 à 90) et les ajouts précédents.
+      position: Math.max(1000, (last?.position ?? 999) + 10),
+      settings: (labels ? { labels } : {}) as never,
+    });
+    if (error) throw new Error(error.message);
+
+    revalidate(scope);
+    return OK;
+  } catch (error) {
+    return fail(error);
+  }
+}
+
+/** Supprime une colonne ajoutée. Les colonnes de base se masquent, point. */
+export async function removeColumn(
+  scope: Scope,
+  input: { columnId: string },
+): Promise<PlanningResult> {
+  try {
+    await guard(scope);
+    const supabase = await createClient();
+    await supabase
+      .from("planning_columns")
+      .delete()
+      .eq("id", input.columnId)
+      .is("builtin_key", null);
     revalidate(scope);
     return OK;
   } catch (error) {
@@ -409,7 +797,7 @@ export async function uploadVisual(
   }
 
   try {
-    const { workspace } = await guard(scope);
+    const { viewer, workspace } = await guard(scope);
     const supabase = await createClient();
 
     const path = visualPath({
@@ -434,6 +822,15 @@ export async function uploadVisual(
       .from("planning_subjects")
       .update({ visual_urls: [...(subject?.visual_urls ?? []), path] })
       .eq("id", subjectId);
+
+    await logActivity({
+      supabase,
+      subjectId,
+      workspaceId: workspace.id,
+      actorId: viewer.user.id,
+      field: "visual",
+      after: file.name,
+    });
 
     revalidate(scope);
     return { ok: true, message: "Visuel ajouté." };

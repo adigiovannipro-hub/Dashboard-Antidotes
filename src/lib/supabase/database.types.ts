@@ -445,10 +445,36 @@ export type PlanningSubjectRow = {
   ad_status: string | null;
   owner_id: string | null;
   visual_urls: string[];
+  custom: Record<string, unknown>;
   position: number;
   external_id: string | null;
   created_at: string;
   updated_at: string;
+  updated_by: string | null;
+};
+
+export type PlanningColumnRow = {
+  id: string;
+  board_id: string;
+  workspace_id: string;
+  builtin_key: string | null;
+  type: string | null;
+  label: string | null;
+  position: number | null;
+  hidden: boolean;
+  settings: Record<string, unknown>;
+  created_at: string;
+};
+
+export type PlanningActivityRow = {
+  id: number;
+  subject_id: string;
+  workspace_id: string;
+  actor_id: string | null;
+  field: string;
+  before: string | null;
+  after: string | null;
+  created_at: string;
 };
 
 export type PlanningCommentRow = {
@@ -589,6 +615,8 @@ export type Database = {
       planning_subjects: Table<PlanningSubjectRow>;
       planning_comments: Table<PlanningCommentRow>;
       planning_faq_entries: Table<PlanningFaqEntryRow>;
+      planning_columns: Table<PlanningColumnRow>;
+      planning_activity: Table<PlanningActivityRow>;
 
       receipt_sources: Table<ReceiptSource>;
       receipt_expenses: Table<ReceiptExpense>;

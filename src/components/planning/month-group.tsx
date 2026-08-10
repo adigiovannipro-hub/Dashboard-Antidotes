@@ -5,7 +5,7 @@ import { ChevronRight, Plus, Trash2 } from "lucide-react";
 
 import { createLane, deleteMonth, renameMonth } from "@/app/actions/planning";
 import { TextCell, useCellAction } from "@/components/planning/cells";
-import { LaneTable } from "@/components/planning/lane-table";
+import { LaneTable, type DateSort } from "@/components/planning/lane-table";
 import type { Scope } from "@/components/planning/subject-row";
 import {
   DropdownMenu,
@@ -13,6 +13,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import type { ColumnDef } from "@/lib/planning/columns";
 import {
   PLATFORM_LABELS,
   PLATFORM_ORDER,
@@ -22,25 +23,36 @@ import type { MonthWithLanes, PlanningOwner } from "@/lib/planning/types";
 import { cn } from "@/lib/utils";
 
 /**
- * Un mois du planning : le groupe du board, avec ses couloirs.
+ * Un mois du planning — un bloc à part entière, nettement détaché des autres.
  *
- * Le filet rouge à gauche reprend celui de Monday. Il ne porte aucune
- * information — c'est un repère visuel qui découpe l'année, et il vaut mieux
- * qu'un titre isolé quand on fait défiler douze mois.
+ * Replié, il reste une carte qui résume son contenu : nombre de publications
+ * et budget de sponsorisation, sans avoir à l'ouvrir.
  */
 export function MonthGroup({
   scope,
   month,
+  columns,
   owners,
   objectives,
-  flagged,
+  sort,
+  onSortToggle,
+  selectedIds,
+  onToggleSelect,
+  onToggleLane,
+  onOpenSubject,
   defaultOpen,
 }: {
   scope: Scope;
   month: MonthWithLanes;
+  columns: ColumnDef[];
   owners: PlanningOwner[];
   objectives: string[];
-  flagged: Set<string>;
+  sort: DateSort;
+  onSortToggle: () => void;
+  selectedIds: Set<string>;
+  onToggleSelect: (subjectId: string) => void;
+  onToggleLane: (subjectIds: string[], selected: boolean) => void;
+  onOpenSubject: (subjectId: string) => void;
   defaultOpen: boolean;
 }) {
   const [open, setOpen] = useState(defaultOpen);
@@ -49,13 +61,12 @@ export function MonthGroup({
   const subjects = month.lanes.flatMap((lane) => lane.subjects);
   const live = subjects.filter((subject) => subject.status !== "dropped");
   const sponsoring = totalSponsoring(subjects);
-
   const usedPlatforms = new Set(month.lanes.map((lane) => lane.platform));
 
   return (
     <section
       aria-label={month.label}
-      className="border-b border-border last:border-b-0"
+      className="overflow-hidden rounded-xl border border-border"
     >
       <header
         className={cn(
@@ -104,7 +115,7 @@ export function MonthGroup({
               currency: "EUR",
               maximumFractionDigits: 0,
             }).format(sponsoring)}{" "}
-            de sponsorisation
+            de sponso
           </span>
         ) : null}
 
@@ -166,9 +177,15 @@ export function MonthGroup({
                 key={lane.id}
                 scope={scope}
                 lane={lane}
+                columns={columns}
                 owners={owners}
                 objectives={objectives}
-                flagged={flagged}
+                sort={sort}
+                onSortToggle={onSortToggle}
+                selectedIds={selectedIds}
+                onToggleSelect={onToggleSelect}
+                onToggleLane={onToggleLane}
+                onOpenSubject={onOpenSubject}
               />
             ))
           )}

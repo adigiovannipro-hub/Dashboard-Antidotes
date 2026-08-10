@@ -1,12 +1,15 @@
 import "server-only";
 
 import { createClient } from "@/lib/supabase/server";
+import type { ColumnDef, ColumnOverride } from "./columns";
+import { resolveColumns } from "./columns";
 import { VISUALS_BUCKET } from "./storage";
 import type {
   BoardSettings,
   FaqEntry,
   LaneWithSubjects,
   MonthWithLanes,
+  PlanningActivity,
   PlanningBoard,
   PlanningComment,
   PlanningFormat,
@@ -76,30 +79,38 @@ export async function getBoard(
 export async function getBoardContent(board: PlanningBoard): Promise<{
   months: MonthWithLanes[];
   owners: PlanningOwner[];
+  columns: ColumnDef[];
 }> {
   const supabase = await createClient();
 
-  const [{ data: months }, { data: lanes }, { data: subjects }] = await Promise.all([
-    supabase
-      .from("planning_months")
-      .select("*")
-      .eq("board_id", board.id)
-      .order("position"),
-    supabase
-      .from("planning_lanes")
-      .select("*")
-      .eq("board_id", board.id)
-      .order("position"),
-    supabase
-      .from("planning_subjects")
-      .select("*")
-      .eq("board_id", board.id)
-      .order("position"),
-  ]);
+  const [{ data: months }, { data: lanes }, { data: subjects }, { data: overrides }] =
+    await Promise.all([
+      supabase
+        .from("planning_months")
+        .select("*")
+        .eq("board_id", board.id)
+        .order("position"),
+      supabase
+        .from("planning_lanes")
+        .select("*")
+        .eq("board_id", board.id)
+        .order("position"),
+      supabase
+        .from("planning_subjects")
+        .select("*")
+        .eq("board_id", board.id)
+        .order("position"),
+      supabase
+        .from("planning_columns")
+        .select("*")
+        .eq("board_id", board.id)
+        .order("position"),
+    ]);
 
   const monthRows = (months ?? []) as unknown as PlanningMonth[];
   const laneRows = (lanes ?? []) as unknown as PlanningLane[];
   const subjectRows = (subjects ?? []) as unknown as PlanningSubject[];
+  const columnRows = (overrides ?? []) as unknown as ColumnOverride[];
 
   const [owners, commentsById, visualsById] = await Promise.all([
     listWorkspaceMembers(board.workspace_id),
@@ -126,6 +137,12 @@ export async function getBoardContent(board: PlanningBoard): Promise<{
         author: comment.author_id ? (ownerById.get(comment.author_id) ?? null) : null,
       })),
       visuals: visualsById.get(subject.id) ?? [],
+      updater: subject.updated_by
+        ? (ownerById.get(subject.updated_by) ?? null)
+        : null,
+      // Formaté ici, côté serveur : un rendu client qui lirait l'horloge serait
+      // impur et divergerait à l'hydratation.
+      updated_label: formatUpdateLabel(subject.updated_at),
     };
 
     const bucket = subjectsByLane.get(subject.lane_id);
@@ -161,7 +178,62 @@ export async function getBoardContent(board: PlanningBoard): Promise<{
       lanes: lanesByMonth.get(month.id) ?? [],
     })),
     owners,
+    columns: resolveColumns(columnRows),
   };
+}
+
+/**
+ * « il y a 2 h », « 12 juil. » — le vocabulaire de la colonne Last update.
+ *
+ * Relatif en deçà de 24 h, absolu au-delà : « il y a 43 jours » ne dit rien,
+ * une date si.
+ */
+function formatUpdateLabel(timestamp: string): string {
+  const at = new Date(timestamp).getTime();
+  const hours = (Date.now() - at) / 3_600_000;
+
+  if (hours < 1) return "à l'instant";
+  if (hours < 24) return `il y a ${Math.floor(hours)} h`;
+
+  return new Intl.DateTimeFormat("fr-FR", {
+    day: "numeric",
+    month: "short",
+    timeZone: "Europe/Paris",
+  }).format(at);
+}
+
+/** Le journal d'activité d'une publication, du plus récent au plus ancien. */
+export async function listActivity(subjectId: string): Promise<PlanningActivity[]> {
+  const supabase = await createClient();
+
+  const { data } = await supabase
+    .from("planning_activity")
+    .select("*")
+    .eq("subject_id", subjectId)
+    .order("created_at", { ascending: false })
+    .limit(60);
+
+  const rows = (data ?? []) as unknown as PlanningActivity[];
+  if (rows.length === 0) return [];
+
+  const actorIds = [
+    ...new Set(rows.map((row) => row.actor_id).filter((id): id is string => !!id)),
+  ];
+  const { data: profiles } = actorIds.length
+    ? await supabase
+        .from("profiles")
+        .select("id, email, full_name, avatar_url")
+        .in("id", actorIds)
+    : { data: [] };
+
+  const byId = new Map(
+    ((profiles ?? []) as unknown as PlanningOwner[]).map((p) => [p.id, p]),
+  );
+
+  return rows.map((row) => ({
+    ...row,
+    actor: row.actor_id ? (byId.get(row.actor_id) ?? null) : null,
+  }));
 }
 
 /**

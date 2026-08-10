@@ -4,17 +4,17 @@ import { notFound } from "next/navigation";
 import { FaqBoardView } from "@/components/planning/faq-board";
 import { PlanningBoardView } from "@/components/planning/planning-board";
 import { getWorkspace } from "@/lib/auth";
-import { analyseCadence } from "@/lib/planning/cadence";
 import {
   flattenSubjects,
   getBoard,
   getBoardContent,
+  listActivity,
   listBoards,
   listFaqEntries,
 } from "@/lib/planning/queries";
-import { deduceStrategy } from "@/lib/planning/strategy";
 
 type Params = Promise<{ workspace: string; board: string }>;
+type Search = Promise<Record<string, string | undefined>>;
 
 async function load(params: Params) {
   const { workspace: workspaceSlug, board: boardSlug } = await params;
@@ -35,18 +35,13 @@ export async function generateMetadata({
   return { title: `${loaded.board.name} · ${loaded.workspace.name}` };
 }
 
-function monthKeyOf(date: Date): string {
-  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}-01`;
-}
-
-function previousMonthKey(month: string): string {
-  const year = Number(month.slice(0, 4));
-  const index = Number(month.slice(5, 7));
-  const date = new Date(Date.UTC(year, index - 2, 1));
-  return monthKeyOf(date);
-}
-
-export default async function PlanningBoardPage({ params }: { params: Params }) {
+export default async function PlanningBoardPage({
+  params,
+  searchParams,
+}: {
+  params: Params;
+  searchParams: Search;
+}) {
   const loaded = await load(params);
   if (!loaded) notFound();
 
@@ -66,26 +61,23 @@ export default async function PlanningBoardPage({ params }: { params: Params }) 
     );
   }
 
-  const { months, owners } = await getBoardContent(board);
+  const [{ months, owners, columns }, query] = await Promise.all([
+    getBoardContent(board),
+    searchParams,
+  ]);
+
+  // La publication ouverte vient de l'URL : un lien partagé rouvre le même
+  // panneau, et le retour arrière le referme.
+  const openSubject = query.sujet
+    ? (flattenSubjects(months).find((subject) => subject.id === query.sujet) ?? null)
+    : null;
+
+  const drawer = openSubject
+    ? { subject: openSubject, activity: await listActivity(openSubject.id) }
+    : null;
 
   const now = new Date();
-  const currentMonthKey = monthKeyOf(now);
-  const all = flattenSubjects(months);
-
-  // Le contrôle porte sur le mois en cours, celui qui est ouvert à l'arrivée.
-  // Analyser les douze mois d'un coup produirait une liste que personne ne lit.
-  const current = all.filter((subject) => subject.month_key === currentMonthKey);
-  const issues =
-    current.length === 0
-      ? []
-      : analyseCadence({
-          month: currentMonthKey,
-          subjects: current,
-          previousSubjects: all.filter(
-            (subject) => subject.month_key === previousMonthKey(currentMonthKey),
-          ),
-          strategy: deduceStrategy(all, { asOf: now }),
-        });
+  const currentMonthKey = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}-01`;
 
   return (
     <PlanningBoardView
@@ -93,8 +85,9 @@ export default async function PlanningBoardPage({ params }: { params: Params }) 
       boards={boards}
       board={board}
       months={months}
+      columns={columns}
       owners={owners}
-      issues={issues}
+      drawer={drawer}
       currentMonthKey={currentMonthKey}
       workspaceSlug={workspace.slug}
     />

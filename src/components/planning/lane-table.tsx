@@ -5,44 +5,64 @@ import { ChevronRight, Plus, Trash2 } from "lucide-react";
 
 import { createSubject, deleteLane, renameLane } from "@/app/actions/planning";
 import { TextCell, useCellAction } from "@/components/planning/cells";
-import {
-  ROW_GRID,
-  SubjectRowView,
-  type Scope,
-} from "@/components/planning/subject-row";
-import type { LaneWithSubjects, PlanningOwner } from "@/lib/planning/types";
+import { AddColumnMenu, ColumnHeaderMenu } from "@/components/planning/column-menus";
+import { SubjectRowView, type Scope } from "@/components/planning/subject-row";
+import type { ColumnDef } from "@/lib/planning/columns";
+import { gridTemplate } from "@/lib/planning/columns";
+import type {
+  LaneWithSubjects,
+  PlanningOwner,
+  SubjectRow,
+} from "@/lib/planning/types";
 import { totalSponsoring } from "@/lib/planning/types";
 import { cn } from "@/lib/utils";
 
+export type DateSort = "position" | "asc" | "desc";
+
 /**
- * Un couloir : le réseau social, et ses publications.
- *
- * L'en-tête de colonnes est répété par couloir plutôt qu'une fois par mois.
- * C'est ce que fait le board d'origine, et sur un mois à quatre réseaux, ça
- * évite de remonter pour savoir quelle colonne on est en train de lire.
+ * Un couloir : le réseau social et ses publications, sous un en-tête de
+ * colonnes vivant — chaque titre est un menu, le « + » du bout ajoute une
+ * colonne, la coche de tête sélectionne le couloir entier.
  */
 export function LaneTable({
   scope,
   lane,
+  columns,
   owners,
   objectives,
-  flagged,
+  sort,
+  onSortToggle,
+  selectedIds,
+  onToggleSelect,
+  onToggleLane,
+  onOpenSubject,
 }: {
   scope: Scope;
   lane: LaneWithSubjects;
+  columns: ColumnDef[];
   owners: PlanningOwner[];
   objectives: string[];
-  flagged: Set<string>;
+  sort: DateSort;
+  onSortToggle: () => void;
+  selectedIds: Set<string>;
+  onToggleSelect: (subjectId: string) => void;
+  onToggleLane: (subjectIds: string[], selected: boolean) => void;
+  onOpenSubject: (subjectId: string) => void;
 }) {
   const [open, setOpen] = useState(true);
   const { run, pending } = useCellAction();
 
-  const live = lane.subjects.filter((subject) => subject.status !== "dropped");
-  const sponsoring = totalSponsoring(lane.subjects);
+  const template = gridTemplate(columns);
+  const subjects = sortSubjects(lane.subjects, sort);
+  const live = subjects.filter((subject) => subject.status !== "dropped");
+  const sponsoring = totalSponsoring(subjects);
+
+  const allSelected =
+    subjects.length > 0 && subjects.every((subject) => selectedIds.has(subject.id));
 
   return (
     <section
-      className="overflow-hidden rounded-md border border-border"
+      className="overflow-hidden rounded-md border border-border bg-background"
       aria-label={lane.name}
     >
       <header className="flex items-center gap-2 bg-surface-sunken px-2 py-1.5">
@@ -64,7 +84,9 @@ export function LaneTable({
             value={lane.name}
             ariaLabel="Nom du réseau"
             className="text-xs font-semibold tracking-wide uppercase"
-            onCommit={(next) => run(() => renameLane(scope, { laneId: lane.id, name: next }))}
+            onCommit={(next) =>
+              run(() => renameLane(scope, { laneId: lane.id, name: next }))
+            }
           />
         </div>
 
@@ -93,57 +115,131 @@ export function LaneTable({
       </header>
 
       {open ? (
-        <>
-          <div
-            className={cn(
-              "border-border/60 text-muted-foreground border-b px-2 py-1 text-[10px] font-medium tracking-wide uppercase",
-              ROW_GRID,
-            )}
-          >
-            <span className="px-1.5">Sujet</span>
-            <span className="sr-only">Retours</span>
-            <span className="sr-only">Propriétaire</span>
-            <span className="text-center">Statut</span>
-            <span className="text-center">Type</span>
-            <span className="px-1.5">Date</span>
-            <span className="text-center">Visuel</span>
-            <span className="px-1.5">Wording</span>
-            <span className="px-1.5 text-right">Sponso</span>
-            <span className="px-1.5">Objectif</span>
-            <span className="text-center">Ads</span>
-            <span />
+        // Le tableau déborde à droite plutôt que d'écraser ses colonnes : le
+        // conteneur défile, la page ne bouge pas.
+        <div className="overflow-x-auto">
+          <div className="min-w-fit">
+            <div
+              className="border-border bg-surface-sunken/60 grid items-center gap-x-1 border-b px-2 py-1"
+              style={{ gridTemplateColumns: template }}
+            >
+              <span className="flex justify-center">
+                <input
+                  type="checkbox"
+                  checked={allSelected}
+                  aria-label={`Sélectionner tout ${lane.name}`}
+                  onChange={() =>
+                    onToggleLane(
+                      subjects.map((subject) => subject.id),
+                      !allSelected,
+                    )
+                  }
+                  className="accent-brand size-3.5"
+                />
+              </span>
+
+              {columns.map((column) => (
+                <HeaderCell
+                  key={column.id}
+                  scope={scope}
+                  column={column}
+                  sort={sort}
+                  onSortToggle={onSortToggle}
+                />
+              ))}
+
+              <AddColumnMenu scope={scope} boardId={lane.board_id} />
+            </div>
+
+            {subjects.map((subject) => (
+              <SubjectRowView
+                key={subject.id}
+                scope={scope}
+                row={subject}
+                columns={columns}
+                gridTemplate={template}
+                owners={owners}
+                objectives={objectives}
+                selected={selectedIds.has(subject.id)}
+                onToggleSelect={onToggleSelect}
+                onOpen={onOpenSubject}
+              />
+            ))}
+
+            <button
+              type="button"
+              disabled={pending}
+              onClick={() =>
+                run(() =>
+                  createSubject(scope, {
+                    laneId: lane.id,
+                    monthId: lane.month_id,
+                    boardId: lane.board_id,
+                  }),
+                )
+              }
+              className="text-muted-foreground hover:text-foreground hover:bg-muted/40 focus-visible:ring-ring flex w-full items-center gap-1.5 px-3 py-1.5 text-xs transition-colors focus-visible:ring-2 focus-visible:outline-none"
+            >
+              <Plus className="size-3.5" aria-hidden />
+              Ajouter une publication
+            </button>
           </div>
-
-          {lane.subjects.map((subject) => (
-            <SubjectRowView
-              key={subject.id}
-              scope={scope}
-              row={subject}
-              owners={owners}
-              objectives={objectives}
-              flagged={flagged.has(subject.id)}
-            />
-          ))}
-
-          <button
-            type="button"
-            disabled={pending}
-            onClick={() =>
-              run(() =>
-                createSubject(scope, {
-                  laneId: lane.id,
-                  monthId: lane.month_id,
-                  boardId: lane.board_id,
-                }),
-              )
-            }
-            className="text-muted-foreground hover:text-foreground hover:bg-muted/40 focus-visible:ring-ring flex w-full items-center gap-1.5 rounded-b-md px-3 py-1.5 text-xs transition-colors focus-visible:ring-2 focus-visible:outline-none"
-          >
-            <Plus className="size-3.5" aria-hidden />
-            Ajouter une publication
-          </button>
-        </>
+        </div>
       ) : null}
     </section>
   );
+}
+
+function HeaderCell({
+  scope,
+  column,
+  sort,
+  onSortToggle,
+}: {
+  scope: Scope;
+  column: ColumnDef;
+  sort: DateSort;
+  onSortToggle: () => void;
+}) {
+  const isDate = column.builtin === "date";
+
+  const menu = (
+    <ColumnHeaderMenu
+      scope={scope}
+      column={column}
+      onSortToggle={isDate ? onSortToggle : undefined}
+      sorted={isDate && sort !== "position" ? sort : null}
+    />
+  );
+
+  // La piste des retours suit celle du sujet : une cellule d'en-tête muette.
+  if (column.builtin === "name") {
+    return (
+      <>
+        <span className="text-muted-foreground min-w-0">{menu}</span>
+        <span aria-hidden />
+      </>
+    );
+  }
+
+  return <span className="text-muted-foreground min-w-0">{menu}</span>;
+}
+
+/**
+ * Le tri de la colonne Date.
+ *
+ * `position` est l'ordre du tableau — celui dans lequel les lignes ont été
+ * posées. Le tri par date range les publications datées et repousse les sans
+ * date en fin, où on les retrouve au lieu de les perdre.
+ */
+function sortSubjects(subjects: SubjectRow[], sort: DateSort): SubjectRow[] {
+  if (sort === "position") return subjects;
+
+  return [...subjects].sort((a, b) => {
+    if (a.scheduled_on === b.scheduled_on) return a.position - b.position;
+    if (a.scheduled_on === null) return 1;
+    if (b.scheduled_on === null) return -1;
+    const compare = a.scheduled_on.localeCompare(b.scheduled_on);
+    return sort === "asc" ? compare : -compare;
+  });
 }

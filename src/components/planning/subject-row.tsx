@@ -5,19 +5,20 @@ import { MessageSquare, MessageSquarePlus } from "lucide-react";
 
 import {
   addComment,
-  deleteSubject,
   removeVisual,
+  updateCustomValue,
   updateSubject,
   uploadVisual,
   type EditableField,
 } from "@/app/actions/planning";
 import {
+  CheckboxCell,
   ChipSelect,
   DateCell,
-  DeleteRowButton,
+  LastUpdateCell,
   NumberCell,
-  OwnerAvatar,
   OwnerCell,
+  OwnerAvatar,
   TextCell,
   TextSelect,
   VisualsCell,
@@ -32,17 +33,9 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import type { ColumnDef } from "@/lib/planning/columns";
 import {
-  AD_STATUS_COLORS,
-  AD_STATUS_LABELS,
-  AD_STATUS_ORDER,
   COMMENT_SCOPE_LABELS,
-  FORMAT_COLORS,
-  FORMAT_LABELS,
-  FORMAT_ORDER,
-  STATUS_COLORS,
-  STATUS_LABELS,
-  STATUS_ORDER,
 } from "@/lib/planning/types";
 import type {
   PlanningAdStatus,
@@ -58,49 +51,33 @@ import { cn } from "@/lib/utils";
 export type Scope = { workspace: string; board: string };
 
 /**
- * Gabarit de colonnes, partagé par l'en-tête et les lignes.
+ * Une ligne du tableau, rendue colonne par colonne depuis le registre.
  *
- * Une seule déclaration pour les deux : c'est la seule façon de garantir que
- * l'en-tête reste aligné sur les cellules quand une colonne change de largeur.
+ * Le clic sur la ligne — hors cellule éditable — ouvre le panneau latéral.
+ * C'est le geste Monday : la cellule pour la retouche rapide, le panneau pour
+ * tout le reste. La distinction se fait au niveau des cellules, qui coupent la
+ * propagation : ce qui remonte jusqu'à la ligne est un clic « à côté ».
  */
-export const ROW_GRID =
-  "grid grid-cols-[minmax(160px,1.6fr)_34px_44px_150px_120px_116px_64px_minmax(200px,2fr)_96px_128px_96px_28px] items-center gap-x-1";
-
-const STATUS_OPTIONS = STATUS_ORDER.filter((status) => status !== "idea").map(
-  (status) => ({
-    value: status,
-    label: STATUS_LABELS[status],
-    color: STATUS_COLORS[status],
-  }),
-);
-
-const FORMAT_OPTIONS = FORMAT_ORDER.filter((format) => format !== "other").map(
-  (format) => ({
-    value: format,
-    label: FORMAT_LABELS[format],
-    color: FORMAT_COLORS[format],
-  }),
-);
-
-const AD_STATUS_OPTIONS = AD_STATUS_ORDER.map((status) => ({
-  value: status,
-  label: AD_STATUS_LABELS[status],
-  color: AD_STATUS_COLORS[status],
-}));
-
 export function SubjectRowView({
   scope,
   row,
+  columns,
+  gridTemplate,
   owners,
   objectives,
-  flagged,
+  selected,
+  onToggleSelect,
+  onOpen,
 }: {
   scope: Scope;
   row: Row;
+  columns: ColumnDef[];
+  gridTemplate: string;
   owners: PlanningOwner[];
   objectives: string[];
-  /** Pointée par le contrôle de cadence. */
-  flagged?: boolean;
+  selected: boolean;
+  onToggleSelect: (subjectId: string) => void;
+  onOpen: (subjectId: string) => void;
 }) {
   const { run, pending } = useCellAction();
 
@@ -109,134 +86,275 @@ export function SubjectRowView({
 
   return (
     <div
+      role="row"
+      onClick={() => onOpen(row.id)}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" && event.target === event.currentTarget) {
+          onOpen(row.id);
+        }
+      }}
+      tabIndex={0}
       className={cn(
-        "group/row border-border/60 hover:bg-muted/40 border-b px-2 py-0.5 transition-colors",
-        ROW_GRID,
+        "group/row border-border/60 grid cursor-pointer items-center gap-x-1 border-b px-2 py-0.5 transition-colors",
+        selected ? "bg-brand-mint/40" : "hover:bg-muted/40",
         pending && "opacity-60",
-        flagged && "ring-brand-red/25 ring-1 ring-inset",
       )}
+      style={{ gridTemplateColumns: gridTemplate }}
     >
-      {/* Sujet */}
-      <TextCell
-        value={row.name}
-        ariaLabel="Sujet de la publication"
-        placeholder="Nouveau sujet…"
-        className="font-medium"
-        onCommit={(next) => edit("name", next)}
-      />
+      {/* Coche de sélection */}
+      <span onClick={(event) => event.stopPropagation()} className="flex justify-center">
+        <input
+          type="checkbox"
+          checked={selected}
+          aria-label={`Sélectionner ${row.name || "la publication"}`}
+          onChange={() => onToggleSelect(row.id)}
+          className="accent-brand size-3.5"
+        />
+      </span>
 
-      {/* Retours client */}
-      <CommentsDialog scope={scope} row={row} />
+      {columns.map((column) => (
+        <Cell
+          key={column.id}
+          scope={scope}
+          column={column}
+          row={row}
+          owners={owners}
+          objectives={objectives}
+          edit={edit}
+          run={run}
+          pending={pending}
+        />
+      ))}
 
-      {/* Propriétaire */}
-      <OwnerCell
-        owner={row.owner}
-        candidates={owners}
-        onSelect={(ownerId) => edit("owner_id", ownerId)}
-      />
-
-      {/* Statut */}
-      <ChipSelect<PlanningStatus>
-        value={row.status === "idea" ? null : row.status}
-        options={STATUS_OPTIONS}
-        ariaLabel="Statut de la publication"
-        allowClear
-        onSelect={(next) => edit("status", next ?? "idea")}
-      />
-
-      {/* Type */}
-      <ChipSelect<PlanningFormat>
-        value={row.format === "other" ? null : row.format}
-        options={FORMAT_OPTIONS}
-        ariaLabel="Type de contenu"
-        allowClear
-        onSelect={(next) => edit("format", next ?? "other")}
-      />
-
-      {/* Date */}
-      <DateCell
-        value={row.scheduled_on}
-        onCommit={(next) => edit("scheduled_on", next)}
-      />
-
-      {/* Visuels */}
-      <VisualsCell
-        visuals={row.visuals}
-        subjectName={row.name}
-        uploading={pending}
-        onUpload={(file) => {
-          const formData = new FormData();
-          formData.set("subjectId", row.id);
-          formData.set("file", file);
-          run(() => uploadVisual(scope, formData));
-        }}
-        onRemove={(path) => run(() => removeVisual(scope, { subjectId: row.id, path }))}
-      />
-
-      {/* Wording */}
-      <WordingCell
-        value={row.wording}
-        subjectName={row.name}
-        onCommit={(next) => edit("wording", next)}
-      />
-
-      {/* Sponsorisation */}
-      <NumberCell
-        value={row.sponsoring}
-        ariaLabel="Budget de sponsorisation"
-        onCommit={(next) => edit("sponsoring", next)}
-      />
-
-      {/* Objectif de l'annonce */}
-      <TextSelect
-        value={row.ad_objective}
-        options={objectives}
-        ariaLabel="Objectif de l'annonce"
-        onSelect={(next) => edit("ad_objective", next)}
-      />
-
-      {/* Statut de l'annonce */}
-      <ChipSelect<PlanningAdStatus>
-        value={row.ad_status}
-        options={AD_STATUS_OPTIONS}
-        ariaLabel="Statut de l'annonce"
-        allowClear
-        onSelect={(next) => edit("ad_status", next)}
-      />
-
-      <DeleteRowButton
-        label={row.name || "cette publication"}
-        onDelete={() => run(() => deleteSubject(scope, { subjectId: row.id }))}
-      />
+      {/* La piste du « + » d'en-tête : vide sur les lignes. */}
+      <span aria-hidden />
     </div>
   );
+}
+
+function Cell({
+  scope,
+  column,
+  row,
+  owners,
+  objectives,
+  edit,
+  run,
+  pending,
+}: {
+  scope: Scope;
+  column: ColumnDef;
+  row: Row;
+  owners: PlanningOwner[];
+  objectives: string[];
+  edit: (field: EditableField, value: unknown) => void;
+  run: ReturnType<typeof useCellAction>["run"];
+  pending: boolean;
+}) {
+  const stop = (node: React.ReactNode) => (
+    <span onClick={(event) => event.stopPropagation()} className="min-w-0">
+      {node}
+    </span>
+  );
+
+  // --- Colonnes de base ---
+  switch (column.builtin) {
+    case "name":
+      return (
+        <>
+          {stop(
+            <TextCell
+              value={row.name}
+              ariaLabel="Sujet de la publication"
+              placeholder="Nouveau sujet…"
+              className="font-medium"
+              onCommit={(next) => edit("name", next)}
+            />,
+          )}
+          {stop(<CommentsDialog scope={scope} row={row} />)}
+        </>
+      );
+
+    case "status":
+      return stop(
+        <ChipSelect<PlanningStatus>
+          value={row.status === "idea" ? null : row.status}
+          options={(column.labels ?? []).map((label) => ({
+            value: label.id as PlanningStatus,
+            label: label.label,
+            color: label.color,
+          }))}
+          ariaLabel="Statut de la publication"
+          allowClear
+          onSelect={(next) => edit("status", next ?? "idea")}
+        />,
+      );
+
+    case "format":
+      return stop(
+        <ChipSelect<PlanningFormat>
+          value={row.format === "other" ? null : row.format}
+          options={(column.labels ?? []).map((label) => ({
+            value: label.id as PlanningFormat,
+            label: label.label,
+            color: label.color,
+          }))}
+          ariaLabel="Type de contenu"
+          allowClear
+          onSelect={(next) => edit("format", next ?? "other")}
+        />,
+      );
+
+    case "date":
+      return stop(
+        <DateCell
+          value={row.scheduled_on}
+          onCommit={(next) => edit("scheduled_on", next)}
+        />,
+      );
+
+    case "visual":
+      return stop(
+        <VisualsCell
+          visuals={row.visuals}
+          subjectName={row.name}
+          uploading={pending}
+          onUpload={(file) => {
+            const formData = new FormData();
+            formData.set("subjectId", row.id);
+            formData.set("file", file);
+            run(() => uploadVisual(scope, formData));
+          }}
+          onRemove={(path) =>
+            run(() => removeVisual(scope, { subjectId: row.id, path }))
+          }
+        />,
+      );
+
+    case "wording":
+      return stop(
+        <WordingCell
+          value={row.wording}
+          subjectName={row.name}
+          onCommit={(next) => edit("wording", next)}
+        />,
+      );
+
+    case "sponsoring":
+      return stop(
+        <NumberCell
+          value={row.sponsoring}
+          ariaLabel="Budget de sponsorisation"
+          onCommit={(next) => edit("sponsoring", next)}
+        />,
+      );
+
+    case "objective":
+      return stop(
+        <TextSelect
+          value={row.ad_objective}
+          options={objectives}
+          ariaLabel="Objectif de l'annonce"
+          onSelect={(next) => edit("ad_objective", next)}
+        />,
+      );
+
+    case "ad_status":
+      return stop(
+        <ChipSelect<PlanningAdStatus>
+          value={row.ad_status}
+          options={(column.labels ?? []).map((label) => ({
+            value: label.id as PlanningAdStatus,
+            label: label.label,
+            color: label.color,
+          }))}
+          ariaLabel="Statut de l'annonce"
+          allowClear
+          onSelect={(next) => edit("ad_status", next)}
+        />,
+      );
+
+    case "updated":
+      return <LastUpdateCell updater={row.updater} label={row.updated_label} />;
+  }
+
+  // --- Colonnes ajoutées : la valeur vit dans `custom[column.id]` ---
+  const value = row.custom[column.id] ?? null;
+  const commit = (next: unknown) =>
+    run(() =>
+      updateCustomValue(scope, { subjectId: row.id, columnId: column.id, value: next }),
+    );
+
+  switch (column.type) {
+    case "text":
+      return stop(
+        <TextCell
+          value={typeof value === "string" ? value : ""}
+          ariaLabel={column.label}
+          onCommit={(next) => commit(next || null)}
+        />,
+      );
+
+    case "number":
+      return stop(
+        <NumberCell
+          value={typeof value === "number" ? value : null}
+          ariaLabel={column.label}
+          onCommit={commit}
+        />,
+      );
+
+    case "date":
+      return stop(
+        <DateCell
+          value={typeof value === "string" ? value : null}
+          onCommit={commit}
+        />,
+      );
+
+    case "checkbox":
+      return stop(
+        <CheckboxCell
+          checked={value === true}
+          label={column.label}
+          onCommit={commit}
+        />,
+      );
+
+    case "people": {
+      const owner = owners.find((candidate) => candidate.id === value) ?? null;
+      return stop(<OwnerCell owner={owner} candidates={owners} onSelect={commit} />);
+    }
+
+    case "status":
+    case "dropdown":
+      return stop(
+        <ChipSelect<string>
+          value={typeof value === "string" ? value : null}
+          options={(column.labels ?? []).map((label) => ({
+            value: label.id,
+            label: label.label,
+            color: label.color,
+          }))}
+          ariaLabel={column.label}
+          allowClear
+          onSelect={commit}
+        />,
+      );
+
+    default:
+      return <span aria-hidden />;
+  }
 }
 
 /**
  * Le fil de retours d'une publication — la colonne « + » du board.
  *
  * Un retour porte sur le visuel ou sur le wording : ce sont les deux sujets
- * d'une validation client, et ils n'appellent pas la même correction. Le
- * distinguer à l'écriture évite d'avoir à le deviner à la lecture.
+ * d'une validation client, et ils n'appellent pas la même correction.
  */
-function CommentsDialog({ scope, row }: { scope: Scope; row: Row }) {
+export function CommentsDialog({ scope, row }: { scope: Scope; row: Row }) {
   const [open, setOpen] = useState(false);
-  const [body, setBody] = useState("");
-  const [commentScope, setCommentScope] = useState<PlanningCommentScope>("general");
-  const { run, pending } = useCellAction();
-
-  function submit() {
-    if (!body.trim()) return;
-    run(async () => {
-      const result = await addComment(scope, {
-        subjectId: row.id,
-        scope: commentScope,
-        body,
-      });
-      if (result.ok) setBody("");
-      return result;
-    });
-  }
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -263,55 +381,87 @@ function CommentsDialog({ scope, row }: { scope: Scope; row: Row }) {
         <DialogHeader>
           <DialogTitle>Retours — {row.name || "publication"}</DialogTitle>
         </DialogHeader>
-
-        {row.comments.length === 0 ? (
-          <p className="text-muted-foreground text-sm">
-            Aucun retour. Le client peut en déposer ici, sur le visuel ou sur le
-            wording.
-          </p>
-        ) : (
-          <ul className="max-h-72 space-y-3 overflow-y-auto">
-            {row.comments.map((comment) => (
-              <CommentItem key={comment.id} comment={comment} />
-            ))}
-          </ul>
-        )}
-
-        <div className="space-y-2">
-          <div className="flex gap-1">
-            {(["general", "visual", "wording"] as const).map((value) => (
-              <button
-                key={value}
-                type="button"
-                onClick={() => setCommentScope(value)}
-                aria-pressed={commentScope === value}
-                className={cn(
-                  "rounded-md px-2 py-1 text-xs transition-colors",
-                  commentScope === value
-                    ? "bg-card text-foreground font-medium"
-                    : "text-muted-foreground hover:text-foreground",
-                )}
-              >
-                {COMMENT_SCOPE_LABELS[value]}
-              </button>
-            ))}
-          </div>
-
-          <textarea
-            value={body}
-            onChange={(event) => setBody(event.target.value)}
-            rows={3}
-            aria-label="Nouveau retour"
-            placeholder="Ce qui doit changer, et pourquoi."
-            className="border-input bg-background focus-visible:ring-brand w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:outline-none"
-          />
-
-          <Button type="button" size="sm" onClick={submit} disabled={pending}>
-            {pending ? "Envoi…" : "Ajouter le retour"}
-          </Button>
-        </div>
+        <CommentThread scope={scope} subjectId={row.id} comments={row.comments} />
       </DialogContent>
     </Dialog>
+  );
+}
+
+/** Le fil lui-même, partagé entre le dialogue et le panneau latéral. */
+export function CommentThread({
+  scope,
+  subjectId,
+  comments,
+}: {
+  scope: Scope;
+  subjectId: string;
+  comments: PlanningComment[];
+}) {
+  const [body, setBody] = useState("");
+  const [commentScope, setCommentScope] = useState<PlanningCommentScope>("general");
+  const { run, pending } = useCellAction();
+
+  function submit() {
+    if (!body.trim()) return;
+    run(async () => {
+      const result = await addComment(scope, {
+        subjectId,
+        scope: commentScope,
+        body,
+      });
+      if (result.ok) setBody("");
+      return result;
+    });
+  }
+
+  return (
+    <div className="space-y-3">
+      {comments.length === 0 ? (
+        <p className="text-muted-foreground text-sm">
+          Aucun retour. Déposez-en un — général, sur le visuel ou sur le wording.
+        </p>
+      ) : (
+        <ul className="max-h-72 space-y-3 overflow-y-auto">
+          {comments.map((comment) => (
+            <CommentItem key={comment.id} comment={comment} />
+          ))}
+        </ul>
+      )}
+
+      <div className="space-y-2">
+        <div className="flex gap-1">
+          {(["general", "visual", "wording"] as const).map((value) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => setCommentScope(value)}
+              aria-pressed={commentScope === value}
+              className={cn(
+                "rounded-md px-2 py-1 text-xs transition-colors",
+                commentScope === value
+                  ? "bg-card text-foreground font-medium"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              {COMMENT_SCOPE_LABELS[value]}
+            </button>
+          ))}
+        </div>
+
+        <textarea
+          value={body}
+          onChange={(event) => setBody(event.target.value)}
+          rows={3}
+          aria-label="Nouveau retour"
+          placeholder="Ce qui doit changer, et pourquoi."
+          className="border-input bg-background focus-visible:ring-brand w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:outline-none"
+        />
+
+        <Button type="button" size="sm" onClick={submit} disabled={pending}>
+          {pending ? "Envoi…" : "Ajouter le retour"}
+        </Button>
+      </div>
+    </div>
   );
 }
 

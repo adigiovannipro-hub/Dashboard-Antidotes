@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState, useTransition } from "react";
-import { Check, Loader2, Paperclip, Trash2, X } from "lucide-react";
+import { CalendarDays, Check, Loader2, Paperclip, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 
 import type { PlanningResult } from "@/app/actions/planning";
@@ -159,6 +159,11 @@ export function NumberCell({
   );
 }
 
+/**
+ * Cellule date : toute la surface ouvre le calendrier — l'icône comme les
+ * chiffres. L'input natif reste dans le flux mais invisible ; le bouton
+ * au-dessus porte l'affichage et déclenche `showPicker()`.
+ */
 export function DateCell({
   value,
   onCommit,
@@ -166,14 +171,83 @@ export function DateCell({
   value: string | null;
   onCommit: (next: string | null) => void;
 }) {
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const display = value
+    ? new Intl.DateTimeFormat("fr-FR", {
+        day: "numeric",
+        month: "short",
+        timeZone: "UTC",
+      }).format(new Date(`${value}T00:00:00Z`))
+    : null;
+
   return (
-    <input
-      type="date"
-      value={value ?? ""}
-      aria-label="Date de publication"
-      onChange={(event) => onCommit(event.target.value || null)}
-      className="focus-visible:ring-brand w-full rounded-sm bg-transparent px-1.5 py-1 text-sm tabular-nums outline-none focus-visible:ring-2"
-    />
+    <div className="relative w-full">
+      <input
+        ref={inputRef}
+        type="date"
+        value={value ?? ""}
+        tabIndex={-1}
+        aria-hidden
+        onChange={(event) => onCommit(event.target.value || null)}
+        className="pointer-events-none absolute inset-0 opacity-0"
+      />
+      <button
+        type="button"
+        aria-label={display ? `Date : ${display}` : "Choisir une date"}
+        onClick={() => {
+          const input = inputRef.current;
+          if (!input) return;
+          if ("showPicker" in input) input.showPicker();
+          else (input as HTMLInputElement).click();
+        }}
+        className="hover:bg-muted/60 focus-visible:ring-brand flex h-7 w-full items-center justify-center gap-1 rounded-sm px-1.5 text-sm tabular-nums outline-none focus-visible:ring-2"
+      >
+        <CalendarDays className="text-muted-foreground size-3.5 shrink-0" aria-hidden />
+        <span className={cn(!display && "text-muted-foreground")}>
+          {display ?? "—"}
+        </span>
+      </button>
+    </div>
+  );
+}
+
+/** Case à cocher — la colonne « OK » de Monday. */
+export function CheckboxCell({
+  checked,
+  label,
+  onCommit,
+}: {
+  checked: boolean;
+  label: string;
+  onCommit: (next: boolean) => void;
+}) {
+  return (
+    <label className="flex h-7 w-full cursor-pointer items-center justify-center">
+      <input
+        type="checkbox"
+        checked={checked}
+        aria-label={label}
+        onChange={(event) => onCommit(event.target.checked)}
+        className="accent-brand size-4"
+      />
+    </label>
+  );
+}
+
+/** La colonne Last update : qui, quand — le libellé est calculé côté serveur. */
+export function LastUpdateCell({
+  updater,
+  label,
+}: {
+  updater: PlanningOwner | null;
+  label: string;
+}) {
+  return (
+    <span className="flex items-center justify-center gap-1.5">
+      <OwnerAvatar owner={updater} />
+      <span className="text-muted-foreground truncate text-xs">{label}</span>
+    </span>
   );
 }
 
