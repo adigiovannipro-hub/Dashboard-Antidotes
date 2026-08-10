@@ -33,26 +33,26 @@ export function MonthGroup({
   month,
   columns,
   owners,
-  objectives,
   sort,
   onSortToggle,
   selectedIds,
   onToggleSelect,
   onToggleLane,
   onOpenSubject,
+  onResizePreview,
   defaultOpen,
 }: {
   scope: Scope;
   month: MonthWithLanes;
   columns: ColumnDef[];
   owners: PlanningOwner[];
-  objectives: string[];
   sort: DateSort;
   onSortToggle: () => void;
   selectedIds: Set<string>;
   onToggleSelect: (subjectId: string) => void;
   onToggleLane: (subjectIds: string[], selected: boolean) => void;
   onOpenSubject: (subjectId: string) => void;
+  onResizePreview: (columnId: string, width: number | null) => void;
   defaultOpen: boolean;
 }) {
   const [open, setOpen] = useState(defaultOpen);
@@ -179,13 +179,13 @@ export function MonthGroup({
                 lane={lane}
                 columns={columns}
                 owners={owners}
-                objectives={objectives}
                 sort={sort}
                 onSortToggle={onSortToggle}
                 selectedIds={selectedIds}
                 onToggleSelect={onToggleSelect}
                 onToggleLane={onToggleLane}
                 onOpenSubject={onOpenSubject}
+                onResizePreview={onResizePreview}
               />
             ))
           )}

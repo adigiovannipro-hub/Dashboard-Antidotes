@@ -14,13 +14,7 @@ import {
   isOwnedVisualPath,
   visualPath,
 } from "@/lib/planning/storage";
-import {
-  AD_STATUS_ORDER,
-  FORMAT_ORDER,
-  PLATFORM_LABELS,
-  PLATFORM_ORDER,
-  STATUS_ORDER,
-} from "@/lib/planning/types";
+import { PLATFORM_LABELS, PLATFORM_ORDER } from "@/lib/planning/types";
 import { createClient } from "@/lib/supabase/server";
 import type {
   PlanningFaqEntryRow,
@@ -318,8 +312,10 @@ export async function createSubject(
  */
 const EDITABLE_FIELDS = {
   name: z.string().max(300),
-  status: z.enum(STATUS_ORDER as [string, ...string[]]),
-  format: z.enum(FORMAT_ORDER as [string, ...string[]]),
+  // Identifiants d'étiquette, libres depuis la migration 0029 : les valeurs
+  // connues (published, reel…) comme celles de « + Nouvelle étiquette ».
+  status: z.string().min(1).max(60),
+  format: z.string().min(1).max(60),
   scheduled_on: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/)
@@ -327,7 +323,7 @@ const EDITABLE_FIELDS = {
   wording: z.string().max(20_000).nullable(),
   sponsoring: z.number().nonnegative().nullable(),
   ad_objective: z.string().max(80).nullable(),
-  ad_status: z.enum(AD_STATUS_ORDER as [string, ...string[]]).nullable(),
+  ad_status: z.string().min(1).max(60).nullable(),
   owner_id: z.uuid().nullable(),
 } as const;
 
@@ -575,6 +571,8 @@ const columnPatch = z.object({
   hidden: z.boolean().optional(),
   position: z.number().int().min(0).max(10_000).optional(),
   labels: z.array(labelSchema).max(30).optional(),
+  /** Posée par la poignée de redimensionnement. Bornes de la contrainte SQL. */
+  width: z.number().int().min(60).max(900).optional(),
 });
 
 /**
@@ -617,6 +615,7 @@ export async function updateColumn(
     if (parsed.data.labels !== undefined) {
       patch.settings = { labels: parsed.data.labels };
     }
+    if (parsed.data.width !== undefined) patch.width = parsed.data.width;
 
     if (isBuiltin) {
       const { error } = await supabase.from("planning_columns").upsert(
@@ -784,33 +783,50 @@ export async function uploadVisual(
   formData: FormData,
 ): Promise<PlanningResult> {
   const subjectId = String(formData.get("subjectId") ?? "");
-  const file = formData.get("file");
+  const files = formData
+    .getAll("file")
+    .filter((entry): entry is File => entry instanceof File && entry.size > 0);
 
-  if (!subjectId || !(file instanceof File) || file.size === 0) {
+  if (!subjectId || files.length === 0) {
     return { ok: false, error: "Aucun fichier." };
   }
-  if (file.size > MAX_VISUAL_BYTES) {
-    return { ok: false, error: "Fichier trop lourd (50 Mo maximum)." };
+  if (files.length > 20) {
+    return { ok: false, error: "20 fichiers maximum d'un coup." };
   }
-  if (!ACCEPTED_VISUAL_TYPES.includes(file.type)) {
-    return { ok: false, error: `Format non accepté (${file.type || "inconnu"}).` };
+  for (const file of files) {
+    if (file.size > MAX_VISUAL_BYTES) {
+      return { ok: false, error: `${file.name} : trop lourd (50 Mo maximum).` };
+    }
+    if (!ACCEPTED_VISUAL_TYPES.includes(file.type)) {
+      return {
+        ok: false,
+        error: `${file.name} : format non accepté (${file.type || "inconnu"}).`,
+      };
+    }
   }
 
   try {
     const { viewer, workspace } = await guard(scope);
     const supabase = await createClient();
 
-    const path = visualPath({
-      workspaceId: workspace.id,
-      subjectId,
-      fileName: file.name,
-    });
-
-    const { error: uploadError } = await supabase.storage
-      .from(VISUALS_BUCKET)
-      .upload(path, file, { contentType: file.type, upsert: false });
-
-    if (uploadError) throw new Error(uploadError.message);
+    // Les envois s'enchaînent, puis la liste s'écrit en une fois : un échec au
+    // troisième fichier garde les deux premiers.
+    const uploaded: string[] = [];
+    for (const file of files) {
+      const path = visualPath({
+        workspaceId: workspace.id,
+        subjectId,
+        fileName: file.name,
+      });
+      const { error: uploadError } = await supabase.storage
+        .from(VISUALS_BUCKET)
+        .upload(path, file, { contentType: file.type, upsert: false });
+      if (uploadError) {
+        if (uploaded.length === 0) throw new Error(uploadError.message);
+        break;
+      }
+      uploaded.push(path);
+    }
 
     const { data: subject } = await supabase
       .from("planning_subjects")
@@ -820,7 +836,7 @@ export async function uploadVisual(
 
     await supabase
       .from("planning_subjects")
-      .update({ visual_urls: [...(subject?.visual_urls ?? []), path] })
+      .update({ visual_urls: [...(subject?.visual_urls ?? []), ...uploaded] })
       .eq("id", subjectId);
 
     await logActivity({
@@ -829,11 +845,56 @@ export async function uploadVisual(
       workspaceId: workspace.id,
       actorId: viewer.user.id,
       field: "visual",
-      after: file.name,
+      after: files.map((file) => file.name).join(", "),
     });
 
     revalidate(scope);
-    return { ok: true, message: "Visuel ajouté." };
+    return {
+      ok: true,
+      message:
+        uploaded.length === 1
+          ? "Visuel ajouté."
+          : `${uploaded.length} visuels ajoutés.`,
+    };
+  } catch (error) {
+    return fail(error);
+  }
+}
+
+/**
+ * Réordonne les visuels d'une publication — l'ordre des slides du carrousel.
+ *
+ * La liste complète est reçue puis validée contre l'existante : mêmes chemins,
+ * même nombre. On réordonne, on n'injecte pas.
+ */
+export async function reorderVisuals(
+  scope: Scope,
+  input: { subjectId: string; paths: string[] },
+): Promise<PlanningResult> {
+  try {
+    await guard(scope);
+    const supabase = await createClient();
+
+    const { data: subject } = await supabase
+      .from("planning_subjects")
+      .select("visual_urls")
+      .eq("id", input.subjectId)
+      .maybeSingle();
+
+    const current = subject?.visual_urls ?? [];
+    const sameSet =
+      current.length === input.paths.length &&
+      [...current].sort().join("\n") === [...input.paths].sort().join("\n");
+
+    if (!sameSet) return { ok: false, error: "La liste des visuels a changé." };
+
+    await supabase
+      .from("planning_subjects")
+      .update({ visual_urls: input.paths })
+      .eq("id", input.subjectId);
+
+    revalidate(scope);
+    return OK;
   } catch (error) {
     return fail(error);
   }

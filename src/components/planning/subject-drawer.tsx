@@ -2,7 +2,8 @@
 
 import { useRef, useState } from "react";
 import {
-  ChevronLeft,
+  ArrowLeft,
+  ArrowRight,
   ChevronRight,
   Clock,
   MessageSquare,
@@ -10,33 +11,35 @@ import {
   X,
 } from "lucide-react";
 
-import { removeVisual, updateSubject, uploadVisual } from "@/app/actions/planning";
+import {
+  removeVisual,
+  reorderVisuals,
+  updateSubject,
+  uploadVisual,
+} from "@/app/actions/planning";
 import {
   ChipSelect,
   DateCell,
   OwnerAvatar,
+  TextCell,
   useCellAction,
 } from "@/components/planning/cells";
 import { CommentThread, type Scope } from "@/components/planning/subject-row";
+import { PlatformIcon } from "@/components/planning/platform-icon";
 import { Button } from "@/components/ui/button";
-import type { ColumnDef } from "@/lib/planning/columns";
+import type { ColumnDef, ColumnLabel } from "@/lib/planning/columns";
 import { isImagePath } from "@/lib/planning/storage";
-import { PLATFORM_LABELS } from "@/lib/planning/types";
-import type {
-  PlanningActivity,
-  PlanningFormat,
-  PlanningStatus,
-  SubjectRow,
-} from "@/lib/planning/types";
+import type { PlanningActivity, SubjectRow } from "@/lib/planning/types";
 import { cn } from "@/lib/utils";
 
 /**
  * Le panneau latéral d'une publication — l'écran d'ouverture d'un élément sur
  * Monday, en une colonne à droite.
  *
- * Trois zones, dans l'ordre où on les regarde : le visuel (carrousel si
- * plusieurs, lecteur si vidéo), le contenu (wording, date, statut, réseau), et
- * les deux fils — retours du client, journal d'activité.
+ * Trois zones, dans l'ordre où on les regarde : le visuel (grand, sur fond
+ * sombre — une créa se juge sur un aplat neutre, pas sur du blanc), le contenu
+ * (sujet, wording, statut, type, date), et les deux fils — retours du client,
+ * journal d'activité.
  */
 export function SubjectDrawer({
   scope,
@@ -55,15 +58,17 @@ export function SubjectDrawer({
   const { run, pending } = useCellAction();
   const [wording, setWording] = useState(subject.wording ?? "");
 
-  const statusColumn = columns.find((column) => column.builtin === "status");
-  const formatColumn = columns.find((column) => column.builtin === "format");
+  const labelsOf = (builtin: string) =>
+    (columns.find((column) => column.builtin === builtin)?.labels ?? []).map(
+      (label) => ({ value: label.id, label: label.label, color: label.color }),
+    );
 
   return (
     <aside
       aria-label={`Détail de ${subject.name || "la publication"}`}
       className="border-border bg-background fixed inset-y-0 right-0 z-40 flex w-full max-w-xl flex-col border-l shadow-xl"
     >
-      {/* --- En-tête --- */}
+      {/* --- En-tête : le sujet s'y modifie, comme dans le tableau --- */}
       <header className="border-border flex items-start gap-3 border-b p-4">
         <button
           type="button"
@@ -75,30 +80,45 @@ export function SubjectDrawer({
         </button>
 
         <div className="min-w-0 flex-1">
-          <p className="text-muted-foreground text-xs tracking-wide uppercase">
-            {subject.lane_name || PLATFORM_LABELS[subject.platform]}
+          <p className="text-muted-foreground flex items-center gap-1.5 text-xs tracking-wide uppercase">
+            <PlatformIcon platform={subject.platform} />
+            {subject.lane_name}
           </p>
-          <h2 className="truncate text-lg leading-snug font-semibold">
-            {subject.name || "Sans sujet"}
-          </h2>
+          <TextCell
+            value={subject.name}
+            ariaLabel="Sujet de la publication"
+            placeholder="Sans sujet…"
+            className="text-lg leading-snug font-semibold"
+            onCommit={(next) =>
+              run(() =>
+                updateSubject(scope, {
+                  subjectId: subject.id,
+                  field: "name",
+                  value: next,
+                }),
+              )
+            }
+          />
         </div>
 
         <OwnerAvatar owner={subject.owner} />
       </header>
 
       <div className="min-h-0 flex-1 overflow-y-auto">
-        {/* --- Visuels --- */}
         <VisualCarousel
           subject={subject}
           uploading={pending}
-          onUpload={(file) => {
+          onUpload={(files) => {
             const formData = new FormData();
             formData.set("subjectId", subject.id);
-            formData.set("file", file);
+            for (const file of files) formData.append("file", file);
             run(() => uploadVisual(scope, formData));
           }}
           onRemove={(path) =>
             run(() => removeVisual(scope, { subjectId: subject.id, path }))
+          }
+          onReorder={(paths) =>
+            run(() => reorderVisuals(scope, { subjectId: subject.id, paths }))
           }
         />
 
@@ -106,13 +126,9 @@ export function SubjectDrawer({
         <div className="border-border grid grid-cols-3 gap-2 border-b p-4">
           <div>
             <p className="text-muted-foreground mb-1 text-[11px] uppercase">Statut</p>
-            <ChipSelect<PlanningStatus>
+            <ChipSelect<string>
               value={subject.status === "idea" ? null : subject.status}
-              options={(statusColumn?.labels ?? []).map((label) => ({
-                value: label.id as PlanningStatus,
-                label: label.label,
-                color: label.color,
-              }))}
+              options={labelsOf("status")}
               ariaLabel="Statut"
               allowClear
               onSelect={(next) =>
@@ -128,13 +144,9 @@ export function SubjectDrawer({
           </div>
           <div>
             <p className="text-muted-foreground mb-1 text-[11px] uppercase">Type</p>
-            <ChipSelect<PlanningFormat>
+            <ChipSelect<string>
               value={subject.format === "other" ? null : subject.format}
-              options={(formatColumn?.labels ?? []).map((label) => ({
-                value: label.id as PlanningFormat,
-                label: label.label,
-                color: label.color,
-              }))}
+              options={labelsOf("format")}
               ariaLabel="Type"
               allowClear
               onSelect={(next) =>
@@ -260,27 +272,46 @@ function TabButton({
 
 // --- Carrousel de visuels ----------------------------------------------------
 
+/**
+ * Le carrousel : grand média sur fond sombre, et la bande de vignettes en
+ * dessous — scrollable à l'horizontale, chaque vignette déplaçable de ses deux
+ * flèches. L'ordre des vignettes est l'ordre des slides du carrousel publié :
+ * le réordonner ici, c'est réordonner la publication.
+ */
 function VisualCarousel({
   subject,
   uploading,
   onUpload,
   onRemove,
+  onReorder,
 }: {
   subject: SubjectRow;
   uploading: boolean;
-  onUpload: (file: File) => void;
+  onUpload: (files: File[]) => void;
   onRemove: (path: string) => void;
+  onReorder: (paths: string[]) => void;
 }) {
   const [index, setIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const visuals = subject.visuals;
-  // L'index peut dépasser après une suppression : on le ramène, sans effet.
-  const current = visuals[Math.min(index, Math.max(visuals.length - 1, 0))];
+  const safeIndex = Math.min(index, Math.max(visuals.length - 1, 0));
+  const current = visuals[safeIndex];
+
+  const move = (from: number, to: number) => {
+    if (to < 0 || to >= visuals.length) return;
+    const paths = visuals.map((visual) => visual.path);
+    const [moved] = paths.splice(from, 1);
+    paths.splice(to, 0, moved!);
+    setIndex(to);
+    onReorder(paths);
+  };
 
   return (
     <div className="border-border border-b">
-      <div className="bg-card relative flex aspect-video items-center justify-center overflow-hidden">
+      {/* Fond sombre et hauteur généreuse : une créa se regarde en grand, sur
+          un aplat neutre — pas vignettée sur du blanc. */}
+      <div className="relative flex h-[420px] items-center justify-center overflow-hidden bg-neutral-950">
         {current ? (
           <>
             <VisualMedia path={current.path} url={current.url} name={current.name} />
@@ -297,28 +328,6 @@ function VisualCarousel({
                   direction="next"
                   onClick={() => setIndex((i) => (i + 1) % visuals.length)}
                 />
-                <div
-                  className="absolute bottom-2 left-1/2 flex -translate-x-1/2 gap-1"
-                  role="tablist"
-                  aria-label="Visuels"
-                >
-                  {visuals.map((visual, i) => (
-                    <button
-                      key={visual.path}
-                      type="button"
-                      role="tab"
-                      aria-selected={i === Math.min(index, visuals.length - 1)}
-                      aria-label={`Visuel ${i + 1}`}
-                      onClick={() => setIndex(i)}
-                      className={cn(
-                        "size-1.5 rounded-full transition-colors",
-                        i === Math.min(index, visuals.length - 1)
-                          ? "bg-white"
-                          : "bg-white/40",
-                      )}
-                    />
-                  ))}
-                </div>
               </>
             ) : null}
 
@@ -329,25 +338,85 @@ function VisualCarousel({
                 setIndex(0);
               }}
               aria-label={`Retirer ${current.name}`}
-              className="bg-background/90 hover:text-brand-red absolute top-2 right-2 rounded-full p-1.5"
+              className="absolute top-2 right-2 rounded-full bg-black/60 p-1.5 text-white hover:bg-black/80"
             >
               <X className="size-3.5" aria-hidden />
             </button>
+
+            <span className="absolute bottom-2 right-2 rounded bg-black/60 px-1.5 py-0.5 text-[11px] text-white tabular-nums">
+              {safeIndex + 1} / {visuals.length}
+            </span>
           </>
         ) : (
-          <p className="text-muted-foreground text-sm">Aucun visuel</p>
+          <p className="text-sm text-neutral-400">Aucun visuel</p>
         )}
       </div>
 
-      <div className="flex items-center gap-2 px-4 py-2">
+      {/* La bande de vignettes : scroll horizontal, flèches de réordonnancement. */}
+      {visuals.length > 0 ? (
+        <div className="flex gap-2 overflow-x-auto px-4 py-2" role="list">
+          {visuals.map((visual, i) => (
+            <div key={visual.path} role="listitem" className="group/thumb relative shrink-0">
+              <button
+                type="button"
+                onClick={() => setIndex(i)}
+                aria-label={`Visuel ${i + 1}`}
+                aria-current={i === safeIndex}
+                className={cn(
+                  "block size-14 overflow-hidden rounded-md border-2 transition-colors",
+                  i === safeIndex ? "border-brand" : "border-transparent",
+                )}
+              >
+                {isImagePath(visual.path) && visual.url ? (
+                  // eslint-disable-next-line @next/next/no-img-element -- URL signée
+                  <img
+                    src={visual.url}
+                    alt=""
+                    className="size-full object-cover"
+                    loading="lazy"
+                  />
+                ) : (
+                  <span className="bg-card text-muted-foreground flex size-full items-center justify-center p-1 text-center text-[8px] break-all">
+                    {visual.name.slice(0, 18)}
+                  </span>
+                )}
+              </button>
+
+              <span className="absolute inset-x-0 -bottom-0.5 flex justify-center gap-0.5 opacity-0 transition-opacity group-hover/thumb:opacity-100">
+                <button
+                  type="button"
+                  onClick={() => move(i, i - 1)}
+                  disabled={i === 0}
+                  aria-label={`Avancer le visuel ${i + 1}`}
+                  className="rounded bg-black/70 p-0.5 text-white disabled:opacity-30"
+                >
+                  <ArrowLeft className="size-3" aria-hidden />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => move(i, i + 1)}
+                  disabled={i === visuals.length - 1}
+                  aria-label={`Reculer le visuel ${i + 1}`}
+                  className="rounded bg-black/70 p-0.5 text-white disabled:opacity-30"
+                >
+                  <ArrowRight className="size-3" aria-hidden />
+                </button>
+              </span>
+            </div>
+          ))}
+        </div>
+      ) : null}
+
+      <div className="flex items-center gap-2 px-4 pt-1 pb-2">
         <input
           ref={inputRef}
           type="file"
+          multiple
           className="sr-only"
           accept="image/*,video/mp4,video/quicktime,application/pdf"
           onChange={(event) => {
-            const file = event.target.files?.[0];
-            if (file) onUpload(file);
+            const files = [...(event.target.files ?? [])];
+            if (files.length > 0) onUpload(files);
             event.target.value = "";
           }}
         />
@@ -359,13 +428,12 @@ function VisualCarousel({
           disabled={uploading}
         >
           <Plus className="size-3.5" aria-hidden />
-          {uploading ? "Envoi…" : "Ajouter un visuel"}
+          {uploading ? "Envoi…" : "Ajouter des visuels"}
         </Button>
-        {visuals.length > 0 ? (
-          <span className="text-muted-foreground ml-auto text-xs tabular-nums">
-            {Math.min(index + 1, visuals.length)} / {visuals.length}
-          </span>
-        ) : null}
+        <span className="text-muted-foreground text-xs">
+          Plusieurs fichiers à la fois. Les flèches d&apos;une vignette changent
+          l&apos;ordre du carrousel.
+        </span>
       </div>
     </div>
   );
@@ -400,7 +468,7 @@ function VisualMedia({
       href={url || undefined}
       target="_blank"
       rel="noreferrer"
-      className="text-muted-foreground p-6 text-center text-sm break-all underline-offset-2 hover:underline"
+      className="p-6 text-center text-sm break-all text-neutral-300 underline-offset-2 hover:underline"
     >
       {name}
     </a>
@@ -414,14 +482,14 @@ function CarouselArrow({
   direction: "prev" | "next";
   onClick: () => void;
 }) {
-  const Icon = direction === "prev" ? ChevronLeft : ChevronRight;
+  const Icon = direction === "prev" ? ArrowLeft : ArrowRight;
   return (
     <button
       type="button"
       onClick={onClick}
       aria-label={direction === "prev" ? "Visuel précédent" : "Visuel suivant"}
       className={cn(
-        "bg-background/90 hover:bg-background absolute top-1/2 -translate-y-1/2 rounded-full p-1.5 shadow",
+        "absolute top-1/2 -translate-y-1/2 rounded-full bg-black/60 p-2 text-white hover:bg-black/80",
         direction === "prev" ? "left-2" : "right-2",
       )}
     >
@@ -434,8 +502,8 @@ function CarouselArrow({
 
 /**
  * L'onglet « Activités » du board : qui a changé quoi, de quoi vers quoi.
- * Les valeurs de statut sont rendues en pastilles colorées, comme à l'écran
- * d'origine — c'est ce qui rend le journal lisible d'un coup d'œil.
+ * Les valeurs à étiquettes se rendent en pastilles colorées — c'est ce qui rend
+ * le journal lisible d'un coup d'œil.
  */
 function ActivityList({
   activity,
@@ -505,6 +573,13 @@ const FIELD_LABELS: Record<string, string> = {
   visual: "Visuel",
 };
 
+const FIELD_TO_BUILTIN: Record<string, string> = {
+  status: "status",
+  format: "format",
+  ad_objective: "objective",
+  ad_status: "ad_status",
+};
+
 function ValueChip({
   field,
   value,
@@ -525,10 +600,11 @@ function ValueChip({
     );
   }
 
-  // Les champs à étiquettes se rendent en pastille colorée.
-  const columnKey = field === "scheduled_on" ? "date" : field;
-  const column = columns.find((candidate) => candidate.builtin === columnKey);
-  const label = column?.labels?.find((candidate) => candidate.id === value);
+  const builtin = FIELD_TO_BUILTIN[field];
+  const column = columns.find((candidate) => candidate.builtin === builtin);
+  const label: ColumnLabel | undefined = column?.labels?.find(
+    (candidate) => candidate.id === value,
+  );
 
   if (label) {
     return (

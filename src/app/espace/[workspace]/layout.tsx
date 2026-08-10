@@ -43,18 +43,31 @@ export default async function WorkspaceLayout({
           },
         ]
       : []),
-    ...(dashboards ?? []).map((dashboard) => ({
-      segment: dashboard.slug,
-      href: `/espace/${workspace.slug}/${dashboard.slug}`,
-      name: dashboard.name,
-    })),
+    ...(dashboards ?? [])
+      // La section Planning Éditorial est native depuis la migration 0008 ; un
+      // dashboard homonyme créé à la main dans la table `dashboards` ferait
+      // deux onglets identiques côte à côte. On écarte ces doublons.
+      .filter(
+        (dashboard) =>
+          !dashboard.name
+            .normalize("NFD")
+            .replace(/\p{Diacritic}/gu, "")
+            .toLowerCase()
+            .includes("planning"),
+      )
+      .map((dashboard) => ({
+        segment: dashboard.slug,
+        href: `/espace/${workspace.slug}/${dashboard.slug}`,
+        name: dashboard.name,
+      })),
   ];
 
   // Les sections de l'espace passent en onglets horizontaux : le rail latéral
   // porte déjà la navigation entre espaces, et deux rails verticaux côte à
-  // côte se disputaient la lecture.
+  // côte se disputaient la lecture. `wide` : un planning est un tableau, il
+  // prend l'écran qu'on lui donne.
   return (
-    <AppShell viewer={viewer} title={workspace.name}>
+    <AppShell viewer={viewer} title={workspace.name} wide>
       <div className="flex min-w-0 flex-col gap-6">
         <DashboardNav workspaceName={workspace.name} items={items} />
         <div className="min-w-0">{children}</div>

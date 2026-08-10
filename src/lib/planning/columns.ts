@@ -54,6 +54,8 @@ export type ColumnOverride = {
   position: number | null;
   hidden: boolean;
   settings: ColumnSettings;
+  /** Largeur posée par la poignée de redimensionnement, en pixels. */
+  width: number | null;
 };
 
 export type BuiltinKey =
@@ -119,6 +121,35 @@ export const SELECT_TRACK = "36px";
 export const COMMENTS_TRACK = "40px";
 export const ADD_TRACK = "40px";
 
+/**
+ * Les objectifs publicitaires, en étiquettes colorées.
+ *
+ * La liste vient du tableau (`settings.ad_objectives`) ; les couleurs
+ * reprennent la gamme bleu-violet du board d'origine, en cycle pour les
+ * objectifs ajoutés au-delà des sept connus.
+ */
+const OBJECTIVE_COLORS: Record<string, string> = {
+  Engagement: "#579bfc",
+  "Vues vidéos": "#74afcc",
+  Couverture: "#007eb5",
+  Traffic: "#225091",
+  Conversion: "#9d50dd",
+  "Visite de profil": "#5559df",
+  Followers: "#66ccff",
+};
+
+function objectiveLabels(adObjectives: string[]): ColumnLabel[] {
+  return adObjectives.map((objective, index) => ({
+    // La valeur stockée dans `ad_objective` est le libellé lui-même : c'est
+    // l'existant, on ne migre pas les données pour une couleur.
+    id: objective,
+    label: objective,
+    color:
+      OBJECTIVE_COLORS[objective] ??
+      LABEL_PALETTE[index % LABEL_PALETTE.length]!,
+  }));
+}
+
 function statusLabels(): ColumnLabel[] {
   return STATUS_ORDER.filter((status) => status !== "idea").map((status) => ({
     id: status,
@@ -143,8 +174,13 @@ function adStatusLabels(): ColumnLabel[] {
   }));
 }
 
+export type ResolveOptions = {
+  /** Objectifs publicitaires du tableau — la matière des étiquettes Objectif. */
+  adObjectives?: string[];
+};
+
 /** Les colonnes de base, dans l'ordre du tableau. */
-export function builtinColumns(): ColumnDef[] {
+export function builtinColumns(options: ResolveOptions = {}): ColumnDef[] {
   const defs: Omit<ColumnDef, "position">[] = [
     {
       id: "name",
@@ -224,7 +260,7 @@ export function builtinColumns(): ColumnDef[] {
       width: BUILTIN_WIDTHS.objective,
       hidden: false,
       removable: false,
-      labels: null,
+      labels: objectiveLabels(options.adObjectives ?? Object.keys(OBJECTIVE_COLORS)),
     },
     {
       id: "ad_status",
@@ -258,14 +294,17 @@ export function builtinColumns(): ColumnDef[] {
  * étiquettes. Une colonne ajoutée devient une définition entière, sa valeur
  * étant lue dans `subject.custom[id]`.
  */
-export function resolveColumns(overrides: ColumnOverride[]): ColumnDef[] {
+export function resolveColumns(
+  overrides: ColumnOverride[],
+  options: ResolveOptions = {},
+): ColumnDef[] {
   const byBuiltin = new Map(
     overrides
       .filter((override) => override.builtin_key !== null)
       .map((override) => [override.builtin_key!, override]),
   );
 
-  const merged = builtinColumns().map((def) => {
+  const merged = builtinColumns(options).map((def) => {
     const override = byBuiltin.get(def.id);
     if (!override) return def;
     return {
@@ -273,6 +312,7 @@ export function resolveColumns(overrides: ColumnOverride[]): ColumnDef[] {
       label: override.label ?? def.label,
       hidden: override.hidden,
       position: override.position ?? def.position,
+      width: override.width ? `${override.width}px` : def.width,
       labels: mergeLabels(def.labels, override.settings.labels),
     };
   });
@@ -285,7 +325,9 @@ export function resolveColumns(overrides: ColumnOverride[]): ColumnDef[] {
         builtin: null,
         type: override.type!,
         label: override.label ?? "Colonne",
-        width: WIDTH_BY_TYPE[override.type!],
+        width: override.width
+          ? `${override.width}px`
+          : WIDTH_BY_TYPE[override.type!],
         hidden: override.hidden,
         removable: true,
         labels:
@@ -302,11 +344,12 @@ export function resolveColumns(overrides: ColumnOverride[]): ColumnDef[] {
 }
 
 /**
- * Recoloration d'étiquettes de base.
+ * Fusion des étiquettes d'une colonne de base.
  *
- * Les valeurs d'une colonne de base sont un enum : l'écart peut en changer le
- * libellé et la couleur, jamais en ajouter ni en retirer — sinon le modèle et
- * l'affichage divergeraient. Les colonnes ajoutées, elles, sont libres.
+ * L'écart peut renommer, recolorer **et ajouter** — « + Nouvelle étiquette »
+ * marche partout, comme sur le board d'origine. Les étiquettes connues gardent
+ * leur identifiant, celles ajoutées apportent le leur ; depuis la migration
+ * 0029 la colonne est du texte, une valeur inventée a où s'écrire.
  */
 function mergeLabels(
   base: ColumnLabel[] | null,
@@ -316,12 +359,30 @@ function mergeLabels(
   if (!overrides || overrides.length === 0) return base;
 
   const byId = new Map(overrides.map((label) => [label.id, label]));
-  return base.map((label) => {
+  const knownIds = new Set(base.map((label) => label.id));
+
+  const merged = base.map((label) => {
     const override = byId.get(label.id);
     return override
       ? { ...label, label: override.label || label.label, color: override.color || label.color }
       : label;
   });
+
+  const additions = overrides.filter((label) => !knownIds.has(label.id));
+  return [...merged, ...additions];
+}
+
+/**
+ * Largeurs de séance, pendant un drag de redimensionnement : appliquées
+ * par-dessus les définitions sans attendre l'aller-retour serveur.
+ */
+export function applyWidths(
+  columns: ColumnDef[],
+  widths: Record<string, number>,
+): ColumnDef[] {
+  return columns.map((column) =>
+    widths[column.id] ? { ...column, width: `${widths[column.id]}px` } : column,
+  );
 }
 
 /** La chaîne `grid-template-columns` du tableau, coche et « + » comprises. */

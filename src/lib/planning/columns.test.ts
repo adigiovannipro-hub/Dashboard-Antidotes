@@ -18,6 +18,7 @@ function override(partial: Partial<ColumnOverride>): ColumnOverride {
     position: null,
     hidden: false,
     settings: {},
+    width: null,
     ...partial,
   };
 }
@@ -84,15 +85,16 @@ describe("écarts sur une colonne de base", () => {
     ]);
   });
 
-  it("recolore une étiquette sans pouvoir en inventer", () => {
+  it("recolore une étiquette existante et accepte les nouvelles", () => {
     const columns = resolveColumns([
       override({
         builtin_key: "status",
         settings: {
           labels: [
             { id: "published", label: "EN LIGNE", color: "#000000" },
-            // Une étiquette qui n'existe pas dans l'enum : ignorée.
-            { id: "fantome", label: "FANTÔME", color: "#123456" },
+            // « + Nouvelle étiquette » : une valeur inventée s'ajoute à la
+            // suite, depuis que la colonne est du texte (migration 0029).
+            { id: "revision-client", label: "RÉVISION CLIENT", color: "#123456" },
           ],
         },
       }),
@@ -100,9 +102,33 @@ describe("écarts sur une colonne de base", () => {
 
     const labels = columns.find((column) => column.id === "status")?.labels ?? [];
     expect(labels.find((label) => label.id === "published")?.label).toBe("EN LIGNE");
-    expect(labels.some((label) => label.id === "fantome")).toBe(false);
+    expect(labels.find((label) => label.id === "revision-client")?.label).toBe(
+      "RÉVISION CLIENT",
+    );
     // Les autres étiquettes restent intactes.
     expect(labels.find((label) => label.id === "draft")?.label).toBe("EN BROUILLON");
+  });
+
+  it("applique une largeur redimensionnée", () => {
+    const columns = resolveColumns([
+      override({ builtin_key: "wording", width: 340 }),
+    ]);
+    expect(columns.find((column) => column.id === "wording")?.width).toBe("340px");
+  });
+
+  it("colore les objectifs publicitaires du tableau", () => {
+    const columns = resolveColumns([], {
+      adObjectives: ["Engagement", "Notoriété locale"],
+    });
+    const labels = columns.find((column) => column.id === "objective")?.labels ?? [];
+    expect(labels).toHaveLength(2);
+    expect(labels[0]).toEqual({
+      id: "Engagement",
+      label: "Engagement",
+      color: "#579bfc",
+    });
+    // Un objectif hors des sept connus reçoit une couleur de la palette.
+    expect(labels[1]!.color).toMatch(/^#/);
   });
 });
 

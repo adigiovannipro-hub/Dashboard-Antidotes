@@ -178,7 +178,9 @@ export async function getBoardContent(board: PlanningBoard): Promise<{
       lanes: lanesByMonth.get(month.id) ?? [],
     })),
     owners,
-    columns: resolveColumns(columnRows),
+    columns: resolveColumns(columnRows, {
+      adObjectives: board.settings.ad_objectives,
+    }),
   };
 }
 

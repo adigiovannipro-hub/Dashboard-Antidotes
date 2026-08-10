@@ -463,6 +463,7 @@ export type PlanningColumnRow = {
   position: number | null;
   hidden: boolean;
   settings: Record<string, unknown>;
+  width: number | null;
   created_at: string;
 };
 

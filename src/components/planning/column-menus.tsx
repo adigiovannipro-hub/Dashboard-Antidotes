@@ -200,6 +200,13 @@ function LabelsDialog({
   const { run, pending } = useCellAction();
   const [labels, setLabels] = useState<ColumnLabel[]>(column.labels ?? []);
 
+  // Les identifiants d'origine d'une colonne de base : renommables et
+  // recolorables, mais pas supprimables — des lignes les portent peut-être.
+  // Tout ce qui a été ajouté ensuite se retire librement.
+  const protectedIds = new Set(
+    column.removable ? [] : (column.labels ?? []).map((label) => label.id),
+  );
+
   const set = (index: number, patch: Partial<ColumnLabel>) => {
     setLabels((current) =>
       current.map((label, i) => (i === index ? { ...label, ...patch } : label)),
@@ -243,14 +250,14 @@ function LabelsDialog({
                 onChange={(event) => set(index, { label: event.target.value })}
                 className="h-8 flex-1 uppercase"
               />
-              {column.removable ? (
+              {!protectedIds.has(label.id) ? (
                 <button
                   type="button"
                   aria-label={`Retirer ${label.label}`}
                   onClick={() =>
                     setLabels((current) => current.filter((_, i) => i !== index))
                   }
-                  className="text-muted-foreground hover:text-brand-red p-1"
+                  className="text-muted-foreground hover:text-danger-ink p-1"
                 >
                   <Trash2 className="size-3.5" aria-hidden />
                 </button>
@@ -259,30 +266,30 @@ function LabelsDialog({
           ))}
         </ul>
 
-        {column.removable ? (
-          <button
-            type="button"
-            onClick={() =>
-              setLabels((current) => [
-                ...current,
-                {
-                  id: `etiquette-${Date.now()}`,
-                  label: "NOUVELLE",
-                  color: LABEL_PALETTE[current.length % LABEL_PALETTE.length]!,
-                },
-              ])
-            }
-            className="text-muted-foreground hover:text-foreground flex items-center gap-1.5 text-xs"
-          >
-            <Plus className="size-3.5" aria-hidden />
-            Nouvelle étiquette
-          </button>
-        ) : (
+        <button
+          type="button"
+          onClick={() =>
+            setLabels((current) => [
+              ...current,
+              {
+                id: `etiquette-${Date.now()}`,
+                label: "NOUVELLE",
+                color: LABEL_PALETTE[current.length % LABEL_PALETTE.length]!,
+              },
+            ])
+          }
+          className="text-muted-foreground hover:text-foreground flex items-center gap-1.5 text-xs"
+        >
+          <Plus className="size-3.5" aria-hidden />
+          Nouvelle étiquette
+        </button>
+
+        {!column.removable ? (
           <p className="text-muted-foreground text-xs">
-            Les valeurs de cette colonne sont fixes : le libellé et la couleur se
-            retouchent, la liste ne s&apos;allonge pas.
+            Les étiquettes d&apos;origine se renomment et se recolorent sans se
+            supprimer — des publications les portent peut-être déjà.
           </p>
-        )}
+        ) : null}
 
         <div className="flex gap-2">
           <Button type="button" size="sm" onClick={save} disabled={pending}>

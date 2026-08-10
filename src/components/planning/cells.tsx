@@ -201,7 +201,7 @@ export function DateCell({
           if ("showPicker" in input) input.showPicker();
           else (input as HTMLInputElement).click();
         }}
-        className="hover:bg-muted/60 focus-visible:ring-brand flex h-7 w-full items-center justify-center gap-1 rounded-sm px-1.5 text-sm tabular-nums outline-none focus-visible:ring-2"
+        className="hover:bg-muted/60 focus-visible:ring-brand flex h-7 w-full items-center justify-start gap-1.5 rounded-sm px-1.5 text-sm tabular-nums outline-none focus-visible:ring-2"
       >
         <CalendarDays className="text-muted-foreground size-3.5 shrink-0" aria-hidden />
         <span className={cn(!display && "text-muted-foreground")}>
@@ -312,6 +312,7 @@ export function ChipSelect<T extends string>({
   onSelect,
   ariaLabel,
   allowClear,
+  placeholder,
   className,
 }: {
   value: T | null;
@@ -319,6 +320,8 @@ export function ChipSelect<T extends string>({
   onSelect: (next: T | null) => void;
   ariaLabel: string;
   allowClear?: boolean;
+  /** Affiché sans valeur — le nom de l'action dans la barre groupée. */
+  placeholder?: string;
   className?: string;
 }) {
   const current = options.find((option) => option.value === value) ?? null;
@@ -337,7 +340,7 @@ export function ChipSelect<T extends string>({
         }}
       >
         <span className={cn("truncate", !current && "text-muted-foreground")}>
-          {current?.label ?? "—"}
+          {current?.label ?? placeholder ?? "—"}
         </span>
       </DropdownMenuTrigger>
 
@@ -562,7 +565,7 @@ export function VisualsCell({
   visuals: ResolvedVisual[];
   subjectName: string;
   uploading: boolean;
-  onUpload: (file: File) => void;
+  onUpload: (files: File[]) => void;
   onRemove: (path: string) => void;
   className?: string;
 }) {
@@ -651,11 +654,12 @@ export function VisualsCell({
           <input
             ref={inputRef}
             type="file"
+            multiple
             className="sr-only"
             accept="image/*,video/mp4,video/quicktime,application/pdf"
             onChange={(event) => {
-              const file = event.target.files?.[0];
-              if (file) onUpload(file);
+              const files = [...(event.target.files ?? [])];
+              if (files.length > 0) onUpload(files);
               event.target.value = "";
             }}
           />
@@ -665,10 +669,10 @@ export function VisualsCell({
             onClick={() => inputRef.current?.click()}
             disabled={uploading}
           >
-            {uploading ? "Envoi…" : "Ajouter un visuel"}
+            {uploading ? "Envoi…" : "Ajouter des visuels"}
           </Button>
           <span className="text-muted-foreground text-xs">
-            Images, MP4, MOV ou PDF — 50 Mo maximum.
+            Plusieurs fichiers à la fois — images, MP4, MOV, PDF, 50 Mo chacun.
           </span>
         </div>
       </DialogContent>

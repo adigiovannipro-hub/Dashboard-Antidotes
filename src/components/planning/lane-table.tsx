@@ -3,9 +3,10 @@
 import { useState } from "react";
 import { ChevronRight, Plus, Trash2 } from "lucide-react";
 
-import { createSubject, deleteLane, renameLane } from "@/app/actions/planning";
+import { createSubject, deleteLane, renameLane, updateColumn } from "@/app/actions/planning";
 import { TextCell, useCellAction } from "@/components/planning/cells";
 import { AddColumnMenu, ColumnHeaderMenu } from "@/components/planning/column-menus";
+import { PlatformIcon } from "@/components/planning/platform-icon";
 import { SubjectRowView, type Scope } from "@/components/planning/subject-row";
 import type { ColumnDef } from "@/lib/planning/columns";
 import { gridTemplate } from "@/lib/planning/columns";
@@ -29,25 +30,26 @@ export function LaneTable({
   lane,
   columns,
   owners,
-  objectives,
   sort,
   onSortToggle,
   selectedIds,
   onToggleSelect,
   onToggleLane,
   onOpenSubject,
+  onResizePreview,
 }: {
   scope: Scope;
   lane: LaneWithSubjects;
   columns: ColumnDef[];
   owners: PlanningOwner[];
-  objectives: string[];
   sort: DateSort;
   onSortToggle: () => void;
   selectedIds: Set<string>;
   onToggleSelect: (subjectId: string) => void;
   onToggleLane: (subjectIds: string[], selected: boolean) => void;
   onOpenSubject: (subjectId: string) => void;
+  /** Largeur en cours de drag, avant l'écriture en base. */
+  onResizePreview: (columnId: string, width: number | null) => void;
 }) {
   const [open, setOpen] = useState(true);
   const { run, pending } = useCellAction();
@@ -78,6 +80,8 @@ export function LaneTable({
             aria-hidden
           />
         </button>
+
+        <PlatformIcon platform={lane.platform} />
 
         <div className="w-40">
           <TextCell
@@ -145,6 +149,7 @@ export function LaneTable({
                   column={column}
                   sort={sort}
                   onSortToggle={onSortToggle}
+                  onResizePreview={onResizePreview}
                 />
               ))}
 
@@ -159,8 +164,10 @@ export function LaneTable({
                 columns={columns}
                 gridTemplate={template}
                 owners={owners}
-                objectives={objectives}
                 selected={selectedIds.has(subject.id)}
+                bulkTargets={
+                  selectedIds.has(subject.id) ? [...selectedIds] : null
+                }
                 onToggleSelect={onToggleSelect}
                 onOpen={onOpenSubject}
               />
@@ -195,12 +202,15 @@ function HeaderCell({
   column,
   sort,
   onSortToggle,
+  onResizePreview,
 }: {
   scope: Scope;
   column: ColumnDef;
   sort: DateSort;
   onSortToggle: () => void;
+  onResizePreview: (columnId: string, width: number | null) => void;
 }) {
+  const { run } = useCellAction();
   const isDate = column.builtin === "date";
 
   const menu = (
@@ -212,17 +222,65 @@ function HeaderCell({
     />
   );
 
+  /**
+   * La poignée de redimensionnement, au bord droit de l'en-tête.
+   *
+   * Pendant le drag, la largeur vit en local (onResizePreview) pour suivre le
+   * pointeur sans aller-retour ; au relâchement, elle s'écrit en base et vaut
+   * pour tout le monde.
+   */
+  const startResize = (event: React.PointerEvent) => {
+    event.preventDefault();
+    const startX = event.clientX;
+    const cell = (event.currentTarget as HTMLElement).closest("[data-col]");
+    const startWidth = cell ? cell.getBoundingClientRect().width : 120;
+    let latest = Math.round(startWidth);
+
+    const onMove = (move: PointerEvent) => {
+      latest = Math.min(900, Math.max(60, Math.round(startWidth + move.clientX - startX)));
+      onResizePreview(column.id, latest);
+    };
+    const onUp = () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      run(() =>
+        updateColumn(scope, { columnId: column.id, patch: { width: latest } }),
+      );
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+  };
+
+  const handle = (
+    <span
+      role="separator"
+      aria-orientation="vertical"
+      aria-label={`Redimensionner la colonne ${column.label}`}
+      title="Redimensionner la colonne"
+      onPointerDown={startResize}
+      className="hover:bg-brand absolute inset-y-0 -right-1 w-2 cursor-col-resize rounded opacity-0 transition-opacity hover:opacity-100"
+    />
+  );
+
   // La piste des retours suit celle du sujet : une cellule d'en-tête muette.
   if (column.builtin === "name") {
     return (
       <>
-        <span className="text-muted-foreground min-w-0">{menu}</span>
+        <span data-col className="text-muted-foreground relative min-w-0">
+          {menu}
+          {handle}
+        </span>
         <span aria-hidden />
       </>
     );
   }
 
-  return <span className="text-muted-foreground min-w-0">{menu}</span>;
+  return (
+    <span data-col className="text-muted-foreground relative min-w-0">
+      {menu}
+      {handle}
+    </span>
+  );
 }
 
 /**

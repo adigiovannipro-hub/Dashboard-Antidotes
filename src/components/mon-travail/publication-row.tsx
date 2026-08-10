@@ -30,9 +30,6 @@ import {
   STATUS_COLORS,
   STATUS_LABELS,
   STATUS_ORDER,
-  type PlanningAdStatus,
-  type PlanningFormat,
-  type PlanningStatus,
 } from "@/lib/planning/types";
 import { cn } from "@/lib/utils";
 
@@ -167,7 +164,7 @@ export function PublicationRowView({ row }: { row: Row }) {
       </div>
 
       <div className="w-[8.5rem] md:w-full">
-        <ChipSelect<PlanningStatus>
+        <ChipSelect<string>
           value={row.subject.status === "idea" ? null : row.subject.status}
           options={STATUS_OPTIONS}
           ariaLabel={`Statut de la publication de ${row.workspace.name}`}
@@ -177,7 +174,7 @@ export function PublicationRowView({ row }: { row: Row }) {
       </div>
 
       <div className="hidden md:block">
-        <ChipSelect<PlanningFormat>
+        <ChipSelect<string>
           value={row.subject.format === "other" ? null : row.subject.format}
           options={FORMAT_OPTIONS}
           ariaLabel="Type de contenu"
@@ -201,10 +198,10 @@ export function PublicationRowView({ row }: { row: Row }) {
         visuals={row.visuals}
         subjectName={row.subject.name}
         uploading={pending}
-        onUpload={(file) => {
+        onUpload={(files) => {
           const formData = new FormData();
           formData.set("subjectId", row.subject.id);
-          formData.set("file", file);
+          for (const file of files) formData.append("file", file);
           run(() => uploadVisual(scope, formData));
         }}
         onRemove={(path) =>
@@ -238,7 +235,7 @@ export function PublicationRowView({ row }: { row: Row }) {
       </div>
 
       <div className="hidden md:block">
-        <ChipSelect<PlanningAdStatus>
+        <ChipSelect<string>
           value={row.subject.ad_status}
           options={AD_STATUS_OPTIONS}
           ariaLabel="Statut de l'annonce"

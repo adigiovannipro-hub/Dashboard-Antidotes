@@ -5,6 +5,7 @@ import { MessageSquare, MessageSquarePlus } from "lucide-react";
 
 import {
   addComment,
+  bulkUpdateSubjects,
   removeVisual,
   updateCustomValue,
   updateSubject,
@@ -20,7 +21,6 @@ import {
   OwnerCell,
   OwnerAvatar,
   TextCell,
-  TextSelect,
   VisualsCell,
   WordingCell,
   useCellAction,
@@ -33,30 +33,42 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import type { ColumnDef } from "@/lib/planning/columns";
-import {
-  COMMENT_SCOPE_LABELS,
-} from "@/lib/planning/types";
+import type { ColumnDef, ColumnLabel } from "@/lib/planning/columns";
 import type {
-  PlanningAdStatus,
   PlanningComment,
-  PlanningCommentScope,
-  PlanningFormat,
   PlanningOwner,
-  PlanningStatus,
   SubjectRow as Row,
 } from "@/lib/planning/types";
 import { cn } from "@/lib/utils";
 
 export type Scope = { workspace: string; board: string };
 
+/** Champs qu'une modification de cellule propage à toute la sélection. */
+const BULK_FIELDS: EditableField[] = [
+  "status",
+  "format",
+  "scheduled_on",
+  "sponsoring",
+  "ad_objective",
+  "ad_status",
+  "owner_id",
+];
+
+function toOptions(labels: ColumnLabel[] | null) {
+  return (labels ?? []).map((label) => ({
+    value: label.id,
+    label: label.label,
+    color: label.color,
+  }));
+}
+
 /**
  * Une ligne du tableau, rendue colonne par colonne depuis le registre.
  *
  * Le clic sur la ligne — hors cellule éditable — ouvre le panneau latéral.
- * C'est le geste Monday : la cellule pour la retouche rapide, le panneau pour
- * tout le reste. La distinction se fait au niveau des cellules, qui coupent la
- * propagation : ce qui remonte jusqu'à la ligne est un clic « à côté ».
+ * Et quand la ligne fait partie d'une sélection multiple, modifier une de ses
+ * cellules applique la valeur à toute la sélection : c'est le geste Monday,
+ * cocher puis corriger une seule fois.
  */
 export function SubjectRowView({
   scope,
@@ -64,8 +76,9 @@ export function SubjectRowView({
   columns,
   gridTemplate,
   owners,
-  objectives,
   selected,
+  /** Les identifiants de la sélection, quand cette ligne en fait partie. */
+  bulkTargets,
   onToggleSelect,
   onOpen,
 }: {
@@ -74,15 +87,22 @@ export function SubjectRowView({
   columns: ColumnDef[];
   gridTemplate: string;
   owners: PlanningOwner[];
-  objectives: string[];
   selected: boolean;
+  bulkTargets: string[] | null;
   onToggleSelect: (subjectId: string) => void;
   onOpen: (subjectId: string) => void;
 }) {
   const { run, pending } = useCellAction();
 
-  const edit = (field: EditableField, value: unknown) =>
+  const edit = (field: EditableField, value: unknown) => {
+    if (bulkTargets && bulkTargets.length > 1 && BULK_FIELDS.includes(field)) {
+      run(() =>
+        bulkUpdateSubjects(scope, { subjectIds: bulkTargets, field, value }),
+      );
+      return;
+    }
     run(() => updateSubject(scope, { subjectId: row.id, field, value }));
+  };
 
   return (
     <div
@@ -95,7 +115,7 @@ export function SubjectRowView({
       }}
       tabIndex={0}
       className={cn(
-        "group/row border-border/60 grid cursor-pointer items-center gap-x-1 border-b px-2 py-0.5 transition-colors",
+        "group/row border-border/60 grid cursor-pointer items-center gap-x-1.5 border-b px-2 py-1 transition-colors",
         selected ? "bg-brand-mint/40" : "hover:bg-muted/40",
         pending && "opacity-60",
       )}
@@ -119,7 +139,6 @@ export function SubjectRowView({
           column={column}
           row={row}
           owners={owners}
-          objectives={objectives}
           edit={edit}
           run={run}
           pending={pending}
@@ -137,7 +156,6 @@ function Cell({
   column,
   row,
   owners,
-  objectives,
   edit,
   run,
   pending,
@@ -146,7 +164,6 @@ function Cell({
   column: ColumnDef;
   row: Row;
   owners: PlanningOwner[];
-  objectives: string[];
   edit: (field: EditableField, value: unknown) => void;
   run: ReturnType<typeof useCellAction>["run"];
   pending: boolean;
@@ -177,13 +194,9 @@ function Cell({
 
     case "status":
       return stop(
-        <ChipSelect<PlanningStatus>
+        <ChipSelect<string>
           value={row.status === "idea" ? null : row.status}
-          options={(column.labels ?? []).map((label) => ({
-            value: label.id as PlanningStatus,
-            label: label.label,
-            color: label.color,
-          }))}
+          options={toOptions(column.labels)}
           ariaLabel="Statut de la publication"
           allowClear
           onSelect={(next) => edit("status", next ?? "idea")}
@@ -192,13 +205,9 @@ function Cell({
 
     case "format":
       return stop(
-        <ChipSelect<PlanningFormat>
+        <ChipSelect<string>
           value={row.format === "other" ? null : row.format}
-          options={(column.labels ?? []).map((label) => ({
-            value: label.id as PlanningFormat,
-            label: label.label,
-            color: label.color,
-          }))}
+          options={toOptions(column.labels)}
           ariaLabel="Type de contenu"
           allowClear
           onSelect={(next) => edit("format", next ?? "other")}
@@ -219,10 +228,10 @@ function Cell({
           visuals={row.visuals}
           subjectName={row.name}
           uploading={pending}
-          onUpload={(file) => {
+          onUpload={(files) => {
             const formData = new FormData();
             formData.set("subjectId", row.id);
-            formData.set("file", file);
+            for (const file of files) formData.append("file", file);
             run(() => uploadVisual(scope, formData));
           }}
           onRemove={(path) =>
@@ -251,23 +260,20 @@ function Cell({
 
     case "objective":
       return stop(
-        <TextSelect
+        <ChipSelect<string>
           value={row.ad_objective}
-          options={objectives}
+          options={toOptions(column.labels)}
           ariaLabel="Objectif de l'annonce"
+          allowClear
           onSelect={(next) => edit("ad_objective", next)}
         />,
       );
 
     case "ad_status":
       return stop(
-        <ChipSelect<PlanningAdStatus>
+        <ChipSelect<string>
           value={row.ad_status}
-          options={(column.labels ?? []).map((label) => ({
-            value: label.id as PlanningAdStatus,
-            label: label.label,
-            color: label.color,
-          }))}
+          options={toOptions(column.labels)}
           ariaLabel="Statut de l'annonce"
           allowClear
           onSelect={(next) => edit("ad_status", next)}
@@ -331,11 +337,7 @@ function Cell({
       return stop(
         <ChipSelect<string>
           value={typeof value === "string" ? value : null}
-          options={(column.labels ?? []).map((label) => ({
-            value: label.id,
-            label: label.label,
-            color: label.color,
-          }))}
+          options={toOptions(column.labels)}
           ariaLabel={column.label}
           allowClear
           onSelect={commit}
@@ -347,12 +349,7 @@ function Cell({
   }
 }
 
-/**
- * Le fil de retours d'une publication — la colonne « + » du board.
- *
- * Un retour porte sur le visuel ou sur le wording : ce sont les deux sujets
- * d'une validation client, et ils n'appellent pas la même correction.
- */
+/** Le fil de retours d'une publication — la colonne « + » du board. */
 export function CommentsDialog({ scope, row }: { scope: Scope; row: Row }) {
   const [open, setOpen] = useState(false);
 
@@ -387,7 +384,12 @@ export function CommentsDialog({ scope, row }: { scope: Scope; row: Row }) {
   );
 }
 
-/** Le fil lui-même, partagé entre le dialogue et le panneau latéral. */
+/**
+ * Le fil de retours, partagé entre le dialogue et le panneau latéral.
+ *
+ * Un seul fil, sans catégorie : « général / visuel / wording » ajoutait un
+ * choix avant chaque message pour un classement que personne ne relisait.
+ */
 export function CommentThread({
   scope,
   subjectId,
@@ -398,7 +400,6 @@ export function CommentThread({
   comments: PlanningComment[];
 }) {
   const [body, setBody] = useState("");
-  const [commentScope, setCommentScope] = useState<PlanningCommentScope>("general");
   const { run, pending } = useCellAction();
 
   function submit() {
@@ -406,7 +407,7 @@ export function CommentThread({
     run(async () => {
       const result = await addComment(scope, {
         subjectId,
-        scope: commentScope,
+        scope: "general",
         body,
       });
       if (result.ok) setBody("");
@@ -418,7 +419,7 @@ export function CommentThread({
     <div className="space-y-3">
       {comments.length === 0 ? (
         <p className="text-muted-foreground text-sm">
-          Aucun retour. Déposez-en un — général, sur le visuel ou sur le wording.
+          Aucun retour pour l&apos;instant.
         </p>
       ) : (
         <ul className="max-h-72 space-y-3 overflow-y-auto">
@@ -429,25 +430,6 @@ export function CommentThread({
       )}
 
       <div className="space-y-2">
-        <div className="flex gap-1">
-          {(["general", "visual", "wording"] as const).map((value) => (
-            <button
-              key={value}
-              type="button"
-              onClick={() => setCommentScope(value)}
-              aria-pressed={commentScope === value}
-              className={cn(
-                "rounded-md px-2 py-1 text-xs transition-colors",
-                commentScope === value
-                  ? "bg-card text-foreground font-medium"
-                  : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              {COMMENT_SCOPE_LABELS[value]}
-            </button>
-          ))}
-        </div>
-
         <textarea
           value={body}
           onChange={(event) => setBody(event.target.value)}
@@ -473,9 +455,6 @@ function CommentItem({ comment }: { comment: PlanningComment }) {
         <p className="flex items-baseline gap-2 text-xs">
           <span className="font-medium">
             {comment.author?.full_name ?? comment.author?.email ?? "Inconnu"}
-          </span>
-          <span className="bg-card text-muted-foreground rounded px-1.5 py-0.5 text-[10px]">
-            {COMMENT_SCOPE_LABELS[comment.scope]}
           </span>
           <time
             dateTime={comment.created_at}

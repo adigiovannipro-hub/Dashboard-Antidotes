@@ -229,8 +229,8 @@ export const DONE_STATUSES: PlanningStatus[] = ["published"];
 
 export const READY_STATUSES: PlanningStatus[] = ["validated", "scheduled"];
 
-export function isPlanned(status: PlanningStatus): boolean {
-  return !EXCLUDED_STATUSES.includes(status);
+export function isPlanned(status: string): boolean {
+  return !(EXCLUDED_STATUSES as string[]).includes(status);
 }
 
 /**
@@ -296,13 +296,15 @@ export type PlanningSubject = {
   board_id: string;
   workspace_id: string;
   name: string;
-  status: PlanningStatus;
-  format: PlanningFormat;
+  /** Identifiant d'étiquette. Les valeurs connues sont `PlanningStatus` ; une
+      étiquette ajoutée (« + Nouvelle étiquette ») porte le sien. */
+  status: string;
+  format: string;
   scheduled_on: string | null;
   wording: string | null;
   sponsoring: number | null;
   ad_objective: string | null;
-  ad_status: PlanningAdStatus | null;
+  ad_status: string | null;
   owner_id: string | null;
   /** Chemins dans le bucket `planning-visuals`, ou URL externes. */
   visual_urls: string[];

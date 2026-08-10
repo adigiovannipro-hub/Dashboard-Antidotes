@@ -33,6 +33,7 @@ export function ShellFrame({
   subtitle,
   actions,
   railCollapsed,
+  wide,
   children,
 }: {
   groups: NavGroup[];
@@ -43,6 +44,8 @@ export function ShellFrame({
   subtitle?: string;
   actions?: React.ReactNode;
   railCollapsed: boolean;
+  /** Pleine largeur, pour les écrans en tableau — le planning éditorial. */
+  wide?: boolean;
   children: React.ReactNode;
 }) {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -59,7 +62,7 @@ export function ShellFrame({
 
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-20 border-b border-border bg-canvas/85 backdrop-blur">
-          <div className="mx-auto flex w-full max-w-[90rem] items-center gap-3 px-4 py-3.5 md:px-10">
+          <div className={wide ? "mx-auto flex w-full items-center gap-3 px-4 py-3.5 md:px-6" : "mx-auto flex w-full max-w-[90rem] items-center gap-3 px-4 py-3.5 md:px-10"}>
             <button
               type="button"
               onClick={() => setMobileOpen(true)}
@@ -135,7 +138,7 @@ export function ShellFrame({
           </div>
         </header>
 
-        <main className="mx-auto w-full max-w-[90rem] flex-1 px-4 py-6 md:px-10 md:py-8">
+        <main className={wide ? "mx-auto w-full flex-1 px-4 py-6 md:px-6 md:py-8" : "mx-auto w-full max-w-[90rem] flex-1 px-4 py-6 md:px-10 md:py-8"}>
           {children}
         </main>
       </div>

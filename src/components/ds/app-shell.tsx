@@ -19,12 +19,15 @@ export async function AppShell({
   title,
   subtitle,
   actions,
+  wide,
   children,
 }: {
   viewer: Viewer;
   title: string;
   subtitle?: string;
   actions?: React.ReactNode;
+  /** Pleine largeur, pour les écrans en tableau — le planning éditorial. */
+  wide?: boolean;
   children: React.ReactNode;
 }) {
   const [groups, cookieStore] = await Promise.all([getAppNavigation(), cookies()]);
@@ -38,6 +41,7 @@ export async function AppShell({
       title={title}
       subtitle={subtitle}
       actions={actions}
+      wide={wide}
       // Le repli est rendu juste dès le serveur : pas de rail qui se replie
       // après coup, et aucun libellé tronqué en attendant l'hydratation.
       railCollapsed={cookieStore.get(RAIL_COOKIE)?.value === "1"}

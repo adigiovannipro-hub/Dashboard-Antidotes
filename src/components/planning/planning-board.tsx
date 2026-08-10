@@ -19,6 +19,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import type { ColumnDef } from "@/lib/planning/columns";
+import { applyWidths } from "@/lib/planning/columns";
 import { monthGroupLabel } from "@/lib/planning/monday-mapping";
 import type {
   MonthWithLanes,
@@ -66,6 +67,10 @@ export function PlanningBoardView({
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [sort, setSort] = useState<DateSort>("position");
+  // Largeurs en cours de drag : le tableau suit le pointeur sans attendre la
+  // base, qui reçoit la valeur finale au relâchement.
+  const [widthPreview, setWidthPreview] = useState<Record<string, number>>({});
+  const effectiveColumns = applyWidths(columns, widthPreview);
 
   const openSubject = useCallback(
     (subjectId: string) => {
@@ -128,9 +133,8 @@ export function PlanningBoardView({
               key={month.id}
               scope={scope}
               month={month}
-              columns={columns}
+              columns={effectiveColumns}
               owners={owners}
-              objectives={board.settings.ad_objectives}
               sort={sort}
               onSortToggle={() =>
                 setSort((current) => (current === "asc" ? "desc" : "asc"))
@@ -139,6 +143,15 @@ export function PlanningBoardView({
               onToggleSelect={toggleSelect}
               onToggleLane={toggleLane}
               onOpenSubject={openSubject}
+              onResizePreview={(columnId, width) =>
+                setWidthPreview((current) =>
+                  width === null
+                    ? Object.fromEntries(
+                        Object.entries(current).filter(([id]) => id !== columnId),
+                      )
+                    : { ...current, [columnId]: width },
+                )
+              }
               // Le mois en cours est ouvert, les autres repliés : c'est celui
               // qu'on vient regarder neuf fois sur dix.
               defaultOpen={month.month === currentMonthKey}
@@ -174,7 +187,7 @@ export function PlanningBoardView({
       <BulkBar
         scope={scope}
         selectedIds={selectedIds}
-        columns={columns}
+        columns={effectiveColumns}
         owners={owners}
         onClear={() => setSelectedIds(new Set())}
       />
@@ -184,7 +197,7 @@ export function PlanningBoardView({
           key={drawer.subject.id}
           scope={scope}
           subject={drawer.subject}
-          columns={columns}
+          columns={effectiveColumns}
           activity={drawer.activity}
           onClose={closeDrawer}
         />
