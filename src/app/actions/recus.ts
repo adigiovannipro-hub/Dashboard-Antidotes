@@ -272,6 +272,65 @@ export async function setMerchantAutomation(
   }
 }
 
+/**
+ * Ouvre ou referme l'auto-transfert, globalement.
+ *
+ * Deux verrous et non un : celui-ci ouvre la porte, la règle de chaque
+ * fournisseur dit qui peut la franchir. Ouvrir ici ne déclenche donc rien
+ * pour un marchand qu'on n'a pas approuvé — c'est ce qui permet de
+ * n'automatiser qu'un fournisseur à la fois.
+ *
+ * Distinct de l'arrêt d'urgence, qui coupe sans défaire le réglage : celui-là
+ * se lève d'un clic, celui-ci se repense.
+ */
+export async function toggleAutoForward(
+  _previous: ReceiptResult | null,
+  formData: FormData,
+): Promise<ReceiptResult> {
+  const enabled = formData.get("enabled") === "true";
+
+  try {
+    const viewer = await getViewer();
+    const context = await getReceiptsContext();
+    if (!viewer || !context?.canDecide) {
+      return { ok: false, error: "Action indisponible." };
+    }
+
+    const admin = createAdminClient();
+
+    for (const source of context.sources) {
+      await admin
+        .from("receipt_sources")
+        .update({
+          settings: {
+            ...source.settings,
+            auto_forward: { ...source.settings.auto_forward, enabled },
+          } as never,
+        })
+        .eq("id", source.id);
+    }
+
+    await admin.from("receipt_events").insert({
+      org_id: context.orgId,
+      actor_id: viewer.user.id,
+      action: enabled ? "automation.enabled" : "automation.disabled",
+    });
+
+    revalidatePath(RECEIPTS_PATH);
+    return {
+      ok: true,
+      message: enabled
+        ? "Auto-transfert ouvert. Seuls les fournisseurs que vous avez approuvés partiront seuls ; les autres continuent de passer par vous."
+        : "Auto-transfert refermé. Toutes les pièces passent par vous.",
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : "Action impossible.",
+    };
+  }
+}
+
 /** Coupe tous les transferts automatiques, sans défaire le reste du réglage. */
 export async function toggleEmergencyStop(
   _previous: ReceiptResult | null,

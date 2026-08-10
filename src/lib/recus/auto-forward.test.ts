@@ -28,8 +28,10 @@ const context = (overrides: Partial<AutoForwardContext> = {}): AutoForwardContex
     kind: "invoice",
     classification_confidence: 0.96,
     amount_cents: 2450,
+    currency: "EUR",
     status: "awaiting_validation",
   },
+  billedEurCents: 2450,
   match: match(),
   rule: { auto_forward: true },
   senderDomain: "grab.com",
@@ -86,6 +88,7 @@ describe("evaluateAutoForward", () => {
           kind: "invoice",
           classification_confidence: 1,
           amount_cents: 100,
+          currency: "EUR",
           status: "awaiting_validation",
         },
       }),
@@ -103,8 +106,46 @@ describe("evaluateAutoForward", () => {
           kind: "invoice",
           classification_confidence: 0.99,
           amount_cents: 120_000,
+          currency: "EUR",
           status: "awaiting_validation",
         },
+        billedEurCents: 120_000,
+      }),
+    );
+    expect(decision).toMatchObject({ allowed: false });
+    if (!decision.allowed) expect(decision.refusals).toContain("amount_above_cap");
+  });
+
+  it("laisse passer une course en roupies dont le débit est modeste", () => {
+    // Le cas qui bloquait tout : 154 400 IDR — 7,56 € — pesait 15 440 000
+    // « centimes » et dépassait n'importe quel plafond pensé en euros.
+    const decision = evaluateAutoForward(
+      context({
+        document: {
+          kind: "invoice",
+          classification_confidence: 0.96,
+          amount_cents: 15_440_000,
+          currency: "IDR",
+          status: "awaiting_validation",
+        },
+        billedEurCents: 756,
+      }),
+    );
+    expect(decision).toMatchObject({ allowed: true });
+  });
+
+  it("refuse une devise étrangère dont on ignore le débit", () => {
+    // Ne pas savoir combien on engage n'autorise pas à l'engager.
+    const decision = evaluateAutoForward(
+      context({
+        document: {
+          kind: "invoice",
+          classification_confidence: 0.96,
+          amount_cents: 15_440_000,
+          currency: "IDR",
+          status: "awaiting_validation",
+        },
+        billedEurCents: null,
       }),
     );
     expect(decision).toMatchObject({ allowed: false });
@@ -118,6 +159,7 @@ describe("evaluateAutoForward", () => {
           kind: "other",
           classification_confidence: 0.99,
           amount_cents: 1000,
+          currency: "EUR",
           status: "awaiting_validation",
         },
       }),
@@ -171,6 +213,7 @@ describe("evaluateAutoForward", () => {
           kind: "invoice",
           classification_confidence: 0.99,
           amount_cents: 1000,
+          currency: "EUR",
           status: "forwarded",
         },
       }),

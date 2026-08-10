@@ -62,8 +62,13 @@ export type AutoForwardContext = {
     kind: ReceiptKind;
     classification_confidence: number;
     amount_cents: number | null;
+    /** Devise du montant ci-dessus — sans elle, le plafond ne veut rien dire. */
+    currency: string | null;
     status: string;
   };
+  /** Ce que la dépense rapprochée a réellement débité du wallet, en centimes
+      d'euro. C'est la seule grandeur comparable au plafond. */
+  billedEurCents: number | null;
   match: MatchResult;
   /** Règle du domaine expéditeur, si elle existe déjà. */
   rule: Pick<ReceiptMerchantRule, "auto_forward"> | null;
@@ -119,10 +124,7 @@ export function evaluateAutoForward(
     refusals.push("no_expense_match");
   }
 
-  if (
-    document.amount_cents !== null &&
-    document.amount_cents > settings.max_amount_cents
-  ) {
+  if (aboveCap(document, context.billedEurCents, settings.max_amount_cents)) {
     refusals.push("amount_above_cap");
   }
 
@@ -141,6 +143,32 @@ export function evaluateAutoForward(
       domain: senderDomain,
     },
   };
+}
+
+/**
+ * Le plafond s'applique à une valeur en **euros**, jamais à des centimes bruts.
+ *
+ * Le plafond est pensé en euros ; le montant d'une pièce est dans la devise du
+ * commerçant. Les comparer directement n'a aucun sens et se trompe dans les
+ * deux sens : une course Grab à 154 400 IDR — 7,56 € — pesait 15 440 000
+ * « centimes » et dépassait tous les plafonds, quand une pièce dans une devise
+ * forte serait passée sans examen.
+ *
+ * L'ordre : le débit réel du wallet d'abord, le montant de la pièce ensuite
+ * s'il est déjà en euros. Aucun des deux, aucun transfert — ne pas savoir
+ * combien on engage n'autorise pas à l'engager.
+ */
+export function aboveCap(
+  document: { amount_cents: number | null; currency: string | null },
+  billedEurCents: number | null,
+  capCents: number,
+): boolean {
+  if (billedEurCents !== null) return billedEurCents > capCents;
+  if (document.amount_cents === null) return false;
+  if (document.currency?.toUpperCase() === "EUR") {
+    return document.amount_cents > capCents;
+  }
+  return true;
 }
 
 /**

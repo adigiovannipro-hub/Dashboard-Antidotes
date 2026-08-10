@@ -2,9 +2,13 @@
 
 import { useActionState, useCallback, useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Search, ShieldAlert } from "lucide-react";
+import { Search, ShieldAlert, Zap } from "lucide-react";
 
-import { toggleEmergencyStop, type ReceiptResult } from "@/app/actions/recus";
+import {
+  toggleAutoForward,
+  toggleEmergencyStop,
+  type ReceiptResult,
+} from "@/app/actions/recus";
 import { DocumentDetail } from "@/components/recus/document-detail";
 import { DocumentList } from "@/components/recus/document-list";
 import { Input } from "@/components/ui/input";
@@ -54,8 +58,18 @@ export function Inbox({
     null,
   );
 
+  const [autoState, toggleAuto, togglingAuto] = useActionState<
+    ReceiptResult | null,
+    FormData
+  >(toggleAutoForward, null);
+
   const emergencyStopped = sources.some(
     (source) => source.settings.auto_forward.emergency_stop,
+  );
+  /* Ouvert dès qu'une boîte l'est : le réglage est global, et une boîte
+     ouverte suffit à ce que des pièces partent seules. */
+  const autoForwardOpen = sources.some(
+    (source) => source.settings.auto_forward.enabled,
   );
   const failing = sources.filter((source) => source.status === "error");
 
@@ -159,6 +173,37 @@ export function Inbox({
           />
         </form>
 
+        {/* Deux verrous, côte à côte : celui-ci ouvre la porte de
+            l'auto-transfert, la règle de chaque fournisseur dit qui la
+            franchit. L'ouvrir n'automatise donc personne à lui seul. */}
+        {canDecide ? (
+          <form action={toggleAuto}>
+            <input
+              type="hidden"
+              name="enabled"
+              value={autoForwardOpen ? "false" : "true"}
+            />
+            <button
+              type="submit"
+              disabled={togglingAuto}
+              title={
+                autoForwardOpen
+                  ? "Refermer : toutes les pièces repasseront par vous"
+                  : "Ouvrir : les fournisseurs approuvés partiront seuls"
+              }
+              className={cn(
+                "inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs transition-colors",
+                autoForwardOpen
+                  ? "bg-accent-subtle text-accent-ink font-medium"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              <Zap className="size-3.5" aria-hidden />
+              {autoForwardOpen ? "Auto-transfert ouvert" : "Auto-transfert fermé"}
+            </button>
+          </form>
+        ) : null}
+
         {/* L'arrêt d'urgence est à portée de main plutôt que caché dans des
             réglages : le moment où on en a besoin est le moment où on n'a pas
             envie de chercher. */}
@@ -191,6 +236,12 @@ export function Inbox({
       {failing.length > 0 ? (
         <p role="alert" className="text-danger-ink border-border border-b px-4 py-2 text-xs">
           {failing[0]!.email_address} : {failing[0]!.last_error}
+        </p>
+      ) : null}
+
+      {autoState && !autoState.ok ? (
+        <p className="border-border text-danger-ink border-b px-4 py-2 text-xs">
+          {autoState.error}
         </p>
       ) : null}
 
