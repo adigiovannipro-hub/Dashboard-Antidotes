@@ -78,9 +78,6 @@ export function InstallmentRow({
         <p className="type-label text-text-primary flex items-center gap-2">
           <span className="truncate">{line.client}</span>
           {late ? <StatusPill tone="danger">{LATE_LABEL}</StatusPill> : null}
-          {line.matched_invoice_id ? (
-            <StatusPill tone="positive">Airwallex</StatusPill>
-          ) : null}
         </p>
         <p className="type-caption text-text-secondary truncate">
           {line.project}
@@ -145,7 +142,6 @@ export function InvoiceRow({
         <p className="type-label text-text-primary flex items-center gap-2">
           <span className="truncate">{invoice.client_name}</span>
           {overdue ? <StatusPill tone="danger">{LATE_LABEL}</StatusPill> : null}
-          <StatusPill tone="positive">Airwallex</StatusPill>
         </p>
         <p className="type-caption text-text-secondary truncate">
           Facture hors devis

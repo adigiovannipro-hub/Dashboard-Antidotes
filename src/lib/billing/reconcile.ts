@@ -41,6 +41,7 @@ export type ReconcilableInstallment = Pick<
   | "issue_on"
   | "matched_invoice_id"
   | "archived_at"
+  | "issued_at"
   | "paid_at"
 > & { client_name: string };
 
@@ -126,13 +127,13 @@ export function reconcile(options: {
 
   /* Chronologique des deux côtés : deux mensualités identiques du même client
      s'apparient dans l'ordre, la plus ancienne facture soldant la plus
-     ancienne échéance. */
+     ancienne échéance. Les payées sans lien — statut posé à la main ou repris
+     du board Monday — cherchent aussi le leur : la facture apporte la date de
+     paiement réelle, jamais un recul de statut. */
   const openLines = options.installments
     .filter(
       (line) =>
-        (line.status === "pending" || line.status === "issued") &&
-        !line.matched_invoice_id &&
-        !line.archived_at,
+        line.status !== "skipped" && !line.matched_invoice_id && !line.archived_at,
     )
     .sort((a, b) => a.issue_on.localeCompare(b.issue_on));
 
@@ -160,32 +161,19 @@ export function reconcile(options: {
 
     used.add(invoice.id);
     const issuedAt = `${invoice.issued_on}T00:00:00.000Z`;
+    const set: ReconcileDecision["set"] = { matched_invoice_id: invoice.id };
 
+    /* Le statut n'avance que vers l'avant, et les horodatages déjà posés ne
+       se réécrivent pas — la facture ne fait que combler les absences. */
     if (invoice.status === "paid") {
-      decisions.push({
-        installment_id: line.id,
-        set: {
-          matched_invoice_id: invoice.id,
-          status: "paid",
-          issued_at: issuedAt,
-          paid_at: invoice.paid_at ?? nowIso,
-        },
-        reason: "matched",
-      });
+      if (line.status !== "paid") set.status = "paid";
+      if (!line.paid_at) set.paid_at = invoice.paid_at ?? nowIso;
     } else if (line.status === "pending") {
-      decisions.push({
-        installment_id: line.id,
-        set: { matched_invoice_id: invoice.id, status: "issued", issued_at: issuedAt },
-        reason: "matched",
-      });
-    } else {
-      // Déjà marquée facturée à la main : le lien suffit, l'histoire reste.
-      decisions.push({
-        installment_id: line.id,
-        set: { matched_invoice_id: invoice.id },
-        reason: "matched",
-      });
+      set.status = "issued";
     }
+    if (!line.issued_at) set.issued_at = issuedAt;
+
+    decisions.push({ installment_id: line.id, set, reason: "matched" });
   }
 
   // --- 3. Les payées anciennes descendent en archivé ------------------------

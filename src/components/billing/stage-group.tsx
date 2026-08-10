@@ -2,7 +2,6 @@ import { ChevronDown } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { Counter, Panel, PanelBody, PanelRows } from "@/components/ds/surface";
-import type { StatusTone } from "@/components/ds/status-pill";
 import {
   INSTALLMENT_GRID,
   InstallmentRow,
@@ -20,27 +19,18 @@ import {
 import type { InstallmentStage } from "@/lib/billing/types";
 
 /**
- * Un groupe de statut, calqué sur le board Monday : un titre encré de la
- * couleur du groupe, les lignes — mensualités de devis et factures Airwallex
- * hors devis mêlées — et la somme HT / TTC en pied. Les groupes froids —
- * payé, archivé — se replient sur leur somme, comme le groupe « Payée » du
- * board se repliait sur ses 109 clients.
+ * Un groupe de statut de l'écran Échéances — le fond du board Monday qu'il
+ * remplace (le flux par statut, les sommes par groupe), dans la forme du
+ * dashboard : un panneau Antidotes ordinaire, titre sobre, la couleur vit
+ * dans les pastilles de statut des lignes comme partout ailleurs. Les
+ * groupes froids — payé, archivé — se replient sur leur somme.
  *
  * Repli en `<details>` natif : pas d'état client, pas d'hydratation — un
  * groupe replié reste dépliable même pendant que React se réveille.
  */
 
-const TITLE_TONES: Record<StatusTone, string> = {
-  positive: "text-accent-ink",
-  warning: "text-warning-ink",
-  danger: "text-danger-ink",
-  info: "text-info-ink",
-  neutral: "text-text-primary",
-};
-
 export function StageGroup({
   title,
-  tone,
   description,
   stage,
   rows,
@@ -51,7 +41,6 @@ export function StageGroup({
   footnote,
 }: {
   title: string;
-  tone: StatusTone;
   description?: string;
   stage: InstallmentStage;
   rows: BoardRow[];
@@ -69,8 +58,7 @@ export function StageGroup({
 
   const heading = (
     <div className="min-w-0">
-      <h3 className={cn("type-h3 flex items-center gap-2", TITLE_TONES[tone])}>
-        <span aria-hidden className="size-2 shrink-0 rounded-pill bg-current" />
+      <h3 className="type-h3 flex items-center gap-2">
         {title}
         <Counter value={rows.length} />
       </h3>

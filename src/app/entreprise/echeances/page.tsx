@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { CalendarCheck, FileClock, Hourglass, Repeat } from "lucide-react";
+import { FileClock, Repeat, Send, TriangleAlert } from "lucide-react";
 
 import { StatCard, StatGrid } from "@/components/ds/stat-card";
 import { Panel, PanelBody, PanelHeader, SectionHeader } from "@/components/ds/surface";
@@ -9,16 +9,20 @@ import type { BoardRow, InstallmentLine } from "@/components/billing/installment
 import { NewEngagementDialog } from "@/components/billing/new-engagement-dialog";
 import { StageGroup } from "@/components/billing/stage-group";
 import { requireFinanceAccess } from "@/lib/finance/access";
+import { isOverdue } from "@/lib/finance/invoices";
+import { formatMoney } from "@/lib/finance/money";
 import { formatTotals, monthLabel } from "@/lib/billing/format";
 import {
   addMonths,
   addTotals,
   billingForecast,
   currentMonth,
+  forecastAverage,
   scheduleKpis,
   stageOf,
   stageOfInvoice,
   totalsOf,
+  wasIssuedInMonth,
 } from "@/lib/billing/schedule";
 import {
   listEngagements,
@@ -85,7 +89,13 @@ export default async function EcheancesPage() {
     const stage = stageOfInvoice(invoice, now);
     if (stage) groups[stage].push({ kind: "invoice", invoice });
   }
-  groups.invoiced.sort(byBoardDate);
+  /* « Facturée » se lit dans l'ordre d'émission — les premières parties en
+     premier — et les retards de paiement descendent en bas du groupe. */
+  groups.invoiced.sort((a, b) => {
+    const lateGap = Number(isRowOverdue(a, now)) - Number(isRowOverdue(b, now));
+    if (lateGap !== 0) return lateGap;
+    return issuedDateOf(a).localeCompare(issuedDateOf(b));
+  });
   groups.paid.sort(byBoardDate);
   groups.archived.sort(byBoardDate);
 
@@ -99,28 +109,29 @@ export default async function EcheancesPage() {
   const confirmedLater = confirmedLines.filter((line) => line.issue_on > horizon);
   const lastPlanned = confirmedLines.at(-1);
 
-  /* Les cartes du haut comptent les deux sources : ce qui attend un règlement
-     et ce qui est entré ce mois-ci incluent les factures hors devis. */
+  /* Les cartes du haut : ce qui doit partir, ce qui est parti ce mois-ci face
+     au prévu, ce qui traîne, et le loyer moyen des devis confirmés. */
   const kpis = scheduleKpis(living, now);
   const month = currentMonth(now).slice(0, 7);
-  const orphanAwaiting = orphanInvoices.filter(
-    (invoice) => stageOfInvoice(invoice, now) === "invoiced",
-  );
-  const orphanPaidThisMonth = orphanInvoices.filter(
-    (invoice) => invoice.status === "paid" && invoice.paid_at?.slice(0, 7) === month,
-  );
-  const awaitingTotals = addTotals(kpis.awaitingPayment.totals, totalsOf(orphanAwaiting));
-  const awaitingCount = kpis.awaitingPayment.count + orphanAwaiting.length;
-  const paidMonthTotals = addTotals(kpis.paidThisMonth.totals, totalsOf(orphanPaidThisMonth));
-  const paidMonthCount = kpis.paidThisMonth.count + orphanPaidThisMonth.length;
+  const forecast = billingForecast(living, { months: 12, now });
 
-  const activeEngagements = engagements.filter((engagement) => engagement.status === "active");
-  const monthlyRecurring = totalsOf(
-    activeEngagements.map((engagement) => ({
-      amount_cents: engagement.monthly_amount_cents,
-      currency: engagement.currency,
-    })),
+  const issuedMonthLines = lines.filter((line) => wasIssuedInMonth(line, month));
+  const issuedMonthInvoices = orphanInvoices.filter(
+    (invoice) => invoice.issued_on?.slice(0, 7) === month,
   );
+  const issuedMonthTotals = addTotals(
+    totalsOf(issuedMonthLines),
+    totalsOf(issuedMonthInvoices),
+  );
+  const issuedMonthCount = issuedMonthLines.length + issuedMonthInvoices.length;
+  const plannedThisMonth = forecast[0]?.amount_cents ?? 0;
+
+  const overdueInvoices = orphanInvoices.filter((invoice) => isOverdue(invoice, now));
+  const lateTotals = addTotals(kpis.late.totals, totalsOf(overdueInvoices));
+  const lateCount = kpis.late.count + overdueInvoices.length;
+
+  const averageMonthly = forecastAverage(forecast);
+  const forecastMonths = forecast.filter((point) => point.count > 0).length;
 
   /* Le détail d'un devis montre toute sa vie, mois archivés compris. */
   const linesByEngagement: Record<string, InstallmentLine[]> = {};
@@ -136,7 +147,7 @@ export default async function EcheancesPage() {
     <div className="space-y-6">
       <SectionHeader
         title="Échéances de facturation"
-        description="Chaque devis signé engendre ses mensualités — et les factures Airwallex s'affichent même sans devis : l'écran montre la facturation réelle."
+        description="Chaque devis signé engendre ses mensualités — et les factures émises hors devis s'affichent aussi : l'écran montre la facturation réelle."
         action={
           context.canDecide ? <NewEngagementDialog knownClients={knownClients} /> : undefined
         }
@@ -151,26 +162,37 @@ export default async function EcheancesPage() {
               ? `${kpis.toInvoice.count} facture${kpis.toInvoice.count > 1 ? "s" : ""} à émettre en HT`
               : "rien à émettre aujourd'hui"
           }
-          tone={kpis.late.count > 0 ? "danger" : undefined}
-          toneLabel={kpis.late.count > 0 ? `${kpis.late.count} en retard` : undefined}
           icon={FileClock}
         />
         <StatCard
-          label="En attente de paiement"
-          value={awaitingCount > 0 ? formatTotals(awaitingTotals) : "0 €"}
-          context={`${awaitingCount} facture${awaitingCount > 1 ? "s" : ""} émise${awaitingCount > 1 ? "s" : ""}, Airwallex compris`}
-          icon={Hourglass}
+          label={`Facturé en ${monthLabel(currentMonth(now)).split(" ")[0]}`}
+          value={issuedMonthCount > 0 ? formatTotals(issuedMonthTotals) : "0 €"}
+          context={
+            plannedThisMonth > 0
+              ? `sur ${formatMoney(plannedThisMonth, "EUR")} prévus aux devis ce mois-ci`
+              : `${issuedMonthCount} facture${issuedMonthCount > 1 ? "s" : ""} émise${issuedMonthCount > 1 ? "s" : ""} ce mois-ci`
+          }
+          icon={Send}
         />
         <StatCard
-          label={`Encaissé en ${monthLabel(currentMonth(now)).split(" ")[0]}`}
-          value={paidMonthCount > 0 ? formatTotals(paidMonthTotals) : "0 €"}
-          context={`${paidMonthCount} paiement${paidMonthCount > 1 ? "s" : ""} reçu${paidMonthCount > 1 ? "s" : ""} ce mois-ci`}
-          icon={CalendarCheck}
+          label="En retard"
+          value={lateCount > 0 ? formatTotals(lateTotals) : "0 €"}
+          valueTone={lateCount > 0 ? "warning" : undefined}
+          context={
+            lateCount > 0
+              ? `${kpis.late.count} à émettre · ${overdueInvoices.length} impayée${overdueInvoices.length > 1 ? "s" : ""} échue${overdueInvoices.length > 1 ? "s" : ""}`
+              : "rien ne traîne"
+          }
+          icon={TriangleAlert}
         />
         <StatCard
           label="Récurrent mensuel"
-          value={activeEngagements.length > 0 ? formatTotals(monthlyRecurring) : "0 €"}
-          context={`${activeEngagements.length} devis en cours, mensualité HT`}
+          value={averageMonthly > 0 ? formatMoney(averageMonthly, "EUR") : "0 €"}
+          context={
+            forecastMonths > 0
+              ? `moyenne HT des ${forecastMonths} prochains mois aux devis`
+              : "aucun devis confirmé à venir"
+          }
           icon={Repeat}
         />
       </StatGrid>
@@ -181,14 +203,13 @@ export default async function EcheancesPage() {
           description="La facturation à venir, tirée des mensualités des devis signés — la courbe bouge à chaque devis ajouté ou ajusté, jamais avec les factures libres."
         />
         <PanelBody>
-          <ForecastChart points={billingForecast(living, { months: 12, now })} />
+          <ForecastChart points={forecast} />
         </PanelBody>
       </Panel>
 
       <StageGroup
         title="À facturer"
-        tone="warning"
-        description="Le mois de prestation est terminé : ces factures doivent partir. « Facturée » se coche seul dès qu'Airwallex voit la facture."
+        description="Le mois de prestation est terminé : ces factures doivent partir. « Facturée » se coche seule à la synchronisation suivante."
         stage="to_invoice"
         rows={groups.to_invoice}
         canDecide={context.canDecide}
@@ -197,8 +218,7 @@ export default async function EcheancesPage() {
 
       <StageGroup
         title="Facturée"
-        tone="info"
-        description="Émises dans Airwallex — mensualités de devis ou factures libres — en attente du règlement client."
+        description="Émises, en attente du règlement client — les premières parties en premier, les retards de paiement en bas."
         stage="invoiced"
         rows={groups.invoiced}
         canDecide={context.canDecide}
@@ -207,7 +227,6 @@ export default async function EcheancesPage() {
 
       <StageGroup
         title="Payée"
-        tone="positive"
         description="Encaissées ces deux derniers mois — ensuite, l'archivage descend les lignes tout seul."
         stage="paid"
         rows={groups.paid}
@@ -218,7 +237,6 @@ export default async function EcheancesPage() {
 
       <StageGroup
         title="Devis confirmé"
-        tone="neutral"
         description="Les mensualités à venir : chacune passera « À facturer » le 1er du mois suivant sa prestation."
         stage="confirmed"
         rows={confirmedSoon}
@@ -240,7 +258,6 @@ export default async function EcheancesPage() {
       {groups.archived.length > 0 ? (
         <StageGroup
           title="Archivé"
-          tone="neutral"
           description="Payées et classées — les soixante jours passés, tout descend ici."
           stage="archived"
           rows={groups.archived}
@@ -263,4 +280,19 @@ function boardDateOf(row: BoardRow): string {
 
 function byBoardDate(a: BoardRow, b: BoardRow): number {
   return boardDateOf(a).localeCompare(boardDateOf(b));
+}
+
+/** La date d'émission réelle quand elle existe, le jour prévu sinon. */
+function issuedDateOf(row: BoardRow): string {
+  if (row.kind === "installment") {
+    return row.line.issued_at?.slice(0, 10) ?? row.line.issue_on;
+  }
+  return row.invoice.issued_on ?? "9999-12-31";
+}
+
+/* Seule une facture émise porte une échéance de règlement : le retard de
+   paiement n'existe que sur les factures libres, une mensualité facturée n'a
+   pas de date limite propre. */
+function isRowOverdue(row: BoardRow, now: Date): boolean {
+  return row.kind === "invoice" && isOverdue(row.invoice, now);
 }

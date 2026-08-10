@@ -18,6 +18,10 @@ on:
         description: "Amorcer les données de démonstration Finance"
         type: boolean
         default: false
+      import_billing_monday:
+        description: "Reprendre le board Monday Échéances (une fois, sans doublon)"
+        type: boolean
+        default: false
       seed_reset:
         description: "… en effaçant d'abord les données Finance (--reset)"
         type: boolean
@@ -60,6 +64,12 @@ jobs:
       # `db:migrate` ne rejoue jamais ce qui est déjà appliqué.
       - name: Migrations
         run: pnpm db:migrate
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+
+      - name: Reprise du board Monday Échéances
+        if: ${{ inputs.import_billing_monday }}
+        run: pnpm import:billing-monday
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
 

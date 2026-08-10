@@ -86,9 +86,11 @@ function Chart({ points }: { points: ForecastPoint[] }) {
   const top = Math.max(...data.map((point) => point.montant), 1_000);
 
   return (
-    <div style={{ height: 240 }}>
+    /* Volontairement bas : la courbe donne la tendance d'un coup d'œil, les
+       groupes en dessous restent la matière de l'écran. */
+    <div style={{ height: 160 }}>
       <ResponsiveContainer width="100%" height="100%">
-        <AreaChart data={data} margin={{ top: 16, right: 8, bottom: 4, left: 0 }}>
+        <AreaChart data={data} margin={{ top: 10, right: 8, bottom: 0, left: 0 }}>
           <defs>
             <linearGradient id="previsionnel" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor="var(--accent)" stopOpacity={0.28} />

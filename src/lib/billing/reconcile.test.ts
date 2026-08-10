@@ -20,6 +20,7 @@ const makeInstallment = (
   issue_on: "2026-08-01",
   matched_invoice_id: null,
   archived_at: null,
+  issued_at: null,
   paid_at: null,
   client_name: "I-WAY",
   ...overrides,
@@ -105,7 +106,7 @@ describe("reconcile", () => {
     ]);
   });
 
-  it("garde le statut posé à la main : la facture trouvée n'ajoute que le lien", () => {
+  it("garde le statut posé à la main et comble la date d'émission absente", () => {
     // Marquée facturée avant que le rapprochement ne trouve la facture.
     const decisions = reconcile({
       installments: [makeInstallment({ status: "issued" })],
@@ -116,7 +117,64 @@ describe("reconcile", () => {
     expect(decisions).toEqual([
       {
         installment_id: "inst-1",
+        set: { matched_invoice_id: "fac-1", issued_at: "2026-08-01T00:00:00.000Z" },
+        reason: "matched",
+      },
+    ]);
+  });
+
+  it("ne réécrit pas une date d'émission déjà posée", () => {
+    const decisions = reconcile({
+      installments: [
+        makeInstallment({ status: "issued", issued_at: "2026-07-30T09:00:00.000Z" }),
+      ],
+      invoices: [makeInvoice()],
+      now: NOW,
+    });
+
+    expect(decisions).toEqual([
+      {
+        installment_id: "inst-1",
         set: { matched_invoice_id: "fac-1" },
+        reason: "matched",
+      },
+    ]);
+  });
+
+  it("relie une payée sans lien et lui apporte la date de paiement réelle", () => {
+    // Le statut vient du board Monday ; la facture apporte la date, rien ne recule.
+    const decisions = reconcile({
+      installments: [makeInstallment({ status: "paid" })],
+      invoices: [
+        makeInvoice({ status: "paid", paid_at: "2026-08-04T08:00:00.000Z" }),
+      ],
+      now: NOW,
+    });
+
+    expect(decisions).toEqual([
+      {
+        installment_id: "inst-1",
+        set: {
+          matched_invoice_id: "fac-1",
+          issued_at: "2026-08-01T00:00:00.000Z",
+          paid_at: "2026-08-04T08:00:00.000Z",
+        },
+        reason: "matched",
+      },
+    ]);
+  });
+
+  it("relie une payée à une facture seulement émise sans la faire reculer", () => {
+    const decisions = reconcile({
+      installments: [makeInstallment({ status: "paid" })],
+      invoices: [makeInvoice({ status: "sent" })],
+      now: NOW,
+    });
+
+    expect(decisions).toEqual([
+      {
+        installment_id: "inst-1",
+        set: { matched_invoice_id: "fac-1", issued_at: "2026-08-01T00:00:00.000Z" },
         reason: "matched",
       },
     ]);

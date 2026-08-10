@@ -143,10 +143,13 @@ function EngagementDetails({
   );
 }
 
+/* La sémantique de la charte, identique au dashboard Finance : tout
+   l'en-cours non payé est orange — à émettre comme émise, le libellé fait la
+   différence —, l'encaissé est vert, le planifié bleu, le classé gris. */
 const MONTH_STAGE_TONES: Record<InstallmentStage, React.ComponentProps<typeof StatusPill>["tone"]> = {
   confirmed: "info",
   to_invoice: "warning",
-  invoiced: "info",
+  invoiced: "warning",
   paid: "positive",
   archived: "neutral",
   skipped: "neutral",

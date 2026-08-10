@@ -19,6 +19,7 @@
     "db:status": "tsx scripts/migrate.ts --status",
     "sync": "tsx scripts/sync.ts",
     "import:monday": "tsx scripts/import-monday.ts",
+    "import:billing-monday": "tsx scripts/import-billing-monday.ts",
     "seed:moderation": "tsx scripts/seed-moderation.ts",
     "seed:planning": "tsx scripts/seed-planning.ts",
     "seed:finance": "tsx scripts/seed-finance.ts",

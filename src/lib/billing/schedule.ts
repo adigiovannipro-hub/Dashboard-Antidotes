@@ -263,13 +263,38 @@ export function billingForecast(
 }
 
 /**
+ * La mensualité facturée dans le mois calendaire donné (`AAAA-MM`). La date
+ * d'émission réelle fait foi ; à défaut — statut repris du board Monday sans
+ * date —, le jour prévu la remplace.
+ */
+export function wasIssuedInMonth(
+  line: Pick<BillingInstallment, "status" | "issued_at" | "issue_on">,
+  isoMonth: string,
+): boolean {
+  if (line.status !== "issued" && line.status !== "paid") return false;
+  const issued = line.issued_at?.slice(0, 7) ?? line.issue_on.slice(0, 7);
+  return issued === isoMonth;
+}
+
+/**
+ * La mensualité moyenne des mois à venir — le « récurrent » honnête : un mois
+ * où deux devis se chevauchent pèse plus lourd qu'un mois de fin de contrat,
+ * et la moyenne le dit. Les mois vides ne comptent pas : un trou de
+ * facturation n'est pas un loyer à zéro.
+ */
+export function forecastAverage(points: readonly ForecastPoint[]): number {
+  const active = points.filter((point) => point.count > 0);
+  if (active.length === 0) return 0;
+  const total = active.reduce((sum, point) => sum + point.amount_cents, 0);
+  return Math.round(total / active.length);
+}
+
+/**
  * La bande de mesures de l'écran, dérivée d'un seul passage sur les lignes.
  *
  *   • `toInvoice` — à facturer maintenant : le mois de prestation est fini,
  *     la facture n'est pas partie.
  *   • `late` — le sous-ensemble de `toInvoice` dont le jour est dépassé.
- *   • `awaitingPayment` — facturé, en attente de règlement du client.
- *   • `paidThisMonth` — encaissé sur le mois calendaire en cours.
  *
  * Tous les montants sont HT — le pilotage se fait en HT, le TTC vit dans les
  * pieds de groupe.
@@ -277,34 +302,18 @@ export function billingForecast(
 export function scheduleKpis(
   installments: readonly Pick<
     BillingInstallment,
-    "status" | "issue_on" | "amount_cents" | "currency" | "paid_at" | "archived_at"
+    "status" | "issue_on" | "amount_cents" | "currency"
   >[],
   now: Date = new Date(),
 ): {
   toInvoice: { count: number; totals: CurrencyTotals };
   late: { count: number; totals: CurrencyTotals };
-  awaitingPayment: { count: number; totals: CurrencyTotals };
-  paidThisMonth: { count: number; totals: CurrencyTotals };
 } {
-  const month = currentMonth(now).slice(0, 7);
-
   const toInvoice = installments.filter((line) => isDue(line, now));
   const late = installments.filter((line) => isLate(line, now));
-  const awaitingPayment = installments.filter((line) => line.status === "issued");
-  const paidThisMonth = installments.filter(
-    (line) => line.status === "paid" && line.paid_at?.slice(0, 7) === month,
-  );
 
   return {
     toInvoice: { count: toInvoice.length, totals: totalsOf(toInvoice) },
     late: { count: late.length, totals: totalsOf(late) },
-    awaitingPayment: {
-      count: awaitingPayment.length,
-      totals: totalsOf(awaitingPayment),
-    },
-    paidThisMonth: {
-      count: paidThisMonth.length,
-      totals: totalsOf(paidThisMonth),
-    },
   };
 }

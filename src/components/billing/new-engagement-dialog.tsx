@@ -61,7 +61,7 @@ export function NewEngagementDialog({ knownClients }: { knownClients: string[] }
             <DialogTitle>Nouveau devis signé</DialogTitle>
             <DialogDescription>
               Une saisie unique : les mensualités se génèrent, puis avancent
-              toutes seules avec Airwallex.
+              toutes seules au fil de la facturation.
             </DialogDescription>
           </DialogHeader>
 

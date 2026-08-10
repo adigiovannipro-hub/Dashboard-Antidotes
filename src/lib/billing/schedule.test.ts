@@ -4,6 +4,7 @@ import {
   addMonths,
   addTotals,
   billingForecast,
+  forecastAverage,
   installmentsFor,
   isDue,
   isLate,
@@ -17,6 +18,7 @@ import {
   totalsOf,
   ttcCentsOf,
   ttcTotalsOf,
+  wasIssuedInMonth,
 } from "./schedule";
 
 const NOW = new Date("2026-08-07T10:00:00.000Z");
@@ -230,22 +232,40 @@ describe("ttcTotalsOf", () => {
 describe("scheduleKpis", () => {
   const lines = [
     // En retard : aurait dû partir le 1er août.
-    { status: "pending", issue_on: "2026-08-01", amount_cents: 250_000, currency: "EUR", paid_at: null, archived_at: null },
-    // Facturée : en attente de règlement.
-    { status: "issued", issue_on: "2026-08-01", amount_cents: 180_000, currency: "EUR", paid_at: null, archived_at: null },
-    // Payée ce mois-ci : encaissé du mois.
-    { status: "paid", issue_on: "2026-07-01", amount_cents: 95_000, currency: "EUR", paid_at: "2026-08-05T09:00:00Z", archived_at: null },
-    // Payée en juin : rien pour ce mois-ci.
-    { status: "paid", issue_on: "2026-06-01", amount_cents: 70_000, currency: "EUR", paid_at: "2026-06-20T09:00:00Z", archived_at: null },
+    { status: "pending", issue_on: "2026-08-01", amount_cents: 250_000, currency: "EUR" },
+    // Facturée : plus rien à émettre.
+    { status: "issued", issue_on: "2026-08-01", amount_cents: 180_000, currency: "EUR" },
     // À venir le mois prochain : nulle part.
-    { status: "pending", issue_on: "2026-09-01", amount_cents: 120_000, currency: "EUR", paid_at: null, archived_at: null },
+    { status: "pending", issue_on: "2026-09-01", amount_cents: 120_000, currency: "EUR" },
   ] as const;
 
-  it("répartit à facturer, retard, attente de paiement et encaissé du mois", () => {
+  it("répartit à facturer et retard", () => {
     const kpis = scheduleKpis(lines, NOW);
     expect(kpis.toInvoice).toEqual({ count: 1, totals: { EUR: 250_000 } });
     expect(kpis.late).toEqual({ count: 1, totals: { EUR: 250_000 } });
-    expect(kpis.awaitingPayment).toEqual({ count: 1, totals: { EUR: 180_000 } });
-    expect(kpis.paidThisMonth).toEqual({ count: 1, totals: { EUR: 95_000 } });
+  });
+});
+
+describe("wasIssuedInMonth", () => {
+  it("juge sur la date d'émission réelle, jour prévu en secours", () => {
+    expect(wasIssuedInMonth({ status: "issued", issued_at: "2026-08-03T10:00:00Z", issue_on: "2026-07-01" }, "2026-08")).toBe(true);
+    // Reprise Monday sans date : le jour prévu fait foi.
+    expect(wasIssuedInMonth({ status: "paid", issued_at: null, issue_on: "2026-08-01" }, "2026-08")).toBe(true);
+    expect(wasIssuedInMonth({ status: "issued", issued_at: "2026-07-30T10:00:00Z", issue_on: "2026-08-01" }, "2026-08")).toBe(false);
+    // Pas encore émise : rien à compter.
+    expect(wasIssuedInMonth({ status: "pending", issued_at: null, issue_on: "2026-08-01" }, "2026-08")).toBe(false);
+  });
+});
+
+describe("forecastAverage", () => {
+  it("moyenne les mois actifs, ignore les mois vides", () => {
+    expect(
+      forecastAverage([
+        { month: "2026-08", amount_cents: 600_000, count: 3 },
+        { month: "2026-09", amount_cents: 400_000, count: 2 },
+        { month: "2026-10", amount_cents: 0, count: 0 },
+      ]),
+    ).toBe(500_000);
+    expect(forecastAverage([])).toBe(0);
   });
 });
