@@ -172,6 +172,48 @@ describe("reconcile", () => {
     ]);
   });
 
+  it("aligne le montant d'une échéance rapprochée de longue date", () => {
+    // Le cas qui faisait diverger cet écran et le dashboard Finance : le lien
+    // était posé depuis un passage précédent, et seul le devis parlait.
+    const decisions = reconcile({
+      installments: [
+        makeInstallment({
+          status: "issued",
+          vat_rate: 0,
+          amount_cents: 210_250,
+          matched_invoice_id: "fac-1",
+        }),
+      ],
+      invoices: [makeInvoice({ amount_cents: 210_200 })],
+      now: NOW,
+    });
+
+    expect(decisions).toEqual([
+      {
+        installment_id: "inst-1",
+        set: { amount_cents: 210_200 },
+        reason: "advanced",
+      },
+    ]);
+  });
+
+  it("ne réécrit pas le devis quand la facture rapprochée porte un tout autre montant", () => {
+    const decisions = reconcile({
+      installments: [
+        makeInstallment({
+          status: "issued",
+          vat_rate: 0,
+          amount_cents: 210_250,
+          matched_invoice_id: "fac-1",
+        }),
+      ],
+      invoices: [makeInvoice({ amount_cents: 90_000 })],
+      now: NOW,
+    });
+
+    expect(decisions).toEqual([]);
+  });
+
   it("garde le statut posé à la main et comble la date d'émission absente", () => {
     // Marquée facturée avant que le rapprochement ne trouve la facture.
     const decisions = reconcile({

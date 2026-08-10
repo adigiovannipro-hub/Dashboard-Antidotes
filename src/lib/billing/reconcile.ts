@@ -169,16 +169,37 @@ export function reconcile(options: {
 
   for (const line of options.installments) {
     if (!line.matched_invoice_id) continue;
-    if (line.status === "paid" || line.status === "skipped") continue;
+    if (line.status === "skipped") continue;
 
     const invoice = invoiceById.get(line.matched_invoice_id);
-    if (invoice?.status !== "paid") continue;
+    if (!invoice) continue;
 
-    decisions.push({
-      installment_id: line.id,
-      set: { status: "paid", paid_at: invoice.paid_at ?? nowIso },
-      reason: "advanced",
-    });
+    const set: ReconcileDecision["set"] = {};
+
+    /* Le statut avance, jamais l'inverse : il ne recule pas même si la
+       facture disparaît du miroir. */
+    if (invoice.status === "paid" && line.status !== "paid") {
+      set.status = "paid";
+      set.paid_at = invoice.paid_at ?? nowIso;
+    }
+
+    /* Le montant suit la facture **même sur un lien déjà posé**. Sans cette
+       reprise, seules les lignes rapprochées à ce passage-ci s'alignaient :
+       les anciennes gardaient le chiffre du devis, et le même impayé
+       s'affichait à 2 102,50 ici et à 2 102,00 dans Finance. L'écart reste
+       borné par la tolérance — au-delà, ce n'est plus une coquille de
+       saisie mais une autre prestation, et on ne réécrit pas le devis. */
+    const billedHt = htCentsOf(invoice.amount_cents, line.vat_rate);
+    if (
+      billedHt !== line.amount_cents &&
+      amountsAgree(ttcCentsOf(line.amount_cents, line.vat_rate), invoice.amount_cents)
+    ) {
+      set.amount_cents = billedHt;
+    }
+
+    if (Object.keys(set).length > 0) {
+      decisions.push({ installment_id: line.id, set, reason: "advanced" });
+    }
   }
 
   // --- 2. Les ouvertes cherchent leur facture -------------------------------
