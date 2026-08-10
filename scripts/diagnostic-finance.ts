@@ -189,12 +189,16 @@ async function main() {
       }
     }
 
+    /* Tous les états, pas seulement l'attente : « rapproché » ne dit rien de
+       l'envoi, et c'est précisément là que se loge la confusion. */
     const { rows: pending } = await db.query(`
       select merchant, amount_cents, currency, document_date::text,
-             status, match_method, expense_id is not null as rapprochee
+             status::text, match_method::text,
+             expense_id is not null as rapprochee,
+             pdf_storage_path is not null as pdf_fidele_pret,
+             forwarded_at::text, failure_reason
       from receipt_documents
-      where status = 'awaiting_validation'
-      order by received_at desc limit 10`);
+      order by received_at desc limit 12`);
     console.table(pending);
 
     console.log("═══ DÉPENSES — par nature de sortie ═══");

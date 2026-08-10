@@ -26,7 +26,9 @@ export type ReceiptResult =
   | { ok: true; message: string }
   | { ok: false; error: string };
 
-const RECEIPTS_PATH = "/entreprise/recus";
+/* Les reçus se traitent dans la page Finance : c'est elle qu'il faut
+   rafraîchir après une décision, la page dédiée n'existant plus. */
+const RECEIPTS_PATH = "/entreprise/finance";
 
 async function requireDecider(documentId: string) {
   const viewer = await getViewer();
@@ -111,8 +113,22 @@ export async function approveDocument(
   }
 }
 
-/** Refus : la pièce est écartée, et le fournisseur perd son automatisme. */
-export async function ignoreDocument(
+/**
+ * Archivage : la pièce sort de la liste de travail.
+ *
+ * Un seul bouton, deux sens, que distingue ce qui s'est déjà passé :
+ *
+ * — une pièce **jamais partie** qu'on archive, c'est un refus. Le fournisseur
+ *   perd son automatisme, parce que le cas n'était pas aussi routinier qu'il
+ *   en avait l'air et que continuer à envoyer tout seul après un désaccord
+ *   serait le contraire d'apprendre.
+ * — une pièce **déjà transférée** qu'on archive, c'est du rangement : Airwallex
+ *   n'a pas su l'accrocher, on l'a fait à la main dans leur interface. Rien à
+ *   reprocher à personne, le compteur du fournisseur ne bouge pas.
+ *
+ * C'est la distinction qui interdisait de réutiliser « ignoré » pour les deux.
+ */
+export async function archiveDocument(
   _previous: ReceiptResult | null,
   formData: FormData,
 ): Promise<ReceiptResult> {
@@ -121,94 +137,34 @@ export async function ignoreDocument(
 
   try {
     const { viewer, document } = await requireDecider(parsed.data.documentId);
+    const sent = document.forwarded_at !== null;
 
     await createAdminClient()
       .from("receipt_documents")
       .update({
-        status: "ignored",
+        status: sent ? "archived" : "ignored",
         decided_by: viewer.user.id,
         decided_at: new Date().toISOString(),
         auto_decided: false,
       })
       .eq("id", document.id);
 
-    /* Un refus retire l'automatisme du fournisseur, en plus de compter. Le cas
-       n'est pas aussi routinier qu'il en avait l'air, et continuer à envoyer
-       tout seul après un désaccord serait le contraire d'apprendre. */
-    await bumpRule(document, { rejections: 1, disableAuto: true });
+    if (!sent) await bumpRule(document, { rejections: 1, disableAuto: true });
 
     await audit({
       orgId: document.org_id,
       documentId: document.id,
       actorId: viewer.user.id,
-      action: "document.ignored",
+      action: "document.archived",
       before: { status: document.status },
-      after: { status: "ignored" },
+      after: { status: sent ? "archived" : "ignored" },
     });
 
     revalidatePath(RECEIPTS_PATH);
-    return { ok: true, message: "Pièce écartée." };
-  } catch (error) {
     return {
-      ok: false,
-      error: error instanceof Error ? error.message : "Action impossible.",
+      ok: true,
+      message: sent ? "Pièce archivée." : "Pièce écartée.",
     };
-  }
-}
-
-const relinkAction = z.object({
-  documentId: z.uuid(),
-  expenseId: z.uuid(),
-});
-
-/** Corrige la ligne de frais pressentie avant transfert. */
-export async function relinkDocument(
-  _previous: ReceiptResult | null,
-  formData: FormData,
-): Promise<ReceiptResult> {
-  const parsed = relinkAction.safeParse({
-    documentId: formData.get("documentId"),
-    expenseId: formData.get("expenseId"),
-  });
-  if (!parsed.success) return { ok: false, error: "Requête incomplète." };
-
-  try {
-    const { viewer, document, context } = await requireDecider(parsed.data.documentId);
-
-    const admin = createAdminClient();
-
-    // La dépense doit appartenir à la même organisation : sans cette
-    // vérification, un identifiant deviné rattacherait une pièce ailleurs.
-    const { data: expense } = await admin
-      .from("receipt_expenses")
-      .select("id")
-      .eq("id", parsed.data.expenseId)
-      .eq("org_id", context.orgId)
-      .maybeSingle();
-    if (!expense) return { ok: false, error: "Ligne de frais introuvable." };
-
-    await admin
-      .from("receipt_documents")
-      .update({
-        expense_id: parsed.data.expenseId,
-        match_method: "manual",
-        // Un choix humain vaut mieux qu'un score : la confiance est portée au
-        // maximum, et c'est bien ce qu'on veut dire.
-        match_confidence: 1,
-      })
-      .eq("id", document.id);
-
-    await audit({
-      orgId: document.org_id,
-      documentId: document.id,
-      actorId: viewer.user.id,
-      action: "document.relinked",
-      before: { expense_id: document.expense_id },
-      after: { expense_id: parsed.data.expenseId },
-    });
-
-    revalidatePath(RECEIPTS_PATH);
-    return { ok: true, message: "Ligne de frais corrigée." };
   } catch (error) {
     return {
       ok: false,
@@ -263,6 +219,65 @@ export async function setMerchantAutomation(
       message: enabled
         ? `Les factures de ${parsed.data.domain} partiront désormais toutes seules.`
         : `Les factures de ${parsed.data.domain} repasseront par vous.`,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : "Action impossible.",
+    };
+  }
+}
+
+/**
+ * Ouvre ou referme l'auto-transfert, globalement.
+ *
+ * Deux verrous et non un : celui-ci ouvre la porte, la règle de chaque
+ * fournisseur dit qui peut la franchir. Ouvrir ici ne déclenche donc rien
+ * pour un marchand qu'on n'a pas approuvé — c'est ce qui permet de
+ * n'automatiser qu'un fournisseur à la fois.
+ *
+ * Distinct de l'arrêt d'urgence, qui coupe sans défaire le réglage : celui-là
+ * se lève d'un clic, celui-ci se repense.
+ */
+export async function toggleAutoForward(
+  _previous: ReceiptResult | null,
+  formData: FormData,
+): Promise<ReceiptResult> {
+  const enabled = formData.get("enabled") === "true";
+
+  try {
+    const viewer = await getViewer();
+    const context = await getReceiptsContext();
+    if (!viewer || !context?.canDecide) {
+      return { ok: false, error: "Action indisponible." };
+    }
+
+    const admin = createAdminClient();
+
+    for (const source of context.sources) {
+      await admin
+        .from("receipt_sources")
+        .update({
+          settings: {
+            ...source.settings,
+            auto_forward: { ...source.settings.auto_forward, enabled },
+          } as never,
+        })
+        .eq("id", source.id);
+    }
+
+    await admin.from("receipt_events").insert({
+      org_id: context.orgId,
+      actor_id: viewer.user.id,
+      action: enabled ? "automation.enabled" : "automation.disabled",
+    });
+
+    revalidatePath(RECEIPTS_PATH);
+    return {
+      ok: true,
+      message: enabled
+        ? "Auto-transfert ouvert. Seuls les fournisseurs que vous avez approuvés partiront seuls ; les autres continuent de passer par vous."
+        : "Auto-transfert refermé. Toutes les pièces passent par vous.",
     };
   } catch (error) {
     return {

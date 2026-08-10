@@ -497,14 +497,27 @@ async function ingestMessage(context: {
     .eq("sender_domain", domain)
     .maybeSingle();
 
+  /* Le débit réel de la dépense rapprochée : c'est lui, en euros, que le
+     plafond compare — le montant de la pièce est dans la devise du
+     commerçant, et 154 400 IDR n'est pas 154 400 €. */
+  const matched = expenses.find(
+    (expense) => expense.id === match.best?.expense_id,
+  );
+  const billedEurCents =
+    matched?.billing_currency?.toUpperCase() === "EUR"
+      ? matched.billing_amount_cents
+      : null;
+
   const decision = evaluateAutoForward({
     settings: settings.auto_forward,
     document: {
       kind: extraction.kind,
       classification_confidence: extraction.confidence,
       amount_cents: extraction.amount_cents,
+      currency: extraction.currency,
       status: "awaiting_validation",
     },
+    billedEurCents,
     match,
     rule: (ruleRow as { auto_forward: boolean } | null) ?? null,
     senderDomain: domain,
