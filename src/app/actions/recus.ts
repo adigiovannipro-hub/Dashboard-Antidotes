@@ -26,7 +26,9 @@ export type ReceiptResult =
   | { ok: true; message: string }
   | { ok: false; error: string };
 
-const RECEIPTS_PATH = "/entreprise/recus";
+/* Les reçus se traitent dans la page Finance : c'est elle qu'il faut
+   rafraîchir après une décision, la page dédiée n'existant plus. */
+const RECEIPTS_PATH = "/entreprise/finance";
 
 async function requireDecider(documentId: string) {
   const viewer = await getViewer();
@@ -148,67 +150,6 @@ export async function ignoreDocument(
 
     revalidatePath(RECEIPTS_PATH);
     return { ok: true, message: "Pièce écartée." };
-  } catch (error) {
-    return {
-      ok: false,
-      error: error instanceof Error ? error.message : "Action impossible.",
-    };
-  }
-}
-
-const relinkAction = z.object({
-  documentId: z.uuid(),
-  expenseId: z.uuid(),
-});
-
-/** Corrige la ligne de frais pressentie avant transfert. */
-export async function relinkDocument(
-  _previous: ReceiptResult | null,
-  formData: FormData,
-): Promise<ReceiptResult> {
-  const parsed = relinkAction.safeParse({
-    documentId: formData.get("documentId"),
-    expenseId: formData.get("expenseId"),
-  });
-  if (!parsed.success) return { ok: false, error: "Requête incomplète." };
-
-  try {
-    const { viewer, document, context } = await requireDecider(parsed.data.documentId);
-
-    const admin = createAdminClient();
-
-    // La dépense doit appartenir à la même organisation : sans cette
-    // vérification, un identifiant deviné rattacherait une pièce ailleurs.
-    const { data: expense } = await admin
-      .from("receipt_expenses")
-      .select("id")
-      .eq("id", parsed.data.expenseId)
-      .eq("org_id", context.orgId)
-      .maybeSingle();
-    if (!expense) return { ok: false, error: "Ligne de frais introuvable." };
-
-    await admin
-      .from("receipt_documents")
-      .update({
-        expense_id: parsed.data.expenseId,
-        match_method: "manual",
-        // Un choix humain vaut mieux qu'un score : la confiance est portée au
-        // maximum, et c'est bien ce qu'on veut dire.
-        match_confidence: 1,
-      })
-      .eq("id", document.id);
-
-    await audit({
-      orgId: document.org_id,
-      documentId: document.id,
-      actorId: viewer.user.id,
-      action: "document.relinked",
-      before: { expense_id: document.expense_id },
-      after: { expense_id: parsed.data.expenseId },
-    });
-
-    revalidatePath(RECEIPTS_PATH);
-    return { ok: true, message: "Ligne de frais corrigée." };
   } catch (error) {
     return {
       ok: false,
