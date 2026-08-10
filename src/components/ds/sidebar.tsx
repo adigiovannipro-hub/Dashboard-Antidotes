@@ -207,13 +207,22 @@ function SidebarLink({
   onNavigate: () => void;
 }) {
   const Icon = ICONS[entry.icon];
+  // Zéro ne s'affiche pas : une pastille vide occupe la place d'une alerte
+  // pour annoncer qu'il n'y en a pas.
+  const showBadge = entry.badge !== undefined && entry.badge > 0;
 
   return (
     <Link
       href={entry.href}
       onClick={onNavigate}
       aria-current={active ? "page" : undefined}
-      title={collapsed ? entry.label : undefined}
+      title={
+        collapsed
+          ? showBadge
+            ? `${entry.label} — ${entry.badge} en attente`
+            : entry.label
+          : undefined
+      }
       className={cn(
         "type-label focus-visible:ring-ring relative flex items-center gap-3 rounded-md py-2 pr-2.5 transition-colors duration-(--motion-duration) ease-standard focus-visible:ring-2 focus-visible:outline-none",
         // La barre active occupe le retrait gauche : sans lui, elle décalerait
@@ -232,17 +241,46 @@ function SidebarLink({
         />
       ) : null}
 
-      {entry.accent ? (
-        <span
-          aria-hidden
-          className="size-4.5 shrink-0 rounded-sm"
-          style={{ backgroundColor: entry.accent }}
-        />
-      ) : (
-        <Icon className="size-4.5 shrink-0" strokeWidth={1.75} aria-hidden />
-      )}
+      <span className="relative shrink-0">
+        {entry.accent ? (
+          <span
+            aria-hidden
+            className="block size-4.5 rounded-sm"
+            style={{ backgroundColor: entry.accent }}
+          />
+        ) : (
+          <Icon className="block size-4.5" strokeWidth={1.75} aria-hidden />
+        )}
+
+        {/* Rail replié : le nombre ne tient plus, un point le remplace. Sans
+            lui, replier le rail ferait disparaître l'alerte — et on replie
+            justement pour gagner de la place, pas pour perdre l'information. */}
+        {showBadge ? (
+          <span
+            aria-hidden
+            className={cn(
+              "absolute -top-1 -right-1 hidden size-2 rounded-pill bg-text-secondary ring-2 ring-sidebar",
+              collapsed && "md:block",
+            )}
+          />
+        ) : null}
+      </span>
 
       <span className={cn("truncate", collapsed && "md:sr-only")}>{entry.label}</span>
+
+      {showBadge ? (
+        <span
+          className={cn(
+            // Gris et non rouge : ces compteurs sont là en permanence. Une
+            // pastille d'alerte qui ne s'éteint jamais cesse d'alerter.
+            "type-caption ml-auto shrink-0 rounded-pill bg-surface-sunken px-1.5 py-0.5 font-medium text-text-secondary tabular-nums",
+            collapsed && "md:hidden",
+          )}
+        >
+          {entry.badge}
+          <span className="sr-only"> en attente</span>
+        </span>
+      ) : null}
     </Link>
   );
 }

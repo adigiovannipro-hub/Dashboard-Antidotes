@@ -5,6 +5,7 @@ import { cache } from "react";
 import { getViewer } from "@/lib/auth";
 import { getModerationContext } from "@/lib/moderation/access";
 import { isModerationVisible } from "@/lib/moderation/permissions";
+import { getNavBadges } from "@/lib/mon-travail/badges";
 
 /**
  * Le modèle de navigation du rail latéral.
@@ -39,6 +40,13 @@ export type NavEntry = {
   accent?: string | null;
   /** Correspondance de chemin : `exact` pour l'accueil, sinon par préfixe. */
   match: "exact" | "prefix";
+  /**
+   * Nombre en attente, affiché en pastille à droite du libellé.
+   *
+   * `undefined` quand l'entrée ne compte rien ; **zéro ne s'affiche pas** — une
+   * pastille « 0 » occupe la place d'une alerte pour dire qu'il n'y en a pas.
+   */
+  badge?: number;
 };
 
 export type NavGroup = { title: string; entries: NavEntry[] };
@@ -47,7 +55,10 @@ export const getAppNavigation = cache(async (): Promise<NavGroup[]> => {
   const viewer = await getViewer();
   if (!viewer) return [];
 
-  const moderation = await getModerationContext();
+  const [moderation, badges] = await Promise.all([
+    getModerationContext(),
+    getNavBadges(),
+  ]);
 
   // Plus de `"personal"` : le rail ne porte plus de section Perso, et laisser
   // le cas ouvert aurait gardé une branche que rien n'emprunte.
@@ -70,7 +81,13 @@ export const getAppNavigation = cache(async (): Promise<NavGroup[]> => {
       // geste de la journée, pas un outil qu'on va chercher en bas du rail.
       title: "Aujourd'hui",
       entries: [
-        { href: "/", label: "Mon travail", icon: "aujourdhui", match: "exact" },
+        {
+          href: "/",
+          label: "Mon travail",
+          icon: "aujourdhui",
+          match: "exact",
+          badge: badges.travail,
+        },
         ...(isModerationVisible(moderation.access)
           ? ([
               {
@@ -78,6 +95,7 @@ export const getAppNavigation = cache(async (): Promise<NavGroup[]> => {
                 label: "Modération",
                 icon: "moderation",
                 match: "prefix",
+                badge: badges.moderation ?? undefined,
               },
             ] satisfies NavEntry[])
           : []),
