@@ -6,11 +6,18 @@ import { FilterPills, type FilterOption } from "@/components/ds/filter-pills";
 import { StatCard, StatGrid } from "@/components/ds/stat-card";
 import { Panel, PanelBody, PanelHeader, SectionHeader } from "@/components/ds/surface";
 import { FlowsChart } from "@/components/finance/flows-chart";
+import {
+  ReceiptsPanel,
+  type ReceiptRow,
+} from "@/components/finance/receipts-panel";
 import { CashStatCard } from "@/components/finance/cash-stat-card";
 import { ExpensesTable, type DisplayExpense } from "@/components/finance/expenses-table";
 import { InvoicesBlock } from "@/components/finance/invoices-block";
 import { SyncBanner } from "@/components/finance/sync-banner";
 import { requireFinanceAccess } from "@/lib/finance/access";
+import { getReceiptsContext } from "@/lib/recus/access";
+import { senderDomain } from "@/lib/recus/heuristics";
+import { listDocuments, listMerchantRules } from "@/lib/recus/queries";
 import { resolveCategory } from "@/lib/finance/categories";
 import { invoiceKpis } from "@/lib/finance/invoices";
 import { formatMoney } from "@/lib/finance/money";
@@ -129,6 +136,13 @@ export default async function FinancePage({
   const kpis = invoiceKpis(invoices);
   const hasTreasury = treasury.accounts.length > 0;
 
+  /* Les reçus vivaient sur une page à eux, avec inbox, filtres et détail. Ils
+     tiennent ici en un panneau : on ne vient pas « consulter ses reçus », on
+     vient répondre à « est-ce que j'envoie cette pièce ? ». Lecture séparée du
+     `Promise.all` ci-dessus : sans boîte connectée, il n'y a rien à afficher
+     et rien à interroger. */
+  const receipts = await loadReceipts();
+
   return (
     <div className="space-y-6">
       <SectionHeader
@@ -215,6 +229,23 @@ export default async function FinancePage({
         </Panel>
       </div>
 
+      {receipts ? (
+        <Panel>
+          <PanelHeader
+            title="Reçus"
+            count={receipts.rows.length}
+            description="Les justificatifs reçus par mail, à envoyer à Airwallex."
+          />
+          <PanelBody>
+            <ReceiptsPanel
+              rows={receipts.rows}
+              autoForwardOpen={receipts.autoForwardOpen}
+              canDecide={receipts.canDecide}
+            />
+          </PanelBody>
+        </Panel>
+      ) : null}
+
       <Panel>
         <PanelHeader
           title="Dépenses"
@@ -240,6 +271,45 @@ export default async function FinancePage({
       </Panel>
     </div>
   );
+}
+
+/**
+ * Les pièces qui demandent un geste, et de quoi les décider.
+ *
+ * `null` quand aucune boîte n'est connectée : le panneau disparaît alors,
+ * plutôt que d'afficher une liste vide qui n'apprend rien.
+ */
+async function loadReceipts(): Promise<{
+  rows: ReceiptRow[];
+  autoForwardOpen: boolean;
+  canDecide: boolean;
+} | null> {
+  const context = await getReceiptsContext();
+  if (!context || context.sources.length === 0) return null;
+
+  const [documents, merchantRules] = await Promise.all([
+    listDocuments({ orgId: context.orgId, filters: { actionableOnly: true } }),
+    listMerchantRules(context.orgId),
+  ]);
+
+  const automated = new Set(
+    merchantRules.filter((rule) => rule.auto_forward).map((rule) => rule.sender_domain),
+  );
+
+  return {
+    rows: documents.map((document) => {
+      const domain = senderDomain(document.from_email);
+      return {
+        ...document,
+        sender_domain: domain,
+        merchant_automated: automated.has(domain),
+      };
+    }),
+    autoForwardOpen: context.sources.some(
+      (source) => source.settings.auto_forward.enabled,
+    ),
+    canDecide: context.canDecide,
+  };
 }
 
 /* Une somme par devise, jointes par « + » : additionner des euros et des

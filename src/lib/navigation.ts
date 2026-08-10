@@ -102,12 +102,6 @@ export const getAppNavigation = cache(async (): Promise<NavGroup[]> => {
                 icon: "echeances",
                 match: "prefix",
               },
-              {
-                href: "/entreprise/recus",
-                label: "Reçus",
-                icon: "recus",
-                match: "prefix",
-              },
             ] satisfies NavEntry[])
           : []),
       ],
