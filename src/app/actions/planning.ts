@@ -14,6 +14,7 @@ import {
   isOwnedVisualPath,
   visualPath,
 } from "@/lib/planning/storage";
+import { sendCommentEmails } from "@/lib/planning/notify";
 import { PLATFORM_LABELS, PLATFORM_ORDER } from "@/lib/planning/types";
 import { createClient } from "@/lib/supabase/server";
 import type {
@@ -472,6 +473,97 @@ export async function bulkDeleteSubjects(
   }
 }
 
+/**
+ * Duplication groupée — le « Dupliquer » de la barre de sélection.
+ *
+ * La copie arrive en fin de son couloir, nommée « (copie) », et référence les
+ * mêmes visuels : les fichiers ne sont pas recopiés, et la suppression d'un
+ * visuel ne retire du bucket que les chemins propres à la publication
+ * (`isOwnedVisualPath`), l'original garde donc les siens.
+ */
+export async function bulkDuplicateSubjects(
+  scope: Scope,
+  input: { subjectIds: string[] },
+): Promise<PlanningResult> {
+  if (input.subjectIds.length === 0 || input.subjectIds.length > 50) {
+    return { ok: false, error: "Sélection vide ou trop large." };
+  }
+
+  try {
+    const { viewer, workspace } = await guard(scope);
+    const supabase = await createClient();
+
+    const { data } = await supabase
+      .from("planning_subjects")
+      .select("*")
+      .in("id", input.subjectIds)
+      .order("position");
+    const originals = (data ?? []) as unknown as PlanningSubjectRow[];
+    if (originals.length === 0) return { ok: false, error: "Rien à dupliquer." };
+
+    // Une position de départ par couloir, au-delà de l'existant.
+    const laneIds = [...new Set(originals.map((subject) => subject.lane_id))];
+    const nextPosition = new Map<string, number>();
+    for (const laneId of laneIds) {
+      const { data: last } = await supabase
+        .from("planning_subjects")
+        .select("position")
+        .eq("lane_id", laneId)
+        .order("position", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      nextPosition.set(laneId, (last?.position ?? -1) + 1);
+    }
+
+    const copies = originals.map((subject) => {
+      const position = nextPosition.get(subject.lane_id) ?? 0;
+      nextPosition.set(subject.lane_id, position + 1);
+      return {
+        lane_id: subject.lane_id,
+        month_id: subject.month_id,
+        board_id: subject.board_id,
+        workspace_id: workspace.id,
+        name: subject.name ? `${subject.name} (copie)` : "(copie)",
+        status: subject.status,
+        format: subject.format,
+        scheduled_on: subject.scheduled_on,
+        wording: subject.wording,
+        sponsoring: subject.sponsoring,
+        ad_objective: subject.ad_objective,
+        ad_status: subject.ad_status,
+        owner_id: subject.owner_id,
+        visual_urls: subject.visual_urls,
+        custom: subject.custom,
+        position,
+      };
+    });
+
+    const { data: created, error } = await supabase
+      .from("planning_subjects")
+      .insert(copies as never)
+      .select("id");
+    if (error) throw new Error(error.message);
+
+    for (const row of created ?? []) {
+      await logActivity({
+        supabase,
+        subjectId: row.id,
+        workspaceId: workspace.id,
+        actorId: viewer.user.id,
+        field: "created",
+      });
+    }
+
+    revalidate(scope);
+    return {
+      ok: true,
+      message: `${copies.length} publication${copies.length > 1 ? "s" : ""} dupliquée${copies.length > 1 ? "s" : ""}.`,
+    };
+  } catch (error) {
+    return fail(error);
+  }
+}
+
 // --- Valeurs des colonnes ajoutées -------------------------------------------
 
 const customValue = z.union([
@@ -722,6 +814,8 @@ const commentInput = z.object({
   subjectId: z.uuid(),
   scope: z.enum(["general", "visual", "wording"]),
   body: z.string().trim().min(1, "Le retour ne peut pas être vide.").max(4000),
+  /** Adresses taguées : le retour leur part aussi par e-mail. */
+  mentions: z.array(z.email()).max(10).default([]),
 });
 
 export async function addComment(
@@ -737,18 +831,77 @@ export async function addComment(
     const { viewer, workspace } = await guard(scope);
     const supabase = await createClient();
 
-    const { error } = await supabase.from("planning_comments").insert({
+    let { error } = await supabase.from("planning_comments").insert({
       subject_id: parsed.data.subjectId,
       workspace_id: workspace.id,
       author_id: viewer.user.id,
       scope: parsed.data.scope,
       body: parsed.data.body,
+      mentions: parsed.data.mentions,
     });
+
+    // Base pas encore migrée (0030) : le retour s'écrit sans la colonne
+    // plutôt que d'échouer — l'e-mail, lui, part quand même.
+    if (error && error.message.includes("mentions")) {
+      ({ error } = await supabase.from("planning_comments").insert({
+        subject_id: parsed.data.subjectId,
+        workspace_id: workspace.id,
+        author_id: viewer.user.id,
+        scope: parsed.data.scope,
+        body: parsed.data.body,
+      }));
+    }
 
     if (error) throw new Error(error.message);
 
+    // L'e-mail part après l'écriture, jamais à sa place : un Gmail en panne
+    // laisse le retour dans le fil, avec un message qui dit ce qui n'est pas
+    // parti.
+    let message: string | undefined;
+    if (parsed.data.mentions.length > 0) {
+      const [{ data: subject }, { data: profile }] = await Promise.all([
+        supabase
+          .from("planning_subjects")
+          .select("name, lane_id")
+          .eq("id", parsed.data.subjectId)
+          .maybeSingle(),
+        supabase
+          .from("profiles")
+          .select("full_name")
+          .eq("id", viewer.user.id)
+          .maybeSingle(),
+      ]);
+      const { data: lane } = subject?.lane_id
+        ? await supabase
+            .from("planning_lanes")
+            .select("name")
+            .eq("id", subject.lane_id)
+            .maybeSingle()
+        : { data: null };
+
+      const outcome = await sendCommentEmails({
+        recipients: parsed.data.mentions,
+        workspaceSlug: scope.workspace,
+        workspaceName: workspace.name,
+        boardSlug: scope.board,
+        subjectId: parsed.data.subjectId,
+        subjectName: subject?.name ?? "",
+        laneName: lane?.name ?? "",
+        authorName: profile?.full_name ?? viewer.email,
+        body: parsed.data.body,
+      });
+
+      if (outcome.sent.length > 0 && outcome.failed.length === 0) {
+        message = `Retour envoyé à ${outcome.sent.join(", ")}.`;
+      } else if (outcome.sent.length > 0) {
+        message = `Retour envoyé à ${outcome.sent.join(", ")} — échec pour ${outcome.failed.join(", ")}.`;
+      } else {
+        message = `Retour enregistré, e-mail non parti : ${outcome.reason ?? "envoi refusé"}`;
+      }
+    }
+
     revalidate(scope);
-    return OK;
+    return { ok: true, message };
   } catch (error) {
     return fail(error);
   }

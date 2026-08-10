@@ -1,10 +1,11 @@
 "use client";
 
 import { useRef, useState, useTransition } from "react";
-import { CalendarDays, Check, Loader2, Paperclip, Trash2, X } from "lucide-react";
+import { CalendarDays, Check, Loader2, Paperclip, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import type { PlanningResult } from "@/app/actions/planning";
+import { VisualLightbox } from "@/components/planning/lightbox";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -33,7 +34,11 @@ import { cn } from "@/lib/utils";
  * sinon un simple passage au clavier déclencherait une écriture par colonne.
  */
 
-/** Lance une action et signale l'échec. Le succès, lui, se voit à l'écran. */
+/**
+ * Lance une action et signale l'échec. Le succès, lui, se voit à l'écran —
+ * sauf quand l'action a quelque chose à dire (« envoyé à… », « 3 dupliquées »),
+ * auquel cas son message passe en toast.
+ */
 export function useCellAction() {
   const [pending, startTransition] = useTransition();
 
@@ -41,6 +46,7 @@ export function useCellAction() {
     startTransition(async () => {
       const result = await action();
       if (!result.ok) toast.error(result.error);
+      else if (result.message) toast.success(result.message);
     });
   };
 
@@ -324,10 +330,18 @@ export function ChipSelect<T extends string>({
   placeholder?: string;
   className?: string;
 }) {
+  // Contrôlé : les options sont des boutons libres (la grille colorée), pas
+  // des items de menu — sans ça, choisir une pastille laissait le menu ouvert.
+  const [open, setOpen] = useState(false);
   const current = options.find((option) => option.value === value) ?? null;
 
+  const pick = (next: T | null) => {
+    setOpen(false);
+    onSelect(next);
+  };
+
   return (
-    <DropdownMenu>
+    <DropdownMenu open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger
         aria-label={ariaLabel}
         className={cn(
@@ -350,7 +364,7 @@ export function ChipSelect<T extends string>({
             <button
               key={option.value}
               type="button"
-              onClick={() => onSelect(option.value)}
+              onClick={() => pick(option.value)}
               className="focus-visible:ring-ring flex h-8 items-center justify-center rounded-md px-2 text-[11px] font-semibold tracking-wide uppercase outline-none focus-visible:ring-2"
               style={{ backgroundColor: option.color, color: chipInk(option.color) }}
             >
@@ -362,7 +376,7 @@ export function ChipSelect<T extends string>({
           ))}
         </div>
         {allowClear ? (
-          <DropdownMenuItem onClick={() => onSelect(null)} className="mt-1">
+          <DropdownMenuItem onClick={() => pick(null)} className="mt-1">
             Vider
           </DropdownMenuItem>
         ) : null}
@@ -554,6 +568,11 @@ export function WordingCell({
 
 // --- Visuels ------------------------------------------------------------------------
 
+/**
+ * La cellule Visuel : la première vignette et le compteur. Le clic ouvre la
+ * visionneuse plein écran — une cellule vide ouvre directement le sélecteur de
+ * fichiers, il n'y a rien à regarder.
+ */
 export function VisualsCell({
   visuals,
   subjectName,
@@ -574,9 +593,25 @@ export function VisualsCell({
   const first = visuals[0];
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger
+    <>
+      <input
+        ref={inputRef}
+        type="file"
+        multiple
+        className="sr-only"
+        accept="image/*,video/mp4,video/quicktime,application/pdf"
+        onChange={(event) => {
+          const files = [...(event.target.files ?? [])];
+          if (files.length > 0) onUpload(files);
+          event.target.value = "";
+        }}
+      />
+      <button
+        type="button"
         aria-label={`Visuels de ${subjectName || "la publication"} (${visuals.length})`}
+        onClick={() =>
+          visuals.length === 0 ? inputRef.current?.click() : setOpen(true)
+        }
         className={cn(
           "hover:bg-muted/60 focus-visible:ring-brand flex w-full items-center justify-center gap-1 rounded-sm px-1 py-1 outline-none focus-visible:ring-2",
           className,
@@ -602,81 +637,23 @@ export function VisualsCell({
             ) : null}
           </>
         ) : (
-          <span className="text-muted-foreground text-xs">—</span>
-        )}
-      </DialogTrigger>
-
-      <DialogContent className="sm:max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>Visuels — {subjectName || "publication"}</DialogTitle>
-        </DialogHeader>
-
-        {visuals.length === 0 ? (
-          <p className="text-muted-foreground text-sm">Aucun visuel pour l&apos;instant.</p>
-        ) : (
-          <ul className="grid grid-cols-3 gap-3">
-            {visuals.map((visual) => (
-              <li key={visual.path} className="group relative">
-                <a
-                  href={visual.url || undefined}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="bg-card block aspect-square overflow-hidden rounded-md"
-                >
-                  {isImagePath(visual.path) && visual.url ? (
-                    // eslint-disable-next-line @next/next/no-img-element -- URL signée
-                    <img
-                      src={visual.url}
-                      alt={visual.name}
-                      className="size-full object-cover"
-                      loading="lazy"
-                    />
-                  ) : (
-                    <span className="text-muted-foreground flex size-full items-center justify-center p-2 text-center text-[11px] break-all">
-                      {visual.name}
-                    </span>
-                  )}
-                </a>
-                <button
-                  type="button"
-                  onClick={() => onRemove(visual.path)}
-                  aria-label={`Retirer ${visual.name}`}
-                  className="bg-background/90 absolute top-1 right-1 rounded-full p-1 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
-                >
-                  <X className="size-3" aria-hidden />
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-
-        <div className="flex items-center gap-2">
-          <input
-            ref={inputRef}
-            type="file"
-            multiple
-            className="sr-only"
-            accept="image/*,video/mp4,video/quicktime,application/pdf"
-            onChange={(event) => {
-              const files = [...(event.target.files ?? [])];
-              if (files.length > 0) onUpload(files);
-              event.target.value = "";
-            }}
-          />
-          <Button
-            type="button"
-            size="sm"
-            onClick={() => inputRef.current?.click()}
-            disabled={uploading}
-          >
-            {uploading ? "Envoi…" : "Ajouter des visuels"}
-          </Button>
           <span className="text-muted-foreground text-xs">
-            Plusieurs fichiers à la fois — images, MP4, MOV, PDF, 50 Mo chacun.
+            {uploading ? "…" : "—"}
           </span>
-        </div>
-      </DialogContent>
-    </Dialog>
+        )}
+      </button>
+
+      {open ? (
+        <VisualLightbox
+          visuals={visuals}
+          subjectName={subjectName}
+          uploading={uploading}
+          onClose={() => setOpen(false)}
+          onUpload={onUpload}
+          onRemove={onRemove}
+        />
+      ) : null}
+    </>
   );
 }
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { MessageSquare, MessageSquarePlus } from "lucide-react";
+import { AtSign, MessageSquare, MessageSquarePlus, Plus, X } from "lucide-react";
 
 import {
   addComment,
@@ -26,13 +26,6 @@ import {
   useCellAction,
 } from "@/components/planning/cells";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
 import type { ColumnDef, ColumnLabel } from "@/lib/planning/columns";
 import type {
   PlanningComment,
@@ -65,10 +58,15 @@ function toOptions(labels: ColumnLabel[] | null) {
 /**
  * Une ligne du tableau, rendue colonne par colonne depuis le registre.
  *
- * Le clic sur la ligne — hors cellule éditable — ouvre le panneau latéral.
+ * Le clic sur la ligne — hors cellule éditable — ouvre le panneau latéral ;
+ * l'icône de retours l'ouvre directement sur le fil, curseur dans le champ.
  * Et quand la ligne fait partie d'une sélection multiple, modifier une de ses
  * cellules applique la valeur à toute la sélection : c'est le geste Monday,
  * cocher puis corriger une seule fois.
+ *
+ * Les filets verticaux entre colonnes viennent du conteneur (`[&>*+*]`) : les
+ * cellules portent leur propre hauteur (`py-1`, conteneur sans padding
+ * vertical), sans quoi chaque filet s'arrêterait à 4 px du bord de sa ligne.
  */
 export function SubjectRowView({
   scope,
@@ -90,7 +88,7 @@ export function SubjectRowView({
   selected: boolean;
   bulkTargets: string[] | null;
   onToggleSelect: (subjectId: string) => void;
-  onOpen: (subjectId: string) => void;
+  onOpen: (subjectId: string, focusRetours?: boolean) => void;
 }) {
   const { run, pending } = useCellAction();
 
@@ -115,14 +113,17 @@ export function SubjectRowView({
       }}
       tabIndex={0}
       className={cn(
-        "group/row border-border/60 grid cursor-pointer items-center gap-x-1.5 border-b px-2 py-1 transition-colors",
+        "group/row border-border/60 [&>*+*]:border-border/50 grid cursor-pointer border-b px-2 transition-colors [&>*+*]:border-l",
         selected ? "bg-brand-mint/40" : "hover:bg-muted/40",
         pending && "opacity-60",
       )}
       style={{ gridTemplateColumns: gridTemplate }}
     >
       {/* Coche de sélection */}
-      <span onClick={(event) => event.stopPropagation()} className="flex justify-center">
+      <span
+        onClick={(event) => event.stopPropagation()}
+        className="flex items-center justify-center py-1"
+      >
         <input
           type="checkbox"
           checked={selected}
@@ -142,6 +143,7 @@ export function SubjectRowView({
           edit={edit}
           run={run}
           pending={pending}
+          onOpenRetours={() => onOpen(row.id, true)}
         />
       ))}
 
@@ -159,6 +161,7 @@ function Cell({
   edit,
   run,
   pending,
+  onOpenRetours,
 }: {
   scope: Scope;
   column: ColumnDef;
@@ -167,9 +170,13 @@ function Cell({
   edit: (field: EditableField, value: unknown) => void;
   run: ReturnType<typeof useCellAction>["run"];
   pending: boolean;
+  onOpenRetours: () => void;
 }) {
   const stop = (node: React.ReactNode) => (
-    <span onClick={(event) => event.stopPropagation()} className="min-w-0">
+    <span
+      onClick={(event) => event.stopPropagation()}
+      className="flex min-w-0 items-center px-1 py-1"
+    >
       {node}
     </span>
   );
@@ -188,7 +195,7 @@ function Cell({
               onCommit={(next) => edit("name", next)}
             />,
           )}
-          {stop(<CommentsDialog scope={scope} row={row} />)}
+          {stop(<CommentsBadge row={row} onOpen={onOpenRetours} />)}
         </>
       );
 
@@ -281,7 +288,11 @@ function Cell({
       );
 
     case "updated":
-      return <LastUpdateCell updater={row.updater} label={row.updated_label} />;
+      return (
+        <span className="flex min-w-0 items-center justify-center px-1 py-1">
+          <LastUpdateCell updater={row.updater} label={row.updated_label} />
+        </span>
+      );
   }
 
   // --- Colonnes ajoutées : la valeur vit dans `custom[column.id]` ---
@@ -349,58 +360,76 @@ function Cell({
   }
 }
 
-/** Le fil de retours d'une publication — la colonne « + » du board. */
-export function CommentsDialog({ scope, row }: { scope: Scope; row: Row }) {
-  const [open, setOpen] = useState(false);
-
+/**
+ * L'icône de retours de la ligne — la colonne « + » du board. Le clic ouvre le
+ * panneau latéral directement sur le fil, curseur posé dans le champ.
+ */
+function CommentsBadge({ row, onOpen }: { row: Row; onOpen: () => void }) {
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger
-        aria-label={`Retours sur ${row.name || "la publication"} (${row.comments.length})`}
-        className={cn(
-          "hover:bg-muted focus-visible:ring-brand relative flex size-7 items-center justify-center rounded-md outline-none focus-visible:ring-2",
-          row.comments.length > 0 ? "text-foreground" : "text-muted-foreground",
-        )}
-      >
-        {row.comments.length > 0 ? (
-          <>
-            <MessageSquare className="size-3.5" aria-hidden />
-            <span className="bg-brand absolute -top-0.5 -right-0.5 flex size-3 items-center justify-center rounded-full text-[8px] font-bold text-white tabular-nums">
-              {row.comments.length}
-            </span>
-          </>
-        ) : (
-          <MessageSquarePlus className="size-3.5 opacity-40" aria-hidden />
-        )}
-      </DialogTrigger>
-
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>Retours — {row.name || "publication"}</DialogTitle>
-        </DialogHeader>
-        <CommentThread scope={scope} subjectId={row.id} comments={row.comments} />
-      </DialogContent>
-    </Dialog>
+    <button
+      type="button"
+      onClick={onOpen}
+      aria-label={`Retours sur ${row.name || "la publication"} (${row.comments.length})`}
+      className={cn(
+        "hover:bg-muted focus-visible:ring-brand relative flex size-7 items-center justify-center rounded-md outline-none focus-visible:ring-2",
+        row.comments.length > 0 ? "text-foreground" : "text-muted-foreground",
+      )}
+    >
+      {row.comments.length > 0 ? (
+        <>
+          <MessageSquare className="size-3.5" aria-hidden />
+          {/* L'encre, pas la teinte vive : du blanc sur le vert de marque
+              tombe à 2,71:1 — illisible à 8 px. */}
+          <span className="bg-accent-ink absolute -top-0.5 -right-0.5 flex size-3 items-center justify-center rounded-full text-[8px] font-bold text-white tabular-nums">
+            {row.comments.length}
+          </span>
+        </>
+      ) : (
+        <MessageSquarePlus className="size-3.5 opacity-40" aria-hidden />
+      )}
+    </button>
   );
 }
 
 /**
- * Le fil de retours, partagé entre le dialogue et le panneau latéral.
+ * Le fil de retours, dans le panneau latéral.
  *
  * Un seul fil, sans catégorie : « général / visuel / wording » ajoutait un
  * choix avant chaque message pour un classement que personne ne relisait.
+ * En dessous du champ, les adresses à prévenir : les membres du tableau en un
+ * clic, n'importe quelle adresse au clavier — le retour leur part par e-mail.
  */
 export function CommentThread({
   scope,
   subjectId,
   comments,
+  members,
+  autoFocus,
 }: {
   scope: Scope;
   subjectId: string;
   comments: PlanningComment[];
+  members: PlanningOwner[];
+  autoFocus?: boolean;
 }) {
   const [body, setBody] = useState("");
+  const [recipients, setRecipients] = useState<string[]>([]);
+  const [emailDraft, setEmailDraft] = useState("");
   const { run, pending } = useCellAction();
+
+  const toggle = (email: string) =>
+    setRecipients((current) =>
+      current.includes(email)
+        ? current.filter((candidate) => candidate !== email)
+        : [...current, email],
+    );
+
+  const addFreeEmail = () => {
+    const email = emailDraft.trim().toLowerCase();
+    if (!/^\S+@\S+\.\S+$/.test(email)) return;
+    if (!recipients.includes(email)) setRecipients((current) => [...current, email]);
+    setEmailDraft("");
+  };
 
   function submit() {
     if (!body.trim()) return;
@@ -409,11 +438,18 @@ export function CommentThread({
         subjectId,
         scope: "general",
         body,
+        mentions: recipients,
       });
-      if (result.ok) setBody("");
+      if (result.ok) {
+        setBody("");
+        setRecipients([]);
+      }
       return result;
     });
   }
+
+  const memberEmails = new Set(members.map((member) => member.email));
+  const freeRecipients = recipients.filter((email) => !memberEmails.has(email));
 
   return (
     <div className="space-y-3">
@@ -434,16 +470,100 @@ export function CommentThread({
           value={body}
           onChange={(event) => setBody(event.target.value)}
           rows={3}
+          // Depuis l'icône de la ligne, le curseur arrive directement ici.
+          autoFocus={autoFocus}
           aria-label="Nouveau retour"
           placeholder="Ce qui doit changer, et pourquoi."
           className="border-input bg-background focus-visible:ring-brand w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:outline-none"
         />
 
-        <Button type="button" size="sm" onClick={submit} disabled={pending}>
-          {pending ? "Envoi…" : "Ajouter le retour"}
-        </Button>
+        <div className="flex flex-wrap items-center gap-1.5">
+          <AtSign className="text-muted-foreground size-3.5 shrink-0" aria-hidden />
+          {members.map((member) => (
+            <RecipientChip
+              key={member.id}
+              label={member.full_name ?? member.email}
+              selected={recipients.includes(member.email)}
+              onClick={() => toggle(member.email)}
+            />
+          ))}
+          {freeRecipients.map((email) => (
+            <RecipientChip
+              key={email}
+              label={email}
+              selected
+              onClick={() => toggle(email)}
+            />
+          ))}
+          <div className="flex items-center gap-1">
+            <input
+              type="email"
+              value={emailDraft}
+              onChange={(event) => setEmailDraft(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  addFreeEmail();
+                }
+              }}
+              aria-label="Ajouter une adresse e-mail"
+              placeholder="email@client.fr"
+              className="border-input bg-background focus-visible:ring-brand h-7 w-36 rounded-md border px-2 text-xs focus-visible:ring-2 focus-visible:outline-none"
+            />
+            <button
+              type="button"
+              onClick={addFreeEmail}
+              aria-label="Taguer cette adresse"
+              className="text-muted-foreground hover:text-foreground focus-visible:ring-brand rounded p-1 focus-visible:ring-2 focus-visible:outline-none"
+            >
+              <Plus className="size-3.5" aria-hidden />
+            </button>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Button type="button" size="sm" onClick={submit} disabled={pending}>
+            {pending
+              ? "Envoi…"
+              : recipients.length > 0
+                ? `Ajouter et envoyer (${recipients.length})`
+                : "Ajouter le retour"}
+          </Button>
+          {recipients.length > 0 ? (
+            <span className="text-muted-foreground text-xs">
+              part aussi par e-mail
+            </span>
+          ) : null}
+        </div>
       </div>
     </div>
+  );
+}
+
+function RecipientChip({
+  label,
+  selected,
+  onClick,
+}: {
+  label: string;
+  selected: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={selected}
+      className={cn(
+        "rounded-pill focus-visible:ring-brand flex items-center gap-1 border px-2 py-0.5 text-xs transition-colors focus-visible:ring-2 focus-visible:outline-none",
+        selected
+          ? "border-foreground bg-foreground text-background"
+          : "border-border text-muted-foreground hover:text-foreground",
+      )}
+    >
+      {label}
+      {selected ? <X className="size-3" aria-hidden /> : null}
+    </button>
   );
 }
 
@@ -470,6 +590,13 @@ function CommentItem({ comment }: { comment: PlanningComment }) {
           </time>
         </p>
         <p className="mt-0.5 text-sm whitespace-pre-wrap">{comment.body}</p>
+        {/* `?? []` : tant que la migration 0030 n'est pas passée en base, la
+            colonne n'existe pas et la ligne arrive sans `mentions`. */}
+        {(comment.mentions ?? []).length > 0 ? (
+          <p className="text-muted-foreground mt-0.5 text-[10px]">
+            Envoyé par e-mail à {comment.mentions.join(", ")}
+          </p>
+        ) : null}
       </div>
     </li>
   );

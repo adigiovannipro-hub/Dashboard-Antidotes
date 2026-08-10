@@ -1,0 +1,118 @@
+import "server-only";
+
+import { decryptSecret, encryptSecret } from "@/lib/moderation/crypto";
+import { refreshAccessToken, sendMessage } from "@/lib/recus/gmail";
+import type { ReceiptSource } from "@/lib/recus/types";
+import { publicEnv } from "@/lib/env";
+import { createAdminClient } from "@/lib/supabase/server";
+import { buildCommentMime } from "./notify-mime";
+
+/**
+ * L'envoi d'un retour par e-mail, aux adresses taguées dans le fil.
+ *
+ * Le transport est la boîte Gmail déjà connectée aux Reçus — la seule du
+ * projet, et celle de l'agence : le retour part de l'adresse que le client
+ * connaît. Le client admin ne sert ici qu'à lire ce jeton, qui vit dans une
+ * table interne (`receipt_sources`) hors de portée des politiques d'un espace
+ * client ; qui peut taguer est décidé en amont, par la RLS de
+ * `planning_comments`.
+ *
+ * Aucun échec ne remonte en exception : le retour est déjà écrit quand on
+ * arrive ici, et perdre un e-mail ne doit jamais perdre le retour.
+ */
+
+export type CommentNotification = {
+  recipients: string[];
+  workspaceSlug: string;
+  workspaceName: string;
+  boardSlug: string;
+  subjectId: string;
+  subjectName: string;
+  laneName: string;
+  authorName: string;
+  body: string;
+};
+
+export type NotifyOutcome = {
+  sent: string[];
+  failed: string[];
+  /** Renseigné quand rien n'est parti — de quoi afficher un message utile. */
+  reason?: string;
+};
+
+export async function sendCommentEmails(
+  notification: CommentNotification,
+): Promise<NotifyOutcome> {
+  const admin = createAdminClient();
+
+  const { data } = await admin
+    .from("receipt_sources")
+    .select("*")
+    .eq("status", "connected")
+    .limit(1)
+    .maybeSingle();
+
+  const source = data as unknown as ReceiptSource | null;
+  if (!source?.credentials_encrypted) {
+    return {
+      sent: [],
+      failed: notification.recipients,
+      reason: "Aucune boîte Gmail connectée — voir le panneau Reçus.",
+    };
+  }
+
+  let accessToken: string;
+  try {
+    const refreshToken = decryptSecret(source.credentials_encrypted);
+    const tokens = await refreshAccessToken(refreshToken);
+    // Google ne renvoie pas toujours un refresh token : on ne remplace le
+    // stocké que s'il en arrive un — même règle que le pipeline des Reçus.
+    if (tokens.refreshToken && tokens.refreshToken !== refreshToken) {
+      await admin
+        .from("receipt_sources")
+        .update({ credentials_encrypted: encryptSecret(tokens.refreshToken) })
+        .eq("id", source.id);
+    }
+    accessToken = tokens.accessToken;
+  } catch (error) {
+    return {
+      sent: [],
+      failed: notification.recipients,
+      reason: `Connexion Gmail refusée : ${(error as Error).message}`,
+    };
+  }
+
+  const link = `${publicEnv.NEXT_PUBLIC_SITE_URL}/espace/${notification.workspaceSlug}/planning/${notification.boardSlug}?sujet=${notification.subjectId}`;
+
+  const sent: string[] = [];
+  const failed: string[] = [];
+  let lastError: string | undefined;
+
+  for (const recipient of notification.recipients) {
+    try {
+      await sendMessage({
+        accessToken,
+        mime: buildCommentMime({
+          from: source.email_address,
+          to: recipient,
+          workspaceName: notification.workspaceName,
+          subjectName: notification.subjectName,
+          laneName: notification.laneName,
+          authorName: notification.authorName,
+          body: notification.body,
+          link,
+        }),
+      });
+      sent.push(recipient);
+    } catch (error) {
+      failed.push(recipient);
+      lastError = (error as Error).message;
+    }
+  }
+
+  return {
+    sent,
+    failed,
+    reason: sent.length === 0 ? lastError : undefined,
+  };
+}

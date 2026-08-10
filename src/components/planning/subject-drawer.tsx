@@ -24,12 +24,17 @@ import {
   TextCell,
   useCellAction,
 } from "@/components/planning/cells";
+import { VisualLightbox } from "@/components/planning/lightbox";
 import { CommentThread, type Scope } from "@/components/planning/subject-row";
 import { PlatformIcon } from "@/components/planning/platform-icon";
 import { Button } from "@/components/ui/button";
 import type { ColumnDef, ColumnLabel } from "@/lib/planning/columns";
 import { isImagePath } from "@/lib/planning/storage";
-import type { PlanningActivity, SubjectRow } from "@/lib/planning/types";
+import type {
+  PlanningActivity,
+  PlanningOwner,
+  SubjectRow,
+} from "@/lib/planning/types";
 import { cn } from "@/lib/utils";
 
 /**
@@ -45,13 +50,18 @@ export function SubjectDrawer({
   scope,
   subject,
   columns,
+  owners,
   activity,
+  autoFocusComment,
   onClose,
 }: {
   scope: Scope;
   subject: SubjectRow;
   columns: ColumnDef[];
+  owners: PlanningOwner[];
   activity: PlanningActivity[];
+  /** Depuis l'icône de retours d'une ligne : curseur posé dans le champ. */
+  autoFocusComment?: boolean;
   onClose: () => void;
 }) {
   const [tab, setTab] = useState<"retours" | "activite">("retours");
@@ -66,7 +76,7 @@ export function SubjectDrawer({
   return (
     <aside
       aria-label={`Détail de ${subject.name || "la publication"}`}
-      className="border-border bg-background fixed inset-y-0 right-0 z-40 flex w-full max-w-xl flex-col border-l shadow-xl"
+      className="border-border bg-background animate-in slide-in-from-right fixed inset-y-0 right-0 z-40 flex w-full max-w-xl flex-col border-l shadow-xl duration-300 motion-reduce:animate-none"
     >
       {/* --- En-tête : le sujet s'y modifie, comme dans le tableau --- */}
       <header className="border-border flex items-start gap-3 border-b p-4">
@@ -230,6 +240,8 @@ export function SubjectDrawer({
               scope={scope}
               subjectId={subject.id}
               comments={subject.comments}
+              members={owners}
+              autoFocus={autoFocusComment}
             />
           ) : (
             <ActivityList activity={activity} columns={columns} />
@@ -292,11 +304,13 @@ function VisualCarousel({
   onReorder: (paths: string[]) => void;
 }) {
   const [index, setIndex] = useState(0);
+  const [expanded, setExpanded] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const visuals = subject.visuals;
   const safeIndex = Math.min(index, Math.max(visuals.length - 1, 0));
   const current = visuals[safeIndex];
+  const currentIsImage = current ? isImagePath(current.path) && !!current.url : false;
 
   const move = (from: number, to: number) => {
     if (to < 0 || to >= visuals.length) return;
@@ -309,12 +323,43 @@ function VisualCarousel({
 
   return (
     <div className="border-border border-b">
-      {/* Fond sombre et hauteur généreuse : une créa se regarde en grand, sur
-          un aplat neutre — pas vignettée sur du blanc. */}
-      <div className="relative flex h-[420px] items-center justify-center overflow-hidden bg-neutral-950">
+      {/* Une créa se regarde en grand — et sans bandes mortes sur les côtés :
+          le fond est le visuel lui-même, couvrant et flouté. Le clic sur
+          l'image passe en plein écran. Sans visuel, l'aplat sombre se réduit :
+          420 px de noir vide écrasaient le panneau. */}
+      <div
+        className={cn(
+          "relative flex items-center justify-center overflow-hidden bg-neutral-950",
+          current ? "h-[420px]" : "h-28",
+        )}
+      >
         {current ? (
           <>
-            <VisualMedia path={current.path} url={current.url} name={current.name} />
+            {currentIsImage ? (
+              // eslint-disable-next-line @next/next/no-img-element -- URL signée
+              <img
+                src={current.url}
+                alt=""
+                aria-hidden
+                className="absolute inset-0 size-full scale-110 object-cover opacity-50 blur-2xl"
+              />
+            ) : null}
+
+            {currentIsImage ? (
+              <button
+                type="button"
+                onClick={() => setExpanded(true)}
+                title="Afficher en plein écran"
+                aria-label={`Afficher ${current.name} en plein écran`}
+                className="relative z-10 flex size-full cursor-zoom-in items-center justify-center outline-none"
+              >
+                <VisualMedia path={current.path} url={current.url} name={current.name} />
+              </button>
+            ) : (
+              <span className="relative z-10 flex size-full items-center justify-center">
+                <VisualMedia path={current.path} url={current.url} name={current.name} />
+              </span>
+            )}
 
             {visuals.length > 1 ? (
               <>
@@ -338,12 +383,12 @@ function VisualCarousel({
                 setIndex(0);
               }}
               aria-label={`Retirer ${current.name}`}
-              className="absolute top-2 right-2 rounded-full bg-black/60 p-1.5 text-white hover:bg-black/80"
+              className="absolute top-2 right-2 z-10 rounded-full bg-black/60 p-1.5 text-white hover:bg-black/80"
             >
               <X className="size-3.5" aria-hidden />
             </button>
 
-            <span className="absolute bottom-2 right-2 rounded bg-black/60 px-1.5 py-0.5 text-[11px] text-white tabular-nums">
+            <span className="absolute bottom-2 right-2 z-10 rounded bg-black/60 px-1.5 py-0.5 text-[11px] text-white tabular-nums">
               {safeIndex + 1} / {visuals.length}
             </span>
           </>
@@ -351,6 +396,18 @@ function VisualCarousel({
           <p className="text-sm text-neutral-400">Aucun visuel</p>
         )}
       </div>
+
+      {expanded ? (
+        <VisualLightbox
+          visuals={visuals}
+          initialIndex={safeIndex}
+          subjectName={subject.name}
+          uploading={uploading}
+          onClose={() => setExpanded(false)}
+          onUpload={onUpload}
+          onRemove={onRemove}
+        />
+      ) : null}
 
       {/* La bande de vignettes : scroll horizontal, flèches de réordonnancement. */}
       {visuals.length > 0 ? (
@@ -547,11 +604,7 @@ function ActivityList({
             dateTime={entry.created_at}
             className="text-muted-foreground shrink-0 text-[10px] tabular-nums"
           >
-            {new Intl.DateTimeFormat("fr-FR", {
-              day: "numeric",
-              month: "short",
-              timeZone: "Europe/Paris",
-            }).format(new Date(entry.created_at))}
+            {entry.created_label}
           </time>
         </li>
       ))}

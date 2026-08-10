@@ -235,6 +235,7 @@ export async function listActivity(subjectId: string): Promise<PlanningActivity[
   return rows.map((row) => ({
     ...row,
     actor: row.actor_id ? (byId.get(row.actor_id) ?? null) : null,
+    created_label: formatUpdateLabel(row.created_at),
   }));
 }
 
@@ -309,7 +310,10 @@ async function loadComments(
     .in("subject_id", subjectIds)
     .order("created_at");
 
-  for (const row of (data ?? []) as unknown as PlanningComment[]) {
+  for (const raw of (data ?? []) as unknown as PlanningComment[]) {
+    // `?? []` : tant que la migration 0030 n'est pas appliquée, la colonne
+    // `mentions` n'existe pas et la ligne arrive sans elle.
+    const row = { ...raw, mentions: raw.mentions ?? [] };
     const bucket = grouped.get(row.subject_id);
     if (bucket) bucket.push(row);
     else grouped.set(row.subject_id, [row]);
@@ -392,6 +396,7 @@ export async function listComments(subjectId: string): Promise<PlanningComment[]
 
   return comments.map((comment) => ({
     ...comment,
+    mentions: comment.mentions ?? [],
     author: comment.author_id ? (byId.get(comment.author_id) ?? null) : null,
   }));
 }

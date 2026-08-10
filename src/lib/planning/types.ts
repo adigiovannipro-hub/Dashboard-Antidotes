@@ -328,6 +328,8 @@ export type PlanningActivity = {
   after: string | null;
   created_at: string;
   actor: PlanningOwner | null;
+  /** « il y a 2 h », « 12 juil. » — calculé côté serveur, l'affichage reste pur. */
+  created_label: string;
 };
 
 /** Un visuel prêt à l'affichage : le chemin stocké et son URL signée. */
@@ -358,6 +360,8 @@ export type PlanningComment = {
   author_id: string | null;
   scope: PlanningCommentScope;
   body: string;
+  /** Adresses prévenues par e-mail à l'écriture du retour. */
+  mentions: string[];
   created_at: string;
   author: PlanningOwner | null;
 };

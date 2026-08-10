@@ -485,6 +485,8 @@ export type PlanningCommentRow = {
   author_id: string | null;
   scope: string;
   body: string;
+  /** Adresses prévenues par e-mail à l'écriture du retour (migration 0030). */
+  mentions: string[];
   created_at: string;
 };
 

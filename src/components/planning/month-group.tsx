@@ -41,6 +41,7 @@ export function MonthGroup({
   onOpenSubject,
   onResizePreview,
   defaultOpen,
+  forceOpen,
 }: {
   scope: Scope;
   month: MonthWithLanes;
@@ -51,12 +52,15 @@ export function MonthGroup({
   selectedIds: Set<string>;
   onToggleSelect: (subjectId: string) => void;
   onToggleLane: (subjectIds: string[], selected: boolean) => void;
-  onOpenSubject: (subjectId: string) => void;
+  onOpenSubject: (subjectId: string, focusRetours?: boolean) => void;
   onResizePreview: (columnId: string, width: number | null) => void;
   defaultOpen: boolean;
+  /** Une recherche en cours déplie tout : un résultat caché n'existe pas. */
+  forceOpen?: boolean;
 }) {
   const [open, setOpen] = useState(defaultOpen);
   const { run, pending } = useCellAction();
+  const effectiveOpen = forceOpen || open;
 
   const subjects = month.lanes.flatMap((lane) => lane.subjects);
   const live = subjects.filter((subject) => subject.status !== "dropped");
@@ -72,18 +76,18 @@ export function MonthGroup({
         className={cn(
           "flex items-center gap-2 px-3 py-2.5 transition-colors",
           // Un mois ouvert se détache du fond : c'est celui qu'on lit.
-          open ? "bg-surface-sunken" : "hover:bg-muted/40",
+          effectiveOpen ? "bg-surface-sunken" : "hover:bg-muted/40",
         )}
       >
         <button
           type="button"
           onClick={() => setOpen((value) => !value)}
-          aria-expanded={open}
-          aria-label={open ? `Replier ${month.label}` : `Déplier ${month.label}`}
+          aria-expanded={effectiveOpen}
+          aria-label={effectiveOpen ? `Replier ${month.label}` : `Déplier ${month.label}`}
           className="hover:bg-muted focus-visible:ring-ring rounded p-0.5 focus-visible:ring-2 focus-visible:outline-none"
         >
           <ChevronRight
-            className={cn("size-4 transition-transform", open && "rotate-90")}
+            className={cn("size-4 transition-transform", effectiveOpen && "rotate-90")}
             aria-hidden
           />
         </button>
@@ -164,7 +168,7 @@ export function MonthGroup({
         </div>
       </header>
 
-      {open ? (
+      {effectiveOpen ? (
         <div className="space-y-3 border-t border-border p-3">
           {month.lanes.length === 0 ? (
             <p className="type-caption rounded-md border border-dashed border-border px-3 py-4 text-center text-text-secondary">

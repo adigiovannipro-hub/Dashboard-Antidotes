@@ -47,7 +47,7 @@ export function LaneTable({
   selectedIds: Set<string>;
   onToggleSelect: (subjectId: string) => void;
   onToggleLane: (subjectIds: string[], selected: boolean) => void;
-  onOpenSubject: (subjectId: string) => void;
+  onOpenSubject: (subjectId: string, focusRetours?: boolean) => void;
   /** Largeur en cours de drag, avant l'écriture en base. */
   onResizePreview: (columnId: string, width: number | null) => void;
 }) {
@@ -123,11 +123,13 @@ export function LaneTable({
         // conteneur défile, la page ne bouge pas.
         <div className="overflow-x-auto">
           <div className="min-w-fit">
+            {/* Mêmes filets verticaux que les lignes (`[&>*+*]`), même padding
+                par cellule : en-tête et lignes restent alignés au pixel. */}
             <div
-              className="border-border bg-surface-sunken/60 grid items-center gap-x-1 border-b px-2 py-1"
+              className="border-border bg-surface-sunken/60 [&>*+*]:border-border/50 grid border-b px-2 [&>*+*]:border-l"
               style={{ gridTemplateColumns: template }}
             >
-              <span className="flex justify-center">
+              <span className="flex items-center justify-center py-1">
                 <input
                   type="checkbox"
                   checked={allSelected}
@@ -153,7 +155,9 @@ export function LaneTable({
                 />
               ))}
 
-              <AddColumnMenu scope={scope} boardId={lane.board_id} />
+              <span className="flex items-center justify-center py-1">
+                <AddColumnMenu scope={scope} boardId={lane.board_id} />
+              </span>
             </div>
 
             {subjects.map((subject) => (
@@ -258,7 +262,7 @@ function HeaderCell({
       aria-label={`Redimensionner la colonne ${column.label}`}
       title="Redimensionner la colonne"
       onPointerDown={startResize}
-      className="hover:bg-brand absolute inset-y-0 -right-1 w-2 cursor-col-resize rounded opacity-0 transition-opacity hover:opacity-100"
+      className="hover:bg-brand absolute inset-y-0 -right-1 z-10 w-2 cursor-col-resize rounded opacity-0 transition-opacity hover:opacity-100"
     />
   );
 
@@ -266,7 +270,10 @@ function HeaderCell({
   if (column.builtin === "name") {
     return (
       <>
-        <span data-col className="text-muted-foreground relative min-w-0">
+        <span
+          data-col
+          className="text-muted-foreground relative flex min-w-0 items-center px-1 py-1"
+        >
           {menu}
           {handle}
         </span>
@@ -276,7 +283,10 @@ function HeaderCell({
   }
 
   return (
-    <span data-col className="text-muted-foreground relative min-w-0">
+    <span
+      data-col
+      className="text-muted-foreground relative flex min-w-0 items-center px-1 py-1"
+    >
       {menu}
       {handle}
     </span>

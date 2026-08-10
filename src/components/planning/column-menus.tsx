@@ -40,7 +40,6 @@ import {
   type ColumnDef,
   type ColumnLabel,
 } from "@/lib/planning/columns";
-import { cn } from "@/lib/utils";
 
 /**
  * Les menus qui font du tableau un tableau *à construire* : l'en-tête de
@@ -98,18 +97,15 @@ export function ColumnHeaderMenu({
   return (
     <>
       <DropdownMenu>
+        {/* Centré et clippé, sans exception : un titre trop long se tronque
+            dans sa colonne au lieu de déborder sur la voisine. */}
         <DropdownMenuTrigger
           aria-label={`Options de la colonne ${column.label}`}
-          className={cn(
-            "hover:bg-muted focus-visible:ring-brand flex w-full items-center justify-center gap-1 truncate rounded-sm px-1 py-0.5 text-[11px] font-medium tracking-wide uppercase outline-none focus-visible:ring-2",
-            column.builtin === "name" || column.type === "text"
-              ? "justify-start"
-              : "justify-center",
-          )}
+          className="hover:bg-muted focus-visible:ring-brand flex w-full min-w-0 items-center justify-center gap-1 overflow-hidden rounded-sm px-1 py-0.5 text-center text-[11px] font-medium tracking-wide uppercase outline-none focus-visible:ring-2"
         >
-          <span className="truncate">{column.label}</span>
+          <span className="min-w-0 truncate">{column.label}</span>
           {sorted ? (
-            <span aria-hidden className="text-brand">
+            <span aria-hidden className="text-brand shrink-0">
               {sorted === "asc" ? "↑" : "↓"}
             </span>
           ) : null}

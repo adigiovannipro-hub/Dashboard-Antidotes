@@ -1,9 +1,10 @@
 "use client";
 
-import { Trash2, X } from "lucide-react";
+import { Copy, Trash2, X } from "lucide-react";
 
 import {
   bulkDeleteSubjects,
+  bulkDuplicateSubjects,
   bulkUpdateSubjects,
   type EditableField,
 } from "@/app/actions/planning";
@@ -20,6 +21,10 @@ import type { PlanningOwner } from "@/lib/planning/types";
 /**
  * La barre d'actions groupées — celle qui monte du bas de l'écran sur Monday
  * dès qu'une coche est posée.
+ *
+ * Une modification **ne vide pas la sélection** : on enchaîne statut puis
+ * date puis objectif sur les mêmes lignes, et la barre reste. Seules la
+ * suppression — plus rien à sélectionner — et la croix la ferment.
  *
  * Chaque sélecteur porte son nom en guise de valeur vide : une rangée de
  * tirets ne disait pas ce que la barre savait faire. La suppression reste au
@@ -44,15 +49,7 @@ export function BulkBar({
 
   const ids = [...selectedIds];
   const apply = (field: EditableField, value: unknown) =>
-    run(async () => {
-      const result = await bulkUpdateSubjects(scope, {
-        subjectIds: ids,
-        field,
-        value,
-      });
-      if (result.ok) onClear();
-      return result;
-    });
+    run(() => bulkUpdateSubjects(scope, { subjectIds: ids, field, value }));
 
   const labelsOf = (builtin: string) =>
     (columns.find((column) => column.builtin === builtin)?.labels ?? []).map(
@@ -115,6 +112,16 @@ export function BulkBar({
       />
 
       <span className="bg-border h-6 w-px shrink-0" aria-hidden />
+
+      <button
+        type="button"
+        disabled={pending}
+        onClick={() => run(() => bulkDuplicateSubjects(scope, { subjectIds: ids }))}
+        className="text-muted-foreground hover:text-foreground flex shrink-0 items-center gap-1 text-xs"
+      >
+        <Copy className="size-3.5" aria-hidden />
+        Dupliquer
+      </button>
 
       <button
         type="button"
