@@ -104,12 +104,13 @@ export async function listUnmatchedInvoices(options: {
   const supabase = await createClient();
 
   const [{ data: lines }, { data: invoices }, { data: aliasRows }] = await Promise.all([
+    /* Les archivées comptent ici : une facture dont la mensualité est
+       descendue dans l'histoire n'a pas à ressurgir en « hors devis ». */
     supabase
       .from("billing_installments")
       .select("matched_invoice_id, issue_on, status, billing_engagements!inner(client_name)")
       .eq("org_id", options.orgId)
-      .is("archived_at", null)
-      .limit(2000),
+      .limit(3000),
     supabase
       .from("finance_invoices")
       .select("id, client_name, amount_cents, currency, status, issued_on, due_on, paid_at")
