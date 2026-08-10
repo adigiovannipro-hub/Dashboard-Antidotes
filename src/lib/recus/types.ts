@@ -44,6 +44,7 @@ export type ReceiptStatus =
   | "attached"
   | "unmatched"
   | "ignored"
+  | "archived"
   | "failed";
 
 export const STATUS_LABELS: Record<ReceiptStatus, string> = {
@@ -54,6 +55,7 @@ export const STATUS_LABELS: Record<ReceiptStatus, string> = {
   attached: "Rangé",
   unmatched: "Non rapproché par Airwallex",
   ignored: "Ignoré",
+  archived: "Archivé à la main",
   failed: "Échec",
 };
 
@@ -75,7 +77,11 @@ export function isActionable(status: ReceiptStatus): boolean {
 }
 
 /** Statuts dont on ne revient pas : plus aucune décision n'est possible. */
-export const TERMINAL_STATUSES: ReceiptStatus[] = ["attached", "ignored"];
+export const TERMINAL_STATUSES: ReceiptStatus[] = [
+  "attached",
+  "ignored",
+  "archived",
+];
 
 export type ReceiptPdfOrigin = "attachment" | "rendered" | "none";
 

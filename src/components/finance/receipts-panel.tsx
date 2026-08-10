@@ -1,12 +1,20 @@
 "use client";
 
-import { useActionState } from "react";
-import { Check, Link2Off, Send, X, Zap } from "lucide-react";
+import { useActionState, useState } from "react";
+import { Archive, Check, Link2Off, Send, Zap } from "lucide-react";
 
 import { StatusPill, type StatusTone } from "@/components/ds/status-pill";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   approveDocument,
-  ignoreDocument,
+  archiveDocument,
   setMerchantAutomation,
   toggleAutoForward,
   type ReceiptResult,
@@ -107,26 +115,28 @@ function ReceiptLine({ row, canDecide }: { row: ReceiptRow; canDecide: boolean }
     ReceiptResult | null,
     FormData
   >(approveDocument, null);
-  const [ignoreState, ignore, ignoring] = useActionState<
+  const [archiveState, archive, archiving] = useActionState<
     ReceiptResult | null,
     FormData
-  >(ignoreDocument, null);
+  >(archiveDocument, null);
   const [ruleState, setRule, settingRule] = useActionState<
     ReceiptResult | null,
     FormData
   >(setMerchantAutomation, null);
 
-  const busy = approving || ignoring || settingRule;
+  const busy = approving || archiving || settingRule;
   const error =
     (approveState && !approveState.ok && approveState.error) ||
-    (ignoreState && !ignoreState.ok && ignoreState.error) ||
+    (archiveState && !archiveState.ok && archiveState.error) ||
     (ruleState && !ruleState.ok && ruleState.error) ||
     null;
 
-  /* Une pièce en attente se décide ; une pièce déjà partie s'observe. La
-     distinction commande l'affichage : deux boutons d'un côté, un état de
-     l'autre. */
-  const decidable = row.status === "awaiting_validation";
+  /* Une pièce déjà partie ne se renvoie pas : le circuit est à sens unique,
+     et Gmail n'a pas de bouton « défaire ». Elle garde en revanche son bouton
+     d'archivage — c'est exactement le cas du reçu qu'Airwallex n'a pas su
+     ranger et qu'on accroche à la main chez eux. */
+  const sendable = row.forwarded_at === null;
+  const pending = row.status === "awaiting_validation";
 
   return (
     <li className="flex flex-wrap items-center gap-x-3 gap-y-2 py-3">
@@ -145,15 +155,21 @@ function ReceiptLine({ row, canDecide }: { row: ReceiptRow; canDecide: boolean }
       </div>
 
       <div className="shrink-0">
-        <MatchPill row={row} />
+        {pending ? (
+          <MatchPill row={row} />
+        ) : (
+          <StatusPill tone={statusTone(row.status)}>
+            {STATUS_LABELS[row.status]}
+          </StatusPill>
+        )}
       </div>
 
-      {decidable && canDecide ? (
+      {canDecide ? (
         <div className="flex items-center gap-1.5">
           {/* « Toujours » n'apparaît que là où il a un sens : un fournisseur
               pas encore approuvé. C'est le seul chemin restant pour accorder
               l'automatisme, l'écran qui le portait ayant disparu. */}
-          {!row.merchant_automated ? (
+          {pending && !row.merchant_automated ? (
             <form action={setRule}>
               <input type="hidden" name="domain" value={row.sender_domain} />
               <input type="hidden" name="enabled" value="true" />
@@ -169,36 +185,38 @@ function ReceiptLine({ row, canDecide }: { row: ReceiptRow; canDecide: boolean }
             </form>
           ) : null}
 
-          <form action={ignore}>
+          <form action={archive}>
             <input type="hidden" name="documentId" value={row.id} />
             <button
               type="submit"
               disabled={busy}
-              title="Écarter cette pièce"
-              className="type-caption text-text-secondary hover:text-danger-ink focus-visible:ring-ring inline-flex items-center gap-1 rounded-md px-2 py-1 transition-colors duration-(--motion-duration) ease-standard focus-visible:ring-2 focus-visible:outline-none"
+              title={
+                sendable
+                  ? "Écarter cette pièce : elle ne partira pas"
+                  : "Je m'en suis occupé à la main dans Airwallex"
+              }
+              className="type-caption text-text-secondary hover:text-text-primary focus-visible:ring-ring inline-flex items-center gap-1 rounded-md px-2 py-1 transition-colors duration-(--motion-duration) ease-standard focus-visible:ring-2 focus-visible:outline-none"
             >
-              <X className="size-3.5" strokeWidth={1.75} aria-hidden />
-              Ignorer
+              <Archive className="size-3.5" strokeWidth={1.75} aria-hidden />
+              {archiving ? "…" : "Archiver"}
             </button>
           </form>
 
-          <form action={approve}>
-            <input type="hidden" name="documentId" value={row.id} />
-            <button
-              type="submit"
-              disabled={busy}
-              className="bg-primary text-primary-foreground focus-visible:ring-ring type-caption inline-flex items-center gap-1 rounded-md px-2.5 py-1 font-medium transition-colors duration-(--motion-duration) ease-standard focus-visible:ring-2 focus-visible:outline-none disabled:opacity-60"
-            >
-              <Send className="size-3.5" strokeWidth={1.75} aria-hidden />
-              {approving ? "Envoi…" : "Envoyer"}
-            </button>
-          </form>
+          {sendable ? (
+            <form action={approve}>
+              <input type="hidden" name="documentId" value={row.id} />
+              <button
+                type="submit"
+                disabled={busy}
+                className="bg-primary text-primary-foreground focus-visible:ring-ring type-caption inline-flex items-center gap-1 rounded-md px-2.5 py-1 font-medium transition-colors duration-(--motion-duration) ease-standard focus-visible:ring-2 focus-visible:outline-none disabled:opacity-60"
+              >
+                <Send className="size-3.5" strokeWidth={1.75} aria-hidden />
+                {approving ? "Envoi…" : "Envoyer"}
+              </button>
+            </form>
+          ) : null}
         </div>
-      ) : (
-        <StatusPill tone={statusTone(row.status)}>
-          {STATUS_LABELS[row.status]}
-        </StatusPill>
-      )}
+      ) : null}
 
       {error ? (
         <p className="type-caption text-danger-ink w-full">{error}</p>
@@ -207,10 +225,79 @@ function ReceiptLine({ row, canDecide }: { row: ReceiptRow; canDecide: boolean }
   );
 }
 
+/**
+ * L'historique des pièces parties, derrière une icône.
+ *
+ * Il vit dans une fenêtre et non dans la page : on ne le consulte qu'après
+ * coup — « est-ce que ce reçu est bien parti ? » — et une liste de cinquante
+ * lignes déjà réglées noierait les trois qui attendent une décision.
+ */
+export function ReceiptsArchive({ rows }: { rows: ReceiptDocument[] }) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <>
+      <Button
+        variant="outline"
+        size="icon-sm"
+        onClick={() => setOpen(true)}
+        title="Les pièces déjà envoyées à Airwallex"
+      >
+        <Archive className="size-4" strokeWidth={1.75} aria-hidden />
+        <span className="sr-only">Voir les pièces envoyées</span>
+      </Button>
+
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Pièces envoyées</DialogTitle>
+            <DialogDescription>
+              Reçues par mail puis transférées à Airwallex, seules ou après
+              votre accord.
+            </DialogDescription>
+          </DialogHeader>
+
+          {rows.length === 0 ? (
+            <p className="type-caption text-text-secondary">
+              Aucune pièce n&apos;est encore partie.
+            </p>
+          ) : (
+            <ul className="divide-border-line max-h-[60vh] divide-y overflow-y-auto">
+              {rows.map((row) => (
+                <li
+                  key={row.id}
+                  className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2.5"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="type-label text-text-primary truncate">
+                      {row.merchant ?? row.subject ?? row.from_email}
+                    </p>
+                    <p className="type-caption text-text-secondary tabular-nums">
+                      {row.amount_cents !== null && row.currency
+                        ? formatMoney(row.amount_cents, row.currency)
+                        : "montant inconnu"}
+                      {row.forwarded_at
+                        ? ` · envoyée le ${formatInstant(row.forwarded_at)}`
+                        : ""}
+                      {row.auto_decided ? " · auto" : ""}
+                    </p>
+                  </div>
+                  <StatusPill tone={statusTone(row.status)}>
+                    {STATUS_LABELS[row.status]}
+                  </StatusPill>
+                </li>
+              ))}
+            </ul>
+          )}
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
 /* Le rapprochement est la seule information dont dépend la décision : une
    pièce sans ligne partira quand même, mais Airwallex devra la ranger seul. */
 function MatchPill({ row }: { row: ReceiptRow }) {
-  if (row.status !== "awaiting_validation") return null;
   if (row.expense_id) {
     return <StatusPill tone="positive">Dépense trouvée</StatusPill>;
   }
@@ -246,5 +333,10 @@ const DAY = new Intl.DateTimeFormat("fr-FR", {
 
 function formatDay(iso: string): string {
   const date = new Date(`${iso}T00:00:00.000Z`);
+  return Number.isNaN(date.getTime()) ? iso : DAY.format(date);
+}
+
+function formatInstant(iso: string): string {
+  const date = new Date(iso);
   return Number.isNaN(date.getTime()) ? iso : DAY.format(date);
 }

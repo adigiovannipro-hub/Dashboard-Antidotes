@@ -59,6 +59,31 @@ export async function listDocuments(options: {
   return (data ?? []) as unknown as ReceiptDocument[];
 }
 
+/**
+ * L'historique : les pièces réellement parties chez Airwallex.
+ *
+ * Le critère est `forwarded_at`, et non le statut — c'est la seule chose qui
+ * distingue une pièce dont on s'est occupé d'un mail écarté. Une pièce partie
+ * seule y figure au même titre qu'une pièce validée à la main : le tri se fait
+ * dans la colonne « auto », pas en cachant la moitié de l'histoire.
+ */
+export async function listForwardedDocuments(options: {
+  orgId: string;
+  limit?: number;
+}): Promise<ReceiptDocument[]> {
+  const supabase = await createClient();
+
+  const { data } = await supabase
+    .from("receipt_documents")
+    .select("*")
+    .eq("org_id", options.orgId)
+    .not("forwarded_at", "is", null)
+    .order("forwarded_at", { ascending: false })
+    .limit(options.limit ?? 100);
+
+  return (data ?? []) as unknown as ReceiptDocument[];
+}
+
 export async function listMerchantRules(orgId: string): Promise<ReceiptMerchantRule[]> {
   const supabase = await createClient();
 

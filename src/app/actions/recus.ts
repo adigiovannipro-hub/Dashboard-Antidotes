@@ -113,8 +113,22 @@ export async function approveDocument(
   }
 }
 
-/** Refus : la pièce est écartée, et le fournisseur perd son automatisme. */
-export async function ignoreDocument(
+/**
+ * Archivage : la pièce sort de la liste de travail.
+ *
+ * Un seul bouton, deux sens, que distingue ce qui s'est déjà passé :
+ *
+ * — une pièce **jamais partie** qu'on archive, c'est un refus. Le fournisseur
+ *   perd son automatisme, parce que le cas n'était pas aussi routinier qu'il
+ *   en avait l'air et que continuer à envoyer tout seul après un désaccord
+ *   serait le contraire d'apprendre.
+ * — une pièce **déjà transférée** qu'on archive, c'est du rangement : Airwallex
+ *   n'a pas su l'accrocher, on l'a fait à la main dans leur interface. Rien à
+ *   reprocher à personne, le compteur du fournisseur ne bouge pas.
+ *
+ * C'est la distinction qui interdisait de réutiliser « ignoré » pour les deux.
+ */
+export async function archiveDocument(
   _previous: ReceiptResult | null,
   formData: FormData,
 ): Promise<ReceiptResult> {
@@ -123,33 +137,34 @@ export async function ignoreDocument(
 
   try {
     const { viewer, document } = await requireDecider(parsed.data.documentId);
+    const sent = document.forwarded_at !== null;
 
     await createAdminClient()
       .from("receipt_documents")
       .update({
-        status: "ignored",
+        status: sent ? "archived" : "ignored",
         decided_by: viewer.user.id,
         decided_at: new Date().toISOString(),
         auto_decided: false,
       })
       .eq("id", document.id);
 
-    /* Un refus retire l'automatisme du fournisseur, en plus de compter. Le cas
-       n'est pas aussi routinier qu'il en avait l'air, et continuer à envoyer
-       tout seul après un désaccord serait le contraire d'apprendre. */
-    await bumpRule(document, { rejections: 1, disableAuto: true });
+    if (!sent) await bumpRule(document, { rejections: 1, disableAuto: true });
 
     await audit({
       orgId: document.org_id,
       documentId: document.id,
       actorId: viewer.user.id,
-      action: "document.ignored",
+      action: "document.archived",
       before: { status: document.status },
-      after: { status: "ignored" },
+      after: { status: sent ? "archived" : "ignored" },
     });
 
     revalidatePath(RECEIPTS_PATH);
-    return { ok: true, message: "Pièce écartée." };
+    return {
+      ok: true,
+      message: sent ? "Pièce archivée." : "Pièce écartée.",
+    };
   } catch (error) {
     return {
       ok: false,

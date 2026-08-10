@@ -7,6 +7,7 @@ import { StatCard, StatGrid } from "@/components/ds/stat-card";
 import { Panel, PanelBody, PanelHeader, SectionHeader } from "@/components/ds/surface";
 import { FlowsChart } from "@/components/finance/flows-chart";
 import {
+  ReceiptsArchive,
   ReceiptsPanel,
   type ReceiptRow,
 } from "@/components/finance/receipts-panel";
@@ -17,7 +18,12 @@ import { SyncBanner } from "@/components/finance/sync-banner";
 import { requireFinanceAccess } from "@/lib/finance/access";
 import { getReceiptsContext } from "@/lib/recus/access";
 import { senderDomain } from "@/lib/recus/heuristics";
-import { listDocuments, listMerchantRules } from "@/lib/recus/queries";
+import type { ReceiptDocument } from "@/lib/recus/types";
+import {
+  listDocuments,
+  listForwardedDocuments,
+  listMerchantRules,
+} from "@/lib/recus/queries";
 import { resolveCategory } from "@/lib/finance/categories";
 import { invoiceKpis } from "@/lib/finance/invoices";
 import { formatMoney } from "@/lib/finance/money";
@@ -235,6 +241,7 @@ export default async function FinancePage({
             title="Reçus"
             count={receipts.rows.length}
             description="Les justificatifs reçus par mail, à envoyer à Airwallex."
+            action={<ReceiptsArchive rows={receipts.archives} />}
           />
           <PanelBody>
             <ReceiptsPanel
@@ -281,14 +288,16 @@ export default async function FinancePage({
  */
 async function loadReceipts(): Promise<{
   rows: ReceiptRow[];
+  archives: ReceiptDocument[];
   autoForwardOpen: boolean;
   canDecide: boolean;
 } | null> {
   const context = await getReceiptsContext();
   if (!context || context.sources.length === 0) return null;
 
-  const [documents, merchantRules] = await Promise.all([
+  const [documents, archives, merchantRules] = await Promise.all([
     listDocuments({ orgId: context.orgId, filters: { actionableOnly: true } }),
+    listForwardedDocuments({ orgId: context.orgId, limit: 50 }),
     listMerchantRules(context.orgId),
   ]);
 
@@ -305,6 +314,7 @@ async function loadReceipts(): Promise<{
         merchant_automated: automated.has(domain),
       };
     }),
+    archives,
     autoForwardOpen: context.sources.some(
       (source) => source.settings.auto_forward.enabled,
     ),
