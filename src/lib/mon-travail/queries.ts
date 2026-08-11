@@ -35,7 +35,7 @@ async function decorate(subjects: PlanningSubject[]): Promise<PublicationRow[]> 
   const boardIds = [...new Set(subjects.map((subject) => subject.board_id))];
   const workspaceIds = [...new Set(subjects.map((subject) => subject.workspace_id))];
 
-  const [{ data: lanes }, { data: boards }, { data: workspaces }, visualsById] =
+  const [{ data: lanes }, { data: boards }, { data: workspaces }, visualsById, { data: comments }] =
     await Promise.all([
       supabase.from("planning_lanes").select("*").in("id", laneIds),
       supabase.from("planning_boards").select("id, slug, settings").in("id", boardIds),
@@ -44,7 +44,22 @@ async function decorate(subjects: PlanningSubject[]): Promise<PublicationRow[]> 
         .select("id, slug, name, accent_color")
         .in("id", workspaceIds),
       resolveVisuals(subjects),
+      supabase
+        .from("planning_comments")
+        .select("subject_id")
+        .in(
+          "subject_id",
+          subjects.map((subject) => subject.id),
+        ),
     ]);
+
+  const commentCounts = new Map<string, number>();
+  for (const comment of (comments ?? []) as { subject_id: string }[]) {
+    commentCounts.set(
+      comment.subject_id,
+      (commentCounts.get(comment.subject_id) ?? 0) + 1,
+    );
+  }
 
   const laneById = new Map(
     ((lanes ?? []) as unknown as PlanningLane[]).map((lane) => [lane.id, lane]),
@@ -74,6 +89,7 @@ async function decorate(subjects: PlanningSubject[]): Promise<PublicationRow[]> 
       workspace,
       board_slug: board.slug,
       objectives: board.settings.ad_objectives,
+      comments_count: commentCounts.get(subject.id) ?? 0,
     });
   }
 
@@ -81,15 +97,18 @@ async function decorate(subjects: PlanningSubject[]): Promise<PublicationRow[]> 
 }
 
 /**
- * Ce qu'il reste à publier : le jour même **et les jours d'avant**.
+ * Ce qu'il reste à publier : **tout ce qui est daté et jamais parti** — les
+ * retards des jours d'avant, le jour même, et ce qui est programmé ou validé
+ * pour la suite. Une publication ne quitte cette liste qu'en partant
+ * (`published`) ou en étant écartée (`dropped`) ; ce qui est antérieur à
+ * aujourd'hui est marqué en retard, et s'affiche en rouge.
  *
- * Une publication datée d'hier et jamais partie ne disparaît pas de l'écran
- * parce que la date a tourné — c'est même la seule qui presse. C'est aussi ce
- * que compte la pastille du rail : un compteur qui annonce des lignes que la
- * page n'affiche pas envoie chercher quelque chose d'introuvable.
+ * C'est aussi ce que compte la pastille du rail : un compteur qui annonce des
+ * lignes que la page n'affiche pas envoie chercher quelque chose
+ * d'introuvable.
  */
 export async function listPublicationsToDo(options: {
-  /** Date du jour, incluse. Tout ce qui est antérieur est un retard. */
+  /** Date du jour. Tout ce qui est antérieur est un retard. */
   until: string;
   /** Restreint à un espace client — le filtre de la page d'accueil. */
   workspaceId?: string | null;
@@ -100,18 +119,26 @@ export async function listPublicationsToDo(options: {
   let query = supabase
     .from("planning_subjects")
     .select("*")
-    .lte("scheduled_on", options.until)
+    // Sans date, rien à publier : la ligne appartient au planning, pas à la
+    // page du jour.
+    .not("scheduled_on", "is", null)
     // Un contenu non retenu n'a jamais existé pour le lecteur ; un contenu
     // parti n'a plus rien à faire dans une liste de choses à faire. Le filtre
     // est en base et non en mémoire : trié du plus ancien au plus récent, une
-    // limite de cent lignes sur un board d'un an couperait le jour même.
+    // limite de deux cents lignes sur un board d'un an couperait le jour même.
     .not("status", "in", `(${[...EXCLUDED_STATUSES, ...DONE_STATUSES].join(",")})`);
 
   if (options.workspaceId) query = query.eq("workspace_id", options.workspaceId);
 
-  const { data } = await query.order("scheduled_on").limit(options.limit ?? 100);
+  const { data } = await query.order("scheduled_on").limit(options.limit ?? 200);
 
-  return byNetwork(await decorate(visibleOnBoard(data)));
+  const rows = byNetwork(await decorate(visibleOnBoard(data)));
+  return rows.map((row) => ({
+    ...row,
+    late:
+      row.subject.scheduled_on !== null &&
+      row.subject.scheduled_on < options.until,
+  }));
 }
 
 /** Les publications parties dans la journée — la section « Archivé ». */

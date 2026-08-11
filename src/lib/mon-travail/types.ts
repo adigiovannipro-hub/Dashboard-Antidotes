@@ -124,4 +124,8 @@ export type PublicationRow = {
    * l'autre : la colonne « Objectif » ne peut pas être une liste partagée.
    */
   objectives: string[];
+  /** Le compteur de retours du board, pour l'icône de la ligne. */
+  comments_count: number;
+  /** En retard : datée avant aujourd'hui et toujours pas partie — en rouge. */
+  late?: boolean;
 };
