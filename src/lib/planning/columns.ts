@@ -138,7 +138,8 @@ const OBJECTIVE_COLORS: Record<string, string> = {
   Followers: "#66ccff",
 };
 
-function objectiveLabels(adObjectives: string[]): ColumnLabel[] {
+/** Exportée : « Mon travail » rend la même colonne Objectif que le board. */
+export function objectiveLabels(adObjectives: string[]): ColumnLabel[] {
   return adObjectives.map((objective, index) => ({
     // La valeur stockée dans `ad_objective` est le libellé lui-même : c'est
     // l'existant, on ne migre pas les données pour une couleur.

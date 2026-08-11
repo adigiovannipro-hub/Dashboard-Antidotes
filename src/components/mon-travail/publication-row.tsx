@@ -14,11 +14,11 @@ import {
   DateCell,
   NumberCell,
   TextCell,
-  TextSelect,
   VisualsCell,
   WordingCell,
   useCellAction,
 } from "@/components/planning/cells";
+import { objectiveLabels } from "@/lib/planning/columns";
 import { uploadVisualsFromBrowser } from "@/lib/planning/upload-client";
 import type { TaskWorkspace } from "@/lib/mon-travail/types";
 import type { PublicationRow as Row } from "@/lib/mon-travail/types";
@@ -72,17 +72,29 @@ const AD_STATUS_OPTIONS = AD_STATUS_ORDER.map((status) => ({
   color: AD_STATUS_COLORS[status],
 }));
 
+/** Les objectifs du tableau d'origine, aux couleurs du board. */
+function objectiveChipOptions(objectives: string[]) {
+  return objectiveLabels(objectives).map((label) => ({
+    value: label.id,
+    label: label.label,
+    color: label.color,
+  }));
+}
+
 /**
  * Gabarit desktop, dans l'ordre du planning :
  * client, réseau, sujet, retours, statut, type, date, visuel, wording,
  * sponso, objectif, ads.
+ *
+ * Le wording est la colonne qui respire : c'est lui qu'on vient relire avant
+ * de publier — le sujet n'est qu'un repère, il n'a pas à s'étaler.
  *
  * En dessous de `md`, la ligne se replie en trois niveaux — repère, sujet,
  * puis date et statut. Les colonnes publicitaires et la caption sortent de
  * l'affichage : sur un téléphone, la question est « est-ce parti ? ».
  */
 export const PUBLICATION_GRID =
-  "md:grid md:grid-cols-[minmax(112px,0.8fr)_72px_minmax(120px,2.4fr)_36px_118px_96px_122px_48px_minmax(96px,1fr)_64px_92px_80px] md:items-center md:gap-x-1";
+  "md:grid md:grid-cols-[minmax(112px,0.8fr)_72px_minmax(130px,1.3fr)_36px_118px_96px_122px_48px_minmax(190px,2.4fr)_64px_100px_80px] md:items-center md:gap-x-1";
 
 /**
  * Largeur minimale sous laquelle les douze colonnes se chevauchent.
@@ -103,17 +115,18 @@ export function PublicationHeader() {
         PUBLICATION_MIN_WIDTH,
       )}
     >
-      <span className="px-1.5">Client</span>
-      <span className="px-1.5">Réseau</span>
-      <span className="px-1.5">Sujet</span>
+      {/* Centrés, comme les en-têtes du board. */}
+      <span className="text-center">Client</span>
+      <span className="text-center">Réseau</span>
+      <span className="text-center">Sujet</span>
       <span aria-hidden />
       <span className="text-center">Statut</span>
       <span className="text-center">Type</span>
-      <span className="px-1.5">Date</span>
+      <span className="text-center">Date</span>
       <span className="text-center">Visuel</span>
-      <span className="px-1.5">Wording</span>
-      <span className="px-1.5 text-right">Sponso</span>
-      <span className="px-1.5">Objectif</span>
+      <span className="text-center">Wording</span>
+      <span className="text-center">Sponso</span>
+      <span className="text-center">Objectif</span>
       <span className="text-center">Ads</span>
     </div>
   );
@@ -259,11 +272,13 @@ export function PublicationRowView({ row }: { row: Row }) {
         />
       </div>
 
+      {/* Étiquettes colorées, comme au board — pas une liste de texte nu. */}
       <div className="hidden min-w-0 md:block">
-        <TextSelect
+        <ChipSelect<string>
           value={row.subject.ad_objective}
-          options={row.objectives}
+          options={objectiveChipOptions(row.objectives)}
           ariaLabel="Objectif de l'annonce"
+          allowClear
           onSelect={(next) => edit("ad_objective", next)}
         />
       </div>

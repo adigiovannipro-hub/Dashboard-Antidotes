@@ -1,7 +1,11 @@
 import "server-only";
 
 import { resolveVisuals } from "@/lib/planning/queries";
-import { DONE_STATUSES, EXCLUDED_STATUSES } from "@/lib/planning/types";
+import {
+  DONE_STATUSES,
+  EXCLUDED_STATUSES,
+  READY_STATUSES,
+} from "@/lib/planning/types";
 import type {
   PlanningBoard,
   PlanningLane,
@@ -97,11 +101,16 @@ async function decorate(subjects: PlanningSubject[]): Promise<PublicationRow[]> 
 }
 
 /**
- * Ce qu'il reste à publier : **tout ce qui est daté et jamais parti** — les
- * retards des jours d'avant, le jour même, et ce qui est programmé ou validé
- * pour la suite. Une publication ne quitte cette liste qu'en partant
- * (`published`) ou en étant écartée (`dropped`) ; ce qui est antérieur à
- * aujourd'hui est marqué en retard, et s'affiche en rouge.
+ * Ce qu'il reste à publier, en deux régimes :
+ *
+ *   • **retards et jour même, quel que soit l'état** — daté d'aujourd'hui ou
+ *     d'avant et jamais parti, c'est à traiter, fût-ce un brouillon ;
+ *   • **la suite, seulement prête** — une publication future n'apparaît que
+ *     programmée ou validée. Un « en cours » de septembre est du travail de
+ *     planning, pas de publication : il reste sur son board.
+ *
+ * Une ligne quitte la liste en partant (`published`) ou écartée (`dropped`) ;
+ * l'antérieur à aujourd'hui est marqué en retard et s'affiche en rouge.
  *
  * C'est aussi ce que compte la pastille du rail : un compteur qui annonce des
  * lignes que la page n'affiche pas envoie chercher quelque chose
@@ -132,7 +141,16 @@ export async function listPublicationsToDo(options: {
 
   const { data } = await query.order("scheduled_on").limit(options.limit ?? 200);
 
-  const rows = byNetwork(await decorate(visibleOnBoard(data)));
+  // Le second régime se tranche en mémoire : l'alternative « (échu) ou
+  // (futur et prêt) » ne s'écrit pas proprement dans la requête, et les
+  // volumes — une année de board — tiennent large sous la limite.
+  const due = visibleOnBoard(data).filter(
+    (subject) =>
+      (subject.scheduled_on !== null && subject.scheduled_on <= options.until) ||
+      (READY_STATUSES as string[]).includes(subject.status),
+  );
+
+  const rows = byNetwork(await decorate(due));
   return rows.map((row) => ({
     ...row,
     late:
