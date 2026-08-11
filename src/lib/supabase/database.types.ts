@@ -453,6 +453,10 @@ export type PlanningSubjectRow = {
   /** Archives et corbeille (migration 0031) — `null` : visible au tableau. */
   archived_at: string | null;
   deleted_at: string | null;
+  /** Résultats de génération (migration 0032). */
+  visual_text: string | null;
+  slides: unknown[] | null;
+  wording_status: string;
   created_at: string;
   updated_at: string;
   updated_by: string | null;
@@ -580,6 +584,20 @@ export type {
 
 import type { WorkCycle, WorkCycleStep, WorkTask } from "@/lib/mon-travail/types";
 
+/* --- Module Contexte client ------------------------------------------------
+   Même principe : le détail vit dans `src/lib/context/types.ts`. */
+export type {
+  ClientContext as ClientContextRow,
+  ClientAsset as ClientAssetRow,
+  WordingHistoryEntry as WordingHistoryRow,
+} from "@/lib/context/types";
+
+import type {
+  ClientAsset,
+  ClientContext,
+  WordingHistoryEntry,
+} from "@/lib/context/types";
+
 type Table<Row, Insert = Partial<Row>, Update = Partial<Row>> = {
   Row: Row;
   Insert: Insert;
@@ -647,6 +665,9 @@ export type Database = {
       work_cycles: Table<WorkCycle>;
       work_cycle_steps: Table<WorkCycleStep>;
       work_tasks: Table<WorkTask>;
+      client_context: Table<ClientContext>;
+      client_assets: Table<ClientAsset>;
+      wording_history: Table<WordingHistoryEntry>;
     };
     // `never` satisfait la contrainte `Record<string, GenericView>` de
     // postgrest-js tout en déclarant qu'il n'y a ni vue ni fonction exposée.
