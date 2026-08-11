@@ -34,6 +34,7 @@ import {
 } from "@/components/planning/cells";
 import { Button } from "@/components/ui/button";
 import type { ColumnDef, ColumnLabel } from "@/lib/planning/columns";
+import { visualUploadError } from "@/lib/planning/storage";
 import type {
   PlanningComment,
   PlanningOwner,
@@ -115,6 +116,7 @@ export function SubjectRowView({
   onRowDrop: (subjectId: string, after: boolean, draggedId: string) => void;
 }) {
   const { run, pending } = useCellAction();
+  const [dragging, setDragging] = useState(false);
 
   const edit = (field: EditableField, value: unknown) => {
     if (bulkTargets && bulkTargets.length > 1 && BULK_FIELDS.includes(field)) {
@@ -158,6 +160,9 @@ export function SubjectRowView({
         "group/row border-border/60 [&>*+*]:border-border/50 grid cursor-pointer border-b px-2 transition-colors [&>*+*]:border-l",
         selected ? "bg-brand-mint/40" : "hover:bg-muted/40",
         pending && "opacity-60",
+        // Pendant le drag, l'original s'estompe : c'est la copie sous le
+        // curseur qui porte la ligne.
+        dragging && "opacity-30",
         // Le filet de dépôt : là où la ligne va se poser.
         dropIndicator === "avant" && "shadow-[inset_0_2px_0_0_var(--accent-ink)]",
         dropIndicator === "apres" && "shadow-[inset_0_-2px_0_0_var(--accent-ink)]",
@@ -174,7 +179,19 @@ export function SubjectRowView({
           onDragStart={(event) => {
             event.dataTransfer.setData(SUBJECT_DRAG_TYPE, row.id);
             event.dataTransfer.effectAllowed = "move";
+            // C'est toute la ligne qui suit le curseur, pas la poignée seule.
+            const rowElement = event.currentTarget.closest('[role="row"]');
+            if (rowElement instanceof HTMLElement) {
+              const rect = rowElement.getBoundingClientRect();
+              event.dataTransfer.setDragImage(
+                rowElement,
+                event.clientX - rect.left,
+                event.clientY - rect.top,
+              );
+            }
+            setDragging(true);
           }}
+          onDragEnd={() => setDragging(false)}
           aria-label={`Déplacer ${row.name || "la publication"}`}
           title="Glisser pour déplacer"
           className="text-muted-foreground/60 hover:text-foreground cursor-grab opacity-0 transition-opacity group-hover/row:opacity-100 active:cursor-grabbing"
@@ -302,6 +319,13 @@ function Cell({
           uploading={pending}
           onOpen={onOpenSubject}
           onUpload={(files) => {
+            // Vérifié avant de partir : un corps refusé par le serveur ne
+            // rend pas d'erreur lisible, il jette.
+            const oversized = visualUploadError(files);
+            if (oversized) {
+              run(async () => ({ ok: false as const, error: oversized }));
+              return;
+            }
             const formData = new FormData();
             formData.set("subjectId", row.id);
             for (const file of files) formData.append("file", file);

@@ -335,6 +335,8 @@ Le dépôt embarque des skills dans `.claude/skills/`, certains en lien symboliq
 
 **`e2e/acces.spec.ts` suppose l'application fermée.** Ses trois cas vérifient la redirection vers `/login` : ils échouent tant que l'accès ouvert est actif. La suite e2e n'est pas dans la CI — elle demande un navigateur et un vrai projet Supabase — donc rien ne le signale.
 
+**Un corps de Server Action au-delà de `bodySizeLimit` ne rend pas d'erreur : il jette.** Le rejet (413) fait échouer le `fetch` de l'action, l'exception traverse `startTransition`, et l'écran entier tombe sur la page d'erreur du navigateur — c'était le crash « page buggée » des envois de vidéos. Triple garde depuis : limite à 100 Mo (le plafond des fonctions Vercel), vérification client **avant** l'envoi (50 Mo par fichier, 95 Mo par lot, `visualUploadError`), et `try/catch` dans `useCellAction` pour que tout échec d'action finisse en toast, jamais en écran noir.
+
 **À vérifier, non tranché :** le cron des Reçus déclare `maxDuration = 300`, alors que le plan Hobby plafonne les fonctions bien plus bas. Rien ne l'a encore prouvé en conditions réelles — au premier vrai passage, regarder si la fonction est coupée en cours de route.
 
 Quand on perd du temps deux fois sur le même problème, ajoute-le ici.

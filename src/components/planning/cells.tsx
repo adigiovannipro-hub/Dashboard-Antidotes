@@ -44,9 +44,18 @@ export function useCellAction() {
 
   const run = (action: () => Promise<PlanningResult>) => {
     startTransition(async () => {
-      const result = await action();
-      if (!result.ok) toast.error(result.error);
-      else if (result.message) toast.success(result.message);
+      try {
+        const result = await action();
+        if (!result.ok) toast.error(result.error);
+        else if (result.message) toast.success(result.message);
+      } catch {
+        // Un envoi refusé par le serveur (vidéo au-delà de la limite, réseau
+        // coupé) jetterait sinon jusqu'à l'écran d'erreur du navigateur — la
+        // « page buggée ». Ici : un toast, et la page reste debout.
+        toast.error(
+          "L'action n'a pas abouti — fichier trop lourd ou connexion interrompue.",
+        );
+      }
     });
   };
 

@@ -34,7 +34,7 @@ import { CommentThread, type Scope } from "@/components/planning/subject-row";
 import { PlatformIcon } from "@/components/planning/platform-icon";
 import { Button } from "@/components/ui/button";
 import type { ColumnDef, ColumnLabel } from "@/lib/planning/columns";
-import { isImagePath } from "@/lib/planning/storage";
+import { isImagePath, visualUploadError } from "@/lib/planning/storage";
 import type {
   PlanningActivity,
   PlanningOwner,
@@ -133,6 +133,11 @@ export function SubjectDrawer({
           subject={subject}
           uploading={pending}
           onUpload={(files) => {
+            const oversized = visualUploadError(files);
+            if (oversized) {
+              run(async () => ({ ok: false as const, error: oversized }));
+              return;
+            }
             const formData = new FormData();
             formData.set("subjectId", subject.id);
             for (const file of files) formData.append("file", file);
@@ -352,14 +357,17 @@ function VisualCarousel({
             onScroll={onScroll}
             className="flex snap-x snap-mandatory items-center gap-3 overflow-x-auto px-6 py-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           >
+            {/* Largeur de diapo fixe (86 %) pour l'aimantation et l'aperçu de
+                la suivante ; à l'intérieur, le média prend toute la place que
+                ses proportions permettent — une 4:5 remplit la largeur. */}
             {visuals.map((visual, i) => (
               <div
                 key={visual.path}
-                className="flex h-[480px] max-w-[88%] shrink-0 snap-center items-center justify-center"
+                className="flex w-[86%] shrink-0 snap-center items-center justify-center"
               >
                 <VisualSlideMedia
                   visual={visual}
-                  className="max-h-full"
+                  className="max-h-[76vh]"
                   onClick={() => {
                     scrollTo(i, false);
                     setExpanded(true);

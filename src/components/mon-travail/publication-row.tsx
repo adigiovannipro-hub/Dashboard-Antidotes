@@ -18,6 +18,7 @@ import {
   WordingCell,
   useCellAction,
 } from "@/components/planning/cells";
+import { visualUploadError } from "@/lib/planning/storage";
 import type { TaskWorkspace } from "@/lib/mon-travail/types";
 import type { PublicationRow as Row } from "@/lib/mon-travail/types";
 import {
@@ -199,6 +200,11 @@ export function PublicationRowView({ row }: { row: Row }) {
         subjectName={row.subject.name}
         uploading={pending}
         onUpload={(files) => {
+          const oversized = visualUploadError(files);
+          if (oversized) {
+            run(async () => ({ ok: false as const, error: oversized }));
+            return;
+          }
           const formData = new FormData();
           formData.set("subjectId", row.subject.id);
           for (const file of files) formData.append("file", file);

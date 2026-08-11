@@ -24,6 +24,27 @@ export const ACCEPTED_VISUAL_TYPES = [
 ];
 
 /**
+ * Plafond du corps d'un envoi, sous la limite déclarée à Next
+ * (`bodySizeLimit`). Vérifié **avant** de partir : un corps refusé par le
+ * serveur ne rend pas d'erreur lisible, il jette — et jetait l'écran entier.
+ */
+export const MAX_UPLOAD_BODY_BYTES = 95 * 1024 * 1024;
+
+/** Ce qui bloquerait cet envoi, en une phrase — ou rien si tout passe. */
+export function visualUploadError(files: File[]): string | null {
+  for (const file of files) {
+    if (file.size > MAX_VISUAL_BYTES) {
+      return `${file.name} : trop lourd (50 Mo maximum par fichier).`;
+    }
+  }
+  const total = files.reduce((sum, file) => sum + file.size, 0);
+  if (total > MAX_UPLOAD_BODY_BYTES) {
+    return "Envoi trop volumineux — garde l'ensemble sous 95 Mo, ou envoie en plusieurs fois.";
+  }
+  return null;
+}
+
+/**
  * Chemin d'un visuel : `<espace>/<publication>/<horodatage>-<nom>`.
  *
  * L'horodatage évite qu'un second envoi du même fichier écrase le premier, ce

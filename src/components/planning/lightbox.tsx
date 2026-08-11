@@ -80,9 +80,12 @@ export function VisualSlideMedia({
   const isVideo = /\.(mp4|mov|webm)(\?|$)/i.test(visual.path);
   const isImage = isImagePath(visual.path) && !!visual.url;
 
-  // La carte : coins arrondis, bord gris — le « type card » demandé.
+  // La carte : coins arrondis, bord gris — le « type card » demandé. Pas de
+  // dimension imposée : le média garde ses proportions et grandit jusqu'aux
+  // plafonds passés en `className` — une 4:5 remplit la largeur du panneau,
+  // une story remplit la hauteur, jamais de bande.
   const card = cn(
-    "rounded-xl border border-neutral-600/60 bg-neutral-950 object-contain",
+    "max-w-full rounded-xl border border-neutral-600/60 bg-neutral-950 object-contain",
     className,
   );
 
@@ -102,12 +105,14 @@ export function VisualSlideMedia({
     );
     if (!onClick) return img;
     return (
+      // `max-w-full`/`max-h-full` : le bouton s'efface — sans lui dans la
+      // chaîne, l'image ne serait plus bornée par la diapo.
       <button
         type="button"
         onClick={onClick}
         title="Afficher en plein écran"
         aria-label={`Afficher ${visual.name} en plein écran`}
-        className="cursor-zoom-in outline-none"
+        className="flex max-h-full max-w-full cursor-zoom-in justify-center outline-none"
       >
         {img}
       </button>
