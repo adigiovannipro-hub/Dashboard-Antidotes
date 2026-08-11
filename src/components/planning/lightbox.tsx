@@ -232,7 +232,7 @@ export function VisualLightbox({
           type="file"
           multiple
           className="sr-only"
-          accept="image/*,video/mp4,video/quicktime,application/pdf"
+          accept="image/*,video/mp4,video/quicktime,video/webm,application/pdf"
           onChange={(event) => {
             const files = [...(event.target.files ?? [])];
             if (files.length > 0) onUpload(files);

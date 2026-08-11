@@ -16,7 +16,6 @@ import {
   removeVisual,
   updateCustomValue,
   updateSubject,
-  uploadVisual,
   type EditableField,
 } from "@/app/actions/planning";
 import {
@@ -34,7 +33,7 @@ import {
 } from "@/components/planning/cells";
 import { Button } from "@/components/ui/button";
 import type { ColumnDef, ColumnLabel } from "@/lib/planning/columns";
-import { visualUploadError } from "@/lib/planning/storage";
+import { uploadVisualsFromBrowser } from "@/lib/planning/upload-client";
 import type {
   PlanningComment,
   PlanningOwner,
@@ -318,19 +317,9 @@ function Cell({
           subjectName={row.name}
           uploading={pending}
           onOpen={onOpenSubject}
-          onUpload={(files) => {
-            // Vérifié avant de partir : un corps refusé par le serveur ne
-            // rend pas d'erreur lisible, il jette.
-            const oversized = visualUploadError(files);
-            if (oversized) {
-              run(async () => ({ ok: false as const, error: oversized }));
-              return;
-            }
-            const formData = new FormData();
-            formData.set("subjectId", row.id);
-            for (const file of files) formData.append("file", file);
-            run(() => uploadVisual(scope, formData));
-          }}
+          onUpload={(files) =>
+            run(() => uploadVisualsFromBrowser(scope, row.id, files))
+          }
           onRemove={(path) =>
             run(() => removeVisual(scope, { subjectId: row.id, path }))
           }
