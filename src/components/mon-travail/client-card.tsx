@@ -24,6 +24,7 @@ import {
 import {
   RUNNING_LABELS,
   type CardJob,
+  type JobPayload,
   type ProductionCardModel,
 } from "@/lib/production/card-model";
 import {
@@ -64,12 +65,6 @@ const TONE_BG: Record<SegmentTone, string> = {
   ok: "bg-brand",
   urgent: "bg-warning",
   idle: "bg-border-strong",
-};
-
-/** Ce que `/api/jobs/[id]` renvoie — le job, plus son verdict lisible. */
-type JobPayload = CardJob & {
-  summary: string | null;
-  error: string | null;
 };
 
 export function ClientCard({

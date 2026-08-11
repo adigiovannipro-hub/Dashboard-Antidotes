@@ -102,6 +102,20 @@ const asCardJob = (job: GenerationJob): CardJob => ({
   total: job.progress_total,
 });
 
+/** Ce que les routes `/api/generate/*` et `/api/jobs/*` renvoient au front. */
+export type JobPayload = CardJob & {
+  summary: string | null;
+  error: string | null;
+};
+
+export function toJobPayload(job: GenerationJob): JobPayload {
+  return {
+    ...asCardJob(job),
+    summary: job.result?.summary ?? null,
+    error: job.error_message,
+  };
+}
+
 export function buildCardModel(options: {
   today: string;
   snapshot: ProductionSnapshot;
