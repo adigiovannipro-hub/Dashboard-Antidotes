@@ -106,3 +106,21 @@ export async function signAssetUrl(storagePath: string): Promise<string | null> 
 
   return data?.signedUrl ?? null;
 }
+
+/** URL signées d'un lot de documents, indexées par chemin — pour la liste. */
+export async function signAssetUrls(
+  storagePaths: string[],
+): Promise<Record<string, string>> {
+  if (storagePaths.length === 0) return {};
+
+  const supabase = await createClient();
+  const { data } = await supabase.storage
+    .from(ASSETS_BUCKET)
+    .createSignedUrls(storagePaths, 3600, { download: true });
+
+  const urls: Record<string, string> = {};
+  for (const entry of data ?? []) {
+    if (entry.signedUrl && entry.path) urls[entry.path] = entry.signedUrl;
+  }
+  return urls;
+}

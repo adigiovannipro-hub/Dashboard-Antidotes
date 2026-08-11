@@ -34,6 +34,17 @@ export default async function WorkspaceLayout({
   // Le planning passe avant le reporting : on prépare le mois en cours bien
   // plus souvent qu'on ne relit les chiffres du mois dernier.
   const items: NavItem[] = [
+    // Le Contexte n'existe que pour l'owner : le lien n'est pas rendu aux
+    // autres profils — et la page rend de toute façon 404, RLS derrière.
+    ...(workspace.role === "owner"
+      ? [
+          {
+            segment: "contexte",
+            href: `/espace/${workspace.slug}/contexte`,
+            name: "Contexte",
+          },
+        ]
+      : []),
     ...(boards.length > 0
       ? [
           {

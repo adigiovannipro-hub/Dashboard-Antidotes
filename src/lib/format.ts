@@ -62,6 +62,23 @@ export function formatCompact(value: number): string {
   }).format(value);
 }
 
+const octets = new Intl.NumberFormat(LOCALE, { maximumFractionDigits: 1 });
+
+/** Taille d'un fichier : `1234567` → « 1,2 Mo ». */
+export function formatOctets(bytes: number | null): string {
+  if (bytes === null || !Number.isFinite(bytes) || bytes < 0) return NOT_AVAILABLE;
+  if (bytes < 1024) return `${octets.format(bytes)} o`;
+
+  const units = ["Ko", "Mo", "Go"] as const;
+  let value = bytes / 1024;
+  let unit = 0;
+  while (value >= 1024 && unit < units.length - 1) {
+    value /= 1024;
+    unit += 1;
+  }
+  return `${octets.format(value)} ${units[unit]}`;
+}
+
 // --- Dates saisies ----------------------------------------------------------
 
 /**
