@@ -61,15 +61,18 @@ export default async function PlanningBoardPage({
     );
   }
 
-  const [{ months, owners, columns }, query] = await Promise.all([
+  const [{ months, owners, columns, archived, trash }, query] = await Promise.all([
     getBoardContent(board),
     searchParams,
   ]);
 
   // La publication ouverte vient de l'URL : un lien partagé rouvre le même
-  // panneau, et le retour arrière le referme.
+  // panneau, et le retour arrière le referme. Une ligne archivée ou à la
+  // corbeille s'ouvre aussi — son lien ne meurt pas avec son rangement.
   const openSubject = query.sujet
-    ? (flattenSubjects(months).find((subject) => subject.id === query.sujet) ?? null)
+    ? ([...flattenSubjects(months), ...archived, ...trash.subjects].find(
+        (subject) => subject.id === query.sujet,
+      ) ?? null)
     : null;
 
   const drawer = openSubject
@@ -88,6 +91,8 @@ export default async function PlanningBoardPage({
       columns={columns}
       owners={owners}
       drawer={drawer}
+      archived={archived}
+      trash={trash}
       currentMonthKey={currentMonthKey}
       workspaceSlug={workspace.slug}
     />

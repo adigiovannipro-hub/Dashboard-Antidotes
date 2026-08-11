@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowLeft, ArrowRight, Plus, Trash2, X } from "lucide-react";
 
 import { isImagePath } from "@/lib/planning/storage";
@@ -8,12 +8,157 @@ import type { ResolvedVisual } from "@/lib/planning/types";
 import { cn } from "@/lib/utils";
 
 /**
- * La visionneuse plein écran des visuels.
+ * Le carrousel à cartes, partagé entre le panneau latéral et le plein écran.
  *
- * Une créa se regarde en entier, sur tout l'écran — pas recadrée en carré ni
- * vignettée dans une boîte. Et pas de bandes mortes autour d'un format
- * vertical : le fond est **le visuel lui-même**, étiré et flouté, comme sur
- * Instagram. L'image nette flotte dessus, sans bordure ni cadre.
+ * Pas de flou, pas de bandes : chaque visuel est une **carte** aux coins
+ * arrondis, bordée de gris, posée telle quelle. Les diapos défilent en scroll
+ * horizontal aimanté, et une carte ne prend pas toute la largeur — le bord de
+ * la suivante dépasse, c'est l'invitation à glisser.
+ */
+export function useSnapCarousel(count: number, initialIndex = 0) {
+  const trackRef = useRef<HTMLDivElement>(null);
+  const [index, setIndex] = useState(Math.min(initialIndex, Math.max(count - 1, 0)));
+
+  const scrollTo = useCallback((next: number, smooth = true) => {
+    const track = trackRef.current;
+    if (!track) return;
+    const slide = track.children[next] as HTMLElement | undefined;
+    if (!slide) return;
+    track.scrollTo({
+      left: slide.offsetLeft - (track.clientWidth - slide.clientWidth) / 2,
+      behavior: smooth ? "smooth" : "instant",
+    });
+  }, []);
+
+  // La diapo de départ, avant peinture — sans ça, l'écran ouvre sur la
+  // première puis saute.
+  useEffect(() => {
+    scrollTo(index, false);
+    // Volontairement au montage seul : ensuite, c'est le scroll qui pilote.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const onScroll = useCallback(() => {
+    const track = trackRef.current;
+    if (!track) return;
+    const center = track.scrollLeft + track.clientWidth / 2;
+    let best = 0;
+    let bestDistance = Infinity;
+    [...track.children].forEach((child, i) => {
+      const el = child as HTMLElement;
+      const distance = Math.abs(el.offsetLeft + el.clientWidth / 2 - center);
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        best = i;
+      }
+    });
+    setIndex(best);
+  }, []);
+
+  const prev = useCallback(
+    () => scrollTo(Math.max(index - 1, 0)),
+    [index, scrollTo],
+  );
+  const next = useCallback(
+    () => scrollTo(Math.min(index + 1, count - 1)),
+    [index, count, scrollTo],
+  );
+
+  return { trackRef, index, scrollTo, onScroll, prev, next };
+}
+
+/** Image, vidéo ou pièce jointe — la carte du carrousel. */
+export function VisualSlideMedia({
+  visual,
+  className,
+  onClick,
+}: {
+  visual: ResolvedVisual;
+  className?: string;
+  onClick?: () => void;
+}) {
+  const isVideo = /\.(mp4|mov|webm)(\?|$)/i.test(visual.path);
+  const isImage = isImagePath(visual.path) && !!visual.url;
+
+  // La carte : coins arrondis, bord gris — le « type card » demandé.
+  const card = cn(
+    "rounded-xl border border-neutral-600/60 bg-neutral-950 object-contain",
+    className,
+  );
+
+  if (isVideo && visual.url) {
+    // Type reels : la vidéo se tient verticale, sans rien autour.
+    return (
+      <video src={visual.url} controls playsInline className={card}>
+        <track kind="captions" />
+      </video>
+    );
+  }
+
+  if (isImage) {
+    const img = (
+      // eslint-disable-next-line @next/next/no-img-element -- URL signée
+      <img src={visual.url} alt={visual.name} className={card} />
+    );
+    if (!onClick) return img;
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        title="Afficher en plein écran"
+        aria-label={`Afficher ${visual.name} en plein écran`}
+        className="cursor-zoom-in outline-none"
+      >
+        {img}
+      </button>
+    );
+  }
+
+  return (
+    <a
+      href={visual.url || undefined}
+      target="_blank"
+      rel="noreferrer"
+      className={cn(
+        card,
+        "flex max-w-xs items-center justify-center p-6 text-center text-sm break-all text-neutral-200 underline-offset-2 hover:underline",
+      )}
+    >
+      {visual.name}
+    </a>
+  );
+}
+
+export function CarouselArrow({
+  direction,
+  disabled,
+  onClick,
+}: {
+  direction: "prev" | "next";
+  disabled?: boolean;
+  onClick: () => void;
+}) {
+  const Icon = direction === "prev" ? ArrowLeft : ArrowRight;
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      aria-label={direction === "prev" ? "Visuel précédent" : "Visuel suivant"}
+      className={cn(
+        // z-20 : au-dessus des cartes — des flèches sous le visuel ne se
+        // cliquaient pas.
+        "absolute top-1/2 z-20 -translate-y-1/2 rounded-full bg-black/55 p-2.5 text-white transition-colors hover:bg-black/80 focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none disabled:opacity-0",
+        direction === "prev" ? "left-3" : "right-3",
+      )}
+    >
+      <Icon className="size-5" aria-hidden />
+    </button>
+  );
+}
+
+/**
+ * La visionneuse plein écran : les mêmes cartes, sur un aplat sombre uni.
  */
 export function VisualLightbox({
   visuals,
@@ -32,30 +177,23 @@ export function VisualLightbox({
   onUpload: (files: File[]) => void;
   onRemove: (path: string) => void;
 }) {
-  const [index, setIndex] = useState(initialIndex);
   const inputRef = useRef<HTMLInputElement>(null);
-
-  const safeIndex = Math.min(index, Math.max(visuals.length - 1, 0));
-  const current = visuals[safeIndex];
-
-  const prev = () => setIndex((i) => (i - 1 + visuals.length) % visuals.length);
-  const next = () => setIndex((i) => (i + 1) % visuals.length);
+  const { trackRef, index, scrollTo, onScroll, prev, next } = useSnapCarousel(
+    visuals.length,
+    initialIndex,
+  );
+  const current = visuals[Math.min(index, Math.max(visuals.length - 1, 0))];
 
   // Plein écran oblige : la page derrière ne défile plus, et le clavier
-  // navigue — flèches pour passer d'un visuel à l'autre, Échap pour sortir.
+  // navigue — flèches pour changer de carte, Échap pour sortir.
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
 
-    const count = visuals.length;
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") onClose();
-      if (count > 1 && event.key === "ArrowLeft") {
-        setIndex((i) => (i - 1 + count) % count);
-      }
-      if (count > 1 && event.key === "ArrowRight") {
-        setIndex((i) => (i + 1) % count);
-      }
+      if (event.key === "ArrowLeft") prev();
+      if (event.key === "ArrowRight") next();
     };
     window.addEventListener("keydown", onKeyDown);
 
@@ -63,36 +201,23 @@ export function VisualLightbox({
       document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", onKeyDown);
     };
-  }, [visuals.length, onClose]);
-
-  const isImage = current ? isImagePath(current.path) && !!current.url : false;
-  const isVideo = current ? /\.(mp4|mov|webm)(\?|$)/i.test(current.path) : false;
+  }, [onClose, prev, next]);
 
   return (
     <div
       role="dialog"
       aria-modal="true"
       aria-label={`Visuels de ${subjectName || "la publication"}`}
+      data-lightbox
       className="animate-in fade-in fixed inset-0 z-50 flex flex-col bg-neutral-950 duration-200"
     >
-      {/* Le fond : le visuel courant, couvrant, flouté — jamais de bande. */}
-      {isImage ? (
-        // eslint-disable-next-line @next/next/no-img-element -- URL signée
-        <img
-          src={current!.url}
-          alt=""
-          aria-hidden
-          className="absolute inset-0 size-full scale-110 object-cover opacity-40 blur-3xl"
-        />
-      ) : null}
-
       {/* --- Barre du haut : contexte à gauche, actions à droite --- */}
-      <div className="relative z-10 flex items-center gap-3 bg-gradient-to-b from-black/70 to-transparent px-4 py-3 text-white">
+      <div className="relative z-10 flex items-center gap-3 px-4 py-3 text-white">
         <p className="min-w-0 flex-1 truncate text-sm font-medium">
           {subjectName || "Publication"}
           {visuals.length > 0 ? (
             <span className="ml-2 text-xs text-white/60 tabular-nums">
-              {safeIndex + 1} / {visuals.length}
+              {index + 1} / {visuals.length}
             </span>
           ) : null}
         </p>
@@ -122,7 +247,7 @@ export function VisualLightbox({
             onClick={() => {
               onRemove(current.path);
               if (visuals.length <= 1) onClose();
-              else setIndex(0);
+              else scrollTo(0, false);
             }}
           >
             <Trash2 className="size-4" aria-hidden />
@@ -133,66 +258,57 @@ export function VisualLightbox({
         </LightboxAction>
       </div>
 
-      {/* --- Le visuel, en grand — le clic à côté referme --- */}
-      <div
-        className="relative z-10 flex min-h-0 flex-1 items-center justify-center px-4"
-        onClick={(event) => {
-          if (event.target === event.currentTarget) onClose();
-        }}
-      >
-        {current ? (
-          isVideo && current.url ? (
-            <video
-              src={current.url}
-              controls
-              autoPlay
-              playsInline
-              className="max-h-full max-w-full"
-            >
-              <track kind="captions" />
-            </video>
-          ) : isImage ? (
-            // eslint-disable-next-line @next/next/no-img-element -- URL signée
-            <img
-              src={current.url}
-              alt={current.name}
-              className="max-h-full max-w-full object-contain"
-            />
-          ) : (
-            <a
-              href={current.url || undefined}
-              target="_blank"
-              rel="noreferrer"
-              className="max-w-md p-6 text-center text-sm break-all text-neutral-200 underline-offset-2 hover:underline"
-            >
-              {current.name}
-            </a>
-          )
+      {/* --- Les cartes — la suivante dépasse, le clic à côté referme --- */}
+      <div className="relative min-h-0 flex-1">
+        {visuals.length === 0 ? (
+          <p className="flex h-full items-center justify-center text-sm text-neutral-400">
+            Aucun visuel
+          </p>
         ) : (
-          <p className="text-sm text-neutral-400">Aucun visuel</p>
+          <div
+            ref={trackRef}
+            onScroll={onScroll}
+            onClick={(event) => {
+              if (event.target === event.currentTarget) onClose();
+            }}
+            className="flex h-full snap-x snap-mandatory items-center gap-4 overflow-x-auto px-[7vw] py-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          >
+            {visuals.map((visual) => (
+              <div
+                key={visual.path}
+                className="flex h-full max-w-[86vw] shrink-0 snap-center items-center justify-center"
+              >
+                <VisualSlideMedia visual={visual} className="max-h-full" />
+              </div>
+            ))}
+          </div>
         )}
 
         {visuals.length > 1 ? (
           <>
-            <LightboxArrow direction="prev" onClick={prev} />
-            <LightboxArrow direction="next" onClick={next} />
+            <CarouselArrow direction="prev" disabled={index === 0} onClick={prev} />
+            <CarouselArrow
+              direction="next"
+              disabled={index === visuals.length - 1}
+              onClick={next}
+            />
           </>
         ) : null}
       </div>
 
       {/* --- Les vignettes, pour sauter directement à un visuel --- */}
       {visuals.length > 1 ? (
-        <div className="relative z-10 flex justify-center gap-2 overflow-x-auto bg-gradient-to-t from-black/70 to-transparent px-4 py-3">
+        <div className="relative z-10 flex justify-center gap-2 overflow-x-auto px-4 py-3">
           {visuals.map((visual, i) => (
             <button
               key={visual.path}
               type="button"
-              onClick={() => setIndex(i)}
+              onClick={() => scrollTo(i)}
               aria-label={`Visuel ${i + 1}`}
-              aria-current={i === safeIndex}
+              aria-current={i === index}
               className={cn(
                 "size-12 shrink-0 overflow-hidden rounded-md transition-opacity",
-                i === safeIndex ? "opacity-100 ring-2 ring-white" : "opacity-50 hover:opacity-80",
+                i === index ? "opacity-100 ring-2 ring-white" : "opacity-50 hover:opacity-80",
               )}
             >
               {isImagePath(visual.path) && visual.url ? (
@@ -232,29 +348,6 @@ function LightboxAction({
       className="rounded-full bg-white/10 p-2 text-white transition-colors hover:bg-white/25 focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none disabled:opacity-40"
     >
       {children}
-    </button>
-  );
-}
-
-function LightboxArrow({
-  direction,
-  onClick,
-}: {
-  direction: "prev" | "next";
-  onClick: () => void;
-}) {
-  const Icon = direction === "prev" ? ArrowLeft : ArrowRight;
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-label={direction === "prev" ? "Visuel précédent" : "Visuel suivant"}
-      className={cn(
-        "absolute top-1/2 -translate-y-1/2 rounded-full bg-black/50 p-2.5 text-white transition-colors hover:bg-black/75 focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none",
-        direction === "prev" ? "left-4" : "right-4",
-      )}
-    >
-      <Icon className="size-5" aria-hidden />
     </button>
   );
 }

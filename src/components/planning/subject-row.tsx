@@ -1,7 +1,14 @@
 "use client";
 
-import { useState } from "react";
-import { AtSign, MessageSquare, MessageSquarePlus, Plus, X } from "lucide-react";
+import { useRef, useState } from "react";
+import {
+  AtSign,
+  Check,
+  GripVertical,
+  MessageSquare,
+  MessageSquarePlus,
+  X,
+} from "lucide-react";
 
 import {
   addComment,
@@ -55,14 +62,19 @@ function toOptions(labels: ColumnLabel[] | null) {
   }));
 }
 
+/** Le format que porte un drag de ligne dans `dataTransfer`. */
+export const SUBJECT_DRAG_TYPE = "text/x-antidotes-subject";
+
 /**
  * Une ligne du tableau, rendue colonne par colonne depuis le registre.
  *
  * Le clic sur la ligne — hors cellule éditable — ouvre le panneau latéral ;
  * l'icône de retours l'ouvre directement sur le fil, curseur dans le champ.
- * Et quand la ligne fait partie d'une sélection multiple, modifier une de ses
- * cellules applique la valeur à toute la sélection : c'est le geste Monday,
- * cocher puis corriger une seule fois.
+ * La poignée de gauche se saisit : la ligne se dépose ailleurs dans son
+ * couloir, dans un autre réseau, dans un autre mois. Et quand la ligne fait
+ * partie d'une sélection multiple, modifier une de ses cellules applique la
+ * valeur à toute la sélection : le geste Monday, cocher puis corriger une
+ * seule fois.
  *
  * Les filets verticaux entre colonnes viennent du conteneur (`[&>*+*]`) : les
  * cellules portent leur propre hauteur (`py-1`, conteneur sans padding
@@ -79,6 +91,11 @@ export function SubjectRowView({
   bulkTargets,
   onToggleSelect,
   onOpen,
+  onEditLabels,
+  dropIndicator,
+  onRowDragOver,
+  onRowDragLeave,
+  onRowDrop,
 }: {
   scope: Scope;
   row: Row;
@@ -89,6 +106,13 @@ export function SubjectRowView({
   bulkTargets: string[] | null;
   onToggleSelect: (subjectId: string) => void;
   onOpen: (subjectId: string, focusRetours?: boolean) => void;
+  /** Ouvre l'éditeur d'étiquettes de la colonne cliquée. */
+  onEditLabels: (column: ColumnDef) => void;
+  /** Le filet de dépôt pendant un drag — au-dessus ou en dessous. */
+  dropIndicator: "avant" | "apres" | null;
+  onRowDragOver: (subjectId: string, after: boolean) => void;
+  onRowDragLeave: () => void;
+  onRowDrop: (subjectId: string, after: boolean, draggedId: string) => void;
 }) {
   const { run, pending } = useCellAction();
 
@@ -102,6 +126,11 @@ export function SubjectRowView({
     run(() => updateSubject(scope, { subjectId: row.id, field, value }));
   };
 
+  const isAfter = (event: React.DragEvent) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    return event.clientY > rect.top + rect.height / 2;
+  };
+
   return (
     <div
       role="row"
@@ -112,18 +141,46 @@ export function SubjectRowView({
         }
       }}
       tabIndex={0}
+      onDragOver={(event) => {
+        if (![...event.dataTransfer.types].includes(SUBJECT_DRAG_TYPE)) return;
+        event.preventDefault();
+        event.dataTransfer.dropEffect = "move";
+        onRowDragOver(row.id, isAfter(event));
+      }}
+      onDragLeave={onRowDragLeave}
+      onDrop={(event) => {
+        const draggedId = event.dataTransfer.getData(SUBJECT_DRAG_TYPE);
+        if (!draggedId) return;
+        event.preventDefault();
+        onRowDrop(row.id, isAfter(event), draggedId);
+      }}
       className={cn(
         "group/row border-border/60 [&>*+*]:border-border/50 grid cursor-pointer border-b px-2 transition-colors [&>*+*]:border-l",
         selected ? "bg-brand-mint/40" : "hover:bg-muted/40",
         pending && "opacity-60",
+        // Le filet de dépôt : là où la ligne va se poser.
+        dropIndicator === "avant" && "shadow-[inset_0_2px_0_0_var(--accent-ink)]",
+        dropIndicator === "apres" && "shadow-[inset_0_-2px_0_0_var(--accent-ink)]",
       )}
       style={{ gridTemplateColumns: gridTemplate }}
     >
-      {/* Coche de sélection */}
+      {/* Poignée de drag + coche de sélection */}
       <span
         onClick={(event) => event.stopPropagation()}
-        className="flex items-center justify-center py-1"
+        className="flex items-center justify-center gap-0.5 py-1"
       >
+        <span
+          draggable
+          onDragStart={(event) => {
+            event.dataTransfer.setData(SUBJECT_DRAG_TYPE, row.id);
+            event.dataTransfer.effectAllowed = "move";
+          }}
+          aria-label={`Déplacer ${row.name || "la publication"}`}
+          title="Glisser pour déplacer"
+          className="text-muted-foreground/60 hover:text-foreground cursor-grab opacity-0 transition-opacity group-hover/row:opacity-100 active:cursor-grabbing"
+        >
+          <GripVertical className="size-3.5" aria-hidden />
+        </span>
         <input
           type="checkbox"
           checked={selected}
@@ -144,6 +201,8 @@ export function SubjectRowView({
           run={run}
           pending={pending}
           onOpenRetours={() => onOpen(row.id, true)}
+          onOpenSubject={() => onOpen(row.id)}
+          onEditLabels={() => onEditLabels(column)}
         />
       ))}
 
@@ -162,6 +221,8 @@ function Cell({
   run,
   pending,
   onOpenRetours,
+  onOpenSubject,
+  onEditLabels,
 }: {
   scope: Scope;
   column: ColumnDef;
@@ -171,6 +232,8 @@ function Cell({
   run: ReturnType<typeof useCellAction>["run"];
   pending: boolean;
   onOpenRetours: () => void;
+  onOpenSubject: () => void;
+  onEditLabels: () => void;
 }) {
   const stop = (node: React.ReactNode) => (
     <span
@@ -207,6 +270,7 @@ function Cell({
           ariaLabel="Statut de la publication"
           allowClear
           onSelect={(next) => edit("status", next ?? "idea")}
+          onEditLabels={onEditLabels}
         />,
       );
 
@@ -218,6 +282,7 @@ function Cell({
           ariaLabel="Type de contenu"
           allowClear
           onSelect={(next) => edit("format", next ?? "other")}
+          onEditLabels={onEditLabels}
         />,
       );
 
@@ -235,6 +300,7 @@ function Cell({
           visuals={row.visuals}
           subjectName={row.name}
           uploading={pending}
+          onOpen={onOpenSubject}
           onUpload={(files) => {
             const formData = new FormData();
             formData.set("subjectId", row.id);
@@ -273,6 +339,7 @@ function Cell({
           ariaLabel="Objectif de l'annonce"
           allowClear
           onSelect={(next) => edit("ad_objective", next)}
+          onEditLabels={onEditLabels}
         />,
       );
 
@@ -284,6 +351,7 @@ function Cell({
           ariaLabel="Statut de l'annonce"
           allowClear
           onSelect={(next) => edit("ad_status", next)}
+          onEditLabels={onEditLabels}
         />,
       );
 
@@ -352,6 +420,7 @@ function Cell({
           ariaLabel={column.label}
           allowClear
           onSelect={commit}
+          onEditLabels={onEditLabels}
         />,
       );
 
@@ -396,8 +465,9 @@ function CommentsBadge({ row, onOpen }: { row: Row; onOpen: () => void }) {
  *
  * Un seul fil, sans catégorie : « général / visuel / wording » ajoutait un
  * choix avant chaque message pour un classement que personne ne relisait.
- * En dessous du champ, les adresses à prévenir : les membres du tableau en un
- * clic, n'importe quelle adresse au clavier — le retour leur part par e-mail.
+ * Taper `@` dans la bulle ouvre une petite fenêtre à côté du champ : on y
+ * saisit ou choisit une adresse, elle se tague dans le texte, et le retour
+ * lui part par e-mail à l'envoi.
  */
 export function CommentThread({
   scope,
@@ -414,22 +484,38 @@ export function CommentThread({
 }) {
   const [body, setBody] = useState("");
   const [recipients, setRecipients] = useState<string[]>([]);
+  const [mentionOpen, setMentionOpen] = useState(false);
   const [emailDraft, setEmailDraft] = useState("");
+  // Position du `@` tapé, pour y écrire l'adresse validée.
+  const mentionAt = useRef(0);
   const { run, pending } = useCellAction();
 
-  const toggle = (email: string) =>
-    setRecipients((current) =>
-      current.includes(email)
-        ? current.filter((candidate) => candidate !== email)
-        : [...current, email],
-    );
+  const removeRecipient = (email: string) =>
+    setRecipients((current) => current.filter((candidate) => candidate !== email));
 
-  const addFreeEmail = () => {
-    const email = emailDraft.trim().toLowerCase();
+  const validateMention = (raw: string) => {
+    const email = raw.trim().toLowerCase();
     if (!/^\S+@\S+\.\S+$/.test(email)) return;
-    if (!recipients.includes(email)) setRecipients((current) => [...current, email]);
+    // Le `@` tapé devient `@adresse` dans le texte du retour.
+    const at = mentionAt.current;
+    setBody((current) =>
+      current.slice(0, at) + `@${email} ` + current.slice(at + 1),
+    );
+    if (!recipients.includes(email)) {
+      setRecipients((current) => [...current, email]);
+    }
     setEmailDraft("");
+    setMentionOpen(false);
   };
+
+  const suggestions = members.filter((member) => {
+    const needle = emailDraft.trim().toLowerCase();
+    if (!needle) return true;
+    return (
+      member.email.toLowerCase().includes(needle) ||
+      (member.full_name ?? "").toLowerCase().includes(needle)
+    );
+  });
 
   function submit() {
     if (!body.trim()) return;
@@ -448,9 +534,6 @@ export function CommentThread({
     });
   }
 
-  const memberEmails = new Set(members.map((member) => member.email));
-  const freeRecipients = recipients.filter((email) => !memberEmails.has(email));
-
   return (
     <div className="space-y-3">
       {comments.length === 0 ? (
@@ -466,104 +549,113 @@ export function CommentThread({
       )}
 
       <div className="space-y-2">
-        <textarea
-          value={body}
-          onChange={(event) => setBody(event.target.value)}
-          rows={3}
-          // Depuis l'icône de la ligne, le curseur arrive directement ici.
-          autoFocus={autoFocus}
-          aria-label="Nouveau retour"
-          placeholder="Ce qui doit changer, et pourquoi."
-          className="border-input bg-background focus-visible:ring-brand w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:outline-none"
-        />
+        <div className="relative">
+          <textarea
+            value={body}
+            onChange={(event) => setBody(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "@") {
+                mentionAt.current = event.currentTarget.selectionStart;
+                setMentionOpen(true);
+              }
+            }}
+            onFocus={() => setMentionOpen(false)}
+            rows={3}
+            // Depuis l'icône de la ligne, le curseur arrive directement ici.
+            autoFocus={autoFocus}
+            aria-label="Nouveau retour"
+            placeholder="Ce qui doit changer, et pourquoi. @ pour taguer une adresse."
+            className="border-input bg-background focus-visible:ring-brand w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:outline-none"
+          />
 
-        <div className="flex flex-wrap items-center gap-1.5">
-          <AtSign className="text-muted-foreground size-3.5 shrink-0" aria-hidden />
-          {members.map((member) => (
-            <RecipientChip
-              key={member.id}
-              label={member.full_name ?? member.email}
-              selected={recipients.includes(member.email)}
-              onClick={() => toggle(member.email)}
-            />
-          ))}
-          {freeRecipients.map((email) => (
-            <RecipientChip
-              key={email}
-              label={email}
-              selected
-              onClick={() => toggle(email)}
-            />
-          ))}
-          <div className="flex items-center gap-1">
-            <input
-              type="email"
-              value={emailDraft}
-              onChange={(event) => setEmailDraft(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") {
-                  event.preventDefault();
-                  addFreeEmail();
-                }
-              }}
-              aria-label="Ajouter une adresse e-mail"
-              placeholder="email@client.fr"
-              className="border-input bg-background focus-visible:ring-brand h-7 w-36 rounded-md border px-2 text-xs focus-visible:ring-2 focus-visible:outline-none"
-            />
-            <button
-              type="button"
-              onClick={addFreeEmail}
-              aria-label="Taguer cette adresse"
-              className="text-muted-foreground hover:text-foreground focus-visible:ring-brand rounded p-1 focus-visible:ring-2 focus-visible:outline-none"
-            >
-              <Plus className="size-3.5" aria-hidden />
-            </button>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <Button type="button" size="sm" onClick={submit} disabled={pending}>
-            {pending
-              ? "Envoi…"
-              : recipients.length > 0
-                ? `Ajouter et envoyer (${recipients.length})`
-                : "Ajouter le retour"}
-          </Button>
-          {recipients.length > 0 ? (
-            <span className="text-muted-foreground text-xs">
-              part aussi par e-mail
-            </span>
+          {mentionOpen ? (
+            <div className="border-border bg-background absolute top-2 left-3 z-20 w-64 rounded-md border p-2 shadow-lg">
+              <p className="text-muted-foreground mb-1.5 flex items-center gap-1 text-[11px]">
+                <AtSign className="size-3" aria-hidden />
+                Envoyer ce retour par e-mail à
+              </p>
+              <div className="flex items-center gap-1">
+                <input
+                  type="email"
+                  autoFocus
+                  value={emailDraft}
+                  onChange={(event) => setEmailDraft(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      validateMention(emailDraft);
+                    }
+                    if (event.key === "Escape") {
+                      event.stopPropagation();
+                      setMentionOpen(false);
+                    }
+                  }}
+                  aria-label="Adresse e-mail à taguer"
+                  placeholder="email@client.fr"
+                  className="border-input bg-background focus-visible:ring-brand h-7 w-full rounded-md border px-2 text-xs focus-visible:ring-2 focus-visible:outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={() => validateMention(emailDraft)}
+                  aria-label="Valider cette adresse"
+                  className="bg-foreground text-background hover:bg-foreground/85 rounded-md p-1.5"
+                >
+                  <Check className="size-3.5" aria-hidden />
+                </button>
+              </div>
+              {suggestions.length > 0 ? (
+                <ul className="mt-1.5 space-y-0.5">
+                  {suggestions.slice(0, 4).map((member) => (
+                    <li key={member.id}>
+                      <button
+                        type="button"
+                        onClick={() => validateMention(member.email)}
+                        className="hover:bg-muted flex w-full items-center gap-2 rounded px-1.5 py-1 text-left text-xs"
+                      >
+                        <OwnerAvatar owner={member} />
+                        <span className="min-w-0 flex-1 truncate">
+                          {member.full_name ?? member.email}
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </div>
           ) : null}
         </div>
+
+        {recipients.length > 0 ? (
+          <p className="text-muted-foreground flex flex-wrap items-center gap-1.5 text-xs">
+            Partira par e-mail à
+            {recipients.map((email) => (
+              <span
+                key={email}
+                className="border-border rounded-pill flex items-center gap-1 border px-2 py-0.5"
+              >
+                {email}
+                <button
+                  type="button"
+                  onClick={() => removeRecipient(email)}
+                  aria-label={`Ne pas envoyer à ${email}`}
+                  className="hover:text-foreground"
+                >
+                  <X className="size-3" aria-hidden />
+                </button>
+              </span>
+            ))}
+          </p>
+        ) : null}
+
+        <Button type="button" size="sm" onClick={submit} disabled={pending}>
+          {pending
+            ? "Envoi…"
+            : recipients.length > 0
+              ? `Ajouter et envoyer (${recipients.length})`
+              : "Ajouter le retour"}
+        </Button>
       </div>
     </div>
-  );
-}
-
-function RecipientChip({
-  label,
-  selected,
-  onClick,
-}: {
-  label: string;
-  selected: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={selected}
-      className={cn(
-        "rounded-pill focus-visible:ring-brand flex items-center gap-1 border px-2 py-0.5 text-xs transition-colors focus-visible:ring-2 focus-visible:outline-none",
-        selected
-          ? "border-foreground bg-foreground text-background"
-          : "border-border text-muted-foreground hover:text-foreground",
-      )}
-    >
-      {label}
-      {selected ? <X className="size-3" aria-hidden /> : null}
-    </button>
   );
 }
 

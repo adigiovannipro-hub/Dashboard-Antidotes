@@ -111,7 +111,7 @@ export async function listPublicationsToDo(options: {
 
   const { data } = await query.order("scheduled_on").limit(options.limit ?? 100);
 
-  return byNetwork(await decorate((data ?? []) as unknown as PlanningSubject[]));
+  return byNetwork(await decorate(visibleOnBoard(data)));
 }
 
 /** Les publications parties dans la journée — la section « Archivé ». */
@@ -132,7 +132,18 @@ export async function listPublishedOn(options: {
 
   const { data } = await query.limit(options.limit ?? 50);
 
-  return byNetwork(await decorate((data ?? []) as unknown as PlanningSubject[]));
+  return byNetwork(await decorate(visibleOnBoard(data)));
+}
+
+/**
+ * Écarte l'archivé et le supprimé du planning (migration 0031). En mémoire et
+ * non dans la requête : sur une base où la colonne n'existe pas encore, un
+ * filtre SQL rendrait une erreur silencieuse, donc zéro publication.
+ */
+function visibleOnBoard(data: unknown): PlanningSubject[] {
+  return ((data ?? []) as unknown as PlanningSubject[]).filter(
+    (subject) => !subject.archived_at && !subject.deleted_at,
+  );
 }
 
 /**
@@ -186,7 +197,7 @@ export async function listNextPublications(options: {
   const { data } = await query.order("scheduled_on").limit(options.limit ?? 3);
 
   // La date prime ici — c'est « et ensuite ? » — puis le réseau départage.
-  const rows = await decorate((data ?? []) as unknown as PlanningSubject[]);
+  const rows = await decorate(visibleOnBoard(data));
   return rows.sort((a, b) => {
     const dateA = a.subject.scheduled_on ?? "";
     const dateB = b.subject.scheduled_on ?? "";

@@ -3,11 +3,21 @@
 import { useState } from "react";
 import { ChevronRight, Plus, Trash2 } from "lucide-react";
 
-import { createSubject, deleteLane, renameLane, updateColumn } from "@/app/actions/planning";
+import {
+  createSubject,
+  deleteLane,
+  moveSubject,
+  renameLane,
+  updateColumn,
+} from "@/app/actions/planning";
 import { TextCell, useCellAction } from "@/components/planning/cells";
 import { AddColumnMenu, ColumnHeaderMenu } from "@/components/planning/column-menus";
 import { PlatformIcon } from "@/components/planning/platform-icon";
-import { SubjectRowView, type Scope } from "@/components/planning/subject-row";
+import {
+  SUBJECT_DRAG_TYPE,
+  SubjectRowView,
+  type Scope,
+} from "@/components/planning/subject-row";
 import type { ColumnDef } from "@/lib/planning/columns";
 import { gridTemplate } from "@/lib/planning/columns";
 import type {
@@ -24,6 +34,10 @@ export type DateSort = "position" | "asc" | "desc";
  * Un couloir : le réseau social et ses publications, sous un en-tête de
  * colonnes vivant — chaque titre est un menu, le « + » du bout ajoute une
  * colonne, la coche de tête sélectionne le couloir entier.
+ *
+ * C'est aussi une cible de dépôt : une ligne saisie par sa poignée s'intercale
+ * entre deux lignes d'ici — qu'elle vienne de ce couloir, d'un autre réseau ou
+ * d'un autre mois. L'index visé se calcule sur l'ordre affiché.
  */
 export function LaneTable({
   scope,
@@ -36,6 +50,7 @@ export function LaneTable({
   onToggleSelect,
   onToggleLane,
   onOpenSubject,
+  onEditLabels,
   onResizePreview,
 }: {
   scope: Scope;
@@ -48,10 +63,15 @@ export function LaneTable({
   onToggleSelect: (subjectId: string) => void;
   onToggleLane: (subjectIds: string[], selected: boolean) => void;
   onOpenSubject: (subjectId: string, focusRetours?: boolean) => void;
+  onEditLabels: (column: ColumnDef) => void;
   /** Largeur en cours de drag, avant l'écriture en base. */
   onResizePreview: (columnId: string, width: number | null) => void;
 }) {
   const [open, setOpen] = useState(true);
+  const [dropTarget, setDropTarget] = useState<{
+    subjectId: string;
+    after: boolean;
+  } | null>(null);
   const { run, pending } = useCellAction();
 
   const template = gridTemplate(columns);
@@ -62,12 +82,44 @@ export function LaneTable({
   const allSelected =
     subjects.length > 0 && subjects.every((subject) => selectedIds.has(subject.id));
 
+  /** L'index de dépôt dans le couloir, à partir de la ligne survolée. */
+  const dropIndex = (subjectId: string, after: boolean) => {
+    const index = subjects.findIndex((subject) => subject.id === subjectId);
+    if (index === -1) return subjects.length;
+    return after ? index + 1 : index;
+  };
+
+  const drop = (draggedId: string, index: number) => {
+    setDropTarget(null);
+    // L'index est compté sur la liste affichée, qui contient encore la ligne
+    // saisie : en descendant dans son propre couloir, elle se retire d'abord.
+    const from = subjects.findIndex((subject) => subject.id === draggedId);
+    const adjusted = from !== -1 && from < index ? index - 1 : index;
+    run(() =>
+      moveSubject(scope, { subjectId: draggedId, laneId: lane.id, index: adjusted }),
+    );
+  };
+
   return (
     <section
       className="overflow-hidden rounded-md border border-border bg-background"
       aria-label={lane.name}
     >
-      <header className="flex items-center gap-2 bg-surface-sunken px-2 py-1.5">
+      <header
+        className="flex items-center gap-2 bg-surface-sunken px-2 py-1.5"
+        onDragOver={(event) => {
+          if (![...event.dataTransfer.types].includes(SUBJECT_DRAG_TYPE)) return;
+          event.preventDefault();
+          event.dataTransfer.dropEffect = "move";
+          if (!open) setOpen(true);
+        }}
+        onDrop={(event) => {
+          const draggedId = event.dataTransfer.getData(SUBJECT_DRAG_TYPE);
+          if (!draggedId) return;
+          event.preventDefault();
+          drop(draggedId, 0);
+        }}
+      >
         <button
           type="button"
           onClick={() => setOpen((value) => !value)}
@@ -174,9 +226,29 @@ export function LaneTable({
                 }
                 onToggleSelect={onToggleSelect}
                 onOpen={onOpenSubject}
+                onEditLabels={onEditLabels}
+                dropIndicator={
+                  dropTarget?.subjectId === subject.id
+                    ? dropTarget.after
+                      ? "apres"
+                      : "avant"
+                    : null
+                }
+                onRowDragOver={(subjectId, after) =>
+                  setDropTarget((current) =>
+                    current?.subjectId === subjectId && current.after === after
+                      ? current
+                      : { subjectId, after },
+                  )
+                }
+                onRowDragLeave={() => setDropTarget(null)}
+                onRowDrop={(subjectId, after, draggedId) =>
+                  drop(draggedId, dropIndex(subjectId, after))
+                }
               />
             ))}
 
+            {/* Le pied du couloir : ajouter, ou déposer en fin de liste. */}
             <button
               type="button"
               disabled={pending}
@@ -189,6 +261,17 @@ export function LaneTable({
                   }),
                 )
               }
+              onDragOver={(event) => {
+                if (![...event.dataTransfer.types].includes(SUBJECT_DRAG_TYPE)) return;
+                event.preventDefault();
+                event.dataTransfer.dropEffect = "move";
+              }}
+              onDrop={(event) => {
+                const draggedId = event.dataTransfer.getData(SUBJECT_DRAG_TYPE);
+                if (!draggedId) return;
+                event.preventDefault();
+                drop(draggedId, subjects.length);
+              }}
               className="text-muted-foreground hover:text-foreground hover:bg-muted/40 focus-visible:ring-ring flex w-full items-center gap-1.5 px-3 py-1.5 text-xs transition-colors focus-visible:ring-2 focus-visible:outline-none"
             >
               <Plus className="size-3.5" aria-hidden />

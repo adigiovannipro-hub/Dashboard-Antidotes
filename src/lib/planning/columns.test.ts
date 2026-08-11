@@ -171,9 +171,9 @@ describe("colonnes ajoutées", () => {
 });
 
 describe("gabarit de grille", () => {
-  it("réserve la coche, les retours et le bouton d'ajout", () => {
+  it("réserve la poignée, les retours et le bouton d'ajout", () => {
     const template = gridTemplate(resolveColumns([]));
-    expect(template.startsWith("36px")).toBe(true);
+    expect(template.startsWith("52px")).toBe(true);
     expect(template.endsWith("40px")).toBe(true);
     // La piste des retours suit celle du sujet.
     expect(template).toContain("minmax(200px,1.4fr) 40px");

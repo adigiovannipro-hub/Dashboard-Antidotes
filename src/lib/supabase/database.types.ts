@@ -414,6 +414,8 @@ export type PlanningMonthRow = {
   label: string;
   month: string;
   position: number;
+  /** Corbeille (migration 0031) — `null` : visible au tableau. */
+  deleted_at: string | null;
   created_at: string;
 };
 
@@ -448,6 +450,9 @@ export type PlanningSubjectRow = {
   custom: Record<string, unknown>;
   position: number;
   external_id: string | null;
+  /** Archives et corbeille (migration 0031) — `null` : visible au tableau. */
+  archived_at: string | null;
+  deleted_at: string | null;
   created_at: string;
   updated_at: string;
   updated_by: string | null;

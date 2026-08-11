@@ -4,8 +4,8 @@ import { useRef, useState } from "react";
 import {
   ArrowLeft,
   ArrowRight,
-  ChevronRight,
   Clock,
+  Loader2,
   MessageSquare,
   Plus,
   X,
@@ -24,7 +24,12 @@ import {
   TextCell,
   useCellAction,
 } from "@/components/planning/cells";
-import { VisualLightbox } from "@/components/planning/lightbox";
+import {
+  CarouselArrow,
+  VisualLightbox,
+  VisualSlideMedia,
+  useSnapCarousel,
+} from "@/components/planning/lightbox";
 import { CommentThread, type Scope } from "@/components/planning/subject-row";
 import { PlatformIcon } from "@/components/planning/platform-icon";
 import { Button } from "@/components/ui/button";
@@ -53,15 +58,19 @@ export function SubjectDrawer({
   owners,
   activity,
   autoFocusComment,
+  closing,
   onClose,
 }: {
   scope: Scope;
   subject: SubjectRow;
   columns: ColumnDef[];
   owners: PlanningOwner[];
-  activity: PlanningActivity[];
+  /** `null` : le journal arrive encore du serveur — le panneau, lui, est déjà là. */
+  activity: PlanningActivity[] | null;
   /** Depuis l'icône de retours d'une ligne : curseur posé dans le champ. */
   autoFocusComment?: boolean;
+  /** Joue la glissade de sortie avant le démontage. */
+  closing?: boolean;
   onClose: () => void;
 }) {
   const [tab, setTab] = useState<"retours" | "activite">("retours");
@@ -76,7 +85,12 @@ export function SubjectDrawer({
   return (
     <aside
       aria-label={`Détail de ${subject.name || "la publication"}`}
-      className="border-border bg-background animate-in slide-in-from-right fixed inset-y-0 right-0 z-40 flex w-full max-w-xl flex-col border-l shadow-xl duration-300 motion-reduce:animate-none"
+      className={cn(
+        "border-border bg-background fixed inset-y-0 right-0 z-40 flex w-full max-w-xl flex-col border-l shadow-xl motion-reduce:animate-none",
+        closing
+          ? "animate-out slide-out-to-right fill-mode-forwards duration-200"
+          : "animate-in slide-in-from-right duration-300",
+      )}
     >
       {/* --- En-tête : le sujet s'y modifie, comme dans le tableau --- */}
       <header className="border-border flex items-start gap-3 border-b p-4">
@@ -244,7 +258,7 @@ export function SubjectDrawer({
               autoFocus={autoFocusComment}
             />
           ) : (
-            <ActivityList activity={activity} columns={columns} />
+            <ActivityList activity={activity} columns={columns} owners={owners} />
           )}
         </div>
       </div>
@@ -285,10 +299,13 @@ function TabButton({
 // --- Carrousel de visuels ----------------------------------------------------
 
 /**
- * Le carrousel : grand média sur fond sombre, et la bande de vignettes en
- * dessous — scrollable à l'horizontale, chaque vignette déplaçable de ses deux
- * flèches. L'ordre des vignettes est l'ordre des slides du carrousel publié :
- * le réordonner ici, c'est réordonner la publication.
+ * Le carrousel du panneau : des cartes qui glissent, la suivante qui dépasse.
+ *
+ * Pas de flou, pas d'aplat noir : chaque visuel est une carte arrondie et
+ * bordée, posée sur le fond du panneau. Le scroll est aimanté, le bord de la
+ * carte suivante reste visible — l'invitation à glisser — et le clic sur une
+ * image passe en plein écran. La bande de vignettes réordonne : l'ordre des
+ * vignettes est l'ordre des slides du carrousel publié.
  */
 function VisualCarousel({
   subject,
@@ -303,99 +320,89 @@ function VisualCarousel({
   onRemove: (path: string) => void;
   onReorder: (paths: string[]) => void;
 }) {
-  const [index, setIndex] = useState(0);
   const [expanded, setExpanded] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const visuals = subject.visuals;
+  const { trackRef, index, scrollTo, onScroll, prev, next } = useSnapCarousel(
+    visuals.length,
+  );
   const safeIndex = Math.min(index, Math.max(visuals.length - 1, 0));
   const current = visuals[safeIndex];
-  const currentIsImage = current ? isImagePath(current.path) && !!current.url : false;
 
   const move = (from: number, to: number) => {
     if (to < 0 || to >= visuals.length) return;
     const paths = visuals.map((visual) => visual.path);
     const [moved] = paths.splice(from, 1);
     paths.splice(to, 0, moved!);
-    setIndex(to);
+    scrollTo(to, false);
     onReorder(paths);
   };
 
   return (
     <div className="border-border border-b">
-      {/* Une créa se regarde en grand — et sans bandes mortes sur les côtés :
-          le fond est le visuel lui-même, couvrant et flouté. Le clic sur
-          l'image passe en plein écran. Sans visuel, l'aplat sombre se réduit :
-          420 px de noir vide écrasaient le panneau. */}
-      <div
-        className={cn(
-          "relative flex items-center justify-center overflow-hidden bg-neutral-950",
-          current ? "h-[420px]" : "h-28",
-        )}
-      >
-        {current ? (
-          <>
-            {currentIsImage ? (
-              // eslint-disable-next-line @next/next/no-img-element -- URL signée
-              <img
-                src={current.url}
-                alt=""
-                aria-hidden
-                className="absolute inset-0 size-full scale-110 object-cover opacity-50 blur-2xl"
-              />
-            ) : null}
-
-            {currentIsImage ? (
-              <button
-                type="button"
-                onClick={() => setExpanded(true)}
-                title="Afficher en plein écran"
-                aria-label={`Afficher ${current.name} en plein écran`}
-                className="relative z-10 flex size-full cursor-zoom-in items-center justify-center outline-none"
+      {visuals.length === 0 ? (
+        <p className="border-border text-muted-foreground mx-4 mt-3 rounded-xl border border-dashed px-4 py-8 text-center text-sm">
+          Aucun visuel pour l&apos;instant.
+        </p>
+      ) : (
+        <div className="relative">
+          <div
+            ref={trackRef}
+            onScroll={onScroll}
+            className="flex snap-x snap-mandatory items-center gap-3 overflow-x-auto px-6 py-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          >
+            {visuals.map((visual, i) => (
+              <div
+                key={visual.path}
+                className="flex h-[480px] max-w-[88%] shrink-0 snap-center items-center justify-center"
               >
-                <VisualMedia path={current.path} url={current.url} name={current.name} />
-              </button>
-            ) : (
-              <span className="relative z-10 flex size-full items-center justify-center">
-                <VisualMedia path={current.path} url={current.url} name={current.name} />
-              </span>
-            )}
-
-            {visuals.length > 1 ? (
-              <>
-                <CarouselArrow
-                  direction="prev"
-                  onClick={() =>
-                    setIndex((i) => (i - 1 + visuals.length) % visuals.length)
-                  }
+                <VisualSlideMedia
+                  visual={visual}
+                  className="max-h-full"
+                  onClick={() => {
+                    scrollTo(i, false);
+                    setExpanded(true);
+                  }}
                 />
-                <CarouselArrow
-                  direction="next"
-                  onClick={() => setIndex((i) => (i + 1) % visuals.length)}
-                />
-              </>
-            ) : null}
+              </div>
+            ))}
+          </div>
 
+          {visuals.length > 1 ? (
+            <>
+              <CarouselArrow direction="prev" disabled={safeIndex === 0} onClick={prev} />
+              <CarouselArrow
+                direction="next"
+                disabled={safeIndex === visuals.length - 1}
+                onClick={next}
+              />
+            </>
+          ) : null}
+
+          {/* `right-[14%]` : dans la carte active — posés à ras du bord, ces
+              boutons semblaient appartenir à la carte qui dépasse. */}
+          {current ? (
             <button
               type="button"
               onClick={() => {
                 onRemove(current.path);
-                setIndex(0);
+                scrollTo(0, false);
               }}
               aria-label={`Retirer ${current.name}`}
-              className="absolute top-2 right-2 z-10 rounded-full bg-black/60 p-1.5 text-white hover:bg-black/80"
+              className="absolute top-5 right-[14%] z-20 rounded-full bg-black/60 p-1.5 text-white hover:bg-black/80"
             >
               <X className="size-3.5" aria-hidden />
             </button>
+          ) : null}
 
-            <span className="absolute bottom-2 right-2 z-10 rounded bg-black/60 px-1.5 py-0.5 text-[11px] text-white tabular-nums">
+          {visuals.length > 1 ? (
+            <span className="absolute right-[14%] bottom-5 z-20 rounded bg-black/60 px-1.5 py-0.5 text-[11px] text-white tabular-nums">
               {safeIndex + 1} / {visuals.length}
             </span>
-          </>
-        ) : (
-          <p className="text-sm text-neutral-400">Aucun visuel</p>
-        )}
-      </div>
+          ) : null}
+        </div>
+      )}
 
       {expanded ? (
         <VisualLightbox
@@ -410,13 +417,13 @@ function VisualCarousel({
       ) : null}
 
       {/* La bande de vignettes : scroll horizontal, flèches de réordonnancement. */}
-      {visuals.length > 0 ? (
+      {visuals.length > 1 ? (
         <div className="flex gap-2 overflow-x-auto px-4 py-2" role="list">
           {visuals.map((visual, i) => (
             <div key={visual.path} role="listitem" className="group/thumb relative shrink-0">
               <button
                 type="button"
-                onClick={() => setIndex(i)}
+                onClick={() => scrollTo(i)}
                 aria-label={`Visuel ${i + 1}`}
                 aria-current={i === safeIndex}
                 className={cn(
@@ -496,79 +503,33 @@ function VisualCarousel({
   );
 }
 
-/** Image, vidéo ou pièce jointe — chacun son rendu. */
-function VisualMedia({
-  path,
-  url,
-  name,
-}: {
-  path: string;
-  url: string;
-  name: string;
-}) {
-  if (/\.(mp4|mov|webm)(\?|$)/i.test(path) && url) {
-    // Lecteur natif : la créa d'un reel se regarde, pas se télécharge.
-    return (
-      <video src={url} controls playsInline className="size-full object-contain">
-        <track kind="captions" />
-      </video>
-    );
-  }
-
-  if (isImagePath(path) && url) {
-    // eslint-disable-next-line @next/next/no-img-element -- URL signée
-    return <img src={url} alt={name} className="size-full object-contain" />;
-  }
-
-  return (
-    <a
-      href={url || undefined}
-      target="_blank"
-      rel="noreferrer"
-      className="p-6 text-center text-sm break-all text-neutral-300 underline-offset-2 hover:underline"
-    >
-      {name}
-    </a>
-  );
-}
-
-function CarouselArrow({
-  direction,
-  onClick,
-}: {
-  direction: "prev" | "next";
-  onClick: () => void;
-}) {
-  const Icon = direction === "prev" ? ArrowLeft : ArrowRight;
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-label={direction === "prev" ? "Visuel précédent" : "Visuel suivant"}
-      className={cn(
-        "absolute top-1/2 -translate-y-1/2 rounded-full bg-black/60 p-2 text-white hover:bg-black/80",
-        direction === "prev" ? "left-2" : "right-2",
-      )}
-    >
-      <Icon className="size-4" aria-hidden />
-    </button>
-  );
-}
-
 // --- Journal d'activité -------------------------------------------------------
 
 /**
- * L'onglet « Activités » du board : qui a changé quoi, de quoi vers quoi.
- * Les valeurs à étiquettes se rendent en pastilles colorées — c'est ce qui rend
- * le journal lisible d'un coup d'œil.
+ * L'onglet « Activités » du board : qui a fait quoi, en toutes lettres —
+ * « Alessandro a ajouté un visuel », « a changé le statut » avec les pastilles
+ * avant → après. Les valeurs à étiquettes gardent leurs couleurs, et un
+ * propriétaire s'affiche par son nom, pas par son identifiant.
  */
 function ActivityList({
   activity,
   columns,
+  owners,
 }: {
-  activity: PlanningActivity[];
+  /** `null` : le journal arrive encore du serveur. */
+  activity: PlanningActivity[] | null;
   columns: ColumnDef[];
+  owners: PlanningOwner[];
 }) {
+  if (activity === null) {
+    return (
+      <p className="text-muted-foreground flex items-center gap-2 text-sm">
+        <Loader2 className="size-3.5 animate-spin" aria-hidden />
+        Chargement du journal…
+      </p>
+    );
+  }
+
   if (activity.length === 0) {
     return (
       <p className="text-muted-foreground text-sm">
@@ -579,51 +540,82 @@ function ActivityList({
 
   return (
     <ul className="space-y-2">
-      {activity.map((entry) => (
-        <li
-          key={entry.id}
-          className="border-border/60 flex items-center gap-2 rounded-md border px-2.5 py-2"
-        >
-          <OwnerAvatar owner={entry.actor} />
-          <span className="w-24 shrink-0 truncate text-xs font-medium">
-            {FIELD_LABELS[entry.field] ?? entry.field}
-          </span>
-
-          <span className="flex min-w-0 flex-1 items-center justify-end gap-1.5">
-            <ValueChip field={entry.field} value={entry.before} columns={columns} />
-            {entry.field !== "created" ? (
-              <ChevronRight
-                className="text-muted-foreground size-3 shrink-0"
-                aria-hidden
-              />
-            ) : null}
-            <ValueChip field={entry.field} value={entry.after} columns={columns} />
-          </span>
-
-          <time
-            dateTime={entry.created_at}
-            className="text-muted-foreground shrink-0 text-[10px] tabular-nums"
+      {activity.map((entry) => {
+        const withValues = !NO_VALUE_FIELDS.has(entry.field);
+        return (
+          <li
+            key={entry.id}
+            className="border-border/60 rounded-md border px-2.5 py-2"
           >
-            {entry.created_label}
-          </time>
-        </li>
-      ))}
+            <div className="flex items-center gap-2">
+              <OwnerAvatar owner={entry.actor} />
+              <p className="min-w-0 flex-1 truncate text-xs">
+                <span className="font-medium">
+                  {entry.actor?.full_name ?? entry.actor?.email ?? "Quelqu'un"}
+                </span>{" "}
+                <span className="text-muted-foreground">
+                  {FIELD_SENTENCES[entry.field] ?? `a modifié « ${entry.field} »`}
+                </span>
+              </p>
+              <time
+                dateTime={entry.created_at}
+                className="text-muted-foreground shrink-0 text-[10px] tabular-nums"
+              >
+                {entry.created_label}
+              </time>
+            </div>
+
+            {withValues ? (
+              <div className="mt-1.5 flex items-center gap-1.5 pl-8">
+                <ValueChip
+                  field={entry.field}
+                  value={entry.before}
+                  columns={columns}
+                  owners={owners}
+                />
+                <ArrowRight
+                  className="text-muted-foreground size-3 shrink-0"
+                  aria-hidden
+                />
+                <ValueChip
+                  field={entry.field}
+                  value={entry.after}
+                  columns={columns}
+                  owners={owners}
+                />
+              </div>
+            ) : null}
+          </li>
+        );
+      })}
     </ul>
   );
 }
 
-const FIELD_LABELS: Record<string, string> = {
-  created: "Création",
-  name: "Sujet",
-  status: "Statut",
-  format: "Type",
-  scheduled_on: "Date",
-  wording: "Wording",
-  sponsoring: "Sponsorisation",
-  ad_objective: "Objectif Ads",
-  ad_status: "Statut Ads",
-  owner_id: "Propriétaire",
-  visual: "Visuel",
+/** Les gestes qui se suffisent : la phrase dit tout, pas de avant → après. */
+const NO_VALUE_FIELDS = new Set([
+  "created",
+  "archived",
+  "restored",
+  "deleted",
+]);
+
+const FIELD_SENTENCES: Record<string, string> = {
+  created: "a créé la publication",
+  name: "a renommé le sujet",
+  status: "a changé le statut",
+  format: "a changé le type",
+  scheduled_on: "a déplacé la date",
+  wording: "a modifié le wording",
+  sponsoring: "a modifié la sponsorisation",
+  ad_objective: "a changé l'objectif publicitaire",
+  ad_status: "a changé le statut publicitaire",
+  owner_id: "a changé le propriétaire",
+  visual: "a ajouté un visuel",
+  moved: "a déplacé la publication",
+  archived: "a archivé la publication",
+  restored: "a restauré la publication",
+  deleted: "a envoyé la publication à la corbeille",
 };
 
 const FIELD_TO_BUILTIN: Record<string, string> = {
@@ -637,18 +629,27 @@ function ValueChip({
   field,
   value,
   columns,
+  owners,
 }: {
   field: string;
   value: string | null;
   columns: ColumnDef[];
+  owners: PlanningOwner[];
 }) {
-  if (field === "created") {
-    return <span className="text-muted-foreground text-xs">—</span>;
-  }
   if (value === null || value === "") {
     return (
       <span className="bg-muted text-muted-foreground rounded px-1.5 py-0.5 text-[10px]">
         vide
+      </span>
+    );
+  }
+
+  // Un identifiant de propriétaire se lit par son nom.
+  if (field === "owner_id") {
+    const owner = owners.find((candidate) => candidate.id === value);
+    return (
+      <span className="text-foreground max-w-40 truncate text-xs">
+        {owner?.full_name ?? owner?.email ?? "un membre"}
       </span>
     );
   }

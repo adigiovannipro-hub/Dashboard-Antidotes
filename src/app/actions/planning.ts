@@ -163,6 +163,11 @@ export async function renameMonth(
   }
 }
 
+/**
+ * Supprimer un mois l'envoie à la corbeille, d'où il se restaure. Sur une
+ * base sans la migration 0031, on retombe sur la suppression réelle plutôt
+ * que d'échouer — le comportement d'avant.
+ */
 export async function deleteMonth(
   scope: Scope,
   input: { monthId: string },
@@ -170,9 +175,37 @@ export async function deleteMonth(
   try {
     await guard(scope);
     const supabase = await createClient();
-    await supabase.from("planning_months").delete().eq("id", input.monthId);
+    const { error } = await supabase
+      .from("planning_months")
+      .update({ deleted_at: new Date().toISOString() })
+      .eq("id", input.monthId);
+    if (error && error.message.includes("deleted_at")) {
+      await supabase.from("planning_months").delete().eq("id", input.monthId);
+      revalidate(scope);
+      return OK;
+    }
+    if (error) throw new Error(error.message);
     revalidate(scope);
-    return OK;
+    return { ok: true, message: "Mois envoyé à la corbeille." };
+  } catch (error) {
+    return fail(error);
+  }
+}
+
+export async function restoreMonth(
+  scope: Scope,
+  input: { monthId: string },
+): Promise<PlanningResult> {
+  try {
+    await guard(scope);
+    const supabase = await createClient();
+    const { error } = await supabase
+      .from("planning_months")
+      .update({ deleted_at: null })
+      .eq("id", input.monthId);
+    if (error) throw new Error(error.message);
+    revalidate(scope);
+    return { ok: true, message: "Mois restauré." };
   } catch (error) {
     return fail(error);
   }
@@ -440,17 +473,14 @@ export async function deleteSubject(
   scope: Scope,
   input: { subjectId: string },
 ): Promise<PlanningResult> {
-  try {
-    await guard(scope);
-    const supabase = await createClient();
-    await supabase.from("planning_subjects").delete().eq("id", input.subjectId);
-    revalidate(scope);
-    return OK;
-  } catch (error) {
-    return fail(error);
-  }
+  return bulkDeleteSubjects(scope, { subjectIds: [input.subjectId] });
 }
 
+/**
+ * La suppression est douce : la ligne part à la corbeille (`deleted_at`) et se
+ * restaure depuis l'en-tête du tableau. Sur une base sans la migration 0031,
+ * on retombe sur la suppression réelle — le comportement d'avant.
+ */
 export async function bulkDeleteSubjects(
   scope: Scope,
   input: { subjectIds: string[] },
@@ -460,13 +490,282 @@ export async function bulkDeleteSubjects(
   }
 
   try {
-    await guard(scope);
+    const { viewer, workspace } = await guard(scope);
     const supabase = await createClient();
-    await supabase.from("planning_subjects").delete().in("id", input.subjectIds);
+
+    const { error } = await supabase
+      .from("planning_subjects")
+      .update({ deleted_at: new Date().toISOString() })
+      .in("id", input.subjectIds);
+
+    if (error && error.message.includes("deleted_at")) {
+      await supabase.from("planning_subjects").delete().in("id", input.subjectIds);
+      revalidate(scope);
+      return {
+        ok: true,
+        message: `${input.subjectIds.length} publication${input.subjectIds.length > 1 ? "s" : ""} supprimée${input.subjectIds.length > 1 ? "s" : ""}.`,
+      };
+    }
+    if (error) throw new Error(error.message);
+
+    for (const subjectId of input.subjectIds) {
+      await logActivity({
+        supabase,
+        subjectId,
+        workspaceId: workspace.id,
+        actorId: viewer.user.id,
+        field: "deleted",
+      });
+    }
+
     revalidate(scope);
     return {
       ok: true,
-      message: `${input.subjectIds.length} publication${input.subjectIds.length > 1 ? "s" : ""} supprimée${input.subjectIds.length > 1 ? "s" : ""}.`,
+      message:
+        input.subjectIds.length === 1
+          ? "Publication envoyée à la corbeille."
+          : `${input.subjectIds.length} publications envoyées à la corbeille.`,
+    };
+  } catch (error) {
+    return fail(error);
+  }
+}
+
+/** L'archivage : hors du tableau, hors de la corbeille, récupérable. */
+export async function bulkArchiveSubjects(
+  scope: Scope,
+  input: { subjectIds: string[] },
+): Promise<PlanningResult> {
+  if (input.subjectIds.length === 0 || input.subjectIds.length > 200) {
+    return { ok: false, error: "Sélection vide ou trop large." };
+  }
+
+  try {
+    const { viewer, workspace } = await guard(scope);
+    const supabase = await createClient();
+
+    const { error } = await supabase
+      .from("planning_subjects")
+      .update({ archived_at: new Date().toISOString() })
+      .in("id", input.subjectIds);
+
+    if (error?.message.includes("archived_at")) {
+      return {
+        ok: false,
+        error: "La base n'a pas encore la migration 0031 — colle le fichier SQL de rattrapage.",
+      };
+    }
+    if (error) throw new Error(error.message);
+
+    for (const subjectId of input.subjectIds) {
+      await logActivity({
+        supabase,
+        subjectId,
+        workspaceId: workspace.id,
+        actorId: viewer.user.id,
+        field: "archived",
+      });
+    }
+
+    revalidate(scope);
+    return {
+      ok: true,
+      message:
+        input.subjectIds.length === 1
+          ? "Publication archivée."
+          : `${input.subjectIds.length} publications archivées.`,
+    };
+  } catch (error) {
+    return fail(error);
+  }
+}
+
+/** Ressort une publication des archives ou de la corbeille. */
+export async function restoreSubjects(
+  scope: Scope,
+  input: { subjectIds: string[] },
+): Promise<PlanningResult> {
+  if (input.subjectIds.length === 0 || input.subjectIds.length > 200) {
+    return { ok: false, error: "Sélection vide ou trop large." };
+  }
+
+  try {
+    const { viewer, workspace } = await guard(scope);
+    const supabase = await createClient();
+
+    const { error } = await supabase
+      .from("planning_subjects")
+      .update({ archived_at: null, deleted_at: null })
+      .in("id", input.subjectIds);
+    if (error) throw new Error(error.message);
+
+    for (const subjectId of input.subjectIds) {
+      await logActivity({
+        supabase,
+        subjectId,
+        workspaceId: workspace.id,
+        actorId: viewer.user.id,
+        field: "restored",
+      });
+    }
+
+    revalidate(scope);
+    return { ok: true, message: "Restauré au tableau." };
+  } catch (error) {
+    return fail(error);
+  }
+}
+
+// --- Déplacement --------------------------------------------------------------
+
+/**
+ * Range une ligne à sa place — le drag & drop du tableau.
+ *
+ * `index` est la position visée parmi les lignes **visibles** du couloir
+ * cible. Les positions du couloir sont réécrites séquentiellement : les
+ * volumes (quelques dizaines de lignes par couloir) rendent la boucle plus
+ * simple et plus sûre qu'une arithmétique d'interstices.
+ */
+export async function moveSubject(
+  scope: Scope,
+  input: { subjectId: string; laneId: string; index: number },
+): Promise<PlanningResult> {
+  try {
+    const { viewer, workspace } = await guard(scope);
+    const supabase = await createClient();
+
+    const [{ data: lane }, { data: moved }] = await Promise.all([
+      supabase
+        .from("planning_lanes")
+        .select("id, month_id, board_id, name")
+        .eq("id", input.laneId)
+        .maybeSingle(),
+      supabase
+        .from("planning_subjects")
+        .select("id, lane_id")
+        .eq("id", input.subjectId)
+        .maybeSingle(),
+    ]);
+    if (!lane || !moved) return { ok: false, error: "Ligne ou réseau introuvable." };
+
+    const { data: siblings } = await supabase
+      .from("planning_subjects")
+      .select("id, position, archived_at, deleted_at")
+      .eq("lane_id", lane.id)
+      .order("position");
+
+    const visible = ((siblings ?? []) as unknown as {
+      id: string;
+      position: number;
+      archived_at?: string | null;
+      deleted_at?: string | null;
+    }[]).filter(
+      (subject) =>
+        !subject.archived_at && !subject.deleted_at && subject.id !== input.subjectId,
+    );
+
+    const index = Math.max(0, Math.min(input.index, visible.length));
+    const ordered = [
+      ...visible.slice(0, index).map((subject) => subject.id),
+      input.subjectId,
+      ...visible.slice(index).map((subject) => subject.id),
+    ];
+
+    for (const [position, id] of ordered.entries()) {
+      const patch: Record<string, unknown> = { position };
+      if (id === input.subjectId) {
+        patch.lane_id = lane.id;
+        patch.month_id = lane.month_id;
+      }
+      const { error } = await supabase
+        .from("planning_subjects")
+        .update(patch as never)
+        .eq("id", id);
+      if (error) throw new Error(error.message);
+    }
+
+    if (moved.lane_id !== lane.id) {
+      const { data: from } = await supabase
+        .from("planning_lanes")
+        .select("name")
+        .eq("id", moved.lane_id)
+        .maybeSingle();
+      await logActivity({
+        supabase,
+        subjectId: input.subjectId,
+        workspaceId: workspace.id,
+        actorId: viewer.user.id,
+        field: "moved",
+        before: from?.name,
+        after: lane.name,
+      });
+    }
+
+    revalidate(scope);
+    return OK;
+  } catch (error) {
+    return fail(error);
+  }
+}
+
+/** Déplacement groupé : la sélection rejoint la fin du couloir choisi. */
+export async function bulkMoveSubjects(
+  scope: Scope,
+  input: { subjectIds: string[]; laneId: string },
+): Promise<PlanningResult> {
+  if (input.subjectIds.length === 0 || input.subjectIds.length > 200) {
+    return { ok: false, error: "Sélection vide ou trop large." };
+  }
+
+  try {
+    const { viewer, workspace } = await guard(scope);
+    const supabase = await createClient();
+
+    const { data: lane } = await supabase
+      .from("planning_lanes")
+      .select("id, month_id, name")
+      .eq("id", input.laneId)
+      .maybeSingle();
+    if (!lane) return { ok: false, error: "Réseau introuvable." };
+
+    const [{ data: last }, { data: movedRows }] = await Promise.all([
+      supabase
+        .from("planning_subjects")
+        .select("position")
+        .eq("lane_id", lane.id)
+        .order("position", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      supabase
+        .from("planning_subjects")
+        .select("id, position")
+        .in("id", input.subjectIds)
+        .order("position"),
+    ]);
+
+    let position = (last?.position ?? -1) + 1;
+    for (const subject of movedRows ?? []) {
+      const { error } = await supabase
+        .from("planning_subjects")
+        .update({ lane_id: lane.id, month_id: lane.month_id, position })
+        .eq("id", subject.id);
+      if (error) throw new Error(error.message);
+      position += 1;
+
+      await logActivity({
+        supabase,
+        subjectId: subject.id,
+        workspaceId: workspace.id,
+        actorId: viewer.user.id,
+        field: "moved",
+        after: lane.name,
+      });
+    }
+
+    revalidate(scope);
+    return {
+      ok: true,
+      message: `${input.subjectIds.length} publication${input.subjectIds.length > 1 ? "s" : ""} déplacée${input.subjectIds.length > 1 ? "s" : ""} vers ${lane.name}.`,
     };
   } catch (error) {
     return fail(error);

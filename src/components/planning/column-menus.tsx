@@ -28,6 +28,7 @@ import {
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -178,11 +179,11 @@ export function ColumnHeaderMenu({
 /**
  * L'éditeur d'étiquettes — le panneau « Modifier les étiquettes » du board.
  *
- * Sur une colonne de base, la liste est fermée : libellé et couleur seulement,
- * parce que les valeurs sont un enum du modèle. Sur une colonne ajoutée, tout
- * est permis, y compris « + Nouvelle étiquette ».
+ * « + Nouvelle étiquette » y crée des valeurs libres avec leur couleur, sur
+ * toutes les colonnes à pastilles. Exporté : il s'ouvre depuis l'en-tête de
+ * colonne comme depuis le sélecteur d'une cellule.
  */
-function LabelsDialog({
+export function LabelsDialog({
   scope,
   column,
   open,
@@ -360,8 +361,11 @@ export function AddColumnMenu({
         <Plus className="size-3.5" aria-hidden />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-52 min-w-52">
+        {/* `DropdownMenuGroup` obligatoire : depuis Base UI 1.6, un
+            `GroupLabel` hors d'un groupe jette — et l'erreur faisait tomber
+            la page entière au clic sur le « + ». */}
         {ADDABLE_TYPES.map((group, index) => (
-          <div key={group.group}>
+          <DropdownMenuGroup key={group.group}>
             {index > 0 ? <DropdownMenuSeparator /> : null}
             <DropdownMenuLabel className="text-muted-foreground text-[11px] uppercase">
               {group.group}
@@ -382,7 +386,7 @@ export function AddColumnMenu({
                 {entry.label}
               </DropdownMenuItem>
             ))}
-          </div>
+          </DropdownMenuGroup>
         ))}
       </DropdownMenuContent>
     </DropdownMenu>

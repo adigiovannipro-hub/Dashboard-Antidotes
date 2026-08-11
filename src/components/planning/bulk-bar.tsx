@@ -1,8 +1,9 @@
 "use client";
 
-import { Copy, Trash2, X } from "lucide-react";
+import { Archive, Copy, FolderInput, Trash2, X } from "lucide-react";
 
 import {
+  bulkArchiveSubjects,
   bulkDeleteSubjects,
   bulkDuplicateSubjects,
   bulkUpdateSubjects,
@@ -36,12 +37,15 @@ export function BulkBar({
   columns,
   owners,
   onClear,
+  onRequestMove,
 }: {
   scope: Scope;
   selectedIds: Set<string>;
   columns: ColumnDef[];
   owners: PlanningOwner[];
   onClear: () => void;
+  /** Ouvre « Choisir un nouveau parent » — la boîte vit au niveau du tableau. */
+  onRequestMove: () => void;
 }) {
   const { run, pending } = useCellAction();
 
@@ -121,6 +125,32 @@ export function BulkBar({
       >
         <Copy className="size-3.5" aria-hidden />
         Dupliquer
+      </button>
+
+      <button
+        type="button"
+        disabled={pending}
+        onClick={onRequestMove}
+        className="text-muted-foreground hover:text-foreground flex shrink-0 items-center gap-1 text-xs"
+      >
+        <FolderInput className="size-3.5" aria-hidden />
+        Déplacer
+      </button>
+
+      <button
+        type="button"
+        disabled={pending}
+        onClick={() =>
+          run(async () => {
+            const result = await bulkArchiveSubjects(scope, { subjectIds: ids });
+            if (result.ok) onClear();
+            return result;
+          })
+        }
+        className="text-muted-foreground hover:text-foreground flex shrink-0 items-center gap-1 text-xs"
+      >
+        <Archive className="size-3.5" aria-hidden />
+        Archiver
       </button>
 
       <button

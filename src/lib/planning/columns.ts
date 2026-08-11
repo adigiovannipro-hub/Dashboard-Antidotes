@@ -116,8 +116,8 @@ const BUILTIN_WIDTHS: Record<BuiltinKey, string> = {
   updated: "132px",
 };
 
-/** Pistes fixes hors registre : la coche de sélection, les retours, le « + ». */
-export const SELECT_TRACK = "36px";
+/** Pistes fixes hors registre : poignée + coche, les retours, le « + ». */
+export const SELECT_TRACK = "52px";
 export const COMMENTS_TRACK = "40px";
 export const ADD_TRACK = "40px";
 

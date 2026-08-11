@@ -3,11 +3,17 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Plus, Search, X } from "lucide-react";
+import { Archive, Plus, Search, Trash2, X } from "lucide-react";
 
-import { createMonth } from "@/app/actions/planning";
+import { bulkMoveSubjects, createMonth } from "@/app/actions/planning";
+import {
+  ArchiveDialog,
+  MoveDialog,
+  TrashDialog,
+} from "@/components/planning/board-dialogs";
 import { BulkBar } from "@/components/planning/bulk-bar";
 import { useCellAction } from "@/components/planning/cells";
+import { LabelsDialog } from "@/components/planning/column-menus";
 import { MonthGroup } from "@/components/planning/month-group";
 import { SubjectDrawer } from "@/components/planning/subject-drawer";
 import type { DateSort } from "@/components/planning/lane-table";
@@ -26,6 +32,7 @@ import type {
   MonthWithLanes,
   PlanningActivity,
   PlanningBoard,
+  PlanningMonth,
   PlanningOwner,
   SubjectRow,
 } from "@/lib/planning/types";
@@ -34,11 +41,12 @@ import { cn } from "@/lib/utils";
 /**
  * Le tableau d'une année.
  *
- * Quatre états d'écran vivent ici et nulle part ailleurs : la sélection
- * multiple (la barre du bas), le tri de la colonne Date, la recherche — ⌘F est
+ * Les états d'écran vivent ici et nulle part ailleurs : la sélection multiple
+ * (la barre du bas), le tri de la colonne Date, la recherche — ⌘F est
  * intercepté, on cherche des publications, pas du texte de page — et la
- * publication ouverte, celle-ci dans l'URL pour qu'un lien partagé rouvre le
- * même panneau.
+ * publication ouverte. Celle-ci est **locale d'abord** : le panneau s'ouvre et
+ * se ferme sans attendre le serveur, l'URL suit pour qu'un lien partagé
+ * rouvre le même panneau, et le journal d'activité arrive quand il arrive.
  */
 export function PlanningBoardView({
   scope,
@@ -48,6 +56,8 @@ export function PlanningBoardView({
   columns,
   owners,
   drawer,
+  archived,
+  trash,
   currentMonthKey,
   workspaceSlug,
 }: {
@@ -59,6 +69,8 @@ export function PlanningBoardView({
   owners: PlanningOwner[];
   /** La publication ouverte et son journal, résolus côté serveur. */
   drawer: { subject: SubjectRow; activity: PlanningActivity[] } | null;
+  archived: SubjectRow[];
+  trash: { subjects: SubjectRow[]; months: PlanningMonth[] };
   currentMonthKey: string;
   workspaceSlug: string;
 }) {
@@ -75,6 +87,24 @@ export function PlanningBoardView({
   // base, qui reçoit la valeur finale au relâchement.
   const [widthPreview, setWidthPreview] = useState<Record<string, number>>({});
   const effectiveColumns = applyWidths(columns, widthPreview);
+
+  // Les boîtes du tableau : étiquettes d'une colonne, déplacement, archives,
+  // corbeille.
+  const [editingColumn, setEditingColumn] = useState<ColumnDef | null>(null);
+  const [moveOpen, setMoveOpen] = useState(false);
+  const [archiveOpen, setArchiveOpen] = useState(false);
+  const [trashOpen, setTrashOpen] = useState(false);
+
+  /**
+   * Le panneau, sans aller-retour : `panel` prime sur l'URL. Ouvrir pose
+   * l'état local puis pousse l'URL ; fermer joue la glissade de sortie puis
+   * nettoie. `undefined` : suivre le serveur (arrivée par lien partagé).
+   */
+  const [panel, setPanel] = useState<
+    { id: string | null; focus: boolean } | undefined
+  >(undefined);
+  const [panelClosing, setPanelClosing] = useState(false);
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ⌘F / Ctrl+F saute dans le champ de recherche : sur un planning, chercher
   // veut dire chercher un sujet ou un wording — pas le « rechercher dans la
@@ -93,6 +123,9 @@ export function PlanningBoardView({
 
   const openSubject = useCallback(
     (subjectId: string, focusRetours?: boolean) => {
+      if (closeTimer.current) clearTimeout(closeTimer.current);
+      setPanelClosing(false);
+      setPanel({ id: subjectId, focus: !!focusRetours });
       const next = new URLSearchParams(searchParams.toString());
       next.set("sujet", subjectId);
       if (focusRetours) next.set("focus", "retour");
@@ -103,10 +136,18 @@ export function PlanningBoardView({
   );
 
   const closeDrawer = useCallback(() => {
-    const next = new URLSearchParams(searchParams.toString());
-    next.delete("sujet");
-    next.delete("focus");
-    router.push(`${pathname}?${next}`, { scroll: false });
+    // La glissade d'abord, le démontage ensuite — et l'URL en dernier, pour
+    // que la fermeture ne dépende pas du serveur.
+    setPanelClosing(true);
+    if (closeTimer.current) clearTimeout(closeTimer.current);
+    closeTimer.current = setTimeout(() => {
+      setPanel({ id: null, focus: false });
+      setPanelClosing(false);
+      const next = new URLSearchParams(searchParams.toString());
+      next.delete("sujet");
+      next.delete("focus");
+      router.push(`${pathname}?${next}`, { scroll: false });
+    }, 180);
   }, [pathname, router, searchParams]);
 
   const toggleSelect = useCallback((subjectId: string) => {
@@ -139,7 +180,34 @@ export function PlanningBoardView({
   const searching = search.trim().length > 0;
   const visibleMonths = filterMonths(months, search);
   const resultCount = searching ? countSubjects(visibleMonths) : 0;
-  const focusRetours = searchParams.get("focus") === "retour";
+
+  // La publication ouverte : l'état local prime, l'URL sert d'arrivée.
+  const activeId = panel !== undefined ? panel.id : (drawer?.subject.id ?? null);
+  const activeFocus =
+    panel !== undefined ? panel.focus : searchParams.get("focus") === "retour";
+  const activeSubject = activeId
+    ? (months
+        .flatMap((month) => month.lanes.flatMap((lane) => lane.subjects))
+        .find((subject) => subject.id === activeId) ??
+      (drawer?.subject.id === activeId ? drawer.subject : null))
+    : null;
+  // Le journal n'existe que côté serveur : tant que l'URL n'a pas rattrapé le
+  // clic, l'onglet Activités affiche son chargement.
+  const activeActivity =
+    activeId && drawer?.subject.id === activeId ? drawer.activity : null;
+
+  // Échap ferme le panneau — sauf quand la visionneuse plein écran est
+  // ouverte : elle se ferme elle-même, en premier.
+  useEffect(() => {
+    if (!activeSubject) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      if (document.querySelector("[data-lightbox]")) return;
+      closeDrawer();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [activeSubject, closeDrawer]);
 
   // Le cadre de l'application fournit déjà la marge de page : en ajouter une
   // ici décalait le planning de tous les autres écrans.
@@ -148,7 +216,8 @@ export function PlanningBoardView({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <BoardTabs boards={boards} current={board} workspaceSlug={workspaceSlug} />
 
-        {/* La recherche : sujets et wordings, accents et casse pliés. */}
+        {/* La recherche : sujets et wordings, accents et casse pliés. Puis
+            les archives et la corbeille du tableau. */}
         <div className="flex items-center gap-2">
           {searching ? (
             <span className="text-muted-foreground text-xs tabular-nums">
@@ -188,6 +257,21 @@ export function PlanningBoardView({
               </button>
             ) : null}
           </div>
+
+          <HeaderIconButton
+            label={`Archives (${archived.length})`}
+            count={archived.length}
+            onClick={() => setArchiveOpen(true)}
+          >
+            <Archive className="size-4" strokeWidth={1.75} aria-hidden />
+          </HeaderIconButton>
+          <HeaderIconButton
+            label={`Corbeille (${trash.subjects.length + trash.months.length})`}
+            count={trash.subjects.length + trash.months.length}
+            onClick={() => setTrashOpen(true)}
+          >
+            <Trash2 className="size-4" strokeWidth={1.75} aria-hidden />
+          </HeaderIconButton>
         </div>
       </div>
 
@@ -219,6 +303,7 @@ export function PlanningBoardView({
               onToggleSelect={toggleSelect}
               onToggleLane={toggleLane}
               onOpenSubject={openSubject}
+              onEditLabels={setEditingColumn}
               onResizePreview={(columnId, width) =>
                 setWidthPreview((current) =>
                   width === null
@@ -268,23 +353,94 @@ export function PlanningBoardView({
         columns={effectiveColumns}
         owners={owners}
         onClear={() => setSelectedIds(new Set())}
+        onRequestMove={() => setMoveOpen(true)}
       />
 
-      {drawer ? (
+      {activeSubject ? (
         <SubjectDrawer
           // La clé porte aussi le focus : re-cliquer l'icône de retours d'un
           // panneau déjà ouvert remonte le curseur dans le champ.
-          key={`${drawer.subject.id}${focusRetours ? "-retours" : ""}`}
+          key={`${activeSubject.id}${activeFocus ? "-retours" : ""}`}
           scope={scope}
-          subject={drawer.subject}
+          subject={activeSubject}
           columns={effectiveColumns}
           owners={owners}
-          activity={drawer.activity}
-          autoFocusComment={focusRetours}
+          activity={activeActivity}
+          autoFocusComment={activeFocus}
+          closing={panelClosing}
           onClose={closeDrawer}
         />
       ) : null}
+
+      {/* --- Les boîtes du tableau --- */}
+      {editingColumn ? (
+        <LabelsDialog
+          scope={scope}
+          column={editingColumn}
+          open
+          onOpenChange={(next) => {
+            if (!next) setEditingColumn(null);
+          }}
+        />
+      ) : null}
+
+      <MoveDialog
+        months={months}
+        open={moveOpen}
+        onOpenChange={setMoveOpen}
+        onPick={(laneId) => {
+          setMoveOpen(false);
+          run(() =>
+            bulkMoveSubjects(scope, { subjectIds: [...selectedIds], laneId }),
+          );
+        }}
+      />
+
+      <ArchiveDialog
+        scope={scope}
+        archived={archived}
+        open={archiveOpen}
+        onOpenChange={setArchiveOpen}
+      />
+
+      <TrashDialog
+        scope={scope}
+        subjects={trash.subjects}
+        months={trash.months}
+        open={trashOpen}
+        onOpenChange={setTrashOpen}
+      />
     </div>
+  );
+}
+
+/** Un bouton d'en-tête avec sa pastille de compte — archives, corbeille. */
+function HeaderIconButton({
+  label,
+  count,
+  onClick,
+  children,
+}: {
+  label: string;
+  count: number;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      title={label}
+      className="border-border text-muted-foreground hover:text-foreground hover:bg-muted/60 focus-visible:ring-brand relative flex size-9 items-center justify-center rounded-md border transition-colors focus-visible:ring-2 focus-visible:outline-none"
+    >
+      {children}
+      {count > 0 ? (
+        <span className="bg-accent-ink absolute -top-1 -right-1 flex size-4 items-center justify-center rounded-full text-[9px] font-bold text-white tabular-nums">
+          {count > 9 ? "9+" : count}
+        </span>
+      ) : null}
+    </button>
   );
 }
 

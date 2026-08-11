@@ -39,6 +39,7 @@ export function MonthGroup({
   onToggleSelect,
   onToggleLane,
   onOpenSubject,
+  onEditLabels,
   onResizePreview,
   defaultOpen,
   forceOpen,
@@ -53,6 +54,7 @@ export function MonthGroup({
   onToggleSelect: (subjectId: string) => void;
   onToggleLane: (subjectIds: string[], selected: boolean) => void;
   onOpenSubject: (subjectId: string, focusRetours?: boolean) => void;
+  onEditLabels: (column: ColumnDef) => void;
   onResizePreview: (columnId: string, width: number | null) => void;
   defaultOpen: boolean;
   /** Une recherche en cours déplie tout : un résultat caché n'existe pas. */
@@ -78,6 +80,15 @@ export function MonthGroup({
           // Un mois ouvert se détache du fond : c'est celui qu'on lit.
           effectiveOpen ? "bg-surface-sunken" : "hover:bg-muted/40",
         )}
+        // Survoler un mois replié avec une ligne en main l'ouvre : on peut
+        // déposer dans n'importe quel mois sans lâcher.
+        onDragOver={(event) => {
+          if (![...event.dataTransfer.types].includes("text/x-antidotes-subject")) {
+            return;
+          }
+          event.preventDefault();
+          if (!open) setOpen(true);
+        }}
       >
         <button
           type="button"
@@ -189,6 +200,7 @@ export function MonthGroup({
                 onToggleSelect={onToggleSelect}
                 onToggleLane={onToggleLane}
                 onOpenSubject={onOpenSubject}
+                onEditLabels={onEditLabels}
                 onResizePreview={onResizePreview}
               />
             ))

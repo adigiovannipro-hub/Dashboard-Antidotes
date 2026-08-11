@@ -69,17 +69,27 @@ export async function getBoard(
 }
 
 /**
- * Contenu complet d'un tableau : mois → couloirs → publications.
+ * Contenu complet d'un tableau : mois → couloirs → publications, plus les
+ * archives et la corbeille — tirés de la même lecture.
  *
  * Quatre requêtes à plat plutôt qu'une requête imbriquée. PostgREST sait
  * imbriquer, mais le typage des jointures est perdu (`Relationships: []`) et
  * l'assemblage en mémoire reste lisible pour les volumes en jeu — quelques
  * centaines de lignes par année.
+ *
+ * Archives et corbeille se trient **en mémoire**, pas dans la requête : un
+ * `is("deleted_at", null)` sur une base où la migration 0031 n'est pas encore
+ * passée renverrait une erreur silencieuse, donc un tableau vide. Ici, une
+ * colonne absente vaut « visible », et l'écran survit à une base en retard.
  */
 export async function getBoardContent(board: PlanningBoard): Promise<{
   months: MonthWithLanes[];
   owners: PlanningOwner[];
   columns: ColumnDef[];
+  /** Publications archivées, hors corbeille. */
+  archived: SubjectRow[];
+  /** La corbeille : publications supprimées, mois supprimés. */
+  trash: { subjects: SubjectRow[]; months: PlanningMonth[] };
 }> {
   const supabase = await createClient();
 
@@ -120,8 +130,14 @@ export async function getBoardContent(board: PlanningBoard): Promise<{
 
   const ownerById = new Map(owners.map((owner) => [owner.id, owner]));
   const monthById = new Map(monthRows.map((month) => [month.id, month]));
+  const deletedMonthIds = new Set(
+    monthRows.filter((month) => month.deleted_at).map((month) => month.id),
+  );
 
   const subjectsByLane = new Map<string, SubjectRow[]>();
+  const archived: SubjectRow[] = [];
+  const trashSubjects: SubjectRow[] = [];
+
   for (const subject of subjectRows) {
     const lane = laneRows.find((candidate) => candidate.id === subject.lane_id);
     if (!lane) continue;
@@ -145,20 +161,27 @@ export async function getBoardContent(board: PlanningBoard): Promise<{
       updated_label: formatUpdateLabel(subject.updated_at),
     };
 
+    // La partition — corbeille, archives, tableau. Un sujet d'un mois supprimé
+    // suit son mois : il reviendra avec lui, pas ligne à ligne.
+    if (row.deleted_at) {
+      trashSubjects.push(row);
+      continue;
+    }
+    if (deletedMonthIds.has(row.month_id)) continue;
+    if (row.archived_at) {
+      archived.push(row);
+      continue;
+    }
+
     const bucket = subjectsByLane.get(subject.lane_id);
     if (bucket) bucket.push(row);
     else subjectsByLane.set(subject.lane_id, [row]);
   }
 
-  // Les publications se lisent dans l'ordre des dates, celles sans date en
-  // dernier — elles restent visibles au lieu de se perdre en haut du couloir.
+  // L'ordre du tableau est l'ordre manuel — celui du drag & drop. Le tri par
+  // date reste disponible depuis l'en-tête de la colonne Date.
   for (const bucket of subjectsByLane.values()) {
-    bucket.sort((a, b) => {
-      if (a.scheduled_on === b.scheduled_on) return a.position - b.position;
-      if (a.scheduled_on === null) return 1;
-      if (b.scheduled_on === null) return -1;
-      return a.scheduled_on.localeCompare(b.scheduled_on);
-    });
+    bucket.sort((a, b) => a.position - b.position);
   }
 
   const lanesByMonth = new Map<string, LaneWithSubjects[]>();
@@ -173,14 +196,25 @@ export async function getBoardContent(board: PlanningBoard): Promise<{
   }
 
   return {
-    months: monthRows.map((month) => ({
-      ...month,
-      lanes: lanesByMonth.get(month.id) ?? [],
-    })),
+    months: monthRows
+      .filter((month) => !month.deleted_at)
+      .map((month) => ({
+        ...month,
+        lanes: lanesByMonth.get(month.id) ?? [],
+      })),
     owners,
     columns: resolveColumns(columnRows, {
       adObjectives: board.settings.ad_objectives,
     }),
+    archived: archived.sort((a, b) =>
+      (b.archived_at ?? "").localeCompare(a.archived_at ?? ""),
+    ),
+    trash: {
+      subjects: trashSubjects.sort((a, b) =>
+        (b.deleted_at ?? "").localeCompare(a.deleted_at ?? ""),
+      ),
+      months: monthRows.filter((month) => month.deleted_at),
+    },
   };
 }
 

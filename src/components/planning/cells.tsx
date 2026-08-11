@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState, useTransition } from "react";
-import { CalendarDays, Check, Loader2, Paperclip, Trash2 } from "lucide-react";
+import { CalendarDays, Check, Loader2, Paperclip, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import type { PlanningResult } from "@/app/actions/planning";
@@ -320,6 +320,7 @@ export function ChipSelect<T extends string>({
   allowClear,
   placeholder,
   className,
+  onEditLabels,
 }: {
   value: T | null;
   options: ChipOption<T>[];
@@ -329,6 +330,9 @@ export function ChipSelect<T extends string>({
   /** Affiché sans valeur — le nom de l'action dans la barre groupée. */
   placeholder?: string;
   className?: string;
+  /** Ouvre l'éditeur d'étiquettes de la colonne — le « + Nouvelle étiquette »
+      accessible depuis le sélecteur lui-même, comme sur Monday. */
+  onEditLabels?: () => void;
 }) {
   // Contrôlé : les options sont des boutons libres (la grille colorée), pas
   // des items de menu — sans ça, choisir une pastille laissait le menu ouvert.
@@ -378,6 +382,18 @@ export function ChipSelect<T extends string>({
         {allowClear ? (
           <DropdownMenuItem onClick={() => pick(null)} className="mt-1">
             Vider
+          </DropdownMenuItem>
+        ) : null}
+        {onEditLabels ? (
+          <DropdownMenuItem
+            onClick={() => {
+              setOpen(false);
+              onEditLabels();
+            }}
+            className={allowClear ? undefined : "mt-1"}
+          >
+            <Pencil className="size-3.5" aria-hidden />
+            Modifier les étiquettes…
           </DropdownMenuItem>
         ) : null}
       </DropdownMenuContent>
@@ -569,9 +585,12 @@ export function WordingCell({
 // --- Visuels ------------------------------------------------------------------------
 
 /**
- * La cellule Visuel : la première vignette et le compteur. Le clic ouvre la
- * visionneuse plein écran — une cellule vide ouvre directement le sélecteur de
- * fichiers, il n'y a rien à regarder.
+ * La cellule Visuel : la première vignette et le compteur.
+ *
+ * Le clic ouvre le **panneau de la publication** — le plein écran s'atteint
+ * depuis le panneau, en cliquant la créa. Un fichier se dépose directement
+ * sur la cellule, sans passer par un sélecteur ; pendant l'envoi, la cellule
+ * tourne — le seul retour utile pendant qu'une vidéo monte.
  */
 export function VisualsCell({
   visuals,
@@ -579,6 +598,7 @@ export function VisualsCell({
   uploading,
   onUpload,
   onRemove,
+  onOpen,
   className,
 }: {
   visuals: ResolvedVisual[];
@@ -586,9 +606,12 @@ export function VisualsCell({
   uploading: boolean;
   onUpload: (files: File[]) => void;
   onRemove: (path: string) => void;
+  /** Ouvre le panneau de la publication. Absent : visionneuse (Mon travail). */
+  onOpen?: () => void;
   className?: string;
 }) {
   const [open, setOpen] = useState(false);
+  const [dropping, setDropping] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const first = visuals[0];
 
@@ -609,15 +632,33 @@ export function VisualsCell({
       <button
         type="button"
         aria-label={`Visuels de ${subjectName || "la publication"} (${visuals.length})`}
-        onClick={() =>
-          visuals.length === 0 ? inputRef.current?.click() : setOpen(true)
-        }
+        onClick={() => {
+          if (onOpen) onOpen();
+          else if (visuals.length === 0) inputRef.current?.click();
+          else setOpen(true);
+        }}
+        onDragOver={(event) => {
+          if (![...event.dataTransfer.types].includes("Files")) return;
+          event.preventDefault();
+          setDropping(true);
+        }}
+        onDragLeave={() => setDropping(false)}
+        onDrop={(event) => {
+          const files = [...event.dataTransfer.files];
+          if (files.length === 0) return;
+          event.preventDefault();
+          setDropping(false);
+          onUpload(files);
+        }}
         className={cn(
           "hover:bg-muted/60 focus-visible:ring-brand flex w-full items-center justify-center gap-1 rounded-sm px-1 py-1 outline-none focus-visible:ring-2",
+          dropping && "ring-brand bg-brand-mint/40 ring-2",
           className,
         )}
       >
-        {first ? (
+        {uploading ? (
+          <Loader2 className="text-accent-ink size-4 animate-spin" aria-label="Envoi en cours" />
+        ) : first ? (
           <>
             {isImagePath(first.path) && first.url ? (
               // eslint-disable-next-line @next/next/no-img-element -- URL signée
@@ -637,9 +678,7 @@ export function VisualsCell({
             ) : null}
           </>
         ) : (
-          <span className="text-muted-foreground text-xs">
-            {uploading ? "…" : "—"}
-          </span>
+          <span className="text-muted-foreground text-xs">—</span>
         )}
       </button>
 

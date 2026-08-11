@@ -267,6 +267,8 @@ export type PlanningMonth = {
   /** Premier jour du mois, `YYYY-MM-01`. */
   month: string;
   position: number;
+  /** Corbeille : `null` quand le mois est visible au tableau. */
+  deleted_at: string | null;
   created_at: string;
 };
 
@@ -311,6 +313,9 @@ export type PlanningSubject = {
   /** Valeurs des colonnes ajoutées, indexées par identifiant de colonne. */
   custom: Record<string, string | number | boolean | null>;
   position: number;
+  /** Archives et corbeille : `null` quand la ligne est visible au tableau. */
+  archived_at: string | null;
+  deleted_at: string | null;
   created_at: string;
   updated_at: string;
   updated_by: string | null;
