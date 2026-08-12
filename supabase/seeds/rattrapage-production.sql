@@ -102,6 +102,11 @@ do $$ begin
 exception when duplicate_object then null;
 end $$;
 
+-- 0034 — l'arrêt manuel d'un job. Sans effet si la valeur est déjà là, donc
+-- le fichier reste rejouable ; et rien ici ne s'en sert avant le commit, ce
+-- qu'un `add value` en transaction n'autoriserait pas.
+alter type generation_job_status add value if not exists 'cancelled';
+
 -- --- Phases ----------------------------------------------------------------
 
 create table if not exists client_phases (

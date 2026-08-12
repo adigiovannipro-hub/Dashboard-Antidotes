@@ -83,12 +83,18 @@ export async function runGenerationJob(jobId: string): Promise<void> {
     };
   }
 
+  // Un arrêt demandé pendant le travail prime sur le verdict : sans cette
+  // relecture, une phase sans point d'arrêt intermédiaire — un seul appel au
+  // modèle — écraserait `cancelled` par `done` et la carte se contredirait.
+  const cancelled = await isCancelled(supabase, jobId);
+  const finalStatus: GenerationJobStatus = cancelled ? "cancelled" : outcome.status;
+
   const { error: saveError } = await supabase
     .from("generation_jobs")
     .update({
-      status: outcome.status,
+      status: finalStatus,
       result: outcome.result,
-      error_message: outcome.error,
+      error_message: cancelled ? null : outcome.error,
       progress_current: outcome.progressCurrent,
       progress_total: outcome.progressTotal,
       finished_at: new Date().toISOString(),
@@ -98,7 +104,9 @@ export async function runGenerationJob(jobId: string): Promise<void> {
     console.error(`[production] job ${jobId} : sauvegarde impossible :`, saveError.message);
   }
 
-  if (outcome.phaseDone && outcome.status === "done") {
+  // Une phase arrêtée en route n'est pas une phase faite, même si le travail
+  // abattu avant l'arrêt était complet à cet instant.
+  if (!cancelled && outcome.phaseDone && outcome.status === "done") {
     const { error: phaseError } = await supabase.from("client_phases").upsert(
       {
         org_id: job.org_id,
@@ -114,6 +122,27 @@ export async function runGenerationJob(jobId: string): Promise<void> {
       console.error(`[production] phase ${job.phase} non clôturée :`, phaseError.message);
     }
   }
+}
+
+/**
+ * Le job a-t-il été arrêté depuis la carte ?
+ *
+ * Relu entre deux unités de travail, jamais gardé en mémoire : l'arrêt vient
+ * d'une autre requête HTTP, la base est le seul endroit où les deux se
+ * croisent. Une lecture en échec ne vaut pas un arrêt — on continue plutôt
+ * que d'abandonner un travail à cause d'un aller-retour raté.
+ */
+async function isCancelled(supabase: SupabaseAdmin, jobId: string): Promise<boolean> {
+  const { data, error } = await supabase
+    .from("generation_jobs")
+    .select("status")
+    .eq("id", jobId)
+    .maybeSingle();
+  if (error) {
+    console.error(`[production] statut du job ${jobId} illisible :`, error.message);
+    return false;
+  }
+  return (data as { status: GenerationJobStatus } | null)?.status === "cancelled";
 }
 
 function runPhase(supabase: SupabaseAdmin, job: GenerationJob): Promise<PhaseOutcome> {
@@ -713,6 +742,23 @@ async function runWording(
       .from("generation_jobs")
       .update({ progress_current: done } as never)
       .eq("id", job.id);
+
+    // Point d'arrêt : c'est ici, et nulle part ailleurs, que « Arrêter »
+    // arrête vraiment. Le lot en vol va au bout — quatre appels au plus — car
+    // rien ne permet d'annuler une requête déjà partie chez le modèle.
+    if (index + WORDING_BATCH_SIZE < missing.length && (await isCancelled(supabase, job.id))) {
+      return {
+        status: "cancelled",
+        result: {
+          failed_subject_ids: failedIds.length > 0 ? failedIds : undefined,
+          summary: `Arrêté après ${done} wording${done > 1 ? "s" : ""} sur ${missing.length}.`,
+        },
+        error: null,
+        progressCurrent: done,
+        progressTotal: missing.length,
+        phaseDone: false,
+      };
+    }
   }
 
   const status: GenerationJobStatus =

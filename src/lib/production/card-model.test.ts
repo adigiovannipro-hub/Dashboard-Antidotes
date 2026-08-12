@@ -194,6 +194,29 @@ describe("buildCardModel", () => {
     expect(model.action?.label).toBe("Reprendre · 4/12 échoués");
   });
 
+  it("repropose l'action normale après un arrêt, pas une reprise", () => {
+    const model = build({
+      phases: upToWording,
+      // Deux wordings ont été écrits avant l'arrêt : le compteur en tient
+      // compte, mais le bouton ne se met pas en ton danger — un arrêt
+      // demandé n'est pas un échec à rattraper.
+      target: { total: 12, withWording: 6, validated: 0, scheduled: 0, firstPublication: null },
+      jobs: [
+        job({
+          status: "cancelled",
+          progress_current: 2,
+          progress_total: 8,
+          result: { summary: "Arrêté après 2 wordings sur 8." },
+        }),
+      ],
+    });
+    expect(model.activeJob).toBeNull();
+    expect(model.action?.kind).toBe("generate");
+    expect(model.action?.label).toBe("Rédiger les 6 wordings restants");
+    // La barre revient au mois, le job arrêté ne la tient plus.
+    expect(model.progress?.label).toBe("Publié ce mois-ci");
+  });
+
   it("se tait sur le cycle quand les tables du module ne sont pas en base", () => {
     const model = build({ moduleReady: false }, { today: "2026-08-12", upcoming: 3 });
     // Ni phase courante, ni bouton : une action qui répondrait 500 ne
