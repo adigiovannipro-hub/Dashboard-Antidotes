@@ -47,6 +47,12 @@ export type NavEntry = {
    * pastille « 0 » occupe la place d'une alerte pour dire qu'il n'y en a pas.
    */
   badge?: number;
+  /**
+   * Espace administrable depuis le rail : renommer, dupliquer, régler les
+   * droits d'un partenaire, supprimer. Absent pour qui n'en est pas owner —
+   * l'entrée reste alors un simple lien.
+   */
+  manage?: { slug: string; name: string };
 };
 
 export type NavGroup = { title: string; entries: NavEntry[] };
@@ -72,6 +78,10 @@ export const getAppNavigation = cache(async (): Promise<NavGroup[]> => {
           icon: type === "client" ? "client" : "entreprise",
           accent: workspace.accent_color,
           match: "prefix",
+          manage:
+            workspace.role === "owner"
+              ? { slug: workspace.slug, name: workspace.name }
+              : undefined,
         }),
       );
 

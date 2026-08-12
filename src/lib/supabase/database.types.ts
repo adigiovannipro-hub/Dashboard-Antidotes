@@ -598,6 +598,11 @@ import type {
   WordingHistoryEntry,
 } from "@/lib/context/types";
 
+/* --- Droits par page, à l'intérieur d'un espace --------------------------- */
+export type { WorkspacePageGrant as WorkspacePageGrantRow } from "@/lib/workspaces/types";
+
+import type { WorkspacePageGrant } from "@/lib/workspaces/types";
+
 type Table<Row, Insert = Partial<Row>, Update = Partial<Row>> = {
   Row: Row;
   Insert: Insert;
@@ -668,6 +673,7 @@ export type Database = {
       client_context: Table<ClientContext>;
       client_assets: Table<ClientAsset>;
       wording_history: Table<WordingHistoryEntry>;
+      workspace_page_grants: Table<WorkspacePageGrant>;
     };
     // `never` satisfait la contrainte `Record<string, GenericView>` de
     // postgrest-js tout en déclarant qu'il n'y a ni vue ni fonction exposée.

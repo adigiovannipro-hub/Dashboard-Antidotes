@@ -3,8 +3,7 @@ import { notFound } from "next/navigation";
 import { AppShell } from "@/components/ds/app-shell";
 import { DashboardNav, type NavItem } from "@/components/dashboard-nav";
 import { getWorkspace, requireViewer } from "@/lib/auth";
-import { listBoards } from "@/lib/planning/queries";
-import { createClient } from "@/lib/supabase/server";
+import { listHiddenPages, listWorkspacePages } from "@/lib/workspaces/queries";
 
 export default async function WorkspaceLayout({
   children,
@@ -21,18 +20,16 @@ export default async function WorkspaceLayout({
   // doit laisser deviner qu'un autre client porte ce nom.
   if (!workspace) notFound();
 
-  const supabase = await createClient();
-  const [{ data: dashboards }, boards] = await Promise.all([
-    supabase
-      .from("dashboards")
-      .select("slug, name")
-      .eq("workspace_id", workspace.id)
-      .order("position"),
-    listBoards(workspace.id),
+  // Les pages de l'espace et celles qu'un partenaire ne doit pas voir se
+  // lisent au même endroit que la matrice de droits : deux listes qui
+  // divergeraient laisseraient un onglet qui rend 404, ou l'inverse.
+  const [pages, hidden] = await Promise.all([
+    listWorkspacePages(workspace.id),
+    workspace.role === "owner"
+      ? Promise.resolve(new Set<string>())
+      : listHiddenPages(workspace.id, viewer.email),
   ]);
 
-  // Le planning passe avant le reporting : on prépare le mois en cours bien
-  // plus souvent qu'on ne relit les chiffres du mois dernier.
   const items: NavItem[] = [
     // Le Contexte n'existe que pour l'owner : le lien n'est pas rendu aux
     // autres profils — et la page rend de toute façon 404, RLS derrière.
@@ -45,31 +42,12 @@ export default async function WorkspaceLayout({
           },
         ]
       : []),
-    ...(boards.length > 0
-      ? [
-          {
-            segment: "planning",
-            href: `/espace/${workspace.slug}/planning`,
-            name: "Planning Éditorial",
-          },
-        ]
-      : []),
-    ...(dashboards ?? [])
-      // La section Planning Éditorial est native depuis la migration 0008 ; un
-      // dashboard homonyme créé à la main dans la table `dashboards` ferait
-      // deux onglets identiques côte à côte. On écarte ces doublons.
-      .filter(
-        (dashboard) =>
-          !dashboard.name
-            .normalize("NFD")
-            .replace(/\p{Diacritic}/gu, "")
-            .toLowerCase()
-            .includes("planning"),
-      )
-      .map((dashboard) => ({
-        segment: dashboard.slug,
-        href: `/espace/${workspace.slug}/${dashboard.slug}`,
-        name: dashboard.name,
+    ...pages
+      .filter((page) => !hidden.has(page.key))
+      .map((page) => ({
+        segment: page.key,
+        href: `/espace/${workspace.slug}/${page.key}`,
+        name: page.name,
       })),
   ];
 

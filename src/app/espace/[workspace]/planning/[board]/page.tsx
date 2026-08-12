@@ -12,6 +12,8 @@ import {
   listBoards,
   listFaqEntries,
 } from "@/lib/planning/queries";
+import { requirePageAccess } from "@/lib/workspaces/access";
+import { PLANNING_PAGE_KEY } from "@/lib/workspaces/types";
 
 type Params = Promise<{ workspace: string; board: string }>;
 type Search = Promise<Record<string, string | undefined>>;
@@ -46,6 +48,8 @@ export default async function PlanningBoardPage({
   if (!loaded) notFound();
 
   const { workspace, board } = loaded;
+  await requirePageAccess(workspace, PLANNING_PAGE_KEY);
+
   const boards = await listBoards(workspace.id);
   const scope = { workspace: workspace.slug, board: board.slug };
 
