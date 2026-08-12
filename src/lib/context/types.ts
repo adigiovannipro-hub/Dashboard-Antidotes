@@ -78,18 +78,36 @@ export type ContextDeliverableLine = {
   quantite: number;
 };
 
+/**
+ * Un réseau du client et ce qu'on y publie chaque mois.
+ *
+ * Le volume se compte réseau par réseau parce qu'il se contracte comme ça :
+ * quatre posts et huit stories sur Instagram n'ont rien à voir avec les deux
+ * articles LinkedIn du même client. Un réseau déclaré sans ligne reste
+ * légitime — il est au contrat, ses quantités ne sont pas encore posées.
+ */
+export type ContextNetworkDeliverables = {
+  nom: string;
+  publications: ContextDeliverableLine[];
+};
+
 /** Ce qu'on doit au client chaque mois. Clés en français, comme les piliers. */
 export type ContextDeliverables = {
   /** Quand les intentions lui sont livrées : « le 20 du mois précédent ». */
   intentions: string;
-  publications: ContextDeliverableLine[];
   /**
-   * Les réseaux sur lesquels ce client publie. Déclarés une fois ici, ils
-   * commandent les règles d'écriture par plateforme : un client qui n'est
-   * que sur Instagram n'a rien à faire d'un champ TikTok, et la génération
-   * n'a pas à deviner sur quoi elle écrit.
+   * Les réseaux sur lesquels ce client publie, chacun avec ses quantités.
+   * Déclarés une fois ici, ils commandent les règles d'écriture par
+   * plateforme : un client qui n'est que sur Instagram n'a rien à faire d'un
+   * champ TikTok, et la génération n'a pas à deviner sur quoi elle écrit.
    */
-  reseaux: string[];
+  reseaux: ContextNetworkDeliverables[];
+  /**
+   * Ce qui n'est rattaché à aucun réseau : une newsletter, un livrable repris
+   * d'un contrat écrit avant que la répartition existe. On ne devine pas à
+   * quel réseau l'attribuer, on le montre à part.
+   */
+  publications: ContextDeliverableLine[];
 };
 
 /** Proposées dans la liste de saisie, sans jamais contraindre le champ. */

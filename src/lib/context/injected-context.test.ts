@@ -21,7 +21,7 @@ const makeContext = (overrides: Partial<ClientContext> = {}): ClientContext => (
   mentions: null,
   restrictions: "Jamais de solde affichée.",
   platforms: { instagram: "Tutoiement.", linkedin: "  " },
-  deliverables: { intentions: "", publications: [], reseaux: [] },
+  deliverables: { intentions: "", reseaux: [], publications: [] },
   created_at: "2026-08-01T00:00:00Z",
   created_by: null,
   ...overrides,
