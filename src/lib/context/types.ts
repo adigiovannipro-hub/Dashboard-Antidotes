@@ -173,24 +173,12 @@ export type ClientAsset = {
 };
 
 /**
- * Une accroche déjà publiée.
- *
- * La colonne s'appelle `hook` et non `accroche` : la table a été posée par la
- * branche des cartes client, appliquée la première à la vraie base. Elle fait
- * foi, et 0037 réconcilie une base née des seules migrations d'ici. Les
- * colonnes de la génération (`full_wording`, `published_at`) sont lues mais
- * jamais écrites depuis le Contexte.
+ * `wording_history` n'est pas déclarée ici : la table appartient au module
+ * Production, qui l'a posée, et son type vit dans `src/lib/production/types.ts`.
+ * Le Contexte s'y branche pour historiser une accroche à la validation d'un
+ * wording — la colonne s'appelle `hook`, jamais `accroche`.
  */
-export type WordingHistoryEntry = {
-  id: string;
-  org_id: string;
-  workspace_id: string;
-  subject_id: string | null;
-  hook: string;
-  full_wording: string | null;
-  published_at: string | null;
-  created_at: string;
-};
+export type { WordingHistoryEntry } from "@/lib/production/types";
 
 // --- Proposition de consolidation --------------------------------------------
 

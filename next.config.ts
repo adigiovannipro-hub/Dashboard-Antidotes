@@ -1,6 +1,13 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Les prompts de génération sont des fichiers markdown lus au runtime
+  // (`src/lib/production/prompts.ts`) : sans cette déclaration, le tracing de
+  // Vercel ne les embarquerait pas et les routes échoueraient en production.
+  outputFileTracingIncludes: {
+    "/api/generate/[phase]": ["./src/lib/prompts/**"],
+    "/api/jobs/[id]/run": ["./src/lib/prompts/**"],
+  },
   experimental: {
     // Le proxy (src/proxy.ts) tamponne le corps des requêtes qu'il
     // intercepte et **tronque à 10 Mo par défaut** : l'action recevait un

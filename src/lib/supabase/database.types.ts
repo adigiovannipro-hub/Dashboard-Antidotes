@@ -589,19 +589,32 @@ import type { WorkCycle, WorkCycleStep, WorkTask } from "@/lib/mon-travail/types
 export type {
   ClientContext as ClientContextRow,
   ClientAsset as ClientAssetRow,
-  WordingHistoryEntry as WordingHistoryRow,
 } from "@/lib/context/types";
 
-import type {
-  ClientAsset,
-  ClientContext,
-  WordingHistoryEntry,
-} from "@/lib/context/types";
+import type { ClientAsset, ClientContext } from "@/lib/context/types";
 
 /* --- Droits par page, à l'intérieur d'un espace --------------------------- */
 export type { WorkspacePageGrant as WorkspacePageGrantRow } from "@/lib/workspaces/types";
 
 import type { WorkspacePageGrant } from "@/lib/workspaces/types";
+
+/* --- Module Production -----------------------------------------------------
+   Même principe : le détail vit dans `src/lib/production/types.ts`.
+
+   `wording_history` est déclarée **ici et pas dans le Contexte** : c'est la
+   Production qui a posé la table, et sa forme fait foi. Le Contexte s'y
+   branche pour historiser une accroche validée. */
+export type {
+  ClientPhase as ClientPhaseRow,
+  GenerationJob as GenerationJobRow,
+  WordingHistoryEntry as WordingHistoryRow,
+} from "@/lib/production/types";
+
+import type {
+  ClientPhase,
+  GenerationJob,
+  WordingHistoryEntry,
+} from "@/lib/production/types";
 
 type Table<Row, Insert = Partial<Row>, Update = Partial<Row>> = {
   Row: Row;
@@ -672,8 +685,10 @@ export type Database = {
       work_tasks: Table<WorkTask>;
       client_context: Table<ClientContext>;
       client_assets: Table<ClientAsset>;
-      wording_history: Table<WordingHistoryEntry>;
       workspace_page_grants: Table<WorkspacePageGrant>;
+      client_phases: Table<ClientPhase>;
+      generation_jobs: Table<GenerationJob>;
+      wording_history: Table<WordingHistoryEntry>;
     };
     // `never` satisfait la contrainte `Record<string, GenericView>` de
     // postgrest-js tout en déclarant qu'il n'y a ni vue ni fonction exposée.

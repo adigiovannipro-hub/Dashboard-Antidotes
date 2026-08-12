@@ -129,19 +129,22 @@ create index if not exists client_assets_workspace_idx
 
 -- --- Historique des accroches ------------------------------------------------
 
--- Lu par `getClientContext()` (30 dernières) pour interdire à la génération
--- de recycler une accroche déjà publiée. Écrit à la **validation** d'un
--- wording, pas à sa génération.
-create table if not exists wording_history (
-  id uuid primary key default gen_random_uuid(),
-  workspace_id uuid not null references workspaces (id) on delete cascade,
-  subject_id uuid references planning_subjects (id) on delete set null,
-  accroche text not null,
-  created_at timestamptz not null default now()
-);
-
-create index if not exists wording_history_workspace_idx
-  on wording_history (workspace_id, created_at desc);
+-- `wording_history` était déclarée ici, en `create table if not exists` pour
+-- la sécurité de fusion. Le garde-fou s'est retourné : la branche Production
+-- déclare la même table, sans garde et avec une autre forme (`hook`, `org_id`,
+-- `platform`), et elle a été appliquée la première à la vraie base. Le `if not
+-- exists` a donc fait passer celle d'ici sans rien dire, et le code écrivait
+-- `accroche` dans une table qui attend `hook`.
+--
+-- À la fusion des deux branches, le défaut change de visage : sur une base
+-- neuve, ce fichier trie avant `0032_production_schema.sql`, créait la table,
+-- et **la migration Production échouait sur « relation already exists »** —
+-- plus aucune base ne pouvait s'amorcer.
+--
+-- La table appartient donc à la Production, qui la crée seule. Ce fichier a
+-- déjà été appliqué : le runner affichera « ⚠ modifiée depuis » et ne le
+-- rejouera pas, ce qui est exactement l'effet voulu — la vraie base garde la
+-- table de la Production, et un rejeu à neuf produit désormais la même.
 
 -- --- Colonnes de génération du planning ---------------------------------------
 
