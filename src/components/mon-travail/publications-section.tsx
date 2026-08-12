@@ -41,7 +41,7 @@ export function PublicationsSection({
           empty
             ? "Rien à publier aujourd'hui — voici ce qui arrive, par réseau."
             : late > 0
-              ? "Les retards d'abord, puis aujourd'hui, groupé par réseau."
+              ? "Les retards d'abord, en rouge, puis aujourd'hui, groupé par réseau."
               : "Aujourd'hui, groupé par réseau."
         }
         action={

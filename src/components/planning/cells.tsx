@@ -182,9 +182,12 @@ export function NumberCell({
 export function DateCell({
   value,
   onCommit,
+  late,
 }: {
   value: string | null;
   onCommit: (next: string | null) => void;
+  /** En retard — la date s'encre en rouge, sur « Mon travail ». */
+  late?: boolean;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -209,7 +212,7 @@ export function DateCell({
       />
       <button
         type="button"
-        aria-label={display ? `Date : ${display}` : "Choisir une date"}
+        aria-label={display ? `Date : ${display}${late ? " (en retard)" : ""}` : "Choisir une date"}
         onClick={() => {
           const input = inputRef.current;
           if (!input) return;
@@ -218,8 +221,16 @@ export function DateCell({
         }}
         className="hover:bg-muted/60 focus-visible:ring-brand flex h-7 w-full items-center justify-start gap-1.5 rounded-sm px-1.5 text-sm tabular-nums outline-none focus-visible:ring-2"
       >
-        <CalendarDays className="text-muted-foreground size-3.5 shrink-0" aria-hidden />
-        <span className={cn(!display && "text-muted-foreground")}>
+        <CalendarDays
+          className={cn("size-3.5 shrink-0", late ? "text-danger-ink" : "text-muted-foreground")}
+          aria-hidden
+        />
+        <span
+          className={cn(
+            !display && "text-muted-foreground",
+            late && "text-danger-ink font-semibold",
+          )}
+        >
           {display ?? "—"}
         </span>
       </button>
