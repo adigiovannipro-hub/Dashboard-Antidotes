@@ -2,31 +2,38 @@
 
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { FileText, Gauge, History, Layers, Lock, Quote, RefreshCw } from "lucide-react";
+import { CalendarCheck, FileText, Gauge, History, Lock, Quote, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 
 import { proposeRegeneration, restoreVersion } from "@/app/actions/context";
 import { safeAction } from "@/lib/context/safe-action";
 import { StatCard, StatGrid } from "@/components/ds/stat-card";
 import { StatusPill } from "@/components/ds/status-pill";
-import { SectionHeader } from "@/components/ds/surface";
 import { Button } from "@/components/ui/button";
+import {
+  normalizeDeliverables,
+  summarizeDeliverables,
+  totalPublications,
+} from "@/lib/context/deliverables";
 import type { ContextFieldDiff } from "@/lib/context/diff";
 import { INJECTED_CONTEXT_TOKEN_LIMIT } from "@/lib/context/token-estimate";
 import type { ClientAsset, ClientContext, ContextProposal } from "@/lib/context/types";
-import { formatDayFr } from "@/lib/format";
-import { formatValue } from "@/lib/format";
+import { formatDayFr, formatValue } from "@/lib/format";
 
 import { BriefGrid } from "./brief-grid";
 import { DiffView } from "./diff-view";
 import { DocumentsPanel } from "./documents-panel";
+import { VersionHistory } from "./version-history";
 
 type VersionSummary = Pick<ClientContext, "id" | "version" | "is_active" | "created_at">;
 
 /**
- * L'écran Contexte : en-tête interne, bande de mesures, brief éditorial en
- * grille inégale, diff de régénération, documents. Tout ce qui s'y voit est
- * réservé à l'owner — la page a déjà rendu 404 à quiconque d'autre.
+ * L'écran Contexte : bande de mesures, brief éditorial en trois familles,
+ * diff de régénération, documents, historique des versions. Tout ce qui s'y
+ * voit est réservé à l'owner — la page a déjà rendu 404 à quiconque d'autre.
+ *
+ * Aucun titre de page ici : l'onglet de navigation dit déjà « Contexte » et
+ * le cadre porte le nom de l'espace. Le répéter le ferait lire trois fois.
  */
 export function ContexteScreen({
   workspaceSlug,
@@ -69,6 +76,14 @@ export function ContexteScreen({
     () => assets.filter((asset) => asset.include_in_context && asset.summary).length,
     [assets],
   );
+
+  // La bande de mesures décrit toujours l'état en vigueur, même en consultant
+  // une version passée : c'est le brief actif qui part dans les générations.
+  const deliverables = useMemo(
+    () => normalizeDeliverables(active?.deliverables),
+    [active?.deliverables],
+  );
+  const publicationsPerMonth = totalPublications(deliverables);
 
   // Tant qu'une analyse tourne, la page se rafraîchit toute seule : le spinner
   // de la liste devient un résumé sans que l'utilisateur recharge.
@@ -117,48 +132,63 @@ export function ContexteScreen({
 
   return (
     <div className="flex flex-col gap-6">
-      <SectionHeader
-        title="Contexte"
-        description="Invisible côté client. Alimente les générations IA."
-        action={
-          <div className="flex flex-wrap items-center justify-end gap-2">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
             <StatusPill tone="warning" dot={false}>
               <Lock aria-hidden strokeWidth={1.75} className="size-3" />
               Interne
             </StatusPill>
-            {versions.length > 0 ? (
-              <select
-                aria-label="Consulter une version"
-                className="focus-visible:ring-ring h-8 rounded-md border border-border bg-surface px-2 type-caption text-text-primary focus-visible:ring-2 focus-visible:outline-none"
-                value={String(viewed?.version ?? active?.version ?? "")}
-                onChange={(event) => {
-                  const version = Number(event.target.value);
-                  const isActive = version === active?.version;
-                  router.push(isActive ? pathname : `${pathname}?version=${version}`);
-                }}
-              >
-                {versions.map((entry) => (
-                  <option key={entry.id} value={entry.version}>
-                    {entry.is_active
-                      ? `Version ${entry.version} (active)`
-                      : `Version ${entry.version} (${formatDayFr(entry.created_at.slice(0, 10))})`}
-                  </option>
-                ))}
-              </select>
-            ) : null}
+            <p className="type-caption text-text-secondary">
+              Invisible côté client. Alimente les générations IA.
+            </p>
           </div>
-        }
-      />
+          <p className="type-caption mt-1 text-text-secondary">
+            Chaque carte s&apos;édite d&apos;un clic et s&apos;enregistre en quittant le
+            champ.
+            {active
+              ? ` Brief mis à jour le ${formatDayFr(active.created_at.slice(0, 10))}.`
+              : null}
+          </p>
+        </div>
+
+        {!readOnly ? (
+          <div className="flex shrink-0 flex-wrap items-center gap-2">
+            <Button
+              variant="outline"
+              aria-pressed={editHint}
+              onClick={() => setEditHint((current) => !current)}
+            >
+              Modifier
+            </Button>
+            <Button
+              variant="default"
+              disabled={regenPending}
+              onClick={regenerate}
+              data-icon="inline-start"
+            >
+              <RefreshCw
+                aria-hidden
+                strokeWidth={1.75}
+                className={regenPending ? "animate-spin" : undefined}
+              />
+              {regenPending ? "Consolidation en cours…" : "Régénérer depuis les documents"}
+            </Button>
+          </div>
+        ) : null}
+      </div>
 
       <StatGrid>
         <StatCard
-          icon={Layers}
-          label="Version active"
-          value={active ? `v${active.version}` : "—"}
+          icon={CalendarCheck}
+          label="Publications par mois"
+          value={
+            publicationsPerMonth > 0 ? formatValue(publicationsPerMonth, "integer") : "—"
+          }
           context={
-            active
-              ? `créée le ${formatDayFr(active.created_at.slice(0, 10))}`
-              : "aucun brief pour le moment"
+            publicationsPerMonth > 0
+              ? summarizeDeliverables(deliverables)
+              : "livrables mensuels à renseigner"
           }
         />
         <StatCard
@@ -218,36 +248,6 @@ export function ContexteScreen({
         editHint={editHint}
       />
 
-      {!readOnly ? (
-        <div className="flex flex-wrap items-center gap-3">
-          <Button
-            variant="outline"
-            aria-pressed={editHint}
-            onClick={() => setEditHint((current) => !current)}
-          >
-            Modifier
-          </Button>
-          <Button
-            variant="default"
-            disabled={regenPending}
-            onClick={regenerate}
-            data-icon="inline-start"
-          >
-            <RefreshCw
-              aria-hidden
-              strokeWidth={1.75}
-              className={regenPending ? "animate-spin" : undefined}
-            />
-            {regenPending ? "Consolidation en cours…" : "Régénérer depuis les documents"}
-          </Button>
-          <p className="type-caption text-text-secondary">
-            Chaque carte s&apos;édite d&apos;un clic et s&apos;enregistre en quittant le
-            champ. La régénération se valide champ par champ, rien n&apos;est écrasé sans
-            accord.
-          </p>
-        </div>
-      ) : null}
-
       {proposal && !readOnly ? (
         <DiffView
           workspaceSlug={workspaceSlug}
@@ -258,6 +258,14 @@ export function ContexteScreen({
       ) : null}
 
       <DocumentsPanel workspaceSlug={workspaceSlug} assets={assets} downloads={downloads} />
+
+      <VersionHistory
+        versions={versions}
+        activeVersion={active?.version ?? null}
+        viewedVersion={viewed?.version ?? null}
+        restorePending={restorePending}
+        onRestore={restore}
+      />
     </div>
   );
 }
