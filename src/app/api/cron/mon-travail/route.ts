@@ -3,6 +3,7 @@ import { timingSafeEqual } from "node:crypto";
 
 import { serverEnv } from "@/lib/env";
 import { monthKeyOf, todayInParis } from "@/lib/mon-travail/dates";
+import { syncFathomTasks } from "@/lib/mon-travail/fathom-sync";
 import {
   planCycleTasks,
   planDailyTask,
@@ -116,6 +117,20 @@ export async function GET(request: Request) {
     } catch (error) {
       errors.push(
         `organisation ${org.id} : ${error instanceof Error ? error.message : "erreur"}`,
+      );
+    }
+
+    /* Fathom dans son propre `try` : une API tierce en panne ne doit pas
+       emporter les récurrences, qui, elles, ne dépendent de personne. */
+    try {
+      report[`fathom:${org.id}`] = await syncFathomTasks({
+        admin,
+        orgId: org.id,
+        today,
+      });
+    } catch (error) {
+      errors.push(
+        `Fathom, organisation ${org.id} : ${error instanceof Error ? error.message : "erreur"}`,
       );
     }
   }
