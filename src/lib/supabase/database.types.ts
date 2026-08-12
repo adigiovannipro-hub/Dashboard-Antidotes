@@ -580,6 +580,20 @@ export type {
 
 import type { WorkCycle, WorkCycleStep, WorkTask } from "@/lib/mon-travail/types";
 
+/* --- Module Production -----------------------------------------------------
+   Même principe : le détail vit dans `src/lib/production/types.ts`. */
+export type {
+  ClientPhase as ClientPhaseRow,
+  GenerationJob as GenerationJobRow,
+  WordingHistoryEntry as WordingHistoryRow,
+} from "@/lib/production/types";
+
+import type {
+  ClientPhase,
+  GenerationJob,
+  WordingHistoryEntry,
+} from "@/lib/production/types";
+
 type Table<Row, Insert = Partial<Row>, Update = Partial<Row>> = {
   Row: Row;
   Insert: Insert;
@@ -647,6 +661,9 @@ export type Database = {
       work_cycles: Table<WorkCycle>;
       work_cycle_steps: Table<WorkCycleStep>;
       work_tasks: Table<WorkTask>;
+      client_phases: Table<ClientPhase>;
+      generation_jobs: Table<GenerationJob>;
+      wording_history: Table<WordingHistoryEntry>;
     };
     // `never` satisfait la contrainte `Record<string, GenericView>` de
     // postgrest-js tout en déclarant qu'il n'y a ni vue ni fonction exposée.

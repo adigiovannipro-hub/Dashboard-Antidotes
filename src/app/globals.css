@@ -263,6 +263,14 @@
     text-transform: uppercase;
     letter-spacing: 0.06em;
   }
+  /* Le même 11px, mais en casse normale : les libellés qui doivent tenir dans
+     une colonne étroite sans être criés. Aujourd'hui les quatre phases sous la
+     barre de cycle, où « Programmation » déborde d'un cheveu à 12 px. */
+  .type-micro {
+    font-size: 11px;
+    line-height: 1.4;
+    font-weight: 400;
+  }
   /* Le chiffre d'une carte KPI. Chasses égales : deux cartes côte à côte
      alignent leurs chiffres au lieu de danser d'un pixel.
 

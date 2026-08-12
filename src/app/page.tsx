@@ -6,9 +6,12 @@ import { FilterPills, type FilterOption } from "@/components/ds/filter-pills";
 import { StatCard, StatGrid } from "@/components/ds/stat-card";
 import { SectionHeader } from "@/components/ds/surface";
 import { ArchiveSection } from "@/components/mon-travail/archive-section";
+import { ClientCard } from "@/components/mon-travail/client-card";
 import { PublicationsSection } from "@/components/mon-travail/publications-section";
 import { TasksSection } from "@/components/mon-travail/tasks-section";
 import { WorkspaceCard } from "@/components/mon-travail/workspace-card";
+import { buildCardModel } from "@/lib/production/card-model";
+import { getProductionSnapshots } from "@/lib/production/queries";
 import { requireViewer, roleLabel, type WorkspaceAccess } from "@/lib/auth";
 import { dayLabel, addDays, todayInParis } from "@/lib/mon-travail/dates";
 import { UPCOMING_DAYS, organizeTasks } from "@/lib/mon-travail/organize";
@@ -195,25 +198,52 @@ export default async function HubPage({
 
         {/* Seuls les espaces clients ont leur carte ici. « Mon entreprise » et
             « Perso » restent dans le rail : sur la page de travail, ils
-            occupaient deux sections pour un lien chacun. */}
+            occupaient deux sections pour un lien chacun.
+
+            Pour l'owner, la carte est le cockpit de production du mois —
+            cycle de phases, mesures contextuelles, action IA. Pour un
+            visiteur non owner, elle reste une carte de navigation : le cycle
+            de production est un outil interne, il n'existe pas pour lui. */}
         {clientWorkspaces.length > 0 ? (
           <section className="space-y-4">
             <SectionHeader title="Clients" count={clientWorkspaces.length} />
             <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
-              {clientWorkspaces.map((workspace) => (
-                <WorkspaceCard
-                  key={workspace.id}
-                  href={`/espace/${workspace.slug}`}
-                  name={workspace.name}
-                  roleLabel={roleLabel(workspace.role)}
-                  accentColor={workspace.accent_color}
-                  stats={
-                    travail
-                      ? (travail.byWorkspace.get(workspace.id) ?? NO_WORKSPACE_ACTIVITY)
-                      : null
-                  }
-                />
-              ))}
+              {clientWorkspaces.map((workspace) => {
+                if (!travail) {
+                  return (
+                    <WorkspaceCard
+                      key={workspace.id}
+                      href={`/espace/${workspace.slug}`}
+                      name={workspace.name}
+                      roleLabel={roleLabel(workspace.role)}
+                      accentColor={workspace.accent_color}
+                      stats={null}
+                    />
+                  );
+                }
+
+                const stats =
+                  travail.byWorkspace.get(workspace.id) ?? NO_WORKSPACE_ACTIVITY;
+                const snapshot = travail.production.get(workspace.id);
+                if (!snapshot) return null;
+
+                return (
+                  <ClientCard
+                    key={workspace.id}
+                    workspaceId={workspace.id}
+                    slug={workspace.slug}
+                    name={workspace.name}
+                    accentColor={workspace.accent_color}
+                    model={buildCardModel({
+                      today: travail.today,
+                      snapshot,
+                      upcoming: stats.upcoming,
+                      moderation: stats.moderation,
+                      monthProgress: stats.monthProgress,
+                    })}
+                  />
+                );
+              })}
             </div>
           </section>
         ) : null}
@@ -254,7 +284,7 @@ async function loadTravail(
   today: string,
   workspaceId: string | null,
 ) {
-  const [toPublish, published, next, openTasks, archivedTasks, overview] =
+  const [toPublish, published, next, openTasks, archivedTasks, overview, production] =
     await Promise.all([
       listPublicationsToDo({ until: today, workspaceId }),
       listPublishedOn({ day: today, workspaceId }),
@@ -265,6 +295,12 @@ async function loadTravail(
         today,
         isOwner: true,
         orgId: workspaces[0]?.org_id ?? null,
+      }),
+      getProductionSnapshots({
+        workspaceIds: workspaces
+          .filter((workspace) => workspace.type === "client")
+          .map((workspace) => workspace.id),
+        today,
       }),
     ]);
 
@@ -278,6 +314,7 @@ async function loadTravail(
   return {
     today,
     stats: overview.stats,
+    production,
     byWorkspace: overview.byWorkspace as Map<string, WorkspaceStats>,
     groups: organizeTasks(openTasks, today),
     // Deux lectures distinctes plutôt qu'un tri en mémoire : « à publier »
