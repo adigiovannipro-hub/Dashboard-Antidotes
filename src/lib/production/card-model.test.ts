@@ -106,9 +106,9 @@ describe("buildCardModel", () => {
       phases: upToWording,
       target: { total: 12, withWording: 4, validated: 0, scheduled: 0, firstPublication: null },
     });
-    expect(model.action?.label).toBe("Rédiger les 8 wordings restants");
+    expect(model.action?.label).toBe("Rédiger les 8 contenus restants");
     expect(model.metrics).toContainEqual({
-      label: "Wordings rédigés",
+      label: "Contenus rédigés",
       value: "4 sur 12",
     });
     // La barre, elle, montre le mois en cours tous réseaux confondus — pas
@@ -132,7 +132,7 @@ describe("buildCardModel", () => {
       target: { total: 12, withWording: 12, validated: 0, scheduled: 0, firstPublication: null },
     });
     expect(model.action?.disabled).toBe(true);
-    expect(model.action?.reason).toBe("Tous les wordings sont rédigés");
+    expect(model.action?.reason).toBe("Tous les contenus sont rédigés");
   });
 
   it("alerte quand la phase attend des intentions qui n'existent pas", () => {
@@ -192,6 +192,29 @@ describe("buildCardModel", () => {
     expect(model.activeJob).toBeNull();
     expect(model.action?.kind).toBe("resume");
     expect(model.action?.label).toBe("Reprendre · 4/12 échoués");
+  });
+
+  it("repropose l'action normale après un arrêt, pas une reprise", () => {
+    const model = build({
+      phases: upToWording,
+      // Deux wordings ont été écrits avant l'arrêt : le compteur en tient
+      // compte, mais le bouton ne se met pas en ton danger — un arrêt
+      // demandé n'est pas un échec à rattraper.
+      target: { total: 12, withWording: 6, validated: 0, scheduled: 0, firstPublication: null },
+      jobs: [
+        job({
+          status: "cancelled",
+          progress_current: 2,
+          progress_total: 8,
+          result: { summary: "Arrêté après 2 wordings sur 8." },
+        }),
+      ],
+    });
+    expect(model.activeJob).toBeNull();
+    expect(model.action?.kind).toBe("generate");
+    expect(model.action?.label).toBe("Rédiger les 6 contenus restants");
+    // La barre revient au mois, le job arrêté ne la tient plus.
+    expect(model.progress?.label).toBe("Publié ce mois-ci");
   });
 
   it("se tait sur le cycle quand les tables du module ne sont pas en base", () => {

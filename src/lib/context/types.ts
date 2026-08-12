@@ -78,10 +78,35 @@ export type ContextDeliverableLine = {
   quantite: number;
 };
 
+/**
+ * Un réseau du client et ce qu'on y publie chaque mois.
+ *
+ * Le volume se compte réseau par réseau parce qu'il se contracte comme ça :
+ * quatre posts et huit stories sur Instagram n'ont rien à voir avec les deux
+ * articles LinkedIn du même client. Un réseau déclaré sans ligne reste
+ * légitime — il est au contrat, ses quantités ne sont pas encore posées.
+ */
+export type ContextNetworkDeliverables = {
+  nom: string;
+  publications: ContextDeliverableLine[];
+};
+
 /** Ce qu'on doit au client chaque mois. Clés en français, comme les piliers. */
 export type ContextDeliverables = {
   /** Quand les intentions lui sont livrées : « le 20 du mois précédent ». */
   intentions: string;
+  /**
+   * Les réseaux sur lesquels ce client publie, chacun avec ses quantités.
+   * Déclarés une fois ici, ils commandent les règles d'écriture par
+   * plateforme : un client qui n'est que sur Instagram n'a rien à faire d'un
+   * champ TikTok, et la génération n'a pas à deviner sur quoi elle écrit.
+   */
+  reseaux: ContextNetworkDeliverables[];
+  /**
+   * Ce qui n'est rattaché à aucun réseau : une newsletter, un livrable repris
+   * d'un contrat écrit avant que la répartition existe. On ne devine pas à
+   * quel réseau l'attribuer, on le montre à part.
+   */
   publications: ContextDeliverableLine[];
 };
 
@@ -98,8 +123,31 @@ export const DELIVERABLE_CATEGORIES = [
 /** Règles d'écriture par réseau, clé = réseau en minuscules. */
 export type ContextPlatformRules = Record<string, string>;
 
-/** Les réseaux proposés d'office dans l'éditeur ; d'autres peuvent s'ajouter. */
-export const PLATFORM_KEYS = ["instagram", "facebook", "linkedin", "tiktok"] as const;
+/**
+ * Les réseaux proposés à la sélection. Ce n'est **pas** la liste des réseaux
+ * d'un client : celle-là se déclare dans les livrables, et rien n'oblige à
+ * s'y tenir — un réseau absent d'ici s'ajoute à la main.
+ */
+export const NETWORK_SUGGESTIONS = [
+  "Instagram",
+  "Facebook",
+  "LinkedIn",
+  "TikTok",
+  "YouTube",
+  "Pinterest",
+  "X",
+  "Threads",
+] as const;
+
+/** Clé de stockage d'un réseau : minuscules, sans accent ni espace. */
+export function networkKey(name: string): string {
+  return name
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, "-");
+}
 
 /** Les six champs texte du brief, éditables en place. */
 export type ContextTextField =

@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import {
   BarChart3,
   CalendarPlus,
+  CircleStop,
   Ellipsis,
   Lightbulb,
   Loader2,
@@ -83,6 +84,7 @@ export function ClientCard({
   const router = useRouter();
   const [job, setJob] = useState<CardJob | null>(model.activeJob);
   const [launching, setLaunching] = useState(false);
+  const [stopping, setStopping] = useState(false);
   // Le verdict ne doit sonner qu'une fois, même si un rendu s'intercale.
   const settledJobId = useRef<string | null>(null);
 
@@ -123,6 +125,10 @@ export function ClientCard({
           toast.warning(
             payload.job.summary ?? "Génération partielle : des unités ont échoué.",
           );
+        } else if (payload.job.status === "cancelled") {
+          // Un arrêt n'est pas un échec : il ne mérite ni le rouge, ni
+          // « la génération a échoué ».
+          toast.message(payload.job.summary ?? "Génération arrêtée.");
         } else {
           toast.error(payload.job.error ?? "La génération a échoué.");
         }
@@ -167,6 +173,40 @@ export function ClientCard({
     },
     [workspaceId],
   );
+
+  /**
+   * Arrêt du job en cours.
+   *
+   * Le verdict revient de la route, pas du sondage : on le pose tout de suite
+   * pour que le bouton se libère au clic, et on marque le job comme soldé
+   * pour qu'un aller-retour de sondage déjà parti ne fasse pas sonner deux
+   * fois la même chose.
+   */
+  const stop = useCallback(async () => {
+    if (!job) return;
+    setStopping(true);
+    try {
+      const response = await fetch(`/api/jobs/${job.id}/annuler`, { method: "POST" });
+      const payload = (await response.json().catch(() => null)) as {
+        ok: boolean;
+        job?: JobPayload;
+        error?: string;
+      } | null;
+      if (!response.ok || !payload?.ok || !payload.job) {
+        throw new Error(payload?.error ?? "Arrêt impossible.");
+      }
+      settledJobId.current = payload.job.id;
+      setJob(payload.job);
+      if (payload.job.status === "cancelled") {
+        toast.message("Génération arrêtée.");
+      }
+      router.refresh();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Arrêt impossible.");
+    } finally {
+      setStopping(false);
+    }
+  }, [job, router]);
 
   const targetMonthOf = (phase: ProductionPhase): string =>
     model.segments.find((segment) => segment.phase === phase)?.targetMonth ?? "";
@@ -228,7 +268,7 @@ export function ClientCard({
             >
               Ouvrir le planning éditorial
             </DropdownMenuItem>
-            <DropdownMenuItem disabled title="Arrive avec le module Contexte">
+            <DropdownMenuItem render={<Link href={`/espace/${slug}/contexte`} />}>
               Ouvrir le contexte
             </DropdownMenuItem>
             <DropdownMenuItem render={<Link href={`/espace/${slug}`} />}>
@@ -323,11 +363,31 @@ export function ClientCard({
 
       {/* --- Action principale ------------------------------------------------ */}
       {jobActive ? (
-        <Button variant="outline" size="sm" className="mt-4 w-full" disabled>
-          <Loader2 aria-hidden className="animate-spin" strokeWidth={1.75} />
-          {RUNNING_LABELS[job.phase]}
-          {job.total > 0 ? ` · ${job.current}/${job.total}` : null}
-        </Button>
+        /* Le témoin d'avancement n'est pas cliquable ; c'est « Arrêter » qui
+           porte la seule sortie possible tant que le job tient la carte. */
+        <div className="mt-4 flex items-center gap-2">
+          <Button variant="outline" size="sm" className="min-w-0 flex-1" disabled>
+            <Loader2 aria-hidden className="animate-spin" strokeWidth={1.75} />
+            <span className="truncate">
+              {RUNNING_LABELS[job.phase]}
+              {job.total > 0 ? ` · ${job.current}/${job.total}` : null}
+            </span>
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="shrink-0 border-danger-ink/35 text-danger-ink hover:border-danger-ink/60 hover:bg-danger-subtle/40"
+            disabled={stopping}
+            onClick={stop}
+          >
+            {stopping ? (
+              <Loader2 aria-hidden className="animate-spin" strokeWidth={1.75} />
+            ) : (
+              <CircleStop aria-hidden strokeWidth={1.75} />
+            )}
+            Arrêter
+          </Button>
+        </div>
       ) : model.action ? (
         <Button
           variant={model.action.kind === "resume" ? "destructive" : "outline"}

@@ -5,6 +5,7 @@ import { EXCLUDED_STATUSES } from "@/lib/planning/types";
 import { shiftMonth, type PhaseSlice } from "./phases";
 import type { ProductionSnapshot } from "./card-model";
 import type { GenerationJob } from "./types";
+import { needsContent } from "./wording-state";
 
 /**
  * Lectures du module Production — tout ce que les cartes client de l'accueil
@@ -176,7 +177,17 @@ export async function getProductionSnapshots(options: {
 
     if (month.month === nextMonth) {
       snapshot.target.total += 1;
-      if (withWording.has(subject.id)) snapshot.target.withWording += 1;
+      // « Rédigé » au sens du bouton = ce que la phase Content ne retouchera
+      // pas. Même prédicat que le worker, sinon la carte annonce un nombre et
+      // le job en traite un autre.
+      if (
+        !needsContent({
+          status: subject.status,
+          hasWording: withWording.has(subject.id),
+        })
+      ) {
+        snapshot.target.withWording += 1;
+      }
       if (subject.status === "validated") snapshot.target.validated += 1;
       if (subject.status === "scheduled" || subject.status === "published") {
         snapshot.target.scheduled += 1;

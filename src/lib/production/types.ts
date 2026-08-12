@@ -43,12 +43,14 @@ export const PHASE_STATUS_LABELS: Record<ProductionPhaseStatus, string> = {
   skipped: "Passée",
 };
 
+/** `cancelled` : arrêté depuis la carte — ni réussite, ni échec. */
 export type GenerationJobStatus =
   | "pending"
   | "running"
   | "done"
   | "error"
-  | "partial";
+  | "partial"
+  | "cancelled";
 
 export const JOB_STATUS_LABELS: Record<GenerationJobStatus, string> = {
   pending: "En file",
@@ -56,6 +58,7 @@ export const JOB_STATUS_LABELS: Record<GenerationJobStatus, string> = {
   done: "Terminé",
   error: "En échec",
   partial: "Partiel",
+  cancelled: "Arrêté",
 };
 
 /** Statuts sous lesquels la carte continue d'interroger le job. */

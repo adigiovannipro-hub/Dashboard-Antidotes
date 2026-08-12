@@ -144,6 +144,7 @@ export function BriefGrid({
             className="md:col-span-12"
             workspaceSlug={workspaceSlug}
             platforms={context?.platforms ?? {}}
+            reseaux={deliverables.reseaux.map((network) => network.nom)}
             readOnly={readOnly}
           />
         </div>
