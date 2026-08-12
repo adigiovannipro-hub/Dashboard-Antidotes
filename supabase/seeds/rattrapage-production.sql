@@ -5,9 +5,15 @@
 -- n'applique pas nos migrations : ce fichier est le geste manuel qui met la
 -- vraie base à niveau, comme le rattrapage 0009→0031 du Planning Éditorial.
 --
--- **Idempotent** : rejouable sans risque. Chaque type, table, index, trigger
--- et politique est créé sous condition d'absence ; rien n'est supprimé, aucune
--- donnée n'est touchée. Un second passage ne fait rien et ne dit rien.
+-- **Idempotent et convergent** : rejouable sans risque, et il rattrape aussi
+-- un passage précédent interrompu à mi-chemin. C'est nécessaire : l'éditeur
+-- SQL de Supabase n'honore pas toujours le `begin`/`commit` ci-dessous, donc
+-- une première tentative qui échoue peut laisser des tables à demi créées.
+--
+-- Le préambule ne supprime donc rien à l'aveugle : il ne retire une table que
+-- si elle porte les marques d'une forme périmée **et** qu'elle est vide. Une
+-- table d'une autre forme qui contient des lignes interrompt le script avec un
+-- message explicite plutôt que d'effacer quoi que ce soit.
 --
 -- Il enregistre aussi les deux migrations dans `app.schema_migrations`, pour
 -- que `pnpm db:status` cesse de les réclamer. Les sommes de contrôle sont
@@ -17,6 +23,64 @@
 -- ===========================================================================
 
 begin;
+
+-- --- Préambule : rattraper un passage interrompu ----------------------------
+
+/* `create table if not exists` ne fait rien quand la table existe — même sous
+   une forme incomplète. L'index qui suit cherche alors une colonne absente et
+   tout s'arrête. On remet donc à plat, mais **sous garde** : uniquement une
+   table à la forme périmée, et uniquement si elle est vide. */
+do $$
+declare
+  vestige record;
+  manquantes text[];
+  peuplee boolean;
+begin
+  for vestige in
+    select * from (values
+      ('client_phases', array[
+        'id', 'org_id', 'workspace_id', 'phase', 'target_month', 'status',
+        'completed_at', 'due_start', 'due_end', 'created_at', 'updated_at']),
+      ('generation_jobs', array[
+        'id', 'org_id', 'workspace_id', 'phase', 'target_month', 'status',
+        'progress_current', 'progress_total', 'result', 'error_message',
+        'started_at', 'finished_at', 'created_at', 'updated_at']),
+      ('wording_history', array[
+        'id', 'org_id', 'workspace_id', 'subject_id', 'hook', 'full_wording',
+        'platform', 'published_at', 'created_at'])
+    ) as t (nom, colonnes)
+  loop
+    continue when to_regclass('public.' || vestige.nom) is null;
+
+    select array_agg(attendue)
+      into manquantes
+      from unnest(vestige.colonnes) as attendue
+     where not exists (
+       select 1
+         from information_schema.columns
+        where table_schema = 'public'
+          and table_name = vestige.nom
+          and column_name = attendue
+     );
+
+    -- Forme conforme : on n'y touche pas.
+    continue when manquantes is null;
+
+    execute format('select exists (select 1 from public.%I limit 1)', vestige.nom)
+      into peuplee;
+
+    if peuplee then
+      raise exception
+        'La table % existe sous une autre forme (colonnes absentes : %) et contient des lignes. Rattrapage interrompu, rien n''a été supprimé : cette table est à examiner à la main.',
+        vestige.nom, array_to_string(manquantes, ', ');
+    end if;
+
+    raise notice
+      'Vestige vide sur % (colonnes absentes : %) — la table est recréée.',
+      vestige.nom, array_to_string(manquantes, ', ');
+    execute format('drop table public.%I cascade', vestige.nom);
+  end loop;
+end $$;
 
 -- --- Types -----------------------------------------------------------------
 
@@ -208,6 +272,13 @@ values
   ('0032_production_schema.sql', 'RATTRAPAGE-0032'),
   ('0033_production_rls.sql',    'RATTRAPAGE-0033')
 on conflict (name) do nothing;
+
+/* PostgREST — la couche qui sert l'API REST de Supabase — garde un cache du
+   schéma. Sans ce signal, il continue de répondre « relation does not exist »
+   sur des tables pourtant créées, et l'application affiche « Cycle
+   indisponible » alors que tout est en place. Supabase recharge en principe
+   tout seul sur DDL ; ce rappel ne coûte rien et ferme le cas. */
+notify pgrst, 'reload schema';
 
 commit;
 
