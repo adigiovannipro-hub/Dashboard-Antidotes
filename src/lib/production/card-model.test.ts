@@ -106,9 +106,9 @@ describe("buildCardModel", () => {
       phases: upToWording,
       target: { total: 12, withWording: 4, validated: 0, scheduled: 0, firstPublication: null },
     });
-    expect(model.action?.label).toBe("Rédiger les 8 wordings restants");
+    expect(model.action?.label).toBe("Rédiger les 8 contenus restants");
     expect(model.metrics).toContainEqual({
-      label: "Wordings rédigés",
+      label: "Contenus rédigés",
       value: "4 sur 12",
     });
     // La barre, elle, montre le mois en cours tous réseaux confondus — pas
@@ -132,7 +132,7 @@ describe("buildCardModel", () => {
       target: { total: 12, withWording: 12, validated: 0, scheduled: 0, firstPublication: null },
     });
     expect(model.action?.disabled).toBe(true);
-    expect(model.action?.reason).toBe("Tous les wordings sont rédigés");
+    expect(model.action?.reason).toBe("Tous les contenus sont rédigés");
   });
 
   it("alerte quand la phase attend des intentions qui n'existent pas", () => {
@@ -212,7 +212,7 @@ describe("buildCardModel", () => {
     });
     expect(model.activeJob).toBeNull();
     expect(model.action?.kind).toBe("generate");
-    expect(model.action?.label).toBe("Rédiger les 6 wordings restants");
+    expect(model.action?.label).toBe("Rédiger les 6 contenus restants");
     // La barre revient au mois, le job arrêté ne la tient plus.
     expect(model.progress?.label).toBe("Publié ce mois-ci");
   });

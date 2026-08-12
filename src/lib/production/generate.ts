@@ -3,6 +3,8 @@ import "server-only";
 import Anthropic from "@anthropic-ai/sdk";
 
 import { getClientContext } from "@/lib/context/get-client-context";
+import { EMPTY_DELIVERABLES, normalizeDeliverables } from "@/lib/context/deliverables";
+import type { ContextDeliverables } from "@/lib/context/types";
 import {
   EXCLUDED_STATUSES,
   FORMAT_LABELS,
@@ -10,6 +12,13 @@ import {
   type PlanningFormat,
   type PlanningPlatform,
 } from "@/lib/planning/types";
+import {
+  computeQuotas,
+  renderExisting,
+  renderQuotas,
+  type ExistingPublication,
+} from "./quotas";
+import { needsContent } from "./wording-state";
 import { schedulePublications, type SchedulablePost } from "@/lib/scheduling/publish";
 import { createAdminClient } from "@/lib/supabase/server";
 import { monthLabelLower, shiftMonth } from "./phases";
@@ -294,6 +303,47 @@ async function getLanePlatforms(
   );
 }
 
+/**
+ * Les livrables mensuels déclarés au Contexte — le volume dû par réseau.
+ *
+ * Lus en direct plutôt que par `getClientContext()`, qui les met à plat en
+ * prose : le calcul du reste à produire a besoin des chiffres, pas de leur
+ * phrase. Contexte absent ou illisible ⇒ aucun volume déclaré, et le prompt
+ * le dit au modèle plutôt que de lui souffler un total inventé.
+ */
+async function getDeliverables(
+  supabase: SupabaseAdmin,
+  workspaceId: string,
+): Promise<ContextDeliverables> {
+  const { data, error } = await supabase
+    .from("client_context")
+    .select("deliverables")
+    .eq("workspace_id", workspaceId)
+    .eq("is_active", true)
+    .maybeSingle();
+  if (error) {
+    console.error("[production] livrables du contexte illisibles :", error.message);
+    return EMPTY_DELIVERABLES;
+  }
+  return normalizeDeliverables((data as { deliverables?: unknown } | null)?.deliverables);
+}
+
+/** Les 30 dernières accroches publiées, numérotées — la liste anti-répétition. */
+async function recentHooks(
+  supabase: SupabaseAdmin,
+  workspaceId: string,
+): Promise<string> {
+  const { data } = await supabase
+    .from("wording_history")
+    .select("hook")
+    .eq("workspace_id", workspaceId)
+    .order("published_at", { ascending: false, nullsFirst: false })
+    .limit(30);
+  return ((data ?? []) as unknown as { hook: string }[])
+    .map((row, index) => `${index + 1}. ${row.hook}`)
+    .join("\n");
+}
+
 /** « septembre 2026 » — le mois cible tel que les prompts le reçoivent. */
 function fullMonthLabel(targetMonth: string): string {
   return `${monthLabelLower(targetMonth.slice(0, 7))} ${targetMonth.slice(0, 4)}`;
@@ -431,18 +481,62 @@ async function runIntentions(
     })
     .join("\n\n");
 
+  // --- Ce qui est déjà posé sur le mois cible -------------------------------
+  // Le point décisif de cette phase : le mois n'est presque jamais vide. Des
+  // lignes sont saisies à la main, et la génération doit combler l'écart avec
+  // le contrat, pas repartir de zéro et livrer le double.
+  const targetMonths = await getMonths(supabase, board.id, [job.target_month]);
+  const targetMonthIds = targetMonths.map((month) => month.id);
+  const [targetSubjects, targetLanes, deliverables, hooks] = await Promise.all([
+    getSubjects(supabase, targetMonthIds),
+    getLanePlatforms(supabase, targetMonthIds),
+    getDeliverables(supabase, job.workspace_id),
+    recentHooks(supabase, job.workspace_id),
+  ]);
+
+  const existing: ExistingPublication[] = targetSubjects.map((subject) => ({
+    platform: targetLanes.get(subject.lane_id) ?? null,
+    format: subject.format as PlanningFormat,
+    name: subject.name,
+    scheduledOn: subject.scheduled_on,
+    status: subject.status,
+  }));
+  const quotas = computeQuotas(deliverables, existing);
+
+  // Contrat renseigné et déjà honoré : ne rien produire est la bonne réponse,
+  // et elle ne coûte pas un appel au modèle.
+  if (quotas.duTotal > 0 && quotas.resteTotal === 0) {
+    return {
+      status: "done",
+      result: {
+        summary: `Le planning de ${fullMonthLabel(job.target_month)} couvre déjà les ${quotas.duTotal} publications dues : rien à ajouter.`,
+      },
+      error: null,
+      progressCurrent: 0,
+      progressTotal: 0,
+      phaseDone: true,
+    };
+  }
+
   const system = renderPrompt("intentions", {
     client_context: context.client_context,
     client_assets_summaries: context.client_assets_summaries,
     historique,
     target_month: fullMonthLabel(job.target_month),
+    deja_planifie: renderExisting(existing),
+    reste_a_produire: renderQuotas(quotas),
+    accroches_historique: hooks,
     contraintes: context.contraintes,
     marronniers: context.marronniers,
   });
 
+  const attendu =
+    quotas.resteTotal > 0
+      ? ` Tu dois produire exactement ${quotas.resteTotal} intention${quotas.resteTotal > 1 ? "s" : ""}, en complément de ce qui est déjà au planning.`
+      : "";
   const text = await callClaude({
     system,
-    user: `Produis maintenant les intentions de ${fullMonthLabel(job.target_month)}, au format de sortie demandé.`,
+    user: `Produis maintenant les intentions de ${fullMonthLabel(job.target_month)}, au format de sortie demandé.${attendu}`,
     maxTokens: 12000,
   });
 
@@ -455,15 +549,7 @@ async function runIntentions(
   }
 
   // --- Insertion dans le planning : mois, réseaux, sujets -------------------
-  const { data: existingMonth } = await supabase
-    .from("planning_months")
-    .select("id")
-    .eq("board_id", board.id)
-    .eq("month", job.target_month)
-    .is("deleted_at", null)
-    .maybeSingle();
-
-  let monthId = existingMonth?.id ?? null;
+  let monthId = targetMonths[0]?.id ?? null;
   if (!monthId) {
     const { data: lastMonth } = await supabase
       .from("planning_months")
@@ -531,7 +617,10 @@ async function runIntentions(
   };
 
   const createdIds: string[] = [];
-  let position = 0;
+  // Après les lignes déjà posées, pas par-dessus : deux sujets à la position 0
+  // se rangent dans un ordre arbitraire, et l'ordre manuel du board est une
+  // donnée de travail.
+  let position = existing.length;
   for (const item of items) {
     const platform = PLATFORM_BY_LABEL[(item.reseau ?? "").toUpperCase()] ?? "other";
     const format = FORMAT_BY_LABEL[(item.type ?? "").toUpperCase()] ?? "other";
@@ -599,12 +688,49 @@ async function runIntentions(
 type GeneratedWording = {
   wording?: string;
   accroche?: string;
+  contenu_crea?: string | null;
   texte_visuel?: string | null;
   slides?: { titre?: string; sous_titre?: string; visuel?: string }[] | null;
 };
 
 /** Les sujets passent par lots de quatre : un échec n'arrête pas les autres. */
 const WORDING_BATCH_SIZE = 4;
+
+/**
+ * La consigne de sortie propre au format.
+ *
+ * Une Story n'a pas de légende : ce qui compte est ce qui s'affiche à l'écran,
+ * écran par écran. Lui faire produire une caption remplirait la colonne d'un
+ * texte que personne ne publiera jamais.
+ */
+function formatInstruction(format: PlanningFormat): string {
+  switch (format) {
+    case "story":
+      return [
+        "Ce sujet est une STORY. Il n'y a donc AUCUNE légende à écrire.",
+        "Mets dans `wording` le contenu de la story, écran par écran : pour chaque écran, le texte affiché à l'image (court, lisible en une seconde), l'intention visuelle, et l'interaction si elle s'y prête (sondage, question, curseur, lien).",
+        "Cale ce contenu sur la stratégie, les piliers de contenu et les exemples de créa du brief.",
+        "Laisse `contenu_crea` et `slides` à null. `accroche` doit valoir null : une story n'alimente pas l'historique des accroches.",
+      ].join("\n");
+    case "carousel":
+      return [
+        "Ce sujet est un CARROUSEL. Produis la légende dans `wording`, et le déroulé slide par slide dans `slides` : titre, sous-titre et indication visuelle pour chacune, dernière slide en CTA.",
+        "Mets dans `contenu_crea` ce qui doit apparaître sur la créa au-delà des slides, s'il y a lieu.",
+      ].join("\n");
+    case "reel":
+    case "video":
+      return [
+        "Ce sujet est une VIDÉO ou un REEL. Produis la légende dans `wording`.",
+        "Mets dans `contenu_crea` ce que la vidéo doit montrer et dire : accroche des trois premières secondes, déroulé, chute.",
+        "`texte_visuel` porte le texte incrusté à l'image, 6 mots maximum.",
+      ].join("\n");
+    default:
+      return [
+        "Ce sujet est une publication fixe. Produis la légende dans `wording`.",
+        "Mets dans `contenu_crea` ce qui doit apparaître sur le visuel : message principal, éléments à représenter, mentions obligatoires s'il y en a.",
+      ].join("\n");
+  }
+}
 
 async function runWording(
   supabase: SupabaseAdmin,
@@ -623,13 +749,16 @@ async function runWording(
     );
   }
 
-  const missing = subjects.filter(
-    (subject) => (subject.wording ?? "").trim() === "",
+  const missing = subjects.filter((subject) =>
+    needsContent({
+      status: subject.status,
+      hasWording: (subject.wording ?? "").trim() !== "",
+    }),
   );
   if (missing.length === 0) {
     return {
       status: "done",
-      result: { summary: "Tous les wordings étaient déjà rédigés." },
+      result: { summary: "Tous les contenus étaient déjà rédigés." },
       error: null,
       progressCurrent: 0,
       progressTotal: 0,
@@ -637,20 +766,11 @@ async function runWording(
     };
   }
 
-  const [context, lanePlatforms] = await Promise.all([
+  const [context, lanePlatforms, hooks] = await Promise.all([
     getClientContext({ workspaceId: job.workspace_id }),
     getLanePlatforms(supabase, months.map((month) => month.id)),
+    recentHooks(supabase, job.workspace_id),
   ]);
-
-  const { data: hookRows } = await supabase
-    .from("wording_history")
-    .select("hook")
-    .eq("workspace_id", job.workspace_id)
-    .order("published_at", { ascending: false, nullsFirst: false })
-    .limit(30);
-  const hooks = ((hookRows ?? []) as unknown as { hook: string }[])
-    .map((row, index) => `${index + 1}. ${row.hook}`)
-    .join("\n");
 
   const intentionColumnId = await ensureIntentionColumn(
     supabase,
@@ -668,6 +788,13 @@ async function runWording(
 
   const processSubject = async (subject: SubjectRow): Promise<void> => {
     const platform = lanePlatforms.get(subject.lane_id);
+    const format = subject.format as PlanningFormat;
+    const isStory = format === "story";
+
+    // Le brief saisi à la main dans la colonne Wording. C'est une consigne de
+    // rédaction, pas un livrable : le texte final le remplace.
+    const brief = (subject.wording ?? "").trim();
+
     const system = renderPrompt("wording", {
       client_context: context.client_context,
       client_assets_summaries: context.client_assets_summaries,
@@ -677,26 +804,34 @@ async function runWording(
       template: subject.name,
       date: subject.scheduled_on ?? "Non datée",
       intention: intentionOf(subject, intentionColumnId),
+      brief_existant: brief,
+      consigne_format: formatInstruction(format),
       accroches_historique: hooks,
     });
 
     const text = await callClaude({
       system,
-      user: "Rédige maintenant la version finale, au format de sortie demandé.",
+      user: isStory
+        ? "Produis maintenant le contenu de la story, au format de sortie demandé."
+        : "Rédige maintenant la version finale, au format de sortie demandé.",
       maxTokens: 4000,
     });
     const generated = parseModelJson<GeneratedWording>(text);
     if (!generated.wording || generated.wording.trim() === "") {
-      throw new Error("Wording vide.");
+      throw new Error(isStory ? "Contenu de story vide." : "Wording vide.");
     }
 
     // La caption d'abord ; les textes de créa suivent dans la même cellule,
     // derrière un séparateur — le board n'a pas de colonne dédiée aux créas.
+    // Une story n'a que son contenu : rien à empiler derrière.
     const sections = [generated.wording.trim()];
-    if (generated.texte_visuel) {
+    if (!isStory && generated.contenu_crea) {
+      sections.push(`---\nContenu de la créa : ${generated.contenu_crea}`);
+    }
+    if (!isStory && generated.texte_visuel) {
       sections.push(`---\nTexte visuel : ${generated.texte_visuel}`);
     }
-    if (generated.slides && generated.slides.length > 0) {
+    if (!isStory && generated.slides && generated.slides.length > 0) {
       const slides = generated.slides
         .map(
           (slide, index) =>
@@ -712,7 +847,9 @@ async function runWording(
       .eq("id", subject.id);
     if (updateError) throw new Error(updateError.message);
 
-    if (generated.accroche && generated.accroche.trim() !== "") {
+    // Une story n'a pas d'accroche publiée : l'historiser polluerait la liste
+    // anti-répétition avec des textes qui ne sont jamais des légendes.
+    if (!isStory && generated.accroche && generated.accroche.trim() !== "") {
       await supabase.from("wording_history").insert({
         org_id: job.org_id,
         workspace_id: job.workspace_id,

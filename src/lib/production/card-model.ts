@@ -185,7 +185,7 @@ export function buildCardModel(options: {
         { label: "À publier sous 7 jours", value: String(upcoming) },
         ...moderationMetric,
         {
-          label: "Wordings rédigés",
+          label: "Contenus rédigés",
           value: `${snapshot.target.withWording} sur ${snapshot.target.total}`,
         },
       ];
@@ -307,14 +307,14 @@ export function buildCardModel(options: {
             kind: "generate",
             label:
               remaining === 1
-                ? "Rédiger le wording restant"
-                : `Rédiger les ${remaining} wordings restants`,
+                ? "Rédiger le contenu restant"
+                : `Rédiger les ${remaining} contenus restants`,
             disabled: remaining === 0,
             reason:
               remaining === 0
                 ? snapshot.target.total === 0
                   ? `Aucune intention pour ${nextLabel}`
-                  : "Tous les wordings sont rédigés"
+                  : "Tous les contenus sont rédigés"
                 : null,
           };
           break;

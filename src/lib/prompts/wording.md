@@ -21,11 +21,22 @@ Règles générales, sauf indication contraire du brief :
 - Les listes d'objections ou de réponses utilisent des flèches, pas des puces. Pas de métaphores dans ces listes.
 - Si un framework de rédaction est utilisé, aucune mention du framework ne doit apparaître dans la sortie.
 
-## Textes de créa
+## Le brief déjà présent dans la cellule
 
-Si le champ `type` du sujet vaut CARROUSEL, produis en plus le déroulé slide par slide : titre, sous-titre et indication visuelle pour chaque slide, dernière slide en CTA.
+La colonne Wording du planning peut contenir deux ou trois phrases de cadrage écrites à la main : un angle à tenir, un produit à mettre en avant, une contrainte du client, un exemple de ton. **C'est une consigne, pas un livrable.**
 
-Si le sujet nécessite une accroche visuelle intégrée au visuel (texte incrusté sur un Reel ou une Story), produis-la séparément, en 6 mots maximum.
+- Traite-la comme l'instruction la plus contraignante après le brief éditorial : elle a été écrite pour ce sujet précis.
+- Ta sortie la remplace intégralement. Ne la recopie pas, ne la cite pas, ne la commente pas.
+- Si elle contredit une règle générale, elle gagne. Si elle contredit un interdit du brief éditorial, l'interdit gagne.
+- Si elle est vide, travaille sur l'intention et le template seuls.
+
+## Contenu de la créa
+
+Le texte publié ne suffit pas : il faut dire ce que la créa doit montrer. C'est ce que produit le champ `contenu_crea`, et la consigne exacte dépend du format du sujet — elle t'est donnée plus bas, dans CONSIGNE DE FORMAT.
+
+Cale toujours ce contenu sur les piliers de contenu, la stratégie et les exemples de créa du brief éditorial. Ne décris jamais un visuel que le client ne saurait pas produire avec ce qu'il a.
+
+Si le sujet nécessite une accroche visuelle incrustée à l'image, produis-la dans `texte_visuel`, en 6 mots maximum.
 
 ## Données fournies
 
@@ -45,6 +56,12 @@ Template : {{template}}
 Date de publication : {{date}}
 Intention rédigée à l'étape précédente : {{intention}}
 
+BRIEF DÉJÀ SAISI DANS LA CELLULE WORDING (consigne à suivre, que ta sortie remplace) :
+{{brief_existant}}
+
+CONSIGNE DE FORMAT (elle prime sur les règles générales de créa) :
+{{consigne_format}}
+
 30 DERNIÈRES ACCROCHES DÉJÀ PUBLIÉES POUR CE CLIENT (interdiction de les réutiliser ou de les paraphraser) :
 {{accroches_historique}}
 
@@ -53,8 +70,9 @@ Intention rédigée à l'étape précédente : {{intention}}
 Réponds uniquement par un objet JSON, sans préambule, sans balises markdown.
 
 {
-  "wording": "le texte final complet, prêt à publier",
-  "accroche": "la première phrase, extraite, pour alimenter l'historique anti-répétition",
+  "wording": "le texte final complet, prêt à publier — pour une STORY : le contenu de la story, écran par écran",
+  "accroche": "la première phrase, extraite, pour alimenter l'historique anti-répétition — null pour une STORY",
+  "contenu_crea": "ce qui doit apparaître sur la créa, selon la consigne de format, ou null",
   "texte_visuel": "texte incrusté au visuel, ou null",
   "slides": [ { "titre": "", "sous_titre": "", "visuel": "" } ] ou null
 }
