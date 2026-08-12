@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { getViewer, getWorkspace } from "@/lib/auth";
+import { normalizeDeliverables } from "@/lib/context/deliverables";
 import { buildContextDiff, mergeProposal, type ContextFieldDiff } from "@/lib/context/diff";
 import { proposeConsolidation } from "@/lib/context/consolidation";
 import { renderAssetSummaries } from "@/lib/context/injected-context";
@@ -20,6 +21,7 @@ import {
   isClientAssetType,
   isContextTextField,
   type ClientContext,
+  type ContextDeliverables,
   type ContextFieldKey,
   type ContextProposal,
 } from "@/lib/context/types";
@@ -197,6 +199,53 @@ export async function savePlatformRules(
       const { error } = await supabase.from("client_context").insert({
         workspace_id: workspace.id,
         platforms,
+        created_by: viewer.user.id,
+      });
+      if (error) throw new Error(error.message);
+    }
+
+    revalidate(scope);
+    return OK;
+  } catch (error) {
+    return fail(error);
+  }
+}
+
+const deliverablesSchema = z.object({
+  intentions: z.string().max(300),
+  publications: z
+    .array(z.object({ categorie: z.string().max(60), quantite: z.number().int().min(0).max(999) }))
+    .max(20),
+});
+
+/**
+ * Les livrables mensuels : le contrat, pas la marque. Saisis à la main et
+ * jamais proposés par la consolidation — un volume de publications inventé
+ * par un modèle se lirait comme un engagement.
+ */
+export async function saveDeliverables(
+  scope: Scope,
+  input: { deliverables: unknown },
+): Promise<ContextResult> {
+  const parsed = deliverablesSchema.safeParse(input.deliverables);
+  if (!parsed.success) return { ok: false, error: "Livrables invalides." };
+
+  try {
+    const { viewer, workspace } = await guardOwner(scope);
+    const supabase = await createClient();
+    const deliverables = normalizeDeliverables(parsed.data);
+
+    const active = await getActiveRow(workspace.id);
+    if (active) {
+      const { error } = await supabase
+        .from("client_context")
+        .update({ deliverables })
+        .eq("id", active.id);
+      if (error) throw new Error(error.message);
+    } else {
+      const { error } = await supabase.from("client_context").insert({
+        workspace_id: workspace.id,
+        deliverables,
         created_by: viewer.user.id,
       });
       if (error) throw new Error(error.message);
@@ -500,6 +549,9 @@ export async function applyRegeneration(
       workspaceId: workspace.id,
       current,
       content: merged,
+      // Les livrables suivent la version sans être touchés : la consolidation
+      // ne les propose pas, elle ne doit pas non plus les faire disparaître.
+      deliverables: normalizeDeliverables(current?.deliverables),
       createdBy: viewer.user.id,
     });
     if (!result.ok) return result;
@@ -551,6 +603,8 @@ export async function restoreVersion(
         restrictions: sourceRow.restrictions ?? "",
         platforms: sourceRow.platforms,
       },
+      // Restaurer une version, c'est restaurer son instantané entier.
+      deliverables: normalizeDeliverables(sourceRow.deliverables),
       createdBy: viewer.user.id,
     });
     if (!result.ok) return result;
@@ -574,6 +628,7 @@ async function writeNewVersion(input: {
   workspaceId: string;
   current: ClientContext | null;
   content: ContextProposal;
+  deliverables: ContextDeliverables;
   createdBy: string;
 }): Promise<{ ok: true; version: number } | { ok: false; error: string }> {
   const supabase = await createClient();
@@ -599,6 +654,7 @@ async function writeNewVersion(input: {
     mentions: input.content.mentions.trim() || null,
     restrictions: input.content.restrictions.trim() || null,
     platforms: input.content.platforms,
+    deliverables: input.deliverables,
     created_by: input.createdBy,
   });
 

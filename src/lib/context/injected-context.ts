@@ -5,6 +5,7 @@
  * de génération) et le compteur de tokens de la page (qui mesure exactement
  * la même chaîne — sinon le chiffre affiché ne mesurerait rien).
  */
+import { normalizeDeliverables, renderDeliverables } from "./deliverables";
 import type { ClientAsset, ClientContext } from "./types";
 import { ASSET_TYPE_LABELS } from "./types";
 
@@ -36,6 +37,11 @@ export function renderBrief(brief: ClientContext | null): string {
       .join("\n");
     lines.push(`Piliers de contenu :\n${pillars}`);
   }
+
+  // Le volume dû compte autant que le fond : une génération de mois entier
+  // ne sait pas combien de publications produire sans lui.
+  const deliverables = renderDeliverables(normalizeDeliverables(brief.deliverables));
+  if (deliverables) lines.push(deliverables);
 
   push("Mentions", brief.mentions);
   push("Interdits (contraignants)", brief.restrictions);

@@ -68,6 +68,33 @@ export type ContextPillar = {
   frequence: string;
 };
 
+/**
+ * Une ligne de livrable mensuel : une catégorie de publication et sa
+ * quantité. La catégorie est libre — « Stories », « Reels », « Post fixe »
+ * sont des suggestions, pas une liste fermée : chaque contrat a ses mots.
+ */
+export type ContextDeliverableLine = {
+  categorie: string;
+  quantite: number;
+};
+
+/** Ce qu'on doit au client chaque mois. Clés en français, comme les piliers. */
+export type ContextDeliverables = {
+  /** Quand les intentions lui sont livrées : « le 20 du mois précédent ». */
+  intentions: string;
+  publications: ContextDeliverableLine[];
+};
+
+/** Proposées dans la liste de saisie, sans jamais contraindre le champ. */
+export const DELIVERABLE_CATEGORIES = [
+  "Post fixe",
+  "Carrousel",
+  "Reels",
+  "Stories",
+  "Vidéo",
+  "Article",
+] as const;
+
 /** Règles d'écriture par réseau, clé = réseau en minuscules. */
 export type ContextPlatformRules = Record<string, string>;
 
@@ -124,6 +151,7 @@ export type ClientContext = {
   mentions: string | null;
   restrictions: string | null;
   platforms: ContextPlatformRules;
+  deliverables: ContextDeliverables;
   created_at: string;
   created_by: string | null;
 };
