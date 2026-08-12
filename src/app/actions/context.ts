@@ -211,11 +211,17 @@ export async function savePlatformRules(
   }
 }
 
+const publicationSchema = z.object({
+  categorie: z.string().max(60),
+  quantite: z.number().int().min(0).max(999),
+});
+
 const deliverablesSchema = z.object({
   intentions: z.string().max(300),
-  publications: z
-    .array(z.object({ categorie: z.string().max(60), quantite: z.number().int().min(0).max(999) }))
+  reseaux: z
+    .array(z.object({ nom: z.string().max(60), publications: z.array(publicationSchema).max(20) }))
     .max(20),
+  publications: z.array(publicationSchema).max(20),
 });
 
 /**
