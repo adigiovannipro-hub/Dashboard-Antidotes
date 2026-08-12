@@ -37,11 +37,14 @@ import type {
  * Et comme un cron, chaque `error` Supabase est testé : une table muette ne
  * doit pas produire un « rien à faire » rassurant.
  *
- * Le modèle est celui du cahier des charges, pas celui des autres modules
- * (`claude-opus-5`) : la phase wording enchaîne un appel par sujet, et le
- * coût mensuel par client reste ainsi sous le seuil du négligeable.
+ * Le modèle est celui de tout le reste du projet. Le cahier des charges
+ * demandait sonnet pour tenir le coût d'un appel par sujet ; l'écart estimé
+ * est de l'ordre d'un euro par client et par mois (une douzaine de contenus,
+ * un plan de mois, un reporting), et les intentions comme les contenus sont
+ * le cœur du métier — c'est le mauvais endroit où économiser. À confirmer sur
+ * la facture réelle du premier mois complet.
  */
-export const GENERATION_MODEL = "claude-sonnet-4-6";
+export const GENERATION_MODEL = "claude-opus-5";
 
 type SupabaseAdmin = ReturnType<typeof createAdminClient>;
 
@@ -852,9 +855,7 @@ async function runWording(
         ? "Produis maintenant le contenu de la story, au format de sortie demandé."
         : "Rédige maintenant la version finale, au format de sortie demandé.",
       maxTokens: 8000,
-      // Un appel par sujet : c'est ici que la latence se multiplie, et rédiger
-      // une caption ne demande pas la délibération d'un plan de mois.
-      effort: "low",
+      effort: "medium",
     });
     const generated = parseModelJson<GeneratedWording>(text);
     if (!generated.wording || generated.wording.trim() === "") {
