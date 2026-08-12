@@ -50,6 +50,10 @@ on:
         description: "Diagnostic Échéances (lecture seule) : groupes, doublons, TVA"
         type: boolean
         default: false
+      diagnostic_schema:
+        description: "Diagnostic schéma (lecture seule) : colonnes réelles et privilèges d'API"
+        type: boolean
+        default: false
 
 jobs:
   operer:
@@ -124,6 +128,16 @@ jobs:
       - name: Diagnostic Échéances
         if: ${{ inputs.diagnostic_billing }}
         run: pnpm diagnostic:billing
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+
+      # Ce que la base contient *vraiment*, colonne par colonne, avec les
+      # privilèges dont dépend le cache de PostgREST. Le seul moyen de
+      # distinguer « la colonne n'existe pas » de « l'API ne la voit pas »
+      # quand on n'a pas de terminal sur la base.
+      - name: Diagnostic schéma
+        if: ${{ inputs.diagnostic_schema }}
+        run: pnpm diagnostic:schema
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
 

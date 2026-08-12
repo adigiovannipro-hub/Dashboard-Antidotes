@@ -21,6 +21,7 @@
     "import:monday": "tsx scripts/import-monday.ts",
     "import:billing-monday": "tsx scripts/import-billing-monday.ts",
     "diagnostic:billing": "tsx scripts/diagnostic-billing.ts",
+    "diagnostic:schema": "tsx scripts/diagnostic-schema.ts",
     "dedupe:billing": "tsx scripts/dedupe-billing.ts",
     "reconcile:billing": "tsx scripts/reconcile-billing.ts",
     "seed:moderation": "tsx scripts/seed-moderation.ts",
