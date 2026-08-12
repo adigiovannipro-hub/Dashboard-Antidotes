@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useOptimistic, useRef, useState, useTransition } from "react";
 import { CalendarDays, Check, Loader2, Paperclip, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -42,22 +42,38 @@ import { cn } from "@/lib/utils";
 export function useCellAction() {
   const [pending, startTransition] = useTransition();
 
-  const run = (action: () => Promise<PlanningResult>) => {
-    startTransition(async () => {
-      try {
-        const result = await action();
-        if (!result.ok) toast.error(result.error);
-        else if (result.message) toast.success(result.message);
-      } catch {
-        // Un envoi refusé par le serveur (vidéo au-delà de la limite, réseau
-        // coupé) jetterait sinon jusqu'à l'écran d'erreur du navigateur — la
-        // « page buggée ». Ici : un toast, et la page reste debout.
-        toast.error(
-          "L'action n'a pas abouti — fichier trop lourd ou connexion interrompue.",
-        );
-      }
+  /**
+   * Rend le verdict à qui le demande.
+   *
+   * `run` ne rendait rien. Les appelants qui affichent un état par avance —
+   * la pastille de statut, qui prend sa nouvelle couleur au clic — n'avaient
+   * alors aucun moyen de savoir qu'il fallait revenir en arrière : en cas
+   * d'échec, le serveur ne revalide pas, la valeur d'origine ne redescend
+   * jamais, et la cellule mentait jusqu'au prochain rechargement.
+   *
+   * La promesse aboutit toujours — jamais de rejet : un appelant qui ignore le
+   * retour, ce que font la quasi-totalité des cellules, ne doit pas provoquer
+   * un « unhandled rejection ».
+   */
+  const run = (action: () => Promise<PlanningResult>): Promise<PlanningResult> =>
+    new Promise((resolve) => {
+      startTransition(async () => {
+        try {
+          const result = await action();
+          if (!result.ok) toast.error(result.error);
+          else if (result.message) toast.success(result.message);
+          resolve(result);
+        } catch {
+          // Un envoi refusé par le serveur (vidéo au-delà de la limite, réseau
+          // coupé) jetterait sinon jusqu'à l'écran d'erreur du navigateur — la
+          // « page buggée ». Ici : un toast, et la page reste debout.
+          const message =
+            "L'action n'a pas abouti — fichier trop lourd ou connexion interrompue.";
+          toast.error(message);
+          resolve({ ok: false, error: message });
+        }
+      });
     });
-  };
 
   return { run, pending };
 }
@@ -344,7 +360,14 @@ export function ChipSelect<T extends string>({
 }: {
   value: T | null;
   options: ChipOption<T>[];
-  onSelect: (next: T | null) => void;
+  /**
+   * `unknown` en retour, et non `void` : les appelants rendent des choses
+   * différentes — la promesse de `useCellAction.run`, ou le résultat d'un
+   * `next && apply(…)` qui vaut la chaîne vide quand rien n'est choisi. Seul
+   * compte le fait qu'une promesse, s'il y en a une, soit attendue : c'est
+   * elle qui borne l'affichage par avance de la couleur choisie.
+   */
+  onSelect: (next: T | null) => unknown;
   ariaLabel: string;
   allowClear?: boolean;
   /** Affiché sans valeur — le nom de l'action dans la barre groupée. */
@@ -357,11 +380,38 @@ export function ChipSelect<T extends string>({
   // Contrôlé : les options sont des boutons libres (la grille colorée), pas
   // des items de menu — sans ça, choisir une pastille laissait le menu ouvert.
   const [open, setOpen] = useState(false);
-  const current = options.find((option) => option.value === value) ?? null;
+
+  /**
+   * La couleur choisie, affichée **avant** que le serveur ne réponde.
+   *
+   * C'est le défaut le plus visible du board : passer une publication de
+   * « À VALIDER » à « PUBLIÉ » écrivait en base, revalidait la page, et la
+   * pastille ne changeait de couleur qu'au retour — d'un tiers de seconde à
+   * plus d'une seconde sur une ligne chargée. Pendant tout ce temps, l'écran
+   * affirme que rien n'a été choisi. On reclique, et on écrit deux fois.
+   *
+   * `useOptimistic` plutôt qu'un `useState` local, et la raison est le cas
+   * d'échec : React garde la valeur affichée exactement le temps de la
+   * transition, puis **revient de lui-même** à la valeur du serveur. Un état
+   * local, lui, devait deviner quand se rétracter — trop tôt, la pastille
+   * clignote entre l'ancienne et la nouvelle couleur ; trop tard, elle ment.
+   * C'est aussi ce qui rend la barre d'actions groupées correcte sans un mot
+   * de plus : son sélecteur affiche le libellé choisi pendant l'écriture, puis
+   * retrouve son intitulé, sa valeur restant `null` de bout en bout.
+   */
+  const [shown, showChoice] = useOptimistic(value);
+  const [, startPick] = useTransition();
+
+  const current = options.find((option) => option.value === shown) ?? null;
 
   const pick = (next: T | null) => {
     setOpen(false);
-    onSelect(next);
+    startPick(async () => {
+      // Avant tout `await` : un état optimiste ne se pose que dans la partie
+      // synchrone d'une transition.
+      showChoice(next);
+      await onSelect(next);
+    });
   };
 
   return (
@@ -369,7 +419,11 @@ export function ChipSelect<T extends string>({
       <DropdownMenuTrigger
         aria-label={ariaLabel}
         className={cn(
-          "focus-visible:ring-brand flex h-7 w-full items-center justify-center rounded-sm px-2 text-[11px] font-semibold tracking-wide uppercase outline-none focus-visible:ring-2",
+          // La transition de couleur n'est pas un ornement : la pastille prend
+          // sa nouvelle teinte au clic, et un aplat qui saute d'un vert à un
+          // orange se lit comme un défaut d'affichage. Cent cinquante
+          // millisecondes suffisent à en faire un changement d'état.
+          "focus-visible:ring-brand flex h-7 w-full items-center justify-center rounded-sm px-2 text-[11px] font-semibold tracking-wide uppercase outline-none transition-[background-color,color] duration-(--motion-duration) ease-standard focus-visible:ring-2 motion-reduce:transition-none",
           className,
         )}
         style={{
@@ -393,7 +447,7 @@ export function ChipSelect<T extends string>({
               style={{ backgroundColor: option.color, color: chipInk(option.color) }}
             >
               <span className="truncate">{option.label}</span>
-              {option.value === value ? (
+              {option.value === shown ? (
                 <Check className="ml-1 size-3 shrink-0" aria-hidden />
               ) : null}
             </button>
