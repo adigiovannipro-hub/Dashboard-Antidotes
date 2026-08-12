@@ -171,11 +171,11 @@ export function ClientCard({
   const targetMonthOf = (phase: ProductionPhase): string =>
     model.segments.find((segment) => segment.phase === phase)?.targetMonth ?? "";
 
-  // La barre chiffrée suit le job en direct quand il tourne, sinon l'état
-  // serveur de la phase (wordings rédigés, posts programmés).
+  // La barre suit le job en direct quand il tourne, sinon l'avancement des
+  // publications du mois calculé côté serveur.
   const progress =
     jobActive && job.total > 0
-      ? { done: job.current, total: job.total }
+      ? { done: job.current, total: job.total, label: RUNNING_LABELS[job.phase] }
       : model.progress;
 
   const ActionIcon = model.action ? PHASE_ICONS[model.action.phase] : null;
@@ -239,23 +239,29 @@ export function ClientCard({
       </div>
 
       {/* --- Barre de phases ------------------------------------------------ */}
+      {/* Deux grilles de quatre colonnes égales, jamais deux `flex` : c'est ce
+          qui garantit qu'un libellé tombe exactement sous son segment. Avec
+          `justify-between`, « Programmation » dérivait d'un demi-segment. */}
       <div className="mt-4">
-        <div className="flex gap-1">
+        <div className="grid grid-cols-4 gap-1">
           {model.segments.map((segment) => (
             <span
               key={segment.phase}
               aria-hidden
-              className={cn("h-1 flex-1 rounded-pill", TONE_BG[segment.tone])}
+              className={cn("h-1 rounded-pill", TONE_BG[segment.tone])}
             />
           ))}
         </div>
         <p className="sr-only">{`Cycle du mois : ${model.subtitle}`}</p>
-        <div className="mt-1.5 flex items-baseline justify-between gap-1">
+        {/* Pas de gouttière sur cette rangée : « Programmation » a besoin de
+            toute la colonne. `truncate` reste en filet de sécurité pour les
+            cartes plus étroites que la grille à trois colonnes. */}
+        <div className="mt-1.5 grid grid-cols-4">
           {model.segments.map((segment) => (
             <span
               key={segment.phase}
               className={cn(
-                "type-caption whitespace-nowrap",
+                "type-micro truncate text-center",
                 segment.isCurrent
                   ? "font-medium text-text-primary"
                   : "text-text-secondary",
@@ -281,22 +287,30 @@ export function ClientCard({
         ))}
       </dl>
 
-      {/* --- Avancement chiffré de la phase courante ------------------------- */}
+      {/* --- Avancement des publications du mois ----------------------------- */}
       {progress && progress.total > 0 ? (
-        <div
-          role="progressbar"
-          aria-valuemin={0}
-          aria-valuemax={progress.total}
-          aria-valuenow={progress.done}
-          aria-label={`${progress.done} sur ${progress.total}`}
-          className="mt-4 h-1 overflow-hidden rounded-pill bg-surface-sunken"
-        >
+        <div className="mt-4">
+          <div className="type-caption mb-1.5 flex items-center justify-between gap-2 text-text-secondary">
+            <span className="min-w-0 truncate">{progress.label}</span>
+            <span className="shrink-0 tabular-nums">
+              {progress.done} sur {progress.total}
+            </span>
+          </div>
           <div
-            className="h-full rounded-pill bg-brand transition-[width]"
-            style={{
-              width: `${Math.round((progress.done / progress.total) * 100)}%`,
-            }}
-          />
+            role="progressbar"
+            aria-valuemin={0}
+            aria-valuemax={progress.total}
+            aria-valuenow={progress.done}
+            aria-label={`${progress.label} : ${progress.done} sur ${progress.total}`}
+            className="h-1 overflow-hidden rounded-pill bg-surface-sunken"
+          >
+            <div
+              className="h-full rounded-pill bg-brand transition-[width]"
+              style={{
+                width: `${Math.round((progress.done / progress.total) * 100)}%`,
+              }}
+            />
+          </div>
         </div>
       ) : null}
 

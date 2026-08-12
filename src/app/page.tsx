@@ -239,6 +239,7 @@ export default async function HubPage({
                       snapshot,
                       upcoming: stats.upcoming,
                       moderation: stats.moderation,
+                      monthProgress: stats.monthProgress,
                     })}
                   />
                 );

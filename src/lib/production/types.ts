@@ -17,7 +17,7 @@ export type ProductionPhase =
 
 export const PHASE_LABELS: Record<ProductionPhase, string> = {
   intentions: "Intentions",
-  wording: "Wording et créa",
+  wording: "Content",
   programmation: "Programmation",
   reporting: "Reporting",
 };

@@ -170,13 +170,13 @@ describe("evaluateCycle", () => {
 
     const during = cycle({ today: "2026-08-20", rows });
     expect(during.currentPhase).toBe("wording");
-    expect(during.subtitle).toBe("Août · Wording et créa");
+    expect(during.subtitle).toBe("Août · Content");
     expect(segment(during, "wording").tone).toBe("urgent");
     expect(during.lateBadge).toBeNull();
 
     const after = cycle({ today: "2026-08-24", rows });
     expect(segment(after, "wording").late).toBe(true);
-    expect(after.lateBadge).toBe("Wording et créa en retard");
+    expect(after.lateBadge).toBe("Content en retard");
   });
 
   it("laisse la programmation grise sans date de publication, l'allume avec", () => {

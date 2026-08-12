@@ -88,8 +88,14 @@ export type ProductionCardModel = {
   lateBadge: string | null;
   currentPhase: ProductionPhase | null;
   metrics: CardMetric[];
-  /** Avancement chiffré de la phase courante, quand elle en a un. */
-  progress: { done: number; total: number } | null;
+  /**
+   * La barre chiffrée sous les mesures.
+   *
+   * Par défaut, l'avancement des publications du mois en cours, tous réseaux
+   * confondus. Pendant un job, la carte substitue l'avancement du job — une
+   * seule barre à l'écran, jamais deux qui se disputent le regard.
+   */
+  progress: { done: number; total: number; label: string } | null;
   /** Encart contextuel — alerte ou manque qui explique l'état du bouton. */
   info: string | null;
   action: CardAction | null;
@@ -134,8 +140,14 @@ export function buildCardModel(options: {
   upcoming: number;
   /** Conversations en attente, `null` si l'espace n'a pas de modération. */
   moderation: number | null;
+  /** Publié sur planifié pour le mois en cours, tous réseaux confondus. */
+  monthProgress: { done: number; total: number } | null;
 }): ProductionCardModel {
   const { today, snapshot, upcoming, moderation } = options;
+  const monthProgress =
+    options.monthProgress && options.monthProgress.total > 0
+      ? { ...options.monthProgress, label: "Publié ce mois-ci" }
+      : null;
   const monthKey = today.slice(0, 7);
   const nextLabel = monthLabelLower(shiftMonth(monthKey, 1));
   const previousLabel = monthLabelLower(shiftMonth(monthKey, -1));
@@ -143,7 +155,7 @@ export function buildCardModel(options: {
   // Module absent de la base : on montre ce qu'on sait vraiment — les mesures
   // du planning — et on se tait sur le cycle plutôt que d'en inventer un.
   if (!snapshot.moduleReady) {
-    return buildUnavailableModel({ monthKey, upcoming, moderation });
+    return buildUnavailableModel({ monthKey, upcoming, moderation, monthProgress });
   }
 
   const view = evaluateCycle({
@@ -195,10 +207,7 @@ export function buildCardModel(options: {
       break;
     case "reporting":
       metrics = [
-        {
-          label: "Posts publiés le mois dernier",
-          value: String(snapshot.previous.published),
-        },
+        { label: "À publier sous 7 jours", value: String(upcoming) },
         ...moderationMetric,
         {
           label: "Reporting",
@@ -231,14 +240,18 @@ export function buildCardModel(options: {
     : null;
 
   // --- Avancement chiffré ----------------------------------------------------
-  let progress: { done: number; total: number } | null = null;
-  if (activeJob && activeJob.progress_total > 0) {
-    progress = { done: activeJob.progress_current, total: activeJob.progress_total };
-  } else if (current === "wording" && snapshot.target.total > 0) {
-    progress = { done: snapshot.target.withWording, total: snapshot.target.total };
-  } else if (current === "programmation" && snapshot.target.total > 0) {
-    progress = { done: snapshot.target.scheduled, total: snapshot.target.total };
-  }
+  // La barre du mois est la vue de fond, celle qu'on veut voir en permanence :
+  // ce qui est parti sur ce qui était prévu, tous réseaux confondus. Un job en
+  // cours la remplace le temps de tourner — les compteurs de phase, eux,
+  // restent lisibles dans les mesures juste au-dessus.
+  const progress =
+    activeJob && activeJob.progress_total > 0
+      ? {
+          done: activeJob.progress_current,
+          total: activeJob.progress_total,
+          label: RUNNING_LABELS[activeJob.phase],
+        }
+      : monthProgress;
 
   // --- Encart contextuel -----------------------------------------------------
   let info: string | null = null;
@@ -364,6 +377,7 @@ function buildUnavailableModel(options: {
   monthKey: string;
   upcoming: number;
   moderation: number | null;
+  monthProgress: { done: number; total: number; label: string } | null;
 }): ProductionCardModel {
   const segments: PhaseSegment[] = PHASE_ORDER.map((phase) => ({
     phase,
@@ -387,7 +401,9 @@ function buildUnavailableModel(options: {
         ? []
         : [{ label: "Messages en attente", value: String(options.moderation) }]),
     ],
-    progress: null,
+    // Le planning reste lisible même sans le module : la barre du mois est
+    // vraie, elle ne dépend d'aucune des tables manquantes.
+    progress: options.monthProgress,
     info: MODULE_MISSING_NOTICE,
     action: null,
     activeJob: null,

@@ -55,13 +55,20 @@ const upToWording: PhaseSlice[] = [
 
 const build = (
   snap: Partial<ProductionSnapshot> = {},
-  options: { today?: string; upcoming?: number; moderation?: number | null } = {},
+  options: {
+    today?: string;
+    upcoming?: number;
+    moderation?: number | null;
+    monthProgress?: { done: number; total: number } | null;
+  } = {},
 ) =>
   buildCardModel({
     today: options.today ?? "2026-08-18",
     snapshot: snapshot(snap),
     upcoming: options.upcoming ?? 5,
     moderation: options.moderation === undefined ? 2 : options.moderation,
+    monthProgress:
+      options.monthProgress === undefined ? { done: 4, total: 9 } : options.monthProgress,
   });
 
 describe("buildCardModel", () => {
@@ -100,11 +107,23 @@ describe("buildCardModel", () => {
       target: { total: 12, withWording: 4, validated: 0, scheduled: 0, firstPublication: null },
     });
     expect(model.action?.label).toBe("Rédiger les 8 wordings restants");
-    expect(model.progress).toEqual({ done: 4, total: 12 });
     expect(model.metrics).toContainEqual({
       label: "Wordings rédigés",
       value: "4 sur 12",
     });
+    // La barre, elle, montre le mois en cours tous réseaux confondus — pas
+    // l'avancement de la phase, qui se lit déjà à la ligne ci-dessus.
+    expect(model.progress).toEqual({ done: 4, total: 9, label: "Publié ce mois-ci" });
+  });
+
+  it("montre l'avancement des publications du mois, tous réseaux confondus", () => {
+    const model = build({}, { monthProgress: { done: 7, total: 18 } });
+    expect(model.progress).toEqual({ done: 7, total: 18, label: "Publié ce mois-ci" });
+  });
+
+  it("n'affiche aucune barre quand le mois n'a rien de planifié", () => {
+    expect(build({}, { monthProgress: { done: 0, total: 0 } }).progress).toBeNull();
+    expect(build({}, { monthProgress: null }).progress).toBeNull();
   });
 
   it("désactive le wording quand tout est rédigé, avec la raison", () => {
@@ -150,7 +169,12 @@ describe("buildCardModel", () => {
       jobs: [job()],
     });
     expect(model.activeJob).toMatchObject({ id: "job-1", current: 4, total: 12 });
-    expect(model.progress).toEqual({ done: 4, total: 12 });
+    // Un job en cours prend la barre : c'est lui qu'on regarde à cet instant.
+    expect(model.progress).toEqual({
+      done: 4,
+      total: 12,
+      label: "Rédaction en cours",
+    });
   });
 
   it("propose la reprise après un job partiel, avec le compte des échecs", () => {

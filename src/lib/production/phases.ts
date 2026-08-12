@@ -78,7 +78,7 @@ export type PhaseCycleView = {
   /** « Août » — le mois civil du jour, pas un mois cible. */
   monthLabel: string;
   currentPhase: ProductionPhase | null;
-  /** « Août · Wording et créa », ou « Août · Cycle bouclé ». */
+  /** « Août · Content », ou « Août · Cycle bouclé ». */
   subtitle: string;
   /** Toujours les quatre phases, dans l'ordre de `PHASE_ORDER`. */
   segments: PhaseSegment[];
