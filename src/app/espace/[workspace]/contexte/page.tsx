@@ -18,6 +18,11 @@ import {
 } from "@/lib/context/queries";
 import { estimateTokens } from "@/lib/context/token-estimate";
 
+/* La consolidation enchaîne des appels au modèle depuis une Server Action de
+   cette page : lui laisser la même marge que la route d'extraction — même
+   réserve non tranchée sur le plafond réel du plan Hobby. */
+export const maxDuration = 300;
+
 type Params = Promise<{ workspace: string }>;
 type Search = Promise<{ version?: string }>;
 

@@ -6,6 +6,7 @@ import { PenLine } from "lucide-react";
 import { toast } from "sonner";
 
 import { saveContextField } from "@/app/actions/context";
+import { safeAction } from "@/lib/context/safe-action";
 import type { ContextTextField } from "@/lib/context/types";
 import { cn } from "@/lib/utils";
 
@@ -55,9 +56,8 @@ export function BriefFieldCard({
     if (next.trim() === value.trim()) return;
 
     startSave(async () => {
-      const outcome = await saveContextField(
-        { workspace: workspaceSlug },
-        { field, value: next },
+      const outcome = await safeAction(() =>
+        saveContextField({ workspace: workspaceSlug }, { field, value: next }),
       );
       if (!outcome.ok) {
         toast.error(outcome.error);

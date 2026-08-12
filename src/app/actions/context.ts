@@ -9,9 +9,9 @@ import { proposeConsolidation } from "@/lib/context/consolidation";
 import { renderAssetSummaries } from "@/lib/context/injected-context";
 import { validateWording } from "@/lib/context/apply-wording";
 import {
-  ACCEPTED_ASSET_TYPES,
   ASSETS_BUCKET,
   assetPath,
+  isAcceptedAsset,
   isOwnedAssetPath,
   MAX_ASSET_BYTES,
 } from "@/lib/context/storage";
@@ -211,30 +211,32 @@ export async function savePlatformRules(
 
 // --- Documents ----------------------------------------------------------------
 
+export type PreparedAssetUpload = { path: string; url: string };
+
+export type PrepareAssetUploadsResult =
+  | { ok: true; uploads: PreparedAssetUpload[] }
+  | { ok: false; error: string };
+
 /**
- * Dépôt de documents : envoi au bucket puis ligne `pending`. L'extraction est
- * déclenchée ensuite par le client, en arrière-plan, sur
- * `/api/contexte/extraction` — l'action rend la main tout de suite.
+ * Premier temps du dépôt : le serveur signe une URL d'envoi par fichier —
+ * petite requête, aucun octet de média. Les octets partent ensuite du
+ * navigateur droit au bucket : le proxy de Next tronque les corps au-delà de
+ * 10 Mo et faisait tomber la page, comme pour les visuels du Planning. Le
+ * chemin reste construit ici, depuis l'espace réellement accessible.
  */
-export async function uploadAssets(
+export async function prepareAssetUploads(
   scope: Scope,
-  formData: FormData,
-): Promise<ContextUploadResult> {
-  const type = String(formData.get("type") ?? "other");
-  const files = formData
-    .getAll("file")
-    .filter((entry): entry is File => entry instanceof File && entry.size > 0);
+  input: { files: { name: string; type: string; size: number }[] },
+): Promise<PrepareAssetUploadsResult> {
+  if (input.files.length === 0) return { ok: false, error: "Aucun fichier." };
+  if (input.files.length > 10) return { ok: false, error: "10 fichiers maximum d'un coup." };
 
-  if (!isClientAssetType(type)) return { ok: false, error: "Type de document inconnu." };
-  if (files.length === 0) return { ok: false, error: "Aucun fichier." };
-  if (files.length > 10) return { ok: false, error: "10 fichiers maximum d'un coup." };
-
-  for (const file of files) {
+  for (const file of input.files) {
     if (file.size > MAX_ASSET_BYTES) {
       return { ok: false, error: `${file.name} : trop lourd (50 Mo maximum).` };
     }
-    if (file.type && !ACCEPTED_ASSET_TYPES.includes(file.type)) {
-      return { ok: false, error: `${file.name} : format non accepté (${file.type}).` };
+    if (!isAcceptedAsset(file)) {
+      return { ok: false, error: `${file.name} : format non accepté (${file.type || "inconnu"}).` };
     }
   }
 
@@ -242,36 +244,74 @@ export async function uploadAssets(
     const { workspace } = await guardOwner(scope);
     const supabase = await createClient();
 
-    const assetIds: string[] = [];
-    for (const file of files) {
+    const uploads: PreparedAssetUpload[] = [];
+    for (const file of input.files) {
       const path = assetPath({ workspaceId: workspace.id, fileName: file.name });
-      const { error: uploadError } = await supabase.storage
+      const { data, error } = await supabase.storage
         .from(ASSETS_BUCKET)
-        .upload(path, file, { contentType: file.type || "application/octet-stream", upsert: false });
-      if (uploadError) {
-        // Un échec au troisième fichier garde les deux premiers.
-        if (assetIds.length === 0) throw new Error(uploadError.message);
-        break;
-      }
+        .createSignedUploadUrl(path);
+      if (error) throw new Error(error.message);
+      uploads.push({ path, url: data.signedUrl });
+    }
+
+    return { ok: true, uploads };
+  } catch (error) {
+    return fail(error);
+  }
+}
+
+/**
+ * Second temps : enregistre les lignes des seuls chemins que le navigateur
+ * vient de remplir — et que le serveur avait signés pour cet espace.
+ * L'extraction est ensuite déclenchée par le client, en arrière-plan, sur
+ * `/api/contexte/extraction`.
+ */
+export async function registerAssets(
+  scope: Scope,
+  input: {
+    type: string;
+    files: { path: string; name: string; mimeType: string; size: number }[];
+  },
+): Promise<ContextUploadResult> {
+  if (!isClientAssetType(input.type)) {
+    return { ok: false, error: "Type de document inconnu." };
+  }
+  if (input.files.length === 0 || input.files.length > 10) {
+    return { ok: false, error: "Aucun fichier." };
+  }
+
+  try {
+    const { workspace } = await guardOwner(scope);
+    const supabase = await createClient();
+
+    const assetIds: string[] = [];
+    for (const file of input.files) {
+      // On n'enregistre que ce qui a été signé pour cet espace : un chemin
+      // forgé vers un autre dossier est écarté sans discussion.
+      if (!isOwnedAssetPath(file.path, workspace.id)) continue;
 
       const { data: row, error: insertError } = await supabase
         .from("client_assets")
         .insert({
           workspace_id: workspace.id,
-          name: file.name,
-          type,
-          storage_path: path,
-          mime_type: file.type || null,
+          name: file.name.slice(0, 300),
+          type: input.type,
+          storage_path: file.path,
+          mime_type: file.mimeType || null,
           size_bytes: file.size,
         })
         .select("id")
         .single();
       if (insertError) {
-        await supabase.storage.from(ASSETS_BUCKET).remove([path]);
+        // Un échec au troisième fichier garde les deux premiers.
         if (assetIds.length === 0) throw new Error(insertError.message);
         break;
       }
       assetIds.push(row.id);
+    }
+
+    if (assetIds.length === 0) {
+      return { ok: false, error: "Aucun fichier enregistré." };
     }
 
     revalidate(scope);

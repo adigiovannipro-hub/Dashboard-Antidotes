@@ -13,13 +13,6 @@ export const ASSETS_BUCKET = "client-assets";
 /** 50 Mo, la limite du bucket : un lookbook PDF passe, un rush vidéo non. */
 export const MAX_ASSET_BYTES = 50 * 1024 * 1024;
 
-/**
- * Plafond du corps d'un envoi, sous la limite déclarée à Next
- * (`bodySizeLimit`). Vérifié **avant** de partir : un corps refusé par le
- * serveur ne rend pas d'erreur lisible, il jette — et jetterait l'écran.
- */
-export const MAX_UPLOAD_BODY_BYTES = 95 * 1024 * 1024;
-
 export const ACCEPTED_ASSET_TYPES = [
   "application/pdf",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -31,19 +24,32 @@ export const ACCEPTED_ASSET_TYPES = [
   "image/webp",
 ];
 
-/** Ce qui bloquerait cet envoi, en une phrase — ou rien si tout passe. */
+const ACCEPTED_EXTENSIONS = /\.(pdf|docx|txt|md|csv|png|jpe?g|webp)$/i;
+
+/**
+ * Un fichier sans type MIME est jugé sur son extension au lieu d'être refusé :
+ * certains navigateurs et exports n'en posent pas.
+ */
+export function isAcceptedAsset(file: { name: string; type: string }): boolean {
+  if (file.type) return ACCEPTED_ASSET_TYPES.includes(file.type);
+  return ACCEPTED_EXTENSIONS.test(file.name);
+}
+
+/**
+ * Ce qui bloquerait cet envoi, en une phrase — ou rien si tout passe.
+ *
+ * Pas de plafond de lot : les octets partent du navigateur droit au bucket,
+ * fichier par fichier — le proxy de Next et Vercel ne voient jamais rien
+ * passer. Seule compte la limite par fichier.
+ */
 export function assetUploadError(files: File[]): string | null {
   for (const file of files) {
     if (file.size > MAX_ASSET_BYTES) {
       return `${file.name} : trop lourd (50 Mo maximum par fichier).`;
     }
-    if (file.type && !ACCEPTED_ASSET_TYPES.includes(file.type)) {
-      return `${file.name} : format non accepté (${file.type}). PDF, DOCX, texte, CSV ou image.`;
+    if (!isAcceptedAsset(file)) {
+      return `${file.name} : format non accepté (${file.type || "inconnu"}). PDF, DOCX, texte, CSV ou image.`;
     }
-  }
-  const total = files.reduce((sum, file) => sum + file.size, 0);
-  if (total > MAX_UPLOAD_BODY_BYTES) {
-    return "Envoi trop volumineux — garde l'ensemble sous 95 Mo, ou envoie en plusieurs fois.";
   }
   return null;
 }

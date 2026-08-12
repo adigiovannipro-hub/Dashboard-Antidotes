@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 import { savePlatformRules } from "@/app/actions/context";
+import { safeAction } from "@/lib/context/safe-action";
 import { PLATFORM_KEYS, type ContextPlatformRules } from "@/lib/context/types";
 import { cn } from "@/lib/utils";
 
@@ -46,9 +47,8 @@ export function PlatformEditor({
     if (json === savedJson) return;
 
     startSave(async () => {
-      const outcome = await savePlatformRules(
-        { workspace: workspaceSlug },
-        { platforms: cleaned },
+      const outcome = await safeAction(() =>
+        savePlatformRules({ workspace: workspaceSlug }, { platforms: cleaned }),
       );
       if (!outcome.ok) {
         toast.error(outcome.error);

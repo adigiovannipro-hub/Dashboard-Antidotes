@@ -6,6 +6,7 @@ import { Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { savePillars } from "@/app/actions/context";
+import { safeAction } from "@/lib/context/safe-action";
 import { Button } from "@/components/ui/button";
 import type { ContextPillar } from "@/lib/context/types";
 import { cn } from "@/lib/utils";
@@ -77,7 +78,9 @@ export function PillarEditor({
     if (json === savedJson) return;
 
     startSave(async () => {
-      const outcome = await savePillars({ workspace: workspaceSlug }, { pillars: cleaned });
+      const outcome = await safeAction(() =>
+        savePillars({ workspace: workspaceSlug }, { pillars: cleaned }),
+      );
       if (!outcome.ok) {
         toast.error(outcome.error);
         return;

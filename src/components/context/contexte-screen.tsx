@@ -6,6 +6,7 @@ import { FileText, Gauge, History, Layers, Lock, Quote, RefreshCw } from "lucide
 import { toast } from "sonner";
 
 import { proposeRegeneration, restoreVersion } from "@/app/actions/context";
+import { safeAction } from "@/lib/context/safe-action";
 import { StatCard, StatGrid } from "@/components/ds/stat-card";
 import { StatusPill } from "@/components/ds/status-pill";
 import { SectionHeader } from "@/components/ds/surface";
@@ -84,7 +85,9 @@ export function ContexteScreen({
 
   function regenerate() {
     startRegen(async () => {
-      const outcome = await proposeRegeneration({ workspace: workspaceSlug });
+      const outcome = await safeAction(() =>
+        proposeRegeneration({ workspace: workspaceSlug }),
+      );
       if (!outcome.ok) {
         toast.error(outcome.error);
         return;
@@ -99,7 +102,9 @@ export function ContexteScreen({
 
   function restore(version: number) {
     startRestore(async () => {
-      const outcome = await restoreVersion({ workspace: workspaceSlug }, { version });
+      const outcome = await safeAction(() =>
+        restoreVersion({ workspace: workspaceSlug }, { version }),
+      );
       if (!outcome.ok) {
         toast.error(outcome.error);
         return;

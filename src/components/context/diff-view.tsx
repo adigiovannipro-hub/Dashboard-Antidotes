@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 import { applyRegeneration } from "@/app/actions/context";
+import { safeAction } from "@/lib/context/safe-action";
 import { Panel, PanelHeader, PanelRows } from "@/components/ds/surface";
 import { Button } from "@/components/ui/button";
 import type { ContextFieldDiff } from "@/lib/context/diff";
@@ -45,9 +46,11 @@ export function DiffView({
 
   function apply() {
     startApply(async () => {
-      const outcome = await applyRegeneration(
-        { workspace: workspaceSlug },
-        { proposal, acceptedKeys: [...accepted] },
+      const outcome = await safeAction(() =>
+        applyRegeneration(
+          { workspace: workspaceSlug },
+          { proposal, acceptedKeys: [...accepted] },
+        ),
       );
       if (!outcome.ok) {
         toast.error(outcome.error);

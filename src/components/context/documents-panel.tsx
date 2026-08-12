@@ -24,11 +24,11 @@ import {
   deleteAsset,
   toggleAssetInclude,
   updateAssetSummary,
-  uploadAssets,
 } from "@/app/actions/context";
 import { Panel, PanelHeader, PanelRows } from "@/components/ds/surface";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { assetUploadError } from "@/lib/context/storage";
+import { safeAction } from "@/lib/context/safe-action";
+import { uploadAssetsFromBrowser } from "@/lib/context/upload-client";
 import {
   ASSET_TYPE_LABELS,
   ASSET_TYPES,
@@ -85,20 +85,17 @@ export function DocumentsPanel({
     const files = [...(list ?? [])];
     if (files.length === 0) return;
 
-    const problem = assetUploadError(files);
-    if (problem) {
-      toast.error(problem);
-      return;
-    }
-
-    const formData = new FormData();
-    formData.set("type", uploadType);
-    for (const file of files) formData.append("file", file);
-
     startUpload(async () => {
-      const outcome = await uploadAssets({ workspace: workspaceSlug }, formData);
+      // Les octets partent du navigateur droit au bucket : rien ne transite
+      // par le serveur, aucun plafond de corps ne peut faire tomber la page.
+      const outcome = await uploadAssetsFromBrowser(
+        { workspace: workspaceSlug },
+        uploadType,
+        files,
+      );
       if (!outcome.ok) {
         toast.error(outcome.error);
+        router.refresh();
         return;
       }
       toast.success(outcome.message);
@@ -110,9 +107,11 @@ export function DocumentsPanel({
 
   function toggleInclude(asset: ClientAsset) {
     startRowAction(async () => {
-      const outcome = await toggleAssetInclude(
-        { workspace: workspaceSlug },
-        { assetId: asset.id, include: !asset.include_in_context },
+      const outcome = await safeAction(() =>
+        toggleAssetInclude(
+          { workspace: workspaceSlug },
+          { assetId: asset.id, include: !asset.include_in_context },
+        ),
       );
       if (!outcome.ok) toast.error(outcome.error);
       router.refresh();
@@ -121,9 +120,11 @@ export function DocumentsPanel({
 
   function saveSummary(asset: ClientAsset) {
     startRowAction(async () => {
-      const outcome = await updateAssetSummary(
-        { workspace: workspaceSlug },
-        { assetId: asset.id, summary: summaryDraft },
+      const outcome = await safeAction(() =>
+        updateAssetSummary(
+          { workspace: workspaceSlug },
+          { assetId: asset.id, summary: summaryDraft },
+        ),
       );
       if (!outcome.ok) {
         toast.error(outcome.error);
@@ -137,9 +138,8 @@ export function DocumentsPanel({
   function remove(asset: ClientAsset) {
     if (!window.confirm(`Supprimer « ${asset.name} » et son résumé ?`)) return;
     startRowAction(async () => {
-      const outcome = await deleteAsset(
-        { workspace: workspaceSlug },
-        { assetId: asset.id },
+      const outcome = await safeAction(() =>
+        deleteAsset({ workspace: workspaceSlug }, { assetId: asset.id }),
       );
       if (!outcome.ok) {
         toast.error(outcome.error);
