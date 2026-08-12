@@ -13,6 +13,12 @@ import {
 } from "@/components/planning/board-dialogs";
 import { BulkBar } from "@/components/planning/bulk-bar";
 import { useCellAction } from "@/components/planning/cells";
+import {
+  PillIndicator,
+  useOptimisticPill,
+  usePillIndicator,
+} from "@/components/ds/pill-indicator";
+import { LinkPending } from "@/components/ds/route-progress";
 import { LabelsDialog } from "@/components/planning/column-menus";
 import { MonthGroup } from "@/components/planning/month-group";
 import { SubjectDrawer } from "@/components/planning/subject-drawer";
@@ -453,26 +459,42 @@ export function BoardTabs({
   current: PlanningBoard;
   workspaceSlug: string;
 }) {
+  const { active: activeId, select } = useOptimisticPill(current.id);
+  const { listRef, box, measured } = usePillIndicator<HTMLUListElement>(activeId);
+
   // Volontairement plus léger que les onglets de section, juste au-dessus :
   // deux rangées de pastilles identiques donneraient le même poids à deux
-  // niveaux de navigation différents. Ici, un simple soulignement.
+  // niveaux de navigation différents. Ici, un simple soulignement — mais il
+  // **glisse** d'un tableau à l'autre, et il part au clic : c'est le même
+  // geste qu'au-dessus, dans le vocabulaire de ce niveau-ci.
   return (
     <nav aria-label="Tableaux">
-      <ul className="flex items-center gap-4 border-b border-border">
+      <ul
+        ref={listRef}
+        className="relative flex items-center gap-4 border-b border-border"
+      >
+        <PillIndicator box={box} variant="underline" />
+
         {boards.map((board) => {
-          const active = board.id === current.id;
+          const active = activeId === board.id;
           return (
-            <li key={board.id}>
+            <li key={board.id} data-pill={board.id}>
               <Link
                 href={`/espace/${workspaceSlug}/planning/${board.slug}`}
-                aria-current={active ? "page" : undefined}
+                // La route réelle, pas le choix optimiste : rien n'annonce une
+                // page où l'on n'est pas encore.
+                aria-current={board.id === current.id ? "page" : undefined}
+                onClick={() => select(board.id)}
                 className={cn(
-                  "type-label focus-visible:ring-ring -mb-px block border-b-2 px-0.5 pb-2.5 transition-colors duration-(--motion-duration) ease-standard focus-visible:ring-2 focus-visible:outline-none",
+                  "type-label focus-visible:ring-ring relative -mb-px block border-b-2 px-0.5 pb-2.5 transition-colors duration-(--motion-duration) ease-standard focus-visible:ring-2 focus-visible:outline-none",
                   active
-                    ? "border-text-primary text-text-primary"
+                    ? // Sans mesure — premier rendu, JavaScript absent — c'est
+                      // la bordure du lien qui souligne, comme avant.
+                      cn("text-text-primary", measured ? "border-transparent" : "border-text-primary")
                     : "border-transparent text-text-secondary hover:text-text-primary",
                 )}
               >
+                <LinkPending />
                 {/* La navigation dit déjà « Planning Éditorial » : répéter le
                     nom complet ferait doublon, l'année suffit à distinguer les
                     tableaux. */}

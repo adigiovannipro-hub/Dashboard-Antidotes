@@ -88,7 +88,10 @@ export function TaskRowView({
   return (
     <div
       className={cn(
-        "group/row flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-border/60 px-3 py-2 transition-colors md:py-1.5",
+        // L'opacité entre dans la transition : le voile d'attente s'installait
+        // d'un coup, ce qui se lit comme un défaut d'affichage et non comme
+        // « c'est parti ». Les couleurs y étaient déjà.
+        "group/row flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-border/60 px-3 py-2 transition-[background-color,border-color,color,opacity] duration-(--motion-duration) ease-standard motion-reduce:transition-none md:py-1.5",
         "hover:bg-muted/40",
         TASK_GRID,
         // Pas de voile pendant la validation : la ligne doit rester lisible

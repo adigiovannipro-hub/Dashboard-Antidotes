@@ -42,7 +42,11 @@ export function StatusPill({
   return (
     <span
       className={cn(
-        "type-caption inline-flex items-center gap-1.5 rounded-pill px-2.5 py-0.5 font-medium whitespace-nowrap",
+        // Une pastille change de ton quand l'entité change d'état — une
+        // facture qui part, une tâche qui se ferme. Sans transition, le
+        // basculement se lit comme un rafraîchissement de la page plutôt que
+        // comme la conséquence de ce qu'on vient de faire.
+        "type-caption inline-flex items-center gap-1.5 rounded-pill px-2.5 py-0.5 font-medium whitespace-nowrap transition-[background-color,color] duration-(--motion-duration) ease-standard motion-reduce:transition-none",
         TONES[tone],
         className,
       )}

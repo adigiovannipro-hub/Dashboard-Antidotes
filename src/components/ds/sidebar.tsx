@@ -19,6 +19,8 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
+import { useOptimisticPill } from "@/components/ds/pill-indicator";
+import { LinkPending } from "@/components/ds/route-progress";
 import { Wordmark } from "@/components/wordmark";
 import { WorkspaceMenu } from "@/components/workspaces/workspace-menu";
 import type { NavEntry, NavGroup, NavIcon } from "@/lib/navigation";
@@ -76,6 +78,14 @@ export function Sidebar({
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(initialCollapsed);
 
+  // Le rail est le seul chemin qui **change de section** — de la Finance au
+  // planning d'un client, par exemple. C'est aussi le plus lent : la coquille
+  // entière est reconstruite par le serveur, et aucun squelette ne peut
+  // s'intercaler puisque c'est le cadre lui-même qui est en train d'arriver.
+  // L'entrée cliquée prend donc l'état actif tout de suite, et la route
+  // reprend la main dès qu'elle a répondu.
+  const { active: activePath, select } = useOptimisticPill(pathname);
+
   function toggle() {
     setCollapsed((previous) => {
       remember(!previous);
@@ -102,7 +112,9 @@ export function Sidebar({
         className={cn(
           "fixed inset-y-0 left-0 z-50 flex w-[17rem] shrink-0 flex-col overflow-hidden border-r border-border bg-sidebar",
           "md:sticky md:top-0 md:z-30 md:h-dvh md:translate-x-0",
-          "transition-[width,transform] duration-(--motion-duration) ease-standard",
+          // Le repli parcourt 11 rem : à 150 ms il saute plutôt qu'il ne
+          // glisse. C'est un déplacement, il prend la durée des déplacements.
+          "transition-[width,transform] duration-(--motion-duration-slow) ease-exit motion-reduce:transition-none",
           mobileOpen ? "translate-x-0" : "-translate-x-full",
           collapsed ? "md:w-16" : "md:w-60",
         )}
@@ -159,9 +171,12 @@ export function Sidebar({
                   <li key={entry.href} className="group/espace relative">
                     <SidebarLink
                       entry={entry}
-                      active={isActive(entry, pathname)}
+                      active={isActive(entry, activePath)}
                       collapsed={collapsed}
-                      onNavigate={onCloseMobile}
+                      onNavigate={() => {
+                        select(entry.href);
+                        onCloseMobile();
+                      }}
                     />
                     {/* Posé par-dessus la réserve de droite du lien : un
                         bouton *dans* un lien n'est pas du HTML valide, et
@@ -249,12 +264,18 @@ function SidebarLink({
         collapsed && "md:justify-center md:px-0",
       )}
     >
-      {active ? (
-        <span
-          aria-hidden
-          className="absolute inset-y-1.5 left-0 w-[3px] rounded-pill bg-brand"
-        />
-      ) : null}
+      <LinkPending />
+
+      {/* Toujours rendue, jamais montée/démontée : une barre qui apparaît d'un
+          coup ne dit pas que la sélection s'est déplacée, elle clignote. Elle
+          se déplie depuis son centre en même temps que le fond s'installe. */}
+      <span
+        aria-hidden
+        className={cn(
+          "absolute inset-y-1.5 left-0 w-[3px] rounded-pill bg-brand transition-[opacity,transform] duration-(--motion-duration) ease-exit motion-reduce:transition-none",
+          active ? "scale-y-100 opacity-100" : "scale-y-0 opacity-0",
+        )}
+      />
 
       <span className="relative shrink-0">
         {entry.accent ? (
