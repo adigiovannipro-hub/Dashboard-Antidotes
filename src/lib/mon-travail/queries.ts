@@ -1,11 +1,7 @@
 import "server-only";
 
 import { resolveVisuals } from "@/lib/planning/queries";
-import {
-  DONE_STATUSES,
-  EXCLUDED_STATUSES,
-  READY_STATUSES,
-} from "@/lib/planning/types";
+import { DONE_STATUSES, EXCLUDED_STATUSES } from "@/lib/planning/types";
 import type {
   PlanningBoard,
   PlanningLane,
@@ -101,13 +97,11 @@ async function decorate(subjects: PlanningSubject[]): Promise<PublicationRow[]> 
 }
 
 /**
- * Ce qu'il reste à publier, en deux régimes :
+ * Ce qu'il reste à publier **aujourd'hui**, retards compris.
  *
- *   • **retards et jour même, quel que soit l'état** — daté d'aujourd'hui ou
- *     d'avant et jamais parti, c'est à traiter, fût-ce un brouillon ;
- *   • **la suite, seulement prête** — une publication future n'apparaît que
- *     programmée ou validée. Un « en cours » de septembre est du travail de
- *     planning, pas de publication : il reste sur son board.
+ * Rien au-delà du jour : une publication du 17 n'est pas du travail du 12,
+ * même validée — elle vit sur son planning et arrivera ici le matin venu.
+ * La liste se renouvelle donc d'elle-même, jour après jour.
  *
  * Une ligne quitte la liste en partant (`published`) ou écartée (`dropped`) ;
  * l'antérieur à aujourd'hui est marqué en retard et s'affiche en rouge.
@@ -117,7 +111,7 @@ async function decorate(subjects: PlanningSubject[]): Promise<PublicationRow[]> 
  * d'introuvable.
  */
 export async function listPublicationsToDo(options: {
-  /** Date du jour. Tout ce qui est antérieur est un retard. */
+  /** Date du jour, incluse. Tout ce qui est antérieur est un retard. */
   until: string;
   /** Restreint à un espace client — le filtre de la page d'accueil. */
   workspaceId?: string | null;
@@ -128,29 +122,19 @@ export async function listPublicationsToDo(options: {
   let query = supabase
     .from("planning_subjects")
     .select("*")
-    // Sans date, rien à publier : la ligne appartient au planning, pas à la
-    // page du jour.
-    .not("scheduled_on", "is", null)
+    // Le jour même et les jours d'avant, et rien de plus.
+    .lte("scheduled_on", options.until)
     // Un contenu non retenu n'a jamais existé pour le lecteur ; un contenu
     // parti n'a plus rien à faire dans une liste de choses à faire. Le filtre
     // est en base et non en mémoire : trié du plus ancien au plus récent, une
-    // limite de deux cents lignes sur un board d'un an couperait le jour même.
+    // limite de cent lignes sur un board d'un an couperait le jour même.
     .not("status", "in", `(${[...EXCLUDED_STATUSES, ...DONE_STATUSES].join(",")})`);
 
   if (options.workspaceId) query = query.eq("workspace_id", options.workspaceId);
 
-  const { data } = await query.order("scheduled_on").limit(options.limit ?? 200);
+  const { data } = await query.order("scheduled_on").limit(options.limit ?? 100);
 
-  // Le second régime se tranche en mémoire : l'alternative « (échu) ou
-  // (futur et prêt) » ne s'écrit pas proprement dans la requête, et les
-  // volumes — une année de board — tiennent large sous la limite.
-  const due = visibleOnBoard(data).filter(
-    (subject) =>
-      (subject.scheduled_on !== null && subject.scheduled_on <= options.until) ||
-      (READY_STATUSES as string[]).includes(subject.status),
-  );
-
-  const rows = byNetwork(await decorate(due));
+  const rows = byNetwork(await decorate(visibleOnBoard(data)));
   return rows.map((row) => ({
     ...row,
     late:

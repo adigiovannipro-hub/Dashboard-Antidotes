@@ -94,7 +94,7 @@ function objectiveChipOptions(objectives: string[]) {
  * l'affichage : sur un téléphone, la question est « est-ce parti ? ».
  */
 export const PUBLICATION_GRID =
-  "md:grid md:grid-cols-[minmax(112px,0.8fr)_72px_minmax(130px,1.3fr)_36px_118px_96px_122px_48px_minmax(190px,2.4fr)_64px_100px_80px] md:items-center md:gap-x-1";
+  "md:grid md:grid-cols-[minmax(112px,0.8fr)_72px_minmax(160px,1.2fr)_36px_118px_96px_122px_48px_minmax(190px,2.4fr)_64px_100px_80px] md:items-center md:gap-x-1";
 
 /**
  * Largeur minimale sous laquelle les douze colonnes se chevauchent.

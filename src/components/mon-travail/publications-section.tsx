@@ -39,10 +39,10 @@ export function PublicationsSection({
         count={empty ? undefined : rows.length}
         description={
           empty
-            ? "Rien à publier — voici ce qui arrive, par réseau."
+            ? "Rien à publier aujourd'hui — voici ce qui arrive, par réseau."
             : late > 0
-              ? "Tout ce qui n'est pas parti : les retards d'abord, en rouge, puis la suite datée."
-              : "Tout ce qui n'est pas parti, du plus proche au plus lointain."
+              ? "Les retards d'abord, en rouge, puis aujourd'hui, groupé par réseau."
+              : "Aujourd'hui, groupé par réseau."
         }
         action={
           late > 0 ? (
