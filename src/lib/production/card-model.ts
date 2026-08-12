@@ -8,6 +8,7 @@
 import { shortDate } from "@/lib/mon-travail/dates";
 import {
   evaluateCycle,
+  monthLabel,
   monthLabelLower,
   shiftMonth,
   targetMonthFor,
@@ -16,6 +17,7 @@ import {
 } from "./phases";
 import {
   ACTIVE_JOB_STATUSES,
+  PHASE_ORDER,
   type GenerationJob,
   type GenerationJobStatus,
   type ProductionPhase,
@@ -24,6 +26,15 @@ import {
 /** Ce que le planning des deux mois pertinents raconte, lu par `queries.ts`. */
 export type ProductionSnapshot = {
   workspace_id: string;
+  /**
+   * `false` quand les tables du module sont absentes de la base.
+   *
+   * Sans ce drapeau, une table manquante rend une liste vide, donc « aucune
+   * phase faite », donc une barre qui affirme paisiblement que le reporting
+   * est en retard chez tous les clients à la fois. Un état faux est pire
+   * qu'un état absent : la carte doit dire qu'elle ne sait pas.
+   */
+  moduleReady: boolean;
   /** Lignes `client_phases` des deux mois cibles pertinents. */
   phases: PhaseSlice[];
   /** Le mois cible, M+1 : ce que les actions vont traiter. */
@@ -128,6 +139,12 @@ export function buildCardModel(options: {
   const monthKey = today.slice(0, 7);
   const nextLabel = monthLabelLower(shiftMonth(monthKey, 1));
   const previousLabel = monthLabelLower(shiftMonth(monthKey, -1));
+
+  // Module absent de la base : on montre ce qu'on sait vraiment — les mesures
+  // du planning — et on se tait sur le cycle plutôt que d'en inventer un.
+  if (!snapshot.moduleReady) {
+    return buildUnavailableModel({ monthKey, upcoming, moderation });
+  }
 
   const view = evaluateCycle({
     today,
@@ -329,5 +346,50 @@ export function buildCardModel(options: {
     info,
     action,
     activeJob: activeJob ? asCardJob(activeJob) : null,
+  };
+}
+
+/** Le message que porte une carte dont le module n'est pas en base. */
+export const MODULE_MISSING_NOTICE =
+  "Cycle indisponible : les tables du module ne sont pas encore en base. Appliquer les migrations 0032 et 0033.";
+
+/**
+ * La carte quand le module n'est pas installé.
+ *
+ * Les mesures qui viennent du planning restent affichées — elles sont vraies.
+ * Le cycle, lui, est gris et muet, et il n'y a pas de bouton : proposer une
+ * action qui répondrait 500 serait mentir deux fois.
+ */
+function buildUnavailableModel(options: {
+  monthKey: string;
+  upcoming: number;
+  moderation: number | null;
+}): ProductionCardModel {
+  const segments: PhaseSegment[] = PHASE_ORDER.map((phase) => ({
+    phase,
+    targetMonth: `${options.monthKey}-01`,
+    status: "pending",
+    tone: "idle",
+    isCurrent: false,
+    late: false,
+    dueStart: null,
+    dueEnd: null,
+  }));
+
+  return {
+    subtitle: `${monthLabel(options.monthKey)} · Cycle indisponible`,
+    segments,
+    lateBadge: null,
+    currentPhase: null,
+    metrics: [
+      { label: "À publier sous 7 jours", value: String(options.upcoming) },
+      ...(options.moderation === null
+        ? []
+        : [{ label: "Messages en attente", value: String(options.moderation) }]),
+    ],
+    progress: null,
+    info: MODULE_MISSING_NOTICE,
+    action: null,
+    activeJob: null,
   };
 }

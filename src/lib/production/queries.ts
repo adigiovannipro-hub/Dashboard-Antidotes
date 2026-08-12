@@ -18,7 +18,25 @@ import type { GenerationJob } from "./types";
 
 export type { ProductionSnapshot };
 
+/**
+ * Une table absente, par opposition à une table vide.
+ *
+ * C'est l'exception à la règle des `queries.ts` — où l'erreur est ignorée
+ * parce que la RLS est l'autorité et qu'une liste vide est la bonne réponse.
+ * Ici une liste vide n'est *pas* la bonne réponse : elle se lirait « aucune
+ * phase faite » et la carte affirmerait un retard qu'elle ne sait pas.
+ *
+ * `42P01` est le code Postgres ; `PGRST205` celui de PostgREST quand la table
+ * manque à son cache de schéma.
+ */
+function isMissingTable(error: { code?: string; message?: string } | null): boolean {
+  if (!error) return false;
+  if (error.code === "42P01" || error.code === "PGRST205") return true;
+  return /does not exist|schema cache/i.test(error.message ?? "");
+}
+
 const EMPTY_SNAPSHOT: Omit<ProductionSnapshot, "workspace_id"> = {
+  moduleReady: true,
   phases: [],
   target: { total: 0, withWording: 0, validated: 0, scheduled: 0, firstPublication: null },
   previous: { published: 0, total: 0 },
@@ -51,6 +69,7 @@ export async function getProductionSnapshots(options: {
     if (existing) return existing;
     const created: ProductionSnapshot = {
       workspace_id: workspaceId,
+      moduleReady: true,
       phases: [],
       target: { ...EMPTY_SNAPSHOT.target },
       previous: { ...EMPTY_SNAPSHOT.previous },
@@ -96,14 +115,20 @@ export async function getProductionSnapshots(options: {
       .in("workspace_id", options.workspaceIds)
       .in("target_month", [nextMonth, previousMonth])
       .limit(200)
-      .then(({ data }) => (data ?? []) as unknown as (PhaseSlice & { workspace_id: string })[]),
+      .then(({ data, error }) => ({
+        rows: (data ?? []) as unknown as (PhaseSlice & { workspace_id: string })[],
+        missing: isMissingTable(error),
+      })),
     supabase
       .from("generation_jobs")
       .select("*")
       .in("workspace_id", options.workspaceIds)
       .order("created_at", { ascending: false })
       .limit(60)
-      .then(({ data }) => (data ?? []) as unknown as GenerationJob[]),
+      .then(({ data, error }) => ({
+        rows: (data ?? []) as unknown as GenerationJob[],
+        missing: isMissingTable(error),
+      })),
     monthIds.length > 0
       ? supabase
           .from("planning_subjects")
@@ -129,11 +154,17 @@ export async function getProductionSnapshots(options: {
       : Promise.resolve(new Set<string>()),
   ]);
 
-  for (const row of phases) {
+  // Une seule des deux tables suffit à déclarer le module absent : elles
+  // arrivent par la même migration, et un demi-module ne se montre pas.
+  if (phases.missing || jobs.missing) {
+    for (const snapshot of result.values()) snapshot.moduleReady = false;
+  }
+
+  for (const row of phases.rows) {
     ensure(row.workspace_id).phases.push(row);
   }
 
-  for (const job of jobs) {
+  for (const job of jobs.rows) {
     ensure(job.workspace_id).jobs.push(job);
   }
 

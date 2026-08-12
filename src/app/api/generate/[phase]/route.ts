@@ -32,6 +32,25 @@ const BodySchema = z.object({
 /** Un job silencieux depuis dix minutes est considéré mort, pas actif. */
 const STALE_AFTER_MS = 10 * 60 * 1000;
 
+/**
+ * Nommer la cause plutôt que de renvoyer « impossible ».
+ *
+ * Le cas de très loin le plus fréquent au démarrage du module est la table
+ * absente : les migrations s'appliquent à la main, et rien ne les applique au
+ * déploiement. Le dire économise une demi-heure de recherche.
+ */
+function describeReadFailure(
+  error: { code?: string; message?: string } | null,
+): string {
+  const missing =
+    error?.code === "42P01" ||
+    error?.code === "PGRST205" ||
+    /does not exist|schema cache/i.test(error?.message ?? "");
+  return missing
+    ? "Les tables du module ne sont pas en base : appliquer les migrations 0032 et 0033."
+    : "Lecture des jobs impossible.";
+}
+
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ phase: string }> },
@@ -72,7 +91,7 @@ export async function POST(
     .limit(5);
   if (activeError) {
     return NextResponse.json(
-      { ok: false, error: "Lecture des jobs impossible." },
+      { ok: false, error: describeReadFailure(activeError) },
       { status: 500 },
     );
   }
@@ -108,7 +127,7 @@ export async function POST(
     .single();
   if (createError || !created) {
     return NextResponse.json(
-      { ok: false, error: "Création du job impossible." },
+      { ok: false, error: describeReadFailure(createError) },
       { status: 500 },
     );
   }

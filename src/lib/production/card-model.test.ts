@@ -34,6 +34,7 @@ const job = (overrides: Partial<GenerationJob> = {}): GenerationJob => ({
 
 const snapshot = (overrides: Partial<ProductionSnapshot> = {}): ProductionSnapshot => ({
   workspace_id: "ws",
+  moduleReady: true,
   phases: [],
   target: { total: 0, withWording: 0, validated: 0, scheduled: 0, firstPublication: null },
   previous: { published: 0, total: 0 },
@@ -167,6 +168,23 @@ describe("buildCardModel", () => {
     expect(model.activeJob).toBeNull();
     expect(model.action?.kind).toBe("resume");
     expect(model.action?.label).toBe("Reprendre · 4/12 échoués");
+  });
+
+  it("se tait sur le cycle quand les tables du module ne sont pas en base", () => {
+    const model = build({ moduleReady: false }, { today: "2026-08-12", upcoming: 3 });
+    // Ni phase courante, ni bouton : une action qui répondrait 500 ne
+    // s'affiche pas, et aucun retard n'est affirmé.
+    expect(model.currentPhase).toBeNull();
+    expect(model.action).toBeNull();
+    expect(model.lateBadge).toBeNull();
+    expect(model.subtitle).toBe("Août · Cycle indisponible");
+    expect(model.segments.every((segment) => segment.tone === "idle")).toBe(true);
+    expect(model.info).toContain("0032");
+    // Les mesures venues du planning restent : elles, sont vraies.
+    expect(model.metrics).toContainEqual({
+      label: "À publier sous 7 jours",
+      value: "3",
+    });
   });
 
   it("masque la ligne modération quand l'espace n'en a pas", () => {
