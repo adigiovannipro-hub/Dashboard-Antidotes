@@ -9,17 +9,26 @@ import { saveDeliverables } from "@/app/actions/context";
 import { normalizeDeliverables, totalPublications } from "@/lib/context/deliverables";
 import { safeAction } from "@/lib/context/safe-action";
 import { Button } from "@/components/ui/button";
-import { DELIVERABLE_CATEGORIES, type ContextDeliverables } from "@/lib/context/types";
+import {
+  DELIVERABLE_CATEGORIES,
+  NETWORK_SUGGESTIONS,
+  networkKey,
+  type ContextDeliverables,
+} from "@/lib/context/types";
 import { formatValue } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 /**
- * Les livrables mensuels, sur une ligne : combien de publications, de quelle
- * nature, et quand les intentions partent.
+ * Les livrables mensuels : sur quels réseaux, combien de publications, de
+ * quelle nature, et quand les intentions partent.
  *
  * C'est du contractuel, pas de la marque : la régénération depuis les
  * documents n'y touche jamais. Un modèle qui déduirait « 12 posts par mois »
  * d'une stratégie écrirait un engagement à la place du client.
+ *
+ * Les réseaux se déclarent ici et nulle part ailleurs : ce sont eux qui
+ * commandent les rangées des règles par plateforme, qui proposaient jusqu'ici
+ * les quatre mêmes réseaux à tout le monde.
  */
 
 /** La quantité reste un texte tant qu'on tape : vider le champ doit être possible. */
@@ -41,6 +50,8 @@ export function DeliverablesEditor({
 }) {
   const router = useRouter();
   const [intentions, setIntentions] = useState(deliverables.intentions);
+  const [reseaux, setReseaux] = useState<string[]>(deliverables.reseaux);
+  const [nouveauReseau, setNouveauReseau] = useState("");
   const [lines, setLines] = useState<LineDraft[]>(
     deliverables.publications.map((line) => ({
       categorie: line.categorie,
@@ -50,13 +61,18 @@ export function DeliverablesEditor({
   const [savedJson, setSavedJson] = useState(() => JSON.stringify(deliverables));
   const [, startSave] = useTransition();
 
-  function persist(nextLines: LineDraft[], nextIntentions: string) {
+  function persist(
+    nextLines: LineDraft[],
+    nextIntentions: string,
+    nextReseaux: string[] = reseaux,
+  ) {
     const value = normalizeDeliverables({
       intentions: nextIntentions,
       publications: nextLines.map((line) => ({
         categorie: line.categorie,
         quantite: Number(line.quantiteText.replace(",", ".")),
       })),
+      reseaux: nextReseaux,
     });
 
     const json = JSON.stringify(value);
@@ -87,6 +103,36 @@ export function DeliverablesEditor({
     persist(next, intentions);
   }
 
+  /** Bascule un réseau. Un réseau saisi à la main disparaît en se décochant. */
+  function toggleReseau(name: string) {
+    const key = networkKey(name);
+    const next = reseaux.some((entry) => networkKey(entry) === key)
+      ? reseaux.filter((entry) => networkKey(entry) !== key)
+      : [...reseaux, name];
+    setReseaux(next);
+    persist(lines, intentions, next);
+  }
+
+  function addReseau() {
+    const name = nouveauReseau.trim();
+    setNouveauReseau("");
+    if (name.length === 0) return;
+    if (reseaux.some((entry) => networkKey(entry) === networkKey(name))) return;
+
+    const next = [...reseaux, name];
+    setReseaux(next);
+    persist(lines, intentions, next);
+  }
+
+  // Les suggestions, plus ce que le client porte déjà en propre.
+  const chips = [
+    ...NETWORK_SUGGESTIONS,
+    ...reseaux.filter(
+      (name) =>
+        !NETWORK_SUGGESTIONS.some((entry) => networkKey(entry) === networkKey(name)),
+    ),
+  ];
+
   const total = totalPublications(
     normalizeDeliverables({
       intentions,
@@ -94,6 +140,7 @@ export function DeliverablesEditor({
         categorie: line.categorie,
         quantite: Number(line.quantiteText),
       })),
+      reseaux,
     }),
   );
 
@@ -105,8 +152,8 @@ export function DeliverablesEditor({
         <div className="min-w-0">
           <h3 className="type-h3">Livrables mensuels</h3>
           <p className="type-caption mt-0.5 text-text-secondary">
-            Ce qui est dû chaque mois, et la date de livraison des intentions. Le volume
-            part dans les prompts au même titre que le fond.
+            Les réseaux du client, ce qui est dû chaque mois, et la date de livraison des
+            intentions. Tout part dans les prompts au même titre que le fond.
           </p>
         </div>
         {!readOnly ? (
@@ -129,6 +176,52 @@ export function DeliverablesEditor({
           <option key={categorie} value={categorie} />
         ))}
       </datalist>
+
+      <div className="flex flex-wrap items-center gap-2 border-b border-border px-5 py-4">
+        <span className="type-overline mr-1 shrink-0 text-text-secondary">Réseaux</span>
+
+        {readOnly && reseaux.length === 0 ? (
+          <span className="type-caption text-text-secondary">—</span>
+        ) : null}
+
+        {(readOnly ? reseaux : chips).map((name) => {
+          const actif = reseaux.some((entry) => networkKey(entry) === networkKey(name));
+          return (
+            <button
+              key={name}
+              type="button"
+              disabled={readOnly}
+              aria-pressed={actif}
+              onClick={() => toggleReseau(name)}
+              className={cn(
+                "focus-visible:ring-ring rounded-pill border px-3 py-1 type-caption transition-colors duration-(--motion-duration) ease-standard focus-visible:ring-2 focus-visible:outline-none",
+                actif
+                  ? "border-accent-ink bg-accent-subtle font-medium text-accent-ink"
+                  : "border-border-line bg-surface text-text-secondary hover:border-border-strong hover:text-text-primary",
+              )}
+            >
+              {name}
+            </button>
+          );
+        })}
+
+        {!readOnly ? (
+          <input
+            value={nouveauReseau}
+            placeholder="Autre réseau"
+            aria-label="Ajouter un réseau"
+            onChange={(event) => setNouveauReseau(event.target.value)}
+            onBlur={addReseau}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.preventDefault();
+                addReseau();
+              }
+            }}
+            className="focus-visible:ring-ring w-28 rounded-pill border border-dashed border-border-line bg-surface px-3 py-1 type-caption text-text-primary focus-visible:ring-2 focus-visible:outline-none"
+          />
+        ) : null}
+      </div>
 
       <div className="flex flex-wrap items-center gap-3 p-5">
         {lines.length === 0 ? (

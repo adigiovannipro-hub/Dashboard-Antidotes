@@ -13,19 +13,26 @@ const deliverables = (
 ): ContextDeliverables => ({
   intentions: "",
   publications: [],
+  reseaux: [],
   ...overrides,
 });
 
 describe("normalizeDeliverables", () => {
   it("rend la forme vide pour une valeur absente ou mal formée", () => {
-    expect(normalizeDeliverables(null)).toEqual({ intentions: "", publications: [] });
+    expect(normalizeDeliverables(null)).toEqual({
+      intentions: "",
+      publications: [],
+      reseaux: [],
+    });
     expect(normalizeDeliverables("livrables")).toEqual({
       intentions: "",
       publications: [],
+      reseaux: [],
     });
     expect(normalizeDeliverables([{ categorie: "Reels" }])).toEqual({
       intentions: "",
       publications: [],
+      reseaux: [],
     });
   });
 
@@ -40,6 +47,14 @@ describe("normalizeDeliverables", () => {
 
     expect(result.intentions).toBe("le 20 du mois précédent");
     expect(result.publications).toEqual([{ categorie: "Reels", quantite: 2 }]);
+  });
+
+  it("dédoublonne les réseaux sans tenir compte de la casse ni des accents", () => {
+    const result = normalizeDeliverables({
+      reseaux: ["Instagram", " instagram ", "LinkedIn", "", 42, "Le Bon Coin"],
+    });
+
+    expect(result.reseaux).toEqual(["Instagram", "LinkedIn", "Le Bon Coin"]);
   });
 
   it("ramène une quantité illisible à zéro plutôt que de casser la page", () => {
@@ -117,6 +132,17 @@ describe("renderDeliverables", () => {
     );
 
     expect(rendered).toContain("Total : 1 publication par mois.");
+  });
+
+  it("annonce les réseaux avant le volume", () => {
+    const rendered = renderDeliverables(
+      deliverables({
+        reseaux: ["Instagram", "LinkedIn"],
+        publications: [{ categorie: "Reels", quantite: 2 }],
+      }),
+    );
+
+    expect(rendered.startsWith("Réseaux du client : Instagram, LinkedIn.")).toBe(true);
   });
 
   it("ne rend rien quand aucun livrable n'est renseigné", () => {

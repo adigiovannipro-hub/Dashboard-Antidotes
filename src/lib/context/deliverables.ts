@@ -7,11 +7,12 @@
  * l'éditeur Supabase ne doit pas faire tomber la page — elle est ramenée à la
  * forme attendue plutôt que crue sur parole.
  */
-import type { ContextDeliverableLine, ContextDeliverables } from "./types";
+import { networkKey, type ContextDeliverableLine, type ContextDeliverables } from "./types";
 
 export const EMPTY_DELIVERABLES: ContextDeliverables = {
   intentions: "",
   publications: [],
+  reseaux: [],
 };
 
 /** Ramène une valeur de base à la forme attendue, quoi qu'elle contienne. */
@@ -22,13 +23,38 @@ export function normalizeDeliverables(value: unknown): ContextDeliverables {
 
   const source = value as Partial<ContextDeliverables>;
   const publications = Array.isArray(source.publications) ? source.publications : [];
+  const reseaux = Array.isArray(source.reseaux) ? source.reseaux : [];
 
   return {
     intentions: typeof source.intentions === "string" ? source.intentions.trim() : "",
     publications: publications
       .map(normalizeLine)
       .filter((line): line is ContextDeliverableLine => line !== null),
+    reseaux: normalizeNetworks(reseaux),
   };
+}
+
+/**
+ * Réseaux nettoyés, dédoublonnés sans tenir compte de la casse, dans l'ordre
+ * de saisie : « instagram » et « Instagram » désignent le même réseau, et
+ * c'est la première orthographe retenue qui s'affiche.
+ */
+function normalizeNetworks(values: unknown[]): string[] {
+  const seen = new Set<string>();
+  const result: string[] = [];
+
+  for (const value of values) {
+    if (typeof value !== "string") continue;
+    const name = value.trim();
+    if (name.length === 0) continue;
+
+    const key = networkKey(name);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    result.push(name);
+  }
+
+  return result;
 }
 
 function normalizeLine(value: unknown): ContextDeliverableLine | null {
@@ -71,6 +97,11 @@ export function renderDeliverables(deliverables: ContextDeliverables): string {
     .map((line) => `- ${line.categorie} : ${line.quantite} par mois`);
 
   const parts: string[] = [];
+  if (deliverables.reseaux.length > 0) {
+    // En tête : la génération doit savoir sur quoi elle écrit avant de savoir
+    // combien. Un réseau absent de cette liste ne se travaille pas.
+    parts.push(`Réseaux du client : ${deliverables.reseaux.join(", ")}.`);
+  }
   if (lines.length > 0) {
     const total = totalPublications(deliverables);
     parts.push(

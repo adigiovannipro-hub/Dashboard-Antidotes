@@ -16,7 +16,7 @@ const makeContext = (overrides: Partial<ClientContext> = {}): ClientContext => (
   mentions: null,
   restrictions: "Pas d'emoji.",
   platforms: {},
-  deliverables: { intentions: "", publications: [] },
+  deliverables: { intentions: "", publications: [], reseaux: [] },
   created_at: "2026-08-01T00:00:00Z",
   created_by: null,
   ...overrides,

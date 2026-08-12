@@ -216,6 +216,7 @@ const deliverablesSchema = z.object({
   publications: z
     .array(z.object({ categorie: z.string().max(60), quantite: z.number().int().min(0).max(999) }))
     .max(20),
+  reseaux: z.array(z.string().max(60)).max(20),
 });
 
 /**
