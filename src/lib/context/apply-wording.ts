@@ -46,6 +46,7 @@ export async function validateWording(input: {
     .eq("id", input.subjectId)
     .maybeSingle();
 
+
   if (error) return { ok: false, error: error.message };
   if (!subject) return { ok: false, error: "Publication introuvable." };
 
@@ -58,13 +59,25 @@ export async function validateWording(input: {
   const accroche = subject.wording ? extractAccroche(subject.wording) : "";
   if (accroche.length === 0) return { ok: true, accroche: null };
 
+  // `org_id` est obligatoire sur la table : il se lit depuis l'espace plutôt
+  // que d'être passé par l'appelant, qui ne connaît que la publication.
+  const { data: workspace } = await supabase
+    .from("workspaces")
+    .select("org_id")
+    .eq("id", subject.workspace_id)
+    .maybeSingle();
+
   // Perdre une ligne d'historique ne doit pas faire échouer la validation :
-  // même tolérance d'échec que le journal du planning.
-  await supabase.from("wording_history").insert({
-    workspace_id: subject.workspace_id,
-    subject_id: subject.id,
-    accroche,
-  });
+  // même tolérance d'échec que le journal du planning. La colonne s'appelle
+  // `hook` — voir `WordingHistoryEntry`.
+  if (workspace) {
+    await supabase.from("wording_history").insert({
+      org_id: workspace.org_id,
+      workspace_id: subject.workspace_id,
+      subject_id: subject.id,
+      hook: accroche,
+    });
+  }
 
   return { ok: true, accroche };
 }

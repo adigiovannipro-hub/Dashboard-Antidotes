@@ -92,10 +92,14 @@ suite("isolation du Contexte client (RLS)", () => {
       .select("id")
       .single();
 
-    await admin.from("wording_history").insert({
+    // Colonne `hook`, et `org_id` obligatoire : la table vient de la branche
+    // des cartes client, appliquée la première à la base. Voir 0037.
+    const { error: hookError } = await admin.from("wording_history").insert({
+      org_id: ids.org,
       workspace_id: workspace.id,
-      accroche: `Accroche déjà publiée chez ${name}`,
+      hook: `Accroche déjà publiée chez ${name}`,
     });
+    if (hookError) throw new Error(`Migration 0037 non appliquée ? ${hookError.message}`);
 
     return { workspaceId: workspace.id, contextId: context.id, assetId: asset!.id };
   }
@@ -206,7 +210,11 @@ suite("isolation du Contexte client (RLS)", () => {
 
       const { error: accrocheError } = await clients.clientA
         .from("wording_history")
-        .insert({ workspace_id: ids.workspaceA, accroche: "Accroche intruse" });
+        .insert({
+          org_id: ids.org,
+          workspace_id: ids.workspaceA,
+          hook: "Accroche intruse",
+        });
       expect(accrocheError).not.toBeNull();
     });
   });
@@ -240,8 +248,9 @@ suite("isolation du Contexte client (RLS)", () => {
 
     it("historise une accroche validée", async () => {
       const { error } = await clients.owner.from("wording_history").insert({
+        org_id: ids.org,
         workspace_id: ids.workspaceA,
-        accroche: "Nouvelle accroche validée par l'owner",
+        hook: "Nouvelle accroche validée par l'owner",
       });
       expect(error).toBeNull();
     });

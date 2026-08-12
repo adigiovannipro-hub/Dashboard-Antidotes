@@ -110,6 +110,7 @@ Conséquences non négociables :
 | `pnpm seed:moderation` | Données de démonstration de la Modération (`--reset`) |
 | `pnpm seed:finance` | Données d'amorçage du module Finance |
 | `pnpm seed:mon-travail` | Démo de « Mon travail » : espaces clients fictifs, publications du jour, tâches, cycles (`--reset`) |
+| `pnpm diagnostic:schema` | Ce que la base contient vraiment : colonnes, privilèges d'API, colonnes invisibles pour PostgREST. Lecture seule, étape optionnelle de db-admin |
 | ~~`pnpm sync`~~ | **Cassée** — pointe sur `scripts/sync.ts`, qui n'existe pas encore |
 
 Un chantier est vérifié quand `pnpm typecheck`, `pnpm lint`, `pnpm build` et `pnpm test` passent tous les quatre. La CI les rejoue à chaque push, mais lance-les avant de pousser plutôt que de t'en servir comme d'un correcteur. Le typecheck seul ne prouve rien sur le comportement : les deux défauts du commit 588a864 passaient le typecheck et les tests.
@@ -318,6 +319,8 @@ Le dépôt embarque des skills dans `.claude/skills/`, certains en lien symboliq
 **Un cron non conforme fait rejeter le déploiement entier.** Vercel valide `vercel.json` à la lecture. Une cadence interdite par le plan ne dégrade pas le comportement : elle annule le déploiement — et le symptôme trompe, puisque rien n'apparaît dans la liste des déploiements au lieu d'une ligne rouge. Deux commits sont ainsi restés en ligne sans jamais être déployés.
 
 **Le proxy d'authentification intercepte les routes cron.** Une route cron parfaitement écrite est renvoyée vers `/login` avant de s'exécuter si son chemin n'est pas dans `PUBLIC_PATHS`. En production, la synchronisation ne démarre jamais, sans que rien ne le signale.
+
+**`create table if not exists` transforme un conflit de schéma en panne silencieuse.** Deux branches parallèles ont décrit `wording_history` : celle des cartes client, appliquée la première à la vraie base, avec `hook`, `org_id`, `full_wording`, `platform`, `published_at` ; celle du Contexte, avec `accroche`. Le `if not exists` — mis là exprès pour la sécurité de fusion — a fait passer la seconde sans rien dire, et le code d'ici a écrit `accroche` dans une table qui attend `hook`. **Trois runs d'isolation ont échoué avant que la cause soit vue**, parce que le message accusait le cache. La table vivante fait foi, 0037 réconcilie une base née des seules migrations d'ici. Avant d'écrire un `if not exists` sur une table qu'une autre branche déclare aussi, vérifier la forme réellement en base : `pnpm diagnostic:schema <table>`.
 
 **PostgREST sert l'API REST depuis un cache de schéma, et ce cache survit à la migration.** Une colonne fraîchement créée n'existe pas pour lui tant qu'il n'a pas rechargé : il rend `PGRST204 … in the schema cache` sur une base pourtant à jour, et le message accuse une colonne qui existe. C'est ce qui a fait échouer une suite d'isolation lancée juste après des migrations, sur une colonne posée la veille — un faux négatif parfaitement crédible. `scripts/migrate.ts` envoie donc `notify pgrst, 'reload schema'` dès qu'au moins une migration est appliquée. Sur un Postgres nu sans PostgREST, personne n'écoute et l'ordre ne coûte rien.
 

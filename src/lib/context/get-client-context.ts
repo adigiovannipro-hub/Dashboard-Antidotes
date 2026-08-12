@@ -41,7 +41,7 @@ export async function getClientContext(clientId: string): Promise<ClientGenerati
     brief,
     assetSummaries: renderAssetSummaries(assets),
     platformRules: extractPlatformRules(brief),
-    recentAccroches: accroches.map((entry) => entry.accroche),
+    recentAccroches: accroches.map((entry) => entry.hook),
   };
 }
 
