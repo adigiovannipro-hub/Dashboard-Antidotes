@@ -1,12 +1,26 @@
 import "server-only";
 
+import {
+  extractPlatformRules,
+  renderAssetSummaries,
+  renderBrief,
+} from "./injected-context";
+import { getActiveContext, listAssets } from "./queries";
+
 /**
  * Contexte éditorial d'un client — la matière première des prompts.
  *
- * TODO(prompt 2) : brancher les vraies sources (`client_context`,
- * `client_assets`) quand le module Contexte existera. En attendant, la couche
- * renvoie des champs vides sans planter : les prompts affichent alors
- * « Non renseigné. » et le modèle sait qu'il travaille sans brief.
+ * Le contrat est celui qu'attend `src/lib/production/generate.ts` : six
+ * champs texte, vides plutôt qu'inventés. Il était rempli par un bouchon en
+ * attendant que le module Contexte existe ; il l'est maintenant pour de vrai,
+ * depuis le brief actif et les documents cochés de l'espace.
+ *
+ * Trois champs restent vides parce que **rien ne les alimente aujourd'hui** :
+ * le Contexte décrit la marque, pas le mois. Les prompts affichent alors
+ * « Non renseigné. » et le modèle sait qu'il travaille sans cette matière —
+ * c'est la règle de la maison, une source absente se dit, elle ne s'invente
+ * pas. Les accroches déjà publiées ne passent pas non plus par ici : la
+ * génération lit `wording_history` elle-même, au moment où elle en a besoin.
  */
 
 export type ClientContext = {
@@ -27,13 +41,23 @@ export type ClientContext = {
 export async function getClientContext(options: {
   workspaceId: string;
 }): Promise<ClientContext> {
-  // Le paramètre fait partie du contrat dès aujourd'hui : le prompt 2 s'en
-  // servira pour aller chercher le brief du bon espace.
-  void options.workspaceId;
+  const [brief, assets] = await Promise.all([
+    getActiveContext(options.workspaceId),
+    listAssets(options.workspaceId),
+  ]);
+
+  const platformRules = Object.entries(extractPlatformRules(brief))
+    .map(([platform, rule]) => `- ${platform} : ${rule}`)
+    .join("\n");
+
   return {
-    client_context: "",
-    client_assets_summaries: "",
-    platform_rules: "",
+    // Le brief entier : contexte principal, positionnement, cibles, ton,
+    // piliers, livrables mensuels, mentions et interdits.
+    client_context: renderBrief(brief),
+    // Seuls les documents cochés : la case de la page Contexte est ce qui
+    // décide de ce qui part dans les prompts.
+    client_assets_summaries: renderAssetSummaries(assets),
+    platform_rules: platformRules,
     contraintes: "",
     marronniers: "",
     objectifs: "",

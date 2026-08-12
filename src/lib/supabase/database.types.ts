@@ -453,6 +453,10 @@ export type PlanningSubjectRow = {
   /** Archives et corbeille (migration 0031) — `null` : visible au tableau. */
   archived_at: string | null;
   deleted_at: string | null;
+  /** Résultats de génération (migration 0032). */
+  visual_text: string | null;
+  slides: unknown[] | null;
+  wording_status: string;
   created_at: string;
   updated_at: string;
   updated_by: string | null;
@@ -580,8 +584,26 @@ export type {
 
 import type { WorkCycle, WorkCycleStep, WorkTask } from "@/lib/mon-travail/types";
 
+/* --- Module Contexte client ------------------------------------------------
+   Même principe : le détail vit dans `src/lib/context/types.ts`. */
+export type {
+  ClientContext as ClientContextRow,
+  ClientAsset as ClientAssetRow,
+} from "@/lib/context/types";
+
+import type { ClientAsset, ClientContext } from "@/lib/context/types";
+
+/* --- Droits par page, à l'intérieur d'un espace --------------------------- */
+export type { WorkspacePageGrant as WorkspacePageGrantRow } from "@/lib/workspaces/types";
+
+import type { WorkspacePageGrant } from "@/lib/workspaces/types";
+
 /* --- Module Production -----------------------------------------------------
-   Même principe : le détail vit dans `src/lib/production/types.ts`. */
+   Même principe : le détail vit dans `src/lib/production/types.ts`.
+
+   `wording_history` est déclarée **ici et pas dans le Contexte** : c'est la
+   Production qui a posé la table, et sa forme fait foi. Le Contexte s'y
+   branche pour historiser une accroche validée. */
 export type {
   ClientPhase as ClientPhaseRow,
   GenerationJob as GenerationJobRow,
@@ -661,6 +683,9 @@ export type Database = {
       work_cycles: Table<WorkCycle>;
       work_cycle_steps: Table<WorkCycleStep>;
       work_tasks: Table<WorkTask>;
+      client_context: Table<ClientContext>;
+      client_assets: Table<ClientAsset>;
+      workspace_page_grants: Table<WorkspacePageGrant>;
       client_phases: Table<ClientPhase>;
       generation_jobs: Table<GenerationJob>;
       wording_history: Table<WordingHistoryEntry>;

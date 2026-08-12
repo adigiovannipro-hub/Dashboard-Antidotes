@@ -101,6 +101,7 @@ async function main() {
       "select name, checksum from app.schema_migrations",
     );
     const applied = new Map(rows.map((row) => [row.name, row.checksum]));
+    let migrated = 0;
 
     for (const name of files) {
       const sql = await readFile(path.join(MIGRATIONS_DIR, name), "utf8");
@@ -129,12 +130,32 @@ async function main() {
           [name, checksum],
         );
         await client.query("commit");
+        migrated += 1;
         console.log("ok");
       } catch (error) {
         await client.query("rollback");
         console.log("échec");
         throw error;
       }
+    }
+
+    /* PostgREST sert l'API REST depuis un cache de schéma. Tant qu'il n'est
+       pas rechargé, une colonne pourtant présente en base n'existe pas pour
+       lui : il rend `PGRST204 … in the schema cache`, et le message accuse
+       une colonne qui est bien là. C'est ce qui a fait échouer une suite
+       d'isolation deux fois de suite sur une colonne créée la veille.
+
+       Envoyé **à chaque passage**, y compris quand rien n'a été appliqué :
+       c'est ce qui en fait un levier de réparation, `pnpm db:migrate`
+       devenant le moyen de forcer le rechargement. Sur un Postgres nu sans
+       PostgREST, personne n'écoute et l'ordre ne coûte rien. */
+    if (!statusOnly) {
+      await client.query("notify pgrst, 'reload schema'");
+      console.log(
+        migrated > 0
+          ? `↻ ${migrated} migration(s) appliquée(s), cache de schéma PostgREST invalidé`
+          : "↻ cache de schéma PostgREST invalidé",
+      );
     }
   } finally {
     await client.end();

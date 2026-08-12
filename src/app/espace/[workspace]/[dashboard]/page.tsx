@@ -18,6 +18,7 @@ import {
   BONDET_TOTAL,
 } from "@/lib/demo/bondet";
 import { createClient } from "@/lib/supabase/server";
+import { requirePageAccess } from "@/lib/workspaces/access";
 
 type Params = Promise<{ workspace: string; dashboard: string }>;
 
@@ -52,6 +53,7 @@ export default async function DashboardPage({ params }: { params: Params }) {
   if (!loaded) notFound();
 
   const { workspace, dashboard } = loaded;
+  await requirePageAccess(workspace, dashboard.slug);
 
   // Aucune source n'est encore connectée : le dashboard tourne sur les données
   // de démonstration, calées sur le rapport Looker réel de juin 2026. Le

@@ -20,6 +20,7 @@ import {
 import type { LucideIcon } from "lucide-react";
 
 import { Wordmark } from "@/components/wordmark";
+import { WorkspaceMenu } from "@/components/workspaces/workspace-menu";
 import type { NavEntry, NavGroup, NavIcon } from "@/lib/navigation";
 import { PREFERENCE_MAX_AGE, RAIL_COOKIE } from "@/lib/ui-preferences";
 import { cn } from "@/lib/utils";
@@ -155,13 +156,25 @@ export function Sidebar({
               </p>
               <ul className="space-y-0.5">
                 {group.entries.map((entry) => (
-                  <li key={entry.href}>
+                  <li key={entry.href} className="group/espace relative">
                     <SidebarLink
                       entry={entry}
                       active={isActive(entry, pathname)}
                       collapsed={collapsed}
                       onNavigate={onCloseMobile}
                     />
+                    {/* Posé par-dessus la réserve de droite du lien : un
+                        bouton *dans* un lien n'est pas du HTML valide, et
+                        deux éléments côte à côte rogneraient le libellé. */}
+                    {entry.manage ? (
+                      <span className="absolute inset-y-0 right-1 flex items-center">
+                        <WorkspaceMenu
+                          slug={entry.manage.slug}
+                          name={entry.manage.name}
+                          collapsed={collapsed}
+                        />
+                      </span>
+                    ) : null}
                   </li>
                 ))}
               </ul>
@@ -228,6 +241,8 @@ function SidebarLink({
         // La barre active occupe le retrait gauche : sans lui, elle décalerait
         // l'icône de trois pixels en devenant visible.
         "pl-2.5",
+        // Réserve la place des trois points, sinon le libellé passe dessous.
+        entry.manage && !collapsed && "pr-9",
         active
           ? "bg-accent-subtle font-medium text-accent-ink"
           : "text-text-secondary hover:bg-muted hover:text-text-primary",
