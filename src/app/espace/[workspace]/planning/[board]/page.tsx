@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { cookies } from "next/headers";
 import { notFound } from "next/navigation";
 
 import { FaqBoardView } from "@/components/planning/faq-board";
@@ -12,6 +13,7 @@ import {
   listBoards,
   listFaqEntries,
 } from "@/lib/planning/queries";
+import { parsePlanningView, planningViewCookie } from "@/lib/ui-preferences";
 import { requirePageAccess } from "@/lib/workspaces/access";
 import { PLANNING_PAGE_KEY } from "@/lib/workspaces/types";
 
@@ -86,6 +88,14 @@ export default async function PlanningBoardPage({
   const now = new Date();
   const currentMonthKey = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}-01`;
 
+  // L'état de lecture du tableau — tri, mois ouverts, réseaux repliés — est
+  // relu ici : c'est le serveur qui rend la première image, elle doit déjà
+  // être la bonne, sans clignotement au montage.
+  const cookieStore = await cookies();
+  const view = parsePlanningView(
+    cookieStore.get(planningViewCookie(workspace.slug, board.slug))?.value,
+  );
+
   return (
     <PlanningBoardView
       scope={scope}
@@ -99,6 +109,7 @@ export default async function PlanningBoardPage({
       trash={trash}
       currentMonthKey={currentMonthKey}
       workspaceSlug={workspace.slug}
+      view={view}
     />
   );
 }

@@ -28,6 +28,12 @@ import type { ColumnDef } from "@/lib/planning/columns";
 import { applyWidths } from "@/lib/planning/columns";
 import { monthGroupLabel } from "@/lib/planning/monday-mapping";
 import { countSubjects, filterMonths } from "@/lib/planning/search";
+import {
+  PREFERENCE_MAX_AGE,
+  planningViewCookie,
+  serializePlanningView,
+  type PlanningView,
+} from "@/lib/ui-preferences";
 import type {
   MonthWithLanes,
   PlanningActivity,
@@ -60,6 +66,7 @@ export function PlanningBoardView({
   trash,
   currentMonthKey,
   workspaceSlug,
+  view,
 }: {
   scope: Scope;
   boards: PlanningBoard[];
@@ -73,6 +80,8 @@ export function PlanningBoardView({
   trash: { subjects: SubjectRow[]; months: PlanningMonth[] };
   currentMonthKey: string;
   workspaceSlug: string;
+  /** L'état de lecture relu du cookie : tri, mois ouverts, réseaux repliés. */
+  view: PlanningView;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -80,9 +89,33 @@ export function PlanningBoardView({
   const { run, pending } = useCellAction();
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [sort, setSort] = useState<DateSort>("position");
   const [search, setSearch] = useState("");
   const searchRef = useRef<HTMLInputElement>(null);
+
+  /**
+   * L'état de lecture du tableau, mémorisé dans un cookie : on revient sur le
+   * planning tel qu'on l'a laissé. Chaque changement réécrit le cookie — pas
+   * de bouton « enregistrer la vue », c'est une préférence, pas une donnée.
+   */
+  const [savedView, setSavedView] = useState<PlanningView>(view);
+  const remember = useCallback(
+    (patch: Partial<PlanningView>) => {
+      setSavedView((current) => {
+        const next = { ...current, ...patch };
+        document.cookie = `${planningViewCookie(scope.workspace, scope.board)}=${serializePlanningView(
+          next,
+        )}; path=/; max-age=${PREFERENCE_MAX_AGE}; samesite=lax`;
+        return next;
+      });
+    },
+    [scope.workspace, scope.board],
+  );
+
+  const sort = savedView.sort;
+  const setSort = useCallback(
+    (next: DateSort) => remember({ sort: next }),
+    [remember],
+  );
   // Largeurs en cours de drag : le tableau suit le pointeur sans attendre la
   // base, qui reçoit la valeur finale au relâchement.
   const [widthPreview, setWidthPreview] = useState<Record<string, number>>({});
@@ -296,9 +329,7 @@ export function PlanningBoardView({
               columns={effectiveColumns}
               owners={owners}
               sort={sort}
-              onSortToggle={() =>
-                setSort((current) => (current === "asc" ? "desc" : "asc"))
-              }
+              onSortToggle={() => setSort(sort === "asc" ? "desc" : "asc")}
               selectedIds={selectedIds}
               onToggleSelect={toggleSelect}
               onToggleLane={toggleLane}
@@ -314,9 +345,33 @@ export function PlanningBoardView({
                 )
               }
               // Le mois en cours est ouvert, les autres repliés : c'est celui
-              // qu'on vient regarder neuf fois sur dix. Une recherche déplie
-              // tout — un résultat caché n'existe pas.
-              defaultOpen={month.month === currentMonthKey}
+              // qu'on vient regarder neuf fois sur dix — jusqu'à ce qu'on en
+              // ouvre d'autres, et le cookie s'en souvient. Une recherche
+              // déplie tout : un résultat caché n'existe pas.
+              defaultOpen={
+                savedView.months === null
+                  ? month.month === currentMonthKey
+                  : savedView.months.includes(month.month.slice(0, 7))
+              }
+              onOpenChange={(open) =>
+                remember({
+                  months: monthKeysAfter(
+                    savedView,
+                    months,
+                    currentMonthKey,
+                    month.month,
+                    open,
+                  ),
+                })
+              }
+              closedLanes={savedView.closedLanes}
+              onLaneOpenChange={(laneId, open) =>
+                remember({
+                  closedLanes: open
+                    ? savedView.closedLanes.filter((id) => id !== laneId)
+                    : [...new Set([...savedView.closedLanes, laneId])],
+                })
+              }
               forceOpen={searching}
             />
           ))}
@@ -412,6 +467,32 @@ export function PlanningBoardView({
       />
     </div>
   );
+}
+
+/**
+ * La liste des mois ouverts après un pli ou un dépli.
+ *
+ * Au premier geste, le cookie ne dit encore rien : on part de la photo du
+ * défaut — le mois en cours — sans quoi replier ce mois-là n'écrirait rien et
+ * il rouvrirait au rechargement.
+ */
+function monthKeysAfter(
+  view: PlanningView,
+  months: MonthWithLanes[],
+  currentMonthKey: string,
+  month: string,
+  open: boolean,
+): string[] {
+  const key = (value: string) => value.slice(0, 7);
+  const base =
+    view.months ??
+    months
+      .filter((candidate) => candidate.month === currentMonthKey)
+      .map((candidate) => key(candidate.month));
+
+  return open
+    ? [...new Set([...base, key(month)])]
+    : base.filter((candidate) => candidate !== key(month));
 }
 
 /** Un bouton d'en-tête avec sa pastille de compte — archives, corbeille. */

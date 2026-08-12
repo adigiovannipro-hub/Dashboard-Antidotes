@@ -42,6 +42,9 @@ export function MonthGroup({
   onEditLabels,
   onResizePreview,
   defaultOpen,
+  onOpenChange,
+  closedLanes,
+  onLaneOpenChange,
   forceOpen,
 }: {
   scope: Scope;
@@ -57,12 +60,22 @@ export function MonthGroup({
   onEditLabels: (column: ColumnDef) => void;
   onResizePreview: (columnId: string, width: number | null) => void;
   defaultOpen: boolean;
+  /** Mémorise le pli du mois — le tableau se rouvre comme on l'a laissé. */
+  onOpenChange: (open: boolean) => void;
+  /** Réseaux repliés, mémorisés eux aussi. */
+  closedLanes: string[];
+  onLaneOpenChange: (laneId: string, open: boolean) => void;
   /** Une recherche en cours déplie tout : un résultat caché n'existe pas. */
   forceOpen?: boolean;
 }) {
   const [open, setOpen] = useState(defaultOpen);
   const { run, pending } = useCellAction();
   const effectiveOpen = forceOpen || open;
+
+  const toggle = (next: boolean) => {
+    setOpen(next);
+    onOpenChange(next);
+  };
 
   const subjects = month.lanes.flatMap((lane) => lane.subjects);
   const live = subjects.filter((subject) => subject.status !== "dropped");
@@ -87,12 +100,12 @@ export function MonthGroup({
             return;
           }
           event.preventDefault();
-          if (!open) setOpen(true);
+          if (!open) toggle(true);
         }}
       >
         <button
           type="button"
-          onClick={() => setOpen((value) => !value)}
+          onClick={() => toggle(!open)}
           aria-expanded={effectiveOpen}
           aria-label={effectiveOpen ? `Replier ${month.label}` : `Déplier ${month.label}`}
           className="hover:bg-muted focus-visible:ring-ring rounded p-0.5 focus-visible:ring-2 focus-visible:outline-none"
@@ -202,6 +215,8 @@ export function MonthGroup({
                 onOpenSubject={onOpenSubject}
                 onEditLabels={onEditLabels}
                 onResizePreview={onResizePreview}
+                defaultOpen={!closedLanes.includes(lane.id)}
+                onOpenChange={(next) => onLaneOpenChange(lane.id, next)}
               />
             ))
           )}
