@@ -20,26 +20,33 @@ export const ACCEPTED_VISUAL_TYPES = [
   "image/avif",
   "video/mp4",
   "video/quicktime",
+  "video/webm",
   "application/pdf",
 ];
 
-/**
- * Plafond du corps d'un envoi, sous la limite déclarée à Next
- * (`bodySizeLimit`). Vérifié **avant** de partir : un corps refusé par le
- * serveur ne rend pas d'erreur lisible, il jette — et jetait l'écran entier.
- */
-export const MAX_UPLOAD_BODY_BYTES = 95 * 1024 * 1024;
+/** Le même contrat, lu sur l'extension — un glisser-déposer arrive parfois
+    sans type MIME, et le refuser pour ça perdait des fichiers valides. */
+const ACCEPTED_VISUAL_EXTENSIONS = /\.(png|jpe?g|webp|gif|avif|mp4|mov|webm|pdf)$/i;
 
-/** Ce qui bloquerait cet envoi, en une phrase — ou rien si tout passe. */
+export function isAcceptedVisual(file: { name: string; type: string }): boolean {
+  if (file.type) return ACCEPTED_VISUAL_TYPES.includes(file.type);
+  return ACCEPTED_VISUAL_EXTENSIONS.test(file.name);
+}
+
+/**
+ * Ce qui bloquerait cet envoi, en une phrase — ou rien si tout passe.
+ *
+ * Vérifié **avant** de partir. Pas de plafond de lot : chaque fichier part
+ * seul, du navigateur vers le bucket.
+ */
 export function visualUploadError(files: File[]): string | null {
   for (const file of files) {
     if (file.size > MAX_VISUAL_BYTES) {
       return `${file.name} : trop lourd (50 Mo maximum par fichier).`;
     }
-  }
-  const total = files.reduce((sum, file) => sum + file.size, 0);
-  if (total > MAX_UPLOAD_BODY_BYTES) {
-    return "Envoi trop volumineux — garde l'ensemble sous 95 Mo, ou envoie en plusieurs fois.";
+    if (!isAcceptedVisual(file)) {
+      return `${file.name} : format non accepté (${file.type || "inconnu"}).`;
+    }
   }
   return null;
 }

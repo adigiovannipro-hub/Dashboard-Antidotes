@@ -15,7 +15,6 @@ import {
   removeVisual,
   reorderVisuals,
   updateSubject,
-  uploadVisual,
 } from "@/app/actions/planning";
 import {
   ChipSelect,
@@ -34,7 +33,8 @@ import { CommentThread, type Scope } from "@/components/planning/subject-row";
 import { PlatformIcon } from "@/components/planning/platform-icon";
 import { Button } from "@/components/ui/button";
 import type { ColumnDef, ColumnLabel } from "@/lib/planning/columns";
-import { isImagePath, visualUploadError } from "@/lib/planning/storage";
+import { isImagePath } from "@/lib/planning/storage";
+import { uploadVisualsFromBrowser } from "@/lib/planning/upload-client";
 import type {
   PlanningActivity,
   PlanningOwner,
@@ -132,17 +132,9 @@ export function SubjectDrawer({
         <VisualCarousel
           subject={subject}
           uploading={pending}
-          onUpload={(files) => {
-            const oversized = visualUploadError(files);
-            if (oversized) {
-              run(async () => ({ ok: false as const, error: oversized }));
-              return;
-            }
-            const formData = new FormData();
-            formData.set("subjectId", subject.id);
-            for (const file of files) formData.append("file", file);
-            run(() => uploadVisual(scope, formData));
-          }}
+          onUpload={(files) =>
+            run(() => uploadVisualsFromBrowser(scope, subject.id, files))
+          }
           onRemove={(path) =>
             run(() => removeVisual(scope, { subjectId: subject.id, path }))
           }
@@ -485,7 +477,7 @@ function VisualCarousel({
           type="file"
           multiple
           className="sr-only"
-          accept="image/*,video/mp4,video/quicktime,application/pdf"
+          accept="image/*,video/mp4,video/quicktime,video/webm,application/pdf"
           onChange={(event) => {
             const files = [...(event.target.files ?? [])];
             if (files.length > 0) onUpload(files);

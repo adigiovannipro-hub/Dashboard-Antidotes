@@ -8,9 +8,9 @@ import { defaultLabelsFor } from "@/lib/planning/columns";
 import type { ColumnType } from "@/lib/planning/columns";
 import { monthGroupLabel } from "@/lib/planning/monday-mapping";
 import {
-  ACCEPTED_VISUAL_TYPES,
   MAX_VISUAL_BYTES,
   VISUALS_BUCKET,
+  isAcceptedVisual,
   isOwnedVisualPath,
   visualPath,
 } from "@/lib/planning/storage";
@@ -1224,32 +1224,42 @@ export async function deleteComment(
 // --- Visuels ---------------------------------------------------------------------
 
 /**
- * Envoi d'un visuel.
- *
- * Le fichier transite par le serveur plutôt que d'aller directement au bucket :
- * le chemin est ainsi construit ici, à partir de l'espace réellement accessible,
- * et non d'un identifiant fourni par le navigateur.
+ * L'envoi d'un visuel ne transite plus par le serveur : le proxy de Next
+ * tronque les corps au-delà de 10 Mo — une vidéo arrivait coupée et l'action
+ * tombait en 500. Le navigateur téléverse **directement dans le bucket**, en
+ * deux temps : le serveur signe des URL d'envoi (le chemin reste construit
+ * ici, depuis l'espace réellement accessible), le navigateur pousse les
+ * octets, puis `attachVisuals` accroche les chemins à la publication.
  */
-export async function uploadVisual(
-  scope: Scope,
-  formData: FormData,
-): Promise<PlanningResult> {
-  const subjectId = String(formData.get("subjectId") ?? "");
-  const files = formData
-    .getAll("file")
-    .filter((entry): entry is File => entry instanceof File && entry.size > 0);
 
-  if (!subjectId || files.length === 0) {
+export type PreparedUpload = {
+  path: string;
+  /** URL signée d'envoi — un PUT du fichier brut, et rien d'autre. */
+  url: string;
+};
+
+export type PrepareUploadsResult =
+  | { ok: true; uploads: PreparedUpload[] }
+  | { ok: false; error: string };
+
+export async function prepareVisualUploads(
+  scope: Scope,
+  input: {
+    subjectId: string;
+    files: { name: string; type: string; size: number }[];
+  },
+): Promise<PrepareUploadsResult> {
+  if (!input.subjectId || input.files.length === 0) {
     return { ok: false, error: "Aucun fichier." };
   }
-  if (files.length > 20) {
+  if (input.files.length > 20) {
     return { ok: false, error: "20 fichiers maximum d'un coup." };
   }
-  for (const file of files) {
+  for (const file of input.files) {
     if (file.size > MAX_VISUAL_BYTES) {
       return { ok: false, error: `${file.name} : trop lourd (50 Mo maximum).` };
     }
-    if (!ACCEPTED_VISUAL_TYPES.includes(file.type)) {
+    if (!isAcceptedVisual(file)) {
       return {
         ok: false,
         error: `${file.name} : format non accepté (${file.type || "inconnu"}).`,
@@ -1258,55 +1268,83 @@ export async function uploadVisual(
   }
 
   try {
-    const { viewer, workspace } = await guard(scope);
+    const { workspace } = await guard(scope);
     const supabase = await createClient();
 
-    // Les envois s'enchaînent, puis la liste s'écrit en une fois : un échec au
-    // troisième fichier garde les deux premiers.
-    const uploaded: string[] = [];
-    for (const file of files) {
+    const uploads: PreparedUpload[] = [];
+    for (const file of input.files) {
       const path = visualPath({
         workspaceId: workspace.id,
-        subjectId,
+        subjectId: input.subjectId,
         fileName: file.name,
       });
-      const { error: uploadError } = await supabase.storage
+      const { data, error } = await supabase.storage
         .from(VISUALS_BUCKET)
-        .upload(path, file, { contentType: file.type, upsert: false });
-      if (uploadError) {
-        if (uploaded.length === 0) throw new Error(uploadError.message);
-        break;
-      }
-      uploaded.push(path);
+        .createSignedUploadUrl(path);
+      if (error) throw new Error(error.message);
+      uploads.push({ path, url: data.signedUrl });
     }
 
+    return { ok: true, uploads };
+  } catch (error) {
+    return { ok: false, error: (error as Error).message };
+  }
+}
+
+/** Accroche à la publication des chemins que le navigateur vient de remplir. */
+export async function attachVisuals(
+  scope: Scope,
+  input: { subjectId: string; paths: string[] },
+): Promise<PlanningResult> {
+  if (input.paths.length === 0 || input.paths.length > 20) {
+    return { ok: false, error: "Aucun fichier." };
+  }
+
+  try {
+    const { viewer, workspace } = await guard(scope);
+
+    // On n'accroche que des chemins de cette publication, dans cet espace —
+    // les URL d'envoi sont signées pour eux, et rien d'autre n'a pu être
+    // écrit depuis le navigateur.
+    for (const path of input.paths) {
+      if (!isOwnedVisualPath(path, workspace.id, input.subjectId)) {
+        return { ok: false, error: "Chemin de fichier inattendu." };
+      }
+    }
+
+    const supabase = await createClient();
     const { data: subject } = await supabase
       .from("planning_subjects")
       .select("visual_urls")
-      .eq("id", subjectId)
+      .eq("id", input.subjectId)
       .maybeSingle();
 
-    await supabase
+    const { error } = await supabase
       .from("planning_subjects")
-      .update({ visual_urls: [...(subject?.visual_urls ?? []), ...uploaded] })
-      .eq("id", subjectId);
+      .update({ visual_urls: [...(subject?.visual_urls ?? []), ...input.paths] })
+      .eq("id", input.subjectId);
+    if (error) throw new Error(error.message);
 
     await logActivity({
       supabase,
-      subjectId,
+      subjectId: input.subjectId,
       workspaceId: workspace.id,
       actorId: viewer.user.id,
       field: "visual",
-      after: files.map((file) => file.name).join(", "),
+      after: input.paths
+        .map((path) =>
+          decodeURIComponent((path.split("/").pop() ?? path).replace(/^\d+-/, "")),
+        )
+        .join(", "),
     });
 
     revalidate(scope);
     return {
       ok: true,
       message:
-        uploaded.length === 1
+        input.paths.length === 1
           ? "Visuel ajouté."
-          : `${uploaded.length} visuels ajoutés.`,
+          : `${input.paths.length} visuels ajoutés.`,
     };
   } catch (error) {
     return fail(error);

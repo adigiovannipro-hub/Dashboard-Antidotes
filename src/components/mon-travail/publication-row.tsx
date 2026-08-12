@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { MessageSquare, MessageSquarePlus } from "lucide-react";
 
 import {
   removeVisual,
   updateSubject,
-  uploadVisual,
   type EditableField,
 } from "@/app/actions/planning";
 import {
@@ -13,12 +14,12 @@ import {
   DateCell,
   NumberCell,
   TextCell,
-  TextSelect,
   VisualsCell,
   WordingCell,
   useCellAction,
 } from "@/components/planning/cells";
-import { visualUploadError } from "@/lib/planning/storage";
+import { objectiveLabels } from "@/lib/planning/columns";
+import { uploadVisualsFromBrowser } from "@/lib/planning/upload-client";
 import type { TaskWorkspace } from "@/lib/mon-travail/types";
 import type { PublicationRow as Row } from "@/lib/mon-travail/types";
 import {
@@ -71,26 +72,38 @@ const AD_STATUS_OPTIONS = AD_STATUS_ORDER.map((status) => ({
   color: AD_STATUS_COLORS[status],
 }));
 
+/** Les objectifs du tableau d'origine, aux couleurs du board. */
+function objectiveChipOptions(objectives: string[]) {
+  return objectiveLabels(objectives).map((label) => ({
+    value: label.id,
+    label: label.label,
+    color: label.color,
+  }));
+}
+
 /**
  * Gabarit desktop, dans l'ordre du planning :
- * client, réseau, sujet, statut, type, date, visuel, wording, sponso,
- * objectif, ads.
+ * client, réseau, sujet, retours, statut, type, date, visuel, wording,
+ * sponso, objectif, ads.
+ *
+ * Le wording est la colonne qui respire : c'est lui qu'on vient relire avant
+ * de publier — le sujet n'est qu'un repère, il n'a pas à s'étaler.
  *
  * En dessous de `md`, la ligne se replie en trois niveaux — repère, sujet,
  * puis date et statut. Les colonnes publicitaires et la caption sortent de
  * l'affichage : sur un téléphone, la question est « est-ce parti ? ».
  */
 export const PUBLICATION_GRID =
-  "md:grid md:grid-cols-[minmax(112px,0.8fr)_72px_minmax(120px,2.4fr)_118px_96px_122px_48px_minmax(96px,1fr)_64px_92px_80px] md:items-center md:gap-x-1";
+  "md:grid md:grid-cols-[minmax(112px,0.8fr)_72px_minmax(160px,1.2fr)_36px_118px_96px_122px_48px_minmax(190px,2.4fr)_64px_100px_80px] md:items-center md:gap-x-1";
 
 /**
- * Largeur minimale sous laquelle les onze colonnes se chevauchent.
+ * Largeur minimale sous laquelle les douze colonnes se chevauchent.
  *
  * Calée sous la largeur utile d'un écran de 1440 px — rail de 240 px et
  * marges déduites, il reste 1 152 px. À 74 rem, la colonne « Ads » tombait
  * hors champ et il fallait défiler pour voir qu'elle existait.
  */
-export const PUBLICATION_MIN_WIDTH = "md:min-w-[68rem]";
+export const PUBLICATION_MIN_WIDTH = "md:min-w-[70.5rem]";
 
 /** L'en-tête du tableau, qui partage le gabarit des lignes. */
 export function PublicationHeader() {
@@ -102,16 +115,18 @@ export function PublicationHeader() {
         PUBLICATION_MIN_WIDTH,
       )}
     >
-      <span className="px-1.5">Client</span>
-      <span className="px-1.5">Réseau</span>
-      <span className="px-1.5">Sujet</span>
+      {/* Centrés, comme les en-têtes du board. */}
+      <span className="text-center">Client</span>
+      <span className="text-center">Réseau</span>
+      <span className="text-center">Sujet</span>
+      <span aria-hidden />
       <span className="text-center">Statut</span>
       <span className="text-center">Type</span>
-      <span className="px-1.5">Date</span>
+      <span className="text-center">Date</span>
       <span className="text-center">Visuel</span>
-      <span className="px-1.5">Wording</span>
-      <span className="px-1.5 text-right">Sponso</span>
-      <span className="px-1.5">Objectif</span>
+      <span className="text-center">Wording</span>
+      <span className="text-center">Sponso</span>
+      <span className="text-center">Objectif</span>
       <span className="text-center">Ads</span>
     </div>
   );
@@ -126,11 +141,19 @@ export function PublicationHeader() {
  * « c'est fait », c'est le titre de la section et la pastille « Publié ».
  */
 export function PublicationRowView({ row }: { row: Row }) {
+  const router = useRouter();
   const { run, pending } = useCellAction();
   const scope = { workspace: row.workspace.slug, board: row.board_slug };
 
   const edit = (field: EditableField, value: unknown) =>
     run(() => updateSubject(scope, { subjectId: row.subject.id, field, value }));
+
+  // Le panneau du post vit sur le planning : les retours et le clic sur le
+  // visuel y renvoient, publication déjà ouverte.
+  const planningHref = (focus?: "retour") =>
+    `/espace/${row.workspace.slug}/planning/${row.board_slug}?sujet=${row.subject.id}${
+      focus ? "&focus=retour" : ""
+    }`;
 
   return (
     <div
@@ -164,6 +187,28 @@ export function PublicationRowView({ row }: { row: Row }) {
         />
       </div>
 
+      {/* Les retours du board, comptés — le clic ouvre le panneau du planning
+          directement sur le fil. */}
+      <Link
+        href={planningHref("retour")}
+        aria-label={`Retours sur ${row.subject.name || "la publication"} (${row.comments_count})`}
+        className={cn(
+          "hover:bg-muted focus-visible:ring-brand relative hidden size-7 items-center justify-center rounded-md outline-none focus-visible:ring-2 md:flex",
+          row.comments_count > 0 ? "text-foreground" : "text-muted-foreground",
+        )}
+      >
+        {row.comments_count > 0 ? (
+          <>
+            <MessageSquare className="size-3.5" aria-hidden />
+            <span className="bg-accent-ink absolute -top-0.5 -right-0.5 flex size-3 items-center justify-center rounded-full text-[8px] font-bold text-white tabular-nums">
+              {row.comments_count}
+            </span>
+          </>
+        ) : (
+          <MessageSquarePlus className="size-3.5 opacity-40" aria-hidden />
+        )}
+      </Link>
+
       <div className="w-[8.5rem] md:w-full">
         <ChipSelect<string>
           value={row.subject.status === "idea" ? null : row.subject.status}
@@ -184,32 +229,28 @@ export function PublicationRowView({ row }: { row: Row }) {
         />
       </div>
 
-      {/* Le planning n'a pas d'heure de publication : la date est l'échéance. */}
+      {/* Le planning n'a pas d'heure de publication : la date est l'échéance.
+          En retard, elle s'encre en rouge. */}
       <div className="w-[7.5rem] md:w-full">
         <DateCell
           value={row.subject.scheduled_on}
+          late={row.late}
           onCommit={(next) => edit("scheduled_on", next)}
         />
       </div>
 
       {/* Comme la caption : une vignette de 56 px ne vaut pas une ligne entière
-          sur un téléphone, où la question est « est-ce parti ? ». */}
+          sur un téléphone, où la question est « est-ce parti ? ». Le clic
+          ouvre le post sur son planning, comme au board. */}
       <VisualsCell
         className="hidden md:flex"
         visuals={row.visuals}
         subjectName={row.subject.name}
         uploading={pending}
-        onUpload={(files) => {
-          const oversized = visualUploadError(files);
-          if (oversized) {
-            run(async () => ({ ok: false as const, error: oversized }));
-            return;
-          }
-          const formData = new FormData();
-          formData.set("subjectId", row.subject.id);
-          for (const file of files) formData.append("file", file);
-          run(() => uploadVisual(scope, formData));
-        }}
+        onOpen={() => router.push(planningHref())}
+        onUpload={(files) =>
+          run(() => uploadVisualsFromBrowser(scope, row.subject.id, files))
+        }
         onRemove={(path) =>
           run(() => removeVisual(scope, { subjectId: row.subject.id, path }))
         }
@@ -231,11 +272,13 @@ export function PublicationRowView({ row }: { row: Row }) {
         />
       </div>
 
+      {/* Étiquettes colorées, comme au board — pas une liste de texte nu. */}
       <div className="hidden min-w-0 md:block">
-        <TextSelect
+        <ChipSelect<string>
           value={row.subject.ad_objective}
-          options={row.objectives}
+          options={objectiveChipOptions(row.objectives)}
           ariaLabel="Objectif de l'annonce"
+          allowClear
           onSelect={(next) => edit("ad_objective", next)}
         />
       </div>
