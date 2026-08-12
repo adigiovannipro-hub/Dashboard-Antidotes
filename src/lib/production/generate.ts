@@ -170,27 +170,48 @@ function runPhase(supabase: SupabaseAdmin, job: GenerationJob): Promise<PhaseOut
 // --- Appel au modèle ---------------------------------------------------------
 
 /**
+ * Profondeur de réflexion, phase par phase.
+ *
+ * C'est **le** levier de latence de ce module. `claude-sonnet-4-6` réfléchit à
+ * l'effort `high` quand on ne dit rien, et la réflexion se paie sur le même
+ * budget que la réponse : un `max_tokens` serré finit consommé en réflexion,
+ * le modèle rend un bloc de pensée sans bloc de texte, et la génération échoue
+ * après plusieurs minutes sans rien produire. On fixe donc l'effort
+ * explicitement, et on donne de la marge au budget.
+ */
+type GenerationEffort = "low" | "medium" | "high";
+
+/**
  * Un appel, un texte. Le prompt système vient d'un fichier markdown éditable :
  * pas de sortie structurée imposée par l'API, le format fait partie du prompt
  * — un JSON toléré aux clôtures près est extrait par `parseModelJson`.
+ *
+ * Toujours en flux : au-delà d'une quinzaine de milliers de jetons, une
+ * requête non diffusée expire côté SDK avant la fin de la génération. Le flux
+ * ne change rien au résultat — `finalMessage()` recolle le message — mais il
+ * supprime toute une classe de coupures silencieuses.
  */
 async function callClaude(options: {
   system: string;
   user: string;
   maxTokens: number;
+  effort: GenerationEffort;
 }): Promise<string> {
   if (!process.env.ANTHROPIC_API_KEY) {
     throw new Error("ANTHROPIC_API_KEY absente : la génération ne peut pas tourner.");
   }
 
   const anthropic = new Anthropic();
-  const response = await anthropic.messages.create({
-    model: GENERATION_MODEL,
-    max_tokens: options.maxTokens,
-    thinking: { type: "adaptive" },
-    system: options.system,
-    messages: [{ role: "user", content: options.user }],
-  });
+  const response = await anthropic.messages
+    .stream({
+      model: GENERATION_MODEL,
+      max_tokens: options.maxTokens,
+      thinking: { type: "adaptive" },
+      output_config: { effort: options.effort },
+      system: options.system,
+      messages: [{ role: "user", content: options.user }],
+    })
+    .finalMessage();
 
   // Un refus des classificateurs arrive en HTTP 200 : lire le contenu sans
   // vérifier `stop_reason` planterait plus loin, en silence.
@@ -199,6 +220,18 @@ async function callClaude(options: {
   }
 
   const block = response.content.find((entry) => entry.type === "text");
+
+  // Le budget épuisé se dit, et se dit précisément : « sans bloc de texte
+  // exploitable » envoyait chercher un bug de parsing là où il n'y a qu'une
+  // limite trop basse pour la réflexion demandée.
+  if (response.stop_reason === "max_tokens") {
+    throw new Error(
+      block
+        ? `Réponse coupée à ${options.maxTokens} jetons : sortie incomplète.`
+        : `Les ${options.maxTokens} jetons ont été consommés en réflexion, sans rédaction. Baisser l'effort ou relever la limite.`,
+    );
+  }
+
   if (!block || block.type !== "text") {
     throw new Error("Réponse du modèle sans bloc de texte exploitable.");
   }
@@ -537,7 +570,11 @@ async function runIntentions(
   const text = await callClaude({
     system,
     user: `Produis maintenant les intentions de ${fullMonthLabel(job.target_month)}, au format de sortie demandé.${attendu}`,
-    maxTokens: 12000,
+    // Un mois entier de planning tient rarement sous 12 000 jetons une fois la
+    // réflexion payée sur le même budget : c'est ce plafond qui rendait des
+    // réponses sans texte.
+    maxTokens: 32000,
+    effort: "medium",
   });
 
   const items = parseModelJson<GeneratedIntention[]>(text).filter(
@@ -814,7 +851,10 @@ async function runWording(
       user: isStory
         ? "Produis maintenant le contenu de la story, au format de sortie demandé."
         : "Rédige maintenant la version finale, au format de sortie demandé.",
-      maxTokens: 4000,
+      maxTokens: 8000,
+      // Un appel par sujet : c'est ici que la latence se multiplie, et rédiger
+      // une caption ne demande pas la délibération d'un plan de mois.
+      effort: "low",
     });
     const generated = parseModelJson<GeneratedWording>(text);
     if (!generated.wording || generated.wording.trim() === "") {
@@ -1045,7 +1085,8 @@ async function runReporting(
   const report = await callClaude({
     system,
     user: `Rédige maintenant le compte rendu de ${fullMonthLabel(job.target_month)}, selon la structure demandée.`,
-    maxTokens: 8000,
+    maxTokens: 24000,
+    effort: "medium",
   });
 
   return {
