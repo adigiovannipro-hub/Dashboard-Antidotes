@@ -37,6 +37,9 @@ const DEFAULT_WINDOW_DAYS = 30;
 export type FathomReport = {
   ok: boolean;
   raison?: string;
+  /** Depuis quand les réunions ont été demandées : la cause la plus fréquente
+      d'un « zéro réunion » parfaitement silencieux. */
+  depuis?: string;
   reunions?: number;
   planifiees?: number;
   creees?: number;
@@ -102,6 +105,7 @@ export async function syncFathomTasks(options: {
 
   return {
     ok: true,
+    depuis: since,
     reunions: meetings.length,
     planifiees: plan.tasks.length,
     creees: created,

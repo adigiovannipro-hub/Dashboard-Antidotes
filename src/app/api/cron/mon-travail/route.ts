@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { timingSafeEqual } from "node:crypto";
 
+import { getViewer } from "@/lib/auth";
 import { serverEnv } from "@/lib/env";
 import { monthKeyOf, todayInParis } from "@/lib/mon-travail/dates";
 import { syncFathomTasks } from "@/lib/mon-travail/fathom-sync";
@@ -33,7 +34,7 @@ export const dynamic = "force-dynamic";
 // Quelques dizaines d'upserts : la limite Hobby est très loin.
 export const maxDuration = 60;
 
-function authorized(request: Request): boolean {
+function fromScheduler(request: Request): boolean {
   const header = request.headers.get("authorization");
   if (!header?.startsWith("Bearer ")) return false;
 
@@ -46,8 +47,26 @@ function authorized(request: Request): boolean {
   return timingSafeEqual(provided, expected);
 }
 
+/**
+ * Deux entrées : l'ordonnanceur, et le propriétaire depuis son navigateur.
+ *
+ * La seconde existe parce que le plan Hobby n'garde les logs d'exécution
+ * qu'une heure : un passage de 4 h du matin est effacé avant qu'on pense à
+ * aller le lire, et le rapport que cette route construit — combien de
+ * réunions, combien d'items écartés et pourquoi, quelle erreur exactement —
+ * devenait invisible au moment précis où il sert. Ouvrir l'URL suffit
+ * désormais à le voir, et à relancer la synchronisation sans attendre demain.
+ *
+ * Le passage est idempotent : le rejouer n'écrit rien de plus.
+ */
+async function authorized(request: Request): Promise<boolean> {
+  if (fromScheduler(request)) return true;
+  const viewer = await getViewer();
+  return viewer?.isOwner === true;
+}
+
 export async function GET(request: Request) {
-  if (!authorized(request)) {
+  if (!(await authorized(request))) {
     return NextResponse.json({ error: "Non autorisé." }, { status: 401 });
   }
 

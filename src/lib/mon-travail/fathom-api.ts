@@ -165,11 +165,24 @@ export async function fetchFathomMeetings(options: {
     url.searchParams.set("include_action_items", "true");
     if (cursor) url.searchParams.set("cursor", cursor);
 
-    const response = await fetch(url, {
-      headers: { "X-Api-Key": options.apiKey, accept: "application/json" },
-      signal: options.signal,
-      cache: "no-store",
-    });
+    /* `fetch` jette un « fetch failed » sans contexte quand l'hôte est
+       injoignable ou le nom inconnu. Comme cette URL n'a pas pu être validée
+       contre la vraie API, c'est précisément le cas qu'il faut savoir lire :
+       le message nomme donc l'adresse tentée. */
+    let response: Response;
+    try {
+      response = await fetch(url, {
+        headers: { "X-Api-Key": options.apiKey, accept: "application/json" },
+        signal: options.signal,
+        cache: "no-store",
+      });
+    } catch (cause) {
+      throw new Error(
+        `Appel à ${url.origin}${url.pathname} impossible : ${
+          cause instanceof Error ? cause.message : "erreur réseau"
+        }`,
+      );
+    }
 
     if (!response.ok) {
       const body = (await response.text()).slice(0, 300);
