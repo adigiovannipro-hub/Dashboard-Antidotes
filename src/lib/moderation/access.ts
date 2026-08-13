@@ -45,9 +45,15 @@ export const getModerationContext = cache(async (): Promise<ModerationContext> =
   }[];
 
   // L'owner d'organisation prime : il voit tous les clients sans adhésion.
+  // Un contributeur n'a pas de ligne dans `moderation_members` — c'est le
+  // rattachement `moderation_clients.workspace_id` qui lui ouvre la boîte
+  // (0041). Il y répond, donc il est opérateur.
+  const contributor = viewer.workspaces.some(
+    (workspace) => workspace.role === "contributor",
+  );
   const role: ModerationRole = viewer.isOwner
     ? "owner"
-    : membershipRows.some((row) => row.role === "operator")
+    : membershipRows.some((row) => row.role === "operator") || contributor
       ? "operator"
       : "viewer";
 

@@ -1,14 +1,17 @@
 "use client";
 
-import { useCallback, useState, useTransition } from "react";
+import { useCallback, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Copy, MoreHorizontal, Pencil, Trash2, Users } from "lucide-react";
+import { Copy, ImageUp, MoreHorizontal, Pencil, Trash2, Users } from "lucide-react";
 import { toast } from "sonner";
 
 import {
+  attachLogo,
   deleteWorkspace,
   duplicateWorkspace,
   loadWorkspaceAdmin,
+  prepareLogoUpload,
+  removeLogo,
   renameWorkspace,
   type WorkspaceResult,
 } from "@/app/actions/workspaces";
@@ -45,7 +48,7 @@ import { PartnersDialog, type WorkspaceAdminData } from "./partners-dialog";
  * une commande qui n'apparaît qu'au survol n'existe pas sur un téléphone.
  */
 
-type Dialogue = "rename" | "duplicate" | "delete" | "partners";
+type Dialogue = "rename" | "duplicate" | "delete" | "partners" | "logo";
 
 export function WorkspaceMenu({
   slug,
@@ -100,6 +103,10 @@ export function WorkspaceMenu({
             <Pencil className="size-3.5" aria-hidden />
             Renommer
           </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => setDialogue("logo")}>
+            <ImageUp className="size-3.5" aria-hidden />
+            Logo
+          </DropdownMenuItem>
           <DropdownMenuItem onClick={() => setDialogue("duplicate")}>
             <Copy className="size-3.5" aria-hidden />
             Dupliquer
@@ -130,6 +137,9 @@ export function WorkspaceMenu({
       {dialogue === "rename" ? (
         <RenameDialog slug={slug} name={name} onClose={() => setDialogue(null)} />
       ) : null}
+      {dialogue === "logo" ? (
+        <LogoDialog slug={slug} name={name} onClose={() => setDialogue(null)} />
+      ) : null}
       {dialogue === "duplicate" ? (
         <DuplicateDialog slug={slug} name={name} onClose={() => setDialogue(null)} />
       ) : null}
@@ -146,6 +156,114 @@ export function WorkspaceMenu({
         />
       ) : null}
     </>
+  );
+}
+
+/**
+ * Le logo d'un espace.
+ *
+ * Le fichier part **du navigateur directement dans le bucket** : une action
+ * serveur se ferait tronquer par le proxy, et ferait transiter l'image par la
+ * fonction pour rien. L'action ne fait que signer l'URL d'envoi, puis
+ * accrocher le chemin.
+ */
+function LogoDialog({
+  slug,
+  name,
+  onClose,
+}: {
+  slug: string;
+  name: string;
+  onClose: () => void;
+}) {
+  const router = useRouter();
+  const [pending, start] = useTransition();
+  const input = useRef<HTMLInputElement>(null);
+
+  const envoyer = (file: File) => {
+    start(async () => {
+      const prepared = await safeAction(() =>
+        prepareLogoUpload({ workspace: slug }, {
+          name: file.name,
+          type: file.type,
+          size: file.size,
+        }),
+      );
+      if (!prepared.ok) {
+        toast.error(prepared.error);
+        return;
+      }
+
+      const upload = await fetch(prepared.url, {
+        method: "PUT",
+        headers: { "Content-Type": file.type },
+        body: file,
+      }).catch(() => null);
+      if (!upload?.ok) {
+        toast.error("Envoi interrompu. Réessayer.");
+        return;
+      }
+
+      const attached = await safeAction(() =>
+        attachLogo({ workspace: slug }, { path: prepared.path }),
+      );
+      if (!attached.ok) {
+        toast.error(attached.error);
+        return;
+      }
+      toast.success(attached.message);
+      onClose();
+      router.refresh();
+    });
+  };
+
+  const retirer = () => {
+    start(async () => {
+      const result = await safeAction(() => removeLogo({ workspace: slug }));
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success(result.message);
+      onClose();
+      router.refresh();
+    });
+  };
+
+  return (
+    <Dialog open onOpenChange={(next) => (next ? undefined : onClose())}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Logo de {name}</DialogTitle>
+          <DialogDescription>
+            Il remplace la pastille de couleur dans le rail et sur la carte
+            d&apos;accueil. PNG, JPG, WebP ou SVG, 2 Mo maximum. Un carré rend
+            mieux qu&apos;un rectangle très allongé.
+          </DialogDescription>
+        </DialogHeader>
+
+        <input
+          ref={input}
+          type="file"
+          accept="image/png,image/jpeg,image/webp,image/svg+xml"
+          className="sr-only"
+          onChange={(event) => {
+            const file = event.target.files?.[0];
+            event.target.value = "";
+            if (file) envoyer(file);
+          }}
+        />
+
+        <DialogFooter>
+          <Button variant="ghost" disabled={pending} onClick={retirer}>
+            Retirer
+          </Button>
+          <Button disabled={pending} onClick={() => input.current?.click()}>
+            {pending ? "En cours…" : "Choisir un fichier"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 

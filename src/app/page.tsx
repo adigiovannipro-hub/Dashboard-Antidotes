@@ -29,6 +29,7 @@ import {
 } from "@/lib/mon-travail/queries";
 import type { TaskWorkspace } from "@/lib/mon-travail/types";
 import { formatMoney } from "@/lib/finance/money";
+import { signLogoUrls } from "@/lib/workspaces/logos";
 
 /** Le filtre client, dans l'URL comme partout : `?client=bondet`. */
 const CLIENT_PARAM = "client";
@@ -61,6 +62,9 @@ export default async function HubPage({
   const clientWorkspaces = viewer.workspaces.filter(
     (workspace) => workspace.type === "client",
   );
+  // Signés en une fois pour tous les espaces : le helper est mis en cache par
+  // requête, le rail vient d'appeler le même.
+  const logos = await signLogoUrls(clientWorkspaces.map((w) => w.logo_url));
 
   // Un slug inconnu ne filtre rien plutôt que de vider la page : un lien
   // partagé après le renommage d'un espace doit rester lisible.
@@ -234,6 +238,9 @@ export default async function HubPage({
                     slug={workspace.slug}
                     name={workspace.name}
                     accentColor={workspace.accent_color}
+                    logoUrl={
+                      workspace.logo_url ? (logos.get(workspace.logo_url) ?? null) : null
+                    }
                     model={buildCardModel({
                       today: travail.today,
                       snapshot,

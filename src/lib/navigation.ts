@@ -6,6 +6,7 @@ import { getViewer } from "@/lib/auth";
 import { getModerationContext } from "@/lib/moderation/access";
 import { isModerationVisible } from "@/lib/moderation/permissions";
 import { getNavBadges } from "@/lib/mon-travail/badges";
+import { signLogoUrls } from "@/lib/workspaces/logos";
 
 /**
  * Le modèle de navigation du rail latéral.
@@ -38,6 +39,8 @@ export type NavEntry = {
   icon: NavIcon;
   /** Pastille de couleur de l'espace, quand il en porte une. */
   accent?: string | null;
+  /** Logo signé de l'espace : il remplace la pastille de couleur. */
+  logo?: string | null;
   /** Correspondance de chemin : `exact` pour l'accueil, sinon par préfixe. */
   match: "exact" | "prefix";
   /**
@@ -68,6 +71,8 @@ export const getAppNavigation = cache(async (): Promise<NavGroup[]> => {
 
   // Plus de `"personal"` : le rail ne porte plus de section Perso, et laisser
   // le cas ouvert aurait gardé une branche que rien n'emprunte.
+  const logos = await signLogoUrls(viewer.workspaces.map((w) => w.logo_url));
+
   const workspacesOfType = (type: "client" | "business") =>
     viewer.workspaces
       .filter((workspace) => workspace.type === type)
@@ -77,6 +82,7 @@ export const getAppNavigation = cache(async (): Promise<NavGroup[]> => {
           label: workspace.name,
           icon: type === "client" ? "client" : "entreprise",
           accent: workspace.accent_color,
+          logo: workspace.logo_url ? (logos.get(workspace.logo_url) ?? null) : null,
           match: "prefix",
           manage:
             workspace.role === "owner"

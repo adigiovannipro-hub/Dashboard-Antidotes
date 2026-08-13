@@ -75,12 +75,15 @@ export function ClientCard({
   slug,
   name,
   accentColor,
+  logoUrl,
   model,
 }: {
   workspaceId: string;
   slug: string;
   name: string;
   accentColor: string | null;
+  /** Logo signé de l'espace. Il remplace la pastille de couleur. */
+  logoUrl?: string | null;
   model: ProductionCardModel;
 }) {
   const router = useRouter();
@@ -247,11 +250,23 @@ export function ClientCard({
     <article className="rounded-lg border border-border bg-surface p-5 shadow-card">
       {/* --- En-tête ------------------------------------------------------- */}
       <div className="flex items-start gap-3">
-        <span
-          aria-hidden
-          className="mt-0.5 size-8 shrink-0 rounded-md bg-muted"
-          style={accentColor ? { backgroundColor: accentColor } : undefined}
-        />
+        {logoUrl ? (
+          /* `contain` et `rounded-md`, jamais un cercle : un logo
+             rectangulaire rogné en rond perd son nom. */
+          // eslint-disable-next-line @next/next/no-img-element -- URL signée
+          <img
+            src={logoUrl}
+            alt=""
+            aria-hidden
+            className="mt-0.5 size-8 shrink-0 rounded-md object-contain"
+          />
+        ) : (
+          <span
+            aria-hidden
+            className="mt-0.5 size-8 shrink-0 rounded-md bg-muted"
+            style={accentColor ? { backgroundColor: accentColor } : undefined}
+          />
+        )}
         <div className="min-w-0 flex-1">
           <Link
             href={`/espace/${slug}`}

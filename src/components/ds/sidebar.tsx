@@ -257,7 +257,18 @@ function SidebarLink({
       ) : null}
 
       <span className="relative shrink-0">
-        {entry.accent ? (
+        {entry.logo ? (
+          /* Le logo remplace la pastille. `rounded-sm` et non un cercle : un
+             logo rectangulaire rogné en rond perd son nom. `contain` plutôt
+             que `cover`, pour la même raison. */
+          // eslint-disable-next-line @next/next/no-img-element -- URL signée
+          <img
+            src={entry.logo}
+            alt=""
+            aria-hidden
+            className="block size-4.5 rounded-sm object-contain"
+          />
+        ) : entry.accent ? (
           <span
             aria-hidden
             className="block size-4.5 rounded-sm"

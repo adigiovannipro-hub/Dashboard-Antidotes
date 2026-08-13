@@ -476,3 +476,105 @@ export async function removePartner(
     return fail(error);
   }
 }
+
+// --- Logo de l'espace --------------------------------------------------------
+
+/**
+ * Le logo remplace la pastille de couleur dans le rail et sur la carte
+ * d'accueil. Le fichier part **du navigateur directement dans le bucket** :
+ * une action serveur se ferait tronquer par le proxy, et surtout elle ferait
+ * transiter l'image par la fonction pour rien.
+ *
+ * `workspaces.logo_url` garde le chemin, jamais l'URL signée : celle-ci
+ * expire, et une base pleine d'URL périmées ne sert à rien.
+ */
+const LOGO_BUCKET = "workspace-logos";
+const MAX_LOGO_BYTES = 2 * 1024 * 1024;
+const LOGO_TYPES = ["image/png", "image/jpeg", "image/webp", "image/svg+xml"];
+
+export type LogoUploadResult =
+  | { ok: true; path: string; url: string }
+  | { ok: false; error: string };
+
+export async function prepareLogoUpload(
+  scope: Scope,
+  input: { name: string; type: string; size: number },
+): Promise<LogoUploadResult> {
+  if (input.size > MAX_LOGO_BYTES) {
+    return { ok: false, error: "Trop lourd : 2 Mo maximum." };
+  }
+  if (!LOGO_TYPES.includes(input.type)) {
+    return { ok: false, error: "Format non accepté : PNG, JPG, WebP ou SVG." };
+  }
+
+  try {
+    const { workspace } = await guardOwner(scope);
+    const supabase = await createClient();
+
+    // Un nom stable par extension : remplacer un logo écrase le précédent
+    // plutôt que d'empiler des orphelins dans le bucket.
+    const extension = input.type.split("/")[1]!.replace("+xml", "");
+    const path = `${workspace.id}/logo.${extension}`;
+
+    const { data, error } = await supabase.storage
+      .from(LOGO_BUCKET)
+      .createSignedUploadUrl(path, { upsert: true });
+    if (error) throw new Error(error.message);
+
+    return { ok: true, path, url: data.signedUrl };
+  } catch (error) {
+    return fail(error);
+  }
+}
+
+/** Accroche le chemin que le navigateur vient de remplir. */
+export async function attachLogo(
+  scope: Scope,
+  input: { path: string },
+): Promise<WorkspaceResult> {
+  try {
+    const { workspace } = await guardOwner(scope);
+
+    // On n'accroche qu'un chemin de cet espace : l'URL d'envoi était signée
+    // pour lui, rien d'autre n'a pu être écrit depuis le navigateur.
+    if (!input.path.startsWith(`${workspace.id}/`)) {
+      throw new Error("Chemin hors de l'espace.");
+    }
+
+    const supabase = await createClient();
+    const { error } = await supabase
+      .from("workspaces")
+      .update({ logo_url: input.path } as never)
+      .eq("id", workspace.id);
+    if (error) throw new Error(error.message);
+
+    revalidatePath("/", "layout");
+    return { ok: true, message: "Logo mis à jour." };
+  } catch (error) {
+    return fail(error);
+  }
+}
+
+export async function removeLogo(scope: Scope): Promise<WorkspaceResult> {
+  try {
+    const { workspace } = await guardOwner(scope);
+    const supabase = await createClient();
+
+    if (workspace.logo_url) {
+      // Le fichier part avant la ligne : l'inverse laisserait un orphelin
+      // invisible dans le bucket, que plus rien ne désigne.
+      await supabase.storage.from(LOGO_BUCKET).remove([workspace.logo_url]);
+    }
+
+    const { error } = await supabase
+      .from("workspaces")
+      .update({ logo_url: null } as never)
+      .eq("id", workspace.id);
+    if (error) throw new Error(error.message);
+
+    revalidatePath("/", "layout");
+    return { ok: true, message: "Logo retiré. La pastille de couleur reprend sa place." };
+  } catch (error) {
+    return fail(error);
+  }
+}
