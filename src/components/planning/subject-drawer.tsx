@@ -29,6 +29,7 @@ import {
   VisualSlideMedia,
   useSnapCarousel,
 } from "@/components/planning/lightbox";
+import { useDismissOnOutsideClick } from "@/components/planning/panel-layers";
 import { CommentThread, type Scope } from "@/components/planning/subject-row";
 import { PlatformIcon } from "@/components/planning/platform-icon";
 import { PendingLabel } from "@/components/ds/pending-label";
@@ -60,6 +61,7 @@ export function SubjectDrawer({
   activity,
   autoFocusComment,
   closing,
+  zIndex,
   onClose,
 }: {
   scope: Scope;
@@ -72,11 +74,17 @@ export function SubjectDrawer({
   autoFocusComment?: boolean;
   /** Joue la glissade de sortie avant le démontage. */
   closing?: boolean;
+  /** Rang d'empilement : le dernier panneau demandé passe devant. */
+  zIndex: number;
   onClose: () => void;
 }) {
   const [tab, setTab] = useState<"retours" | "activite">("retours");
   const { run, pending } = useCellAction();
   const [wording, setWording] = useState(subject.wording ?? "");
+
+  // Un clic sur le tableau derrière referme — mais pas pendant la glissade de
+  // sortie, où le panneau n'écoute plus rien.
+  useDismissOnOutsideClick(!closing, onClose);
 
   const labelsOf = (builtin: string) =>
     (columns.find((column) => column.builtin === builtin)?.labels ?? []).map(
@@ -86,8 +94,10 @@ export function SubjectDrawer({
   return (
     <aside
       aria-label={`Détail de ${subject.name || "la publication"}`}
+      data-panel
+      style={{ zIndex }}
       className={cn(
-        "border-border bg-background fixed inset-y-0 right-0 z-40 flex w-full max-w-xl flex-col border-l shadow-xl motion-reduce:animate-none",
+        "border-border bg-background fixed inset-y-0 right-0 flex w-full max-w-xl flex-col border-l shadow-xl motion-reduce:animate-none",
         closing
           ? "animate-out slide-out-to-right fill-mode-forwards duration-200"
           : "animate-in slide-in-from-right duration-300",

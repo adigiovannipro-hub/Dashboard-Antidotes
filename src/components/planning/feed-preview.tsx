@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Grid3x3, ImageOff, Images, Play, X } from "lucide-react";
 
+import { useDismissOnOutsideClick } from "@/components/planning/panel-layers";
 import { buildFeed, feedSummary, type FeedTile } from "@/lib/planning/feed";
 import { monthGroupLabel } from "@/lib/planning/monday-mapping";
 import type { MonthWithLanes } from "@/lib/planning/types";
@@ -28,6 +29,8 @@ export function FeedPreview({
   monthKey,
   profile,
   workspaceName,
+  zIndex,
+  onOpenSubject,
   onClose,
 }: {
   months: MonthWithLanes[];
@@ -35,11 +38,19 @@ export function FeedPreview({
   /** La vitrine du compte branché, quand il y en a un. */
   profile: InstagramProfile | null;
   workspaceName: string;
+  /** Rang d'empilement : le dernier panneau demandé passe devant. */
+  zIndex: number;
+  /** Le clic sur une case ouvre la publication, par-dessus la grille. */
+  onOpenSubject: (subjectId: string) => void;
   onClose: () => void;
 }) {
   const [ratio, setRatio] = useState<Ratio>("4:5");
   const tiles = buildFeed(months, monthKey);
   const { total, missing } = feedSummary(tiles);
+
+  // Un clic sur le tableau derrière referme : c'est la sortie qu'on cherche
+  // sans réfléchir, avant même la croix.
+  useDismissOnOutsideClick(true, onClose);
 
   // Échap ferme, comme partout ailleurs dans le planning.
   useEffect(() => {
@@ -53,7 +64,9 @@ export function FeedPreview({
   return (
     <aside
       aria-label={`Prévisualisation du feed à fin ${monthGroupLabel(monthKey)}`}
-      className="border-border bg-background animate-in slide-in-from-right fixed inset-y-0 right-0 z-40 flex w-full max-w-md flex-col border-l shadow-xl duration-300 motion-reduce:animate-none"
+      data-panel
+      style={{ zIndex }}
+      className="border-border bg-background animate-in slide-in-from-right fixed inset-y-0 right-0 flex w-full max-w-md flex-col border-l shadow-xl duration-300 motion-reduce:animate-none"
     >
       <header className="border-border flex items-center gap-3 border-b p-4">
         <button
@@ -91,7 +104,12 @@ export function FeedPreview({
             {/* Un gramme d'espace entre les cases, comme sur le profil. */}
             <div className="grid grid-cols-3 gap-0.5 px-0.5">
               {tiles.map((tile) => (
-                <FeedCell key={tile.subject.id} tile={tile} ratio={ratio} />
+                <FeedCell
+                  key={tile.subject.id}
+                  tile={tile}
+                  ratio={ratio}
+                  onOpen={() => onOpenSubject(tile.subject.id)}
+                />
               ))}
             </div>
 
@@ -233,7 +251,15 @@ function Stat({ value, label }: { value: number | null; label: string }) {
  * la vidéo : c'est la vignette d'Instagram, obtenue sans extraction ni
  * traitement côté serveur.
  */
-function FeedCell({ tile, ratio }: { tile: FeedTile; ratio: Ratio }) {
+function FeedCell({
+  tile,
+  ratio,
+  onOpen,
+}: {
+  tile: FeedTile;
+  ratio: Ratio;
+  onOpen: () => void;
+}) {
   const { subject, cover, isVideo } = tile;
   const date = subject.scheduled_on
     ? new Intl.DateTimeFormat("fr-FR", {
@@ -244,9 +270,14 @@ function FeedCell({ tile, ratio }: { tile: FeedTile; ratio: Ratio }) {
     : "sans date";
 
   return (
-    <div
+    // Un bouton et non un `div` : la case ouvre la publication, elle doit
+    // s'atteindre au clavier comme à la souris.
+    <button
+      type="button"
+      onClick={onOpen}
+      aria-label={`Ouvrir ${subject.name || "la publication"} du ${date}`}
       className={cn(
-        "group/cell bg-muted relative overflow-hidden",
+        "group/cell bg-muted focus-visible:ring-brand relative overflow-hidden outline-none focus-visible:z-10 focus-visible:ring-2",
         ratio === "4:5" ? "aspect-4/5" : "aspect-square",
       )}
       title={`${subject.name || "Sans sujet"} — ${date}`}
@@ -305,7 +336,7 @@ function FeedCell({ tile, ratio }: { tile: FeedTile; ratio: Ratio }) {
         <span className="line-clamp-2 drop-shadow">{subject.name || "Sans sujet"}</span>
         <span className="drop-shadow">{date}</span>
       </span>
-    </div>
+    </button>
   );
 }
 

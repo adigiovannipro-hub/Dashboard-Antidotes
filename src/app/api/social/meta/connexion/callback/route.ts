@@ -27,8 +27,8 @@ import { META_STATE_COOKIE, redirectUri } from "../route";
 
 export const dynamic = "force-dynamic";
 
-function back(slug: string, message: string, ok = false): NextResponse {
-  const url = new URL(`/espace/${slug}/connexions`, publicEnv.NEXT_PUBLIC_SITE_URL);
+function back(path: string, message: string, ok = false): NextResponse {
+  const url = new URL(path, publicEnv.NEXT_PUBLIC_SITE_URL);
   url.searchParams.set(ok ? "connecte" : "erreur", message);
   return NextResponse.redirect(url);
 }
@@ -50,11 +50,12 @@ export async function GET(request: Request) {
   const cookie = store.get(META_STATE_COOKIE)?.value;
   store.delete(META_STATE_COOKIE);
 
-  // L'espace vient du cookie, pas de l'URL : il n'a pas pu être changé.
-  const separator = cookie?.indexOf(":") ?? -1;
-  if (!cookie || separator < 0) return new NextResponse(null, { status: 404 });
-  const expected = cookie.slice(0, separator);
-  const slug = cookie.slice(separator + 1);
+  // Espace et chemin de retour viennent du cookie, pas de l'URL : ils n'ont
+  // pas pu être changés en route.
+  const [expected, slug, path] = (cookie ?? "").split("|");
+  if (!expected || !slug || !path) {
+    return new NextResponse(null, { status: 404 });
+  }
 
   const viewer = await getViewer();
   const workspace = await getWorkspace(slug);
@@ -62,10 +63,10 @@ export async function GET(request: Request) {
     return new NextResponse(null, { status: 404 });
   }
 
-  if (denied) return back(slug, `Connexion refusée côté Meta : ${denied}`);
-  if (!code || !state) return back(slug, "Réponse de Meta incomplète.");
+  if (denied) return back(path, `Connexion refusée côté Meta : ${denied}`);
+  if (!code || !state) return back(path, "Réponse de Meta incomplète.");
   if (!statesMatch(state, expected)) {
-    return back(slug, "Session de connexion expirée. Recommencer.");
+    return back(path, "Session de connexion expirée. Recommencer.");
   }
 
   try {
@@ -77,7 +78,7 @@ export async function GET(request: Request) {
 
     if (pages.length === 0 && adAccounts.length === 0) {
       return back(
-        slug,
+        path,
         "Aucune Page ni compte publicitaire n'a été partagé pendant l'autorisation.",
       );
     }
@@ -178,13 +179,13 @@ export async function GET(request: Request) {
 
     const instagram = rows.filter((row) => row.kind === "instagram").length;
     return back(
-      slug,
+      path,
       `${rows.length} compte${rows.length > 1 ? "s" : ""} branché${rows.length > 1 ? "s" : ""}${
         instagram > 0 ? `, dont ${instagram} Instagram` : ""
       }.`,
       true,
     );
   } catch (error) {
-    return back(slug, (error as Error).message);
+    return back(path, (error as Error).message);
   }
 }

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { toast } from "sonner";
 import { Archive, Plug, Plus, Search, Trash2, X } from "lucide-react";
 
 import { bulkMoveSubjects, createMonth } from "@/app/actions/planning";
@@ -12,7 +13,9 @@ import {
   TrashDialog,
 } from "@/components/planning/board-dialogs";
 import { BulkBar } from "@/components/planning/bulk-bar";
+import { ConnexionsDialog } from "@/components/planning/connexions-dialog";
 import { FeedPreview } from "@/components/planning/feed-preview";
+import { panelZIndex } from "@/components/planning/panel-layers";
 import { useCellAction } from "@/components/planning/cells";
 import {
   PillIndicator,
@@ -35,7 +38,7 @@ import type { ColumnDef } from "@/lib/planning/columns";
 import { applyWidths } from "@/lib/planning/columns";
 import { monthGroupLabel } from "@/lib/planning/monday-mapping";
 import { countSubjects, filterMonths } from "@/lib/planning/search";
-import type { InstagramProfile } from "@/lib/social/types";
+import type { InstagramProfile, SocialAccountRow } from "@/lib/social/types";
 import {
   PREFERENCE_MAX_AGE,
   planningViewCookie,
@@ -75,6 +78,8 @@ export function PlanningBoardView({
   currentMonthKey,
   workspaceSlug,
   instagramProfile,
+  socialAccounts,
+  metaConfigured,
   view,
 }: {
   scope: Scope;
@@ -91,6 +96,10 @@ export function PlanningBoardView({
   workspaceSlug: string;
   /** La vitrine du compte Instagram branché, pour l'en-tête du feed. */
   instagramProfile: InstagramProfile | null;
+  /** Les comptes branchés de l'espace, pour le dialogue de connexions. */
+  socialAccounts: SocialAccountRow[];
+  /** `META_APP_ID` renseignée : sans elle, le dialogue explique quoi faire. */
+  metaConfigured: boolean;
   /** L'état de lecture relu du cookie : tri, mois ouverts, réseaux repliés. */
   view: PlanningView;
 }) {
@@ -137,6 +146,37 @@ export function PlanningBoardView({
   const [editingColumn, setEditingColumn] = useState<ColumnDef | null>(null);
   const [moveOpen, setMoveOpen] = useState(false);
   const [feedMonth, setFeedMonth] = useState<string | null>(null);
+
+  /**
+   * Le retour du branchement Meta est un **événement d'arrivée** : il se lit
+   * une fois, au montage. L'URL est nettoyée juste après — recharger ne doit
+   * pas rejouer le message — et ce nettoyage ne doit pas refermer la boîte
+   * qu'il vient d'ouvrir, d'où la lecture à l'état initial plutôt qu'un effet.
+   */
+  const [connexionReturn] = useState(() => {
+    const done = searchParams.get("connecte");
+    if (done) return { ok: true, message: done };
+    const failed = searchParams.get("erreur");
+    if (failed) return { ok: false, message: failed };
+    return null;
+  });
+  const [connexionsOpen, setConnexionsOpen] = useState(connexionReturn !== null);
+
+  /**
+   * L'ordre d'empilement des deux panneaux.
+   *
+   * Le dernier demandé passe devant — feed ouvert depuis un mois, puis une
+   * publication ouverte depuis une case, puis le feed rappelé au premier plan.
+   * Deux niveaux figés ne sauraient pas rendre ce va-et-vient.
+   */
+  const [layers, setLayers] = useState({ feed: 1, subject: 2 });
+  const raise = useCallback((panel: "feed" | "subject") => {
+    setLayers((current) => {
+      const top = Math.max(current.feed, current.subject);
+      if (current[panel] === top) return current;
+      return { ...current, [panel]: top + 1 };
+    });
+  }, []);
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [trashOpen, setTrashOpen] = useState(false);
 
@@ -150,6 +190,21 @@ export function PlanningBoardView({
   >(undefined);
   const [panelClosing, setPanelClosing] = useState(false);
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Le verdict du branchement s'annonce en toast, puis disparaît de l'URL.
+  useEffect(() => {
+    if (!connexionReturn) return;
+    if (connexionReturn.ok) toast.success(connexionReturn.message);
+    else toast.error(connexionReturn.message);
+
+    const next = new URLSearchParams(window.location.search);
+    next.delete("connecte");
+    next.delete("erreur");
+    const query = next.toString();
+    router.replace(query ? `${pathname}?${query}` : pathname, {
+      scroll: false,
+    });
+  }, [connexionReturn, pathname, router]);
 
   // ⌘F / Ctrl+F saute dans le champ de recherche : sur un planning, chercher
   // veut dire chercher un sujet ou un wording — pas le « rechercher dans la
@@ -171,13 +226,14 @@ export function PlanningBoardView({
       if (closeTimer.current) clearTimeout(closeTimer.current);
       setPanelClosing(false);
       setPanel({ id: subjectId, focus: !!focusRetours });
+      raise("subject");
       const next = new URLSearchParams(searchParams.toString());
       next.set("sujet", subjectId);
       if (focusRetours) next.set("focus", "retour");
       else next.delete("focus");
       router.push(`${pathname}?${next}`, { scroll: false });
     },
-    [pathname, router, searchParams],
+    [pathname, router, searchParams, raise],
   );
 
   const closeDrawer = useCallback(() => {
@@ -305,14 +361,15 @@ export function PlanningBoardView({
 
           {/* Le branchement des comptes du client : c'est d'ici qu'on y va,
               puisque c'est ici qu'on en a besoin. */}
-          <Link
-            href={`/espace/${workspaceSlug}/connexions`}
+          <button
+            type="button"
+            onClick={() => setConnexionsOpen(true)}
             title="Connecter les réseaux sociaux du client"
             className="border-border text-muted-foreground hover:text-foreground hover:bg-muted/60 focus-visible:ring-brand inline-flex h-9 items-center gap-1.5 rounded-md border px-2.5 text-xs transition-colors focus-visible:ring-2 focus-visible:outline-none"
           >
             <Plug className="size-4" strokeWidth={1.75} aria-hidden />
             Connexions
-          </Link>
+          </button>
 
           <HeaderIconButton
             label={`Archives (${archived.length})`}
@@ -358,7 +415,10 @@ export function PlanningBoardView({
               onToggleLane={toggleLane}
               onOpenSubject={openSubject}
               onEditLabels={setEditingColumn}
-              onPreviewFeed={() => setFeedMonth(month.month)}
+              onPreviewFeed={() => {
+                setFeedMonth(month.month);
+                raise("feed");
+              }}
               onResizePreview={(columnId, width) =>
                 setWidthPreview((current) =>
                   width === null
@@ -447,6 +507,7 @@ export function PlanningBoardView({
           activity={activeActivity}
           autoFocusComment={activeFocus}
           closing={panelClosing}
+          zIndex={panelZIndex(layers.subject)}
           onClose={closeDrawer}
         />
       ) : null}
@@ -469,9 +530,20 @@ export function PlanningBoardView({
           monthKey={feedMonth}
           profile={instagramProfile}
           workspaceName={board.name}
+          zIndex={panelZIndex(layers.feed)}
+          onOpenSubject={openSubject}
           onClose={() => setFeedMonth(null)}
         />
       ) : null}
+
+      <ConnexionsDialog
+        workspaceSlug={workspaceSlug}
+        boardSlug={board.slug}
+        accounts={socialAccounts}
+        metaConfigured={metaConfigured}
+        open={connexionsOpen}
+        onOpenChange={setConnexionsOpen}
+      />
 
       <MoveDialog
         months={months}
