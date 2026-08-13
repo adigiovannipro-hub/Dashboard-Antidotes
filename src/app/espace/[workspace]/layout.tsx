@@ -31,9 +31,10 @@ export default async function WorkspaceLayout({
   ]);
 
   const items: NavItem[] = [
-    // Le Contexte n'existe que pour l'owner : le lien n'est pas rendu aux
-    // autres profils — et la page rend de toute façon 404, RLS derrière.
-    ...(workspace.role === "owner"
+    // Le Contexte n'existe pas pour le client : le lien ne lui est pas rendu
+    // — et la page rend de toute façon 404, RLS derrière. Le contributeur,
+    // lui, écrit le brief : c'est son outil de travail.
+    ...(workspace.role !== "client"
       ? [
           {
             segment: "contexte",

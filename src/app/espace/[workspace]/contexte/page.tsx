@@ -34,9 +34,10 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
 
 /**
  * La page Contexte d'un espace client : la source de vérité qui alimente
- * toutes les générations IA. Strictement réservée à l'owner — pour tout autre
- * profil elle n'existe pas : 404, jamais 403, et le lien de navigation n'est
- * pas rendu. La RLS de 0033 reste l'autorité derrière cette garde.
+ * toutes les générations IA. Ouverte au propriétaire et au contributeur, jamais
+ * au client : pour lui elle n'existe pas — 404, jamais 403, et le lien de
+ * navigation n'est pas rendu. La RLS de 0040 reste l'autorité derrière cette
+ * garde.
  */
 export default async function ContextePage({
   params,
@@ -51,7 +52,9 @@ export default async function ContextePage({
   ]);
 
   const workspace = await getWorkspace(slug);
-  if (!workspace || workspace.role !== "owner") notFound();
+  // Le contributeur écrit le brief ; le client n'a pas à le voir. 404 et
+  // jamais 403 : un client ne doit pas apprendre que la page existe.
+  if (!workspace || workspace.role === "client") notFound();
 
   const requestedVersion = versionParam ? Number.parseInt(versionParam, 10) : null;
 

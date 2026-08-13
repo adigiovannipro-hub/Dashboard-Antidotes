@@ -30,6 +30,7 @@ const PASSWORD = "Test!Contexte-2026";
 const emails = {
   owner: `${RUN}-owner@antidotes.test`,
   clientA: `${RUN}-client-a@antidotes.test`,
+  contributorA: `${RUN}-contributor-a@antidotes.test`,
 };
 
 suite("isolation du Contexte client (RLS)", () => {
@@ -136,6 +137,12 @@ suite("isolation du Contexte client (RLS)", () => {
         workspace_id: ids.workspaceA,
         role: "client",
       },
+      {
+        email: emails.contributorA,
+        org_id: ids.org,
+        workspace_id: ids.workspaceA,
+        role: "contributor",
+      },
     ]);
 
     for (const [key, email] of Object.entries(emails)) {
@@ -216,6 +223,59 @@ suite("isolation du Contexte client (RLS)", () => {
           hook: "Accroche intruse",
         });
       expect(accrocheError).not.toBeNull();
+    });
+  });
+
+  /**
+   * L'autre moitié de la règle, celle qu'on oublie de tester : une politique
+   * trop stricte casse le produit aussi sûrement qu'une trop large le rend
+   * dangereux. Le contributeur *doit* pouvoir travailler le brief.
+   */
+  describe("un contributeur travaille le Contexte de son espace, et de lui seul", () => {
+    it("lit le brief de son espace", async () => {
+      const { data } = await clients.contributorA
+        .from("client_context")
+        .select("id")
+        .eq("workspace_id", ids.workspaceA);
+      expect(data?.length ?? 0).toBeGreaterThan(0);
+    });
+
+    it("modifie le brief de son espace et retrouve sa valeur", async () => {
+      const marque = `contributeur ${RUN}`;
+      const { error } = await clients.contributorA
+        .from("client_context")
+        .update({ main_context: marque })
+        .eq("id", ids.contextA);
+      expect(error).toBeNull();
+
+      const { data } = await admin
+        .from("client_context")
+        .select("main_context")
+        .eq("id", ids.contextA)
+        .single();
+      expect(data?.main_context).toBe(marque);
+    });
+
+    it("ne lit pas le brief de l'espace voisin", async () => {
+      const { data } = await clients.contributorA
+        .from("client_context")
+        .select("id")
+        .eq("workspace_id", ids.workspaceB);
+      expect(data ?? []).toHaveLength(0);
+    });
+
+    it("ne peut pas modifier le brief de l'espace voisin", async () => {
+      await clients.contributorA
+        .from("client_context")
+        .update({ main_context: `intrusion ${RUN}` })
+        .eq("id", ids.contextB);
+
+      const { data } = await admin
+        .from("client_context")
+        .select("main_context")
+        .eq("id", ids.contextB)
+        .single();
+      expect(data?.main_context).not.toContain("intrusion");
     });
   });
 

@@ -273,6 +273,14 @@ function DraftForm({
             </label>
           ))}
         </div>
+        {/* Sans cette ligne, le choix se fait à l'aveugle : les deux rôles se
+            ressemblaient au point de n'avoir aucune différence pendant des
+            mois. Dire ce qui change est la moitié du réglage. */}
+        <p className="type-caption mt-1.5 text-text-secondary">
+          {draft.role === "contributor"
+            ? "Travaille le planning et le Contexte du client : brief, documents, règles d'écriture."
+            : "Travaille le planning. Ne voit pas le Contexte."}
+        </p>
       </fieldset>
 
       <fieldset>
