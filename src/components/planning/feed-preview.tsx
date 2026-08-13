@@ -101,8 +101,11 @@ export function FeedPreview({
           </p>
         ) : (
           <>
-            {/* Un gramme d'espace entre les cases, comme sur le profil. */}
-            <div className="grid grid-cols-3 gap-0.5 px-0.5">
+            {/* Un gramme d'espace entre les cases, comme sur le profil. Le
+                fond blanc n'est pas décoratif : le panneau est gris, et une
+                case manquante — grise elle aussi — s'y confondrait. Sur blanc,
+                le trou se voit, ce qui est tout l'intérêt de la grille. */}
+            <div className="bg-surface grid grid-cols-3 gap-0.5 px-0.5">
               {tiles.map((tile) => (
                 <FeedCell
                   key={tile.subject.id}
@@ -277,7 +280,10 @@ function FeedCell({
       onClick={onOpen}
       aria-label={`Ouvrir ${subject.name || "la publication"} du ${date}`}
       className={cn(
-        "group/cell bg-muted focus-visible:ring-brand relative overflow-hidden outline-none focus-visible:z-10 focus-visible:ring-2",
+        // Le gris de fond sert aussi de filet : une créa qui charge encore, ou
+        // une vidéo dont le navigateur ne sait pas tirer la première image,
+        // laisse une case grise et non un trou blanc.
+        "group/cell bg-canvas focus-visible:ring-brand relative overflow-hidden outline-none focus-visible:z-10 focus-visible:ring-2",
         ratio === "4:5" ? "aspect-4/5" : "aspect-square",
       )}
       title={`${subject.name || "Sans sujet"} — ${date}`}
@@ -286,7 +292,7 @@ function FeedCell({
         // La case grise : c'est le trou qu'on vient chercher des yeux. Elle
         // doit donc se voir — un gris trop clair la ferait disparaître dans le
         // panneau blanc, et la grille mentirait par omission.
-        <span className="bg-surface-sunken border-border flex size-full flex-col items-center justify-center gap-1 border border-dashed">
+        <span className="bg-canvas border-border-strong flex size-full flex-col items-center justify-center gap-1 border border-dashed">
           <ImageOff
             className="text-text-tertiary size-5"
             strokeWidth={1.75}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
 /**
  * Les panneaux qui glissent depuis la droite : leur empilement, et leur
@@ -47,6 +47,22 @@ export function useDismissOnOutsideClick(
   active: boolean,
   onDismiss: () => void,
 ) {
+  /**
+   * Le rappel passe par une référence, et l'écouteur ne se réinscrit qu'au
+   * changement d'`active`.
+   *
+   * Ce n'est pas de l'optimisation. Avec deux panneaux ouverts, le premier à
+   * réagir referme le sien, React redessine dans la foulée — et un écouteur
+   * réinscrit à chaque rendu se retrouve **désinscrit au milieu de la
+   * propagation** : le second panneau ne recevait jamais l'événement et
+   * restait ouvert. Un clic sur le tableau doit tout refermer, pas un sur
+   * deux.
+   */
+  const dismiss = useRef(onDismiss);
+  useEffect(() => {
+    dismiss.current = onDismiss;
+  });
+
   useEffect(() => {
     if (!active) return;
 
@@ -57,10 +73,10 @@ export function useDismissOnOutsideClick(
       // n'est plus « à côté » de quoi que ce soit.
       if (!target.isConnected) return;
       if (target.closest(KEEPS_PANELS_OPEN)) return;
-      onDismiss();
+      dismiss.current();
     };
 
     document.addEventListener("pointerdown", onPointerDown);
     return () => document.removeEventListener("pointerdown", onPointerDown);
-  }, [active, onDismiss]);
+  }, [active]);
 }

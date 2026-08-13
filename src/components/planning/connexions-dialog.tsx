@@ -13,7 +13,6 @@ import {
 import {
   META_KINDS,
   SOCIAL_ACCOUNT_LABELS,
-  SOCIAL_ACCOUNT_PURPOSE,
   SOCIAL_STATUS_LABELS,
   type SocialAccountKind,
   type SocialAccountRow,
@@ -88,7 +87,6 @@ export function ConnexionsDialog({
             render={<a href={connexionHref} />}
             variant={metaAccounts.length > 0 ? "outline" : "accent"}
             size="sm"
-            className="self-start"
           >
             {metaAccounts.length > 0 ? (
               <>
@@ -114,7 +112,8 @@ export function ConnexionsDialog({
           </div>
         )}
 
-        <p className="type-caption text-text-tertiary">
+        {/* `--text-tertiary` est à 2,79:1 : réservé aux icônes, jamais au texte. */}
+        <p className="type-caption text-text-secondary">
           LinkedIn puis TikTok viendront ensuite — chacun demande sa propre
           validation d&apos;application.
         </p>
@@ -125,6 +124,7 @@ export function ConnexionsDialog({
 
 function AccountRow({ account }: { account: SocialAccountRow }) {
   const label = SOCIAL_ACCOUNT_LABELS[account.kind as SocialAccountKind];
+  const name = account.display_name ?? account.external_id;
 
   return (
     <li className="flex items-center gap-3 px-3 py-2.5">
@@ -140,18 +140,17 @@ function AccountRow({ account }: { account: SocialAccountRow }) {
           aria-hidden
           className="bg-surface-sunken text-text-secondary flex size-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold"
         >
-          {label.slice(0, 1)}
+          {name.slice(0, 1).toUpperCase()}
         </span>
       )}
 
       <div className="min-w-0 flex-1">
-        <p className="type-body truncate font-medium">
-          {account.display_name ?? account.external_id}
-        </p>
+        <p className="type-body truncate font-medium">{name}</p>
+        {/* Réseau et identifiant suffisent : à quoi sert le compte est dit
+            une fois, en tête de la boîte, plutôt que tronqué à chaque ligne. */}
         <p className="type-caption truncate text-text-secondary">
           {label}
-          {account.username ? ` · ${account.username}` : ""} —{" "}
-          {SOCIAL_ACCOUNT_PURPOSE[account.kind as SocialAccountKind]}
+          {account.username ? ` · ${account.username}` : ""}
         </p>
       </div>
 

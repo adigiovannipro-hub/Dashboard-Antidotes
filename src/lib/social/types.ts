@@ -21,15 +21,6 @@ export const SOCIAL_ACCOUNT_LABELS: Record<SocialAccountKind, string> = {
   tiktok: "TikTok",
 };
 
-/** Ce que chaque compte apporte, dit en clair sur l'écran de connexion. */
-export const SOCIAL_ACCOUNT_PURPOSE: Record<SocialAccountKind, string> = {
-  instagram: "Publier, et prévisualiser le feed du planning.",
-  facebook_page: "Publier et programmer sur la Page.",
-  meta_ad_account: "Alimenter le Reporting en chiffres de campagnes.",
-  linkedin: "Publier sur la page entreprise.",
-  tiktok: "Publier sur le compte.",
-};
-
 export type SocialAccountStatus = "connected" | "expired" | "error" | "disabled";
 
 export const SOCIAL_STATUS_LABELS: Record<SocialAccountStatus, string> = {

@@ -118,6 +118,7 @@ export default async function PlanningBoardPage({
       trash={trash}
       currentMonthKey={currentMonthKey}
       workspaceSlug={workspace.slug}
+      workspaceName={workspace.name}
       instagramProfile={instagramProfile}
       socialAccounts={socialAccounts}
       metaConfigured={metaConfigured()}

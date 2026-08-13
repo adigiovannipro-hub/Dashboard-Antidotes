@@ -77,6 +77,7 @@ export function PlanningBoardView({
   trash,
   currentMonthKey,
   workspaceSlug,
+  workspaceName,
   instagramProfile,
   socialAccounts,
   metaConfigured,
@@ -94,6 +95,9 @@ export function PlanningBoardView({
   trash: { subjects: SubjectRow[]; months: PlanningMonth[] };
   currentMonthKey: string;
   workspaceSlug: string;
+  /** Le nom du client — c'est lui qui s'affiche en tête du feed, pas le nom
+      du tableau : la grille montre le profil de la marque. */
+  workspaceName: string;
   /** La vitrine du compte Instagram branché, pour l'en-tête du feed. */
   instagramProfile: InstagramProfile | null;
   /** Les comptes branchés de l'espace, pour le dialogue de connexions. */
@@ -529,7 +533,7 @@ export function PlanningBoardView({
           months={months}
           monthKey={feedMonth}
           profile={instagramProfile}
-          workspaceName={board.name}
+          workspaceName={workspaceName}
           zIndex={panelZIndex(layers.feed)}
           onOpenSubject={openSubject}
           onClose={() => setFeedMonth(null)}
