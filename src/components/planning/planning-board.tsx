@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Archive, Plus, Search, Trash2, X } from "lucide-react";
+import { Archive, Plug, Plus, Search, Trash2, X } from "lucide-react";
 
 import { bulkMoveSubjects, createMonth } from "@/app/actions/planning";
 import {
@@ -12,6 +12,7 @@ import {
   TrashDialog,
 } from "@/components/planning/board-dialogs";
 import { BulkBar } from "@/components/planning/bulk-bar";
+import { FeedPreview } from "@/components/planning/feed-preview";
 import { useCellAction } from "@/components/planning/cells";
 import {
   PillIndicator,
@@ -34,6 +35,7 @@ import type { ColumnDef } from "@/lib/planning/columns";
 import { applyWidths } from "@/lib/planning/columns";
 import { monthGroupLabel } from "@/lib/planning/monday-mapping";
 import { countSubjects, filterMonths } from "@/lib/planning/search";
+import type { InstagramProfile } from "@/lib/social/types";
 import {
   PREFERENCE_MAX_AGE,
   planningViewCookie,
@@ -72,6 +74,7 @@ export function PlanningBoardView({
   trash,
   currentMonthKey,
   workspaceSlug,
+  instagramProfile,
   view,
 }: {
   scope: Scope;
@@ -86,6 +89,8 @@ export function PlanningBoardView({
   trash: { subjects: SubjectRow[]; months: PlanningMonth[] };
   currentMonthKey: string;
   workspaceSlug: string;
+  /** La vitrine du compte Instagram branché, pour l'en-tête du feed. */
+  instagramProfile: InstagramProfile | null;
   /** L'état de lecture relu du cookie : tri, mois ouverts, réseaux repliés. */
   view: PlanningView;
 }) {
@@ -131,6 +136,7 @@ export function PlanningBoardView({
   // corbeille.
   const [editingColumn, setEditingColumn] = useState<ColumnDef | null>(null);
   const [moveOpen, setMoveOpen] = useState(false);
+  const [feedMonth, setFeedMonth] = useState<string | null>(null);
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [trashOpen, setTrashOpen] = useState(false);
 
@@ -297,6 +303,17 @@ export function PlanningBoardView({
             ) : null}
           </div>
 
+          {/* Le branchement des comptes du client : c'est d'ici qu'on y va,
+              puisque c'est ici qu'on en a besoin. */}
+          <Link
+            href={`/espace/${workspaceSlug}/connexions`}
+            title="Connecter les réseaux sociaux du client"
+            className="border-border text-muted-foreground hover:text-foreground hover:bg-muted/60 focus-visible:ring-brand inline-flex h-9 items-center gap-1.5 rounded-md border px-2.5 text-xs transition-colors focus-visible:ring-2 focus-visible:outline-none"
+          >
+            <Plug className="size-4" strokeWidth={1.75} aria-hidden />
+            Connexions
+          </Link>
+
           <HeaderIconButton
             label={`Archives (${archived.length})`}
             count={archived.length}
@@ -341,6 +358,7 @@ export function PlanningBoardView({
               onToggleLane={toggleLane}
               onOpenSubject={openSubject}
               onEditLabels={setEditingColumn}
+              onPreviewFeed={() => setFeedMonth(month.month)}
               onResizePreview={(columnId, width) =>
                 setWidthPreview((current) =>
                   width === null
@@ -442,6 +460,16 @@ export function PlanningBoardView({
           onOpenChange={(next) => {
             if (!next) setEditingColumn(null);
           }}
+        />
+      ) : null}
+
+      {feedMonth ? (
+        <FeedPreview
+          months={months}
+          monthKey={feedMonth}
+          profile={instagramProfile}
+          workspaceName={board.name}
+          onClose={() => setFeedMonth(null)}
         />
       ) : null}
 

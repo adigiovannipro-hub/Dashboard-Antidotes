@@ -4,6 +4,7 @@ import { useState } from "react";
 import { ChevronRight, Plus, Trash2 } from "lucide-react";
 
 import { createLane, deleteMonth, renameMonth } from "@/app/actions/planning";
+import { FeedPreviewButton } from "@/components/planning/feed-preview";
 import { TextCell, useCellAction } from "@/components/planning/cells";
 import { LaneTable, type DateSort } from "@/components/planning/lane-table";
 import type { Scope } from "@/components/planning/subject-row";
@@ -40,6 +41,7 @@ export function MonthGroup({
   onToggleLane,
   onOpenSubject,
   onEditLabels,
+  onPreviewFeed,
   onResizePreview,
   defaultOpen,
   onOpenChange,
@@ -58,6 +60,8 @@ export function MonthGroup({
   onToggleLane: (subjectIds: string[], selected: boolean) => void;
   onOpenSubject: (subjectId: string, focusRetours?: boolean) => void;
   onEditLabels: (column: ColumnDef) => void;
+  /** Ouvre la prévisualisation du feed à la fin de ce mois. */
+  onPreviewFeed: () => void;
   onResizePreview: (columnId: string, width: number | null) => void;
   defaultOpen: boolean;
   /** Mémorise le pli du mois — le tableau se rouvre comme on l'a laissé. */
@@ -148,6 +152,8 @@ export function MonthGroup({
         ) : null}
 
         <div className="ml-auto flex items-center gap-1">
+          <FeedPreviewButton onClick={onPreviewFeed} />
+
           <DropdownMenu>
             <DropdownMenuTrigger
               disabled={pending}

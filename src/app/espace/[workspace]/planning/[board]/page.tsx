@@ -13,6 +13,7 @@ import {
   listBoards,
   listFaqEntries,
 } from "@/lib/planning/queries";
+import { getInstagramProfile } from "@/lib/social/queries";
 import { parsePlanningView, planningViewCookie } from "@/lib/ui-preferences";
 import { requirePageAccess } from "@/lib/workspaces/access";
 import { PLANNING_PAGE_KEY } from "@/lib/workspaces/types";
@@ -67,10 +68,12 @@ export default async function PlanningBoardPage({
     );
   }
 
-  const [{ months, owners, columns, archived, trash }, query] = await Promise.all([
-    getBoardContent(board),
-    searchParams,
-  ]);
+  const [{ months, owners, columns, archived, trash }, query, instagramProfile] =
+    await Promise.all([
+      getBoardContent(board),
+      searchParams,
+      getInstagramProfile(workspace.id),
+    ]);
 
   // La publication ouverte vient de l'URL : un lien partagé rouvre le même
   // panneau, et le retour arrière le referme. Une ligne archivée ou à la
@@ -109,6 +112,7 @@ export default async function PlanningBoardPage({
       trash={trash}
       currentMonthKey={currentMonthKey}
       workspaceSlug={workspace.slug}
+      instagramProfile={instagramProfile}
       view={view}
     />
   );

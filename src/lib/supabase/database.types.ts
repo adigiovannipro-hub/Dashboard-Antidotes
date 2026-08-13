@@ -616,6 +616,12 @@ import type {
   WordingHistoryEntry,
 } from "@/lib/production/types";
 
+/* --- Comptes sociaux ---------------------------------------------------------
+   Le détail vit dans `src/lib/social/types.ts`, aligné sur la migration 0040. */
+export type { SocialAccountRow as SocialAccount } from "@/lib/social/types";
+
+import type { SocialAccountRow as SocialAccount } from "@/lib/social/types";
+
 type Table<Row, Insert = Partial<Row>, Update = Partial<Row>> = {
   Row: Row;
   Insert: Insert;
@@ -689,6 +695,7 @@ export type Database = {
       client_phases: Table<ClientPhase>;
       generation_jobs: Table<GenerationJob>;
       wording_history: Table<WordingHistoryEntry>;
+      social_accounts: Table<SocialAccount>;
     };
     // `never` satisfait la contrainte `Record<string, GenericView>` de
     // postgrest-js tout en déclarant qu'il n'y a ni vue ni fonction exposée.
