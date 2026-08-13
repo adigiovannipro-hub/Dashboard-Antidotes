@@ -261,9 +261,15 @@ export function ClientCard({
           </Link>
           <p className="type-caption text-text-secondary">{vue.subtitle}</p>
           {vue.lateBadge ? (
-            /* L'ambre bat lentement plutôt que de clignoter : un clignotement
-               franc fatigue et pose un problème d'accessibilité. */
-            <p className="anim-retard type-caption font-medium text-warning-ink">
+            /* Le battement est sur la pastille, jamais sur le texte : une
+               opacité qui descend fait passer le libellé sous le seuil de
+               contraste la moitié du temps — l'audit navigateur l'a mesuré à
+               3,53:1 pour un seuil de 4,5. Le point bat, le mot se lit. */
+            <p className="type-caption flex items-center gap-1.5 font-medium text-warning-ink">
+              <span
+                aria-hidden
+                className="anim-retard size-1.5 shrink-0 rounded-pill bg-warning-ink"
+              />
               {vue.lateBadge}
             </p>
           ) : null}

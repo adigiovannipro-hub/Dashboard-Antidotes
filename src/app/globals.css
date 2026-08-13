@@ -270,8 +270,10 @@
 
 /* L'ambre qui bat : une phase en retard doit attirer l'œil sans clignoter au
    sens strict — un clignotement franc fatigue et pose un problème
-   d'accessibilité. C'est une respiration lente sur l'opacité, jamais sur la
-   couleur, et elle s'arrête net si la machine demande moins d'animation. */
+   d'accessibilité. Respiration lente sur l'opacité, jamais sur la couleur,
+   et **jamais sur du texte** : un libellé qui descend à 45 % passe sous le
+   seuil de contraste la moitié du temps. Réservée aux marques graphiques —
+   les segments de la barre, la pastille du badge. */
 @keyframes battement-retard {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.45; }
