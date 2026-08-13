@@ -6,6 +6,7 @@ import { Lock, Plus } from "lucide-react";
 import { toast } from "sonner";
 
 import { removePartner, savePartner } from "@/app/actions/workspaces";
+import { PendingLabel } from "@/components/ds/pending-label";
 import { safeAction } from "@/lib/context/safe-action";
 import { StatusPill } from "@/components/ds/status-pill";
 import { Button } from "@/components/ui/button";
@@ -208,7 +209,9 @@ export function PartnersDialog({
               disabled={pending || draft.email.trim().length < 5}
               onClick={save}
             >
-              {pending ? "Enregistrement…" : "Enregistrer"}
+              <PendingLabel pending={pending} busy="Enregistrement…">
+                Enregistrer
+              </PendingLabel>
             </Button>
           ) : null}
         </DialogFooter>

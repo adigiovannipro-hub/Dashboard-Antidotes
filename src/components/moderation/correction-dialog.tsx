@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PendingLabel } from "@/components/ds/pending-label";
 import type { DraftSource, SupportedLocale } from "@/lib/moderation/types";
 import { proposeCanonical } from "./canonical";
 
@@ -180,7 +181,9 @@ export function CorrectionDialog({
               Annuler
             </Button>
             <Button type="submit" disabled={pending}>
-              {pending ? "Enregistrement…" : "Corriger et envoyer"}
+              <PendingLabel pending={pending} busy="Enregistrement…">
+                Corriger et envoyer
+              </PendingLabel>
             </Button>
           </div>
         </form>

@@ -7,6 +7,7 @@ import { toast } from "sonner";
 
 import { proposeRegeneration, restoreVersion } from "@/app/actions/context";
 import { safeAction } from "@/lib/context/safe-action";
+import { PendingLabel } from "@/components/ds/pending-label";
 import { StatCard, StatGrid } from "@/components/ds/stat-card";
 import { StatusPill } from "@/components/ds/status-pill";
 import { Button } from "@/components/ui/button";
@@ -172,7 +173,14 @@ export function ContexteScreen({
                 strokeWidth={1.75}
                 className={regenPending ? "animate-spin" : undefined}
               />
-              {regenPending ? "Consolidation en cours…" : "Régénérer depuis les documents"}
+              {/* Sans témoin propre : la flèche à gauche tourne déjà. */}
+              <PendingLabel
+                pending={regenPending}
+                busy="Consolidation en cours…"
+                spinner={false}
+              >
+                Régénérer depuis les documents
+              </PendingLabel>
             </Button>
           </div>
         ) : null}

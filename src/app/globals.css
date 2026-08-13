@@ -429,6 +429,46 @@
 }
 
 /* ===========================================================================
+   Le dépliement d'un groupe repliable.
+
+   Les groupes des Échéances sont des `<details>` natifs — pas d'état client,
+   pas d'hydratation, et c'est une bonne décision qu'on ne remet pas en cause.
+   Leur seul défaut : le contenu apparaît d'un coup, et six lignes qui
+   surgissent poussent tout le bas de page sans qu'on ait vu d'où elles
+   viennent.
+
+   Animé en CSS seul, sans toucher au balisage : `::details-content` est la
+   boîte que le navigateur crée pour le contenu d'un `<details>`, et
+   `interpolate-size` autorise l'interpolation vers `auto` — sans lui, il
+   faudrait mesurer la hauteur en JavaScript à chaque ouverture.
+
+   `interpolate-size` est posé sur l'élément et non sur `:root` : la propriété
+   s'hérite, donc le contenu en profite, mais **aucune autre** transition de
+   taille de l'application ne devient interpolable par effet de bord.
+
+   Là où `::details-content` n'existe pas encore — Firefox à ce jour — la
+   règle entière ne s'applique pas et le groupe s'ouvre comme aujourd'hui. La
+   dégradation est le comportement normal, pas un état cassé.
+   =========================================================================== */
+@supports (interpolate-size: allow-keywords) and selector(::details-content) {
+  @media (prefers-reduced-motion: no-preference) {
+    .disclosure {
+      interpolate-size: allow-keywords;
+    }
+    .disclosure::details-content {
+      block-size: 0;
+      overflow-y: clip;
+      transition:
+        block-size var(--motion-duration-slow) var(--motion-ease-exit),
+        content-visibility var(--motion-duration-slow) allow-discrete;
+    }
+    .disclosure[open]::details-content {
+      block-size: auto;
+    }
+  }
+}
+
+/* ===========================================================================
    Le fil de progression de la navigation (`components/ds/route-progress.tsx`).
 
    Sa course n'est pas un avancement : on ne sait pas combien de temps le

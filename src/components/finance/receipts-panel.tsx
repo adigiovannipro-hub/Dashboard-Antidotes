@@ -19,6 +19,7 @@ import {
   toggleAutoForward,
   type ReceiptResult,
 } from "@/app/actions/recus";
+import { PendingLabel } from "@/components/ds/pending-label";
 import { formatMoney } from "@/lib/finance/money";
 import { STATUS_LABELS, type ReceiptDocument } from "@/lib/recus/types";
 import { cn } from "@/lib/utils";
@@ -198,7 +199,7 @@ function ReceiptLine({ row, canDecide }: { row: ReceiptRow; canDecide: boolean }
               className="type-caption text-text-secondary hover:text-text-primary focus-visible:ring-ring inline-flex items-center gap-1 rounded-md px-2 py-1 transition-colors duration-(--motion-duration) ease-standard focus-visible:ring-2 focus-visible:outline-none"
             >
               <Archive className="size-3.5" strokeWidth={1.75} aria-hidden />
-              {archiving ? "…" : "Archiver"}
+              <PendingLabel pending={archiving}>Archiver</PendingLabel>
             </button>
           </form>
 
@@ -211,7 +212,7 @@ function ReceiptLine({ row, canDecide }: { row: ReceiptRow; canDecide: boolean }
                 className="bg-primary text-primary-foreground focus-visible:ring-ring type-caption inline-flex items-center gap-1 rounded-md px-2.5 py-1 font-medium transition-colors duration-(--motion-duration) ease-standard focus-visible:ring-2 focus-visible:outline-none disabled:opacity-60"
               >
                 <Send className="size-3.5" strokeWidth={1.75} aria-hidden />
-                {approving ? "Envoi…" : "Envoyer"}
+                <PendingLabel pending={approving} busy="Envoi…">Envoyer</PendingLabel>
               </button>
             </form>
           ) : null}
