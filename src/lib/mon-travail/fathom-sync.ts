@@ -37,6 +37,10 @@ const DEFAULT_WINDOW_DAYS = 30;
 export type FathomReport = {
   ok: boolean;
   raison?: string;
+  /** Les variables `FATHOM*` visibles de la fonction — noms seuls. */
+  variablesVues?: string[];
+  /** Longueur de la clé telle que reçue. Zéro = elle n'est pas arrivée. */
+  longueurCle?: number;
   /** L'adresse d'API qui a répondu, parmi les candidates essayées. */
   adresse?: string;
   /** Depuis quand les réunions ont été demandées : la cause la plus fréquente
@@ -60,7 +64,18 @@ export async function syncFathomTasks(options: {
      n'en fait pas partie. Même traitement qu'Airwallex et Anthropic. */
   const apiKey = process.env.FATHOM_API_KEY?.trim();
   if (!apiKey) {
-    return { ok: true, raison: "FATHOM_API_KEY absente — étape ignorée." };
+    return {
+      ok: true,
+      raison: "FATHOM_API_KEY absente — étape ignorée.",
+      /* Ce que la fonction voit réellement, pour trancher entre « la variable
+         n'est pas dans ce déploiement » et « elle y est mais vide ». Les
+         **noms** seulement, plus une longueur : la valeur d'un secret n'a rien
+         à faire dans une réponse HTTP, fût-ce pour un diagnostic. */
+      variablesVues: Object.keys(process.env)
+        .filter((name) => name.startsWith("FATHOM"))
+        .sort(),
+      longueurCle: process.env.FATHOM_API_KEY?.length ?? 0,
+    };
   }
 
   const since =
