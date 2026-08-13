@@ -37,6 +37,8 @@ const DEFAULT_WINDOW_DAYS = 30;
 export type FathomReport = {
   ok: boolean;
   raison?: string;
+  /** L'adresse d'API qui a répondu, parmi les candidates essayées. */
+  adresse?: string;
   /** Depuis quand les réunions ont été demandées : la cause la plus fréquente
       d'un « zéro réunion » parfaitement silencieux. */
   depuis?: string;
@@ -65,7 +67,7 @@ export async function syncFathomTasks(options: {
     process.env.FATHOM_IMPORT_SINCE?.trim() ||
     addDays(options.today, -DEFAULT_WINDOW_DAYS);
 
-  const { meetings, unreadable } = await fetchFathomMeetings({ apiKey, since });
+  const { meetings, unreadable, base } = await fetchFathomMeetings({ apiKey, since });
 
   // Les espaces clients de l'organisation : ce sont les seuls auxquels une
   // réunion peut être rattachée. L'erreur est testée — une table illisible
@@ -105,6 +107,7 @@ export async function syncFathomTasks(options: {
 
   return {
     ok: true,
+    adresse: base,
     depuis: since,
     reunions: meetings.length,
     planifiees: plan.tasks.length,

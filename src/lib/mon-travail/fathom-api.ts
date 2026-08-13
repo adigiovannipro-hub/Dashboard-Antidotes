@@ -17,12 +17,25 @@ import type { FathomActionItem, FathomAssignee, FathomMeeting } from "./fathom";
  */
 
 /**
- * `FATHOM_API_BASE` n'existe que pour rejouer la chaîne complète contre un
- * serveur local — la vraie API est injoignable depuis l'environnement de
- * développement. Non renseignée, c'est Fathom.
+ * Les adresses candidates de l'API, essayées dans l'ordre.
+ *
+ * Il y en a deux parce que l'API n'a **jamais pu être appelée** depuis
+ * l'environnement de développement — la politique de sortie du bac à sable la
+ * refuse — et qu'une adresse supposée qui se révèle fausse coûte un aller-
+ * retour d'une journée pour le découvrir. Le client passe donc à la suivante
+ * quand l'hôte ne répond pas du tout, ou répond 404 : dans les deux cas
+ * l'adresse est mauvaise. Il **s'arrête** sur 200, 401 ou 403, qui prouvent
+ * que l'hôte est le bon et déplacent le problème sur la clé.
+ *
+ * L'adresse retenue est rendue dans le rapport. Le jour où le premier vrai
+ * passage tranche, cette liste se réduit à une ligne.
+ *
+ * `FATHOM_API_BASE`, s'il est renseigné, gagne seul : il sert à rejouer la
+ * chaîne contre un serveur local.
  */
-const FATHOM_BASE =
-  process.env.FATHOM_API_BASE?.trim() || "https://api.fathom.ai/external/v1";
+const FATHOM_BASES = process.env.FATHOM_API_BASE?.trim()
+  ? [process.env.FATHOM_API_BASE.trim()]
+  : ["https://api.fathom.ai/external/v1", "https://api.fathom.video/external/v1"];
 
 /** Une personne : les deux champs qu'on lit, sous leurs noms possibles. */
 const personSchema = z
@@ -140,7 +153,52 @@ export type FathomFetch = {
   meetings: FathomMeeting[];
   /** Objets rendus par l'API mais illisibles, avec leurs clés — pour le rapport. */
   unreadable: string[];
+  /** L'adresse qui a effectivement répondu — pour le rapport. */
+  base: string;
 };
+
+/**
+ * Appelle une page, en essayant les adresses candidates dans l'ordre.
+ *
+ * Une erreur réseau ou un 404 disqualifient l'adresse et font passer à la
+ * suivante. Un 401 ou un 403 l'accréditent au contraire : l'hôte existe et
+ * discute, le problème est la clé — et remonte donc tel quel.
+ */
+async function fetchPage(
+  bases: string[],
+  path: string,
+  options: { apiKey: string; signal?: AbortSignal },
+): Promise<{ response: Response; base: string }> {
+  const tried: string[] = [];
+
+  for (const base of bases) {
+    const url = new URL(`${base}${path}`);
+    let response: Response;
+    try {
+      response = await fetch(url, {
+        headers: { "X-Api-Key": options.apiKey, accept: "application/json" },
+        signal: options.signal,
+        cache: "no-store",
+      });
+    } catch (cause) {
+      // `fetch` jette un « fetch failed » sans contexte quand le nom est
+      // inconnu : on note l'adresse, sans quoi le rapport ne dirait rien.
+      tried.push(
+        `${url.origin} → ${cause instanceof Error ? cause.message : "erreur réseau"}`,
+      );
+      continue;
+    }
+
+    if (response.status === 404) {
+      tried.push(`${url.origin}${url.pathname} → 404`);
+      continue;
+    }
+
+    return { response, base };
+  }
+
+  throw new Error(`Aucune adresse Fathom n'a répondu — ${tried.join(" ; ")}`);
+}
 
 /**
  * Les réunions enregistrées depuis une date, tâches de fin comprises.
@@ -158,35 +216,25 @@ export async function fetchFathomMeetings(options: {
   const meetings: FathomMeeting[] = [];
   const unreadable: string[] = [];
   let cursor: string | null = null;
+  // Une fois une adresse retenue, les pages suivantes n'en changent plus.
+  let bases = FATHOM_BASES;
+  let base = bases[0]!;
 
   for (let page = 0; page < (options.maxPages ?? 10); page += 1) {
-    const url = new URL(`${FATHOM_BASE}/meetings`);
-    url.searchParams.set("created_after", `${options.since}T00:00:00Z`);
-    url.searchParams.set("include_action_items", "true");
-    if (cursor) url.searchParams.set("cursor", cursor);
+    const query = new URLSearchParams({
+      created_after: `${options.since}T00:00:00Z`,
+      include_action_items: "true",
+    });
+    if (cursor) query.set("cursor", cursor);
 
-    /* `fetch` jette un « fetch failed » sans contexte quand l'hôte est
-       injoignable ou le nom inconnu. Comme cette URL n'a pas pu être validée
-       contre la vraie API, c'est précisément le cas qu'il faut savoir lire :
-       le message nomme donc l'adresse tentée. */
-    let response: Response;
-    try {
-      response = await fetch(url, {
-        headers: { "X-Api-Key": options.apiKey, accept: "application/json" },
-        signal: options.signal,
-        cache: "no-store",
-      });
-    } catch (cause) {
-      throw new Error(
-        `Appel à ${url.origin}${url.pathname} impossible : ${
-          cause instanceof Error ? cause.message : "erreur réseau"
-        }`,
-      );
-    }
+    const attempt = await fetchPage(bases, `/meetings?${query}`, options);
+    const response = attempt.response;
+    base = attempt.base;
+    bases = [base];
 
     if (!response.ok) {
       const body = (await response.text()).slice(0, 300);
-      throw new Error(`Fathom a répondu ${response.status} : ${body}`);
+      throw new Error(`Fathom (${base}) a répondu ${response.status} : ${body}`);
     }
 
     const parsed = pageSchema.safeParse(await response.json());
@@ -207,5 +255,5 @@ export async function fetchFathomMeetings(options: {
     if (!cursor || rows.length === 0) break;
   }
 
-  return { meetings, unreadable };
+  return { meetings, unreadable, base };
 }
