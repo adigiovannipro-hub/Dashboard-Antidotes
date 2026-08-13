@@ -122,6 +122,17 @@ export function monthLabelLower(monthKey: string): string {
 }
 
 /**
+ * « de septembre », « d'octobre » — l'élision devant une voyelle.
+ *
+ * Trois mois sur douze commencent par une voyelle : avril, août, octobre.
+ * Sans ça, un bouton sur quatre affiche « Générer les intentions de octobre ».
+ */
+export function ofMonth(monthKey: string): string {
+  const label = monthLabelLower(monthKey);
+  return /^[aeiouâêîôûàéèù]/.test(label) ? `d'${label}` : `de ${label}`;
+}
+
+/**
  * Le mois visé par une phase pendant le mois civil de `today`.
  *
  * C'est la même fonction qui sert la carte et les routes de génération : le

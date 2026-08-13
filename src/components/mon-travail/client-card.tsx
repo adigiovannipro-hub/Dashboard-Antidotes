@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import {
   BarChart3,
   CalendarPlus,
+  ChevronLeft,
+  ChevronRight,
   CircleStop,
   Ellipsis,
   Lightbulb,
@@ -85,6 +87,12 @@ export function ClientCard({
   const [job, setJob] = useState<CardJob | null>(model.activeJob);
   const [launching, setLaunching] = useState(false);
   const [stopping, setStopping] = useState(false);
+  // Le mois travaillé. Jamais mémorisé d'un rendu à l'autre : la carte
+  // s'ouvre sur le mois par défaut, sans quoi un choix d'hier cacherait le
+  // retard d'aujourd'hui. `sens` ne sert qu'à faire entrer le contenu du bon
+  // côté — la flèche et le mouvement doivent raconter la même chose.
+  const [moisIndex, setMoisIndex] = useState(0);
+  const [sens, setSens] = useState<"suivant" | "precedent">("suivant");
   // Le verdict ne doit sonner qu'une fois, même si un rendu s'intercale.
   const settledJobId = useRef<string | null>(null);
 
@@ -208,8 +216,23 @@ export function ClientCard({
     }
   }, [job, router]);
 
+  // La vue du mois travaillé. `views` porte toujours au moins le mois par
+  // défaut ; l'index est borné pour survivre à un rafraîchissement serveur qui
+  // renverrait moins de vues qu'au rendu précédent.
+  const vues = model.views;
+  const index = Math.min(moisIndex, vues.length - 1);
+  const vue = vues[index]!;
+  const multiMois = vues.length > 1;
+
+  const allerAu = (cible: number) => {
+    if (cible < 0 || cible >= vues.length || cible === index) return;
+    setSens(cible > index ? "suivant" : "precedent");
+    setMoisIndex(cible);
+  };
+
   const targetMonthOf = (phase: ProductionPhase): string =>
-    model.segments.find((segment) => segment.phase === phase)?.targetMonth ?? "";
+    vue.segments.find((segment) => segment.phase === phase)?.targetMonth ??
+    vue.targetMonth;
 
   // La barre suit le job en direct quand il tourne, sinon l'avancement des
   // publications du mois calculé côté serveur.
@@ -218,7 +241,7 @@ export function ClientCard({
       ? { done: job.current, total: job.total, label: RUNNING_LABELS[job.phase] }
       : model.progress;
 
-  const ActionIcon = model.action ? PHASE_ICONS[model.action.phase] : null;
+  const ActionIcon = vue.action ? PHASE_ICONS[vue.action.phase] : null;
 
   return (
     <article className="rounded-lg border border-border bg-surface p-5 shadow-card">
@@ -236,9 +259,13 @@ export function ClientCard({
           >
             {name}
           </Link>
-          <p className="type-caption text-text-secondary">{model.subtitle}</p>
-          {model.lateBadge ? (
-            <p className="type-caption font-medium text-warning-ink">{model.lateBadge}</p>
+          <p className="type-caption text-text-secondary">{vue.subtitle}</p>
+          {vue.lateBadge ? (
+            /* L'ambre bat lentement plutôt que de clignoter : un clignotement
+               franc fatigue et pose un problème d'accessibilité. */
+            <p className="anim-retard type-caption font-medium text-warning-ink">
+              {vue.lateBadge}
+            </p>
           ) : null}
         </div>
         <DropdownMenu>
@@ -278,26 +305,80 @@ export function ClientCard({
         </DropdownMenu>
       </div>
 
+      {/* --- Mois travaillé -------------------------------------------------- */}
+      {multiMois ? (
+        <div className="mt-4 flex items-center justify-between gap-2 rounded-md bg-surface-sunken px-2 py-1.5">
+          <span className="type-caption shrink-0 text-text-secondary">Mois travaillé</span>
+          <div className="flex min-w-0 items-center gap-0.5">
+            {vue.badge ? (
+              <span className="type-micro mr-1 shrink-0 rounded-pill bg-info-subtle px-1.5 py-0.5 text-info-ink">
+                {vue.badge}
+              </span>
+            ) : null}
+            <button
+              type="button"
+              aria-label="Mois précédent"
+              disabled={index === 0}
+              onClick={() => allerAu(index - 1)}
+              className="flex size-6 shrink-0 items-center justify-center rounded-sm text-text-secondary transition-[background-color,color] duration-(--motion-duration) ease-standard hover:bg-muted hover:text-foreground focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-40"
+            >
+              <ChevronLeft aria-hidden strokeWidth={1.75} className="size-4" />
+            </button>
+            <span
+              key={vue.targetMonth}
+              className={cn(
+                "type-label min-w-0 truncate px-1 text-center text-text-primary",
+                sens === "suivant" ? "anim-mois-suivant" : "anim-mois-precedent",
+              )}
+            >
+              {vue.monthLabel}
+            </span>
+            <button
+              type="button"
+              aria-label="Mois suivant"
+              disabled={index === vues.length - 1}
+              onClick={() => allerAu(index + 1)}
+              className="flex size-6 shrink-0 items-center justify-center rounded-sm text-text-secondary transition-[background-color,color] duration-(--motion-duration) ease-standard hover:bg-muted hover:text-foreground focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-40"
+            >
+              <ChevronRight aria-hidden strokeWidth={1.75} className="size-4" />
+            </button>
+          </div>
+        </div>
+      ) : null}
+
       {/* --- Barre de phases ------------------------------------------------ */}
       {/* Deux grilles de quatre colonnes égales, jamais deux `flex` : c'est ce
           qui garantit qu'un libellé tombe exactement sous son segment. Avec
-          `justify-between`, « Programmation » dérivait d'un demi-segment. */}
-      <div className="mt-4">
+          `justify-between`, « Programmation » dérivait d'un demi-segment.
+          La clé porte le mois : changer de mois rejoue la glissade. */}
+      <div
+        key={vue.targetMonth}
+        className={cn(
+          multiMois ? "mt-3" : "mt-4",
+          multiMois && (sens === "suivant" ? "anim-mois-suivant" : "anim-mois-precedent"),
+        )}
+      >
         <div className="grid grid-cols-4 gap-1">
-          {model.segments.map((segment) => (
+          {vue.segments.map((segment) => (
             <span
               key={segment.phase}
               aria-hidden
-              className={cn("h-1 rounded-pill", TONE_BG[segment.tone])}
+              className={cn(
+                "h-1 rounded-pill",
+                TONE_BG[segment.tone],
+                // Seule une phase réellement en retard bat : l'ambre d'une
+                // fenêtre simplement ouverte ne doit pas crier.
+                segment.late && "anim-retard",
+              )}
             />
           ))}
         </div>
-        <p className="sr-only">{`Cycle du mois : ${model.subtitle}`}</p>
+        <p className="sr-only">{`Cycle du mois : ${vue.subtitle}`}</p>
         {/* Pas de gouttière sur cette rangée : « Programmation » a besoin de
             toute la colonne. `truncate` reste en filet de sécurité pour les
             cartes plus étroites que la grille à trois colonnes. */}
         <div className="mt-1.5 grid grid-cols-4">
-          {model.segments.map((segment) => (
+          {vue.segments.map((segment) => (
             <span
               key={segment.phase}
               className={cn(
@@ -311,21 +392,21 @@ export function ClientCard({
             </span>
           ))}
         </div>
-      </div>
 
-      {/* --- Mesures de la phase -------------------------------------------- */}
-      <dl className="mt-4 space-y-1.5">
-        {model.metrics.map((metric) => (
-          <div key={metric.label} className="flex items-center justify-between gap-2">
-            <dt className="type-caption min-w-0 truncate text-text-secondary">
-              {metric.label}
-            </dt>
-            <dd className="type-label text-text-primary tabular-nums">
-              {metric.value}
-            </dd>
-          </div>
-        ))}
-      </dl>
+        {/* --- Mesures de la phase ------------------------------------------ */}
+        <dl className="mt-4 space-y-1.5">
+          {vue.metrics.map((metric) => (
+            <div key={metric.label} className="flex items-center justify-between gap-2">
+              <dt className="type-caption min-w-0 truncate text-text-secondary">
+                {metric.label}
+              </dt>
+              <dd className="type-label text-text-primary tabular-nums">
+                {metric.value}
+              </dd>
+            </div>
+          ))}
+        </dl>
+      </div>
 
       {/* --- Avancement des publications du mois ----------------------------- */}
       {progress && progress.total > 0 ? (
@@ -355,9 +436,9 @@ export function ClientCard({
       ) : null}
 
       {/* --- Encart contextuel ----------------------------------------------- */}
-      {model.info ? (
+      {vue.info ? (
         <div className="mt-4 rounded-md bg-surface-sunken p-3 type-caption text-text-secondary">
-          {model.info}
+          {vue.info}
         </div>
       ) : null}
 
@@ -388,25 +469,25 @@ export function ClientCard({
             Arrêter
           </Button>
         </div>
-      ) : model.action ? (
+      ) : vue.action ? (
         <Button
-          variant={model.action.kind === "resume" ? "destructive" : "outline"}
+          variant={vue.action.kind === "resume" ? "destructive" : "outline"}
           size="sm"
           className={cn(
             "mt-4 w-full",
-            model.action.kind === "generate" &&
+            vue.action.kind === "generate" &&
               "border-accent-ink/35 text-accent-ink hover:border-accent-ink/60 hover:bg-accent-subtle/40",
           )}
-          disabled={model.action.disabled || launching}
-          title={model.action.reason ?? undefined}
-          onClick={() => launch(model.action!.phase, model.action!.targetMonth)}
+          disabled={vue.action.disabled || launching}
+          title={vue.action.reason ?? undefined}
+          onClick={() => launch(vue.action!.phase, vue.action!.targetMonth)}
         >
           {launching ? (
             <Loader2 aria-hidden className="animate-spin" strokeWidth={1.75} />
           ) : ActionIcon ? (
             <ActionIcon aria-hidden strokeWidth={1.75} />
           ) : null}
-          {model.action.label}
+          {vue.action.label}
         </Button>
       ) : null}
     </article>

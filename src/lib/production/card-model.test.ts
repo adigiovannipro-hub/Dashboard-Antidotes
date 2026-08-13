@@ -38,6 +38,7 @@ const snapshot = (overrides: Partial<ProductionSnapshot> = {}): ProductionSnapsh
   phases: [],
   target: { total: 0, withWording: 0, validated: 0, scheduled: 0, firstPublication: null },
   previous: { published: 0, total: 0 },
+  ahead: {},
   jobs: [],
   ...overrides,
 });
@@ -215,6 +216,61 @@ describe("buildCardModel", () => {
     expect(model.action?.label).toBe("Rédiger les 6 contenus restants");
     // La barre revient au mois, le job arrêté ne la tient plus.
     expect(model.progress?.label).toBe("Publié ce mois-ci");
+  });
+
+  it("ouvre sur le mois par défaut et propose deux mois d'avance", () => {
+    const model = build({}, { today: "2026-08-18" });
+    expect(model.views).toHaveLength(3);
+    expect(model.views.map((vue) => vue.monthLabel)).toEqual([
+      "Septembre",
+      "Octobre",
+      "Novembre",
+    ]);
+    // La première vue est celle que la carte ouvre : elle porte le cycle réel.
+    expect(model.views[0]!.badge).toBeNull();
+    expect(model.views[0]!.subtitle).toBe(model.subtitle);
+  });
+
+  it("ne met jamais un mois d'avance en retard", () => {
+    const model = build(
+      {
+        // Octobre est vide : sans garde-fou, ses quatre segments gris se
+        // liraient comme quatre phases en retard.
+        phases: upToWording,
+      },
+      { today: "2026-08-24" },
+    );
+    const octobre = model.views[1]!;
+    expect(octobre.badge).toBe("En avance");
+    expect(octobre.lateBadge).toBeNull();
+    expect(octobre.segments.every((segment) => !segment.late)).toBe(true);
+    expect(octobre.info).toContain("Rien n'est en retard");
+    expect(octobre.action?.label).toBe("Générer les intentions d'octobre");
+    expect(octobre.action?.targetMonth).toBe("2026-10-01");
+  });
+
+  it("reprend l'avancement déjà posé sur un mois d'avance", () => {
+    const model = build(
+      {
+        phases: [
+          slice({ phase: "intentions", target_month: "2026-10-01", status: "done" }),
+        ],
+        ahead: { "2026-10-01": { total: 9, withWording: 3, validated: 0 } },
+      },
+      { today: "2026-08-18" },
+    );
+    const octobre = model.views[1]!;
+    expect(octobre.currentPhase).toBe("wording");
+    expect(octobre.action?.label).toBe("Rédiger les 6 contenus restants");
+    expect(octobre.metrics).toContainEqual({
+      label: "Publications au planning",
+      value: "9",
+    });
+  });
+
+  it("marque la vue du reporting comme un bilan, pas comme un mois à produire", () => {
+    const model = build({}, { today: "2026-08-03" });
+    expect(model.views[0]!.badge).toBe("Bilan");
   });
 
   it("se tait sur le cycle quand les tables du module ne sont pas en base", () => {

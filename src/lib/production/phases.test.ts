@@ -4,6 +4,7 @@ import {
   defaultDueWindow,
   evaluateCycle,
   monthLabel,
+  ofMonth,
   shiftMonth,
   targetMonthFor,
   type PhaseCycleInput,
@@ -295,5 +296,20 @@ describe("evaluateCycle", () => {
       ],
     });
     expect(segment(view, "intentions").status).toBe("pending");
+  });
+});
+
+describe("ofMonth", () => {
+  it("élide devant une voyelle", () => {
+    // Trois mois sur douze : avril, août, octobre. Sans ça, un bouton sur
+    // quatre affichait « Générer les intentions de octobre ».
+    expect(ofMonth("2026-10")).toBe("d'octobre");
+    expect(ofMonth("2026-04")).toBe("d'avril");
+    expect(ofMonth("2026-08")).toBe("d'août");
+  });
+
+  it("garde « de » devant une consonne", () => {
+    expect(ofMonth("2026-09")).toBe("de septembre");
+    expect(ofMonth("2026-07")).toBe("de juillet");
   });
 });

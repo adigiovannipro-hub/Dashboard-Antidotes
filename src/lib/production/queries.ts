@@ -3,7 +3,7 @@ import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { EXCLUDED_STATUSES } from "@/lib/planning/types";
 import { shiftMonth, type PhaseSlice } from "./phases";
-import type { ProductionSnapshot } from "./card-model";
+import { AHEAD_MONTHS, EMPTY_AHEAD, type ProductionSnapshot } from "./card-model";
 import type { GenerationJob } from "./types";
 import { needsContent } from "./wording-state";
 
@@ -41,6 +41,7 @@ const EMPTY_SNAPSHOT: Omit<ProductionSnapshot, "workspace_id"> = {
   phases: [],
   target: { total: 0, withWording: 0, validated: 0, scheduled: 0, firstPublication: null },
   previous: { published: 0, total: 0 },
+  ahead: {},
   jobs: [],
 };
 
@@ -64,6 +65,13 @@ export async function getProductionSnapshots(options: {
   const monthKey = options.today.slice(0, 7);
   const nextMonth = `${shiftMonth(monthKey, 1)}-01`;
   const previousMonth = `${shiftMonth(monthKey, -1)}-01`;
+  // Les mois d'avance proposés par le sélecteur de la carte. Deux lectures de
+  // plus sur la même requête : le coût est nul et le sélecteur n'a plus besoin
+  // d'un aller-retour réseau à chaque flèche.
+  const aheadMonths = Array.from(
+    { length: AHEAD_MONTHS },
+    (_unused, index) => `${shiftMonth(monthKey, 2 + index)}-01`,
+  );
 
   const ensure = (workspaceId: string): ProductionSnapshot => {
     const existing = result.get(workspaceId);
@@ -74,6 +82,7 @@ export async function getProductionSnapshots(options: {
       phases: [],
       target: { ...EMPTY_SNAPSHOT.target },
       previous: { ...EMPTY_SNAPSHOT.previous },
+      ahead: {},
       jobs: [],
     };
     result.set(workspaceId, created);
@@ -100,7 +109,7 @@ export async function getProductionSnapshots(options: {
       .from("planning_months")
       .select("id, workspace_id, month")
       .in("board_id", boardIds)
-      .in("month", [nextMonth, previousMonth])
+      .in("month", [previousMonth, nextMonth, ...aheadMonths])
       .is("deleted_at", null)
       .limit(200);
     months = (data ?? []) as unknown as MonthSlice[];
@@ -199,9 +208,23 @@ export async function getProductionSnapshots(options: {
       ) {
         snapshot.target.firstPublication = subject.scheduled_on;
       }
-    } else {
+    } else if (month.month === previousMonth) {
       snapshot.previous.total += 1;
       if (subject.status === "published") snapshot.previous.published += 1;
+    } else {
+      // Un mois d'avance : on ne retient que ce que la vue « en avance »
+      // affiche, sans fenêtre ni première date — elle n'en montre aucune.
+      const stats = (snapshot.ahead[month.month] ??= { ...EMPTY_AHEAD });
+      stats.total += 1;
+      if (
+        !needsContent({
+          status: subject.status,
+          hasWording: withWording.has(subject.id),
+        })
+      ) {
+        stats.withWording += 1;
+      }
+      if (subject.status === "validated") stats.validated += 1;
     }
   }
 

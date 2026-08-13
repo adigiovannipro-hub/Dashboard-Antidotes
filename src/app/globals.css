@@ -266,7 +266,50 @@
   /* Le même 11px, mais en casse normale : les libellés qui doivent tenir dans
      une colonne étroite sans être criés. Aujourd'hui les quatre phases sous la
      barre de cycle, où « Programmation » déborde d'un cheveu à 12 px. */
-  .type-micro {
+  /* --- Mouvement des cartes de production ---------------------------------- */
+
+/* L'ambre qui bat : une phase en retard doit attirer l'œil sans clignoter au
+   sens strict — un clignotement franc fatigue et pose un problème
+   d'accessibilité. C'est une respiration lente sur l'opacité, jamais sur la
+   couleur, et elle s'arrête net si la machine demande moins d'animation. */
+@keyframes battement-retard {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+
+.anim-retard {
+  animation: battement-retard 1.8s ease-in-out infinite;
+}
+
+/* La glissade d'un mois à l'autre : le contenu entre du côté d'où vient le
+   geste, pour que la flèche et le mouvement racontent la même chose. */
+@keyframes glisse-depuis-droite {
+  from { opacity: 0; transform: translateX(10px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes glisse-depuis-gauche {
+  from { opacity: 0; transform: translateX(-10px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+.anim-mois-suivant {
+  animation: glisse-depuis-droite var(--motion-duration) var(--ease-standard, ease-out) both;
+}
+
+.anim-mois-precedent {
+  animation: glisse-depuis-gauche var(--motion-duration) var(--ease-standard, ease-out) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .anim-retard,
+  .anim-mois-suivant,
+  .anim-mois-precedent {
+    animation: none;
+  }
+}
+
+.type-micro {
     font-size: 11px;
     line-height: 1.4;
     font-weight: 400;
