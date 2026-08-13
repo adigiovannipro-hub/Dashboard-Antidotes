@@ -1,7 +1,7 @@
 /**
  * Modèle des comptes sociaux branchés à un espace.
  *
- * Aligné sur `supabase/migrations/0040_social_accounts.sql`. Alias de type et
+ * Aligné sur `supabase/migrations/0043_social_accounts.sql`. Alias de type et
  * non `interface` : postgrest-js a besoin de l'index signature implicite que
  * TypeScript ne donne qu'aux premiers.
  */
