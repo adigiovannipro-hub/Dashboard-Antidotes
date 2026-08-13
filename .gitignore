@@ -50,3 +50,8 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# worktrees : un second checkout du dépôt, posé à l'intérieur du premier.
+# Git le connaît déjà par `.git/worktrees` — le versionner reviendrait à
+# committer le dépôt dans lui-même.
+/.claude/worktrees/
