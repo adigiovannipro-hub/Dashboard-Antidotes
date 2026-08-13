@@ -8,7 +8,13 @@ const nextConfig: NextConfig = {
     "/api/generate/[phase]": ["./src/lib/prompts/**"],
     "/api/jobs/[id]/run": ["./src/lib/prompts/**"],
   },
+  // Les 61 fichiers qui écrivent `import { Icon } from "lucide-react"` passent
+  // par le baril du paquet, qui référence plus de mille icônes. Sans cette
+  // liste, chacune de ces importations force l'outil de build à traverser tout
+  // le baril — et en développement, à le recompiler. Recharts est là pour la
+  // même raison, en plus de son chargement différé côté navigateur.
   experimental: {
+    optimizePackageImports: ["lucide-react", "recharts"],
     // Le proxy (src/proxy.ts) tamponne le corps des requêtes qu'il
     // intercepte et **tronque à 10 Mo par défaut** : l'action recevait un
     // formulaire coupé (« Unexpected end of form », 500) dès qu'une vidéo

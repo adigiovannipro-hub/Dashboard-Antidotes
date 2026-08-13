@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 
+import { LinkPending } from "@/components/ds/route-progress";
 import { cn } from "@/lib/utils";
 
 /**
@@ -111,10 +112,14 @@ export function NavCard({
         className,
       )}
     >
+      <LinkPending />
+      {/* La flèche ne fait pas qu'apparaître : elle monte d'un cheveu vers son
+          coin, dans le sens où mène le lien. Deux pixels de l'échelle native —
+          au-delà, l'œil la suit au lieu de lire la carte. */}
       <ArrowUpRight
         aria-hidden
         strokeWidth={1.75}
-        className="absolute top-4 right-4 size-4 text-text-tertiary opacity-0 transition-opacity duration-(--motion-duration) ease-standard group-hover/nav:opacity-100 group-focus-visible/nav:opacity-100"
+        className="absolute top-4 right-4 size-4 -translate-x-0.5 translate-y-0.5 text-text-tertiary opacity-0 transition-[opacity,transform] duration-(--motion-duration) ease-exit group-hover/nav:translate-x-0 group-hover/nav:translate-y-0 group-hover/nav:opacity-100 group-focus-visible/nav:translate-x-0 group-focus-visible/nav:translate-y-0 group-focus-visible/nav:opacity-100 motion-reduce:transition-none"
       />
       {children}
     </Link>

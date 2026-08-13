@@ -14,6 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { PendingLabel } from "@/components/ds/pending-label";
 import type { WorkspaceAccess } from "@/lib/auth";
 
 const ROLE_LABELS: Record<string, string> = {
@@ -104,7 +105,7 @@ export function InviteForm({ workspaces }: { workspaces: WorkspaceAccess[] }) {
             </SelectContent>
           </Select>
           <Button type="submit" disabled={pending}>
-            {pending ? "Envoi…" : "Inviter"}
+            <PendingLabel pending={pending} busy="Envoi…">Inviter</PendingLabel>
           </Button>
         </div>
       </div>

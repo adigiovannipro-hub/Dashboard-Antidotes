@@ -25,6 +25,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { PendingLabel } from "@/components/ds/pending-label";
 import { formatMoney } from "@/lib/finance/money";
 import { monthsBetween, splitTotal, ttcCentsOf } from "@/lib/billing/schedule";
 
@@ -221,7 +222,9 @@ function NewEngagementForm({
 
       <div className="sm:col-span-2">
         <Button type="submit" variant="accent" disabled={pending}>
-          {pending ? "Création…" : "Créer le devis et ses mensualités"}
+          <PendingLabel pending={pending} busy="Création…">
+            Créer le devis et ses mensualités
+          </PendingLabel>
         </Button>
       </div>
     </form>

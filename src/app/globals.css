@@ -88,6 +88,12 @@
   --shadow-card: var(--elevation-card);
   --shadow-card-hover: var(--elevation-card-hover);
   --ease-standard: var(--motion-ease);
+  /* `ease-exit` pour ce qui se déplace, `ease-spring` pour ce qui se pose.
+     Volontairement hors du vocabulaire Tailwind natif (`ease-out`, `ease-in`)
+     pour qu'on ne puisse pas confondre une courbe de la charte avec une
+     courbe par défaut. */
+  --ease-exit: var(--motion-ease-exit);
+  --ease-spring: var(--motion-ease-spring);
   --font-sans: var(--font-body-stack);
   --font-heading: var(--font-heading-stack);
   --font-mono: ui-monospace, "SF Mono", Menlo, monospace;
@@ -314,6 +320,200 @@
   }
   to {
     opacity: 1;
+  }
+}
+
+/* ===========================================================================
+   Apparition à l'arrivée d'un écran.
+
+   Un tableau de bord change de page sans changer de cadre : le rail reste, la
+   barre reste, seul le contenu est remplacé. Sans rien, ce remplacement est un
+   saut — l'écran est autre, et rien n'a dit qu'il venait d'arriver. Six pixels
+   de montée et un fondu suffisent à le dire.
+
+   ── Trois précautions, chacune payée par un défaut réel ────────────────────
+
+   1. **`transform` crée un bloc conteneur**, et un `position: fixed` à
+      l'intérieur s'y accroche au lieu de se caler sur la fenêtre. C'est
+      pourquoi ces classes se posent sur des **cartes et des panneaux**, jamais
+      sur un conteneur de page qui abrite le panneau latéral du Planning ou la
+      visionneuse plein écran. L'animation finit sur `transform: none`, donc le
+      piège ne dure que le temps de l'entrée — assez pour décaler un panneau
+      ouvert au même instant.
+
+   2. **`both` en mode de remplissage** : l'élément est invisible *avant* son
+      délai. Sans lui, une cascade ferait clignoter les cartes qui attendent
+      leur tour — visibles, puis effacées, puis remontées.
+
+   3. **Le décalage est plafonné.** `--enter-index` multiplie 40 ms, mais une
+      grille de vingt cartes ferait attendre la dernière une seconde entière.
+      Au-delà de six rangs, on cesse de décaler : la cascade est une lecture,
+      pas une file d'attente.
+
+   Sous `prefers-reduced-motion`, tout est neutralisé et les éléments sont
+   simplement là. C'est la même dégradation que `reveal-on-scroll` : l'état
+   sans animation est l'état normal, jamais un état cassé.
+   =========================================================================== */
+@keyframes enter-rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes enter-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@layer components {
+  .enter-rise,
+  .enter-fade {
+    animation-duration: var(--motion-duration-slow);
+    animation-timing-function: var(--motion-ease-exit);
+    animation-fill-mode: both;
+    animation-delay: calc(min(var(--enter-index, 0), 6) * 40ms);
+  }
+  .enter-rise {
+    animation-name: enter-rise;
+  }
+  /* Pour ce qui ne doit surtout pas se déplacer : un bloc qui contient un
+     élément fixe, une zone de graphique dont le recalcul de mise en page
+     coûterait plus cher que l'effet. */
+  .enter-fade {
+    animation-name: enter-fade;
+  }
+
+  /* La cascade posée sur le **conteneur**, pas sur chaque enfant.
+     Enrober chaque carte dans un `<div>` animé la sortirait de la grille : les
+     cartes cessent alors d'être les éléments de la grille, et l'égalisation
+     des hauteurs — celle qui aligne une bande de quatre mesures — tombe. Le
+     `nth-child` fait le même travail sans toucher au DOM.
+
+     Quatre pas et un plancher : au-delà, la dernière carte d'une grille de
+     douze attendrait une demi-seconde pour rien. */
+  .enter-stagger > * {
+    animation-name: enter-rise;
+    animation-duration: var(--motion-duration-slow);
+    animation-timing-function: var(--motion-ease-exit);
+    animation-fill-mode: both;
+  }
+  .enter-stagger > *:nth-child(2) {
+    animation-delay: 40ms;
+  }
+  .enter-stagger > *:nth-child(3) {
+    animation-delay: 80ms;
+  }
+  .enter-stagger > *:nth-child(4) {
+    animation-delay: 120ms;
+  }
+  .enter-stagger > *:nth-child(n + 5) {
+    animation-delay: 160ms;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .enter-rise,
+  .enter-fade,
+  .enter-stagger > * {
+    animation: none;
+  }
+}
+
+/* ===========================================================================
+   Le dépliement d'un groupe repliable.
+
+   Les groupes des Échéances sont des `<details>` natifs — pas d'état client,
+   pas d'hydratation, et c'est une bonne décision qu'on ne remet pas en cause.
+   Leur seul défaut : le contenu apparaît d'un coup, et six lignes qui
+   surgissent poussent tout le bas de page sans qu'on ait vu d'où elles
+   viennent.
+
+   Animé en CSS seul, sans toucher au balisage : `::details-content` est la
+   boîte que le navigateur crée pour le contenu d'un `<details>`, et
+   `interpolate-size` autorise l'interpolation vers `auto` — sans lui, il
+   faudrait mesurer la hauteur en JavaScript à chaque ouverture.
+
+   `interpolate-size` est posé sur l'élément et non sur `:root` : la propriété
+   s'hérite, donc le contenu en profite, mais **aucune autre** transition de
+   taille de l'application ne devient interpolable par effet de bord.
+
+   Là où `::details-content` n'existe pas encore — Firefox à ce jour — la
+   règle entière ne s'applique pas et le groupe s'ouvre comme aujourd'hui. La
+   dégradation est le comportement normal, pas un état cassé.
+   =========================================================================== */
+@supports (interpolate-size: allow-keywords) and selector(::details-content) {
+  @media (prefers-reduced-motion: no-preference) {
+    .disclosure {
+      interpolate-size: allow-keywords;
+    }
+    .disclosure::details-content {
+      block-size: 0;
+      overflow-y: clip;
+      transition:
+        block-size var(--motion-duration-slow) var(--motion-ease-exit),
+        content-visibility var(--motion-duration-slow) allow-discrete;
+    }
+    .disclosure[open]::details-content {
+      block-size: auto;
+    }
+  }
+}
+
+/* ===========================================================================
+   Le fil de progression de la navigation (`components/ds/route-progress.tsx`).
+
+   Sa course n'est pas un avancement : on ne sait pas combien de temps le
+   serveur va mettre. La courbe est donc **volontairement menteuse au bon
+   sens** — elle couvre les trois quarts de la barre dans la première demi-
+   seconde, puis rampe. C'est ce qui donne « ça part » tout de suite sans
+   jamais promettre une fin qu'on ne peut pas tenir : le fil n'atteint 100 %
+   qu'à l'arrivée réelle de la page.
+
+   `scaleX` et non `width` : la largeur repasse par la mise en page à chaque
+   image, la transformation reste sur le compositeur. Sur huit secondes
+   d'animation, la différence n'est pas théorique.
+   =========================================================================== */
+@keyframes route-progress-run {
+  from {
+    transform: scaleX(0.04);
+  }
+  to {
+    transform: scaleX(0.9);
+  }
+}
+
+@layer components {
+  .route-progress-run {
+    animation: route-progress-run 8s var(--motion-ease-exit) forwards;
+  }
+  /* Fin de course : le fil rejoint le bord puis s'efface. La durée est celle
+     de `SETTLE_MS` côté composant — les deux doivent rester d'accord, sinon le
+     fil disparaît avant d'avoir touché le bord. */
+  .route-progress-done {
+    transform: scaleX(1);
+    transition:
+      transform 160ms var(--motion-ease-exit),
+      opacity 100ms var(--motion-ease) 160ms;
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .route-progress-run {
+    animation: none;
+    transform: scaleX(0.5);
+  }
+  .route-progress-done {
+    transition: none;
   }
 }
 

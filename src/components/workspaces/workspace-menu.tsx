@@ -12,6 +12,7 @@ import {
   renameWorkspace,
   type WorkspaceResult,
 } from "@/app/actions/workspaces";
+import { PendingLabel } from "@/components/ds/pending-label";
 import { safeAction } from "@/lib/context/safe-action";
 import { Button } from "@/components/ui/button";
 import {
@@ -317,7 +318,9 @@ function ActionDialog({
             disabled={disabled || pending}
             onClick={submit}
           >
-            {pending ? "En cours…" : submitLabel}
+            <PendingLabel pending={pending} busy="En cours…">
+              {submitLabel}
+            </PendingLabel>
           </Button>
         </DialogFooter>
       </DialogContent>

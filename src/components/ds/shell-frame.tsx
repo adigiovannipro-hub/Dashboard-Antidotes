@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Menu } from "lucide-react";
 
 import { signOut } from "@/app/actions/auth";
+import { RouteProgress } from "@/components/ds/route-progress";
 import { Sidebar } from "@/components/ds/sidebar";
 import { ThemeToggle } from "@/components/theme-toggle";
 import {
@@ -53,6 +54,10 @@ export function ShellFrame({
 
   return (
     <div className="flex min-h-dvh w-full">
+      {/* Monté une seule fois pour toute l'application : il lit le compteur de
+          navigations en attente alimenté par les `LinkPending` des liens. */}
+      <RouteProgress />
+
       <Sidebar
         groups={groups}
         mobileOpen={mobileOpen}

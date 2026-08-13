@@ -31,6 +31,7 @@ import {
 } from "@/components/planning/lightbox";
 import { CommentThread, type Scope } from "@/components/planning/subject-row";
 import { PlatformIcon } from "@/components/planning/platform-icon";
+import { PendingLabel } from "@/components/ds/pending-label";
 import { Button } from "@/components/ui/button";
 import type { ColumnDef, ColumnLabel } from "@/lib/planning/columns";
 import { isImagePath } from "@/lib/planning/storage";
@@ -492,7 +493,9 @@ function VisualCarousel({
           disabled={uploading}
         >
           <Plus className="size-3.5" aria-hidden />
-          {uploading ? "Envoi…" : "Ajouter des visuels"}
+          <PendingLabel pending={uploading} busy="Envoi…">
+            Ajouter des visuels
+          </PendingLabel>
         </Button>
         <span className="text-muted-foreground text-xs">
           Plusieurs fichiers à la fois. Les flèches d&apos;une vignette changent

@@ -24,9 +24,13 @@ export function useSnapCarousel(count: number, initialIndex = 0) {
     if (!track) return;
     const slide = track.children[next] as HTMLElement | undefined;
     if (!slide) return;
+    // Le glissement doux est du mouvement comme un autre : qui demande moins
+    // d'animation au système reçoit un saut direct. Une préférence système
+    // ne s'applique pas qu'aux animations CSS.
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     track.scrollTo({
       left: slide.offsetLeft - (track.clientWidth - slide.clientWidth) / 2,
-      behavior: smooth ? "smooth" : "instant",
+      behavior: smooth && !reduced ? "smooth" : "instant",
     });
   }, []);
 

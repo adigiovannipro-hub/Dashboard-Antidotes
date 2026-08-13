@@ -51,7 +51,7 @@ export function EngagementList({
 }) {
   return (
     <Panel>
-      <details className="group/devis-liste" open>
+      <details className="disclosure group/devis-liste" open>
         <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-5 py-4 [&::-webkit-details-marker]:hidden">
           <div className="min-w-0">
             <h3 className="type-h3 flex items-center gap-2">
@@ -127,7 +127,7 @@ function EngagementDetails({
   const billable = lines.filter((line) => line.status !== "skipped");
 
   return (
-    <details className="group/devis">
+    <details className="disclosure group/devis">
       <summary
         className={cn(
           "flex cursor-pointer list-none flex-wrap items-center gap-x-4 gap-y-2 px-5 py-3 [&::-webkit-details-marker]:hidden",

@@ -34,6 +34,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { PendingLabel } from "@/components/ds/pending-label";
 import { Input } from "@/components/ui/input";
 import {
   ADDABLE_TYPES,
@@ -290,7 +291,9 @@ export function LabelsDialog({
 
         <div className="flex gap-2">
           <Button type="button" size="sm" onClick={save} disabled={pending}>
-            {pending ? "Enregistrement…" : "Appliquer"}
+            <PendingLabel pending={pending} busy="Enregistrement…">
+              Appliquer
+            </PendingLabel>
           </Button>
           <Button
             type="button"
