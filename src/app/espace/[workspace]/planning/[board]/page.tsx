@@ -13,6 +13,8 @@ import {
   listBoards,
   listFaqEntries,
 } from "@/lib/planning/queries";
+import { metaConfigured } from "@/lib/social/meta";
+import { getInstagramProfile, listSocialAccounts } from "@/lib/social/queries";
 import { parsePlanningView, planningViewCookie } from "@/lib/ui-preferences";
 import { requirePageAccess } from "@/lib/workspaces/access";
 import { PLANNING_PAGE_KEY } from "@/lib/workspaces/types";
@@ -67,9 +69,16 @@ export default async function PlanningBoardPage({
     );
   }
 
-  const [{ months, owners, columns, archived, trash }, query] = await Promise.all([
+  const [
+    { months, owners, columns, archived, trash },
+    query,
+    instagramProfile,
+    socialAccounts,
+  ] = await Promise.all([
     getBoardContent(board),
     searchParams,
+    getInstagramProfile(workspace.id),
+    listSocialAccounts(workspace.id),
   ]);
 
   // La publication ouverte vient de l'URL : un lien partagé rouvre le même
@@ -109,6 +118,10 @@ export default async function PlanningBoardPage({
       trash={trash}
       currentMonthKey={currentMonthKey}
       workspaceSlug={workspace.slug}
+      workspaceName={workspace.name}
+      instagramProfile={instagramProfile}
+      socialAccounts={socialAccounts}
+      metaConfigured={metaConfigured()}
       view={view}
     />
   );
