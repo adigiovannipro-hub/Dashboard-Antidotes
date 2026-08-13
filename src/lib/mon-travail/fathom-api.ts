@@ -2,7 +2,7 @@ import "server-only";
 
 import { z } from "zod";
 
-import type { FathomActionItem, FathomAssignee, FathomMeeting } from "./fathom";
+import type { FathomAssignee, FathomMeeting } from "./fathom";
 
 /**
  * Le client HTTP de l'API externe Fathom.
@@ -17,25 +17,21 @@ import type { FathomActionItem, FathomAssignee, FathomMeeting } from "./fathom";
  */
 
 /**
- * Les adresses candidates de l'API, essayées dans l'ordre.
+ * L'adresse de l'API, **confirmée par un vrai passage** : 12 réunions lues,
+ * 47 tâches créées.
  *
- * Il y en a deux parce que l'API n'a **jamais pu être appelée** depuis
- * l'environnement de développement — la politique de sortie du bac à sable la
- * refuse — et qu'une adresse supposée qui se révèle fausse coûte un aller-
- * retour d'une journée pour le découvrir. Le client passe donc à la suivante
- * quand l'hôte ne répond pas du tout, ou répond 404 : dans les deux cas
- * l'adresse est mauvaise. Il **s'arrête** sur 200, 401 ou 403, qui prouvent
- * que l'hôte est le bon et déplacent le problème sur la clé.
+ * Elle a été un pari le temps du développement — la politique de sortie de
+ * l'environnement refuse cet hôte, l'appel n'y était donc pas vérifiable — et
+ * le client essayait alors plusieurs candidates en rapportant celle qui
+ * répondait. Maintenant qu'elle est connue, une seconde adresse ne serait plus
+ * une sécurité mais un risque : sur une panne DNS passagère, le client
+ * basculerait en silence vers un hôte qui n'est pas celui de Fathom.
  *
- * L'adresse retenue est rendue dans le rapport. Le jour où le premier vrai
- * passage tranche, cette liste se réduit à une ligne.
- *
- * `FATHOM_API_BASE`, s'il est renseigné, gagne seul : il sert à rejouer la
- * chaîne contre un serveur local.
+ * `FATHOM_API_BASE` reste, pour rejouer la chaîne contre un serveur local.
  */
-const FATHOM_BASES = process.env.FATHOM_API_BASE?.trim()
-  ? [process.env.FATHOM_API_BASE.trim()]
-  : ["https://api.fathom.ai/external/v1", "https://api.fathom.video/external/v1"];
+const FATHOM_BASES = [
+  process.env.FATHOM_API_BASE?.trim() || "https://api.fathom.ai/external/v1",
+];
 
 /** Une personne : les deux champs qu'on lit, sous leurs noms possibles. */
 const personSchema = z
@@ -47,21 +43,19 @@ const personSchema = z
   .partial()
   .passthrough();
 
-const actionItemSchema = z
-  .object({
-    description: z.string().nullish(),
-    text: z.string().nullish(),
-    title: z.string().nullish(),
-    completed: z.boolean().nullish(),
-    is_completed: z.boolean().nullish(),
-    assignee: personSchema.nullish(),
-    user: personSchema.nullish(),
-    recording_playback_url: z.string().nullish(),
-    playback_url: z.string().nullish(),
-    url: z.string().nullish(),
-  })
-  .partial()
-  .passthrough();
+/** Le compte rendu : un objet à plusieurs rendus, ou déjà une chaîne. */
+const summarySchema = z.union([
+  z.string(),
+  z
+    .object({
+      markdown_formatted: z.string().nullish(),
+      markdown: z.string().nullish(),
+      text: z.string().nullish(),
+      formatted: z.string().nullish(),
+    })
+    .partial()
+    .passthrough(),
+]);
 
 const meetingSchema = z
   .object({
@@ -77,7 +71,9 @@ const meetingSchema = z
     recording_start_time: z.string().nullish(),
     meeting_start_time: z.string().nullish(),
     recorded_by: personSchema.nullish(),
-    action_items: z.array(actionItemSchema).nullish(),
+    default_summary: summarySchema.nullish(),
+    summary: summarySchema.nullish(),
+    ai_summary: summarySchema.nullish(),
   })
   .partial()
   .passthrough();
@@ -94,7 +90,6 @@ const pageSchema = z
   .passthrough();
 
 type RawMeeting = z.infer<typeof meetingSchema>;
-type RawItem = z.infer<typeof actionItemSchema>;
 
 /** Première valeur non vide — le champ existe sous plusieurs noms selon l'endpoint. */
 function first(...values: (string | number | null | undefined)[]): string | null {
@@ -114,16 +109,17 @@ function toAssignee(raw: unknown): FathomAssignee | null {
   return name || email ? { name, email } : null;
 }
 
-function toActionItem(raw: RawItem): FathomActionItem | null {
-  const description = first(raw.description, raw.text, raw.title);
-  if (!description) return null;
-
-  return {
-    description,
-    completed: raw.completed ?? raw.is_completed ?? false,
-    assignee: toAssignee(raw.assignee ?? raw.user),
-    playbackUrl: first(raw.recording_playback_url, raw.playback_url, raw.url),
-  };
+/** Le markdown du compte rendu, quelle que soit la forme rendue. */
+function toSummary(raw: unknown): string | null {
+  if (typeof raw === "string") return raw.trim() || null;
+  const parsed = summarySchema.safeParse(raw);
+  if (!parsed.success || typeof parsed.data === "string") return null;
+  return first(
+    parsed.data.markdown_formatted,
+    parsed.data.markdown,
+    parsed.data.formatted,
+    parsed.data.text,
+  );
 }
 
 function toMeeting(raw: RawMeeting): FathomMeeting | null {
@@ -143,9 +139,7 @@ function toMeeting(raw: RawMeeting): FathomMeeting | null {
     url: first(raw.url, raw.share_url, raw.recording_url),
     startedAt,
     recordedBy: toAssignee(raw.recorded_by),
-    actionItems: (raw.action_items ?? [])
-      .map(toActionItem)
-      .filter((item): item is FathomActionItem => item !== null),
+    summary: toSummary(raw.default_summary ?? raw.summary ?? raw.ai_summary),
   };
 }
 
@@ -223,7 +217,7 @@ export async function fetchFathomMeetings(options: {
   for (let page = 0; page < (options.maxPages ?? 10); page += 1) {
     const query = new URLSearchParams({
       created_after: `${options.since}T00:00:00Z`,
-      include_action_items: "true",
+      include_summary: "true",
     });
     if (cursor) query.set("cursor", cursor);
 

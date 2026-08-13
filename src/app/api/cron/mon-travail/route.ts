@@ -4,7 +4,7 @@ import { timingSafeEqual } from "node:crypto";
 import { getViewer } from "@/lib/auth";
 import { serverEnv } from "@/lib/env";
 import { monthKeyOf, todayInParis } from "@/lib/mon-travail/dates";
-import { syncFathomTasks } from "@/lib/mon-travail/fathom-sync";
+import { purgeFathomTasks, syncFathomTasks } from "@/lib/mon-travail/fathom-sync";
 import {
   planCycleTasks,
   planDailyTask,
@@ -142,11 +142,19 @@ export async function GET(request: Request) {
     /* Fathom dans son propre `try` : une API tierce en panne ne doit pas
        emporter les récurrences, qui, elles, ne dépendent de personne. */
     try {
-      report[`fathom:${org.id}`] = await syncFathomTasks({
-        admin,
-        orgId: org.id,
-        today,
-      });
+      /* `?purge=fathom` efface les tâches déjà importées avant de réimporter.
+         Utile le jour où la source change : les clés d'idempotence de
+         l'ancien import ne correspondent à rien du nouveau, et ses lignes
+         resteraient donc à demeure. Jamais déclenché par l'ordonnanceur. */
+      const purged =
+        new URL(request.url).searchParams.get("purge") === "fathom"
+          ? await purgeFathomTasks({ admin, orgId: org.id })
+          : null;
+
+      report[`fathom:${org.id}`] = {
+        ...(purged !== null ? { purgees: purged } : {}),
+        ...(await syncFathomTasks({ admin, orgId: org.id, today })),
+      };
     } catch (error) {
       errors.push(
         `Fathom, organisation ${org.id} : ${error instanceof Error ? error.message : "erreur"}`,

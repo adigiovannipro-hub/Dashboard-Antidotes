@@ -1,5 +1,7 @@
 import { createHash } from "node:crypto";
 
+import { extractNextSteps } from "./fathom-summary";
+
 /**
  * Fathom → « Mon travail » : la décision, sans réseau ni base.
  *
@@ -9,11 +11,14 @@ import { createHash } from "node:crypto";
  * là que vivent les trois seules décisions du chantier : quels items retenir,
  * à quel client les rattacher, à quelle date les poser.
  *
- * Fathom produit déjà les tâches de fin de réunion en clair, avec la personne
- * à qui chacune revient et un lien horodaté vers le moment exact où elle a été
- * dite. Il n'y a donc rien à faire lire par un modèle : le compte rendu est
- * déjà structuré, et un extracteur n'aurait fait qu'ajouter du coût et une
- * source d'erreur devant une donnée qui est déjà propre.
+ * La source des tâches est la section « Prochaines étapes » du compte rendu,
+ * réduite au bloc du propriétaire — voir `fathom-summary.ts`. Elle est en
+ * français, groupée par personne, et tient en deux à cinq lignes. Il n'y a
+ * donc rien à faire lire par un modèle : Fathom a déjà fait la synthèse.
+ *
+ * Les `action_items` de l'API ont été essayés d'abord, et écartés : ils
+ * listent tout ce qui a été relevé pendant l'appel, en anglais — quarante-sept
+ * lignes sur douze réunions, dont la plupart ne concernaient personne ici.
  */
 
 // --- Ce que l'API rend, réduit à ce qu'on lit --------------------------------
@@ -21,14 +26,6 @@ import { createHash } from "node:crypto";
 export type FathomAssignee = {
   name: string | null;
   email: string | null;
-};
-
-export type FathomActionItem = {
-  description: string;
-  completed: boolean;
-  assignee: FathomAssignee | null;
-  /** Lien horodaté vers le moment de la réunion où l'item a été dit. */
-  playbackUrl: string | null;
 };
 
 export type FathomMeeting = {
@@ -40,7 +37,16 @@ export type FathomMeeting = {
   startedAt: string;
   /** Qui a enregistré — par défaut, le propriétaire des tâches. */
   recordedBy: FathomAssignee | null;
-  actionItems: FathomActionItem[];
+  /**
+   * Le compte rendu en markdown, dont on ne lit que « Prochaines étapes ».
+   *
+   * C'est la source des tâches. Les `action_items` de l'API disent autre
+   * chose : la liste exhaustive de tout ce qui a été relevé pendant l'appel,
+   * en anglais — quarante-sept lignes sur douze réunions, dont la plupart ne
+   * concernent personne ici. La synthèse de fin, elle, est en français,
+   * groupée par personne, et tient en deux à cinq lignes.
+   */
+  summary: string | null;
 };
 
 // --- Ce qu'on en tire --------------------------------------------------------
@@ -71,13 +77,15 @@ export type FathomTask = {
  * ment par omission, et c'est ce genre de silence qui fait découvrir six mois
  * plus tard que la moitié des réunions ne remontait pas.
  */
-export type FathomSkipReason = "fait" | "non-assigne" | "assigne-ailleurs" | "vide";
+export type FathomSkipReason =
+  | "sans-synthese"
+  | "sans-proprietaire"
+  | "rien-pour-moi";
 
 export const FATHOM_SKIP_LABELS: Record<FathomSkipReason, string> = {
-  fait: "déjà coché dans Fathom",
-  "non-assigne": "sans destinataire",
-  "assigne-ailleurs": "assigné à quelqu'un d'autre",
-  vide: "libellé vide",
+  "sans-synthese": "réunions sans compte rendu",
+  "sans-proprietaire": "réunions sans enregistreur identifié",
+  "rien-pour-moi": "réunions dont aucune étape ne me revient",
 };
 
 export type FathomPlan = {
@@ -147,34 +155,7 @@ export function matchWorkspace(
   return matches.length === 1 ? matches[0]! : null;
 }
 
-// --- Sélection des items -----------------------------------------------------
-
-/**
- * L'item revient-il au propriétaire ?
- *
- * L'e-mail fait foi quand il est là ; sinon on compare les noms normalisés,
- * parce que Fathom rend parfois un participant sans adresse — un invité entré
- * par le lien, par exemple.
- *
- * Un item **sans destinataire** n'est pas retenu. Il est tentant de se le
- * donner par défaut dans un tête-à-tête client, mais la règle demandée est
- * « uniquement mes tâches », et un item flottant n'en est pas une. Il est
- * compté dans le rapport, donc rien ne disparaît sans le dire.
- */
-export function isOwnItem(item: FathomActionItem, owner: FathomAssignee): boolean {
-  const assignee = item.assignee;
-  if (!assignee) return false;
-
-  if (assignee.email && owner.email) {
-    return assignee.email.toLowerCase() === owner.email.toLowerCase();
-  }
-
-  if (assignee.name && owner.name) {
-    return normalize(assignee.name) === normalize(owner.name);
-  }
-
-  return false;
-}
+// --- Idempotence et échéance -------------------------------------------------
 
 /**
  * La clé d'idempotence d'un item.
@@ -218,10 +199,9 @@ export type FathomContext = {
 export function planFathomTasks(context: FathomContext): FathomPlan {
   const tasks: FathomTask[] = [];
   const skipped: Record<FathomSkipReason, number> = {
-    fait: 0,
-    "non-assigne": 0,
-    "assigne-ailleurs": 0,
-    vide: 0,
+    "sans-synthese": 0,
+    "sans-proprietaire": 0,
+    "rien-pour-moi": 0,
   };
   const withoutClient = new Set<string>();
 
@@ -230,43 +210,43 @@ export function planFathomTasks(context: FathomContext): FathomPlan {
     const workspace = matchWorkspace(meeting.title, context.workspaces);
     const dueDate = dueDateFor(meeting.startedAt, context.today);
 
-    let retained = 0;
-    for (const item of meeting.actionItems) {
-      const title = item.description.trim();
-      if (title.length === 0) {
-        skipped.vide += 1;
-        continue;
-      }
-      if (item.completed) {
-        skipped.fait += 1;
-        continue;
-      }
-      if (!item.assignee) {
-        skipped["non-assigne"] += 1;
-        continue;
-      }
-      if (!owner || !isOwnItem(item, owner)) {
-        skipped["assigne-ailleurs"] += 1;
-        continue;
-      }
+    /* La seule source : la section « Prochaines étapes » du compte rendu,
+       réduite au bloc du propriétaire. Pas de repli sur les `action_items`
+       quand elle manque — c'est ce repli qui a déversé quarante-sept lignes
+       anglaises la première fois. Une réunion sans cette section ne produit
+       rien, et le rapport le compte. */
+    if (!meeting.summary) {
+      skipped["sans-synthese"] += 1;
+      continue;
+    }
+    if (!owner?.name) {
+      skipped["sans-proprietaire"] += 1;
+      continue;
+    }
 
-      retained += 1;
+    const steps = extractNextSteps(meeting.summary, owner.name);
+    if (steps.length === 0) {
+      skipped["rien-pour-moi"] += 1;
+      continue;
+    }
+
+    for (const step of steps) {
       tasks.push({
         org_id: context.orgId,
         workspace_id: workspace?.id ?? null,
-        title,
+        title: step.text,
         source: "fathom",
         due_date: dueDate,
-        dedupe_key: dedupeKey(meeting.id, title),
+        dedupe_key: dedupeKey(meeting.id, step.text),
         // Le lien horodaté plutôt que celui de la réunion : il ouvre la vidéo
         // à la seconde où la tâche a été dite, ce qui est la seule chose qu'on
         // vient y chercher trois jours plus tard.
-        source_url: item.playbackUrl ?? meeting.url,
+        source_url: step.url ?? meeting.url,
         source_label: meeting.title,
       });
     }
 
-    if (retained > 0 && !workspace) withoutClient.add(meeting.title);
+    if (!workspace) withoutClient.add(meeting.title);
   }
 
   return { tasks, skipped, withoutClient: [...withoutClient] };

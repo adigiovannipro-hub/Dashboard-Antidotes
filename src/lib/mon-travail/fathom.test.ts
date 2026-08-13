@@ -3,10 +3,8 @@ import { describe, expect, it } from "vitest";
 import {
   dedupeKey,
   dueDateFor,
-  isOwnItem,
   matchWorkspace,
   planFathomTasks,
-  type FathomActionItem,
   type FathomMeeting,
   type FathomWorkspace,
 } from "./fathom";
@@ -27,13 +25,18 @@ const ESPACES: FathomWorkspace[] = [
   { id: "w-osti", slug: "catherine-osti", name: "Catherine Osti" },
 ];
 
-const item = (over: Partial<FathomActionItem> = {}): FathomActionItem => ({
-  description: "Email Théo re: HD UGC video",
-  completed: false,
-  assignee: SANDRO,
-  playbackUrl: "https://fathom.video/calls/759690039?timestamp=1178",
-  ...over,
-});
+/** Le compte rendu tel que Fathom le rend, réduit à sa section utile. */
+const synthese = (bloc: string) => `## Sujets\n\n  - [Un point.](x)\n\n## Prochaines étapes\n\n${bloc}`;
+
+const SYNTHESE_BONDET = synthese(
+  [
+    "  - [**Alessandro :**](https://fathom.video/calls/759690039?timestamp=5094)",
+    "      - [Envoyer la vidéo UGC de Théo à Malory pour validation.](https://fathom.video/calls/759690039?timestamp=1186)",
+    "      - [Envoyer à Malory le récapitulatif et la proposition Google Ads.](https://fathom.video/calls/759690039?timestamp=5094)",
+    "  - [**Malory :**](https://fathom.video/calls/759690039?timestamp=5094)",
+    "      - [Examiner le plan de contenu d'août.](https://fathom.video/calls/759690039?timestamp=5094)",
+  ].join("\n"),
+);
 
 const meeting = (over: Partial<FathomMeeting> = {}): FathomMeeting => ({
   id: "166904744",
@@ -41,7 +44,7 @@ const meeting = (over: Partial<FathomMeeting> = {}): FathomMeeting => ({
   url: "https://fathom.video/calls/759690039",
   startedAt: "2026-07-24T09:00:00Z",
   recordedBy: SANDRO,
-  actionItems: [item()],
+  summary: SYNTHESE_BONDET,
   ...over,
 });
 
@@ -79,31 +82,6 @@ describe("matchWorkspace", () => {
       "w-originel",
     );
     expect(matchWorkspace("RÉUNION I-Way / bilan", ESPACES)?.id).toBe("w-iway");
-  });
-});
-
-describe("isOwnItem", () => {
-  it("retient l'item quand l'adresse correspond", () => {
-    expect(isOwnItem(item(), SANDRO)).toBe(true);
-  });
-
-  it("compare les adresses sans tenir compte de la casse", () => {
-    const majuscules = { name: null, email: "A.DIGIOVANNI.PRO@GMAIL.COM" };
-    expect(isOwnItem(item({ assignee: majuscules }), SANDRO)).toBe(true);
-  });
-
-  it("se rabat sur le nom quand l'adresse manque", () => {
-    const sansAdresse = { name: "alessandro di giovanni", email: null };
-    expect(isOwnItem(item({ assignee: sansAdresse }), SANDRO)).toBe(true);
-  });
-
-  it("écarte l'item d'un tiers", () => {
-    const malory = { name: "Malory BOUILLOD", email: "malory@bondet.fr" };
-    expect(isOwnItem(item({ assignee: malory }), SANDRO)).toBe(false);
-  });
-
-  it("écarte un item sans destinataire", () => {
-    expect(isOwnItem(item({ assignee: null }), SANDRO)).toBe(false);
   });
 });
 
@@ -152,110 +130,85 @@ describe("planFathomTasks", () => {
     workspaces: ESPACES,
   });
 
-  it("crée une tâche par item retenu, rattachée au bon client", () => {
+  it("ne retient que les étapes du propriétaire, et rien d'autre", () => {
     const plan = planFathomTasks(contexte([meeting()]));
 
-    expect(plan.tasks).toHaveLength(1);
+    expect(plan.tasks.map((t) => t.title)).toEqual([
+      "Envoyer la vidéo UGC de Théo à Malory pour validation.",
+      "Envoyer à Malory le récapitulatif et la proposition Google Ads.",
+    ]);
+  });
+
+  it("rattache au bon client et pose la date du jour", () => {
+    const plan = planFathomTasks(contexte([meeting()]));
     expect(plan.tasks[0]).toMatchObject({
       org_id: "org-1",
       workspace_id: "w-bondet",
-      title: "Email Théo re: HD UGC video",
       source: "fathom",
       due_date: "2026-08-10",
       source_label: "ALESSANDRO x BONDET : point social media",
     });
   });
 
-  it("préfère le lien horodaté à celui de la réunion", () => {
+  it("préfère le lien horodaté de l'étape à celui de la réunion", () => {
     const plan = planFathomTasks(contexte([meeting()]));
     expect(plan.tasks[0]!.source_url).toBe(
-      "https://fathom.video/calls/759690039?timestamp=1178",
+      "https://fathom.video/calls/759690039?timestamp=1186",
     );
   });
 
-  it("se rabat sur le lien de la réunion quand l'item n'en a pas", () => {
-    const plan = planFathomTasks(contexte([meeting({ actionItems: [item({ playbackUrl: null })] })]));
-    expect(plan.tasks[0]!.source_url).toBe("https://fathom.video/calls/759690039");
+  it("compte les réunions sans compte rendu", () => {
+    const plan = planFathomTasks(contexte([meeting({ summary: null })]));
+    expect(plan.tasks).toHaveLength(0);
+    expect(plan.skipped["sans-synthese"]).toBe(1);
   });
 
-  it("écarte les items des autres, les items faits et les items vides", () => {
-    const plan = planFathomTasks(
-      contexte([
-        meeting({
-          actionItems: [
-            item(),
-            item({ description: "Envoyer le kit média", assignee: { name: "Malory BOUILLOD", email: "m@bondet.fr" } }),
-            item({ description: "Déjà traité", completed: true }),
-            item({ description: "Flottant", assignee: null }),
-            item({ description: "   " }),
-          ],
-        }),
-      ]),
-    );
+  it("compte les réunions dont aucune étape ne me revient", () => {
+    const autrui = synthese("  - [**Malory :**](x)\n      - [Relire le plan.](x)");
+    const plan = planFathomTasks(contexte([meeting({ summary: autrui })]));
+    expect(plan.tasks).toHaveLength(0);
+    expect(plan.skipped["rien-pour-moi"]).toBe(1);
+  });
 
-    expect(plan.tasks).toHaveLength(1);
-    expect(plan.skipped).toEqual({
-      fait: 1,
-      "non-assigne": 1,
-      "assigne-ailleurs": 1,
-      vide: 1,
-    });
+  it("compte les réunions sans enregistreur identifié", () => {
+    const plan = planFathomTasks(contexte([meeting({ recordedBy: null })]));
+    expect(plan.skipped["sans-proprietaire"]).toBe(1);
   });
 
   it("laisse sans client une réunion à deux clients, et le signale", () => {
     const plan = planFathomTasks(
       contexte([
-        meeting({
-          id: "169349379",
-          title: "ALESSANDRO x I-WAY x CATHERINE OSTI : intentions d'août",
-          actionItems: [item({ description: "Monter le reel Gisèle" })],
-        }),
+        meeting({ title: "ALESSANDRO x I-WAY x CATHERINE OSTI : intentions d'août" }),
       ]),
     );
-
     expect(plan.tasks[0]!.workspace_id).toBeNull();
     expect(plan.withoutClient).toEqual([
       "ALESSANDRO x I-WAY x CATHERINE OSTI : intentions d'août",
     ]);
   });
 
-  it("ne signale pas une réunion sans client dont aucun item ne me revient", () => {
-    const plan = planFathomTasks(
-      contexte([
-        meeting({
-          title: "HAMZA SDT x NETFLIX",
-          actionItems: [item({ assignee: { name: "Emilie Martin", email: "e@netflix.com" } })],
-        }),
-      ]),
-    );
-
-    expect(plan.tasks).toHaveLength(0);
-    expect(plan.withoutClient).toEqual([]);
-  });
-
   it("prend celui qui a enregistré comme propriétaire par défaut", () => {
-    const autre = { name: "Léa Perret", email: "lea@nightsession.fr" };
+    const lea = { name: "Léa Perret", email: "lea@nightsession.fr" };
+    const pourLea = synthese("  - [**Léa :**](x)\n      - [Envoyer le devis.](x)");
     const plan = planFathomTasks(
-      contexte([
-        meeting({ recordedBy: autre, actionItems: [item({ assignee: autre })] }),
-      ]),
+      contexte([meeting({ recordedBy: lea, summary: pourLea })]),
     );
-    expect(plan.tasks).toHaveLength(1);
+    expect(plan.tasks.map((t) => t.title)).toEqual(["Envoyer le devis."]);
   });
 
   it("respecte le propriétaire forcé par configuration", () => {
-    const autre = { name: "Léa Perret", email: "lea@nightsession.fr" };
     const plan = planFathomTasks({
-      ...contexte([meeting({ recordedBy: autre, actionItems: [item({ assignee: autre })] })]),
-      owner: SANDRO,
+      ...contexte([meeting()]),
+      owner: { name: "Malory BOUILLOD", email: "m@bondet.fr" },
     });
-    expect(plan.tasks).toHaveLength(0);
-    expect(plan.skipped["assigne-ailleurs"]).toBe(1);
+    expect(plan.tasks.map((t) => t.title)).toEqual(["Examiner le plan de contenu d'août."]);
   });
 
   it("dédoublonne deux passages sur la même réunion par la clé", () => {
     const premier = planFathomTasks(contexte([meeting()]));
     const second = planFathomTasks(contexte([meeting()]));
-    expect(second.tasks[0]!.dedupe_key).toBe(premier.tasks[0]!.dedupe_key);
+    expect(second.tasks.map((t) => t.dedupe_key)).toEqual(
+      premier.tasks.map((t) => t.dedupe_key),
+    );
   });
 });

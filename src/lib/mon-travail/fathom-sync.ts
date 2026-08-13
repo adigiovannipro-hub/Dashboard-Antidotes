@@ -54,6 +54,33 @@ export type FathomReport = {
   illisibles?: string[];
 };
 
+/**
+ * Efface les tâches déjà importées de Fathom, avant de réimporter.
+ *
+ * Sert quand la **source** change, pas quand les données changent : un import
+ * précédent avait pris la liste exhaustive des `action_items` au lieu de la
+ * section « Prochaines étapes », et les quarante-sept lignes qu'il avait
+ * posées ne seraient jamais rattrapées par un nouveau passage — leurs clés
+ * d'idempotence ne correspondent à rien de ce que la nouvelle source produit.
+ *
+ * Ne touche que `source = 'fathom'` : rien de saisi à la main, rien de
+ * récurrent, aucune publication. Déclenché uniquement par `?purge=fathom`,
+ * jamais par le cron.
+ */
+export async function purgeFathomTasks(options: {
+  admin: SupabaseClient;
+  orgId: string;
+}): Promise<number> {
+  const { data, error } = await options.admin
+    .from("work_tasks")
+    .delete()
+    .eq("org_id", options.orgId)
+    .eq("source", "fathom")
+    .select("id");
+  if (error) throw new Error(`Purge des tâches Fathom : ${error.message}`);
+  return data?.length ?? 0;
+}
+
 export async function syncFathomTasks(options: {
   admin: SupabaseClient;
   orgId: string;
