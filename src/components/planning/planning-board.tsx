@@ -13,6 +13,12 @@ import {
 } from "@/components/planning/board-dialogs";
 import { BulkBar } from "@/components/planning/bulk-bar";
 import { useCellAction } from "@/components/planning/cells";
+import {
+  PillIndicator,
+  useOptimisticPill,
+  usePillIndicator,
+} from "@/components/ds/pill-indicator";
+import { LinkPending } from "@/components/ds/route-progress";
 import { LabelsDialog } from "@/components/planning/column-menus";
 import { MonthGroup } from "@/components/planning/month-group";
 import { SubjectDrawer } from "@/components/planning/subject-drawer";
@@ -28,6 +34,12 @@ import type { ColumnDef } from "@/lib/planning/columns";
 import { applyWidths } from "@/lib/planning/columns";
 import { monthGroupLabel } from "@/lib/planning/monday-mapping";
 import { countSubjects, filterMonths } from "@/lib/planning/search";
+import {
+  PREFERENCE_MAX_AGE,
+  planningViewCookie,
+  serializePlanningView,
+  type PlanningView,
+} from "@/lib/ui-preferences";
 import type {
   MonthWithLanes,
   PlanningActivity,
@@ -60,6 +72,7 @@ export function PlanningBoardView({
   trash,
   currentMonthKey,
   workspaceSlug,
+  view,
 }: {
   scope: Scope;
   boards: PlanningBoard[];
@@ -73,6 +86,8 @@ export function PlanningBoardView({
   trash: { subjects: SubjectRow[]; months: PlanningMonth[] };
   currentMonthKey: string;
   workspaceSlug: string;
+  /** L'état de lecture relu du cookie : tri, mois ouverts, réseaux repliés. */
+  view: PlanningView;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -80,9 +95,33 @@ export function PlanningBoardView({
   const { run, pending } = useCellAction();
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [sort, setSort] = useState<DateSort>("position");
   const [search, setSearch] = useState("");
   const searchRef = useRef<HTMLInputElement>(null);
+
+  /**
+   * L'état de lecture du tableau, mémorisé dans un cookie : on revient sur le
+   * planning tel qu'on l'a laissé. Chaque changement réécrit le cookie — pas
+   * de bouton « enregistrer la vue », c'est une préférence, pas une donnée.
+   */
+  const [savedView, setSavedView] = useState<PlanningView>(view);
+  const remember = useCallback(
+    (patch: Partial<PlanningView>) => {
+      setSavedView((current) => {
+        const next = { ...current, ...patch };
+        document.cookie = `${planningViewCookie(scope.workspace, scope.board)}=${serializePlanningView(
+          next,
+        )}; path=/; max-age=${PREFERENCE_MAX_AGE}; samesite=lax`;
+        return next;
+      });
+    },
+    [scope.workspace, scope.board],
+  );
+
+  const sort = savedView.sort;
+  const setSort = useCallback(
+    (next: DateSort) => remember({ sort: next }),
+    [remember],
+  );
   // Largeurs en cours de drag : le tableau suit le pointeur sans attendre la
   // base, qui reçoit la valeur finale au relâchement.
   const [widthPreview, setWidthPreview] = useState<Record<string, number>>({});
@@ -296,9 +335,7 @@ export function PlanningBoardView({
               columns={effectiveColumns}
               owners={owners}
               sort={sort}
-              onSortToggle={() =>
-                setSort((current) => (current === "asc" ? "desc" : "asc"))
-              }
+              onSortToggle={() => setSort(sort === "asc" ? "desc" : "asc")}
               selectedIds={selectedIds}
               onToggleSelect={toggleSelect}
               onToggleLane={toggleLane}
@@ -314,9 +351,33 @@ export function PlanningBoardView({
                 )
               }
               // Le mois en cours est ouvert, les autres repliés : c'est celui
-              // qu'on vient regarder neuf fois sur dix. Une recherche déplie
-              // tout — un résultat caché n'existe pas.
-              defaultOpen={month.month === currentMonthKey}
+              // qu'on vient regarder neuf fois sur dix — jusqu'à ce qu'on en
+              // ouvre d'autres, et le cookie s'en souvient. Une recherche
+              // déplie tout : un résultat caché n'existe pas.
+              defaultOpen={
+                savedView.months === null
+                  ? month.month === currentMonthKey
+                  : savedView.months.includes(month.month.slice(0, 7))
+              }
+              onOpenChange={(open) =>
+                remember({
+                  months: monthKeysAfter(
+                    savedView,
+                    months,
+                    currentMonthKey,
+                    month.month,
+                    open,
+                  ),
+                })
+              }
+              closedLanes={savedView.closedLanes}
+              onLaneOpenChange={(laneId, open) =>
+                remember({
+                  closedLanes: open
+                    ? savedView.closedLanes.filter((id) => id !== laneId)
+                    : [...new Set([...savedView.closedLanes, laneId])],
+                })
+              }
               forceOpen={searching}
             />
           ))}
@@ -414,6 +475,32 @@ export function PlanningBoardView({
   );
 }
 
+/**
+ * La liste des mois ouverts après un pli ou un dépli.
+ *
+ * Au premier geste, le cookie ne dit encore rien : on part de la photo du
+ * défaut — le mois en cours — sans quoi replier ce mois-là n'écrirait rien et
+ * il rouvrirait au rechargement.
+ */
+function monthKeysAfter(
+  view: PlanningView,
+  months: MonthWithLanes[],
+  currentMonthKey: string,
+  month: string,
+  open: boolean,
+): string[] {
+  const key = (value: string) => value.slice(0, 7);
+  const base =
+    view.months ??
+    months
+      .filter((candidate) => candidate.month === currentMonthKey)
+      .map((candidate) => key(candidate.month));
+
+  return open
+    ? [...new Set([...base, key(month)])]
+    : base.filter((candidate) => candidate !== key(month));
+}
+
 /** Un bouton d'en-tête avec sa pastille de compte — archives, corbeille. */
 function HeaderIconButton({
   label,
@@ -453,26 +540,42 @@ export function BoardTabs({
   current: PlanningBoard;
   workspaceSlug: string;
 }) {
+  const { active: activeId, select } = useOptimisticPill(current.id);
+  const { listRef, box, measured } = usePillIndicator<HTMLUListElement>(activeId);
+
   // Volontairement plus léger que les onglets de section, juste au-dessus :
   // deux rangées de pastilles identiques donneraient le même poids à deux
-  // niveaux de navigation différents. Ici, un simple soulignement.
+  // niveaux de navigation différents. Ici, un simple soulignement — mais il
+  // **glisse** d'un tableau à l'autre, et il part au clic : c'est le même
+  // geste qu'au-dessus, dans le vocabulaire de ce niveau-ci.
   return (
     <nav aria-label="Tableaux">
-      <ul className="flex items-center gap-4 border-b border-border">
+      <ul
+        ref={listRef}
+        className="relative flex items-center gap-4 border-b border-border"
+      >
+        <PillIndicator box={box} variant="underline" />
+
         {boards.map((board) => {
-          const active = board.id === current.id;
+          const active = activeId === board.id;
           return (
-            <li key={board.id}>
+            <li key={board.id} data-pill={board.id}>
               <Link
                 href={`/espace/${workspaceSlug}/planning/${board.slug}`}
-                aria-current={active ? "page" : undefined}
+                // La route réelle, pas le choix optimiste : rien n'annonce une
+                // page où l'on n'est pas encore.
+                aria-current={board.id === current.id ? "page" : undefined}
+                onClick={() => select(board.id)}
                 className={cn(
-                  "type-label focus-visible:ring-ring -mb-px block border-b-2 px-0.5 pb-2.5 transition-colors duration-(--motion-duration) ease-standard focus-visible:ring-2 focus-visible:outline-none",
+                  "type-label focus-visible:ring-ring relative -mb-px block border-b-2 px-0.5 pb-2.5 transition-colors duration-(--motion-duration) ease-standard focus-visible:ring-2 focus-visible:outline-none",
                   active
-                    ? "border-text-primary text-text-primary"
+                    ? // Sans mesure — premier rendu, JavaScript absent — c'est
+                      // la bordure du lien qui souligne, comme avant.
+                      cn("text-text-primary", measured ? "border-transparent" : "border-text-primary")
                     : "border-transparent text-text-secondary hover:text-text-primary",
                 )}
               >
+                <LinkPending />
                 {/* La navigation dit déjà « Planning Éditorial » : répéter le
                     nom complet ferait doublon, l'année suffit à distinguer les
                     tableaux. */}

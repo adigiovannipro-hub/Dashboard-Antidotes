@@ -211,7 +211,9 @@ export default async function HubPage({
         {clientWorkspaces.length > 0 ? (
           <section className="space-y-4">
             <SectionHeader title="Clients" count={clientWorkspaces.length} />
-            <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
+            {/* `enter-stagger` : les cartes clients entrent l'une après
+                l'autre au montage de la page. Voir `globals.css`. */}
+            <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3 enter-stagger">
               {clientWorkspaces.map((workspace) => {
                 if (!travail) {
                   return (

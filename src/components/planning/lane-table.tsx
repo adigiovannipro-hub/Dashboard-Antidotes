@@ -52,6 +52,8 @@ export function LaneTable({
   onOpenSubject,
   onEditLabels,
   onResizePreview,
+  defaultOpen,
+  onOpenChange,
 }: {
   scope: Scope;
   lane: LaneWithSubjects;
@@ -66,13 +68,21 @@ export function LaneTable({
   onEditLabels: (column: ColumnDef) => void;
   /** Largeur en cours de drag, avant l'écriture en base. */
   onResizePreview: (columnId: string, width: number | null) => void;
+  /** Ouvert sauf si le cookie dit le contraire. */
+  defaultOpen: boolean;
+  onOpenChange: (open: boolean) => void;
 }) {
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(defaultOpen);
   const [dropTarget, setDropTarget] = useState<{
     subjectId: string;
     after: boolean;
   } | null>(null);
   const { run, pending } = useCellAction();
+
+  const toggle = (next: boolean) => {
+    setOpen(next);
+    onOpenChange(next);
+  };
 
   const template = gridTemplate(columns);
   const subjects = sortSubjects(lane.subjects, sort);
@@ -111,7 +121,7 @@ export function LaneTable({
           if (![...event.dataTransfer.types].includes(SUBJECT_DRAG_TYPE)) return;
           event.preventDefault();
           event.dataTransfer.dropEffect = "move";
-          if (!open) setOpen(true);
+          if (!open) toggle(true);
         }}
         onDrop={(event) => {
           const draggedId = event.dataTransfer.getData(SUBJECT_DRAG_TYPE);
@@ -122,7 +132,7 @@ export function LaneTable({
       >
         <button
           type="button"
-          onClick={() => setOpen((value) => !value)}
+          onClick={() => toggle(!open)}
           aria-expanded={open}
           aria-label={open ? `Replier ${lane.name}` : `Déplier ${lane.name}`}
           className="hover:bg-muted focus-visible:ring-ring rounded p-0.5 focus-visible:ring-2 focus-visible:outline-none"

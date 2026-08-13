@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PendingLabel } from "@/components/ds/pending-label";
 import { inputAmountValue, monthLabel, periodLabel } from "@/lib/billing/format";
 import { ttcCentsOf } from "@/lib/billing/schedule";
 import { formatMoney } from "@/lib/finance/money";
@@ -248,7 +249,9 @@ function EditForm({
       </div>
 
       <Button type="submit" disabled={pending}>
-        {pending ? "Enregistrement…" : "Enregistrer"}
+        <PendingLabel pending={pending} busy="Enregistrement…">
+          Enregistrer
+        </PendingLabel>
       </Button>
     </form>
   );

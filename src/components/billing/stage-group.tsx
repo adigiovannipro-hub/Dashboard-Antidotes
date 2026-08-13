@@ -119,7 +119,7 @@ export function StageGroup({
 
   return (
     <Panel>
-      <details className="group/repli" open={defaultOpen}>
+      <details className="disclosure group/repli" open={defaultOpen}>
         <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-5 py-4 [&::-webkit-details-marker]:hidden">
           {heading}
           <div className="flex shrink-0 items-center gap-4">
