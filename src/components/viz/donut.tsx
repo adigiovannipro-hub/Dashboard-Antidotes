@@ -107,8 +107,12 @@ export function Donut({ data }: { data: readonly DonutDatum[] }) {
       </div>
 
       {/* Légende toujours présente dès deux séries : l'identité ne repose
-          jamais sur la seule couleur. */}
-      <ul className="min-w-0 flex-1 space-y-1.5">
+          jamais sur la seule couleur.
+          `basis-36` : en dessous, le libellé se faisait rogner en « Fe… » et
+          il ne restait justement que la couleur. Le conteneur étant
+          `flex-wrap`, la légende passe alors **sous** le donut plutôt que de
+          se réduire à un moignon. */}
+      <ul className="min-w-0 flex-1 basis-36 space-y-1.5">
         {segments.map((segment) => (
           <li
             key={segment.label}

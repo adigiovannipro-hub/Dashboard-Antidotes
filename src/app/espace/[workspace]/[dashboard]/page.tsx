@@ -6,7 +6,9 @@ import { EmptyState } from "@/components/ds/empty-state";
 import { StatusPill } from "@/components/ds/status-pill";
 import { SectionHeader } from "@/components/ds/surface";
 import { MetaDashboard } from "@/components/viz/meta-dashboard";
+import { ReportingTabs } from "@/components/viz/reporting-tabs";
 import { getWorkspace } from "@/lib/auth";
+import { getActiveContext } from "@/lib/context/queries";
 import {
   BONDET_AD_SETS,
   BONDET_AGE,
@@ -17,10 +19,18 @@ import {
   BONDET_REGIONS,
   BONDET_TOTAL,
 } from "@/lib/demo/bondet";
+import {
+  currentNetwork,
+  REPORTING_NETWORK_LABELS,
+  REPORTING_NETWORK_SUBTITLES,
+  resolveReportingNetworks,
+} from "@/lib/reporting/networks";
+import { listWorkspaceSocialLinks } from "@/lib/social/queries";
 import { createClient } from "@/lib/supabase/server";
 import { requirePageAccess } from "@/lib/workspaces/access";
 
 type Params = Promise<{ workspace: string; dashboard: string }>;
+type Query = Promise<{ reseau?: string }>;
 
 async function load(params: Params) {
   const { workspace: workspaceSlug, dashboard: dashboardSlug } = await params;
@@ -48,35 +58,65 @@ export async function generateMetadata({
   return { title: `${loaded.dashboard.name} · ${loaded.workspace.name}` };
 }
 
-export default async function DashboardPage({ params }: { params: Params }) {
+export default async function DashboardPage({
+  params,
+  searchParams,
+}: {
+  params: Params;
+  searchParams: Query;
+}) {
   const loaded = await load(params);
   if (!loaded) notFound();
 
   const { workspace, dashboard } = loaded;
   await requirePageAccess(workspace, dashboard.slug);
 
-  // Aucune source n'est encore connectée : le dashboard tourne sur les données
+  const [query, links, context] = await Promise.all([
+    searchParams,
+    listWorkspaceSocialLinks(workspace.id),
+    getActiveContext(workspace.id),
+  ]);
+
+  // Les onglets se déduisent de ce qui est branché, rangés dans l'ordre où le
+  // Contexte déclare les réseaux du client.
+  const tabs = resolveReportingNetworks({
+    contextNetworks: (context?.deliverables?.reseaux ?? []).map(
+      (reseau) => reseau.nom,
+    ),
+    assignedKinds: links.map((link) => link.kind),
+  });
+  const network = currentNetwork(tabs, query.reseau);
+
+  // Aucune source n'est encore synchronisée : le payant tourne sur les données
   // de démonstration, calées sur le rapport Looker réel de juin 2026. Le
-  // branchement de l'API Meta arrive à l'étape 6 et ne changera que l'origine
-  // des données, pas la forme.
+  // connecteur ne changera que l'origine des données, pas la forme.
   // Le dashboard s'appelait « meta » avant de devenir « reporting » : les deux
   // slugs sont acceptés le temps que la migration 0008 soit passée partout.
-  const isBondetMeta =
+  const demoAds =
     workspace.slug === "bondet" &&
     (dashboard.slug === "reporting" || dashboard.slug === "meta");
 
   return (
     <div className="space-y-5">
-      {/* Le nom de l'espace est déjà le titre de la page, porté par le cadre :
-          le répéter ici volait deux lignes au contenu. Ne reste que ce que le
-          cadre ne peut pas savoir — la période et l'origine des chiffres. */}
       <SectionHeader
         title={dashboard.name}
-        description={`${BONDET_PERIOD.label} · comparé à ${BONDET_PERIOD.comparison}`}
-        action={<StatusPill tone="info">Données de démonstration</StatusPill>}
+        description={
+          network
+            ? REPORTING_NETWORK_SUBTITLES[network]
+            : "Aucun compte branché sur cet espace."
+        }
+        action={
+          network === "meta-ads" && demoAds ? (
+            <StatusPill tone="info">Données de démonstration</StatusPill>
+          ) : null
+        }
       />
 
-      {isBondetMeta ? (
+      {network ? (
+        <ReportingTabs networks={tabs.networks} current={network} />
+      ) : null}
+
+      {network === "meta-ads" && demoAds ? (
         <MetaDashboard
           adSets={BONDET_AD_SETS}
           total={BONDET_TOTAL}
@@ -90,7 +130,15 @@ export default async function DashboardPage({ params }: { params: Params }) {
       ) : (
         <EmptyState
           icon={PlugZap}
-          message="Aucune source de données n'est connectée à cet espace."
+          message={
+            network
+              ? `${REPORTING_NETWORK_LABELS[network]} est branché, mais aucune donnée n'a encore été synchronisée.`
+              : tabs.manquants.length > 0
+                ? `Le Contexte déclare ${tabs.manquants
+                    .map((missing) => REPORTING_NETWORK_LABELS[missing])
+                    .join(" et ")}, mais aucun compte n'est affecté à cet espace — à faire depuis Connexions, sur le Planning.`
+                : "Aucune source de données n'est connectée à cet espace."
+          }
         />
       )}
     </div>
