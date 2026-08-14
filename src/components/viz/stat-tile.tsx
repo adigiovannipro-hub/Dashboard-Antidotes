@@ -1,4 +1,5 @@
 import { Delta } from "@/components/viz/delta";
+import { MetricIcon } from "@/components/viz/metric-icon";
 import { formatMetric } from "@/lib/format";
 import type { MetricDelta } from "@/lib/metrics/aggregate";
 import { METRIC_DEFINITIONS } from "@/lib/metrics/definitions";
@@ -6,12 +7,13 @@ import type { MetricId } from "@/lib/metrics/types";
 import { cn } from "@/lib/utils";
 
 /**
- * Tuile de statistique : libellé, valeur, variation.
+ * Tuile de statistique : pastille à gauche, libellé, valeur et variation à
+ * droite.
  *
- * Même gabarit que la `StatCard` du système — surblanc bordé, libellé en
- * capitales fines, chiffre à chasse tabulaire — mais sans icône : dix tuiles
- * côte à côte avec dix pictogrammes deviennent un mur de symboles, et aucune
- * des dix ne se lit plus.
+ * L'icône était refusée tant qu'elle se posait **au-dessus** du chiffre : dix
+ * pictogrammes empilés au-dessus de dix nombres font un mur de symboles. En
+ * colonne de gauche, elle ne concurrence plus rien — elle donne à l'œil un
+ * repère pour retrouver « le budget » sans relire les dix libellés.
  */
 export function StatTile({
   metric,
@@ -29,24 +31,32 @@ export function StatTile({
   return (
     <div
       className={cn(
-        "rounded-lg border border-border bg-surface p-4 shadow-card",
+        "border-border bg-surface shadow-card flex items-center gap-3 rounded-lg border p-4",
         className,
       )}
     >
-      <p
-        className="type-overline truncate text-text-secondary"
-        title={definition.label}
-      >
-        {definition.label}
-      </p>
-      {/* Chiffres proportionnels : `tabular-nums` sur une grande valeur isolée
-          donnerait des chasses égales et un rendu lâche. */}
-      <p className="mt-2 text-2xl leading-none font-semibold text-text-primary">
-        {formatMetric(metric, value)}
-      </p>
-      {delta ? (
-        <Delta ratio={delta.ratio} sentiment={delta.sentiment} className="mt-2" />
-      ) : null}
+      <MetricIcon metric={metric} />
+
+      <div className="min-w-0 flex-1">
+        <p
+          className="type-overline text-text-secondary truncate"
+          title={definition.label}
+        >
+          {definition.label}
+        </p>
+        {/* Chiffres proportionnels : `tabular-nums` sur une grande valeur isolée
+            donnerait des chasses égales et un rendu lâche. */}
+        <p className="text-text-primary mt-1 truncate text-xl leading-none font-semibold">
+          {formatMetric(metric, value)}
+        </p>
+        {delta ? (
+          <Delta
+            ratio={delta.ratio}
+            sentiment={delta.sentiment}
+            className="mt-1.5"
+          />
+        ) : null}
+      </div>
     </div>
   );
 }
@@ -54,9 +64,10 @@ export function StatTile({
 /**
  * Chiffre héros : la seule réponse à « est-ce que ça a marché ». Un par vue.
  *
- * C'est l'écart assumé avec le rapport Looker actuel, où dix cartes de taille
- * identique donnent le même poids aux impressions qu'au ROAS et noient la
- * seule question qui compte.
+ * Il tenait une colonne entière et deux rangées de haut. Le chiffre restait le
+ * plus gros de l'écran sans avoir besoin de tout cet air autour : la carte est
+ * désormais **couchée** — pastille, chiffre, variation, puis la phrase — et
+ * rend deux tuiles de place au reste de la bande.
  */
 export function HeroFigure({
   metric,
@@ -64,6 +75,7 @@ export function HeroFigure({
   delta,
   sentence,
   period,
+  className,
 }: {
   metric: MetricId;
   value: number | null;
@@ -71,38 +83,44 @@ export function HeroFigure({
   /** La phrase que le client lira en premier. Elle doit tenir seule. */
   sentence?: string;
   period?: string;
+  className?: string;
 }) {
   const definition = METRIC_DEFINITIONS[metric];
   const hasComparison = delta && delta.ratio !== null;
 
   return (
-    <div className="flex flex-col justify-between gap-6 rounded-lg border border-border bg-surface p-6 shadow-card">
-      <div>
-        <p className="type-overline text-text-secondary">{definition.label}</p>
-        <p className="mt-2 text-5xl leading-none font-bold text-text-primary sm:text-6xl">
-          {formatMetric(metric, value)}
-        </p>
-        {hasComparison ? (
-          <Delta ratio={delta.ratio} sentiment={delta.sentiment} className="mt-3" />
-        ) : (
-          <p className="type-caption mt-3 text-text-secondary">
-            Pas de comparaison disponible sur la période précédente.
-          </p>
-        )}
-      </div>
+    <div
+      className={cn(
+        "border-border bg-surface shadow-card flex items-center gap-4 rounded-lg border p-4",
+        className,
+      )}
+    >
+      <MetricIcon metric={metric} className="size-12" />
 
-      {/* Le bas de la carte porte la lecture en clair plutôt qu'un vide : c'est
-          la phrase qu'on recopierait dans un mail au client. */}
-      {sentence ? (
-        <p className="type-body leading-relaxed text-text-primary">
-          {sentence}
-          {period ? (
-            <span className="type-caption block pt-1 text-text-secondary">
-              {period}
+      <div className="min-w-0 flex-1">
+        <p className="type-overline text-text-secondary">{definition.label}</p>
+        <div className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+          <p className="text-text-primary text-3xl leading-none font-bold">
+            {formatMetric(metric, value)}
+          </p>
+          {hasComparison ? (
+            <Delta ratio={delta.ratio} sentiment={delta.sentiment} />
+          ) : (
+            <span className="type-caption text-text-secondary">
+              Pas de comparaison sur la période précédente
             </span>
-          ) : null}
-        </p>
-      ) : null}
+          )}
+        </div>
+
+        {/* La lecture en clair plutôt qu'un vide : c'est la phrase qu'on
+            recopierait dans un mail au client. */}
+        {sentence ? (
+          <p className="type-caption text-text-secondary mt-1.5 leading-relaxed">
+            {sentence}
+            {period ? ` — ${period}` : ""}
+          </p>
+        ) : null}
+      </div>
     </div>
   );
 }
