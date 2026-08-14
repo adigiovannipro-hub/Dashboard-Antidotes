@@ -617,10 +617,27 @@ import type {
 } from "@/lib/production/types";
 
 /* --- Comptes sociaux ---------------------------------------------------------
-   Le détail vit dans `src/lib/social/types.ts`, aligné sur la migration 0040. */
-export type { SocialAccountRow as SocialAccount } from "@/lib/social/types";
+   Le détail vit dans `src/lib/social/types.ts`, aligné sur les migrations 0043
+   et 0044. Le secret n'a pas de type exporté : il ne se lit que depuis le
+   serveur, au moment de publier. */
+export type {
+  SocialAccountRow as SocialAccount,
+  WorkspaceSocialLink,
+} from "@/lib/social/types";
 
-import type { SocialAccountRow as SocialAccount } from "@/lib/social/types";
+import type {
+  SocialAccountRow as SocialAccount,
+  WorkspaceSocialLink,
+} from "@/lib/social/types";
+
+export type SocialAccountSecret = {
+  account_id: string;
+  org_id: string;
+  credentials_encrypted: string | null;
+  token_expires_at: string | null;
+  scopes: string[];
+  updated_at: string;
+};
 
 type Table<Row, Insert = Partial<Row>, Update = Partial<Row>> = {
   Row: Row;
@@ -696,6 +713,8 @@ export type Database = {
       generation_jobs: Table<GenerationJob>;
       wording_history: Table<WordingHistoryEntry>;
       social_accounts: Table<SocialAccount>;
+      social_account_secrets: Table<SocialAccountSecret>;
+      workspace_social_accounts: Table<WorkspaceSocialLink>;
     };
     // `never` satisfait la contrainte `Record<string, GenericView>` de
     // postgrest-js tout en déclarant qu'il n'y a ni vue ni fonction exposée.

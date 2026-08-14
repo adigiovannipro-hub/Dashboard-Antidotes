@@ -84,7 +84,7 @@ export async function GET(request: Request) {
     }
 
     type Upsert = {
-      workspace_id: string;
+      org_id: string;
       kind: SocialAccountKind;
       external_id: string;
       username: string | null;
@@ -93,9 +93,6 @@ export async function GET(request: Request) {
       biography: string | null;
       followers_count: number | null;
       media_count: number | null;
-      credentials_encrypted: string | null;
-      token_expires_at: string | null;
-      scopes: string[];
       parent_external_id: string | null;
       status: "connected";
       last_error: null;
@@ -106,19 +103,30 @@ export async function GET(request: Request) {
 
     const now = new Date().toISOString();
     const base = {
-      workspace_id: workspace.id,
-      scopes: META_SCOPES,
+      // L'inventaire appartient à l'agence, pas au client depuis lequel on a
+      // cliqué : un seul login Meta atteint les comptes de tout le monde.
+      org_id: workspace.org_id,
       status: "connected" as const,
       last_error: null,
       last_synced_at: now,
       connected_by: viewer.user.id,
       updated_at: now,
-      token_expires_at: tokens.expiresAt?.toISOString() ?? null,
     };
 
     const rows: Upsert[] = [];
+    /* Les jetons voyagent à côté des lignes, pas dedans : depuis 0044 ils ont
+       leur table, et l'inventaire n'en porte plus la colonne. La clé est celle
+       de l'unicité — réseau + identifiant chez la plateforme. */
+    const secretByKey = new Map<string, string>();
+    const key = (kind: SocialAccountKind, externalId: string) =>
+      `${kind}:${externalId}`;
 
     for (const page of pages) {
+      // Le jeton **de Page** : c'est lui qui publie.
+      secretByKey.set(
+        key("facebook_page", page.id),
+        encryptSecret(page.accessToken),
+      );
       rows.push({
         ...base,
         kind: "facebook_page",
@@ -129,12 +137,15 @@ export async function GET(request: Request) {
         biography: null,
         followers_count: null,
         media_count: null,
-        // Le jeton **de Page** : c'est lui qui publie.
-        credentials_encrypted: encryptSecret(page.accessToken),
         parent_external_id: null,
       });
 
       if (page.instagram) {
+        // Instagram publie avec le jeton de sa Page, pas avec le sien.
+        secretByKey.set(
+          key("instagram", page.instagram.id),
+          encryptSecret(page.accessToken),
+        );
         rows.push({
           ...base,
           kind: "instagram",
@@ -145,14 +156,16 @@ export async function GET(request: Request) {
           biography: page.instagram.biography,
           followers_count: page.instagram.followersCount,
           media_count: page.instagram.mediaCount,
-          // Instagram publie avec le jeton de sa Page, pas avec le sien.
-          credentials_encrypted: encryptSecret(page.accessToken),
           parent_external_id: page.id,
         });
       }
     }
 
     for (const account of adAccounts) {
+      secretByKey.set(
+        key("meta_ad_account", account.id),
+        encryptSecret(tokens.accessToken),
+      );
       rows.push({
         ...base,
         kind: "meta_ad_account",
@@ -163,19 +176,49 @@ export async function GET(request: Request) {
         biography: null,
         followers_count: null,
         media_count: null,
-        credentials_encrypted: encryptSecret(tokens.accessToken),
         parent_external_id: null,
       });
     }
 
-    // `createAdminClient` : la table porte des jetons, et l'écriture se fait
-    // après une garde d'owner explicite — c'est l'un des trois usages admis.
+    // `createAdminClient` : l'écriture porte des jetons et se fait après une
+    // garde d'owner explicite — c'est l'un des trois usages admis.
     const admin = createAdminClient();
-    const { error } = await admin
+
+    // Le jeton n'est pas une colonne de l'inventaire : on insère la vitrine,
+    // on récupère les identifiants rendus, puis on range les secrets à côté.
+    const { data: saved, error } = await admin
       .from("social_accounts")
-      .upsert(rows as never, { onConflict: "workspace_id,kind,external_id" });
+      .upsert(rows as never, { onConflict: "org_id,kind,external_id" })
+      .select("id, kind, external_id");
 
     if (error) throw new Error(error.message);
+
+    const secrets = (
+      (saved ?? []) as unknown as {
+        id: string;
+        kind: SocialAccountKind;
+        external_id: string;
+      }[]
+    ).flatMap((row) => {
+      const secret = secretByKey.get(key(row.kind, row.external_id));
+      if (!secret) return [];
+      return [
+        {
+          account_id: row.id,
+          org_id: workspace.org_id,
+          credentials_encrypted: secret,
+          token_expires_at: tokens.expiresAt?.toISOString() ?? null,
+          scopes: META_SCOPES,
+          updated_at: now,
+        },
+      ];
+    });
+
+    const { error: secretError } = await admin
+      .from("social_account_secrets")
+      .upsert(secrets as never, { onConflict: "account_id" });
+
+    if (secretError) throw new Error(secretError.message);
 
     const instagram = rows.filter((row) => row.kind === "instagram").length;
     return back(

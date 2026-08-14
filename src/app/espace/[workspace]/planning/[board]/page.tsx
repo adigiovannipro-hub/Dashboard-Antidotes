@@ -14,7 +14,12 @@ import {
   listFaqEntries,
 } from "@/lib/planning/queries";
 import { metaConfigured } from "@/lib/social/meta";
-import { getInstagramProfile, listSocialAccounts } from "@/lib/social/queries";
+import {
+  getInstagramProfile,
+  listSocialAccounts,
+  listWorkspaceSocialLinks,
+} from "@/lib/social/queries";
+import { selectionFromLinks } from "@/lib/social/types";
 import { parsePlanningView, planningViewCookie } from "@/lib/ui-preferences";
 import { requirePageAccess } from "@/lib/workspaces/access";
 import { PLANNING_PAGE_KEY } from "@/lib/workspaces/types";
@@ -69,16 +74,22 @@ export default async function PlanningBoardPage({
     );
   }
 
+  const isOwner = workspace.role === "owner";
+
   const [
     { months, owners, columns, archived, trash },
     query,
     instagramProfile,
     socialAccounts,
+    socialLinks,
   ] = await Promise.all([
     getBoardContent(board),
     searchParams,
     getInstagramProfile(workspace.id),
-    listSocialAccounts(workspace.id),
+    // L'inventaire de l'agence ne descend qu'au propriétaire : il porte le nom
+    // des comptes des autres clients.
+    isOwner ? listSocialAccounts(workspace.org_id) : Promise.resolve([]),
+    listWorkspaceSocialLinks(workspace.id),
   ]);
 
   // La publication ouverte vient de l'URL : un lien partagé rouvre le même
@@ -120,7 +131,9 @@ export default async function PlanningBoardPage({
       workspaceSlug={workspace.slug}
       workspaceName={workspace.name}
       instagramProfile={instagramProfile}
+      isOwner={isOwner}
       socialAccounts={socialAccounts}
+      socialSelection={selectionFromLinks(socialLinks)}
       metaConfigured={metaConfigured()}
       view={view}
     />

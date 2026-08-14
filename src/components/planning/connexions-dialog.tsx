@@ -1,8 +1,10 @@
 "use client";
 
+import { useState, useTransition } from "react";
 import { Plug, RefreshCw } from "lucide-react";
+import { toast } from "sonner";
 
-import { StatusPill } from "@/components/ds/status-pill";
+import { linkSocialAccount } from "@/app/actions/social";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -13,90 +15,101 @@ import {
 import {
   META_KINDS,
   SOCIAL_ACCOUNT_LABELS,
-  SOCIAL_STATUS_LABELS,
+  SOCIAL_ACCOUNT_PURPOSE,
+  socialAccountName,
   type SocialAccountKind,
   type SocialAccountRow,
-  type SocialAccountStatus,
+  type SocialSelection,
 } from "@/lib/social/types";
 
 /**
  * Le branchement des comptes du client, en boîte.
  *
- * Une page entière pour trois lignes obligeait à quitter le planning pour y
- * revenir : la connexion est une parenthèse dans le travail, pas une
- * destination.
+ * Deux choses distinctes, dans cet ordre : **à quel compte publie-t-on pour ce
+ * client** (le choix), et **que faut-il rebrancher** (l'aller-retour Meta).
+ *
+ * Le choix est le cœur de l'écran. Un seul login Meta rapporte tous les
+ * comptes de l'agence — cinq comptes Instagram dès le premier essai — et rien
+ * ne dirait sur lequel publier si on ne le demandait pas. « Le premier de la
+ * liste » aurait publié chez le mauvais client.
  */
-
-const STATUS_TONES: Record<
-  SocialAccountStatus,
-  "positive" | "warning" | "danger" | "neutral"
-> = {
-  connected: "positive",
-  expired: "warning",
-  error: "danger",
-  disabled: "neutral",
-};
 
 export function ConnexionsDialog({
   workspaceSlug,
-  boardSlug,
+  workspaceName,
   accounts,
+  selection,
   metaConfigured,
   open,
   onOpenChange,
 }: {
   workspaceSlug: string;
-  boardSlug: string;
+  workspaceName: string;
+  /** L'inventaire de l'agence : tout ce que le login Meta atteint. */
   accounts: SocialAccountRow[];
+  /** Ce que ce client utilise aujourd'hui, par réseau. */
+  selection: SocialSelection;
   metaConfigured: boolean;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
-  const metaAccounts = accounts.filter((account) =>
-    META_KINDS.includes(account.kind),
-  );
-
-  // Le retour d'OAuth revient sur ce tableau : c'est d'ici qu'on est parti.
   const connexionHref = `/api/social/meta/connexion?espace=${encodeURIComponent(
     workspaceSlug,
-  )}&retour=${encodeURIComponent(`/espace/${workspaceSlug}/planning/${boardSlug}`)}`;
+  )}&retour=${encodeURIComponent(`/espace/${workspaceSlug}/planning`)}`;
+
+  const inventory = accounts.length;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Comptes sociaux</DialogTitle>
+          <DialogTitle>Comptes de {workspaceName}</DialogTitle>
         </DialogHeader>
 
         <p className="type-caption text-text-secondary">
-          Un seul branchement Meta rapporte les Pages Facebook, les comptes
-          Instagram Professionnels rattachés et les comptes publicitaires. Il
-          sert la publication, la prévisualisation du feed et le Reporting.
+          Un compte par réseau, choisi parmi ceux que le branchement Meta de
+          l&apos;agence atteint. C&apos;est ce choix qui décide où part une
+          publication, et d&apos;où viennent les chiffres du Reporting.
         </p>
 
-        {metaAccounts.length > 0 ? (
-          <ul className="border-border divide-border max-h-72 divide-y overflow-y-auto rounded-md border">
-            {metaAccounts.map((account) => (
-              <AccountRow key={account.id} account={account} />
+        {inventory === 0 ? (
+          <div className="border-border bg-surface-sunken rounded-md border p-3">
+            <p className="type-caption text-text-secondary">
+              Aucun compte branché pour l&apos;instant. Le branchement Meta
+              rapporte d&apos;un coup les Pages Facebook, les comptes Instagram
+              Professionnels rattachés et les comptes publicitaires — ensuite
+              seulement, on affecte.
+            </p>
+          </div>
+        ) : (
+          <div className="border-border divide-border divide-y rounded-md border">
+            {META_KINDS.map((kind) => (
+              <KindPicker
+                key={kind}
+                kind={kind}
+                accounts={accounts.filter((account) => account.kind === kind)}
+                selected={selection[kind] ?? ""}
+                workspaceSlug={workspaceSlug}
+              />
             ))}
-          </ul>
-        ) : null}
+          </div>
+        )}
 
         {metaConfigured ? (
           <Button
             render={<a href={connexionHref} />}
-            variant={metaAccounts.length > 0 ? "outline" : "accent"}
+            variant={inventory > 0 ? "outline" : "accent"}
             size="sm"
           >
-            {metaAccounts.length > 0 ? (
+            {inventory > 0 ? (
               <>
                 <RefreshCw className="size-3.5" strokeWidth={1.75} aria-hidden />
-                Reconnecter Meta
+                Rebrancher Meta
               </>
             ) : (
               <>
                 <Plug className="size-3.5" strokeWidth={1.75} aria-hidden />
-                Connecter Meta
+                Brancher Meta
               </>
             )}
           </Button>
@@ -105,33 +118,72 @@ export function ConnexionsDialog({
             <p className="type-caption text-text-secondary">
               L&apos;application Meta n&apos;est pas encore configurée :
               renseigne <code>META_APP_ID</code> et <code>META_APP_SECRET</code>{" "}
-              dans Vercel, et le bouton de connexion apparaîtra. La publication
-              sur Instagram demande en plus la validation de Meta (App Review),
-              une à trois semaines.
+              dans Vercel, et le bouton de branchement apparaîtra. La
+              publication sur Instagram demande en plus la validation de Meta
+              (App Review), une à trois semaines.
             </p>
           </div>
         )}
 
         {/* `--text-tertiary` est à 2,79:1 : réservé aux icônes, jamais au texte. */}
         <p className="type-caption text-text-secondary">
-          LinkedIn puis TikTok viendront ensuite — chacun demande sa propre
-          validation d&apos;application.
+          Rebrancher met l&apos;inventaire à jour sans toucher aux affectations
+          déjà faites ici. LinkedIn puis TikTok viendront ensuite.
         </p>
       </DialogContent>
     </Dialog>
   );
 }
 
-function AccountRow({ account }: { account: SocialAccountRow }) {
-  const label = SOCIAL_ACCOUNT_LABELS[account.kind as SocialAccountKind];
-  const name = account.display_name ?? account.external_id;
+/**
+ * Le choix d'un réseau.
+ *
+ * Une liste déroulante native : trois à six entrées, une par compte. Un
+ * sélecteur maison n'apporterait rien et se comporterait moins bien au clavier
+ * comme au téléphone.
+ */
+function KindPicker({
+  kind,
+  accounts,
+  selected,
+  workspaceSlug,
+}: {
+  kind: SocialAccountKind;
+  accounts: SocialAccountRow[];
+  selected: string;
+  workspaceSlug: string;
+}) {
+  // Optimiste : la liste prend la valeur choisie tout de suite, et revient en
+  // arrière si le serveur refuse — sinon le champ mentirait jusqu'au
+  // rafraîchissement.
+  const [value, setValue] = useState(selected);
+  const [pending, startTransition] = useTransition();
+
+  const chosen = accounts.find((account) => account.id === value) ?? null;
+
+  const pick = (next: string) => {
+    const previous = value;
+    setValue(next);
+    startTransition(async () => {
+      const result = await linkSocialAccount(workspaceSlug, {
+        kind,
+        accountId: next,
+      });
+      if (!result.ok) {
+        setValue(previous);
+        toast.error(result.error);
+      } else if (result.message) {
+        toast.success(result.message);
+      }
+    });
+  };
 
   return (
-    <li className="flex items-center gap-3 px-3 py-2.5">
-      {account.avatar_url ? (
+    <div className="flex items-center gap-3 px-3 py-2.5">
+      {chosen?.avatar_url ? (
         // eslint-disable-next-line @next/next/no-img-element -- CDN Meta
         <img
-          src={account.avatar_url}
+          src={chosen.avatar_url}
           alt=""
           className="size-8 shrink-0 rounded-full object-cover"
         />
@@ -140,23 +192,36 @@ function AccountRow({ account }: { account: SocialAccountRow }) {
           aria-hidden
           className="bg-surface-sunken text-text-secondary flex size-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold"
         >
-          {name.slice(0, 1).toUpperCase()}
+          {SOCIAL_ACCOUNT_LABELS[kind].slice(0, 1)}
         </span>
       )}
 
       <div className="min-w-0 flex-1">
-        <p className="type-body truncate font-medium">{name}</p>
-        {/* Réseau et identifiant suffisent : à quoi sert le compte est dit
-            une fois, en tête de la boîte, plutôt que tronqué à chaque ligne. */}
-        <p className="type-caption truncate text-text-secondary">
-          {label}
-          {account.username ? ` · ${account.username}` : ""}
-        </p>
-      </div>
+        <label
+          htmlFor={`compte-${kind}`}
+          className="type-caption text-text-secondary block"
+        >
+          {SOCIAL_ACCOUNT_LABELS[kind]} — {SOCIAL_ACCOUNT_PURPOSE[kind]}
+        </label>
 
-      <StatusPill tone={STATUS_TONES[account.status]}>
-        {SOCIAL_STATUS_LABELS[account.status]}
-      </StatusPill>
-    </li>
+        <select
+          id={`compte-${kind}`}
+          value={value}
+          disabled={pending || accounts.length === 0}
+          onChange={(event) => pick(event.target.value)}
+          className="border-border focus-visible:ring-brand type-body mt-1 h-9 w-full rounded-md border bg-transparent px-2 outline-none focus-visible:ring-2 disabled:opacity-50"
+        >
+          <option value="">
+            {accounts.length === 0 ? "Aucun compte branché" : "Aucun"}
+          </option>
+          {accounts.map((account) => (
+            <option key={account.id} value={account.id}>
+              {socialAccountName(account)}
+              {account.username ? ` · ${account.username}` : ""}
+            </option>
+          ))}
+        </select>
+      </div>
+    </div>
   );
 }

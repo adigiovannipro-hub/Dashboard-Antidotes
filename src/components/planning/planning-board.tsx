@@ -38,7 +38,11 @@ import type { ColumnDef } from "@/lib/planning/columns";
 import { applyWidths } from "@/lib/planning/columns";
 import { monthGroupLabel } from "@/lib/planning/monday-mapping";
 import { countSubjects, filterMonths } from "@/lib/planning/search";
-import type { InstagramProfile, SocialAccountRow } from "@/lib/social/types";
+import type {
+  InstagramProfile,
+  SocialAccountRow,
+  SocialSelection,
+} from "@/lib/social/types";
 import {
   PREFERENCE_MAX_AGE,
   planningViewCookie,
@@ -79,7 +83,9 @@ export function PlanningBoardView({
   workspaceSlug,
   workspaceName,
   instagramProfile,
+  isOwner,
   socialAccounts,
+  socialSelection,
   metaConfigured,
   view,
 }: {
@@ -100,8 +106,13 @@ export function PlanningBoardView({
   workspaceName: string;
   /** La vitrine du compte Instagram branché, pour l'en-tête du feed. */
   instagramProfile: InstagramProfile | null;
-  /** Les comptes branchés de l'espace, pour le dialogue de connexions. */
+  /** Affecter un compte engage une publication : réservé à l'agence. */
+  isOwner: boolean;
+  /** L'inventaire de l'agence. Vide pour un client : il porte le nom des
+      comptes des autres. */
   socialAccounts: SocialAccountRow[];
+  /** Le compte retenu par cet espace, réseau par réseau. */
+  socialSelection: SocialSelection;
   /** `META_APP_ID` renseignée : sans elle, le dialogue explique quoi faire. */
   metaConfigured: boolean;
   /** L'état de lecture relu du cookie : tri, mois ouverts, réseaux repliés. */
@@ -364,16 +375,20 @@ export function PlanningBoardView({
           </div>
 
           {/* Le branchement des comptes du client : c'est d'ici qu'on y va,
-              puisque c'est ici qu'on en a besoin. */}
-          <button
-            type="button"
-            onClick={() => setConnexionsOpen(true)}
-            title="Connecter les réseaux sociaux du client"
-            className="border-border text-muted-foreground hover:text-foreground hover:bg-muted/60 focus-visible:ring-brand inline-flex h-9 items-center gap-1.5 rounded-md border px-2.5 text-xs transition-colors focus-visible:ring-2 focus-visible:outline-none"
-          >
-            <Plug className="size-4" strokeWidth={1.75} aria-hidden />
-            Connexions
-          </button>
+              puisque c'est ici qu'on en a besoin. Réservé à l'agence — la
+              boîte montre l'inventaire, qui nomme les comptes des autres
+              clients. */}
+          {isOwner ? (
+            <button
+              type="button"
+              onClick={() => setConnexionsOpen(true)}
+              title="Choisir les comptes sur lesquels ce client publie"
+              className="border-border text-muted-foreground hover:text-foreground hover:bg-muted/60 focus-visible:ring-brand inline-flex h-9 items-center gap-1.5 rounded-md border px-2.5 text-xs transition-colors focus-visible:ring-2 focus-visible:outline-none"
+            >
+              <Plug className="size-4" strokeWidth={1.75} aria-hidden />
+              Connexions
+            </button>
+          ) : null}
 
           <HeaderIconButton
             label={`Archives (${archived.length})`}
@@ -542,10 +557,11 @@ export function PlanningBoardView({
 
       <ConnexionsDialog
         workspaceSlug={workspaceSlug}
-        boardSlug={board.slug}
+        workspaceName={workspaceName}
         accounts={socialAccounts}
+        selection={socialSelection}
         metaConfigured={metaConfigured}
-        open={connexionsOpen}
+        open={connexionsOpen && isOwner}
         onOpenChange={setConnexionsOpen}
       />
 
