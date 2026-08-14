@@ -87,15 +87,12 @@ export function resolveReportingNetworks(input: {
     if (network && !declared.includes(network)) declared.push(network);
   }
 
-  // Le Contexte donne l'ordre ; ce qu'il ne nomme pas suit, plutôt que d'être
-  // caché — un compte branché a toujours son onglet.
-  const ordered = [
-    ...declared.filter((network) => available.includes(network)),
-    ...available.filter((network) => !declared.includes(network)),
-  ];
-
+  // Ordre fixe — payant, Instagram, Facebook — et non l'ordre du Contexte :
+  // les onglets doivent tomber au même endroit d'un client à l'autre, sinon
+  // on cherche « Meta Ads » à une place différente à chaque espace.
+  // Le Contexte garde son rôle : dire ce qui **manque**.
   return {
-    networks: ordered,
+    networks: available,
     manquants: declared.filter((network) => !available.includes(network)),
   };
 }

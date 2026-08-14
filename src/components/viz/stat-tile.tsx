@@ -37,16 +37,21 @@ export function StatTile({
     >
       <MetricIcon metric={metric} />
 
-      <div className="min-w-0 flex-1">
-        <p
-          className="type-overline text-text-secondary truncate"
-          title={definition.label}
-        >
-          {definition.label}
-        </p>
+      {/* Pastille et libellé à gauche, chiffre et variation **contre le bord
+          droit** : sur une rangée de tuiles, les nombres s'alignent alors sur
+          une même colonne et se comparent d'un coup d'œil. Collés au libellé,
+          ils démarraient à une abscisse différente par carte. */}
+      <p
+        className="type-overline text-text-secondary min-w-0 flex-1 truncate"
+        title={definition.label}
+      >
+        {definition.label}
+      </p>
+
+      <div className="shrink-0 text-right">
         {/* Chiffres proportionnels : `tabular-nums` sur une grande valeur isolée
             donnerait des chasses égales et un rendu lâche. */}
-        <p className="text-text-primary mt-1 truncate text-xl leading-none font-semibold">
+        <p className="text-text-primary text-xl leading-none font-semibold">
           {formatMetric(metric, value)}
         </p>
         {delta ? (

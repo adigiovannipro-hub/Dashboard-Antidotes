@@ -14,7 +14,6 @@ import {
   BONDET_AGE,
   BONDET_FOLLOWERS,
   BONDET_GENDER,
-  BONDET_PERIOD,
   BONDET_PREVIOUS_TOTAL,
   BONDET_REGIONS,
   BONDET_TOTAL,
@@ -25,12 +24,23 @@ import {
   REPORTING_NETWORK_SUBTITLES,
   resolveReportingNetworks,
 } from "@/lib/reporting/networks";
+import {
+  lastCompleteMonth,
+  monthLabel,
+  monthOptions,
+  parseMonth,
+  previousMonth,
+} from "@/lib/reporting/period";
+import { MonthPicker } from "@/components/viz/month-picker";
 import { listWorkspaceSocialLinks } from "@/lib/social/queries";
 import { createClient } from "@/lib/supabase/server";
 import { requirePageAccess } from "@/lib/workspaces/access";
 
 type Params = Promise<{ workspace: string; dashboard: string }>;
-type Query = Promise<{ reseau?: string }>;
+type Query = Promise<{ reseau?: string; mois?: string }>;
+
+/** Le mois que couvre le jeu de démonstration Bondet. */
+const DEMO_MONTH = "2026-06";
 
 async function load(params: Params) {
   const { workspace: workspaceSlug, dashboard: dashboardSlug } = await params;
@@ -77,16 +87,6 @@ export default async function DashboardPage({
     getActiveContext(workspace.id),
   ]);
 
-  // Les onglets se déduisent de ce qui est branché, rangés dans l'ordre où le
-  // Contexte déclare les réseaux du client.
-  const tabs = resolveReportingNetworks({
-    contextNetworks: (context?.deliverables?.reseaux ?? []).map(
-      (reseau) => reseau.nom,
-    ),
-    assignedKinds: links.map((link) => link.kind),
-  });
-  const network = currentNetwork(tabs, query.reseau);
-
   // Aucune source n'est encore synchronisée : le payant tourne sur les données
   // de démonstration, calées sur le rapport Looker réel de juin 2026. Le
   // connecteur ne changera que l'origine des données, pas la forme.
@@ -96,19 +96,45 @@ export default async function DashboardPage({
     workspace.slug === "bondet" &&
     (dashboard.slug === "reporting" || dashboard.slug === "meta");
 
+  // Les onglets se déduisent de ce qui est branché ; le Contexte sert à dire
+  // ce qui manque.
+  const tabs = resolveReportingNetworks({
+    contextNetworks: (context?.deliverables?.reseaux ?? []).map(
+      (reseau) => reseau.nom,
+    ),
+    assignedKinds: links.map((link) => link.kind),
+  });
+  const network = currentNetwork(tabs, query.reseau);
+
+  // Le mois révolu par défaut : le 14 août, on lit juillet. Tant qu'on tourne
+  // sur la démonstration, c'est **son** mois qui s'ouvre — proposer juillet
+  // pour n'afficher qu'un écran vide serait une fausse promesse.
+  const now = new Date();
+  const options = monthOptions(now, 12);
+  const fallback = demoAds ? DEMO_MONTH : lastCompleteMonth(now);
+  const month = parseMonth(query.mois, now) ?? fallback;
+  const monthOptionList = options.includes(fallback)
+    ? options
+    : [fallback, ...options];
+
   return (
     <div className="space-y-5">
       <SectionHeader
         title={dashboard.name}
         description={
           network
-            ? REPORTING_NETWORK_SUBTITLES[network]
+            ? `${monthLabel(month)} · comparé à ${monthLabel(previousMonth(month))} — ${REPORTING_NETWORK_SUBTITLES[network]}`
             : "Aucun compte branché sur cet espace."
         }
         action={
-          network === "meta-ads" && demoAds ? (
-            <StatusPill tone="info">Données de démonstration</StatusPill>
-          ) : null
+          <div className="flex items-center gap-2">
+            {network === "meta-ads" && demoAds ? (
+              <StatusPill tone="info">Démonstration</StatusPill>
+            ) : null}
+            {network ? (
+              <MonthPicker current={month} options={monthOptionList} />
+            ) : null}
+          </div>
         }
       />
 
@@ -116,7 +142,9 @@ export default async function DashboardPage({
         <ReportingTabs networks={tabs.networks} current={network} />
       ) : null}
 
-      {network === "meta-ads" && demoAds ? (
+      {/* Le jeu de démonstration ne couvre qu'un mois. Afficher ses chiffres
+          sous une autre étiquette de mois serait mentir : on préfère le dire. */}
+      {network === "meta-ads" && demoAds && month === DEMO_MONTH ? (
         <MetaDashboard
           adSets={BONDET_AD_SETS}
           total={BONDET_TOTAL}
@@ -125,14 +153,19 @@ export default async function DashboardPage({
           gender={BONDET_GENDER}
           regions={BONDET_REGIONS}
           followers={BONDET_FOLLOWERS}
-          period={BONDET_PERIOD}
+          period={{
+            label: monthLabel(month),
+            comparison: monthLabel(previousMonth(month)),
+          }}
         />
       ) : (
         <EmptyState
           icon={PlugZap}
           message={
-            network
-              ? `${REPORTING_NETWORK_LABELS[network]} est branché, mais aucune donnée n'a encore été synchronisée.`
+            network === "meta-ads" && demoAds
+              ? `Le jeu de démonstration ne couvre que ${monthLabel(DEMO_MONTH)} — choisir ce mois pour le voir.`
+              : network
+                ? `${REPORTING_NETWORK_LABELS[network]} est branché, mais aucune donnée n'a encore été synchronisée pour ${monthLabel(month)}.`
               : tabs.manquants.length > 0
                 ? `Le Contexte déclare ${tabs.manquants
                     .map((missing) => REPORTING_NETWORK_LABELS[missing])

@@ -2,7 +2,6 @@
 
 import { Panel, PanelBody, PanelHeader } from "@/components/ds/surface";
 import { BarList } from "@/components/viz/bar-list";
-import { Donut } from "@/components/viz/donut";
 import { MetricsTable } from "@/components/viz/metrics-table";
 import { HeroFigure, StatTile } from "@/components/viz/stat-tile";
 import { TrendLine, TrendLineTable } from "@/components/viz/trend-line";
@@ -109,10 +108,40 @@ export function MetaDashboard({
         ))}
       </div>
 
-      {/* `items-start` : sans lui, la carte la plus courte s'étire à la hauteur
-          de sa voisine et la courbe d'abonnés flotte au-dessus d'un grand
-          vide. */}
-      <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+      {/* Persona à gauche, abonnés à droite : on lit d'abord à qui l'on parle,
+          ensuite combien ils sont. Hauteur commune — deux cartes côte à côte
+          de hauteurs différentes ne se lisent pas comme une ligne. */}
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+        <Panel>
+          <PanelHeader
+            title="Persona"
+            description="Répartition des impressions — qui a vu les campagnes."
+          />
+          <PanelBody>
+            {/*
+             * Trois listes de barres, plus de donut.
+             *
+             * Le donut du genre ne tenait pas dans un tiers de panneau : la
+             * roue se décentrait dès que la légende manquait de place, et
+             * « Femmes » se réduisait à « Fe… ». Trois découpages du même
+             * chiffre lus dans trois grammaires différentes se comparaient
+             * mal, en plus. Les barres portent le libellé **et** la part sur
+             * la même ligne, à toute largeur.
+             */}
+            <div className="grid gap-6 md:grid-cols-3">
+              <Breakdown title="Genre">
+                <BarList data={gender} />
+              </Breakdown>
+              <Breakdown title="Tranches d'âge">
+                <BarList data={age} ordinal />
+              </Breakdown>
+              <Breakdown title="Régions">
+                <BarList data={foldedRegions} />
+              </Breakdown>
+            </div>
+          </PanelBody>
+        </Panel>
+
         <VizCard
           title="Abonnés Instagram"
           subtitle="Meta n'expose que 30 jours d'historique — l'antériorité s'importe en CSV"
@@ -125,30 +154,6 @@ export function MetaDashboard({
             />
           }
         />
-
-        <Panel>
-          <PanelHeader
-            title="Persona"
-            description="Répartition des impressions — qui a vu les campagnes."
-          />
-          <PanelBody>
-            {/* Le genre est plus large que les deux autres : le donut mesure
-                160 px et sa légende porte les libellés. À un tiers strict,
-                « Femmes » se faisait rogner et il ne restait que la couleur —
-                or l'identité ne repose jamais sur la seule couleur. */}
-            <div className="grid gap-6 md:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)]">
-              <Breakdown title="Genre">
-                <Donut data={gender} />
-              </Breakdown>
-              <Breakdown title="Tranches d'âge">
-                <BarList data={age} ordinal />
-              </Breakdown>
-              <Breakdown title="Régions">
-                <BarList data={foldedRegions} />
-              </Breakdown>
-            </div>
-          </PanelBody>
-        </Panel>
       </div>
 
       <Panel>

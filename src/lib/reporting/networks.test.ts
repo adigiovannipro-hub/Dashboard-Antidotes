@@ -31,13 +31,13 @@ describe("networkFromContextName", () => {
 });
 
 describe("resolveReportingNetworks", () => {
-  it("range les onglets dans l'ordre du Contexte", () => {
+  it("garde un ordre fixe, quel que soit celui du Contexte", () => {
     const tabs = resolveReportingNetworks({
-      contextNetworks: ["Instagram", "Facebook"],
-      assignedKinds: ["meta_ad_account", "facebook_page", "instagram"],
+      contextNetworks: ["Facebook", "Instagram"],
+      assignedKinds: ["facebook_page", "instagram", "meta_ad_account"],
     });
 
-    expect(tabs.networks).toEqual(["instagram", "facebook", "meta-ads"]);
+    expect(tabs.networks).toEqual(["meta-ads", "instagram", "facebook"]);
   });
 
   it("garde un compte branché que le Contexte ne nomme pas", () => {
@@ -46,7 +46,7 @@ describe("resolveReportingNetworks", () => {
       assignedKinds: ["instagram", "meta_ad_account"],
     });
 
-    expect(tabs.networks).toEqual(["instagram", "meta-ads"]);
+    expect(tabs.networks).toEqual(["meta-ads", "instagram"]);
     expect(tabs.manquants).toEqual([]);
   });
 
