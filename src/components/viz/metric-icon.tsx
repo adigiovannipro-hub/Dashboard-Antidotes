@@ -13,6 +13,7 @@ import {
   Target,
   TrendingUp,
   UserPlus,
+  Users,
   Wallet,
   type LucideIcon,
 } from "lucide-react";
@@ -47,6 +48,7 @@ const METRIC_ICONS: Record<MetricId, LucideIcon> = {
   cpc: MousePointerClick,
   comments: MessageCircle,
   saves: Bookmark,
+  reach: Users,
   frequency: Repeat,
   shares: Send,
 };

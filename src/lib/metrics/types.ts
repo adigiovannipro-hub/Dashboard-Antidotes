@@ -104,5 +104,6 @@ export type MetricId =
   | "cpc"
   | "comments"
   | "saves"
+  | "reach"
   | "frequency"
   | "shares";

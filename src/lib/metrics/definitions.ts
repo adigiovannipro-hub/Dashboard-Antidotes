@@ -103,6 +103,13 @@ export const METRIC_DEFINITIONS: Record<MetricId, MetricDefinition> = {
     // pas un coût par lead : 2 572,22 / 625 = 4,12 sur juin 2026.
     compute: (r) => ratio(r.spend, r.landingPageViews),
   },
+  reach: {
+    id: "reach",
+    label: "Portée",
+    format: "integer",
+    direction: "up-good",
+    compute: (raw) => raw.reach,
+  },
   frequency: {
     id: "frequency",
     label: "Répétition",
