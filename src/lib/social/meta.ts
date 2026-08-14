@@ -17,12 +17,19 @@ import "server-only";
  *   • `pages_read_engagement` + `pages_manage_posts` — publier sur la Page ;
  *   • `instagram_basic` — lire le profil et les médias ;
  *   • `instagram_content_publish` — publier sur Instagram ;
+ *   • `instagram_manage_insights` — les chiffres **organiques** d'Instagram :
+ *     portée, impressions, vues de profil, démographie des abonnés.
+ *     `instagram_basic` ne donne que la vitrine, pas les statistiques ;
+ *   • `read_insights` — les mêmes pour la Page Facebook ;
  *   • `ads_read` — lire les campagnes, pour le Reporting. Lecture seule :
  *     Antidotes ne crée ni ne modifie aucune campagne.
  *
- * `instagram_content_publish` et `ads_read` passent par l'App Review de Meta.
- * Sans elle, le reste du branchement fonctionne quand même — on lira le
- * profil, on ne publiera pas.
+ * Ajouter une portée ici ne suffit pas : un jeton déjà obtenu ne la porte
+ * pas. Il faut **rebrancher** le compte pour que Meta la redemande.
+ *
+ * Tout sauf `pages_show_list` passe par l'App Review de Meta. Sans elle, le
+ * branchement fonctionne quand même pour un compte dont on est testeur — on
+ * lira le profil, on ne publiera pas chez un tiers.
  */
 
 const GRAPH_VERSION = "v21.0";
@@ -33,8 +40,10 @@ export const META_SCOPES = [
   "pages_show_list",
   "pages_read_engagement",
   "pages_manage_posts",
+  "read_insights",
   "instagram_basic",
   "instagram_content_publish",
+  "instagram_manage_insights",
   "ads_read",
   "business_management",
 ];
