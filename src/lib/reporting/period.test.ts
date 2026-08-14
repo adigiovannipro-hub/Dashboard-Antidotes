@@ -6,7 +6,10 @@ import {
   monthKey,
   monthLabel,
   monthOptions,
+  parseRange,
   parseMonth,
+  presetOf,
+  presetRange,
   previousMonth,
 } from "./period";
 
@@ -87,5 +90,60 @@ describe("monthBounds", () => {
 describe("monthKey", () => {
   it("complète le mois à deux chiffres", () => {
     expect(monthKey(new Date("2026-03-09T00:00:00Z"))).toBe("2026-03");
+  });
+});
+
+describe("presetRange", () => {
+  it("« le mois dernier » borne juillet quand on est en août", () => {
+    expect(presetRange("mois-dernier", aout)).toEqual({
+      from: "2026-07-01",
+      to: "2026-07-31",
+    });
+  });
+
+  it("les 30 derniers jours s'arrêtent hier, pas aujourd'hui", () => {
+    expect(presetRange("30-jours", aout)).toEqual({
+      from: "2026-07-15",
+      to: "2026-08-13",
+    });
+  });
+
+  it("« personnalisé » n'a pas de bornes", () => {
+    expect(presetRange("personnalise", aout)).toBeNull();
+  });
+});
+
+describe("presetOf", () => {
+  it("reconnaît une plage qui tombe sur un préréglage", () => {
+    expect(presetOf({ from: "2026-07-01", to: "2026-07-31" }, aout)).toBe(
+      "mois-dernier",
+    );
+  });
+
+  it("rend « personnalisé » pour une plage quelconque", () => {
+    expect(presetOf({ from: "2026-07-03", to: "2026-07-19" }, aout)).toBe(
+      "personnalise",
+    );
+  });
+});
+
+describe("parseRange", () => {
+  it("accepte deux dates ISO", () => {
+    expect(parseRange("2026-07-01", "2026-07-31")).toEqual({
+      from: "2026-07-01",
+      to: "2026-07-31",
+    });
+  });
+
+  it("remet une plage à l'envers dans l'ordre", () => {
+    expect(parseRange("2026-07-31", "2026-07-01")).toEqual({
+      from: "2026-07-01",
+      to: "2026-07-31",
+    });
+  });
+
+  it("refuse une borne manquante ou mal formée", () => {
+    expect(parseRange("2026-07-01", undefined)).toBeNull();
+    expect(parseRange("01/07/2026", "2026-07-31")).toBeNull();
   });
 });

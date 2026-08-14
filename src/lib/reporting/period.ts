@@ -81,3 +81,79 @@ export function monthBounds(key: MonthKey): { from: string; to: string } {
     to: end.toISOString().slice(0, 10),
   };
 }
+
+/* --- Plage libre ------------------------------------------------------------
+   Le mois révolu reste le défaut, mais un rapport se demande aussi sur « les
+   30 derniers jours » ou sur deux semaines précises. La plage est donc la
+   forme canonique, et le mois n'en est qu'un préréglage. */
+
+export type DateRange = { from: string; to: string };
+
+export type RangePreset =
+  | "mois-dernier"
+  | "mois-en-cours"
+  | "7-jours"
+  | "30-jours"
+  | "90-jours"
+  | "personnalise";
+
+export const RANGE_PRESET_LABELS: Record<RangePreset, string> = {
+  "mois-dernier": "Le mois dernier",
+  "mois-en-cours": "Le mois en cours",
+  "7-jours": "7 derniers jours",
+  "30-jours": "30 derniers jours",
+  "90-jours": "90 derniers jours",
+  personnalise: "Personnalisé",
+};
+
+function isoDay(date: Date): string {
+  return date.toISOString().slice(0, 10);
+}
+
+/** Les bornes d'un préréglage. `personnalise` n'en a pas : c'est la saisie. */
+export function presetRange(preset: RangePreset, now: Date): DateRange | null {
+  if (preset === "mois-dernier") return monthBounds(lastCompleteMonth(now));
+  if (preset === "mois-en-cours") return monthBounds(monthKey(now));
+  if (preset === "personnalise") return null;
+
+  const days = preset === "7-jours" ? 7 : preset === "30-jours" ? 30 : 90;
+  // La veille comme borne haute : aujourd'hui n'est pas fini, l'inclure ferait
+  // baisser chaque indicateur à mesure qu'on consulte tôt dans la journée.
+  const to = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - 1),
+  );
+  const from = new Date(
+    Date.UTC(to.getUTCFullYear(), to.getUTCMonth(), to.getUTCDate() - days + 1),
+  );
+  return { from: isoDay(from), to: isoDay(to) };
+}
+
+/** Le préréglage qui correspond à une plage, ou « Personnalisé ». */
+export function presetOf(range: DateRange, now: Date): RangePreset {
+  for (const preset of [
+    "mois-dernier",
+    "mois-en-cours",
+    "7-jours",
+    "30-jours",
+    "90-jours",
+  ] as const) {
+    const candidate = presetRange(preset, now);
+    if (candidate && candidate.from === range.from && candidate.to === range.to) {
+      return preset;
+    }
+  }
+  return "personnalise";
+}
+
+const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
+
+/** La plage demandée par l'URL, bornes remises dans l'ordre si besoin. */
+export function parseRange(
+  from: string | undefined,
+  to: string | undefined,
+): DateRange | null {
+  if (!from || !to || !ISO_DAY.test(from) || !ISO_DAY.test(to)) return null;
+  // Une plage à l'envers est une faute de frappe, pas une plage vide : on la
+  // remet à l'endroit plutôt que de rendre zéro ligne sans rien dire.
+  return from <= to ? { from, to } : { from: to, to: from };
+}

@@ -26,18 +26,19 @@ import {
 } from "@/lib/reporting/networks";
 import {
   lastCompleteMonth,
+  monthBounds,
+  parseRange,
   monthLabel,
-  monthOptions,
   parseMonth,
   previousMonth,
 } from "@/lib/reporting/period";
-import { MonthPicker } from "@/components/viz/month-picker";
+import { RangePicker } from "@/components/viz/range-picker";
 import { listWorkspaceSocialLinks } from "@/lib/social/queries";
 import { createClient } from "@/lib/supabase/server";
 import { requirePageAccess } from "@/lib/workspaces/access";
 
 type Params = Promise<{ workspace: string; dashboard: string }>;
-type Query = Promise<{ reseau?: string; mois?: string }>;
+type Query = Promise<{ reseau?: string; mois?: string; du?: string; au?: string }>;
 
 /** Le mois que couvre le jeu de démonstration Bondet. */
 const DEMO_MONTH = "2026-06";
@@ -110,12 +111,11 @@ export default async function DashboardPage({
   // sur la démonstration, c'est **son** mois qui s'ouvre — proposer juillet
   // pour n'afficher qu'un écran vide serait une fausse promesse.
   const now = new Date();
-  const options = monthOptions(now, 12);
   const fallback = demoAds ? DEMO_MONTH : lastCompleteMonth(now);
   const month = parseMonth(query.mois, now) ?? fallback;
-  const monthOptionList = options.includes(fallback)
-    ? options
-    : [fallback, ...options];
+  // La plage libre prime sur le mois : c'est le choix le plus explicite que
+  // l'URL puisse porter.
+  const range = parseRange(query.du, query.au) ?? monthBounds(month);
 
   return (
     <div className="space-y-5">
@@ -132,7 +132,7 @@ export default async function DashboardPage({
               <StatusPill tone="info">Démonstration</StatusPill>
             ) : null}
             {network ? (
-              <MonthPicker current={month} options={monthOptionList} />
+              <RangePicker range={range} />
             ) : null}
           </div>
         }
