@@ -30,20 +30,33 @@ un compte Instagram **Professionnel**, une **Page Facebook**, et un
 **portefeuille Meta Business** qui possède les deux. Un compte Instagram
 personnel, même avec 100 000 abonnés, n'a pas d'API du tout.
 
-**Instagram n'a pas de programmation dans son API.** Une Page Facebook accepte
-un `scheduled_publish_time` : on dépose le post une fois, Facebook le sort à la
-minute dite. Instagram, non — la publication se fait en deux temps (créer le
-conteneur média, puis le publier), et **les deux appels doivent partir au
-moment où l'on veut publier**. C'est donc Antidotes qui devra tenir l'horloge,
-ce qui a un coût d'infrastructure (voir la fin).
+**Instagram n'a pas de programmation dans son API.** Ce n'est pas un oubli de
+Meta, c'est le dessin de l'API : la publication se fait en deux temps — créer
+le conteneur média (`/media`), puis le publier (`/media_publish`) — et le
+conteneur meurt au bout de 24 h. Déposer aujourd'hui un post pour le 15 est
+donc impossible par construction, et **les deux appels doivent partir au
+moment où l'on veut publier**.
+
+Une Page Facebook, elle, accepte un `scheduled_publish_time` et sort le post
+toute seule à l'heure dite, dans une fenêtre bornée à quelques semaines. Deux
+mécaniques différentes pour un même bouton : **on tient donc l'horloge chez
+nous pour les deux**, quitte à ne pas utiliser la programmation native de
+Facebook. Un seul chemin à écrire, un seul endroit à regarder quand un post
+ne part pas, et aucune dépendance à une fenêtre qui peut bouger.
 
 **Meta télécharge le média depuis une URL.** On ne lui envoie pas le fichier :
 on lui donne un lien HTTPS public qu'il va chercher lui-même. Nos visuels sont
 dans un bucket privé Supabase — il faudra donc leur signer une URL le temps de
 l'envoi. La mécanique existe déjà pour l'affichage, elle se réutilise.
 
-**Plafond :** 50 publications par 24 h et par compte Instagram. Sans objet à
-notre échelle.
+**Plafond :** 25 publications par 24 h et par compte Instagram — au-delà,
+l'API rend une erreur 9. Sans objet à notre échelle.
+
+**Le conteneur média expire au bout de 24 h.** C'est ce qui interdit de
+préparer les posts du mois à l'avance : un conteneur créé le 1er pour le 15
+est mort avant d'être publié. Le seul schéma valide est donc celui-ci — garder
+la programmation **chez nous**, et ne créer le conteneur qu'au moment de
+publier.
 
 ---
 
