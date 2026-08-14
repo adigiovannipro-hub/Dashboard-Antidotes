@@ -2,6 +2,7 @@
 
 import { Panel, PanelBody, PanelHeader } from "@/components/ds/surface";
 import { BarList } from "@/components/viz/bar-list";
+import { Funnel } from "@/components/viz/funnel";
 import { MetricsTable } from "@/components/viz/metrics-table";
 import { HeroFigure, StatTile } from "@/components/viz/stat-tile";
 import { TrendLine, TrendLineTable } from "@/components/viz/trend-line";
@@ -24,7 +25,6 @@ import { foldTail } from "@/lib/viz/palette";
 const SECONDARY_KPIS: MetricId[] = [
   "spend",
   "earn",
-  "purchases",
   "cpa",
   "impressions",
   "clicks",
@@ -93,10 +93,24 @@ export function MetaDashboard({
           metric="roas"
           value={computeMetric("roas", total, mode)}
           delta={delta("roas")}
-          sentence={`${formatMetric("earn", total.purchaseValue)} générés pour ${formatMetric("spend", total.spend)} investis, sur ${formatMetric("purchases", total.purchases)} achats.`}
+          sentence={`${formatMetric("earn", total.purchaseValue)} générés pour ${formatMetric("spend", total.spend)} investis.`}
           period={`${period.label} · comparé à ${period.comparison}`}
-          className="col-span-2"
         />
+
+        {/* L'entonnoir prend la place de la tuile Achats, qui en est la
+            dernière marche : la même donnée deux fois, dont une sans le
+            chemin qui y mène. Il occupe deux tuiles en hauteur pour rester
+            sur la même horizontale que le ROAS. */}
+        <div className="border-border bg-surface shadow-card col-span-2 rounded-lg border p-4 sm:row-span-2">
+          <p className="type-overline text-text-secondary mb-3">Conversion</p>
+          <Funnel
+            steps={[
+              { label: "Ajouts au panier", value: total.addToCart },
+              { label: "Paiements initiés", value: total.initiatedCheckout },
+              { label: "Achats", value: total.purchases },
+            ]}
+          />
+        </div>
 
         {SECONDARY_KPIS.map((metric) => (
           <StatTile

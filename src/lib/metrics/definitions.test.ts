@@ -18,6 +18,8 @@ const JUNE_2026_TOTAL: RawMetrics = {
   purchases: 8,
   purchaseValue: 837.9,
   landingPageViews: 625,
+  addToCart: 47,
+  initiatedCheckout: 34,
   comments: 13,
   saves: 41,
   shares: 96,

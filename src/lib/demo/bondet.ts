@@ -35,6 +35,8 @@ export const BONDET_AD_SETS: DemoAdSet[] = [
       purchases: 3,
       purchaseValue: 289.3,
       landingPageViews: 175,
+      addToCart: 0,
+      initiatedCheckout: 0,
       comments: 5,
       saves: 9,
       shares: 41,
@@ -52,6 +54,8 @@ export const BONDET_AD_SETS: DemoAdSet[] = [
       purchases: 0,
       purchaseValue: 0,
       landingPageViews: 95,
+      addToCart: 0,
+      initiatedCheckout: 0,
       comments: 4,
       saves: 1,
       shares: 19,
@@ -69,6 +73,8 @@ export const BONDET_AD_SETS: DemoAdSet[] = [
       purchases: 0,
       purchaseValue: 0,
       landingPageViews: 4,
+      addToCart: 0,
+      initiatedCheckout: 0,
       comments: 2,
       saves: 8,
       shares: 19,
@@ -86,6 +92,8 @@ export const BONDET_AD_SETS: DemoAdSet[] = [
       purchases: 3,
       purchaseValue: 340.1,
       landingPageViews: 160,
+      addToCart: 0,
+      initiatedCheckout: 0,
       comments: 1,
       saves: 12,
       shares: 8,
@@ -103,6 +111,8 @@ export const BONDET_AD_SETS: DemoAdSet[] = [
       purchases: 2,
       purchaseValue: 208.5,
       landingPageViews: 120,
+      addToCart: 0,
+      initiatedCheckout: 0,
       comments: 1,
       saves: 7,
       shares: 6,
@@ -120,6 +130,8 @@ export const BONDET_AD_SETS: DemoAdSet[] = [
       purchases: 0,
       purchaseValue: 0,
       landingPageViews: 71,
+      addToCart: 0,
+      initiatedCheckout: 0,
       comments: 0,
       saves: 4,
       shares: 3,
@@ -127,9 +139,15 @@ export const BONDET_AD_SETS: DemoAdSet[] = [
   },
 ];
 
-export const BONDET_TOTAL: RawMetrics = sumRawMetrics(
-  BONDET_AD_SETS.map((adSet) => adSet.raw),
-);
+export const BONDET_TOTAL: RawMetrics = {
+  ...sumRawMetrics(BONDET_AD_SETS.map((adSet) => adSet.raw)),
+  /* Les deux premières marches de l'entonnoir ne sont **pas attribuées par ad
+     set** dans le rapport source : la colonne y affiche « — » sur chaque
+     ligne et ne porte un chiffre qu'au total. On les pose donc ici plutôt que
+     de répartir au prorata, ce qui inventerait une attribution. */
+  addToCart: 47,
+  initiatedCheckout: 34,
+};
 
 /**
  * Période précédente (mai 2026), reconstituée depuis les variations affichées
@@ -147,6 +165,8 @@ export const BONDET_PREVIOUS_TOTAL: RawMetrics = {
   purchases: 0,
   purchaseValue: 0,
   landingPageViews: 0,
+  addToCart: 0,
+  initiatedCheckout: 0,
   comments: 6,
   saves: 17,
   shares: 38,

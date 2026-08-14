@@ -22,6 +22,10 @@ export interface RawMetrics {
   purchaseValue: number;
   /** Actions `landing_page_view`. */
   landingPageViews: number;
+  /** Actions `add_to_cart` — première marche de l'entonnoir. */
+  addToCart: number;
+  /** Actions `initiate_checkout` — deuxième marche. */
+  initiatedCheckout: number;
   comments: number;
   saves: number;
   shares: number;
@@ -35,6 +39,8 @@ export const EMPTY_RAW_METRICS: Readonly<RawMetrics> = Object.freeze({
   purchases: 0,
   purchaseValue: 0,
   landingPageViews: 0,
+  addToCart: 0,
+  initiatedCheckout: 0,
   comments: 0,
   saves: 0,
   shares: 0,
