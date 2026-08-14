@@ -1,58 +1,85 @@
 import { formatValue } from "@/lib/format";
+import { cn } from "@/lib/utils";
 
 /**
- * L'entonnoir de conversion, trois marches.
+ * L'entonnoir de conversion, en entonnoir.
  *
- * Ajout au panier, paiement initié, achat. Ce que trois tuiles côte à côte ne
- * disent pas : **où ça fuit**. La largeur des barres est proportionnelle à la
- * première marche, et chaque marche porte son taux de passage depuis la
- * précédente — c'est le chiffre qu'on cherche, pas le volume brut.
+ * Trois marches empilées **verticalement**, chacune plus étroite que la
+ * précédente : la forme dit la déperdition avant même qu'on lise un chiffre.
+ * Des barres horizontales de longueurs décroissantes disaient la même chose,
+ * mais il fallait les comparer une à une.
  *
- * Une marche à zéro n'est pas masquée : un entonnoir amputé se lirait comme un
- * entonnoir qui converge.
+ * La largeur est proportionnelle au volume, plancher à 34 % : une dernière
+ * marche à 8 sur 47 donnerait une pointe d'un pixel, illisible et invendable.
+ * Le taux de passage porte donc le chiffre exact, la forme ne fait que le
+ * suggérer.
  */
 export type FunnelStep = { label: string; value: number };
 
-export function Funnel({ steps }: { steps: readonly FunnelStep[] }) {
+/** Plancher de largeur : en dessous, la marche n'a plus de surface à cliquer. */
+const MIN_WIDTH = 34;
+
+export function Funnel({
+  steps,
+  className,
+}: {
+  steps: readonly FunnelStep[];
+  className?: string;
+}) {
   const top = steps[0]?.value ?? 0;
 
   return (
-    <ol className="flex flex-col gap-2">
+    <ol className={cn("flex flex-col items-center gap-1", className)}>
       {steps.map((step, index) => {
-        const previous = index === 0 ? null : steps[index - 1]?.value ?? 0;
-        // Taux de passage : jamais 0 quand le dénominateur est nul — ce serait
-        // lire « personne n'est passé » là où personne n'est entré.
+        const previous = index === 0 ? null : (steps[index - 1]?.value ?? 0);
+        // Jamais 0 quand le dénominateur est nul : ce serait lire « personne
+        // n'est passé » là où personne n'est entré.
         const rate =
           previous === null || previous === 0 ? null : step.value / previous;
-        const width = top === 0 ? 0 : Math.max((step.value / top) * 100, 2);
+
+        const width =
+          top === 0
+            ? MIN_WIDTH
+            : Math.max(MIN_WIDTH, (step.value / top) * 100);
+        const next = steps[index + 1];
+        const nextWidth =
+          next === undefined
+            ? width
+            : top === 0
+              ? MIN_WIDTH
+              : Math.max(MIN_WIDTH, (next.value / top) * 100);
+
+        // Le trapèze : bords supérieurs à la largeur de cette marche, bords
+        // inférieurs à celle de la suivante. C'est ce raccord qui fait la
+        // silhouette continue plutôt qu'un escalier de rectangles.
+        const inset = (100 - width) / 2;
+        const nextInset = (100 - nextWidth) / 2;
 
         return (
-          <li key={step.label} className="min-w-0">
-            <div className="flex items-baseline justify-between gap-2">
-              <span className="type-caption text-text-secondary truncate">
-                {step.label}
+          <li key={step.label} className="w-full">
+            <div
+              className="relative flex h-16 items-center justify-center"
+              style={{
+                backgroundColor: "var(--accent-ink)",
+                clipPath: `polygon(${inset}% 0, ${100 - inset}% 0, ${100 - nextInset}% 100%, ${nextInset}% 100%)`,
+              }}
+            >
+              {/* Encre verte et non teinte de série : le vert de marque est à
+                  2,71:1, et le blanc posé dessus l'est autant. La déperdition
+                  se lit à la largeur, pas à la teinte. */}
+              <span className="text-center leading-tight text-white">
+                <span className="block text-lg font-bold tabular-nums">
+                  {formatValue(step.value, "integer")}
+                </span>
+                <span className="type-caption block opacity-90">
+                  {step.label}
+                </span>
               </span>
-              <span className="type-body text-text-primary font-semibold tabular-nums">
-                {formatValue(step.value, "integer")}
-              </span>
-            </div>
-
-            <div className="bg-surface-sunken mt-1 h-2 w-full overflow-hidden rounded-pill">
-              {/* `bg-accent` est repointé sur `--surface-sunken` par le
-                  vocabulaire shadcn : la barre y était invisible. On prend la
-                  teinte de série, celle des listes de barres d'à côté. */}
-              <div
-                className="h-full rounded-pill"
-                style={{
-                  width: `${width}%`,
-                  backgroundColor: "var(--series-1)",
-                }}
-              />
             </div>
 
             {rate !== null ? (
-              <p className="type-caption text-text-secondary mt-0.5 tabular-nums">
-                {formatValue(rate, "percent")} depuis {steps[index - 1]?.label}
+              <p className="type-caption text-text-secondary py-0.5 text-center tabular-nums">
+                {formatValue(rate, "percent")} de passage
               </p>
             ) : null}
           </li>

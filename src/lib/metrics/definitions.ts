@@ -103,6 +103,16 @@ export const METRIC_DEFINITIONS: Record<MetricId, MetricDefinition> = {
     // pas un coût par lead : 2 572,22 / 625 = 4,12 sur juin 2026.
     compute: (r) => ratio(r.spend, r.landingPageViews),
   },
+  frequency: {
+    id: "frequency",
+    label: "Répétition",
+    format: "decimal",
+    // Trop de répétition lasse : au-delà de 3-4, la même personne revoit la
+    // même publicité et le CPM grimpe. Une hausse n'est pas une bonne
+    // nouvelle.
+    direction: "down-good",
+    compute: (raw) => (raw.reach === 0 ? null : raw.impressions / raw.reach),
+  },
   cpc: {
     id: "cpc",
     label: "CPC",

@@ -30,6 +30,7 @@ export const BONDET_AD_SETS: DemoAdSet[] = [
     raw: {
       spend: 590.78,
       impressions: 151_951,
+      reach: 0,
       clicks: 1506,
       linkClicks: 1261,
       purchases: 3,
@@ -49,6 +50,7 @@ export const BONDET_AD_SETS: DemoAdSet[] = [
     raw: {
       spend: 408.9,
       impressions: 131_226,
+      reach: 0,
       clicks: 2298,
       linkClicks: 2283,
       purchases: 0,
@@ -68,6 +70,7 @@ export const BONDET_AD_SETS: DemoAdSet[] = [
     raw: {
       spend: 451.98,
       impressions: 95_608,
+      reach: 0,
       clicks: 1764,
       linkClicks: 0,
       purchases: 0,
@@ -87,6 +90,7 @@ export const BONDET_AD_SETS: DemoAdSet[] = [
     raw: {
       spend: 512.3,
       impressions: 78_200,
+      reach: 0,
       clicks: 2400,
       linkClicks: 240,
       purchases: 3,
@@ -106,6 +110,7 @@ export const BONDET_AD_SETS: DemoAdSet[] = [
     raw: {
       spend: 366.26,
       impressions: 61_270,
+      reach: 0,
       clicks: 1870,
       linkClicks: 180,
       purchases: 2,
@@ -125,6 +130,7 @@ export const BONDET_AD_SETS: DemoAdSet[] = [
     raw: {
       spend: 242,
       impressions: 39_000,
+      reach: 0,
       clicks: 1200,
       linkClicks: 104,
       purchases: 0,
@@ -145,6 +151,9 @@ export const BONDET_TOTAL: RawMetrics = {
      set** dans le rapport source : la colonne y affiche « — » sur chaque
      ligne et ne porte un chiffre qu'au total. On les pose donc ici plutôt que
      de répartir au prorata, ce qui inventerait une attribution. */
+  /* Portée provisoire : Meta ne la donne qu'au branchement, et la capture
+     Looker ne la portait pas. Elle sera écrasée par le connecteur. */
+  reach: 179_764,
   addToCart: 47,
   initiatedCheckout: 34,
 };
@@ -160,6 +169,7 @@ export const BONDET_TOTAL: RawMetrics = {
 export const BONDET_PREVIOUS_TOTAL: RawMetrics = {
   spend: 1236.64,
   impressions: 237_533,
+  reach: 96_000,
   clicks: 4921,
   linkClicks: 0,
   purchases: 0,

@@ -7,6 +7,7 @@ import {
   MonitorPlay,
   MousePointerClick,
   Percent,
+  Repeat,
   Send,
   ShoppingBag,
   Target,
@@ -46,6 +47,7 @@ const METRIC_ICONS: Record<MetricId, LucideIcon> = {
   cpc: MousePointerClick,
   comments: MessageCircle,
   saves: Bookmark,
+  frequency: Repeat,
   shares: Send,
 };
 

@@ -25,9 +25,11 @@ import { foldTail } from "@/lib/viz/palette";
 const SECONDARY_KPIS: MetricId[] = [
   "spend",
   "earn",
+  "purchases",
   "cpa",
   "impressions",
   "clicks",
+  "frequency",
   "cpm",
   "ctr",
   "landingPageViews",
@@ -88,22 +90,34 @@ export function MetaDashboard({
      * retrouvait sous la ligne de flottaison.
      */
     <div className="space-y-5">
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
-        <HeroFigure
-          metric="roas"
-          value={computeMetric("roas", total, mode)}
-          delta={delta("roas")}
-          sentence={`${formatMetric("earn", total.purchaseValue)} générés pour ${formatMetric("spend", total.spend)} investis.`}
-          period={`${period.label} · comparé à ${period.comparison}`}
-        />
+      {/* L'entonnoir tient sa colonne à droite, sur toute la hauteur de la
+          bande : c'est une forme verticale, la coucher lui retirait ce qu'elle
+          a d'immédiat. Les chiffres occupent le reste. */}
+      <div className="grid gap-3 xl:grid-cols-[minmax(0,4fr)_minmax(0,1fr)]">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
+          <HeroFigure
+            metric="roas"
+            value={computeMetric("roas", total, mode)}
+            delta={delta("roas")}
+            sentence={`${formatMetric("earn", total.purchaseValue)} générés pour ${formatMetric("spend", total.spend)} investis.`}
+            period={`${period.label} · comparé à ${period.comparison}`}
+            className="col-span-2"
+          />
 
-        {/* L'entonnoir prend la place de la tuile Achats, qui en est la
-            dernière marche : la même donnée deux fois, dont une sans le
-            chemin qui y mène. Il occupe deux tuiles en hauteur pour rester
-            sur la même horizontale que le ROAS. */}
-        <div className="border-border bg-surface shadow-card col-span-2 rounded-lg border p-4 sm:row-span-2">
+          {SECONDARY_KPIS.map((metric) => (
+            <StatTile
+              key={metric}
+              metric={metric}
+              value={computeMetric(metric, total, mode)}
+              delta={delta(metric)}
+            />
+          ))}
+        </div>
+
+        <div className="border-border bg-surface shadow-card flex flex-col rounded-lg border p-4">
           <p className="type-overline text-text-secondary mb-3">Conversion</p>
           <Funnel
+            className="flex-1 justify-center"
             steps={[
               { label: "Ajouts au panier", value: total.addToCart },
               { label: "Paiements initiés", value: total.initiatedCheckout },
@@ -111,15 +125,6 @@ export function MetaDashboard({
             ]}
           />
         </div>
-
-        {SECONDARY_KPIS.map((metric) => (
-          <StatTile
-            key={metric}
-            metric={metric}
-            value={computeMetric(metric, total, mode)}
-            delta={delta(metric)}
-          />
-        ))}
       </div>
 
       {/* Persona à gauche, abonnés à droite : on lit d'abord à qui l'on parle,
@@ -159,7 +164,9 @@ export function MetaDashboard({
         <VizCard
           title="Abonnés Instagram"
           subtitle="Meta n'expose que 30 jours d'historique — l'antériorité s'importe en CSV"
-          chart={<TrendLine data={followers} />}
+          /* 380 et non 220 : la carte est aussi haute que le panneau Persona
+             d'à côté, et la courbe y flottait dans le tiers supérieur. */
+          chart={<TrendLine data={followers} height={380} />}
           table={
             <TrendLineTable
               data={followers}

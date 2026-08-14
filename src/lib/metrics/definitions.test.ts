@@ -12,6 +12,7 @@ import type { RawMetrics } from "./types";
 const JUNE_2026_TOTAL: RawMetrics = {
   spend: 2572.22,
   impressions: 557255,
+  reach: 179_764,
   clicks: 11038,
   // Non lu directement sur la capture : déduit du CTR lien affiché (0,73 %).
   linkClicks: 4068,

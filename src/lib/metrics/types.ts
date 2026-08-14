@@ -12,6 +12,8 @@ export interface RawMetrics {
   spend: number;
   /** Impressions. Correspond à la colonne « View » du rapport Looker. */
   impressions: number;
+  /** Personnes touchées au moins une fois. Sert la répétition. */
+  reach: number;
   /** Tous les clics (`clicks`), y compris hors lien. */
   clicks: number;
   /** Clics sur lien uniquement (`inline_link_clicks`). */
@@ -34,6 +36,7 @@ export interface RawMetrics {
 export const EMPTY_RAW_METRICS: Readonly<RawMetrics> = Object.freeze({
   spend: 0,
   impressions: 0,
+  reach: 0,
   clicks: 0,
   linkClicks: 0,
   purchases: 0,
@@ -101,4 +104,5 @@ export type MetricId =
   | "cpc"
   | "comments"
   | "saves"
+  | "frequency"
   | "shares";
