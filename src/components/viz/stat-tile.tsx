@@ -41,8 +41,11 @@ export function StatTile({
           droit** : sur une rangée de tuiles, les nombres s'alignent alors sur
           une même colonne et se comparent d'un coup d'œil. Collés au libellé,
           ils démarraient à une abscisse différente par carte. */}
+      {/* Le libellé revient à la ligne au lieu d'être tronqué : la colonne de
+          l'entonnoir a resserré les tuiles, et « Budget dépensé » devenait
+          « BUDG… ». Un libellé sur deux lignes se lit, un libellé coupé non. */}
       <p
-        className="type-overline text-text-secondary min-w-0 flex-1 truncate"
+        className="type-overline text-text-secondary min-w-0 flex-1 leading-tight"
         title={definition.label}
       >
         {definition.label}
