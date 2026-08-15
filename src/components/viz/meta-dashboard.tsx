@@ -16,24 +16,8 @@ import {
   type RawMetrics,
 } from "@/lib/metrics/types";
 import type { DemoAdSet, DemoBreakdown } from "@/lib/demo/bondet";
+import { detailTitle, HERO_METRIC, KPI_SETS } from "@/lib/reporting/kpi-sets";
 import { foldTail } from "@/lib/viz/palette";
-
-/**
- * Les neuf métriques secondaires. Le ROAS est absent : il occupe le chiffre
- * héros, et l'afficher deux fois affaiblirait les deux.
- */
-const SECONDARY_KPIS: MetricId[] = [
-  "spend",
-  "earn",
-  "purchases",
-  "cpa",
-  "impressions",
-  "clicks",
-  "frequency",
-  "cpm",
-  "ctr",
-  "landingPageViews",
-];
 
 export function MetaDashboard({
   adSets,
@@ -96,7 +80,7 @@ export function MetaDashboard({
       <div className="grid gap-3 xl:grid-cols-[minmax(0,4fr)_minmax(0,1fr)]">
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
           <HeroFigure
-            metric="roas"
+            metric={HERO_METRIC["meta-ads"]}
             value={computeMetric("roas", total, mode)}
             delta={delta("roas")}
             sentence={`${formatMetric("earn", total.purchaseValue)} générés pour ${formatMetric("spend", total.spend)} investis.`}
@@ -104,7 +88,7 @@ export function MetaDashboard({
             className="col-span-2"
           />
 
-          {SECONDARY_KPIS.map((metric) => (
+          {KPI_SETS["meta-ads"].map((metric) => (
             <StatTile
               key={metric}
               metric={metric}
@@ -179,7 +163,7 @@ export function MetaDashboard({
 
       <Panel>
         <PanelHeader
-          title="Performance par ad set"
+          title={detailTitle("meta-ads")}
           count={adSets.length}
           description="Trié par budget dépensé, du plus au moins investi."
         />
