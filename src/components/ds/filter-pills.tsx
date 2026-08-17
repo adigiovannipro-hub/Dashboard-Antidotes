@@ -70,7 +70,7 @@ export function FilterPills({
             aria-current={option.value === current ? "page" : undefined}
             onClick={() => select(option.value)}
             className={cn(
-              "type-caption focus-visible:ring-ring relative rounded-pill px-3 py-1.5 font-medium transition-colors duration-(--motion-duration) ease-standard focus-visible:ring-2 focus-visible:outline-none",
+              "type-caption focus-visible:ring-ring relative rounded-pill px-3 py-1.5 font-medium whitespace-nowrap transition-colors duration-(--motion-duration) ease-standard focus-visible:ring-2 focus-visible:outline-none",
               selected
                 ? // Repli sans mesure : le fond reste sur le lien, exactement
                   // comme avant l'indicateur glissant.
@@ -81,10 +81,15 @@ export function FilterPills({
             <LinkPending />
             {option.label}
             {option.count ? (
-              // `currentColor` à 15 % : le badge suit l'encre de sa pastille —
-              // blanc translucide sur la sélection pleine, gris doux ailleurs
-              // — et le chiffre garde le contraste du libellé qui le porte.
-              <span className="ml-1.5 inline-block rounded-pill bg-current/15 px-1.5 tabular-nums">
+              // Sélection : blanc translucide sur l'encre pleine. Ailleurs, un
+              // jeton blanc — `currentColor` teinté assombrissait la gouttière
+              // sous le chiffre et tombait à 4,23:1, mesuré au navigateur.
+              <span
+                className={cn(
+                  "ml-1.5 inline-block rounded-pill px-1.5 tabular-nums",
+                  selected ? "bg-current/15" : "bg-surface",
+                )}
+              >
                 {option.count}
               </span>
             ) : null}

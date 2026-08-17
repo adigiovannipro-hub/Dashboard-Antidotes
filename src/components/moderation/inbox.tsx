@@ -243,8 +243,11 @@ export function Inbox({
       />
 
       {/* Les deux volets dans une seule surface. Sur mobile, un seul à la
-          fois : la liste, puis le fil quand une conversation est ouverte. */}
-      <Panel className="flex min-h-0 flex-1 overflow-hidden">
+          fois : la liste, puis le fil quand une conversation est ouverte. À
+          partir de lg, le panneau est borné à l'écran : chaque volet défile
+          chez lui et les actions du fil restent sous la main — cent messages
+          ne font pas cent écrans de page. */}
+      <Panel className="flex min-h-0 flex-1 overflow-hidden lg:h-[calc(100dvh-14.75rem)] lg:min-h-96 lg:flex-none">
         <div
           className={cn(
             "min-h-0 w-full overflow-y-auto border-border md:w-96 md:shrink-0 md:border-r",
