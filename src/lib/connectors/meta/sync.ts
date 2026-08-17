@@ -12,6 +12,7 @@ import {
   fetchInstagramMedia,
   fetchPagePosts,
 } from "./graph";
+import { explainMetaError } from "./errors";
 import {
   aggregateBreakdown,
   syncWindow,
@@ -39,7 +40,10 @@ export type SourceSyncReport = {
   kind: SocialAccountKind;
   account: string;
   rows: number;
+  /** Le passage a échoué : rien n'est entré pour cette source. */
   error: string | null;
+  /** Le passage a abouti, mais une partie manque — permission refusée. */
+  warning?: string | null;
 };
 
 type SourceContext = {
@@ -168,11 +172,15 @@ export async function syncWorkspaceReporting(options: {
       };
 
       try {
+        let warning: string | null = null;
         if (link.kind === "meta_ad_account") {
           report.rows = await syncAds(context, row.external_id);
         } else {
-          report.rows = await syncOrganic(context, row);
+          const outcome = await syncOrganic(context, row);
+          report.rows = outcome.rows;
+          warning = outcome.warning;
         }
+        report.warning = warning;
 
         const now = new Date().toISOString();
         const { error: doneError } = await admin
@@ -181,19 +189,25 @@ export async function syncWorkspaceReporting(options: {
             status: "success",
             finished_at: now,
             rows_ingested: report.rows,
+            // Le passage a abouti — l'avertissement dit ce qui manquait.
+            error: warning,
           } as never)
           .eq("id", runId);
         if (doneError) fail(`Clôture du passage : ${doneError.message}`);
 
         const { error: sourceDone } = await admin
           .from("data_sources")
-          .update({ status: "connected", last_sync_at: now, last_error: null } as never)
+          .update({
+            status: "connected",
+            last_sync_at: now,
+            last_error: warning,
+          } as never)
           .eq("id", dataSourceId);
         if (sourceDone) fail(`Mise à jour de la source : ${sourceDone.message}`);
       } catch (error) {
         // Le passage échoue mais reste tracé : le `sync_run` porte la cause,
         // la source aussi — c'est ce que l'écran lira pour le dire.
-        const message = (error as Error).message;
+        const message = explainMetaError((error as Error).message).message;
         await admin
           .from("sync_runs")
           .update({
@@ -210,7 +224,7 @@ export async function syncWorkspaceReporting(options: {
         throw error;
       }
     } catch (error) {
-      report.error = (error as Error).message;
+      report.error = explainMetaError((error as Error).message).message;
     }
   }
 
@@ -337,30 +351,43 @@ async function syncAds(
 async function syncOrganic(
   context: SourceContext,
   account: SocialAccountRow,
-): Promise<number> {
+): Promise<{ rows: number; warning: string | null }> {
   const { admin, workspaceId, dataSourceId, accessToken, window } = context;
   const platform = account.kind === "instagram" ? "instagram" : "facebook";
 
-  let posts: OrganicPostColumns[];
-  if (account.kind === "instagram") {
-    // Le listing des médias se borne côté client, en date ISO — voir graph.ts.
-    const media = await fetchInstagramMedia({
-      igUserId: account.external_id,
-      accessToken,
-      since: window.since,
-    });
-    posts = media
-      // Une story disparaît en 24 h : elle n'a pas sa place dans une table de
-      // publications qu'on compare de mois en mois.
-      .filter((item) => item.media_product_type !== "STORY")
-      .flatMap((item) => mediaToPost(item) ?? []);
-  } else {
-    const pagePosts = await fetchPagePosts({
-      pageId: account.external_id,
-      accessToken,
-      since: unixSince(window.since),
-    });
-    posts = pagePosts.flatMap((post) => pagePostToPost(post) ?? []);
+  /*
+   * Les publications d'abord, mais **sans faire tomber le reste** : la
+   * lecture du feed d'une Page dépend d'une permission que Meta n'accorde
+   * qu'après App Review, alors que les abonnés se lisent avec le simple
+   * branchement. Un refus sur les posts ne doit pas priver le client de sa
+   * courbe d'abonnés — il devient un avertissement, pas une panne.
+   */
+  let posts: OrganicPostColumns[] = [];
+  let warning: string | null = null;
+
+  try {
+    if (account.kind === "instagram") {
+      // Le listing des médias se borne côté client, en date ISO — voir graph.ts.
+      const media = await fetchInstagramMedia({
+        igUserId: account.external_id,
+        accessToken,
+        since: window.since,
+      });
+      posts = media
+        // Une story disparaît en 24 h : elle n'a pas sa place dans une table
+        // de publications qu'on compare de mois en mois.
+        .filter((item) => item.media_product_type !== "STORY")
+        .flatMap((item) => mediaToPost(item) ?? []);
+    } else {
+      const pagePosts = await fetchPagePosts({
+        pageId: account.external_id,
+        accessToken,
+        since: unixSince(window.since),
+      });
+      posts = pagePosts.flatMap((post) => pagePostToPost(post) ?? []);
+    }
+  } catch (error) {
+    warning = explainMetaError((error as Error).message).message;
   }
 
   let ingested = 0;
@@ -413,5 +440,5 @@ async function syncOrganic(
     if (vitrineError) fail(`Vitrine du compte : ${vitrineError.message}`);
   }
 
-  return ingested;
+  return { rows: ingested, warning };
 }

@@ -2,11 +2,11 @@
 
 import { Panel, PanelBody, PanelHeader } from "@/components/ds/surface";
 import { BarList } from "@/components/viz/bar-list";
+import type { BarDatum } from "@/components/viz/bar-list";
+import { FollowersCard } from "@/components/viz/followers-card";
 import { Funnel } from "@/components/viz/funnel";
 import { MetricsTable, type MetricsTableRow } from "@/components/viz/metrics-table";
 import { HeroFigure, StatTile } from "@/components/viz/stat-tile";
-import { TrendLine, TrendLineTable } from "@/components/viz/trend-line";
-import { VizCard } from "@/components/viz/viz-card";
 import { formatMetric } from "@/lib/format";
 import { computeDelta } from "@/lib/metrics/aggregate";
 import { computeMetric, TOP_POSTS_COLUMNS } from "@/lib/metrics/definitions";
@@ -15,7 +15,6 @@ import {
   type MetricId,
   type RawMetrics,
 } from "@/lib/metrics/types";
-import type { BarDatum } from "@/components/viz/bar-list";
 import { detailTitle, HERO_METRIC, KPI_SETS } from "@/lib/reporting/kpi-sets";
 import { foldTail } from "@/lib/viz/palette";
 
@@ -47,12 +46,13 @@ export function MetaDashboard({
       computeMetric(metric, previousTotal, mode),
     );
 
-  // Les régions dépassent trois parts : on replie la queue plutôt que de
-  // générer une quatrième teinte. Ici en barres, donc une seule teinte suffit,
-  // mais le repli garde la liste lisible.
+  /* Six régions au plus, la queue repliée : la liste en portait dix, dont
+     quatre sous 1 % — quatre rangs pour un cinquantième du volume, quand la
+     colonne d'à côté manquait de place. */
   const foldedRegions = foldTail(
     regions.map((region) => ({ label: region.label, value: region.value })),
-    8,
+    6,
+    "Autres régions",
   ).map((region) => ({
     ...region,
     share: region.value / total.impressions,
@@ -61,59 +61,58 @@ export function MetaDashboard({
 
   return (
     /*
-     * Trois bandes, et pas une de plus.
+     * Quatre bandes, chacune répondant à une question :
      *
-     *   1. les chiffres — le ROAS en tête, couché, puis les neuf tuiles ;
-     *   2. l'audience — la courbe d'abonnés et les trois répartitions **sur la
-     *      même ligne**, parce qu'elles répondent à une seule question :
-     *      « à qui on parle ? » ;
-     *   3. le détail par ad set.
+     *   1. les chiffres — le ROAS en tête, puis les tuiles ;
+     *   2. la conversion — l'entonnoir, couché, sur toute la largeur ;
+     *   3. l'audience — à qui l'on parle, et combien ils sont ;
+     *   4. le détail par ad set.
      *
-     * Avant, l'audience prenait deux rangées de deux cartes : quatre blocs de
-     * poids égal pour trois découpages du même chiffre, et le tableau se
-     * retrouvait sous la ligne de flottaison.
+     * L'entonnoir tenait une colonne à droite des tuiles : il y était à
+     * l'étroit et déformait la grille des mesures. Couché sur sa propre
+     * bande, il se lit de gauche à droite comme le parcours qu'il décrit.
      */
     <div className="space-y-5">
-      {/* L'entonnoir tient sa colonne à droite, sur toute la hauteur de la
-          bande : c'est une forme verticale, la coucher lui retirait ce qu'elle
-          a d'immédiat. Les chiffres occupent le reste. */}
-      <div className="grid gap-3 xl:grid-cols-[minmax(0,4fr)_minmax(0,1fr)]">
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
-          <HeroFigure
-            metric={HERO_METRIC["meta-ads"]}
-            value={computeMetric("roas", total, mode)}
-            delta={delta("roas")}
-            sentence={`${formatMetric("earn", total.purchaseValue)} générés pour ${formatMetric("spend", total.spend)} investis.`}
-            period={`${period.label} · comparé à ${period.comparison}`}
-            className="col-span-2"
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <HeroFigure
+          metric={HERO_METRIC["meta-ads"]}
+          value={computeMetric("roas", total, mode)}
+          delta={delta("roas")}
+          sentence={`${formatMetric("earn", total.purchaseValue)} générés pour ${formatMetric("spend", total.spend)} investis.`}
+          period={`${period.label} · comparé à ${period.comparison}`}
+          className="sm:col-span-2"
+        />
+
+        {KPI_SETS["meta-ads"].map((metric) => (
+          <StatTile
+            key={metric}
+            metric={metric}
+            value={computeMetric(metric, total, mode)}
+            delta={delta(metric)}
           />
+        ))}
+      </div>
 
-          {KPI_SETS["meta-ads"].map((metric) => (
-            <StatTile
-              key={metric}
-              metric={metric}
-              value={computeMetric(metric, total, mode)}
-              delta={delta(metric)}
-            />
-          ))}
-        </div>
-
-        <div className="border-border bg-surface shadow-card flex flex-col rounded-lg border p-4">
-          <p className="type-overline text-text-secondary mb-3">Conversion</p>
+      <Panel>
+        <PanelHeader
+          title="Conversion"
+          description="Du panier à l'achat, et ce qui se perd entre les deux."
+        />
+        <PanelBody>
           <Funnel
-            className="flex-1 justify-center"
             steps={[
               { label: "Ajouts au panier", value: total.addToCart },
               { label: "Paiements initiés", value: total.initiatedCheckout },
               { label: "Achats", value: total.purchases },
             ]}
           />
-        </div>
-      </div>
+        </PanelBody>
+      </Panel>
 
       {/* Persona à gauche, abonnés à droite : on lit d'abord à qui l'on parle,
-          ensuite combien ils sont. Hauteur commune — deux cartes côte à côte
-          de hauteurs différentes ne se lisent pas comme une ligne. */}
+          ensuite combien ils sont. `items-stretch` par défaut de la grille —
+          les deux cartes font la même hauteur, sans quoi la ligne se lit
+          comme deux blocs sans rapport. */}
       <div className="grid gap-5 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
         <Panel>
           <PanelHeader
@@ -122,14 +121,10 @@ export function MetaDashboard({
           />
           <PanelBody>
             {/*
-             * Trois listes de barres, plus de donut.
-             *
-             * Le donut du genre ne tenait pas dans un tiers de panneau : la
-             * roue se décentrait dès que la légende manquait de place, et
-             * « Femmes » se réduisait à « Fe… ». Trois découpages du même
-             * chiffre lus dans trois grammaires différentes se comparaient
-             * mal, en plus. Les barres portent le libellé **et** la part sur
-             * la même ligne, à toute largeur.
+             * Trois listes de barres, plus de donut : le donut du genre ne
+             * tenait pas dans un tiers de panneau — la roue se décentrait et
+             * « Femmes » se réduisait à « Fe… ». Les barres portent le libellé
+             * **et** la part sur la même ligne, à toute largeur.
              */}
             <div className="grid gap-6 md:grid-cols-3">
               <Breakdown title="Genre">
@@ -145,27 +140,14 @@ export function MetaDashboard({
           </PanelBody>
         </Panel>
 
-        <VizCard
-          title="Abonnés Instagram"
-          subtitle="Meta n'expose que 30 jours d'historique — l'antériorité s'importe en CSV"
-          /* 380 et non 220 : la carte est aussi haute que le panneau Persona
-             d'à côté, et la courbe y flottait dans le tiers supérieur. */
-          chart={<TrendLine data={followers} height={380} />}
-          table={
-            <TrendLineTable
-              data={followers}
-              categoryLabel="Mois"
-              valueLabel="Abonnés"
-            />
-          }
-        />
+        <FollowersCard network="Instagram" data={followers} height={220} />
       </div>
 
       <Panel>
         <PanelHeader
           title={detailTitle("meta-ads")}
           count={adSets.length}
-          description="Trié par budget dépensé, du plus au moins investi."
+          description="Cliquer un en-tête trie le tableau ; le total est recalculé sur les agrégats."
         />
         <PanelBody>
           <MetricsTable
@@ -184,10 +166,8 @@ export function MetaDashboard({
  * Une répartition dans le panneau Persona.
  *
  * `VizCard` porte sa propre bordure, son ombre **et sa bascule Tableau** :
- * trois `VizCard` dans un panneau feraient trois cartes dans une carte, et
- * trois tableaux dépliés en permanence tripleraient la hauteur de la bande
- * pour redire ce que les barres portent déjà en pourcentage. Ici le panneau
- * est le contenant, chaque découpage n'a qu'un titre et sa figure.
+ * trois `VizCard` dans un panneau feraient trois cartes dans une carte. Ici le
+ * panneau est le contenant, chaque découpage n'a qu'un titre et sa figure.
  */
 function Breakdown({
   title,

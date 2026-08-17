@@ -7,7 +7,12 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 
-type SyncReport = { account: string; rows: number; error: string | null };
+type SyncReport = {
+  account: string;
+  rows: number;
+  error: string | null;
+  warning?: string | null;
+};
 
 type SyncOutcome = {
   ok: boolean;
@@ -83,8 +88,10 @@ export function describeOutcome(outcome: SyncOutcome): void {
     return;
   }
 
-  const failed = (outcome.reports ?? []).filter((report) => report.error);
-  const rows = (outcome.reports ?? []).reduce((sum, report) => sum + report.rows, 0);
+  const reports = outcome.reports ?? [];
+  const failed = reports.filter((report) => report.error);
+  const warned = reports.filter((report) => report.warning);
+  const rows = reports.reduce((sum, report) => sum + report.rows, 0);
 
   if (failed.length > 0) {
     // La cause exacte, pas un « ça a raté » : c'est souvent un jeton ou une
@@ -92,6 +99,9 @@ export function describeOutcome(outcome: SyncOutcome): void {
     toast.error(
       `${failed[0]?.account} : ${failed[0]?.error}${failed.length > 1 ? ` (+${failed.length - 1} autre${failed.length > 2 ? "s" : ""})` : ""}`,
     );
+  } else if (warned.length > 0) {
+    // Une partie est passée : le dire, sans le vert du succès complet.
+    toast.warning(`${warned[0]?.account} : ${warned[0]?.warning}`);
   } else {
     toast.success(`Synchronisé — ${rows} lignes mises à jour.`);
   }

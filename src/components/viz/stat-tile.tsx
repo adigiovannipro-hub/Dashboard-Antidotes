@@ -7,14 +7,17 @@ import type { MetricId } from "@/lib/metrics/types";
 import { cn } from "@/lib/utils";
 
 /**
- * Tuile de statistique : pastille à gauche, et à droite le bloc empilé —
- * libellé **au-dessus** du chiffre, variation dessous — centré verticalement
- * et aligné contre le bord droit.
+ * Tuile de statistique : le texte à gauche, la pastille à droite.
  *
- * L'empilement remplace la disposition libellé-à-gauche / chiffre-à-droite :
- * sur une rangée de tuiles, l'œil lit désormais chaque carte de haut en bas
- * — quoi, combien, comment ça bouge — et les chiffres restent alignés en
- * colonne d'une carte à l'autre.
+ * L'ordre est celui de la lecture — on lit **ce que c'est**, puis le chiffre,
+ * puis la variation ; l'icône ferme la carte et sert de repère pour la
+ * retrouver dans la rangée sans relire les libellés. Elle était à gauche et
+ * repoussait le texte : les trois lignes se lisent mieux calées sur la même
+ * marge que le titre du panneau au-dessus.
+ *
+ * Les tuiles respirent (`p-5`, interlignes desserrés) : compactées, dix
+ * cartes se lisaient comme un tableau de bord de voiture — beaucoup de
+ * chiffres, aucune hiérarchie.
  *
  * La variation s'affiche toujours : sans période de comparaison, `Delta`
  * rend « N/A » — un tiret neutre vaut mieux qu'une case qui change de forme.
@@ -35,13 +38,11 @@ export function StatTile({
   return (
     <div
       className={cn(
-        "border-border bg-surface shadow-card flex items-center gap-3 rounded-lg border p-4",
+        "border-border bg-surface shadow-card flex items-center gap-3 rounded-lg border p-5",
         className,
       )}
     >
-      <MetricIcon metric={metric} />
-
-      <div className="flex min-w-0 flex-1 flex-col items-end justify-center gap-1 text-right">
+      <div className="min-w-0 flex-1">
         <p
           className="type-overline text-text-secondary leading-tight"
           title={definition.label}
@@ -50,11 +51,19 @@ export function StatTile({
         </p>
         {/* Chiffres proportionnels : `tabular-nums` sur une grande valeur
             isolée donnerait des chasses égales et un rendu lâche. */}
-        <p className="text-text-primary text-xl leading-none font-semibold">
+        <p className="text-text-primary mt-2 text-2xl leading-none font-semibold">
           {formatMetric(metric, value)}
         </p>
-        {delta ? <Delta ratio={delta.ratio} sentiment={delta.sentiment} /> : null}
+        {delta ? (
+          <Delta
+            ratio={delta.ratio}
+            sentiment={delta.sentiment}
+            className="mt-2.5"
+          />
+        ) : null}
       </div>
+
+      <MetricIcon metric={metric} />
     </div>
   );
 }
@@ -62,9 +71,8 @@ export function StatTile({
 /**
  * Chiffre héros : la seule réponse à « est-ce que ça a marché ». Un par vue.
  *
- * Même grammaire que la tuile — libellé au-dessus, chiffre, variation — mais
- * en plus grand, et suivi de la phrase qu'on recopierait dans un mail au
- * client.
+ * Même grammaire que la tuile — texte à gauche, pastille à droite — mais en
+ * plus grand, et suivi de la phrase qu'on recopierait dans un mail au client.
  */
 export function HeroFigure({
   metric,
@@ -87,16 +95,14 @@ export function HeroFigure({
   return (
     <div
       className={cn(
-        "border-border bg-surface shadow-card flex items-center gap-4 rounded-lg border p-4",
+        "border-border bg-surface shadow-card flex items-center gap-4 rounded-lg border p-5",
         className,
       )}
     >
-      <MetricIcon metric={metric} className="size-12" />
-
       <div className="min-w-0 flex-1">
         <p className="type-overline text-text-secondary">{definition.label}</p>
-        <div className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-          <p className="text-text-primary text-3xl leading-none font-bold">
+        <div className="mt-2 flex flex-wrap items-baseline gap-x-3 gap-y-1.5">
+          <p className="text-text-primary text-4xl leading-none font-bold">
             {formatMetric(metric, value)}
           </p>
           {/* Toujours la pastille : sans comparaison, elle dit « N/A » — même
@@ -107,12 +113,14 @@ export function HeroFigure({
         {/* La lecture en clair plutôt qu'un vide : c'est la phrase qu'on
             recopierait dans un mail au client. */}
         {sentence ? (
-          <p className="type-caption text-text-secondary mt-1.5 leading-relaxed">
+          <p className="type-caption text-text-secondary mt-2.5 leading-relaxed">
             {sentence}
             {period ? ` — ${period}` : ""}
           </p>
         ) : null}
       </div>
+
+      <MetricIcon metric={metric} className="size-12" />
     </div>
   );
 }

@@ -46,15 +46,11 @@ export const KPI_SETS: Record<ReportingNetwork, MetricId[]> = {
   /* Organique : rien de monétaire, pas de répétition — elle ne dit rien d'un
      feed. L'ordre suit la lecture d'un rapport social : combien de monde,
      combien de fois, et ce qu'ils en ont fait. */
-  instagram: [
-    "reach",
-    "impressions",
-    "videoViews",
-    "likes",
-    "comments",
-    "saves",
-    "shares",
-  ],
+  /* Pas de portée sur Instagram : Meta ne la rend plus sur tous les types de
+     média, et une tuile à moitié vide vaut moins qu'une tuile absente. Elle
+     reste le dénominateur du taux d'engagement, où son absence se rattrape
+     sur les vues. */
+  instagram: ["impressions", "videoViews", "likes", "comments", "saves", "shares"],
   facebook: ["reach", "impressions", "videoViews", "likes", "comments", "shares"],
 };
 

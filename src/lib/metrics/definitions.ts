@@ -167,10 +167,14 @@ export const METRIC_DEFINITIONS: Record<MetricId, MetricDefinition> = {
     label: "Taux d'engagement",
     format: "percent",
     direction: "up-good",
-    // Le standard social : toutes les interactions rapportées à la portée.
-    // Sans portée, le taux n'existe pas — jamais 0, qui se lirait « personne
-    // n'a réagi » alors qu'on ne sait simplement pas.
-    compute: (r) => ratio(r.likes + r.comments + r.saves + r.shares, r.reach),
+    /* Le standard social : toutes les interactions rapportées à la portée —
+       et **aux vues** quand Meta ne rend pas la portée, ce qui arrive selon
+       le type de média. Les deux définitions coexistent dans le métier ; ce
+       repli vaut mieux qu'un « — » sur le chiffre principal de la vue.
+       Sans dénominateur du tout, le taux n'existe pas : jamais 0, qui se
+       lirait « personne n'a réagi » alors qu'on ne sait pas. */
+    compute: (r) =>
+      ratio(r.likes + r.comments + r.saves + r.shares, r.reach || r.impressions),
   },
 };
 

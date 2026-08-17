@@ -47,7 +47,7 @@ export function BarList({
   const scaleLength = data.filter((datum) => !datum.outOfScale).length || 1;
 
   return (
-    <ul className="space-y-2.5">
+    <ul className="space-y-2">
       {data.map((datum, index) => {
         const fill = datum.outOfScale
           ? "var(--viz-axis)"
