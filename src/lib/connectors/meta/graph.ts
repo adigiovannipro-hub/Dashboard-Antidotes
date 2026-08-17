@@ -178,7 +178,16 @@ export async function fetchInstagramMedia(options: {
   }
 }
 
-/** Les derniers posts publiés d'une Page, même mécanique de repli. */
+/**
+ * Les derniers posts d'une Page, même mécanique de repli.
+ *
+ * `/feed` et non `/published_posts` : cette dernière arête exige
+ * `pages_read_user_content`, une permission que Meta n'accorde qu'après App
+ * Review — et qu'il **refuse au dialogue de connexion** en attendant, ce qui
+ * fait échouer le branchement entier sur « Invalid Scopes ». `/feed` rend les
+ * publications de la Page avec le seul `pages_read_engagement` ; les posts
+ * écrits par des visiteurs, eux, resteront simplement absents.
+ */
 export async function fetchPagePosts(options: {
   pageId: string;
   accessToken: string;
@@ -189,7 +198,7 @@ export async function fetchPagePosts(options: {
 
   const fetchWith = (fields: string) =>
     fetchAllPages<MetaPagePostRow>(
-      buildUrl(`/${options.pageId}/published_posts`, {
+      buildUrl(`/${options.pageId}/feed`, {
         access_token: options.accessToken,
         fields,
         since: options.since,

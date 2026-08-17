@@ -20,10 +20,21 @@ const RECONNECT = "Rebrancher le compte depuis Connexions, sur le Planning.";
 export function explainMetaError(raw: string): MetaDiagnosis {
   const text = raw.toLowerCase();
 
+  if (text.includes("invalid scopes")) {
+    return {
+      // Meta refuse la portée **au dialogue**, avant tout branchement : ce
+      // n'est pas un jeton à refaire, c'est une permission que l'application
+      // n'a pas le droit de demander tant qu'elle n'a pas passé l'App Review.
+      message:
+        "Meta a refusé une portée demandée à la connexion (« Invalid Scopes ») : l'application n'a pas encore le droit de la demander. C'est un réglage de l'app Meta, pas du compte — il n'y a rien à refaire côté Connexions.",
+      reconnect: false,
+    };
+  }
+
   if (text.includes("pages_read_user_content") || text.includes("(#10)")) {
     return {
-      message: `Facebook refuse de livrer les publications de la Page : la permission « pages_read_user_content » n'est pas accordée à l'application. ${RECONNECT} Si le refus persiste après un nouveau branchement, cette permission demande l'App Review de Meta — les abonnés et la Page restent lus en attendant.`,
-      reconnect: true,
+      message: `Facebook refuse de livrer les publications de la Page : cette arête demande « pages_read_user_content », accordée seulement après l'App Review de Meta. Les abonnés et la vitrine de la Page continuent d'être lus. ${RECONNECT} si le compte vient d'être rebranché avec les nouvelles portées.`,
+      reconnect: false,
     };
   }
 

@@ -41,9 +41,11 @@ export const META_SCOPES = [
   "pages_show_list",
   "pages_read_engagement",
   "pages_manage_posts",
-  // Lire les publications de la Page (`/published_posts`) : sans elle, Meta
-  // répond « (#10) requires pages_read_user_content » — vécu au premier sync.
-  "pages_read_user_content",
+  /* `pages_read_user_content` **n'est pas demandée**, volontairement : Meta la
+     refuse au dialogue tant qu'elle n'a pas passé l'App Review, et le
+     branchement entier échoue alors sur « Invalid Scopes ». Elle ne servait
+     qu'à `/published_posts` ; on lit le feed de la Page par `/feed`, que
+     `pages_read_engagement` suffit à ouvrir. */
   "read_insights",
   "instagram_basic",
   "instagram_content_publish",

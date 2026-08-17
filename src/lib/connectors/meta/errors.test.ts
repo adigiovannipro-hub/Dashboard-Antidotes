@@ -3,15 +3,23 @@ import { describe, expect, it } from "vitest";
 import { explainMetaError } from "./errors";
 
 describe("explainMetaError", () => {
-  it("traduit le refus des publications de Page en geste à faire", () => {
+  it("traduit le refus des publications de Page", () => {
     // Le message vécu au premier sync réel, recopié tel quel.
     const raw =
       "(#10) This endpoint requires the 'pages_read_user_content' permission or the 'Page Public Content Access' feature.";
     const diagnosis = explainMetaError(raw);
     expect(diagnosis.message).toContain("pages_read_user_content");
-    expect(diagnosis.message).toContain("Rebrancher le compte");
     expect(diagnosis.message).toContain("App Review");
-    expect(diagnosis.reconnect).toBe(true);
+  });
+
+  it("distingue une portée refusée au dialogue d'un jeton à refaire", () => {
+    // « Invalid Scopes » se produit **avant** tout branchement : rebrancher
+    // n'y changerait rien, c'est un réglage de l'app Meta.
+    const diagnosis = explainMetaError(
+      "Invalid Scopes: pages_read_user_content. This message is only shown to developers.",
+    );
+    expect(diagnosis.reconnect).toBe(false);
+    expect(diagnosis.message).toContain("Invalid Scopes");
   });
 
   it("reconnaît un jeton expiré", () => {
