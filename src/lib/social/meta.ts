@@ -33,7 +33,8 @@ import "server-only";
  */
 
 const GRAPH_VERSION = "v21.0";
-const GRAPH_API = `https://graph.facebook.com/${GRAPH_VERSION}`;
+/** Exporté pour le connecteur Insights — une seule version de Graph partout. */
+export const GRAPH_API = `https://graph.facebook.com/${GRAPH_VERSION}`;
 const OAUTH_DIALOG = `https://www.facebook.com/${GRAPH_VERSION}/dialog/oauth`;
 
 export const META_SCOPES = [

@@ -1,0 +1,114 @@
+import { describe, expect, it } from "vitest";
+
+import { insightValue, mediaToPost, pagePostToPost } from "./organic";
+
+describe("insightValue", () => {
+  const insights = {
+    data: [
+      { name: "reach", values: [{ value: 1200 }] },
+      { name: "views", values: [{ value: "1500" }] },
+    ],
+  };
+
+  it("lit une métrique par son nom, nombre ou chaîne", () => {
+    expect(insightValue(insights, "reach")).toBe(1200);
+    expect(insightValue(insights, "views")).toBe(1500);
+  });
+
+  it("rend 0 pour une métrique absente — absente vaut zéro", () => {
+    // Un vieux média sans `views` ne doit pas faire tomber la ligne.
+    expect(insightValue(insights, "saved")).toBe(0);
+    expect(insightValue(undefined, "reach")).toBe(0);
+  });
+});
+
+describe("mediaToPost", () => {
+  it("traduit un média complet, insights compris", () => {
+    const post = mediaToPost({
+      id: "17900001",
+      caption: "Nouvelle collection",
+      permalink: "https://www.instagram.com/p/abc/",
+      media_type: "IMAGE",
+      media_url: "https://cdn.example/img.jpg",
+      timestamp: "2026-08-02T10:00:00+0000",
+      like_count: 210,
+      comments_count: 14,
+      insights: {
+        data: [
+          { name: "reach", values: [{ value: 3200 }] },
+          { name: "views", values: [{ value: 4100 }] },
+          { name: "saved", values: [{ value: 18 }] },
+          { name: "shares", values: [{ value: 9 }] },
+        ],
+      },
+    });
+
+    expect(post?.external_id).toBe("17900001");
+    expect(post?.reach).toBe(3200);
+    // `views` remplit notre colonne impressions : même grandeur, nouveau nom.
+    expect(post?.impressions).toBe(4100);
+    expect(post?.likes).toBe(210);
+    expect(post?.saves).toBe(18);
+    expect(post?.thumbnail_url).toBe("https://cdn.example/img.jpg");
+  });
+
+  it("préfère la vignette vidéo à l'URL du média", () => {
+    const post = mediaToPost({
+      id: "1",
+      media_type: "VIDEO",
+      media_url: "https://cdn.example/video.mp4",
+      thumbnail_url: "https://cdn.example/thumb.jpg",
+      timestamp: "2026-08-02T10:00:00+0000",
+    });
+    expect(post?.thumbnail_url).toBe("https://cdn.example/thumb.jpg");
+  });
+
+  it("garde les compteurs publics quand les insights manquent", () => {
+    // Le repli sans expansion : likes et commentaires restent.
+    const post = mediaToPost({
+      id: "2",
+      timestamp: "2026-08-02T10:00:00+0000",
+      like_count: 12,
+      comments_count: 3,
+    });
+    expect(post?.likes).toBe(12);
+    expect(post?.impressions).toBe(0);
+  });
+
+  it("saute un média sans date plutôt que d'en inventer une", () => {
+    expect(mediaToPost({ id: "3" })).toBeNull();
+  });
+});
+
+describe("pagePostToPost", () => {
+  it("traduit un post de Page, résumés et insights compris", () => {
+    const post = pagePostToPost({
+      id: "123_456",
+      message: "Portes ouvertes samedi",
+      permalink_url: "https://www.facebook.com/123/posts/456",
+      full_picture: "https://cdn.example/photo.jpg",
+      created_time: "2026-08-03T09:00:00+0000",
+      shares: { count: 7 },
+      comments: { summary: { total_count: 11 } },
+      reactions: { summary: { total_count: 89 } },
+      insights: {
+        data: [
+          { name: "post_impressions", values: [{ value: 5400 }] },
+          { name: "post_impressions_unique", values: [{ value: 4100 }] },
+        ],
+      },
+    });
+
+    expect(post?.impressions).toBe(5400);
+    expect(post?.reach).toBe(4100);
+    // Les réactions tiennent lieu de likes côté Facebook.
+    expect(post?.likes).toBe(89);
+    expect(post?.comments).toBe(11);
+    expect(post?.shares).toBe(7);
+    expect(post?.saves).toBe(0);
+  });
+
+  it("saute un post sans date", () => {
+    expect(pagePostToPost({ id: "1" })).toBeNull();
+  });
+});

@@ -145,6 +145,29 @@ export function presetOf(range: DateRange, now: Date): RangePreset {
   return "personnalise";
 }
 
+/**
+ * La période de comparaison : autant de jours, immédiatement avant.
+ *
+ * Un mois civil se compare au mois civil précédent — juillet à juin, pas aux
+ * « 31 jours avant le 1er juillet » — sinon la comparaison glisse d'un ou deux
+ * jours selon la longueur des mois.
+ */
+export function previousRange(range: DateRange): DateRange {
+  const from = new Date(`${range.from}T00:00:00Z`);
+  const to = new Date(`${range.to}T00:00:00Z`);
+
+  const isFullMonth =
+    from.getUTCDate() === 1 &&
+    monthKey(from) === monthKey(to) &&
+    range.to === monthBounds(monthKey(from)).to;
+  if (isFullMonth) return monthBounds(previousMonth(monthKey(from)));
+
+  const days = Math.round((to.getTime() - from.getTime()) / 86_400_000) + 1;
+  const previousTo = new Date(from.getTime() - 86_400_000);
+  const previousFrom = new Date(previousTo.getTime() - (days - 1) * 86_400_000);
+  return { from: isoDay(previousFrom), to: isoDay(previousTo) };
+}
+
 const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
 
 /** La plage demandée par l'URL, bornes remises dans l'ordre si besoin. */

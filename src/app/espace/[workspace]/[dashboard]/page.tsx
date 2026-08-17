@@ -6,7 +6,10 @@ import { EmptyState } from "@/components/ds/empty-state";
 import { StatusPill } from "@/components/ds/status-pill";
 import { SectionHeader } from "@/components/ds/surface";
 import { MetaDashboard } from "@/components/viz/meta-dashboard";
+import { OrganicDashboard } from "@/components/viz/organic-dashboard";
+import { RangePicker } from "@/components/viz/range-picker";
 import { ReportingTabs } from "@/components/viz/reporting-tabs";
+import { SyncButton } from "@/components/viz/sync-button";
 import { getWorkspace } from "@/lib/auth";
 import { getActiveContext } from "@/lib/context/queries";
 import {
@@ -18,6 +21,7 @@ import {
   BONDET_REGIONS,
   BONDET_TOTAL,
 } from "@/lib/demo/bondet";
+import { formatDayFr } from "@/lib/format";
 import {
   currentNetwork,
   REPORTING_NETWORK_LABELS,
@@ -27,12 +31,12 @@ import {
 import {
   lastCompleteMonth,
   monthBounds,
-  parseRange,
   monthLabel,
   parseMonth,
+  parseRange,
   previousMonth,
 } from "@/lib/reporting/period";
-import { RangePicker } from "@/components/viz/range-picker";
+import { getAdsData, getOrganicData } from "@/lib/reporting/queries";
 import { listWorkspaceSocialLinks } from "@/lib/social/queries";
 import { createClient } from "@/lib/supabase/server";
 import { requirePageAccess } from "@/lib/workspaces/access";
@@ -88,9 +92,6 @@ export default async function DashboardPage({
     getActiveContext(workspace.id),
   ]);
 
-  // Aucune source n'est encore synchronisée : le payant tourne sur les données
-  // de démonstration, calées sur le rapport Looker réel de juin 2026. Le
-  // connecteur ne changera que l'origine des données, pas la forme.
   // Le dashboard s'appelait « meta » avant de devenir « reporting » : les deux
   // slugs sont acceptés le temps que la migration 0008 soit passée partout.
   const demoAds =
@@ -107,15 +108,49 @@ export default async function DashboardPage({
   });
   const network = currentNetwork(tabs, query.reseau);
 
-  // Le mois révolu par défaut : le 14 août, on lit juillet. Tant qu'on tourne
-  // sur la démonstration, c'est **son** mois qui s'ouvre — proposer juillet
-  // pour n'afficher qu'un écran vide serait une fausse promesse.
+  // Le mois révolu par défaut : le 14 août, on lit juillet.
   const now = new Date();
-  const fallback = demoAds ? DEMO_MONTH : lastCompleteMonth(now);
-  const month = parseMonth(query.mois, now) ?? fallback;
+  const requestedMonth = parseMonth(query.mois, now);
   // La plage libre prime sur le mois : c'est le choix le plus explicite que
   // l'URL puisse porter.
-  const range = parseRange(query.du, query.au) ?? monthBounds(month);
+  const customRange = parseRange(query.du, query.au);
+  let month = requestedMonth ?? lastCompleteMonth(now);
+  let range = customRange ?? monthBounds(month);
+
+  // Les données réelles d'abord : dès que le connecteur a rempli la base pour
+  // la période, elles priment.
+  const ads =
+    network === "meta-ads"
+      ? await getAdsData({ workspaceId: workspace.id, range })
+      : null;
+  const organic =
+    network === "instagram" || network === "facebook"
+      ? await getOrganicData({ workspaceId: workspace.id, platform: network, range })
+      : null;
+
+  // La démonstration ne survit qu'en repli : Bondet, aucune donnée réelle sur
+  // le mois demandé, et un mois qui est — ou devient — juin 2026. Dès que la
+  // synchronisation aura rempli juillet, c'est juillet réel qui s'ouvrira.
+  const showDemo =
+    network === "meta-ads" &&
+    demoAds &&
+    !ads?.hasData &&
+    !customRange &&
+    (requestedMonth ?? DEMO_MONTH) === DEMO_MONTH;
+  if (showDemo) {
+    month = DEMO_MONTH;
+    range = monthBounds(DEMO_MONTH);
+  }
+
+  const period = customRange
+    ? {
+        label: `du ${formatDayFr(customRange.from)} au ${formatDayFr(customRange.to)}`,
+        comparison: "la période précédente",
+      }
+    : {
+        label: monthLabel(month),
+        comparison: monthLabel(previousMonth(month)),
+      };
 
   return (
     <div className="space-y-5">
@@ -123,17 +158,16 @@ export default async function DashboardPage({
         title={dashboard.name}
         description={
           network
-            ? `${monthLabel(month)} · comparé à ${monthLabel(previousMonth(month))} — ${REPORTING_NETWORK_SUBTITLES[network]}`
+            ? `${period.label} · comparé à ${period.comparison} — ${REPORTING_NETWORK_SUBTITLES[network]}`
             : "Aucun compte branché sur cet espace."
         }
         action={
           <div className="flex items-center gap-2">
-            {network === "meta-ads" && demoAds ? (
-              <StatusPill tone="info">Démonstration</StatusPill>
+            {showDemo ? <StatusPill tone="info">Démonstration</StatusPill> : null}
+            {network && workspace.role === "owner" ? (
+              <SyncButton workspaceSlug={workspace.slug} />
             ) : null}
-            {network ? (
-              <RangePicker range={range} />
-            ) : null}
+            {network ? <RangePicker range={range} /> : null}
           </div>
         }
       />
@@ -142,9 +176,18 @@ export default async function DashboardPage({
         <ReportingTabs networks={tabs.networks} current={network} />
       ) : null}
 
-      {/* Le jeu de démonstration ne couvre qu'un mois. Afficher ses chiffres
-          sous une autre étiquette de mois serait mentir : on préfère le dire. */}
-      {network === "meta-ads" && demoAds && month === DEMO_MONTH ? (
+      {network === "meta-ads" && ads?.hasData ? (
+        <MetaDashboard
+          adSets={ads.adSets}
+          total={ads.total}
+          previousTotal={ads.previousTotal}
+          age={ads.age}
+          gender={ads.gender}
+          regions={ads.regions}
+          followers={ads.followers.length > 0 ? ads.followers : BONDET_FOLLOWERS}
+          period={period}
+        />
+      ) : showDemo ? (
         <MetaDashboard
           adSets={BONDET_AD_SETS}
           total={BONDET_TOTAL}
@@ -153,24 +196,31 @@ export default async function DashboardPage({
           gender={BONDET_GENDER}
           regions={BONDET_REGIONS}
           followers={BONDET_FOLLOWERS}
-          period={{
-            label: monthLabel(month),
-            comparison: monthLabel(previousMonth(month)),
-          }}
+          period={period}
+        />
+      ) : (network === "instagram" || network === "facebook") && organic?.hasData ? (
+        <OrganicDashboard
+          network={network}
+          posts={organic.posts}
+          total={organic.total}
+          previousTotal={organic.previousTotal}
+          followers={organic.followers}
+          followersNow={organic.followersNow}
+          period={period}
         />
       ) : (
         <EmptyState
           icon={PlugZap}
           message={
-            network === "meta-ads" && demoAds
-              ? `Le jeu de démonstration ne couvre que ${monthLabel(DEMO_MONTH)} — choisir ce mois pour le voir.`
+            network === "meta-ads" && demoAds && !customRange
+              ? `Aucune donnée synchronisée pour ${period.label} — le jeu de démonstration ne couvre que ${monthLabel(DEMO_MONTH)}. Synchroniser remplira les vrais chiffres.`
               : network
-                ? `${REPORTING_NETWORK_LABELS[network]} est branché, mais aucune donnée n'a encore été synchronisée pour ${monthLabel(month)}.`
-              : tabs.manquants.length > 0
-                ? `Le Contexte déclare ${tabs.manquants
-                    .map((missing) => REPORTING_NETWORK_LABELS[missing])
-                    .join(" et ")}, mais aucun compte n'est affecté à cet espace — à faire depuis Connexions, sur le Planning.`
-                : "Aucune source de données n'est connectée à cet espace."
+                ? `${REPORTING_NETWORK_LABELS[network]} est branché, mais aucune donnée n'a encore été synchronisée pour ${period.label}. Le bouton Synchroniser lance la collecte.`
+                : tabs.manquants.length > 0
+                  ? `Le Contexte déclare ${tabs.manquants
+                      .map((missing) => REPORTING_NETWORK_LABELS[missing])
+                      .join(" et ")}, mais aucun compte n'est affecté à cet espace — à faire depuis Connexions, sur le Planning.`
+                  : "Aucune source de données n'est connectée à cet espace."
           }
         />
       )}

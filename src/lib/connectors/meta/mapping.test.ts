@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vitest";
 
-import { actionValue, breakdownLabel, toNumber, toRawMetrics } from "./mapping";
+import {
+  actionValue,
+  aggregateBreakdown,
+  breakdownLabel,
+  syncWindow,
+  toDailyMetricsColumns,
+  toNumber,
+  toRawMetrics,
+} from "./mapping";
 
 describe("toNumber", () => {
   it("convertit les chaînes que Meta renvoie", () => {
@@ -86,6 +94,70 @@ describe("breakdownLabel", () => {
   it("laisse passer une tranche d'âge ou une région telle quelle", () => {
     expect(breakdownLabel("25-34")).toBe("25-34");
     expect(breakdownLabel("Île-de-France")).toBe("Île-de-France");
+  });
+});
+
+describe("toDailyMetricsColumns", () => {
+  it("traduit vers les colonnes snake_case de la table journalière", () => {
+    const columns = toDailyMetricsColumns({
+      date_start: "2026-08-01",
+      spend: "12.5",
+      impressions: "1000",
+      reach: "800",
+      inline_link_clicks: "40",
+      actions: [{ action_type: "add_to_cart", value: "3" }],
+    });
+
+    expect(columns.date).toBe("2026-08-01");
+    expect(columns.spend).toBe(12.5);
+    expect(columns.link_clicks).toBe(40);
+    expect(columns.add_to_cart).toBe(3);
+    expect(columns.reach).toBe(800);
+  });
+});
+
+describe("aggregateBreakdown", () => {
+  const cells = [
+    { date_start: "2026-08-01", age: "25-34", gender: "female", impressions: "100", clicks: "8", spend: "1" },
+    { date_start: "2026-08-01", age: "25-34", gender: "male", impressions: "60", clicks: "2", spend: "1" },
+    { date_start: "2026-08-01", age: "18-24", gender: "female", impressions: "40", clicks: "1", spend: "1" },
+    { date_start: "2026-08-02", age: "25-34", gender: "female", impressions: "50", clicks: "3", spend: "1" },
+  ];
+
+  it("somme les cellules âge × genre le long d'un seul axe", () => {
+    const byAge = aggregateBreakdown(cells, "age");
+    const target = byAge.find((cell) => cell.date === "2026-08-01" && cell.value === "25-34");
+    // 100 (femmes) + 60 (hommes) : le genre disparaît dans la somme.
+    expect(target?.impressions).toBe(160);
+    expect(target?.clicks).toBe(10);
+  });
+
+  it("garde les jours séparés — la clé primaire porte la date", () => {
+    const byAge = aggregateBreakdown(cells, "age");
+    expect(byAge.filter((cell) => cell.value === "25-34")).toHaveLength(2);
+  });
+
+  it("traduit les valeurs au passage", () => {
+    const byGender = aggregateBreakdown(cells, "gender");
+    expect(byGender.map((cell) => cell.value)).toContain("Femmes");
+  });
+
+  it("ignore une ligne sans date plutôt que de fabriquer une clé vide", () => {
+    expect(aggregateBreakdown([{ age: "25-34", impressions: "10" }], "age")).toHaveLength(0);
+  });
+});
+
+describe("syncWindow", () => {
+  const now = new Date("2026-08-17T10:00:00Z");
+
+  it("remonte 90 jours au premier passage", () => {
+    const window = syncWindow({ lastSyncAt: null, now });
+    expect(window).toEqual({ since: "2026-05-19", until: "2026-08-17" });
+  });
+
+  it("remonte 35 jours ensuite — Meta réécrit les conversions sur 28 jours", () => {
+    const window = syncWindow({ lastSyncAt: "2026-08-16T04:00:00Z", now });
+    expect(window).toEqual({ since: "2026-07-13", until: "2026-08-17" });
   });
 });
 

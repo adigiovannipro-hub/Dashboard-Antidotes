@@ -19,6 +19,11 @@ import { EMPTY_RAW_METRICS, type RawMetrics } from "@/lib/metrics/types";
 export type MetaInsightRow = {
   date_start?: string;
   date_stop?: string;
+  /** Présents sur les requêtes `level=adset`. */
+  adset_id?: string;
+  adset_name?: string;
+  campaign_id?: string;
+  campaign_name?: string;
   spend?: string;
   impressions?: string;
   reach?: string;
@@ -112,4 +117,99 @@ export function breakdownLabel(value: string | undefined): string {
   if (value === "male") return "Hommes";
   if (value === "female") return "Femmes";
   return value;
+}
+
+/**
+ * Une ligne d'Insights vers les colonnes de `ad_metrics_daily`.
+ *
+ * Colonnes en snake_case : c'est la ligne d'insertion, pas le modèle de
+ * lecture. Les identifiants (source, espace, entité) sont posés par
+ * l'orchestrateur — cette fonction ne connaît que la traduction.
+ */
+export function toDailyMetricsColumns(row: MetaInsightRow): {
+  date: string;
+  spend: number;
+  impressions: number;
+  reach: number;
+  clicks: number;
+  link_clicks: number;
+  purchases: number;
+  purchase_value: number;
+  landing_page_views: number;
+  add_to_cart: number;
+  initiated_checkout: number;
+  comments: number;
+  saves: number;
+  shares: number;
+} {
+  const raw = toRawMetrics(row);
+  return {
+    date: row.date_start ?? "",
+    spend: raw.spend,
+    impressions: raw.impressions,
+    reach: raw.reach,
+    clicks: raw.clicks,
+    link_clicks: raw.linkClicks,
+    purchases: raw.purchases,
+    purchase_value: raw.purchaseValue,
+    landing_page_views: raw.landingPageViews,
+    add_to_cart: raw.addToCart,
+    initiated_checkout: raw.initiatedCheckout,
+    comments: raw.comments,
+    saves: raw.saves,
+    shares: raw.shares,
+  };
+}
+
+/**
+ * Agrège des lignes ventilées vers un seul axe.
+ *
+ * L'appel `breakdowns=age,gender` rend des cellules âge × genre : plutôt que
+ * de payer deux appels par compte et par jour, on somme les cellules par âge
+ * d'un côté, par genre de l'autre. La clé composite jour + valeur suit la clé
+ * primaire de `ad_breakdowns_daily`.
+ */
+export function aggregateBreakdown(
+  rows: MetaInsightRow[],
+  axis: "age" | "gender" | "region",
+): { date: string; value: string; spend: number; impressions: number; clicks: number }[] {
+  const cells = new Map<
+    string,
+    { date: string; value: string; spend: number; impressions: number; clicks: number }
+  >();
+
+  for (const row of rows) {
+    const date = row.date_start ?? "";
+    if (!date) continue;
+    const value = breakdownLabel(row[axis]);
+    const key = `${date}|${value}`;
+    const cell = cells.get(key) ?? { date, value, spend: 0, impressions: 0, clicks: 0 };
+    cell.spend += toNumber(row.spend);
+    cell.impressions += toNumber(row.impressions);
+    cell.clicks += toNumber(row.clicks);
+    cells.set(key, cell);
+  }
+
+  return [...cells.values()];
+}
+
+/**
+ * La fenêtre de synchronisation, en dates UTC.
+ *
+ * Premier passage : 90 jours — de quoi remplir le sélecteur de période sans
+ * attendre. Ensuite : 35 jours glissants, parce que Meta **réécrit** les
+ * conversions jusqu'à 28 jours en arrière (fenêtres d'attribution) — ne
+ * resynchroniser que la veille figerait des chiffres encore mouvants.
+ * La borne haute est aujourd'hui : la journée en cours est partielle, mais le
+ * passage suivant la réécrit, et l'interface borne de toute façon à hier.
+ */
+export function syncWindow(options: {
+  lastSyncAt: string | null;
+  now: Date;
+}): { since: string; until: string } {
+  const day = (offset: number) => {
+    const at = new Date(options.now.getTime() + offset * 86_400_000);
+    return at.toISOString().slice(0, 10);
+  };
+  return { since: day(options.lastSyncAt ? -35 : -90), until: day(0) };
 }

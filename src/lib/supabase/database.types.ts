@@ -122,11 +122,16 @@ export type AdMetricsDaily = {
   date: string;
   spend: number;
   impressions: number;
+  // 0045 — portée au grain jour (approximation additive, comme Supermetrics)
+  // et marches de l'entonnoir.
+  reach: number;
   clicks: number;
   link_clicks: number;
   purchases: number;
   purchase_value: number;
   landing_page_views: number;
+  add_to_cart: number;
+  initiated_checkout: number;
   comments: number;
   saves: number;
   shares: number;
