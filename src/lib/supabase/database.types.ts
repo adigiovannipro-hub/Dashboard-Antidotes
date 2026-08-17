@@ -265,6 +265,10 @@ export type ConversationRow = {
   flags: string[];
   detected_locale: string | null;
   excerpt: string | null;
+  post_external_id: string | null;
+  post_permalink: string | null;
+  post_excerpt: string | null;
+  post_thumbnail_url: string | null;
   message_count: number;
   last_message_at: string;
   response_window_expires_at: string | null;

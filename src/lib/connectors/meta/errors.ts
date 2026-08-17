@@ -42,6 +42,16 @@ export function explainMetaError(raw: string): MetaDiagnosis {
   }
 
   if (
+    text.includes("instagram_manage_comments") ||
+    text.includes("pages_manage_engagement")
+  ) {
+    return {
+      message: `Meta refuse la lecture ou la réponse aux commentaires : les portées « instagram_manage_comments » et « pages_manage_engagement » manquent au jeton enregistré. Les ajouter à l'application dans la console Meta si ce n'est pas fait, puis ${RECONNECT.charAt(0).toLowerCase()}${RECONNECT.slice(1)}`,
+      reconnect: true,
+    };
+  }
+
+  if (
     text.includes("session has expired") ||
     text.includes("(#190)") ||
     text.includes("access token")
