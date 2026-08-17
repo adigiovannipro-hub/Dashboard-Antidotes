@@ -40,6 +40,47 @@ function statesMatch(received: string, expected: string): boolean {
   return timingSafeEqual(a, b);
 }
 
+/**
+ * Le retour n'a pas retrouvé son cookie d'état — et sans lui, on ignore de
+ * quel espace il partait, donc où renvoyer l'utilisateur.
+ *
+ * Un `404` nu rendait la page « introuvable » du navigateur : le branchement
+ * paraissait cassé alors qu'il s'agit d'une session expirée ou d'un départ
+ * pris sur une autre adresse. On rend donc une page sobre qui le dit et
+ * propose la sortie. Elle ne révèle aucun espace : rien à protéger ici.
+ */
+function lostState(): NextResponse {
+  const home = publicEnv.NEXT_PUBLIC_SITE_URL;
+  const html = `<!doctype html>
+<html lang="fr">
+  <head><meta charset="utf-8"><title>Connexion Meta interrompue</title></head>
+  <body style="margin:0;padding:48px 24px;background-color:#f4f3f0;font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#1a1a1a;">
+    <div style="max-width:520px;margin:0 auto;background-color:#ffffff;border:1px solid #e4e2dd;border-radius:12px;padding:28px;">
+      <h1 style="margin:0 0 12px;font-size:18px;">Connexion Meta interrompue</h1>
+      <p style="margin:0 0 16px;font-size:14px;line-height:1.55;color:#4a4741;">
+        Meta a bien répondu, mais la session de connexion ouverte de notre côté
+        n'existe plus. Deux causes possibles&nbsp;: l'autorisation a pris plus
+        d'une demi-heure, ou elle a été lancée depuis une autre adresse que
+        <strong>${new URL(home).host}</strong>.
+      </p>
+      <p style="margin:0 0 20px;font-size:14px;line-height:1.55;color:#4a4741;">
+        Rien n'a été enregistré. Relancer « Connexions » depuis le planning
+        suffit&nbsp;: le compte n'est pas modifié tant que le retour n'aboutit
+        pas.
+      </p>
+      <a href="${home}" style="display:inline-block;padding:10px 18px;background-color:#1a1a1a;color:#ffffff;border-radius:8px;font-size:13px;font-weight:600;text-decoration:none;">Revenir à Antidotes</a>
+    </div>
+  </body>
+</html>`;
+
+  return new NextResponse(html, {
+    // 400 et non 404 : la route existe, c'est la requête qui arrive sans son
+    // état. Le navigateur n'affiche alors pas sa page « introuvable ».
+    status: 400,
+    headers: { "content-type": "text/html; charset=utf-8" },
+  });
+}
+
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const code = url.searchParams.get("code");
@@ -54,7 +95,7 @@ export async function GET(request: Request) {
   // pas pu être changés en route.
   const [expected, slug, path] = (cookie ?? "").split("|");
   if (!expected || !slug || !path) {
-    return new NextResponse(null, { status: 404 });
+    return lostState();
   }
 
   const viewer = await getViewer();

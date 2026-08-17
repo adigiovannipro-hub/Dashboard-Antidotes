@@ -27,9 +27,27 @@ export function redirectUri(): string {
 }
 
 export async function GET(request: Request) {
-  const params = new URL(request.url).searchParams;
+  const url = new URL(request.url);
+  const params = url.searchParams;
   const workspaceSlug = params.get("espace");
   if (!workspaceSlug) return new NextResponse(null, { status: 404 });
+
+  /*
+   * Le départ doit avoir lieu **sur le domaine où Meta reviendra**.
+   *
+   * `redirectUri()` est construite sur `NEXT_PUBLIC_SITE_URL` — c'est aussi
+   * l'URL déclarée dans la console Meta, elle ne peut pas varier. Or le
+   * cookie d'état, lui, se pose sur le domaine qui répond : parti depuis une
+   * autre adresse du même déploiement (URL de prévisualisation, alias de
+   * branche, domaine sans `www`), il n'existe pas au retour et le callback
+   * refuse un état qu'il ne peut pas vérifier. On rebondit donc d'abord sur
+   * l'adresse canonique.
+   */
+  const canonical = new URL(publicEnv.NEXT_PUBLIC_SITE_URL);
+  if (url.host !== canonical.host) {
+    const target = new URL(url.pathname + url.search, canonical);
+    return NextResponse.redirect(target);
+  }
 
   // On revient là d'où l'on vient — le tableau, pas une page d'atterrissage.
   // Le chemin est borné à l'espace visé : un `retour` fabriqué ne peut pas
@@ -58,9 +76,18 @@ export async function GET(request: Request) {
   store.set(META_STATE_COOKIE, `${state}|${workspaceSlug}|${back}`, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
+    // `lax` et non `strict` : le retour est une navigation venue de
+    // facebook.com, et `strict` retiendrait le cookie exactement là.
     sameSite: "lax",
-    path: "/api/social/meta/connexion",
-    maxAge: 600,
+    /* Racine et non le chemin de la route : le préfixe suffisait en théorie,
+       mais le moindre écart de chemin fait disparaître le cookie et le retour
+       échoue sans rien dire. Le contenu est un état à usage unique, `httpOnly`
+       et vérifié à temps constant — l'élargir ne coûte rien. */
+    path: "/",
+    /* Une demi-heure : le consentement Meta demande parfois de se connecter,
+       de choisir des Pages, de lire un avertissement. Dix minutes se sont
+       montrées trop courtes dès qu'un dialogue partait de travers. */
+    maxAge: 1800,
   });
 
   return NextResponse.redirect(
