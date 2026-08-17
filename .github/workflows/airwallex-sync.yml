@@ -96,6 +96,20 @@ jobs:
       # plus cher que les deux synchronisations réunies, la partager divise la
       # consommation de minutes par deux. `if: always()` — un échec Finance ne
       # doit pas priver les Reçus de leur passage, et réciproquement.
+      # Greffée sur le passage horaire : le script regarde l'heure de Paris et
+      # ne publie qu'à 16h — les 23 autres passages coûtent une seconde. Les
+      # deux créneaux cron de Vercel sont pris (Mon travail, Reporting) ; la
+      # minute 17 du schedule fait partir les posts vers 16h17, l'à-peu-près
+      # d'un schedule GitHub étant de toute façon de quelques minutes.
+      - name: Publication automatique du Planning (16h Paris)
+        if: always()
+        run: pnpm publier:planning
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          CREDENTIALS_ENCRYPTION_KEY: ${{ secrets.CREDENTIALS_ENCRYPTION_KEY }}
+
       - name: Synchroniser les Reçus
         if: always()
         run: pnpm sync:recus

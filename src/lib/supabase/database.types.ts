@@ -492,6 +492,20 @@ export type PlanningActivityRow = {
   created_at: string;
 };
 
+// 0046 — journal et verrou de la publication automatique.
+export type PlanningPublicationRow = {
+  id: string;
+  subject_id: string;
+  workspace_id: string;
+  target: "instagram" | "facebook";
+  status: "running" | "success" | "error";
+  external_id: string | null;
+  permalink: string | null;
+  error: string | null;
+  started_at: string;
+  finished_at: string | null;
+};
+
 export type PlanningCommentRow = {
   id: string;
   subject_id: string;
@@ -689,6 +703,7 @@ export type Database = {
       planning_faq_entries: Table<PlanningFaqEntryRow>;
       planning_columns: Table<PlanningColumnRow>;
       planning_activity: Table<PlanningActivityRow>;
+      planning_publications: Table<PlanningPublicationRow>;
 
       receipt_sources: Table<ReceiptSource>;
       receipt_expenses: Table<ReceiptExpense>;

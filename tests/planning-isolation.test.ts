@@ -295,4 +295,59 @@ suite("isolation du Planning Éditorial (RLS)", () => {
       expect(data).toHaveLength(2);
     });
   });
+
+  describe("le journal de publication automatique (0046)", () => {
+    beforeAll(async () => {
+      // La machine écrit avec la clé de service ; on pose une ligne par espace.
+      const { error } = await admin.from("planning_publications").insert([
+        {
+          subject_id: ids.subjectA,
+          workspace_id: ids.workspaceA,
+          target: "instagram",
+          status: "success",
+          permalink: "https://www.instagram.com/p/test-a/",
+        },
+        {
+          subject_id: ids.subjectB,
+          workspace_id: ids.workspaceB,
+          target: "instagram",
+          status: "error",
+          error: "jeton expiré",
+        },
+      ]);
+      if (error) throw new Error(`Migration 0046 appliquée ? ${error.message}`);
+    });
+
+    it("un client lit les publications de son espace, pas celles du voisin", async () => {
+      const { data } = await clients.clientA
+        .from("planning_publications")
+        .select("subject_id")
+        .in("subject_id", [ids.subjectA, ids.subjectB]);
+      expect(data).toHaveLength(1);
+      expect(data?.[0]?.subject_id).toBe(ids.subjectA);
+    });
+
+    it("un client ne fabrique pas de ligne de publication — la machine seule écrit", async () => {
+      const { data } = await clients.clientA
+        .from("planning_publications")
+        .insert({
+          subject_id: ids.subjectA,
+          workspace_id: ids.workspaceA,
+          target: "facebook",
+          status: "success",
+        })
+        .select("id");
+      // Aucune politique d'écriture : l'insertion ne rend aucune ligne.
+      expect(data ?? []).toHaveLength(0);
+    });
+
+    it("un client ne maquille pas un échec en succès", async () => {
+      const { data } = await clients.clientB
+        .from("planning_publications")
+        .update({ status: "success", error: null })
+        .eq("subject_id", ids.subjectB)
+        .select("id");
+      expect(data ?? []).toHaveLength(0);
+    });
+  });
 });

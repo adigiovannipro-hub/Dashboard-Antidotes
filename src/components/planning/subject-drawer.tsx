@@ -564,7 +564,14 @@ function ActivityList({
               <OwnerAvatar owner={entry.actor} />
               <p className="min-w-0 flex-1 truncate text-xs">
                 <span className="font-medium">
-                  {entry.actor?.full_name ?? entry.actor?.email ?? "Quelqu'un"}
+                  {entry.actor?.full_name ??
+                    entry.actor?.email ??
+                    // Une entrée sans acteur venue de la publication
+                    // automatique est le fait de la plateforme, pas d'un
+                    // inconnu.
+                    (entry.field.startsWith("publication")
+                      ? "Antidotes"
+                      : "Quelqu'un")}
                 </span>{" "}
                 <span className="text-muted-foreground">
                   {FIELD_SENTENCES[entry.field] ?? `a modifié « ${entry.field} »`}
@@ -629,6 +636,9 @@ const FIELD_SENTENCES: Record<string, string> = {
   archived: "a archivé la publication",
   restored: "a restauré la publication",
   deleted: "a envoyé la publication à la corbeille",
+  // Les gestes de la publication automatique — sans acteur : c'est la machine.
+  publication: "a publié automatiquement",
+  publication_error: "n'a pas pu publier automatiquement",
 };
 
 const FIELD_TO_BUILTIN: Record<string, string> = {
