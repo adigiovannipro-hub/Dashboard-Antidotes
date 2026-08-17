@@ -5,6 +5,8 @@ import { notFound } from "next/navigation";
 import { FaqBoardView } from "@/components/planning/faq-board";
 import { PlanningBoardView } from "@/components/planning/planning-board";
 import { getWorkspace } from "@/lib/auth";
+import { normalizeDeliverables } from "@/lib/context/deliverables";
+import { getActiveContext } from "@/lib/context/queries";
 import {
   flattenSubjects,
   getBoard,
@@ -82,6 +84,7 @@ export default async function PlanningBoardPage({
     instagramProfile,
     socialAccounts,
     socialLinks,
+    context,
   ] = await Promise.all([
     getBoardContent(board),
     searchParams,
@@ -90,6 +93,9 @@ export default async function PlanningBoardPage({
     // des comptes des autres clients.
     isOwner ? listSocialAccounts(workspace.org_id) : Promise.resolve([]),
     listWorkspaceSocialLinks(workspace.id),
+    // Les réseaux déclarés aux livrables : c'est le contrat du client qui
+    // décide des lignes de l'écran des connexions, pas une liste en dur.
+    isOwner ? getActiveContext(workspace.id) : Promise.resolve(null),
   ]);
 
   // La publication ouverte vient de l'URL : un lien partagé rouvre le même
@@ -134,6 +140,9 @@ export default async function PlanningBoardPage({
       isOwner={isOwner}
       socialAccounts={socialAccounts}
       socialSelection={selectionFromLinks(socialLinks)}
+      socialNetworks={normalizeDeliverables(context?.deliverables).reseaux.map(
+        (reseau) => reseau.nom,
+      )}
       metaConfigured={metaConfigured()}
       view={view}
     />

@@ -4,8 +4,11 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { getViewer, getWorkspace } from "@/lib/auth";
+import { normalizeDeliverables } from "@/lib/context/deliverables";
 import { ASSETS_BUCKET } from "@/lib/context/storage";
+import type { ContextDeliverables } from "@/lib/context/types";
 import { VISUALS_BUCKET } from "@/lib/planning/storage";
+import { planYearLanes, planYearMonths } from "@/lib/workspaces/setup";
 import { createAdminClient, createClient } from "@/lib/supabase/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/database.types";
@@ -88,26 +91,68 @@ export async function renameWorkspace(
 // --- Dupliquer ------------------------------------------------------------
 
 /**
+ * Ce que le dialogue de duplication demande, en plus du nom.
+ *
+ * Les réseaux sont la clé de voûte : déclarés **une fois** ici, ils
+ * deviennent les livrables du Contexte, les couloirs des douze mois, et les
+ * lignes de l'écran des connexions. C'est le même contrat lu de trois
+ * endroits, au lieu de trois saisies qui divergent.
+ */
+const duplicateSchema = z.object({
+  name: nameSchema,
+  /** Année dont les mois vides sont créés. Bornée pour éviter la faute de frappe. */
+  year: z.number().int().min(2020).max(2100),
+  intentions: z.string().max(300),
+  reseaux: z
+    .array(
+      z.object({
+        nom: z.string().trim().min(1).max(60),
+        publications: z
+          .array(
+            z.object({
+              categorie: z.string().trim().min(1).max(60),
+              quantite: z.number().int().min(0).max(999),
+            }),
+          )
+          .max(20),
+      }),
+    )
+    .max(20),
+});
+
+export type DuplicateInput = z.infer<typeof duplicateSchema>;
+
+/**
  * Duplique la **configuration**, jamais le contenu.
  *
  * Ce qu'on recopie en ouvrant un client : ses tableaux avec leurs colonnes
  * personnalisées et leur vocabulaire, ses tableaux de bord. Ce qu'on ne
- * recopie jamais : publications, mois, documents, brief. Un nouveau client
- * qui hériterait du contexte d'un autre produirait des générations fausses,
- * et la confusion serait invisible.
+ * recopie jamais : publications, documents, brief. Un nouveau client qui
+ * hériterait du contexte d'un autre produirait des générations fausses, et la
+ * confusion serait invisible.
+ *
+ * Ce qu'on **pose** en revanche, parce que c'est vrai du nouveau client et de
+ * lui seul : ses réseaux aux livrables, et les douze mois vides de l'année,
+ * avec un couloir par réseau dans chacun. Sans ça, ouvrir un client demandait
+ * quarante-huit gestes pour arriver à un tableau qui est toujours vide.
+ *
+ * Le logo ne passe pas par ici : le fichier part du navigateur directement
+ * dans le bucket, une fois l'espace créé et donc son identifiant connu. Voir
+ * `prepareLogoUpload`.
  */
 export async function duplicateWorkspace(
   scope: Scope,
-  input: { name: string },
+  input: DuplicateInput,
 ): Promise<WorkspaceResult> {
-  const parsed = nameSchema.safeParse(input.name);
+  const parsed = duplicateSchema.safeParse(input);
   if (!parsed.success) {
-    return { ok: false, error: parsed.error.issues[0]?.message ?? "Nom invalide." };
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Formulaire invalide." };
   }
 
   try {
     const { viewer, workspace } = await guardOwner(scope);
     const supabase = await createClient();
+    const { name, year, intentions, reseaux } = parsed.data;
 
     const taken = new Set(
       viewer.workspaces
@@ -120,38 +165,171 @@ export async function duplicateWorkspace(
       .insert({
         org_id: workspace.org_id,
         type: workspace.type,
-        slug: uniqueSlug(parsed.data, taken),
-        name: parsed.data,
+        slug: uniqueSlug(name, taken),
+        name,
         accent_color: workspace.accent_color,
       })
       .select("id, slug")
       .single();
     if (createError) throw new Error(createError.message);
 
-    await copyBoards(supabase, workspace.id, created.id);
+    const boards = await copyBoards(supabase, workspace.id, created.id);
     await copyDashboards(supabase, workspace.id, created.id);
+
+    const networks = reseaux.map((network) => network.nom);
+    await seedContext(supabase, created.id, viewer.user.id, {
+      intentions,
+      reseaux,
+      publications: [],
+    });
+    const months = await seedYear(supabase, {
+      workspaceId: created.id,
+      boards,
+      year,
+      networks,
+    });
 
     revalidatePath("/", "layout");
     return {
       ok: true,
       slug: created.slug,
-      message: `${parsed.data} créé avec la même configuration, sans contenu.`,
+      message: detailsOf({ name, months, networks: networks.length, year }),
     };
   } catch (error) {
     return fail(error);
   }
 }
 
+/** Ce que la duplication a réellement posé, dit sans arrondir. */
+function detailsOf(options: {
+  name: string;
+  months: number;
+  networks: number;
+  year: number;
+}): string {
+  const parts = [`${options.name} créé`];
+  if (options.months > 0) {
+    parts.push(`${options.months} mois de ${options.year}`);
+  }
+  if (options.networks > 0) {
+    parts.push(
+      `${options.networks} réseau${options.networks > 1 ? "x" : ""} aux livrables`,
+    );
+  }
+  return `${parts.join(", ")}.`;
+}
+
+/**
+ * Le brief du nouveau client, réduit à ce qu'on sait de lui : ses livrables.
+ *
+ * Rien d'autre n'est copié de la source — c'est tout l'intérêt. La ligne
+ * existe quand même, active en version 1, parce que l'écran Contexte et les
+ * prompts de génération la cherchent, et qu'une absence de ligne les enverrait
+ * tous sur un cas particulier.
+ */
+async function seedContext(
+  supabase: SupabaseClient<Database>,
+  workspaceId: string,
+  userId: string,
+  deliverables: ContextDeliverables,
+) {
+  const { error } = await supabase.from("client_context").insert({
+    workspace_id: workspaceId,
+    deliverables: normalizeDeliverables(deliverables),
+    created_by: userId,
+  });
+  if (error) throw new Error(`Contexte : ${error.message}`);
+}
+
+/**
+ * Les douze mois de l'année sur chaque tableau éditorial, et un couloir par
+ * réseau dans chacun.
+ *
+ * Les couloirs sont insérés **après** les mois et en une seule requête, mais
+ * dans un second ordre : les CTE d'un même ordre partagent un instantané de la
+ * base, et un couloir inséré dans la foulée ne verrait pas le mois qui vient
+ * d'être créé. C'est le piège qui a déjà coûté un seed silencieusement vide.
+ *
+ * Rend le nombre de mois posés, pour que le message dise la vérité.
+ */
+async function seedYear(
+  supabase: SupabaseClient<Database>,
+  options: {
+    workspaceId: string;
+    boards: { id: string; kind: string; year: number | null }[];
+    year: number;
+    networks: string[];
+  },
+): Promise<number> {
+  // Les mois n'ont de sens que sur un tableau éditorial : une FAQ n'a pas de
+  // calendrier.
+  const editorial = options.boards.filter((board) => board.kind === "editorial");
+  if (editorial.length === 0) return 0;
+
+  let posed = 0;
+
+  for (const board of editorial) {
+    const planned = planYearMonths(board.year ?? options.year);
+
+    const { data: months, error } = await supabase
+      .from("planning_months")
+      .insert(
+        planned.map((month) => ({
+          board_id: board.id,
+          workspace_id: options.workspaceId,
+          label: month.label,
+          month: month.month,
+          position: month.position,
+        })),
+      )
+      .select("id, position");
+    if (error) throw new Error(`Mois : ${error.message}`);
+
+    posed = Math.max(posed, months?.length ?? 0);
+
+    const lanes = planYearLanes({ months: planned, networks: options.networks });
+    if (lanes.length === 0) continue;
+
+    const idByPosition = new Map(
+      (months ?? []).map((month) => [month.position, month.id]),
+    );
+
+    const rows = lanes
+      .map((lane) => {
+        const monthId = idByPosition.get(lane.monthPosition);
+        return monthId
+          ? {
+              month_id: monthId,
+              board_id: board.id,
+              workspace_id: options.workspaceId,
+              platform: lane.platform,
+              name: lane.name,
+              position: lane.position,
+            }
+          : null;
+      })
+      .filter((row) => row !== null);
+
+    const { error: lanesError } = await supabase.from("planning_lanes").insert(rows);
+    if (lanesError) throw new Error(`Couloirs : ${lanesError.message}`);
+  }
+
+  return posed;
+}
+
+/** Rend les tableaux créés : les mois de l'année viennent s'y accrocher. */
 async function copyBoards(
   supabase: SupabaseClient<Database>,
   sourceId: string,
   targetId: string,
-) {
+): Promise<{ id: string; kind: string; year: number | null }[]> {
   const { data: boards } = await supabase
     .from("planning_boards")
     .select("id, kind, slug, name, year, position, settings")
     .eq("workspace_id", sourceId)
     .order("position");
+
+  const created: { id: string; kind: string; year: number | null }[] = [];
 
   for (const board of boards ?? []) {
     const { data: copy, error } = await supabase
@@ -168,6 +346,8 @@ async function copyBoards(
       .select("id")
       .single();
     if (error || !copy) continue;
+
+    created.push({ id: copy.id, kind: board.kind, year: board.year });
 
     const { data: columns } = await supabase
       .from("planning_columns")
@@ -188,6 +368,8 @@ async function copyBoards(
       })),
     );
   }
+
+  return created;
 }
 
 async function copyDashboards(
