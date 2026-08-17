@@ -140,17 +140,12 @@ export function ContexteScreen({
               <Lock aria-hidden strokeWidth={1.75} className="size-3" />
               Interne
             </StatusPill>
-            <p className="type-caption text-text-secondary">
-              Invisible côté client. Alimente les générations IA.
-            </p>
+            {active ? (
+              <p className="type-caption text-text-secondary">
+                Brief mis à jour le {formatDayFr(active.created_at.slice(0, 10))}.
+              </p>
+            ) : null}
           </div>
-          <p className="type-caption mt-1 text-text-secondary">
-            Chaque carte s&apos;édite d&apos;un clic et s&apos;enregistre en quittant le
-            champ.
-            {active
-              ? ` Brief mis à jour le ${formatDayFr(active.created_at.slice(0, 10))}.`
-              : null}
-          </p>
         </div>
 
         {!readOnly ? (

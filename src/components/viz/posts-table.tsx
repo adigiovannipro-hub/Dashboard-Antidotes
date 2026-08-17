@@ -315,11 +315,6 @@ export function PostsTable({
         </table>
       </div>
 
-      <p className="text-muted-foreground text-xs">
-        Fond vert&nbsp;: les meilleures valeurs de la colonne ; fond
-        rouge&nbsp;: les moins bonnes. Le taux d&apos;engagement du total est
-        recalculé sur les agrégats, jamais moyenné ligne à ligne.
-      </p>
     </div>
   );
 }
