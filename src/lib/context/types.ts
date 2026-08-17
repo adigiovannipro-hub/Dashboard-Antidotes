@@ -128,7 +128,16 @@ export type ContextPlatformRules = Record<string, string>;
  * d'un client : celle-là se déclare dans les livrables, et rien n'oblige à
  * s'y tenir — un réseau absent d'ici s'ajoute à la main.
  */
+/**
+ * « Meta » vient en premier, et c'est un choix : c'est ainsi qu'on vend, qu'on
+ * planifie et qu'on publie. Un couloir Meta part sur Instagram **et** Facebook
+ * d'un seul geste (`publishing/readiness.ts`), et déclarer Meta réclame les
+ * trois comptes — Instagram, Page, compte publicitaire — d'un coup. Déclarer
+ * Instagram et Facebook séparément reste possible pour un client qui les
+ * traite vraiment à part.
+ */
 export const NETWORK_SUGGESTIONS = [
+  "Meta",
   "Instagram",
   "Facebook",
   "LinkedIn",

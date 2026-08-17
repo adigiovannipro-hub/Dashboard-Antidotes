@@ -142,6 +142,9 @@ export function ConnexionsDialog({
           Rebrancher met l&apos;inventaire à jour sans toucher aux affectations
           déjà faites ici. Seul Meta a un connecteur aujourd&apos;hui : les
           autres réseaux se déclarent, s&apos;affichent, et attendent le leur.
+          Pour LinkedIn et TikTok, les démarches à engager sont listées dans{" "}
+          <code>docs/connecteurs-linkedin-tiktok.md</code> — ce sont les
+          validations qui prennent des semaines, pas le code.
         </p>
       </DialogContent>
     </Dialog>
@@ -217,6 +220,10 @@ function ConnexionLine({
           htmlFor={`compte-${row.kind ?? networkKey(row.label)}`}
           className="type-caption text-text-secondary block"
         >
+          {/* « Meta › Instagram » : les trois lignes d'une même déclaration se
+              lisent alors comme un ensemble, et non comme trois réseaux
+              qu'on aurait déclarés un par un. */}
+          {row.group ? `${row.group} › ` : null}
           {label}
           {row.kind ? ` — ${SOCIAL_ACCOUNT_PURPOSE[row.kind]}` : null}
         </label>

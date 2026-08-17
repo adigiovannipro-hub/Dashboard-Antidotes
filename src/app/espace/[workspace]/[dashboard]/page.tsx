@@ -15,6 +15,9 @@ import {
   currentNetwork,
   REPORTING_NETWORK_LABELS,
   resolveReportingNetworks,
+  type ReportingNetwork,
+  // Le composant d'onglets porte déjà le nom `ReportingTabs` dans ce fichier.
+  type ReportingTabs as ReportingNetworkTabs,
 } from "@/lib/reporting/networks";
 import {
   lastCompleteMonth,
@@ -192,19 +195,42 @@ export default async function DashboardPage({
           period={period}
         />
       ) : (
-        <EmptyState
-          icon={PlugZap}
-          message={
-            network
-              ? `${REPORTING_NETWORK_LABELS[network]} est branché, mais aucune donnée n'est encore synchronisée pour ${period.label}. Le bouton Synchroniser lance la collecte.`
-              : tabs.manquants.length > 0
-                ? `Le Contexte déclare ${tabs.manquants
-                    .map((missing) => REPORTING_NETWORK_LABELS[missing])
-                    .join(" et ")}, mais aucun compte n'est affecté à cet espace — à faire depuis Connexions, sur le Planning.`
-                : "Aucune source de données n'est connectée à cet espace."
-          }
-        />
+        <EmptyState icon={PlugZap} message={emptyMessage({ network, tabs, period })} />
       )}
     </div>
   );
+}
+
+/**
+ * Ce que dit l'écran quand il n'a rien à montrer.
+ *
+ * Quatre situations, et les confondre est ce qui faisait passer une
+ * fonctionnalité absente pour une panne :
+ *
+ *   1. l'onglet est ouvert parce que le contrat le déclare, mais aucun compte
+ *      n'est affecté — il reste un geste, et on dit lequel ;
+ *   2. le compte est affecté, la période est simplement vide ;
+ *   3. le client n'est déclaré que sur des réseaux qu'aucun connecteur ne
+ *      sert — TikTok, LinkedIn — et l'écran le nomme au lieu de rester muet ;
+ *   4. rien n'est déclaré nulle part.
+ */
+function emptyMessage(input: {
+  network: ReportingNetwork | null;
+  tabs: ReportingNetworkTabs;
+  period: { label: string };
+}): string {
+  const { network, tabs, period } = input;
+
+  if (network) {
+    return tabs.manquants.includes(network)
+      ? `${REPORTING_NETWORK_LABELS[network]} est au contrat du client, mais aucun compte ne lui est affecté — à faire depuis Connexions, sur le Planning.`
+      : `${REPORTING_NETWORK_LABELS[network]} est branché, mais aucune donnée n'est encore synchronisée pour ${period.label}. Le bouton Synchroniser lance la collecte.`;
+  }
+
+  if (tabs.sansConnecteur.length > 0) {
+    const noms = tabs.sansConnecteur.join(", ");
+    return `Ce client est déclaré sur ${noms}. Le Reporting ne sait lire que Meta aujourd'hui — Instagram, Facebook et les campagnes — et ces réseaux-là n'ont pas encore de connecteur. Rien à réparer : c'est un chantier à venir.`;
+  }
+
+  return "Aucun réseau n'est déclaré aux livrables de ce client, et aucun compte ne lui est affecté. Les deux se règlent depuis le Contexte et depuis Connexions.";
 }

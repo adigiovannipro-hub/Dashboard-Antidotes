@@ -21,25 +21,33 @@ import type { PlanningPlatform } from "@/lib/planning/types";
 import { META_KINDS, type SocialAccountKind } from "./types";
 
 /**
- * Le compte à brancher pour un réseau déclaré au Contexte.
+ * Les comptes à brancher pour un réseau déclaré au Contexte.
+ *
+ * Une liste, et non un compte : **« Meta » en demande trois**. C'est un
+ * réseau au sens du contrat — on vend « du Meta », on planifie une ligne Meta,
+ * et la publication part sur Instagram et Facebook d'un coup
+ * (`publishing/readiness.ts`) — mais côté branchement il faut le compte
+ * Instagram, la Page et le compte publicitaire. Déclarer Meta et n'obtenir
+ * qu'une ligne laisserait deux comptes indispensables invisibles.
  *
  * « Facebook » donne `facebook_page` : côté contrat on dit le réseau, côté
  * branchement on affecte une Page — c'est la même chose vue des deux bouts.
  * Un nom inconnu ne rend rien plutôt qu'un rapprochement approximatif : une
  * newsletter déclarée aux livrables n'est pas un compte à brancher.
  */
-const KIND_BY_NETWORK: Record<string, SocialAccountKind> = {
-  instagram: "instagram",
-  facebook: "facebook_page",
-  linkedin: "linkedin",
-  tiktok: "tiktok",
-  "tik-tok": "tiktok",
-  youtube: "youtube",
-  pinterest: "pinterest",
-  x: "x",
-  twitter: "x",
-  threads: "threads",
-  snapchat: "snapchat",
+const KINDS_BY_NETWORK: Record<string, SocialAccountKind[]> = {
+  meta: ["instagram", "facebook_page", "meta_ad_account"],
+  instagram: ["instagram"],
+  facebook: ["facebook_page"],
+  linkedin: ["linkedin"],
+  tiktok: ["tiktok"],
+  "tik-tok": ["tiktok"],
+  youtube: ["youtube"],
+  pinterest: ["pinterest"],
+  x: ["x"],
+  twitter: ["x"],
+  threads: ["threads"],
+  snapchat: ["snapchat"],
 };
 
 /** Le couloir de planning d'un réseau déclaré. */
@@ -57,8 +65,9 @@ const PLATFORM_BY_NETWORK: Record<string, PlanningPlatform> = {
   snapchat: "snapchat",
 };
 
-export function kindForNetwork(name: string): SocialAccountKind | null {
-  return KIND_BY_NETWORK[networkKey(name)] ?? null;
+/** Les comptes qu'un réseau déclaré réclame. Vide pour un livrable hors réseau. */
+export function kindsForNetwork(name: string): SocialAccountKind[] {
+  return KINDS_BY_NETWORK[networkKey(name)] ?? [];
 }
 
 /**
@@ -81,6 +90,12 @@ export type ConnexionRow = {
   kind: SocialAccountKind | null;
   /** Déclaré aux livrables du client, par opposition à ajouté ici. */
   declared: boolean;
+  /**
+   * Le réseau du contrat qui a produit la ligne, quand il en couvre plusieurs.
+   * « Meta » donne trois lignes : sans ce rappel, on ne voit pas qu'elles
+   * viennent d'une seule déclaration et vont ensemble.
+   */
+  group: string | null;
 };
 
 /**
@@ -111,18 +126,25 @@ export function planConnexionRows(options: {
     const label = name.trim();
     if (label.length === 0) continue;
 
-    const kind = kindForNetwork(label);
-    if (kind) {
-      if (seenKinds.has(kind)) continue;
-      seenKinds.add(kind);
-    } else {
+    const kinds = kindsForNetwork(label);
+
+    if (kinds.length === 0) {
       // Un livrable hors réseau — « Newsletter » — n'a pas de compte : il ne
       // se dédoublonne que sur son nom.
       if (seenLabels.has(networkKey(label))) continue;
       seenLabels.add(networkKey(label));
+      rows.push({ label, kind: null, declared: true, group: null });
+      continue;
     }
 
-    rows.push({ label, kind, declared: true });
+    // Un réseau qui en couvre plusieurs — Meta — porte son nom sur chacune de
+    // ses lignes ; les autres n'ont pas de groupe à rappeler.
+    const group = kinds.length > 1 ? label : null;
+    for (const kind of kinds) {
+      if (seenKinds.has(kind)) continue;
+      seenKinds.add(kind);
+      rows.push({ label, kind, declared: true, group });
+    }
   }
 
   for (const kind of [...META_KINDS, ...options.linked]) {
@@ -131,7 +153,7 @@ export function planConnexionRows(options: {
     // `META_KINDS` ne s'ajoutent que s'ils sont réellement affectés.
     if (kind !== "meta_ad_account" && !options.linked.includes(kind)) continue;
     seenKinds.add(kind);
-    rows.push({ label: "", kind, declared: false });
+    rows.push({ label: "", kind, declared: false, group: null });
   }
 
   return rows;
