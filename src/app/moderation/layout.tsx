@@ -27,7 +27,7 @@ export default async function ModerationLayout({
     <AppShell
       viewer={viewer}
       title="Modération"
-      subtitle="Messages et commentaires, réponses validées à la main"
+      subtitle="Commentaires et messages de tous les clients, réponses validées à la main"
     >
       <div className="flex min-h-0 flex-1 flex-col">{children}</div>
     </AppShell>

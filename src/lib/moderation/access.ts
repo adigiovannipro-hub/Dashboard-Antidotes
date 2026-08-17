@@ -36,7 +36,17 @@ export const getModerationContext = cache(async (): Promise<ModerationContext> =
   ]);
 
   const list = (clients ?? []) as unknown as ModerationClient[];
-  if (list.length === 0) return { access: NO_ACCESS, clients: [] };
+  if (list.length === 0) {
+    // L'owner voit le module même vide : c'est lui qui branche les comptes
+    // dans Connexions et lance la première synchronisation. Pour tout autre,
+    // un module vide n'existe pas.
+    return viewer.isOwner
+      ? {
+          access: { role: "owner", clientIds: [], requiresApprovalByClient: {} },
+          clients: [],
+        }
+      : { access: NO_ACCESS, clients: [] };
+  }
 
   const membershipRows = (memberships ?? []) as unknown as {
     client_id: string;
@@ -75,7 +85,7 @@ export async function requireModeration(): Promise<ModerationContext> {
   if (!viewer) redirect("/login");
 
   const context = await getModerationContext();
-  if (context.clients.length === 0) notFound();
+  if (context.clients.length === 0 && context.access.role !== "owner") notFound();
   return context;
 }
 

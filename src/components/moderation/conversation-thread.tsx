@@ -2,7 +2,15 @@
 
 import { useActionState, useEffect, useState } from "react";
 import { toast } from "sonner";
-import { AlertTriangle, Check, Clock, Pause, X } from "lucide-react";
+import {
+  AlertTriangle,
+  ArrowLeft,
+  Check,
+  Clock,
+  ExternalLink,
+  Pause,
+  X,
+} from "lucide-react";
 
 import {
   setConversationStatus,
@@ -37,18 +45,23 @@ import { cn } from "@/lib/utils";
  */
 export function ConversationThread({
   clientSlug,
+  clientName,
   role,
   conversation,
   messages,
   draft,
   onAdvance,
+  onBack,
 }: {
-  clientSlug: string;
+  clientSlug: string | null;
+  clientName: string | null;
   role: ModerationRole;
   conversation: Conversation | null;
   messages: ModerationMessage[];
   draft: Draft | null;
   onAdvance: () => void;
+  /** Mobile : referme le fil et rend la liste. */
+  onBack: () => void;
 }) {
   const [correctionOpen, setCorrectionOpen] = useState(false);
 
@@ -133,12 +146,21 @@ export function ConversationThread({
   return (
     <div className="flex min-w-0 flex-1 flex-col">
       {/* En-tête du fil */}
-      <div className="border-b border-border px-5 py-3.5">
-        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+      <div className="border-b border-border px-4 py-3.5 md:px-5">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <button
+            type="button"
+            onClick={onBack}
+            className="focus-visible:ring-ring -ml-1 rounded-md p-1 text-text-secondary transition-colors duration-(--motion-duration) ease-standard hover:text-text-primary focus-visible:ring-2 focus-visible:outline-none md:hidden"
+            aria-label="Revenir à la liste"
+          >
+            <ArrowLeft className="size-4.5" strokeWidth={1.75} aria-hidden />
+          </button>
           <h2 className="type-h3 text-text-primary">
             {conversation.participant_handle ?? "Inconnu"}
           </h2>
           <span className="type-caption text-text-secondary">
+            {clientName ? `${clientName} · ` : null}
             {CHANNEL_LABELS[conversation.channel]} ·{" "}
             {KIND_LABELS[conversation.kind]} ·{" "}
             {STATUS_LABELS[conversation.status]}
@@ -162,6 +184,39 @@ export function ConversationThread({
           </p>
         ) : null}
       </div>
+
+      {/* La publication commentée : un commentaire ne se modère pas sans elle. */}
+      {conversation.post_external_id ? (
+        <a
+          href={conversation.post_permalink ?? undefined}
+          target="_blank"
+          rel="noreferrer"
+          className={cn(
+            "focus-visible:ring-ring flex items-center gap-3 border-b border-border bg-surface-sunken px-4 py-2.5 focus-visible:ring-2 focus-visible:-outline-offset-2 focus-visible:outline-none md:px-5",
+            conversation.post_permalink
+              ? "transition-colors duration-(--motion-duration) ease-standard hover:bg-surface-sunken/60"
+              : "pointer-events-none",
+          )}
+        >
+          {conversation.post_thumbnail_url ? (
+            // eslint-disable-next-line @next/next/no-img-element -- CDN Meta
+            <img
+              src={conversation.post_thumbnail_url}
+              alt=""
+              className="size-9 shrink-0 rounded-md object-cover"
+            />
+          ) : null}
+          <p className="type-caption min-w-0 flex-1 truncate text-text-secondary">
+            {conversation.post_excerpt ?? "Publication sans texte"}
+          </p>
+          {conversation.post_permalink ? (
+            <span className="type-caption inline-flex shrink-0 items-center gap-1 font-medium text-accent-ink">
+              Ouvrir la publication
+              <ExternalLink className="size-3.5" strokeWidth={1.75} aria-hidden />
+            </span>
+          ) : null}
+        </a>
+      ) : null}
 
       {/* Fil de conversation */}
       <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-5 py-4">
@@ -220,12 +275,18 @@ export function ConversationThread({
                 <ul className="mt-1 space-y-0.5">
                   {sources.map((source) => (
                     <li key={source.faq_entry_id}>
-                      <a
-                        href={`/moderation/${clientSlug}/faq?entree=${source.faq_entry_id}`}
-                        className="type-caption text-accent-ink underline-offset-2 hover:underline"
-                      >
-                        {source.question}
-                      </a>
+                      {clientSlug ? (
+                        <a
+                          href={`/moderation/${clientSlug}/faq?entree=${source.faq_entry_id}`}
+                          className="type-caption text-accent-ink underline-offset-2 hover:underline"
+                        >
+                          {source.question}
+                        </a>
+                      ) : (
+                        <span className="type-caption text-text-secondary">
+                          {source.question}
+                        </span>
+                      )}
                       <span className="text-muted-foreground ml-2 text-[11px] tabular-nums">
                         {Math.round(source.similarity * 100)} %
                       </span>
@@ -253,7 +314,7 @@ export function ConversationThread({
                 <HiddenFields
                   clientId={conversation.client_id}
                   conversationId={conversation.id}
-                  clientSlug={clientSlug}
+                  clientSlug={clientSlug ?? ""}
                 />
                 <Button id="draft-validate" type="submit" disabled={validating}>
                   <Check className="size-4" aria-hidden />
@@ -275,7 +336,7 @@ export function ConversationThread({
               <HiddenFields
                 clientId={conversation.client_id}
                 conversationId={conversation.id}
-                clientSlug={clientSlug}
+                clientSlug={clientSlug ?? ""}
               />
               <input type="hidden" name="status" value="snoozed" />
               <Button
@@ -293,7 +354,7 @@ export function ConversationThread({
               <HiddenFields
                 clientId={conversation.client_id}
                 conversationId={conversation.id}
-                clientSlug={clientSlug}
+                clientSlug={clientSlug ?? ""}
               />
               <input type="hidden" name="status" value="ignored" />
               <Button
@@ -317,7 +378,7 @@ export function ConversationThread({
         open={correctionOpen}
         onOpenChange={setCorrectionOpen}
         clientId={conversation.client_id}
-        clientSlug={clientSlug}
+        clientSlug={clientSlug ?? ""}
         conversationId={conversation.id}
         incomingMessage={lastInbound?.body ?? ""}
         draftBody={draft?.body ?? ""}

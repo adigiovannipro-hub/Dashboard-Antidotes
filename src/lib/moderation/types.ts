@@ -83,6 +83,98 @@ export function isActionable(status: ConversationStatus): boolean {
 export type ConversationPriority = "normal" | "high";
 
 /**
+ * Les onglets de l'inbox croisée — le vocabulaire de la Boîte de réception
+ * Meta, réduit à ce que l'outil ingère. Valeurs en français : elles vivent
+ * dans l'URL (`?vue=`).
+ */
+export type InboxView =
+  | "tout"
+  | "commentaires-instagram"
+  | "commentaires-facebook"
+  | "messages";
+
+export const VIEW_ORDER: InboxView[] = [
+  "tout",
+  "commentaires-instagram",
+  "commentaires-facebook",
+  "messages",
+];
+
+export const VIEW_LABELS: Record<InboxView, string> = {
+  tout: "Tout",
+  "commentaires-instagram": "Commentaires Instagram",
+  "commentaires-facebook": "Commentaires Facebook",
+  messages: "Messages privés",
+};
+
+export function isInboxView(value: string): value is InboxView {
+  return value in VIEW_LABELS;
+}
+
+/** Un onglet est une contrainte (canal, type) — « tout » n'en porte aucune. */
+export function viewMatches(
+  view: InboxView,
+  channel: ModerationChannel,
+  kind: ConversationKind,
+): boolean {
+  switch (view) {
+    case "tout":
+      return true;
+    case "commentaires-instagram":
+      return channel === "instagram" && kind === "comment";
+    case "commentaires-facebook":
+      return channel === "facebook" && kind === "comment";
+    case "messages":
+      return kind === "dm";
+  }
+}
+
+/**
+ * Les statuts, regroupés comme on travaille : ce qui attend une action, ce
+ * qui est mis de côté, ce qui est classé. Valeurs en français — URL aussi
+ * (`?statut=`).
+ */
+export type StatusGroup = "a-traiter" | "en-attente" | "traitees" | "toutes";
+
+export const STATUS_GROUP_ORDER: StatusGroup[] = [
+  "a-traiter",
+  "en-attente",
+  "traitees",
+  "toutes",
+];
+
+export const STATUS_GROUP_LABELS: Record<StatusGroup, string> = {
+  "a-traiter": "À traiter",
+  "en-attente": "En attente",
+  traitees: "Traitées",
+  toutes: "Toutes",
+};
+
+export function isStatusGroup(value: string): value is StatusGroup {
+  return value in STATUS_GROUP_LABELS;
+}
+
+export const STATUS_GROUP_MEMBERS: Record<
+  Exclude<StatusGroup, "toutes">,
+  ConversationStatus[]
+> = {
+  // Aligné sur ACTIONABLE_STATUSES — un seul vocabulaire du « à gérer ».
+  "a-traiter": ["to_process", "awaiting_validation", "send_failed"],
+  "en-attente": ["snoozed"],
+  // `validated` est traité du point de vue de l'opérateur : validé, en
+  // partance — il ne réclame plus rien.
+  traitees: ["validated", "sent", "ignored", "answered_elsewhere"],
+};
+
+export function statusGroupOf(
+  status: ConversationStatus,
+): Exclude<StatusGroup, "toutes"> {
+  if (STATUS_GROUP_MEMBERS["a-traiter"].includes(status)) return "a-traiter";
+  if (STATUS_GROUP_MEMBERS["en-attente"].includes(status)) return "en-attente";
+  return "traitees";
+}
+
+/**
  * Signalements automatiques. Une conversation qui en porte au moins un n'est
  * **jamais** éligible à l'auto-envoi et passe en priorité haute.
  */

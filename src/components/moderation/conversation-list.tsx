@@ -3,9 +3,11 @@
 import { useEffect, useRef } from "react";
 
 import { StatusPill, type StatusTone } from "@/components/ds/status-pill";
+import type { ClientChip } from "@/components/moderation/inbox-filter-bar";
 import {
   CHANNEL_LABELS,
   FLAG_LABELS,
+  KIND_LABELS,
   STATUS_LABELS,
   type Conversation,
   type ConversationStatus,
@@ -31,19 +33,26 @@ const STATUS_TONES: Record<ConversationStatus, StatusTone> = {
 };
 
 /**
- * Colonne du milieu : la liste.
+ * Le volet de gauche : la liste.
  *
- * Dense par choix — l'objectif est cent messages en dix minutes, donc une ligne
- * doit tenir en trois lignes de texte et se lire d'un coup d'œil : qui, quoi,
- * quand, sur quel canal, avec quelle urgence.
+ * Dense par choix — l'objectif est cent messages en dix minutes, donc une
+ * ligne doit se lire d'un coup d'œil : qui, quoi, quand, chez quel client,
+ * sous quelle publication, avec quelle urgence.
  */
 export function ConversationList({
   conversations,
+  clients,
+  showClient,
   selectedId,
+  emptyMessage,
   onSelect,
 }: {
   conversations: Conversation[];
+  clients: Map<string, ClientChip>;
+  /** Vrai en vue croisée : chaque ligne rappelle son client. */
+  showClient: boolean;
   selectedId: string | null;
+  emptyMessage: string;
   onSelect: (id: string) => void;
 }) {
   const selectedRef = useRef<HTMLButtonElement>(null);
@@ -56,19 +65,17 @@ export function ConversationList({
 
   if (conversations.length === 0) {
     return (
-      <div className="type-body flex w-96 shrink-0 items-center justify-center border-r border-border p-8 text-center text-text-secondary">
-        Aucune conversation ne correspond à ces filtres.
+      <div className="type-body flex h-full items-center justify-center p-8 text-center text-text-secondary">
+        {emptyMessage}
       </div>
     );
   }
 
   return (
-    <ul
-      className="w-96 shrink-0 overflow-y-auto border-r border-border"
-      aria-label="Conversations"
-    >
+    <ul aria-label="Conversations">
       {conversations.map((conversation) => {
         const active = conversation.id === selectedId;
+        const client = clients.get(conversation.client_id);
         return (
           <li key={conversation.id}>
             <button
@@ -107,13 +114,37 @@ export function ConversationList({
                 </span>
               </div>
 
-              <p className="type-caption mt-1 line-clamp-2 pl-3.5 text-text-secondary">
+              <p className="type-caption mt-1 line-clamp-2 pl-3.5 text-text-primary/80">
                 {conversation.excerpt}
               </p>
 
+              {conversation.post_excerpt ? (
+                // La publication commentée : c'est elle qui donne le contexte
+                // d'un commentaire — sans elle, « oui, en bleu ! » ne se
+                // modère pas.
+                <p className="type-caption mt-0.5 truncate pl-3.5 text-text-secondary">
+                  Sous « {conversation.post_excerpt} »
+                </p>
+              ) : null}
+
               <div className="mt-1.5 flex flex-wrap items-center gap-1 pl-3.5">
+                {showClient && client ? (
+                  <StatusPill tone="neutral" dot={false}>
+                    {client.logoUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element -- URL signée
+                      <img
+                        src={client.logoUrl}
+                        alt=""
+                        className="-ml-0.5 size-3.5 rounded-pill object-cover"
+                      />
+                    ) : null}
+                    {client.name}
+                  </StatusPill>
+                ) : null}
                 <StatusPill tone="neutral" dot={false}>
-                  {CHANNEL_LABELS[conversation.channel]}
+                  {conversation.kind === "comment"
+                    ? CHANNEL_LABELS[conversation.channel]
+                    : `${KIND_LABELS[conversation.kind]} · ${CHANNEL_LABELS[conversation.channel]}`}
                 </StatusPill>
                 <StatusPill tone={STATUS_TONES[conversation.status]}>
                   {STATUS_LABELS[conversation.status]}

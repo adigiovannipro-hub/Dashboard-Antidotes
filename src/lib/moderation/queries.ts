@@ -1,121 +1,177 @@
 import "server-only";
 
 import { createClient } from "@/lib/supabase/server";
-import { ACTIONABLE_STATUSES } from "./types";
+import {
+  ACTIONABLE_STATUSES,
+  STATUS_GROUP_MEMBERS,
+  VIEW_ORDER,
+  viewMatches,
+} from "./types";
 import type {
   Conversation,
+  ConversationKind,
+  ConversationStatus,
   Draft,
   FaqEntry,
+  InboxView,
   ModerationChannel,
   ModerationMessage,
+  StatusGroup,
 } from "./types";
 
 /**
- * Lectures de l'inbox.
+ * Lectures de l'inbox croisée.
  *
  * Toutes passent par le client porteur de la session : la RLS fait le
- * cloisonnement, il n'y a donc aucun `where client_id` défensif à ajouter — un
- * opérateur d'un autre client ne verrait rien même sans filtre.
+ * cloisonnement — sans filtre client, la liste rend **tous les clients que le
+ * lecteur atteint**, et rien d'autre. C'est ce qui fait l'inbox multi-clients
+ * de l'agence et, sans changer une ligne, l'inbox mono-client d'un
+ * contributeur d'espace.
  */
 
 export type InboxFilters = {
-  channel?: ModerationChannel;
-  status?: string;
-  kind?: string;
+  /** Onglet courant — « tout » par défaut. */
+  view?: InboxView;
+  /** Filtre client, résolu du slug de l'URL vers l'identifiant. */
+  clientId?: string;
+  /** Groupe de statuts — « à traiter » par défaut, décidé par la page. */
+  statusGroup?: StatusGroup;
   unreadOnly?: boolean;
   highPriorityOnly?: boolean;
   search?: string;
 };
 
-export type ConversationListItem = Conversation & {
-  latest_draft_status: string | null;
-};
-
 export async function listConversations(options: {
-  clientId: string;
   filters: InboxFilters;
   limit?: number;
-}): Promise<ConversationListItem[]> {
+}): Promise<Conversation[]> {
   const supabase = await createClient();
   let query = supabase
     .from("conversations")
     .select("*")
-    .eq("client_id", options.clientId)
     .is("deleted_at", null)
     .order("last_message_at", { ascending: false })
     .limit(options.limit ?? 100);
 
   const { filters } = options;
-  if (filters.channel) query = query.eq("channel", filters.channel);
-  if (filters.status) query = query.eq("status", filters.status);
-  if (filters.kind) query = query.eq("kind", filters.kind);
+  const view = filters.view ?? "tout";
+  if (view === "commentaires-instagram") {
+    query = query.eq("channel", "instagram").eq("kind", "comment");
+  } else if (view === "commentaires-facebook") {
+    query = query.eq("channel", "facebook").eq("kind", "comment");
+  } else if (view === "messages") {
+    query = query.eq("kind", "dm");
+  }
+
+  if (filters.clientId) query = query.eq("client_id", filters.clientId);
+
+  const group = filters.statusGroup ?? "a-traiter";
+  if (group !== "toutes") {
+    query = query.in("status", STATUS_GROUP_MEMBERS[group]);
+  }
+
   if (filters.unreadOnly) query = query.eq("unread", true);
   if (filters.highPriorityOnly) query = query.eq("priority", "high");
   if (filters.search) {
     query = query.or(
-      `participant_handle.ilike.%${filters.search}%,excerpt.ilike.%${filters.search}%`,
+      `participant_handle.ilike.%${filters.search}%,excerpt.ilike.%${filters.search}%,post_excerpt.ilike.%${filters.search}%`,
     );
   }
 
   const { data } = await query;
-  return ((data ?? []) as unknown as Conversation[]).map((conversation) => ({
-    ...conversation,
-    latest_draft_status: null,
-  }));
+  return (data ?? []) as unknown as Conversation[];
 }
 
 export type InboxCounters = {
-  /** Badge global « à gérer » : à traiter + en attente de validation + échecs. */
+  /** À gérer dans le périmètre courant (onglet + client). */
   actionable: number;
-  byStatus: Record<string, number>;
-  byChannel: Record<string, number>;
-  snoozed: number;
   unread: number;
   highPriority: number;
-  /** Ancienneté du plus vieux message non traité, en heures. */
+  /** Ancienneté du plus vieux message à gérer du périmètre, en heures. */
   oldestActionableHours: number | null;
+  /** Badge de chaque onglet : l'actionnable, filtré par le client courant. */
+  byView: Record<InboxView, number>;
+  /** Badge de chaque client : l'actionnable, filtré par l'onglet courant. */
+  byClient: Record<string, number>;
+  /** Effectif de chaque groupe de statuts dans le périmètre courant. */
+  byStatusGroup: Record<StatusGroup, number>;
 };
 
 /**
- * Compteurs de l'inbox.
+ * Compteurs de l'inbox, en une seule requête.
  *
- * Une seule requête plutôt qu'un `count` par pastille : sept allers-retours
- * pour afficher un en-tête serait absurde, et les volumes en jeu (quelques
- * milliers de lignes par client) tiennent largement en mémoire.
+ * Les badges se répondent : les onglets comptent dans le client choisi, les
+ * clients comptent dans l'onglet choisi, les statuts comptent dans les deux.
+ * C'est ce croisement qui rend la navigation honnête — un badge n'annonce
+ * jamais des conversations que le clic ne montrera pas.
  */
-export async function getCounters(clientId: string): Promise<InboxCounters> {
+export async function getInboxCounters(options: {
+  view?: InboxView;
+  clientId?: string;
+}): Promise<InboxCounters> {
   const supabase = await createClient();
   const { data } = await supabase
     .from("conversations")
-    .select("status, channel, unread, priority, last_message_at")
-    .eq("client_id", clientId)
+    .select("client_id, channel, kind, status, unread, priority, last_message_at")
     .is("deleted_at", null);
 
   const rows = (data ?? []) as unknown as {
-    status: string;
-    channel: string;
+    client_id: string;
+    channel: ModerationChannel;
+    kind: ConversationKind;
+    status: ConversationStatus;
     unread: boolean;
     priority: string;
     last_message_at: string;
   }[];
 
-  const byStatus: Record<string, number> = {};
-  const byChannel: Record<string, number> = {};
+  const view = options.view ?? "tout";
+  const byView = Object.fromEntries(VIEW_ORDER.map((entry) => [entry, 0])) as Record<
+    InboxView,
+    number
+  >;
+  const byClient: Record<string, number> = {};
+  const byStatusGroup: Record<StatusGroup, number> = {
+    "a-traiter": 0,
+    "en-attente": 0,
+    traitees: 0,
+    toutes: 0,
+  };
+
   let actionable = 0;
   let unread = 0;
   let highPriority = 0;
   let oldestActionable: number | null = null;
 
   for (const row of rows) {
-    byStatus[row.status] = (byStatus[row.status] ?? 0) + 1;
+    const actionableRow = ACTIONABLE_STATUSES.includes(row.status);
+    const inView = viewMatches(view, row.channel, row.kind);
+    const inClient = !options.clientId || row.client_id === options.clientId;
+
+    if (actionableRow && inClient) {
+      for (const candidate of VIEW_ORDER) {
+        if (viewMatches(candidate, row.channel, row.kind)) byView[candidate] += 1;
+      }
+    }
+    if (actionableRow && inView) {
+      byClient[row.client_id] = (byClient[row.client_id] ?? 0) + 1;
+    }
+
+    if (!inView || !inClient) continue;
+
+    byStatusGroup.toutes += 1;
+    if (STATUS_GROUP_MEMBERS["a-traiter"].includes(row.status)) {
+      byStatusGroup["a-traiter"] += 1;
+    } else if (STATUS_GROUP_MEMBERS["en-attente"].includes(row.status)) {
+      byStatusGroup["en-attente"] += 1;
+    } else {
+      byStatusGroup.traitees += 1;
+    }
+
     if (row.unread) unread += 1;
     if (row.priority === "high") highPriority += 1;
-
-    if (ACTIONABLE_STATUSES.includes(row.status as never)) {
+    if (actionableRow) {
       actionable += 1;
-      // Le badge par canal ne compte que l'actionnable : afficher le total
-      // ferait clignoter un canal où tout est déjà traité.
-      byChannel[row.channel] = (byChannel[row.channel] ?? 0) + 1;
       const at = new Date(row.last_message_at).getTime();
       if (oldestActionable === null || at < oldestActionable) oldestActionable = at;
     }
@@ -123,15 +179,15 @@ export async function getCounters(clientId: string): Promise<InboxCounters> {
 
   return {
     actionable,
-    byStatus,
-    byChannel,
-    snoozed: byStatus.snoozed ?? 0,
     unread,
     highPriority,
     oldestActionableHours:
       oldestActionable === null
         ? null
         : (Date.now() - oldestActionable) / (60 * 60 * 1000),
+    byView,
+    byClient,
+    byStatusGroup,
   };
 }
 
@@ -174,4 +230,27 @@ export async function listFaqEntries(clientId: string): Promise<FaqEntry[]> {
     .is("deleted_at", null)
     .order("question_canonical");
   return (data ?? []) as unknown as FaqEntry[];
+}
+
+/**
+ * L'état des canaux relevés — pour l'en-tête de l'inbox : dernier passage et
+ * erreurs à montrer, jamais de jeton (la table n'en porte pas).
+ */
+export type ChannelConnectionSummary = {
+  id: string;
+  client_id: string;
+  channel: ModerationChannel;
+  display_name: string | null;
+  status: string;
+  last_polled_at: string | null;
+  last_error: string | null;
+};
+
+export async function listChannelConnections(): Promise<ChannelConnectionSummary[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("channel_connections")
+    .select("id, client_id, channel, display_name, status, last_polled_at, last_error")
+    .order("last_polled_at", { ascending: false });
+  return (data ?? []) as unknown as ChannelConnectionSummary[];
 }

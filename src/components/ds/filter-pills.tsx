@@ -25,7 +25,13 @@ import { cn } from "@/lib/utils";
  * le clic et la réponse. Voir `ds/pill-indicator.tsx`.
  */
 
-export type FilterOption = { value: string; label: string; href: string };
+export type FilterOption = {
+  value: string;
+  label: string;
+  href: string;
+  /** Compteur affiché après le libellé — masqué à zéro, un zéro ne crie rien. */
+  count?: number;
+};
 
 export function FilterPills({
   options,
@@ -74,6 +80,14 @@ export function FilterPills({
           >
             <LinkPending />
             {option.label}
+            {option.count ? (
+              // `currentColor` à 15 % : le badge suit l'encre de sa pastille —
+              // blanc translucide sur la sélection pleine, gris doux ailleurs
+              // — et le chiffre garde le contraste du libellé qui le porte.
+              <span className="ml-1.5 inline-block rounded-pill bg-current/15 px-1.5 tabular-nums">
+                {option.count}
+              </span>
+            ) : null}
           </Link>
         );
       })}

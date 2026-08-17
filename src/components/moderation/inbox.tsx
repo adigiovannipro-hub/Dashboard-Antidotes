@@ -2,50 +2,73 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import Link from "next/link";
-import { AlertTriangle, Clock, MailOpen, MessagesSquare, Search } from "lucide-react";
+import { AlertTriangle, Inbox as InboxIcon, Search } from "lucide-react";
 
-import { StatCard, StatGrid } from "@/components/ds/stat-card";
 import { Panel } from "@/components/ds/surface";
-import { ConversationThread } from "@/components/moderation/conversation-thread";
-import { FilterRail } from "@/components/moderation/filter-rail";
 import { ConversationList } from "@/components/moderation/conversation-list";
+import { ConversationThread } from "@/components/moderation/conversation-thread";
+import {
+  InboxFilterBar,
+  type ClientChip,
+} from "@/components/moderation/inbox-filter-bar";
 import { ShortcutsHint } from "@/components/moderation/shortcuts-hint";
+import { ModerationSyncButton } from "@/components/moderation/sync-button";
 import { Input } from "@/components/ui/input";
-import type { InboxCounters, InboxFilters } from "@/lib/moderation/queries";
+import type {
+  ChannelConnectionSummary,
+  InboxCounters,
+} from "@/lib/moderation/queries";
 import type {
   Conversation,
   Draft,
-  ModerationClient,
+  InboxView,
   ModerationMessage,
   ModerationRole,
+  StatusGroup,
 } from "@/lib/moderation/types";
 import { cn } from "@/lib/utils";
 
 /**
- * Inbox de modération, trois colonnes.
+ * L'inbox de modération, croisée tous clients.
  *
- * Conçue pour traiter cent messages en dix minutes : le clavier fait tout, la
- * souris n'est jamais nécessaire, et la navigation entre conversations ne
- * recharge que la colonne de droite.
+ * Le modèle est la Boîte de réception Meta Business Suite, en mieux rangé :
+ * les canaux en onglets au sommet avec leurs compteurs, les clients et les
+ * statuts juste dessous, puis deux volets — la liste, le fil. Pas de bande de
+ * mesures : les compteurs vivent sur les filtres qu'ils qualifient.
+ *
+ * Conçue pour traiter cent messages en dix minutes : le clavier fait tout, et
+ * la navigation entre conversations ne recharge que le volet de droite.
  */
 export function Inbox({
   clients,
-  client,
   role,
   conversations,
   counters,
-  filters,
+  connections,
+  view,
+  statusGroup,
+  clientSlug,
+  unreadOnly,
+  highPriorityOnly,
+  search: initialSearch,
   selectedId,
+  threadOpen,
   thread,
 }: {
-  clients: ModerationClient[];
-  client: ModerationClient;
+  clients: ClientChip[];
   role: ModerationRole;
   conversations: Conversation[];
   counters: InboxCounters;
-  filters: InboxFilters;
+  connections: ChannelConnectionSummary[];
+  view: InboxView;
+  statusGroup: StatusGroup;
+  clientSlug: string | null;
+  unreadOnly: boolean;
+  highPriorityOnly: boolean;
+  search: string;
   selectedId: string | null;
+  /** Vrai quand l'URL porte `?conv=` : sur mobile, le fil couvre la liste. */
+  threadOpen: boolean;
   thread: {
     conversation: Conversation | null;
     messages: ModerationMessage[];
@@ -56,7 +79,12 @@ export function Inbox({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const searchRef = useRef<HTMLInputElement>(null);
-  const [search, setSearch] = useState(filters.search ?? "");
+  const [search, setSearch] = useState(initialSearch);
+
+  const clientById = useMemo(
+    () => new Map(clients.map((client) => [client.id, client])),
+    [clients],
+  );
 
   const selectedIndex = useMemo(
     () => conversations.findIndex((conversation) => conversation.id === selectedId),
@@ -72,6 +100,13 @@ export function Inbox({
     [pathname, router, searchParams],
   );
 
+  const closeThread = useCallback(() => {
+    const next = new URLSearchParams(searchParams.toString());
+    next.delete("conv");
+    const query = next.toString();
+    router.push(query ? `${pathname}?${query}` : pathname, { scroll: false });
+  }, [pathname, router, searchParams]);
+
   const move = useCallback(
     (delta: number) => {
       if (conversations.length === 0) return;
@@ -82,9 +117,8 @@ export function Inbox({
     [conversations, goTo, selectedIndex],
   );
 
-  // Raccourcis de navigation. Les actions (valider, refuser, ignorer, mettre en
-  // attente) sont gérées par le fil de conversation, qui seul connaît le
-  // brouillon courant.
+  // Raccourcis de navigation. Les actions (valider, refuser, ignorer, mettre
+  // en attente) sont gérées par le fil, qui seul connaît le brouillon courant.
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
       const target = event.target as HTMLElement | null;
@@ -126,118 +160,139 @@ export function Inbox({
     router.push(`${pathname}?${next}`);
   }
 
-  const staleHours = counters.oldestActionableHours;
+  // L'état du relevé : le plus récent passage, et les canaux en panne.
+  const lastPolledAt = connections.reduce<string | null>(
+    (latest, connection) =>
+      connection.last_polled_at && (!latest || connection.last_polled_at > latest)
+        ? connection.last_polled_at
+        : latest,
+    null,
+  );
+  const failing = connections.filter((connection) => connection.last_error);
+
+  const selectedClient = thread.conversation
+    ? clientById.get(thread.conversation.client_id)
+    : undefined;
+
+  if (clients.length === 0) {
+    // Le module avant la première synchronisation — visible de l'owner seul.
+    return (
+      <div className="flex flex-wrap items-center gap-3 rounded-lg border border-dashed border-border bg-surface-sunken px-5 py-4">
+        <InboxIcon
+          aria-hidden
+          strokeWidth={1.75}
+          className="size-5 shrink-0 text-text-tertiary"
+        />
+        <p className="type-body min-w-0 flex-1 text-text-secondary">
+          Rien n&apos;est encore relevé. Brancher un compte Instagram ou une
+          Page dans Connexions, sur le Planning d&apos;un espace, puis lancer
+          le premier relevé — ensuite, il tourne chaque heure tout seul.
+        </p>
+        <ModerationSyncButton />
+      </div>
+    );
+  }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-5">
-      {/* Le client se choisit en onglets, comme les sections d'un espace. */}
-      <div className="flex flex-wrap items-center gap-3">
-        {clients.length > 1 ? (
-          <nav aria-label="Clients">
-            <ul className="inline-flex items-center gap-1 rounded-pill bg-surface-sunken p-1">
-              {clients.map((candidate) => (
-                <li key={candidate.id}>
-                  <Link
-                    href={`/moderation/${candidate.slug}`}
-                    aria-current={candidate.id === client.id ? "page" : undefined}
-                    className={cn(
-                      "type-caption focus-visible:ring-ring block rounded-pill px-3.5 py-1.5 font-medium transition-colors duration-(--motion-duration) ease-standard focus-visible:ring-2 focus-visible:outline-none",
-                      candidate.id === client.id
-                        ? "bg-primary text-primary-foreground"
-                        : "text-text-secondary hover:text-text-primary",
-                    )}
-                  >
-                    {candidate.name}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </nav>
-        ) : (
-          <h2 className="type-h2 text-text-primary">{client.name}</h2>
-        )}
+    <div className="flex min-h-0 flex-1 flex-col gap-4">
+      <InboxFilterBar
+        clients={clients}
+        counters={counters}
+        view={view}
+        statusGroup={statusGroup}
+        clientSlug={clientSlug}
+        unreadOnly={unreadOnly}
+        highPriorityOnly={highPriorityOnly}
+        trailing={
+          <>
+            {failing.length > 0 ? (
+              <span
+                className="type-caption inline-flex items-center gap-1 font-medium text-danger-ink"
+                title={failing[0]!.last_error ?? undefined}
+              >
+                <AlertTriangle className="size-3.5" strokeWidth={1.75} aria-hidden />
+                {failing.length > 1
+                  ? `${failing.length} canaux en erreur`
+                  : "canal en erreur"}
+              </span>
+            ) : lastPolledAt ? (
+              <span className="type-caption hidden text-text-secondary lg:inline">
+                Relevé {relativeTime(lastPolledAt)}
+              </span>
+            ) : null}
 
-        <form onSubmit={submitSearch} className="relative ml-auto">
-          <Search
-            className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-text-tertiary"
-            aria-hidden
+            <form onSubmit={submitSearch} className="relative">
+              <Search
+                className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-text-tertiary"
+                aria-hidden
+              />
+              <Input
+                ref={searchRef}
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Rechercher   /"
+                aria-label="Rechercher une conversation"
+                className="w-44 pl-9 xl:w-64"
+              />
+            </form>
+
+            {role === "owner" ? <ModerationSyncButton /> : null}
+            <ShortcutsHint />
+          </>
+        }
+      />
+
+      {/* Les deux volets dans une seule surface. Sur mobile, un seul à la
+          fois : la liste, puis le fil quand une conversation est ouverte. */}
+      <Panel className="flex min-h-0 flex-1 overflow-hidden">
+        <div
+          className={cn(
+            "min-h-0 w-full overflow-y-auto border-border md:w-96 md:shrink-0 md:border-r",
+            threadOpen ? "hidden md:block" : "block",
+          )}
+        >
+          <ConversationList
+            conversations={conversations}
+            clients={clientById}
+            showClient={clientSlug === null && clients.length > 1}
+            selectedId={selectedId}
+            emptyMessage={
+              view === "messages"
+                ? "Les messages privés ne sont pas encore branchés — leur permission Meta n'est pas demandée. Les commentaires, eux, sont relevés chaque heure."
+                : "Aucune conversation ne correspond à ces filtres."
+            }
+            onSelect={goTo}
           />
-          <Input
-            ref={searchRef}
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="Rechercher   /"
-            aria-label="Rechercher une conversation"
-            className="w-64 pl-9"
+        </div>
+
+        <div
+          className={cn(
+            "min-h-0 min-w-0 flex-1 flex-col",
+            threadOpen ? "flex" : "hidden md:flex",
+          )}
+        >
+          <ConversationThread
+            key={thread.conversation?.id ?? "empty"}
+            clientSlug={selectedClient?.slug ?? null}
+            clientName={selectedClient?.name ?? null}
+            role={role}
+            conversation={thread.conversation}
+            messages={thread.messages}
+            draft={thread.draft}
+            onAdvance={() => move(1)}
+            onBack={closeThread}
           />
-        </form>
-
-        <ShortcutsHint />
-      </div>
-
-      {/* La même bande de mesures que les autres modules : ce qui attend, ce
-          qui alerte, ce qui n'a pas encore été ouvert, et depuis combien de
-          temps le plus vieux message patiente — seul signal d'urgence en V1,
-          puisqu'il n'y a volontairement aucune notification externe. */}
-      <StatGrid>
-        <StatCard
-          label="À gérer"
-          value={counters.actionable}
-          context="conversations ouvertes"
-          icon={MessagesSquare}
-        />
-        <StatCard
-          label="Signalées"
-          value={counters.highPriority}
-          context={counters.highPriority > 0 ? "lecture humaine" : "rien de signalé"}
-          tone={counters.highPriority > 0 ? "danger" : undefined}
-          toneLabel={counters.highPriority > 0 ? "prioritaire" : undefined}
-          icon={AlertTriangle}
-        />
-        <StatCard
-          label="Non lus"
-          value={counters.unread}
-          context="jamais ouverts"
-          icon={MailOpen}
-        />
-        <StatCard
-          label="Plus ancien"
-          value={staleHours === null ? "—" : formatAge(staleHours)}
-          context={staleHours === null ? "rien en attente" : "sans réponse"}
-          tone={staleHours !== null && staleHours > 24 ? "warning" : undefined}
-          toneLabel={staleHours !== null && staleHours > 24 ? "à traiter" : undefined}
-          icon={Clock}
-        />
-      </StatGrid>
-
-      {/* Les trois colonnes dans une seule surface : posées à même le fond,
-          elles se lisaient comme trois écrans juxtaposés plutôt que comme un
-          poste de travail. */}
-      <Panel className="flex min-h-0 flex-1">
-        <FilterRail counters={counters} filters={filters} />
-
-        <ConversationList
-          conversations={conversations}
-          selectedId={selectedId}
-          onSelect={goTo}
-        />
-
-        <ConversationThread
-          key={thread.conversation?.id ?? "empty"}
-          clientSlug={client.slug}
-          role={role}
-          conversation={thread.conversation}
-          messages={thread.messages}
-          draft={thread.draft}
-          onAdvance={() => move(1)}
-        />
+        </div>
       </Panel>
     </div>
   );
 }
 
-function formatAge(hours: number): string {
-  if (hours < 1) return "moins d'une heure";
-  if (hours < 24) return `${Math.floor(hours)} h`;
-  return `${Math.floor(hours / 24)} j`;
+function relativeTime(iso: string): string {
+  const minutes = Math.round((Date.now() - new Date(iso).getTime()) / 60_000);
+  if (minutes < 1) return "à l'instant";
+  if (minutes < 60) return `il y a ${minutes} min`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `il y a ${hours} h`;
+  return `il y a ${Math.round(hours / 24)} j`;
 }
