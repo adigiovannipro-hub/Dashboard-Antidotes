@@ -142,13 +142,16 @@ describe("buildCardModel", () => {
     expect(model.action?.disabled).toBe(true);
   });
 
-  it("programme les posts validés et donne la première date", () => {
+  it("envoie le planning en validation et donne la première date", () => {
     const model = build({
       phases: [...upToWording, slice({ phase: "wording", status: "done", completed_at: "2026-08-19T10:00:00Z" })],
       target: { total: 12, withWording: 12, validated: 7, scheduled: 2, firstPublication: "2026-09-02" },
     }, { today: "2026-08-24" });
     expect(model.currentPhase).toBe("programmation");
-    expect(model.action?.label).toBe("Programmer les 7 posts validés");
+    // Plus de « programmer » : la publication est automatique à 16h, le
+    // moment du cycle est l'envoi du planning au client.
+    expect(model.action?.label).toBe("Envoyer en validation");
+    expect(model.action?.kind).toBe("validation");
     expect(model.metrics).toContainEqual({
       label: "Première publication le",
       value: "2 sept.",

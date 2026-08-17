@@ -85,3 +85,60 @@ export function buildCommentMime(email: CommentEmail): string {
     Buffer.from(buildCommentHtml(email), "utf8"),
   )}\r\n`;
 }
+
+/**
+ * Le courriel d'envoi en validation — la carte cockpit prévient le client que
+ * son planning du mois est prêt à relire. Même langage visuel que le retour.
+ */
+export type ValidationEmail = {
+  from: string;
+  to: string;
+  workspaceName: string;
+  /** « septembre 2026 » — déjà formaté, le mail ne calcule rien. */
+  monthLabel: string;
+  /** URL du planning de l'espace. */
+  link: string;
+};
+
+export function buildValidationHtml(email: ValidationEmail): string {
+  return `<!doctype html>
+<html lang="fr">
+  <body style="margin:0;padding:24px;background-color:#f4f3f0;font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#1a1a1a;">
+    <div style="max-width:560px;margin:0 auto;background-color:#ffffff;border:1px solid #e4e2dd;border-radius:12px;padding:28px;">
+      <p style="margin:0 0 4px;font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:#6f6b63;">
+        ${escapeHtml(email.workspaceName)} · Planning éditorial
+      </p>
+      <h1 style="margin:0 0 16px;font-size:18px;line-height:1.35;">
+        Le planning de ${escapeHtml(email.monthLabel)} est prêt
+      </h1>
+      <p style="margin:0 0 20px;font-size:14px;line-height:1.55;">
+        Bonjour ${escapeHtml(email.workspaceName)},<br /><br />
+        le planning du mois de ${escapeHtml(email.monthLabel)} est disponible
+        pour review. Vos retours se laissent directement sur chaque
+        publication.
+      </p>
+      <a href="${escapeHtml(email.link)}" style="display:inline-block;padding:10px 18px;background-color:#1a1a1a;color:#ffffff;border-radius:8px;font-size:13px;font-weight:600;text-decoration:none;">
+        Ouvrir le planning
+      </a>
+      <p style="margin:20px 0 0;font-size:11px;color:#a09b91;">
+        Envoyé depuis le planning éditorial Antidotes.
+      </p>
+    </div>
+  </body>
+</html>`;
+}
+
+export function buildValidationMime(email: ValidationEmail): string {
+  const headers = [
+    `From: ${email.from}`,
+    `To: ${email.to}`,
+    `Subject: ${encodeHeader(`Planning ${email.monthLabel} — disponible pour review (${email.workspaceName})`)}`,
+    "MIME-Version: 1.0",
+    'Content-Type: text/html; charset="UTF-8"',
+    "Content-Transfer-Encoding: base64",
+  ];
+
+  return `${headers.join("\r\n")}\r\n\r\n${foldBase64(
+    Buffer.from(buildValidationHtml(email), "utf8"),
+  )}\r\n`;
+}

@@ -18,7 +18,10 @@ export type ProductionPhase =
 export const PHASE_LABELS: Record<ProductionPhase, string> = {
   intentions: "Intentions",
   wording: "Content",
-  programmation: "Programmation",
+  // La clé reste `programmation` — enum en base, segment d'URL — mais le
+  // moment du cycle est celui du client : son planning part en validation,
+  // la publication elle-même étant automatique à 16h.
+  programmation: "Validation",
   reporting: "Reporting",
 };
 

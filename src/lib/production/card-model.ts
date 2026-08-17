@@ -87,8 +87,9 @@ export type CardAction = {
   /** `YYYY-MM-01` — le mois que la route de génération recevra. */
   targetMonth: string;
   label: string;
-  /** `resume` : relance des unités en échec, rendue en ton danger. */
-  kind: "generate" | "resume";
+  /** `resume` : relance des unités en échec, rendue en ton danger.
+      `validation` : pas un job — l'envoi du courriel « planning prêt ». */
+  kind: "generate" | "resume" | "validation";
   disabled: boolean;
   /** Pourquoi le bouton est inerte, montré en infobulle. */
   reason: string | null;
@@ -244,7 +245,9 @@ export function buildCardModel(options: {
       metrics = [
         { label: "Posts validés client", value: String(snapshot.target.validated) },
         {
-          label: "Posts programmés",
+          // « Datés » et non « programmés » : la programmation n'existe plus
+          // comme geste — un post validé et daté part tout seul à 16h.
+          label: "Posts datés",
           value: `${snapshot.target.scheduled} sur ${snapshot.target.total}`,
         },
         {
@@ -370,16 +373,18 @@ export function buildCardModel(options: {
           break;
         }
         case "programmation": {
-          const count = snapshot.target.validated;
+          // Plus rien à « programmer » : la publication part toute seule à
+          // 16h dès qu'un post est validé et daté. Ce moment du cycle est
+          // celui du client — on lui envoie son planning à relire.
           action = {
             ...base,
-            kind: "generate",
-            label:
-              count === 1
-                ? "Programmer le post validé"
-                : `Programmer les ${count} posts validés`,
-            disabled: count === 0,
-            reason: count === 0 ? "Aucun post validé à programmer" : null,
+            kind: "validation",
+            label: "Envoyer en validation",
+            disabled: snapshot.target.total === 0,
+            reason:
+              snapshot.target.total === 0
+                ? `Aucune publication pour ${nextLabel}`
+                : null,
           };
           break;
         }

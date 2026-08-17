@@ -40,9 +40,16 @@ export type NotifyOutcome = {
   reason?: string;
 };
 
-export async function sendCommentEmails(
-  notification: CommentNotification,
-): Promise<NotifyOutcome> {
+/** La boîte d'envoi prête à l'emploi : jeton frais et adresse d'expédition. */
+export type GmailTransport = { accessToken: string; from: string };
+
+/**
+ * La boîte Gmail des Reçus, jeton rafraîchi — le transport de tout courriel
+ * sortant du produit : retours du planning, envoi en validation.
+ */
+export async function getGmailTransport(): Promise<
+  { ok: true; transport: GmailTransport } | { ok: false; reason: string }
+> {
   const admin = createAdminClient();
 
   const { data } = await admin
@@ -54,14 +61,9 @@ export async function sendCommentEmails(
 
   const source = data as unknown as ReceiptSource | null;
   if (!source?.credentials_encrypted) {
-    return {
-      sent: [],
-      failed: notification.recipients,
-      reason: "Aucune boîte Gmail connectée — voir le panneau Reçus.",
-    };
+    return { ok: false, reason: "Aucune boîte Gmail connectée — voir le panneau Reçus." };
   }
 
-  let accessToken: string;
   try {
     const refreshToken = decryptSecret(source.credentials_encrypted);
     const tokens = await refreshAccessToken(refreshToken);
@@ -73,14 +75,23 @@ export async function sendCommentEmails(
         .update({ credentials_encrypted: encryptSecret(tokens.refreshToken) })
         .eq("id", source.id);
     }
-    accessToken = tokens.accessToken;
-  } catch (error) {
     return {
-      sent: [],
-      failed: notification.recipients,
-      reason: `Connexion Gmail refusée : ${(error as Error).message}`,
+      ok: true,
+      transport: { accessToken: tokens.accessToken, from: source.email_address },
     };
+  } catch (error) {
+    return { ok: false, reason: `Connexion Gmail refusée : ${(error as Error).message}` };
   }
+}
+
+export async function sendCommentEmails(
+  notification: CommentNotification,
+): Promise<NotifyOutcome> {
+  const gmail = await getGmailTransport();
+  if (!gmail.ok) {
+    return { sent: [], failed: notification.recipients, reason: gmail.reason };
+  }
+  const { accessToken, from } = gmail.transport;
 
   const link = `${publicEnv.NEXT_PUBLIC_SITE_URL}/espace/${notification.workspaceSlug}/planning/${notification.boardSlug}?sujet=${notification.subjectId}`;
 
@@ -93,7 +104,7 @@ export async function sendCommentEmails(
       await sendMessage({
         accessToken,
         mime: buildCommentMime({
-          from: source.email_address,
+          from,
           to: recipient,
           workspaceName: notification.workspaceName,
           subjectName: notification.subjectName,

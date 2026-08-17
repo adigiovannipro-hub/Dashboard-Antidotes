@@ -6,7 +6,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { Archive, Plug, Plus, Search, Trash2, X } from "lucide-react";
 
-import { bulkMoveSubjects, createMonth } from "@/app/actions/planning";
+import { addYearBoard, bulkMoveSubjects, createMonth } from "@/app/actions/planning";
 import {
   ArchiveDialog,
   MoveDialog,
@@ -704,7 +704,70 @@ export function BoardTabs({
             </li>
           );
         })}
+
+        <AddYearTab boards={boards} current={current} workspaceSlug={workspaceSlug} />
       </ul>
     </nav>
+  );
+}
+
+/**
+ * « + 2027 » au bout des onglets : prolonge le planning d'une année.
+ *
+ * La configuration suit — colonnes, étiquettes — jamais le contenu, comme la
+ * duplication d'un espace. Le bouton n'apparaît que si un tableau éditorial
+ * millésimé existe, et disparaît dès que l'année suivante est là.
+ */
+function AddYearTab({
+  boards,
+  current,
+  workspaceSlug,
+}: {
+  boards: PlanningBoard[];
+  current: PlanningBoard;
+  workspaceSlug: string;
+}) {
+  const router = useRouter();
+  const [pending, setPending] = useState(false);
+
+  const years = boards
+    .map((board) => board.year)
+    .filter((year): year is number => year !== null);
+  if (years.length === 0) return null;
+
+  const nextYear = Math.max(...years) + 1;
+  if (years.includes(nextYear)) return null;
+
+  const create = async () => {
+    setPending(true);
+    try {
+      const result = await addYearBoard({
+        workspace: workspaceSlug,
+        board: current.slug,
+      });
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success(result.message);
+      router.push(`/espace/${workspaceSlug}/planning/${result.slug}`);
+    } finally {
+      setPending(false);
+    }
+  };
+
+  return (
+    <li>
+      <button
+        type="button"
+        onClick={create}
+        disabled={pending}
+        className="type-label text-text-secondary hover:text-text-primary focus-visible:ring-ring relative -mb-px flex items-center gap-1 border-b-2 border-transparent px-0.5 pb-2.5 transition-colors duration-(--motion-duration) ease-standard focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50"
+        title={`Créer le tableau ${nextYear} — colonnes et étiquettes reprises, mois vides`}
+      >
+        <Plus aria-hidden strokeWidth={1.75} className="size-3.5" />
+        {pending ? "Création…" : String(nextYear)}
+      </button>
+    </li>
   );
 }

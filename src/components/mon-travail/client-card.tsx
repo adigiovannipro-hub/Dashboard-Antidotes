@@ -193,6 +193,46 @@ export function ClientCard({
    * pour qu'un aller-retour de sondage déjà parti ne fasse pas sonner deux
    * fois la même chose.
    */
+  /**
+   * « Envoyer en validation » — pas un job : un courriel au client, envoyé
+   * depuis la boîte de l'agence, et la phase se clôt sur l'envoi.
+   */
+  const sendValidation = useCallback(
+    async (targetMonth: string) => {
+      setLaunching(true);
+      try {
+        const response = await fetch("/api/production/validation", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ workspace: slug, target_month: targetMonth }),
+        });
+        const payload = (await response.json().catch(() => null)) as {
+          ok: boolean;
+          sent?: string[];
+          reason?: string;
+          error?: string;
+        } | null;
+
+        if (!response.ok || !payload?.ok) {
+          throw new Error(
+            payload?.reason ?? payload?.error ?? "Envoi impossible.",
+          );
+        }
+
+        const count = payload.sent?.length ?? 0;
+        toast.success(
+          `Planning envoyé en validation à ${count} adresse${count > 1 ? "s" : ""}.`,
+        );
+        router.refresh();
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Envoi impossible.");
+      } finally {
+        setLaunching(false);
+      }
+    },
+    [slug, router],
+  );
+
   const stop = useCallback(async () => {
     if (!job) return;
     setStopping(true);
@@ -303,7 +343,11 @@ export function ClientCard({
                 <DropdownMenuItem
                   key={phase}
                   disabled={jobActive || launching}
-                  onClick={() => launch(phase, targetMonthOf(phase))}
+                  onClick={() =>
+                    phase === "programmation"
+                      ? sendValidation(targetMonthOf(phase))
+                      : launch(phase, targetMonthOf(phase))
+                  }
                 >
                   <Icon aria-hidden strokeWidth={1.75} className="size-4" />
                   {MENU_ACTION_LABELS[phase]}
@@ -496,12 +540,16 @@ export function ClientCard({
           size="sm"
           className={cn(
             "mt-4 w-full",
-            vue.action.kind === "generate" &&
+            vue.action.kind !== "resume" &&
               "border-accent-ink/35 text-accent-ink hover:border-accent-ink/60 hover:bg-accent-subtle/40",
           )}
           disabled={vue.action.disabled || launching}
           title={vue.action.reason ?? undefined}
-          onClick={() => launch(vue.action!.phase, vue.action!.targetMonth)}
+          onClick={() =>
+            vue.action!.kind === "validation"
+              ? sendValidation(vue.action!.targetMonth)
+              : launch(vue.action!.phase, vue.action!.targetMonth)
+          }
         >
           {launching ? (
             <Loader2 aria-hidden className="animate-spin" strokeWidth={1.75} />
@@ -519,6 +567,6 @@ export function ClientCard({
 const MENU_ACTION_LABELS: Record<ProductionPhase, string> = {
   intentions: "Générer les intentions",
   wording: "Rédiger les wordings",
-  programmation: "Programmer les posts validés",
+  programmation: "Envoyer en validation",
   reporting: "Générer le reporting",
 };

@@ -145,6 +145,106 @@ export async function createMonth(
   }
 }
 
+export type YearBoardResult =
+  | { ok: true; slug: string; message: string }
+  | { ok: false; error: string };
+
+/**
+ * Prolonge le planning d'une année : un tableau 2027 à côté du 2026.
+ *
+ * **La configuration, jamais le contenu** — même règle que la duplication
+ * d'un espace : colonnes, vocabulaire d'étiquettes et réglages suivent, les
+ * douze mois se créent vides, aucune publication n'est copiée.
+ */
+export async function addYearBoard(scope: Scope): Promise<YearBoardResult> {
+  try {
+    const { workspace } = await guard(scope);
+    const supabase = await createClient();
+
+    // Le dernier tableau éditorial en date : c'est lui qu'on prolonge, avec
+    // sa configuration la plus récente.
+    const { data: boards } = await supabase
+      .from("planning_boards")
+      .select("id, slug, year, position, settings")
+      .eq("workspace_id", workspace.id)
+      .eq("kind", "editorial")
+      .order("year", { ascending: false })
+      .limit(1);
+
+    const source = (boards ?? [])[0] as
+      | { id: string; slug: string; year: number | null; position: number; settings: unknown }
+      | undefined;
+    if (!source) {
+      return { ok: false, error: "Aucun planning éditorial à prolonger." };
+    }
+
+    const year = (source.year ?? new Date().getUTCFullYear()) + 1;
+    const slug = String(year);
+
+    // Déjà créé — un double clic, pas une erreur : on y va simplement.
+    const { data: existing } = await supabase
+      .from("planning_boards")
+      .select("slug")
+      .eq("workspace_id", workspace.id)
+      .eq("slug", slug)
+      .maybeSingle();
+    if (existing) {
+      return { ok: true, slug, message: `Le tableau ${year} existe déjà.` };
+    }
+
+    const { data: created, error } = await supabase
+      .from("planning_boards")
+      .insert({
+        workspace_id: workspace.id,
+        kind: "editorial",
+        slug,
+        name: slug,
+        year,
+        position: (source.position ?? 0) + 1,
+        settings: source.settings as never,
+      })
+      .select("id")
+      .single();
+    if (error) throw new Error(error.message);
+
+    const { data: columns } = await supabase
+      .from("planning_columns")
+      .select("builtin_key, type, label, position, hidden, settings, width")
+      .eq("board_id", source.id);
+
+    if (columns && columns.length > 0) {
+      const { error: columnsError } = await supabase.from("planning_columns").insert(
+        columns.map((column) => ({
+          ...(column as Record<string, unknown>),
+          board_id: created.id,
+          workspace_id: workspace.id,
+        })) as never,
+      );
+      if (columnsError) throw new Error(columnsError.message);
+    }
+
+    const { error: monthsError } = await supabase.from("planning_months").insert(
+      Array.from({ length: 12 }, (_, index) => {
+        const month = `${year}-${String(index + 1).padStart(2, "0")}-01`;
+        return {
+          board_id: created.id,
+          workspace_id: workspace.id,
+          month,
+          label: monthGroupLabel(month),
+          position: index,
+        };
+      }),
+    );
+    if (monthsError) throw new Error(monthsError.message);
+
+    revalidatePath(`/espace/${scope.workspace}/planning/${slug}`);
+    revalidate(scope);
+    return { ok: true, slug, message: `Tableau ${year} créé, prêt à remplir.` };
+  } catch (error) {
+    return { ok: false, error: (error as Error).message };
+  }
+}
+
 export async function renameMonth(
   scope: Scope,
   input: { monthId: string; label: string },
