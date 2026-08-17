@@ -22,22 +22,22 @@ export function explainMetaError(raw: string): MetaDiagnosis {
 
   if (text.includes("invalid scopes")) {
     return {
-      // Meta refuse la portée **au dialogue**, avant tout branchement : ce
-      // n'est pas un jeton à refaire, c'est une permission que l'application
-      // n'a pas le droit de demander tant qu'elle n'a pas passé l'App Review.
+      // Le dialogue refuse une portée que l'app ne **propose** pas : elle
+      // n'est pas ajoutée dans la console Meta. Rebrancher sans ce réglage
+      // rejouerait le même refus.
       message:
-        "Meta a refusé une portée demandée à la connexion (« Invalid Scopes ») : l'application n'a pas encore le droit de la demander. C'est un réglage de l'app Meta, pas du compte — il n'y a rien à refaire côté Connexions.",
+        "Meta a refusé une portée à la connexion (« Invalid Scopes ») : elle n'est pas ajoutée à l'application dans la console Meta (Autorisations et fonctionnalités). L'y ajouter, puis relancer la connexion.",
       reconnect: false,
     };
   }
 
   if (text.includes("pages_read_user_content") || text.includes("(#10)")) {
     return {
-      // Une limite de la plateforme, pas une panne : rien à faire côté
-      // utilisateur, et surtout pas rebrancher — ça n'y change rien.
-      message:
-        "Limite Meta — les publications de la Page Facebook ne sont pas lisibles sans passer l'App Review de Meta (permission réservée). Abonnés et vitrine de la Page sont bien synchronisés. Rien à faire de votre côté.",
-      reconnect: false,
+      // Le jeton en base ne porte pas la permission — un branchement fait
+      // avant qu'elle rejoigne les portées. En accès standard elle fonctionne
+      // pour les comptes ayant un rôle dans l'app : rebrancher suffit.
+      message: `Facebook refuse les publications de la Page : la permission « pages_read_user_content » manque au jeton enregistré. ${RECONNECT} Abonnés et vitrine restent synchronisés en attendant.`,
+      reconnect: true,
     };
   }
 

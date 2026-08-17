@@ -41,11 +41,13 @@ export const META_SCOPES = [
   "pages_show_list",
   "pages_read_engagement",
   "pages_manage_posts",
-  /* `pages_read_user_content` **n'est pas demandée**, volontairement : Meta la
-     refuse au dialogue tant qu'elle n'a pas passé l'App Review, et le
-     branchement entier échoue alors sur « Invalid Scopes ». Elle ne servait
-     qu'à `/published_posts` ; on lit le feed de la Page par `/feed`, que
-     `pages_read_engagement` suffit à ouvrir. */
+  /* Lire les publications de la Page (`/published_posts`). En **accès
+     standard**, la permission fonctionne pour les comptes ayant un rôle dans
+     l'app — l'App Review ne sert qu'à l'ouvrir au grand public. Condition :
+     elle doit être **ajoutée à l'app dans la console Meta**, sans quoi le
+     dialogue la refuse en bloc (« Invalid Scopes ») et toute la connexion
+     échoue — vécu une fois. */
+  "pages_read_user_content",
   "read_insights",
   "instagram_basic",
   "instagram_content_publish",
