@@ -240,8 +240,3 @@ export const BONDET_FOLLOWERS = [
   { label: "mai 2026", value: 2500 },
   { label: "juin 2026", value: 2777 },
 ];
-
-export const BONDET_PERIOD = {
-  label: "1 juin 2026 – 30 juin 2026",
-  comparison: "mai 2026",
-};
