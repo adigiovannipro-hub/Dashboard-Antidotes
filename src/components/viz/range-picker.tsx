@@ -16,6 +16,7 @@ import { formatDayFr } from "@/lib/format";
 import {
   presetOf,
   presetRange,
+  previousRange,
   RANGE_PRESET_LABELS,
   type DateRange,
   type RangePreset,
@@ -71,7 +72,9 @@ export function RangePicker({
     });
 
     if (syncWorkspace) {
-      void startSync(syncWorkspace, next.from).then((outcome) => {
+      // Depuis le début de la période **de comparaison** : sans elle, chaque
+      // variation M-1 afficherait N/A.
+      void startSync(syncWorkspace, previousRange(next).from).then((outcome) => {
         describeOutcome(outcome);
         router.refresh();
       });

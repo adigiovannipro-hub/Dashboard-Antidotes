@@ -133,14 +133,17 @@ describe("monthlyFollowersSeries", () => {
     updated_at: "",
   });
 
-  it("garde le dernier relevé de chaque mois — un niveau, pas un flux", () => {
+  it("fige chaque mois sur son premier relevé — le 1ᵉʳ, posé par le cron", () => {
+    // Un « Synchroniser » cliqué le 28 ne doit pas réécrire le point du mois :
+    // la courbe se fige au relevé du 1ᵉʳ, l'actualisation manuelle n'y touche
+    // plus.
     const series = monthlyFollowersSeries([
-      snapshot("2026-06-02", 2500),
+      snapshot("2026-06-01", 2500),
       snapshot("2026-06-28", 2700),
       snapshot("2026-07-15", 2900),
     ]);
     expect(series).toEqual([
-      { label: "juin 2026", value: 2700 },
+      { label: "juin 2026", value: 2500 },
       { label: "juil. 2026", value: 2900 },
     ]);
   });

@@ -23,6 +23,7 @@ import {
   parseMonth,
   parseRange,
   previousMonth,
+  previousRange,
 } from "@/lib/reporting/period";
 import {
   getAdsData,
@@ -133,8 +134,13 @@ export default async function DashboardPage({
         </div>
         {network ? (
           <div className="flex shrink-0 items-center gap-2">
+            {/* La collecte part du début de la période **de comparaison** :
+                demander juillet sans juin rendrait tous les M-1 en N/A. */}
             {isOwner ? (
-              <SyncButton workspaceSlug={workspace.slug} du={range.from} />
+              <SyncButton
+                workspaceSlug={workspace.slug}
+                du={previousRange(range).from}
+              />
             ) : null}
             <RangePicker
               range={range}

@@ -62,7 +62,7 @@ export function PostsTable({
     const base: Column[] = [
       {
         key: "impressions",
-        header: "Vues",
+        header: "Impressions",
         kind: "integer",
         value: (post) => number(post.impressions),
         total: (rows) => sumOf(rows, (post) => number(post.impressions)),

@@ -133,10 +133,17 @@ const SHORT_MONTHS = [
 ];
 
 /**
- * La courbe d'abonnés : un point par mois, le **dernier** relevé du mois.
+ * La courbe d'abonnés : un point par mois, **figé au relevé du 1ᵉʳ**.
  *
- * Le dernier et non la moyenne : les abonnés sont un niveau, pas un flux — la
- * question est « combien à la fin du mois », pas « combien en moyenne ».
+ * Le passage quotidien de 5h pose un relevé chaque jour : le 1ᵉʳ du mois est
+ * donc toujours couvert, automatiquement. C'est lui qui fait foi — et non le
+ * dernier relevé du mois, qui bougeait à chaque synchronisation manuelle :
+ * cliquer « Synchroniser » un 17 réécrivait le point du mois en cours sur
+ * tous les réseaux, et une courbe qui change selon l'heure du clic n'est pas
+ * une mesure. Si le 1ᵉʳ manque — premier mois d'usage — le plus ancien relevé
+ * du mois tient lieu de 1ᵉʳ, puis ne bouge plus.
+ *
+ * La courbe lit cette table, jamais l'API : la base est le registre.
  */
 export function monthlyFollowersSeries(
   rows: SocialFollowers[],
@@ -145,7 +152,7 @@ export function monthlyFollowersSeries(
   for (const row of rows) {
     const month = row.date.slice(0, 7);
     const current = byMonth.get(month);
-    if (!current || row.date > current.date) {
+    if (!current || row.date < current.date) {
       byMonth.set(month, { date: row.date, value: row.followers_count });
     }
   }

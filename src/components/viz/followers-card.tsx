@@ -26,7 +26,7 @@ export function FollowersCard({
   height?: number;
 }) {
   const subtitle =
-    "Un point par mois, relevé par la synchronisation quotidienne — Meta n'expose pas d'historique au-delà de 30 jours";
+    "Un point par mois, figé au relevé du 1ᵉʳ posé par le passage quotidien — synchroniser à la main ne modifie pas la courbe";
 
   if (data.length < 2) {
     const only = data[0];
