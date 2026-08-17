@@ -2,7 +2,11 @@ import "server-only";
 
 import { GRAPH_API, MetaError } from "@/lib/social/meta";
 import type { MetaInsightRow } from "./mapping";
-import type { MetaMediaRow, MetaPagePostRow } from "./organic";
+import type {
+  MetaInsightsField,
+  MetaMediaRow,
+  MetaPagePostRow,
+} from "./organic";
 
 /**
  * Les appels Graph du connecteur — Insights publicitaires, médias organiques,
@@ -123,6 +127,60 @@ export async function fetchAdBreakdowns(options: {
 // --- Organique ----------------------------------------------------------------
 
 /**
+ * Les statistiques d'une publication, demandées **une par une**.
+ *
+ * L'expansion `insights.metric(...)` dans le listing économise les appels,
+ * mais Meta la refuse en bloc dès qu'une seule métrique ne s'applique pas au
+ * type d'un seul média — et le listing revient alors entier sans la moindre
+ * statistique. C'était la cause des colonnes à zéro : impressions et portée
+ * vides pendant que les compteurs publics, eux, remontaient.
+ *
+ * Ce repli isole chaque publication : celle qui refuse une métrique ne prive
+ * plus les autres des leurs. Un échec individuel rend `null`, jamais zéro —
+ * une donnée absente n'est pas une donnée nulle.
+ */
+export async function fetchPostInsights(options: {
+  ids: readonly string[];
+  metrics: readonly string[];
+  accessToken: string;
+}): Promise<Map<string, MetaInsightsField>> {
+  const collected = new Map<string, MetaInsightsField>();
+  const metric = options.metrics.join(",");
+
+  // Par paquets de dix : assez pour que ce soit rapide, assez peu pour ne pas
+  // ouvrir cinquante connexions d'un coup vers Graph.
+  for (let start = 0; start < options.ids.length; start += 10) {
+    const batch = options.ids.slice(start, start + 10);
+    const results = await Promise.all(
+      batch.map(async (id) => {
+        try {
+          const payload = await fetchGraph<MetaInsightsField>(
+            buildUrl(`/${id}/insights`, {
+              access_token: options.accessToken,
+              metric,
+            }),
+          );
+          return [id, payload] as const;
+        } catch {
+          // Un média qui ne connaît pas ces métriques n'est pas une panne.
+          return null;
+        }
+      }),
+    );
+    for (const entry of results) {
+      if (entry) collected.set(entry[0], entry[1]);
+    }
+  }
+
+  return collected;
+}
+
+/** Vrai quand Graph n'a rendu aucune statistique exploitable. */
+function lacksInsights(insights: MetaInsightsField | undefined): boolean {
+  return !insights?.data || insights.data.length === 0;
+}
+
+/**
  * Les derniers médias d'un compte Instagram, statistiques comprises.
  *
  * L'expansion `insights.metric(...)` évite un appel par média. Certains types
@@ -168,14 +226,31 @@ export async function fetchInstagramMedia(options: {
     );
   };
 
+  const metrics = ["reach", "views", "saved", "shares"];
+
+  let rows: MetaMediaRow[];
   try {
-    return await fetchWith(
-      `${baseFields},insights.metric(reach,views,saved,shares)`,
-    );
+    rows = await fetchWith(`${baseFields},insights.metric(${metrics.join(",")})`);
   } catch (error) {
     if (error instanceof MetaError && error.retryable) throw error;
-    return fetchWith(baseFields);
+    rows = await fetchWith(baseFields);
   }
+
+  // Ce que l'expansion n'a pas rendu se redemande média par média.
+  const missing = rows.filter((row) => lacksInsights(row.insights)).map((row) => row.id);
+  if (missing.length > 0) {
+    const recovered = await fetchPostInsights({
+      ids: missing,
+      metrics,
+      accessToken: options.accessToken,
+    });
+    for (const row of rows) {
+      const insights = recovered.get(row.id);
+      if (insights) row.insights = insights;
+    }
+  }
+
+  return rows;
 }
 
 /**
@@ -193,7 +268,7 @@ export async function fetchPagePosts(options: {
   since: string;
 }): Promise<MetaPagePostRow[]> {
   const baseFields =
-    "id,message,permalink_url,full_picture,created_time,shares,comments.summary(true).limit(0),reactions.summary(true).limit(0)";
+    "id,message,permalink_url,full_picture,created_time,attachments{media_type},shares,comments.summary(true).limit(0),reactions.summary(true).limit(0)";
 
   const fetchWith = (fields: string) =>
     fetchAllPages<MetaPagePostRow>(
@@ -205,14 +280,47 @@ export async function fetchPagePosts(options: {
       }),
     );
 
+  const metrics = [
+    "post_impressions",
+    "post_impressions_unique",
+    "post_video_views",
+  ];
+
+  let rows: MetaPagePostRow[];
   try {
-    return await fetchWith(
-      `${baseFields},insights.metric(post_impressions,post_impressions_unique)`,
-    );
+    rows = await fetchWith(`${baseFields},insights.metric(${metrics.join(",")})`);
   } catch (error) {
     if (error instanceof MetaError && error.retryable) throw error;
-    return fetchWith(baseFields);
+    rows = await fetchWith(baseFields);
   }
+
+  /* `post_video_views` n'existe pas sur un post photo : Meta refuse alors
+     l'expansion entière, et tout le listing revient sans statistiques. On
+     redemande donc au poste par poste, avec les métriques que chacun
+     accepte — d'abord les trois, puis les deux qui valent pour tout type. */
+  const missing = rows.filter((row) => lacksInsights(row.insights)).map((row) => row.id);
+  if (missing.length > 0) {
+    const recovered = await fetchPostInsights({
+      ids: missing,
+      metrics,
+      accessToken: options.accessToken,
+    });
+    const stillMissing = missing.filter((id) => !recovered.has(id));
+    if (stillMissing.length > 0) {
+      const fallback = await fetchPostInsights({
+        ids: stillMissing,
+        metrics: ["post_impressions", "post_impressions_unique"],
+        accessToken: options.accessToken,
+      });
+      for (const [id, insights] of fallback) recovered.set(id, insights);
+    }
+    for (const row of rows) {
+      const insights = recovered.get(row.id);
+      if (insights) row.insights = insights;
+    }
+  }
+
+  return rows;
 }
 
 /**

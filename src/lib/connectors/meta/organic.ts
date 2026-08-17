@@ -57,6 +57,7 @@ export type OrganicPostColumns = {
   media_kind: "image" | "carousel" | "video";
   reach: number;
   impressions: number;
+  video_views: number;
   likes: number;
   comments: number;
   saves: number;
@@ -87,15 +88,20 @@ export function mediaKind(media: {
 export function mediaToPost(media: MetaMediaRow): OrganicPostColumns | null {
   if (!media.timestamp) return null;
 
+  const kind = mediaKind(media);
+  // `views` d'un reel **est** sa lecture : Meta a fusionné les deux compteurs.
+  const views = insightValue(media.insights, "views");
+
   return {
     external_id: media.id,
     published_at: media.timestamp,
     caption: media.caption ?? null,
     permalink: media.permalink ?? null,
     thumbnail_url: media.thumbnail_url ?? media.media_url ?? null,
-    media_kind: mediaKind(media),
+    media_kind: kind,
     reach: insightValue(media.insights, "reach"),
-    impressions: insightValue(media.insights, "views"),
+    impressions: views,
+    video_views: kind === "video" ? views : 0,
     // Les compteurs publics vivent sur le média même, pas dans les insights.
     likes: media.like_count ?? 0,
     comments: media.comments_count ?? 0,
@@ -111,11 +117,29 @@ export type MetaPagePostRow = {
   permalink_url?: string;
   full_picture?: string;
   created_time?: string;
+  /** `photo`, `video`, `album`, `link`… selon la pièce jointe. */
+  attachments?: { data?: { media_type?: string }[] };
   shares?: { count?: number };
   comments?: { summary?: { total_count?: number } };
   reactions?: { summary?: { total_count?: number } };
   insights?: MetaInsightsField;
 };
+
+/**
+ * La nature d'un post de Page, lue sur sa pièce jointe.
+ *
+ * Facebook ne porte pas de champ « type de média » sur le post : c'est
+ * l'attachement qui le dit. Sans lui, tout partait en « Post » et la colonne
+ * des vues vidéo restait vide sur des reels bien réels.
+ */
+export function pagePostKind(
+  post: MetaPagePostRow,
+): "image" | "carousel" | "video" {
+  const type = post.attachments?.data?.[0]?.media_type?.toLowerCase();
+  if (type === "video") return "video";
+  if (type === "album") return "carousel";
+  return "image";
+}
 
 /**
  * Un post de Page vers une ligne de `social_posts`.
@@ -132,11 +156,12 @@ export function pagePostToPost(post: MetaPagePostRow): OrganicPostColumns | null
     caption: post.message ?? null,
     permalink: post.permalink_url ?? null,
     thumbnail_url: post.full_picture ?? null,
-    // Facebook ne dit pas la nature du post sur ce listing : image par
-    // défaut, honnête pour l'essentiel du feed d'une Page.
-    media_kind: "image",
+    media_kind: pagePostKind(post),
     reach: insightValue(post.insights, "post_impressions_unique"),
     impressions: insightValue(post.insights, "post_impressions"),
+    // Facebook compte les lectures à part des impressions — les déduire du
+    // type de média donnerait un chiffre inventé.
+    video_views: insightValue(post.insights, "post_video_views"),
     likes: post.reactions?.summary?.total_count ?? 0,
     comments: post.comments?.summary?.total_count ?? 0,
     saves: 0,

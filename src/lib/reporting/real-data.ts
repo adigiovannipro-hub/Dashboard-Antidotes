@@ -183,11 +183,9 @@ export function sumPosts(posts: SocialPost[]): RawMetrics {
       saves: total.saves + Number(post.saves),
       shares: total.shares + Number(post.shares),
       likes: total.likes + Number(post.likes),
-      // Les vues vidéos ne se comptent que sur les reels : les vues d'une
-      // image sont des impressions, pas des lectures.
-      videoViews:
-        total.videoViews +
-        (post.media_kind === "video" ? Number(post.impressions) : 0),
+      // Mesurées à la collecte : Facebook compte les lectures à part des
+      // impressions, les déduire du type de média donnerait un faux.
+      videoViews: total.videoViews + Number(post.video_views ?? 0),
     }),
     { ...EMPTY_RAW_METRICS },
   );

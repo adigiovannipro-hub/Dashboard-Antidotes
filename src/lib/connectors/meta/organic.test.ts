@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { insightValue, mediaToPost, pagePostToPost } from "./organic";
+import {
+  insightValue,
+  mediaToPost,
+  pagePostKind,
+  pagePostToPost,
+} from "./organic";
 
 describe("insightValue", () => {
   const insights = {
@@ -110,5 +115,36 @@ describe("pagePostToPost", () => {
 
   it("saute un post sans date", () => {
     expect(pagePostToPost({ id: "1" })).toBeNull();
+  });
+
+  it("lit les vues vidéo de Facebook au lieu de les déduire", () => {
+    // `post_video_views` est une grandeur distincte des impressions.
+    const post = pagePostToPost({
+      id: "1",
+      created_time: "2026-08-03T09:00:00+0000",
+      attachments: { data: [{ media_type: "video" }] },
+      insights: {
+        data: [
+          { name: "post_impressions", values: [{ value: 5000 }] },
+          { name: "post_video_views", values: [{ value: 1800 }] },
+        ],
+      },
+    });
+    expect(post?.media_kind).toBe("video");
+    expect(post?.video_views).toBe(1800);
+    expect(post?.impressions).toBe(5000);
+  });
+});
+
+describe("pagePostKind", () => {
+  it("lit la nature du post sur sa pièce jointe", () => {
+    // Facebook ne porte pas de champ « type » sur le post lui-même.
+    expect(pagePostKind({ id: "1", attachments: { data: [{ media_type: "video" }] } })).toBe(
+      "video",
+    );
+    expect(pagePostKind({ id: "1", attachments: { data: [{ media_type: "album" }] } })).toBe(
+      "carousel",
+    );
+    expect(pagePostKind({ id: "1" })).toBe("image");
   });
 });

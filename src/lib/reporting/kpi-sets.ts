@@ -46,12 +46,17 @@ export const KPI_SETS: Record<ReportingNetwork, MetricId[]> = {
   /* Organique : rien de monétaire, pas de répétition — elle ne dit rien d'un
      feed. L'ordre suit la lecture d'un rapport social : combien de monde,
      combien de fois, et ce qu'ils en ont fait. */
-  /* Pas de portée sur Instagram : Meta ne la rend plus sur tous les types de
-     média, et une tuile à moitié vide vaut moins qu'une tuile absente. Elle
-     reste le dénominateur du taux d'engagement, où son absence se rattrape
-     sur les vues. */
+  /* Pas de portée : Meta ne la rend plus sur tous les types de média, et une
+     tuile à moitié vide vaut moins qu'une tuile absente. Elle reste le
+     dénominateur du taux d'engagement, où son absence se rattrape sur les
+     vues.
+
+     Les deux réseaux organiques portent **la même série**, à l'exception des
+     enregistrements : Facebook ne les expose pas, et une carte
+     invariablement à zéro se lit comme une contre-performance plutôt que
+     comme une absence de mesure. */
   instagram: ["impressions", "videoViews", "likes", "comments", "saves", "shares"],
-  facebook: ["reach", "impressions", "videoViews", "likes", "comments", "shares"],
+  facebook: ["impressions", "videoViews", "likes", "comments", "shares"],
 };
 
 /** Les découpages d'audience ont-ils un sens sur cet onglet ? */

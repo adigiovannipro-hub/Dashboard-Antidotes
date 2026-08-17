@@ -172,6 +172,8 @@ export type SocialPost = {
   thumbnail_url: string | null;
   // 0047 — reel, carrousel ou post fixe.
   media_kind: "image" | "carousel" | "video";
+  // 0048 — mesurées, jamais déduites des impressions.
+  video_views: number;
   reach: number;
   impressions: number;
   likes: number;

@@ -71,12 +71,8 @@ export function PostsTable({
         key: "videoViews",
         header: "Vues vidéo",
         kind: "integer",
-        value: (post) =>
-          post.media_kind === "video" ? number(post.impressions) : 0,
-        total: (rows) =>
-          sumOf(rows, (post) =>
-            post.media_kind === "video" ? number(post.impressions) : 0,
-          ),
+        value: (post) => number(post.video_views),
+        total: (rows) => sumOf(rows, (post) => number(post.video_views)),
         // Une image n'a pas de vue vidéo : la teinter en rouge accuserait à tort.
         shaded: (post) => post.media_kind === "video",
       },

@@ -163,6 +163,7 @@ describe("sumPosts", () => {
     media_kind: "image" as const,
     reach: 0,
     impressions: 0,
+    video_views: 0,
     likes: 0,
     comments: 0,
     saves: 0,
@@ -184,13 +185,14 @@ describe("sumPosts", () => {
     expect(total.spend).toBe(0);
   });
 
-  it("ne compte les vues vidéo que sur les reels", () => {
-    // Les vues d'une image sont des impressions, pas des lectures.
+  it("somme les vues vidéo mesurées, sans les déduire des impressions", () => {
+    // Facebook compte les lectures à part : les déduire du type de média
+    // donnerait un chiffre inventé sur les deux réseaux.
     const total = sumPosts([
-      post({ media_kind: "video", impressions: 400 }),
-      post({ media_kind: "image", impressions: 300 }),
+      post({ media_kind: "video", impressions: 400, video_views: 250 }),
+      post({ media_kind: "image", impressions: 300, video_views: 0 }),
     ]);
-    expect(total.videoViews).toBe(400);
+    expect(total.videoViews).toBe(250);
     expect(total.impressions).toBe(700);
   });
 });
