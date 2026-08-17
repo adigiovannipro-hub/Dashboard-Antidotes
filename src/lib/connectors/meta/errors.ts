@@ -33,7 +33,10 @@ export function explainMetaError(raw: string): MetaDiagnosis {
 
   if (text.includes("pages_read_user_content") || text.includes("(#10)")) {
     return {
-      message: `Facebook refuse de livrer les publications de la Page : cette arête demande « pages_read_user_content », accordée seulement après l'App Review de Meta. Les abonnés et la vitrine de la Page continuent d'être lus. ${RECONNECT} si le compte vient d'être rebranché avec les nouvelles portées.`,
+      // Une limite de la plateforme, pas une panne : rien à faire côté
+      // utilisateur, et surtout pas rebrancher — ça n'y change rien.
+      message:
+        "Limite Meta — les publications de la Page Facebook ne sont pas lisibles sans passer l'App Review de Meta (permission réservée). Abonnés et vitrine de la Page sont bien synchronisés. Rien à faire de votre côté.",
       reconnect: false,
     };
   }

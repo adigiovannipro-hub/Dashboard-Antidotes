@@ -3,13 +3,16 @@ import { describe, expect, it } from "vitest";
 import { explainMetaError } from "./errors";
 
 describe("explainMetaError", () => {
-  it("traduit le refus des publications de Page", () => {
+  it("traduit le refus des publications de Page en limite, pas en panne", () => {
     // Le message vécu au premier sync réel, recopié tel quel.
     const raw =
       "(#10) This endpoint requires the 'pages_read_user_content' permission or the 'Page Public Content Access' feature.";
     const diagnosis = explainMetaError(raw);
-    expect(diagnosis.message).toContain("pages_read_user_content");
     expect(diagnosis.message).toContain("App Review");
+    expect(diagnosis.message).toContain("Rien à faire");
+    // Surtout ne pas proposer de rebrancher : ça n'y change rien.
+    expect(diagnosis.message).not.toContain("Rebrancher");
+    expect(diagnosis.reconnect).toBe(false);
   });
 
   it("distingue une portée refusée au dialogue d'un jeton à refaire", () => {
