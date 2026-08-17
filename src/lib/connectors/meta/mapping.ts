@@ -194,12 +194,25 @@ export function aggregateBreakdown(
 }
 
 /**
+ * Combien de mois le tout premier passage remonte.
+ *
+ * Une année : c'est le rattrapage qu'on ne peut pas rejouer plus tard sans
+ * frais — Meta finit par ne plus servir les statistiques des vieilles
+ * publications, et un reporting qui démarre à trois mois d'historique ne sait
+ * comparer aucun mois à l'année précédente.
+ */
+export const BACKFILL_MONTHS = 12;
+
+/**
  * La fenêtre de synchronisation, en dates UTC.
  *
- * Premier passage : 90 jours — de quoi remplir le sélecteur de période sans
- * attendre. Ensuite : 35 jours glissants, parce que Meta **réécrit** les
- * conversions jusqu'à 28 jours en arrière (fenêtres d'attribution) — ne
- * resynchroniser que la veille figerait des chiffres encore mouvants.
+ * **Premier passage : douze mois**, une fois et une seule — c'est le sens de
+ * `data_sources.backfill_from`, qui garde la date atteinte. Ensuite : 35
+ * jours glissants, parce que Meta **réécrit** les conversions jusqu'à 28
+ * jours en arrière (fenêtres d'attribution) — ne resynchroniser que la veille
+ * figerait des chiffres encore mouvants, et re-balayer l'année à chaque
+ * passage coûterait des milliers d'appels pour redire la même chose.
+ *
  * La borne haute est aujourd'hui : la journée en cours est partielle, mais le
  * passage suivant la réécrit, et l'interface borne de toute façon à hier.
  */
@@ -213,7 +226,18 @@ export function syncWindow(options: {
     const at = new Date(options.now.getTime() + offset * 86_400_000);
     return at.toISOString().slice(0, 10);
   };
-  const computed = day(options.lastSyncAt ? -35 : -90);
+
+  const first = new Date(
+    Date.UTC(
+      options.now.getUTCFullYear(),
+      options.now.getUTCMonth() - BACKFILL_MONTHS,
+      1,
+    ),
+  )
+    .toISOString()
+    .slice(0, 10);
+
+  const computed = options.lastSyncAt ? day(-35) : first;
   const since =
     options.atLeastSince && options.atLeastSince < computed
       ? options.atLeastSince

@@ -149,6 +149,18 @@ export async function syncWorkspaceReporting(options: {
         atLeastSince: options.atLeastSince,
       });
 
+      /* Le rattrapage initial se trace une fois : `backfill_from` garde la
+         date atteinte, et `last_sync_at` fait que les passages suivants se
+         contentent des 35 jours glissants. Sans cette trace, on ne saurait
+         plus jusqu'où l'historique est fiable. */
+      if (!last_sync_at) {
+        const { error: backfillError } = await admin
+          .from("data_sources")
+          .update({ backfill_from: window.since } as never)
+          .eq("id", dataSourceId);
+        if (backfillError) fail(`Trace du rattrapage : ${backfillError.message}`);
+      }
+
       const { data: run, error: runError } = await admin
         .from("sync_runs")
         .insert({

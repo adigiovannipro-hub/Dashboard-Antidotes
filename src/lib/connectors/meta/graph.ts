@@ -32,6 +32,19 @@ type PagedPayload<T> = GraphErrorPayload & {
 /** Garde-fou : au-delà, on considère que la pagination boucle. */
 const MAX_PAGES = 60;
 
+/**
+ * Combien de publications au plus voient leurs statistiques redemandées une
+ * par une, en un passage.
+ *
+ * Le rattrapage initial couvre douze mois : sans plafond, une Page active
+ * déclencherait des centaines d'appels d'un coup et se ferait plafonner par
+ * Meta — perdant du même geste les statistiques déjà récupérées. Les
+ * publications arrivent des plus récentes aux plus anciennes : ce sont donc
+ * les plus utiles qui passent en premier, et le reste se complète au passage
+ * suivant.
+ */
+const MAX_INSIGHT_RECOVERIES = 150;
+
 async function fetchGraph<T>(url: string): Promise<T> {
   const response = await fetch(url, { cache: "no-store" });
   const payload = (await response.json().catch(() => ({}))) as T &
@@ -237,7 +250,10 @@ export async function fetchInstagramMedia(options: {
   }
 
   // Ce que l'expansion n'a pas rendu se redemande média par média.
-  const missing = rows.filter((row) => lacksInsights(row.insights)).map((row) => row.id);
+  const missing = rows
+    .filter((row) => lacksInsights(row.insights))
+    .map((row) => row.id)
+    .slice(0, MAX_INSIGHT_RECOVERIES);
   if (missing.length > 0) {
     const recovered = await fetchPostInsights({
       ids: missing,
@@ -298,7 +314,10 @@ export async function fetchPagePosts(options: {
      l'expansion entière, et tout le listing revient sans statistiques. On
      redemande donc au poste par poste, avec les métriques que chacun
      accepte — d'abord les trois, puis les deux qui valent pour tout type. */
-  const missing = rows.filter((row) => lacksInsights(row.insights)).map((row) => row.id);
+  const missing = rows
+    .filter((row) => lacksInsights(row.insights))
+    .map((row) => row.id)
+    .slice(0, MAX_INSIGHT_RECOVERIES);
   if (missing.length > 0) {
     const recovered = await fetchPostInsights({
       ids: missing,
