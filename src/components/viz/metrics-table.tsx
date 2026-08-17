@@ -252,8 +252,9 @@ export function MetricsTable({
       </div>
 
       <p className="text-muted-foreground text-xs">
-        Fond vert&nbsp;: meilleure valeur de la colonne. Le sens métier est
-        respecté — sur un CPA ou un CPM, c&apos;est la valeur la plus basse.
+        Fond vert&nbsp;: les meilleures valeurs de la colonne ; fond
+        rouge&nbsp;: les moins bonnes. Le sens métier est respecté — sur un CPA
+        ou un CPM, la valeur la plus basse est la meilleure.
       </p>
     </div>
   );

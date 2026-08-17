@@ -159,6 +159,22 @@ describe("syncWindow", () => {
     const window = syncWindow({ lastSyncAt: "2026-08-16T04:00:00Z", now });
     expect(window).toEqual({ since: "2026-07-13", until: "2026-08-17" });
   });
+
+  it("s'étend en arrière quand l'écran demande une plage plus ancienne", () => {
+    const window = syncWindow({
+      lastSyncAt: "2026-08-16T04:00:00Z",
+      now,
+      atLeastSince: "2026-03-01",
+    });
+    expect(window.since).toBe("2026-03-01");
+    // Une plage récente ne raccourcit jamais la fenêtre de rattrapage.
+    const recent = syncWindow({
+      lastSyncAt: "2026-08-16T04:00:00Z",
+      now,
+      atLeastSince: "2026-08-10",
+    });
+    expect(recent.since).toBe("2026-07-13");
+  });
 });
 
 describe("actionValue — priorité entre variantes", () => {

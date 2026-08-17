@@ -5,6 +5,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { CalendarRange } from "lucide-react";
 
 import { DateField } from "@/components/ds/date-field";
+import { describeOutcome, startSync } from "@/components/viz/sync-button";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -34,7 +35,18 @@ import {
  * La plage vit dans l'URL (`?du=&au=`), en ISO : un rapport se transmet par
  * copie du lien, et le destinataire doit voir la même période.
  */
-export function RangePicker({ range }: { range: DateRange }) {
+export function RangePicker({
+  range,
+  syncWorkspace,
+}: {
+  range: DateRange;
+  /**
+   * Slug de l'espace à synchroniser quand une plage est appliquée — passé au
+   * propriétaire seulement. Choisir une période, c'est demander ses chiffres :
+   * la collecte part toute seule et couvre la plage, même ancienne.
+   */
+  syncWorkspace?: string;
+}) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -57,6 +69,13 @@ export function RangePicker({ range }: { range: DateRange }) {
     startTransition(() => {
       router.push(`${pathname}?${params}`, { scroll: false });
     });
+
+    if (syncWorkspace) {
+      void startSync(syncWorkspace, next.from).then((outcome) => {
+        describeOutcome(outcome);
+        router.refresh();
+      });
+    }
   };
 
   const choosePreset = (value: RangePreset) => {

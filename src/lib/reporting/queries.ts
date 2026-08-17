@@ -1,7 +1,7 @@
 import "server-only";
 
 import type { MetricsTableRow } from "@/components/viz/metrics-table";
-import type { DemoBreakdown } from "@/lib/demo/bondet";
+import type { BarDatum } from "@/components/viz/bar-list";
 import type { RawMetrics } from "@/lib/metrics/types";
 import { createClient } from "@/lib/supabase/server";
 import type {
@@ -32,9 +32,9 @@ export type AdsData = {
   adSets: MetricsTableRow[];
   total: RawMetrics;
   previousTotal: RawMetrics;
-  age: DemoBreakdown[];
-  gender: DemoBreakdown[];
-  regions: DemoBreakdown[];
+  age: BarDatum[];
+  gender: BarDatum[];
+  regions: BarDatum[];
   followers: { label: string; value: number }[];
 };
 
@@ -163,4 +163,29 @@ function nextDay(date: string): string {
   return new Date(Date.parse(`${date}T00:00:00Z`) + 86_400_000)
     .toISOString()
     .slice(0, 10);
+}
+
+export type ReportingSource = {
+  provider: string;
+  display_name: string | null;
+  status: string;
+  last_sync_at: string | null;
+  last_error: string | null;
+};
+
+/**
+ * L'état des sources branchées — la page le montre quand une synchronisation
+ * a échoué : la cause exacte vaut mieux qu'un écran vide inexpliqué.
+ */
+export async function listReportingSources(
+  workspaceId: string,
+): Promise<ReportingSource[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("data_sources")
+    .select("provider, display_name, status, last_sync_at, last_error")
+    .eq("workspace_id", workspaceId)
+    .limit(20);
+
+  return (data ?? []) as unknown as ReportingSource[];
 }

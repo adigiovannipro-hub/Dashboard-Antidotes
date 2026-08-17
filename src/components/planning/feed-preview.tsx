@@ -46,7 +46,8 @@ export function FeedPreview({
 }) {
   const [ratio, setRatio] = useState<Ratio>("4:5");
   const tiles = buildFeed(months, monthKey);
-  const { total, missing } = feedSummary(tiles);
+  // Le compteur ne parle que du mois visé : l'antériorité est un décor.
+  const { total, missing } = feedSummary(tiles.filter((tile) => !tile.previous));
 
   // Un clic sur le tableau derrière referme : c'est la sortie qu'on cherche
   // sans réfléchir, avant même la croix.
@@ -271,6 +272,36 @@ function FeedCell({
         timeZone: "UTC",
       }).format(new Date(`${subject.scheduled_on}T00:00:00Z`))
     : "sans date";
+
+  // Une case d'un mois passé donne le contexte du profil, rien de plus : le
+  // visuel seul, sans clic, sans date, sans survol — ce n'est plus un
+  // travail, c'est le décor sous le mois qu'on prépare.
+  if (tile.previous) {
+    return (
+      <div
+        aria-hidden
+        className={cn(
+          "bg-canvas relative overflow-hidden opacity-90",
+          ratio === "4:5" ? "aspect-4/5" : "aspect-square",
+        )}
+      >
+        {isVideo && cover ? (
+          <video
+            src={`${cover.url}#t=0.1`}
+            preload="metadata"
+            muted
+            playsInline
+            className="size-full object-cover"
+          >
+            <track kind="captions" />
+          </video>
+        ) : cover ? (
+          // eslint-disable-next-line @next/next/no-img-element -- URL signée
+          <img src={cover.url} alt="" loading="lazy" className="size-full object-cover" />
+        ) : null}
+      </div>
+    );
+  }
 
   return (
     // Un bouton et non un `div` : la case ouvre la publication, elle doit

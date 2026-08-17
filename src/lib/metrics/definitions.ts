@@ -148,6 +148,30 @@ export const METRIC_DEFINITIONS: Record<MetricId, MetricDefinition> = {
     direction: "up-good",
     compute: (r) => r.shares,
   },
+  likes: {
+    id: "likes",
+    label: "J'aime",
+    format: "integer",
+    direction: "up-good",
+    compute: (r) => r.likes,
+  },
+  videoViews: {
+    id: "videoViews",
+    label: "Vues vidéos",
+    format: "integer",
+    direction: "up-good",
+    compute: (r) => r.videoViews,
+  },
+  engagementRate: {
+    id: "engagementRate",
+    label: "Taux d'engagement",
+    format: "percent",
+    direction: "up-good",
+    // Le standard social : toutes les interactions rapportées à la portée.
+    // Sans portée, le taux n'existe pas — jamais 0, qui se lirait « personne
+    // n'a réagi » alors qu'on ne sait simplement pas.
+    compute: (r) => ratio(r.likes + r.comments + r.saves + r.shares, r.reach),
+  },
 };
 
 /** Ordre des cartes KPI, repris de la capture du rapport actuel. */

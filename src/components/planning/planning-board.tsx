@@ -6,11 +6,16 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { Archive, Plug, Plus, Search, Trash2, X } from "lucide-react";
 
-import { addYearBoard, bulkMoveSubjects, createMonth } from "@/app/actions/planning";
+import {
+  addYearBoard,
+  bulkMoveSubjects,
+  createMonth,
+  deleteBoard,
+} from "@/app/actions/planning";
 import {
   ArchiveDialog,
+  DeleteBoardDialog,
   MoveDialog,
-  TrashDialog,
 } from "@/components/planning/board-dialogs";
 import { BulkBar } from "@/components/planning/bulk-bar";
 import { ConnexionsDialog } from "@/components/planning/connexions-dialog";
@@ -193,7 +198,7 @@ export function PlanningBoardView({
     });
   }, []);
   const [archiveOpen, setArchiveOpen] = useState(false);
-  const [trashOpen, setTrashOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
 
   /**
    * Le panneau, sans aller-retour : `panel` prime sur l'URL. Ouvrir pose
@@ -391,19 +396,24 @@ export function PlanningBoardView({
           ) : null}
 
           <HeaderIconButton
-            label={`Archives (${archived.length})`}
-            count={archived.length}
+            label={`Archives et corbeille (${archived.length + trash.subjects.length + trash.months.length})`}
+            count={archived.length + trash.subjects.length + trash.months.length}
             onClick={() => setArchiveOpen(true)}
           >
             <Archive className="size-4" strokeWidth={1.75} aria-hidden />
           </HeaderIconButton>
-          <HeaderIconButton
-            label={`Corbeille (${trash.subjects.length + trash.months.length})`}
-            count={trash.subjects.length + trash.months.length}
-            onClick={() => setTrashOpen(true)}
-          >
-            <Trash2 className="size-4" strokeWidth={1.75} aria-hidden />
-          </HeaderIconButton>
+          {/* La corbeille d'en-tête a changé de métier : elle supprime
+              l'année entière. Owner seulement — la RLS le dit aussi — et
+              jamais sur la FAQ, qui n'est pas un millésime. */}
+          {isOwner && board.kind === "editorial" ? (
+            <HeaderIconButton
+              label={`Supprimer l'année ${board.year ?? board.name} et le tableau complet`}
+              count={0}
+              onClick={() => setDeleteOpen(true)}
+            >
+              <Trash2 className="size-4" strokeWidth={1.75} aria-hidden />
+            </HeaderIconButton>
+          ) : null}
         </div>
       </div>
 
@@ -580,16 +590,30 @@ export function PlanningBoardView({
       <ArchiveDialog
         scope={scope}
         archived={archived}
+        trashSubjects={trash.subjects}
+        trashMonths={trash.months}
         open={archiveOpen}
         onOpenChange={setArchiveOpen}
       />
 
-      <TrashDialog
+      <DeleteBoardDialog
         scope={scope}
-        subjects={trash.subjects}
-        months={trash.months}
-        open={trashOpen}
-        onOpenChange={setTrashOpen}
+        boardName={board.year ? String(board.year) : board.name}
+        monthCount={months.length}
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        onDelete={async () => {
+          const result = await deleteBoard(scope);
+          if (result.ok) {
+            toast.success("Tableau supprimé.");
+            // Navigation dure : la porte du planning résout le tableau par
+            // défaut restant, et l'état local de celui qui vient de mourir
+            // n'a plus rien à dire.
+            window.location.href = `/espace/${workspaceSlug}/planning`;
+          } else {
+            toast.error(result.error);
+          }
+        }}
       />
     </div>
   );
@@ -663,6 +687,15 @@ export function BoardTabs({
   const { active: activeId, select } = useOptimisticPill(current.id);
   const { listRef, box, measured } = usePillIndicator<HTMLUListElement>(activeId);
 
+  // La FAQ d'abord, puis les années dans l'ordre : la FAQ est un repère fixe,
+  // les millésimes défilent à sa droite — et le « + » de l'année suivante
+  // ferme la rangée.
+  const ordered = [...boards].sort(
+    (a, b) =>
+      (a.kind === "faq" ? 0 : 1) - (b.kind === "faq" ? 0 : 1) ||
+      (a.year ?? 0) - (b.year ?? 0),
+  );
+
   // Volontairement plus léger que les onglets de section, juste au-dessus :
   // deux rangées de pastilles identiques donneraient le même poids à deux
   // niveaux de navigation différents. Ici, un simple soulignement — mais il
@@ -676,7 +709,7 @@ export function BoardTabs({
       >
         <PillIndicator box={box} variant="underline" />
 
-        {boards.map((board) => {
+        {ordered.map((board) => {
           const active = activeId === board.id;
           return (
             <li key={board.id} data-pill={board.id}>

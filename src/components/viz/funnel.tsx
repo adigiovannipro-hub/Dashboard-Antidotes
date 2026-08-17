@@ -1,24 +1,27 @@
+import { ArrowDown } from "lucide-react";
+
 import { formatValue } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
+export type FunnelStep = {
+  label: string;
+  value: number;
+};
+
 /**
- * L'entonnoir de conversion, en entonnoir.
+ * L'entonnoir de conversion, dans la grammaire du reste de l'écran.
  *
- * Trois marches empilées **verticalement**, chacune plus étroite que la
- * précédente : la forme dit la déperdition avant même qu'on lise un chiffre.
- * Des barres horizontales de longueurs décroissantes disaient la même chose,
- * mais il fallait les comparer une à une.
+ * Les trapèzes pleins juraient avec la charte : un aplat sombre par marche,
+ * du texte posé sur la couleur, une forme qui ne ressemblait à rien d'autre
+ * dans l'application. Ici chaque marche parle **le langage des BarList du
+ * Persona** — libellé et chiffre en encre de texte, barre `--accent` sur
+ * piste creuse, longueur proportionnelle à la première marche — et le taux
+ * de passage vit **entre** les marches, là où il se produit, en flèche
+ * discrète plutôt qu'en légende.
  *
- * La largeur est proportionnelle au volume, plancher à 34 % : une dernière
- * marche à 8 sur 47 donnerait une pointe d'un pixel, illisible et invendable.
- * Le taux de passage porte donc le chiffre exact, la forme ne fait que le
- * suggérer.
+ * La barre garde un minimum visible : 8 achats sur 465 paniers font 1,7 %,
+ * et une barre d'un pixel se lirait comme un bug, pas comme un chiffre.
  */
-export type FunnelStep = { label: string; value: number };
-
-/** Plancher de largeur : en dessous, la marche n'a plus de surface à cliquer. */
-const MIN_WIDTH = 34;
-
 export function Funnel({
   steps,
   className,
@@ -26,65 +29,54 @@ export function Funnel({
   steps: readonly FunnelStep[];
   className?: string;
 }) {
-  const top = steps[0]?.value ?? 0;
+  const first = steps[0]?.value ?? 0;
 
   return (
-    <ol className={cn("flex flex-col items-center gap-1", className)}>
+    <div className={cn("flex flex-col", className)}>
       {steps.map((step, index) => {
-        const previous = index === 0 ? null : (steps[index - 1]?.value ?? 0);
-        // Jamais 0 quand le dénominateur est nul : ce serait lire « personne
-        // n'est passé » là où personne n'est entré.
-        const rate =
-          previous === null || previous === 0 ? null : step.value / previous;
-
-        const width =
-          top === 0
-            ? MIN_WIDTH
-            : Math.max(MIN_WIDTH, (step.value / top) * 100);
-        const next = steps[index + 1];
-        const nextWidth =
-          next === undefined
-            ? width
-            : top === 0
-              ? MIN_WIDTH
-              : Math.max(MIN_WIDTH, (next.value / top) * 100);
-
-        // Le trapèze : bords supérieurs à la largeur de cette marche, bords
-        // inférieurs à celle de la suivante. C'est ce raccord qui fait la
-        // silhouette continue plutôt qu'un escalier de rectangles.
-        const inset = (100 - width) / 2;
-        const nextInset = (100 - nextWidth) / 2;
+        const share = first > 0 ? step.value / first : 0;
+        const width = step.value > 0 ? Math.max(share * 100, 4) : 0;
+        const previous = steps[index - 1];
+        const passage =
+          previous && previous.value > 0 ? step.value / previous.value : null;
 
         return (
-          <li key={step.label} className="w-full">
-            <div
-              className="relative flex h-16 items-center justify-center"
-              style={{
-                backgroundColor: "var(--accent-ink)",
-                clipPath: `polygon(${inset}% 0, ${100 - inset}% 0, ${100 - nextInset}% 100%, ${nextInset}% 100%)`,
-              }}
-            >
-              {/* Encre verte et non teinte de série : le vert de marque est à
-                  2,71:1, et le blanc posé dessus l'est autant. La déperdition
-                  se lit à la largeur, pas à la teinte. */}
-              <span className="text-center leading-tight text-white">
-                <span className="block text-lg font-bold tabular-nums">
-                  {formatValue(step.value, "integer")}
-                </span>
-                <span className="type-caption block opacity-90">
-                  {step.label}
-                </span>
-              </span>
-            </div>
-
-            {rate !== null ? (
-              <p className="type-caption text-text-secondary py-0.5 text-center tabular-nums">
-                {formatValue(rate, "percent")} de passage
+          <div key={step.label}>
+            {/* Le taux de passage entre deux marches — c'est lui, l'entonnoir. */}
+            {index > 0 ? (
+              <p className="type-caption text-text-secondary my-2.5 flex items-center gap-1">
+                <ArrowDown
+                  className="text-text-tertiary size-3.5 shrink-0"
+                  strokeWidth={1.75}
+                  aria-hidden
+                />
+                {passage === null
+                  ? "—"
+                  : `${formatValue(passage * 100, "decimal")} % de passage`}
               </p>
             ) : null}
-          </li>
+
+            <div className="flex items-baseline justify-between gap-2">
+              <p className="type-caption text-text-secondary truncate" title={step.label}>
+                {step.label}
+              </p>
+              <p className="text-text-primary text-sm font-semibold tabular-nums">
+                {formatValue(step.value, "integer")}
+              </p>
+            </div>
+            <div
+              className="bg-surface-sunken mt-1 h-2 overflow-hidden rounded-pill"
+              role="img"
+              aria-label={`${step.label} : ${formatValue(step.value, "integer")}`}
+            >
+              <div
+                className="h-full rounded-pill"
+                style={{ width: `${width}%`, backgroundColor: "var(--accent)" }}
+              />
+            </div>
+          </div>
         );
       })}
-    </ol>
+    </div>
   );
 }

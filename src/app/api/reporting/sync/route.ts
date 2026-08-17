@@ -18,7 +18,14 @@ import { createAdminClient } from "@/lib/supabase/server";
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
-const bodySchema = z.object({ workspace: z.string().min(1) });
+const bodySchema = z.object({
+  workspace: z.string().min(1),
+  /** Borne basse de la plage affichée — étend la fenêtre de collecte. */
+  du: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional(),
+});
 
 export async function POST(request: Request) {
   const parsed = bodySchema.safeParse(await request.json().catch(() => null));
@@ -49,6 +56,7 @@ export async function POST(request: Request) {
   const reports = await syncWorkspaceReporting({
     admin,
     workspaceId: workspace.id,
+    atLeastSince: parsed.data.du,
   });
 
   const errors = reports.filter((report) => report.error);

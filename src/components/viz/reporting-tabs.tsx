@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 
 import {
   PillIndicator,
@@ -35,10 +35,20 @@ export function ReportingTabs({
   current: ReportingNetwork;
 }) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const { active, select } = useOptimisticPill(current);
   const { listRef, box, measured } = usePillIndicator<HTMLUListElement>(active);
 
   if (networks.length < 2) return null;
+
+  // La période choisie survit au changement de réseau : on remplace le seul
+  // paramètre `reseau`, jamais l'URL entière — perdre `?du=&au=` obligerait à
+  // re-choisir les dates à chaque onglet.
+  const hrefFor = (network: ReportingNetwork) => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("reseau", network);
+    return `${pathname}?${params}`;
+  };
 
   return (
     <nav aria-label="Réseaux">
@@ -53,7 +63,7 @@ export function ReportingTabs({
           return (
             <li key={network} data-pill={network}>
               <Link
-                href={`${pathname}?reseau=${network}`}
+                href={hrefFor(network)}
                 aria-current={network === current ? "page" : undefined}
                 onClick={() => select(network)}
                 className={cn(

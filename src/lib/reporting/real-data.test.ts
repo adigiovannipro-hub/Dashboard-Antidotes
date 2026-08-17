@@ -157,6 +157,7 @@ describe("sumPosts", () => {
     caption: null,
     permalink: null,
     thumbnail_url: null,
+    media_kind: "image" as const,
     reach: 0,
     impressions: 0,
     likes: 0,
@@ -169,14 +170,25 @@ describe("sumPosts", () => {
 
   it("somme les publications de la période", () => {
     const total = sumPosts([
-      post({ reach: 100, impressions: 150, comments: 2, saves: 1, shares: 4 }),
-      post({ reach: 50, impressions: 60, comments: 1, saves: 0, shares: 1 }),
+      post({ reach: 100, impressions: 150, comments: 2, saves: 1, shares: 4, likes: 20 }),
+      post({ reach: 50, impressions: 60, comments: 1, saves: 0, shares: 1, likes: 5 }),
     ]);
     expect(total.reach).toBe(150);
     expect(total.impressions).toBe(210);
     expect(total.shares).toBe(5);
+    expect(total.likes).toBe(25);
     // Rien d'inventé sur les grandeurs publicitaires.
     expect(total.spend).toBe(0);
+  });
+
+  it("ne compte les vues vidéo que sur les reels", () => {
+    // Les vues d'une image sont des impressions, pas des lectures.
+    const total = sumPosts([
+      post({ media_kind: "video", impressions: 400 }),
+      post({ media_kind: "image", impressions: 300 }),
+    ]);
+    expect(total.videoViews).toBe(400);
+    expect(total.impressions).toBe(700);
   });
 });
 

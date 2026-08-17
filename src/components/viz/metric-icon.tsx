@@ -3,13 +3,16 @@ import {
   Bookmark,
   DollarSign,
   Eye,
+  Heart,
   MessageCircle,
   MonitorPlay,
   MousePointerClick,
   Percent,
+  Play,
   Repeat,
   Send,
   ShoppingBag,
+  Sparkles,
   Target,
   TrendingUp,
   UserPlus,
@@ -51,6 +54,9 @@ const METRIC_ICONS: Record<MetricId, LucideIcon> = {
   reach: Users,
   frequency: Repeat,
   shares: Send,
+  likes: Heart,
+  videoViews: Play,
+  engagementRate: Sparkles,
 };
 
 /**

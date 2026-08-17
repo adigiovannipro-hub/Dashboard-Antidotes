@@ -94,12 +94,19 @@ export function performanceRank(
  * signaler le bon est suffisant, alarmer sur la moitié d'un tableau ne l'est pas.
  */
 export function heatmapBackground(rank: number): string | undefined {
-  if (rank <= 0.08) return undefined;
-  const magnitude = Math.min(rank, 1);
+  // Échelle **divergente** : les meilleurs en vert, les pires en rouge de la
+  // charte, le milieu neutre — deux teintes et un point mort, jamais une
+  // rampe continue rouge→vert qui piégerait les daltoniens sur les nuances
+  // intermédiaires. Le rouge est un peu plus retenu que le vert : il signale,
+  // il ne crie pas sur la moitié du tableau.
+  if (Math.abs(rank) <= 0.08) return undefined;
+  const magnitude = Math.min(Math.abs(rank), 1);
   /* `--accent` et non `--brand` : ce dernier n'existe pas. `globals.css`
      déclare `--color-brand`, le nom que Tailwind attend pour fabriquer ses
      utilitaires ; la variable CSS brute, celle que `var()` sait lire, reste
      `--accent`. Un `var()` sur un nom inconnu ne rend rien du tout — ici un
      `color-mix` invalide, donc une cellule jamais peinte. */
-  return `color-mix(in oklch, var(--accent) ${(magnitude * 32).toFixed(1)}%, transparent)`;
+  return rank > 0
+    ? `color-mix(in oklch, var(--accent) ${(magnitude * 32).toFixed(1)}%, transparent)`
+    : `color-mix(in oklch, var(--danger) ${(magnitude * 24).toFixed(1)}%, transparent)`;
 }

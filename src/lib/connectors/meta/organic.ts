@@ -54,6 +54,7 @@ export type OrganicPostColumns = {
   caption: string | null;
   permalink: string | null;
   thumbnail_url: string | null;
+  media_kind: "image" | "carousel" | "video";
   reach: number;
   impressions: number;
   likes: number;
@@ -61,6 +62,17 @@ export type OrganicPostColumns = {
   saves: number;
   shares: number;
 };
+
+/** La nature d'un média Instagram — reel, carrousel, ou image fixe. */
+export function mediaKind(media: {
+  media_type?: string;
+  media_product_type?: string;
+}): "image" | "carousel" | "video" {
+  if (media.media_product_type === "REELS") return "video";
+  if (media.media_type === "VIDEO") return "video";
+  if (media.media_type === "CAROUSEL_ALBUM") return "carousel";
+  return "image";
+}
 
 /**
  * Un média Instagram vers une ligne de `social_posts`.
@@ -81,6 +93,7 @@ export function mediaToPost(media: MetaMediaRow): OrganicPostColumns | null {
     caption: media.caption ?? null,
     permalink: media.permalink ?? null,
     thumbnail_url: media.thumbnail_url ?? media.media_url ?? null,
+    media_kind: mediaKind(media),
     reach: insightValue(media.insights, "reach"),
     impressions: insightValue(media.insights, "views"),
     // Les compteurs publics vivent sur le média même, pas dans les insights.
@@ -119,6 +132,9 @@ export function pagePostToPost(post: MetaPagePostRow): OrganicPostColumns | null
     caption: post.message ?? null,
     permalink: post.permalink_url ?? null,
     thumbnail_url: post.full_picture ?? null,
+    // Facebook ne dit pas la nature du post sur ce listing : image par
+    // défaut, honnête pour l'essentiel du feed d'une Page.
+    media_kind: "image",
     reach: insightValue(post.insights, "post_impressions_unique"),
     impressions: insightValue(post.insights, "post_impressions"),
     likes: post.reactions?.summary?.total_count ?? 0,

@@ -170,6 +170,8 @@ export type SocialPost = {
   caption: string | null;
   permalink: string | null;
   thumbnail_url: string | null;
+  // 0047 — reel, carrousel ou post fixe.
+  media_kind: "image" | "carousel" | "video";
   reach: number;
   impressions: number;
   likes: number;

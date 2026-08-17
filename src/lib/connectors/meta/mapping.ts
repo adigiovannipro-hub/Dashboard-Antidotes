@@ -206,10 +206,17 @@ export function aggregateBreakdown(
 export function syncWindow(options: {
   lastSyncAt: string | null;
   now: Date;
+  /** Étend la fenêtre en arrière — la plage que l'écran demande à voir. */
+  atLeastSince?: string;
 }): { since: string; until: string } {
   const day = (offset: number) => {
     const at = new Date(options.now.getTime() + offset * 86_400_000);
     return at.toISOString().slice(0, 10);
   };
-  return { since: day(options.lastSyncAt ? -35 : -90), until: day(0) };
+  const computed = day(options.lastSyncAt ? -35 : -90);
+  const since =
+    options.atLeastSince && options.atLeastSince < computed
+      ? options.atLeastSince
+      : computed;
+  return { since, until: day(0) };
 }

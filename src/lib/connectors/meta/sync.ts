@@ -67,6 +67,10 @@ function unixSince(date: string): string {
 export async function syncWorkspaceReporting(options: {
   admin: Admin;
   workspaceId: string;
+  /** Borne basse demandée par l'écran — étend la fenêtre, jamais ne la
+      raccourcit. C'est ce qui permet à une plage ancienne du sélecteur de
+      déclencher le rattrapage qui la couvrira. */
+  atLeastSince?: string;
 }): Promise<SourceSyncReport[]> {
   const { admin, workspaceId } = options;
   const reports: SourceSyncReport[] = [];
@@ -135,7 +139,11 @@ export async function syncWorkspaceReporting(options: {
         last_sync_at: string | null;
       };
 
-      const window = syncWindow({ lastSyncAt: last_sync_at, now: new Date() });
+      const window = syncWindow({
+        lastSyncAt: last_sync_at,
+        now: new Date(),
+        atLeastSince: options.atLeastSince,
+      });
 
       const { data: run, error: runError } = await admin
         .from("sync_runs")
@@ -332,14 +340,14 @@ async function syncOrganic(
 ): Promise<number> {
   const { admin, workspaceId, dataSourceId, accessToken, window } = context;
   const platform = account.kind === "instagram" ? "instagram" : "facebook";
-  const since = unixSince(window.since);
 
   let posts: OrganicPostColumns[];
   if (account.kind === "instagram") {
+    // Le listing des médias se borne côté client, en date ISO — voir graph.ts.
     const media = await fetchInstagramMedia({
       igUserId: account.external_id,
       accessToken,
-      since,
+      since: window.since,
     });
     posts = media
       // Une story disparaît en 24 h : elle n'a pas sa place dans une table de
@@ -350,7 +358,7 @@ async function syncOrganic(
     const pagePosts = await fetchPagePosts({
       pageId: account.external_id,
       accessToken,
-      since,
+      since: unixSince(window.since),
     });
     posts = pagePosts.flatMap((post) => pagePostToPost(post) ?? []);
   }

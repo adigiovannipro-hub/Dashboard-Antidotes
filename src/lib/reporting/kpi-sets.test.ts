@@ -40,6 +40,16 @@ describe("KPI_SETS", () => {
   it("garde le ROAS en tête du payant", () => {
     expect(HERO_METRIC["meta-ads"]).toBe("roas");
   });
+
+  it("met le taux d'engagement en tête de l'organique, sans répétition", () => {
+    // La répétition ne dit rien d'un feed ; l'engagement dit tout.
+    expect(HERO_METRIC.instagram).toBe("engagementRate");
+    expect(HERO_METRIC.facebook).toBe("engagementRate");
+    expect(KPI_SETS.instagram).not.toContain("frequency");
+    expect(KPI_SETS.facebook).not.toContain("frequency");
+    expect(KPI_SETS.instagram).toContain("videoViews");
+    expect(KPI_SETS.instagram).toContain("likes");
+  });
 });
 
 describe("hasPersona", () => {

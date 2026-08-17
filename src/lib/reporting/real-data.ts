@@ -1,5 +1,5 @@
+import type { BarDatum } from "@/components/viz/bar-list";
 import type { MetricsTableRow } from "@/components/viz/metrics-table";
-import type { DemoBreakdown } from "@/lib/demo/bondet";
 import { sumRawMetrics } from "@/lib/metrics/aggregate";
 import { EMPTY_RAW_METRICS, type RawMetrics } from "@/lib/metrics/types";
 import type {
@@ -35,6 +35,9 @@ export function metricsRowToRaw(row: AdMetricsDaily): RawMetrics {
     comments: Number(row.comments),
     saves: Number(row.saves),
     shares: Number(row.shares),
+    // Grandeurs organiques : la table publicitaire ne les porte pas.
+    likes: 0,
+    videoViews: 0,
   };
 }
 
@@ -89,7 +92,7 @@ export function buildAdSetRows(
 export function buildBreakdown(
   rows: AdBreakdownDaily[],
   type: AdBreakdownDaily["type"],
-): DemoBreakdown[] {
+): BarDatum[] {
   const byValue = new Map<string, number>();
   for (const row of rows) {
     if (row.type !== type) continue;
@@ -108,7 +111,7 @@ export function buildBreakdown(
 
   // Les tranches d'âge se lisent dans l'ordre des âges ; les autres axes, du
   // plus gros au plus petit. « Inconnu » ferme toujours la marche.
-  const rank = (entry: DemoBreakdown) => (entry.label === "Inconnu" ? 1 : 0);
+  const rank = (entry: BarDatum) => (entry.label === "Inconnu" ? 1 : 0);
   return type === "age"
     ? entries.sort((a, b) => rank(a) - rank(b) || a.label.localeCompare(b.label, "fr"))
     : entries.sort((a, b) => rank(a) - rank(b) || b.value - a.value);
@@ -172,6 +175,12 @@ export function sumPosts(posts: SocialPost[]): RawMetrics {
       comments: total.comments + Number(post.comments),
       saves: total.saves + Number(post.saves),
       shares: total.shares + Number(post.shares),
+      likes: total.likes + Number(post.likes),
+      // Les vues vidéos ne se comptent que sur les reels : les vues d'une
+      // image sont des impressions, pas des lectures.
+      videoViews:
+        total.videoViews +
+        (post.media_kind === "video" ? Number(post.impressions) : 0),
     }),
     { ...EMPTY_RAW_METRICS },
   );

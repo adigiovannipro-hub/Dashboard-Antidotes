@@ -41,6 +41,9 @@ export const META_SCOPES = [
   "pages_show_list",
   "pages_read_engagement",
   "pages_manage_posts",
+  // Lire les publications de la Page (`/published_posts`) : sans elle, Meta
+  // répond « (#10) requires pages_read_user_content » — vécu au premier sync.
+  "pages_read_user_content",
   "read_insights",
   "instagram_basic",
   "instagram_content_publish",

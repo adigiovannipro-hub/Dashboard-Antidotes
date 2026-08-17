@@ -26,6 +26,14 @@ export type FeedTile = {
   cover: { path: string; url: string; name: string } | null;
   /** Une vidéo affiche sa première image ; le rendu doit le savoir. */
   isVideo: boolean;
+  /**
+   * Publication d'un mois **antérieur** au mois prévisualisé : elle donne le
+   * contexte visuel du profil — le feed ne commence pas au 1er — mais ne se
+   * travaille plus ici. Le rendu la montre en visuel seul, ni cliquable ni
+   * datée, et un trou d'un mois passé n'apparaît pas : il n'est plus
+   * actionnable.
+   */
+  previous: boolean;
 };
 
 export function isVideoPath(pathOrUrl: string): boolean {
@@ -66,6 +74,8 @@ export function buildFeed(
       (subject) => subject.scheduled_on !== null && subject.scheduled_on <= limit,
     );
 
+  const monthPrefix = monthKey.slice(0, 7);
+
   return subjects
     .sort((a, b) => {
       const dates = (b.scheduled_on ?? "").localeCompare(a.scheduled_on ?? "");
@@ -79,8 +89,12 @@ export function buildFeed(
         subject,
         cover,
         isVideo: cover ? isVideoPath(cover.path) : false,
+        previous: (subject.scheduled_on ?? "").slice(0, 7) < monthPrefix,
       };
-    });
+    })
+    // Un mois passé n'expose que ses visuels : un trou d'hier n'est plus un
+    // travail à faire, le montrer brouillerait la lecture du mois visé.
+    .filter((tile) => !tile.previous || tile.cover !== null);
 }
 
 /** Dernier jour du mois, en UTC — un mois se calcule sans fuseau. */

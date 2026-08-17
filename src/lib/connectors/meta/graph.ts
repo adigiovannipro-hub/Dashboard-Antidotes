@@ -130,24 +130,43 @@ export async function fetchAdBreakdowns(options: {
  * la requête entière : dans ce cas on retombe sur les médias **sans**
  * insights — les compteurs publics (likes, commentaires) restent, et une ligne
  * incomplète vaut mieux qu'un écran vide.
+ *
+ * Pas de `since` côté Meta : le listing des médias est déjà antichronologique
+ * et le paramètre s'est montré capricieux sur cette arête. On pagine et on
+ * s'arrête soi-même dès qu'une page ne contient plus rien d'assez récent.
  */
 export async function fetchInstagramMedia(options: {
   igUserId: string;
   accessToken: string;
+  /** Borne basse `YYYY-MM-DD` — on remonte le fil jusqu'à elle. */
   since: string;
 }): Promise<MetaMediaRow[]> {
   const baseFields =
     "id,caption,permalink,media_type,media_product_type,media_url,thumbnail_url,timestamp,like_count,comments_count";
 
-  const fetchWith = (fields: string) =>
-    fetchAllPages<MetaMediaRow>(
-      buildUrl(`/${options.igUserId}/media`, {
-        access_token: options.accessToken,
-        fields,
-        since: options.since,
-        limit: "50",
-      }),
+  const fetchWith = async (fields: string): Promise<MetaMediaRow[]> => {
+    const rows: MetaMediaRow[] = [];
+    let url: string | undefined = buildUrl(`/${options.igUserId}/media`, {
+      access_token: options.accessToken,
+      fields,
+      limit: "50",
+    });
+
+    for (let page = 0; url && page < MAX_PAGES; page += 1) {
+      const payload: PagedPayload<MetaMediaRow> =
+        await fetchGraph<PagedPayload<MetaMediaRow>>(url);
+      const items = payload.data ?? [];
+      rows.push(...items);
+
+      const oldest = items.at(-1)?.timestamp;
+      if (oldest && oldest.slice(0, 10) < options.since) break;
+      url = payload.paging?.next;
+    }
+
+    return rows.filter(
+      (item) => !item.timestamp || item.timestamp.slice(0, 10) >= options.since,
     );
+  };
 
   try {
     return await fetchWith(

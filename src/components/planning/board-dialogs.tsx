@@ -131,111 +131,169 @@ export function MoveDialog({
   );
 }
 
-// --- Archives ----------------------------------------------------------------
+// --- Archives et corbeille ----------------------------------------------------
 
+/**
+ * Une seule boîte pour tout ce qui a quitté le tableau : l'archivé et le
+ * supprimé, chacun sous son intitulé, tous restaurables d'un clic. Deux
+ * icônes d'en-tête pour deux listes de retour se confondaient — et l'icône
+ * corbeille sert désormais à supprimer l'année.
+ */
 export function ArchiveDialog({
   scope,
   archived,
+  trashSubjects,
+  trashMonths,
   open,
   onOpenChange,
 }: {
   scope: Scope;
   archived: SubjectRow[];
+  trashSubjects: SubjectRow[];
+  trashMonths: PlanningMonth[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
   const { run, pending } = useCellAction();
+  const total = archived.length + trashSubjects.length + trashMonths.length;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Archives — {archived.length}</DialogTitle>
+          <DialogTitle>Archives et corbeille — {total}</DialogTitle>
         </DialogHeader>
 
-        {archived.length === 0 ? (
+        {total === 0 ? (
           <p className="text-muted-foreground text-sm">
-            Rien d&apos;archivé. « Archiver » vit dans la barre de sélection, en
-            bas de l&apos;écran.
+            Rien ici. « Archiver » et « Supprimer » vivent dans la barre de
+            sélection, en bas de l&apos;écran — tout ce qui y passe se
+            retrouve dans cette boîte, restaurable d&apos;un clic.
           </p>
         ) : (
-          <ul className="max-h-96 space-y-1.5 overflow-y-auto">
-            {archived.map((subject) => (
-              <RestorableRow
-                key={subject.id}
-                title={subject.name || "Sans sujet"}
-                detail={`${subject.lane_name} · ${monthGroupLabel(subject.month_key)}`}
-                pending={pending}
-                icon={<ArchiveRestore className="size-3.5" aria-hidden />}
-                onRestore={() =>
-                  run(() => restoreSubjects(scope, { subjectIds: [subject.id] }))
-                }
-              />
-            ))}
-          </ul>
+          <div className="max-h-96 space-y-4 overflow-y-auto">
+            {archived.length > 0 ? (
+              <section>
+                <p className="text-muted-foreground mb-1.5 text-[11px] font-semibold tracking-wide uppercase">
+                  Archivées — {archived.length}
+                </p>
+                <ul className="space-y-1.5">
+                  {archived.map((subject) => (
+                    <RestorableRow
+                      key={subject.id}
+                      title={subject.name || "Sans sujet"}
+                      detail={`${subject.lane_name} · ${monthGroupLabel(subject.month_key)}`}
+                      pending={pending}
+                      icon={<ArchiveRestore className="size-3.5" aria-hidden />}
+                      onRestore={() =>
+                        run(() => restoreSubjects(scope, { subjectIds: [subject.id] }))
+                      }
+                    />
+                  ))}
+                </ul>
+              </section>
+            ) : null}
+
+            {trashSubjects.length + trashMonths.length > 0 ? (
+              <section>
+                <p className="text-muted-foreground mb-1.5 text-[11px] font-semibold tracking-wide uppercase">
+                  Corbeille — {trashSubjects.length + trashMonths.length}
+                </p>
+                <ul className="space-y-1.5">
+                  {trashMonths.map((month) => (
+                    <RestorableRow
+                      key={month.id}
+                      title={`Mois ${month.label}`}
+                      detail="avec toutes ses publications"
+                      pending={pending}
+                      icon={<Undo2 className="size-3.5" aria-hidden />}
+                      onRestore={() =>
+                        run(() => restoreMonth(scope, { monthId: month.id }))
+                      }
+                    />
+                  ))}
+                  {trashSubjects.map((subject) => (
+                    <RestorableRow
+                      key={subject.id}
+                      title={subject.name || "Sans sujet"}
+                      detail={`${subject.lane_name} · ${monthGroupLabel(subject.month_key)}`}
+                      pending={pending}
+                      icon={<Undo2 className="size-3.5" aria-hidden />}
+                      onRestore={() =>
+                        run(() => restoreSubjects(scope, { subjectIds: [subject.id] }))
+                      }
+                    />
+                  ))}
+                </ul>
+              </section>
+            ) : null}
+          </div>
         )}
       </DialogContent>
     </Dialog>
   );
 }
 
-// --- Corbeille ---------------------------------------------------------------
+// --- Supprimer l'année ---------------------------------------------------------
 
-export function TrashDialog({
+/**
+ * La suppression du tableau entier — l'année et tout ce qu'elle contient.
+ *
+ * Pas de corbeille pour un tableau : c'est une décision d'owner, rare et
+ * définitive, dite en toutes lettres avant le clic. La RLS ne l'accorde de
+ * toute façon qu'au propriétaire.
+ */
+export function DeleteBoardDialog({
   scope,
-  subjects,
-  months,
+  boardName,
+  monthCount,
   open,
   onOpenChange,
+  onDelete,
 }: {
   scope: Scope;
-  subjects: SubjectRow[];
-  months: PlanningMonth[];
+  boardName: string;
+  monthCount: number;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onDelete: () => Promise<void>;
 }) {
-  const { run, pending } = useCellAction();
+  const [pending, setPending] = useState(false);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Corbeille — {subjects.length + months.length}</DialogTitle>
+          <DialogTitle>Supprimer l&apos;année {boardName}</DialogTitle>
         </DialogHeader>
 
-        {subjects.length === 0 && months.length === 0 ? (
-          <p className="text-muted-foreground text-sm">
-            La corbeille est vide. Ce qui se supprime arrive ici, et se
-            restaure d&apos;un clic.
-          </p>
-        ) : (
-          <ul className="max-h-96 space-y-1.5 overflow-y-auto">
-            {months.map((month) => (
-              <RestorableRow
-                key={month.id}
-                title={`Mois ${month.label}`}
-                detail="avec toutes ses publications"
-                pending={pending}
-                icon={<Undo2 className="size-3.5" aria-hidden />}
-                onRestore={() =>
-                  run(() => restoreMonth(scope, { monthId: month.id }))
-                }
-              />
-            ))}
-            {subjects.map((subject) => (
-              <RestorableRow
-                key={subject.id}
-                title={subject.name || "Sans sujet"}
-                detail={`${subject.lane_name} · ${monthGroupLabel(subject.month_key)}`}
-                pending={pending}
-                icon={<Undo2 className="size-3.5" aria-hidden />}
-                onRestore={() =>
-                  run(() => restoreSubjects(scope, { subjectIds: [subject.id] }))
-                }
-              />
-            ))}
-          </ul>
-        )}
+        <p className="text-muted-foreground text-sm">
+          Le tableau {boardName} de l&apos;espace {scope.workspace} partira
+          définitivement — ses {monthCount} mois, toutes leurs publications,
+          les visuels accrochés et le journal. Cette suppression ne passe pas
+          par la corbeille : rien ne se restaure.
+        </p>
+
+        <div className="flex justify-end gap-2">
+          <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
+            Annuler
+          </Button>
+          <Button
+            variant="destructive"
+            size="sm"
+            disabled={pending}
+            onClick={async () => {
+              setPending(true);
+              try {
+                await onDelete();
+              } finally {
+                setPending(false);
+              }
+            }}
+          >
+            Supprimer l&apos;année et le tableau
+          </Button>
+        </div>
       </DialogContent>
     </Dialog>
   );

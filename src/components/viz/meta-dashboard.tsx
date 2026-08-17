@@ -3,7 +3,7 @@
 import { Panel, PanelBody, PanelHeader } from "@/components/ds/surface";
 import { BarList } from "@/components/viz/bar-list";
 import { Funnel } from "@/components/viz/funnel";
-import { MetricsTable } from "@/components/viz/metrics-table";
+import { MetricsTable, type MetricsTableRow } from "@/components/viz/metrics-table";
 import { HeroFigure, StatTile } from "@/components/viz/stat-tile";
 import { TrendLine, TrendLineTable } from "@/components/viz/trend-line";
 import { VizCard } from "@/components/viz/viz-card";
@@ -15,7 +15,7 @@ import {
   type MetricId,
   type RawMetrics,
 } from "@/lib/metrics/types";
-import type { DemoAdSet, DemoBreakdown } from "@/lib/demo/bondet";
+import type { BarDatum } from "@/components/viz/bar-list";
 import { detailTitle, HERO_METRIC, KPI_SETS } from "@/lib/reporting/kpi-sets";
 import { foldTail } from "@/lib/viz/palette";
 
@@ -29,12 +29,12 @@ export function MetaDashboard({
   followers,
   period,
 }: {
-  adSets: readonly DemoAdSet[];
+  adSets: readonly MetricsTableRow[];
   total: RawMetrics;
   previousTotal: RawMetrics;
-  age: readonly DemoBreakdown[];
-  gender: readonly DemoBreakdown[];
-  regions: readonly DemoBreakdown[];
+  age: readonly BarDatum[];
+  gender: readonly BarDatum[];
+  regions: readonly BarDatum[];
   followers: readonly { label: string; value: number }[];
   period: { label: string; comparison: string };
 }) {

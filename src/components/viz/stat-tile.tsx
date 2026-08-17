@@ -7,13 +7,17 @@ import type { MetricId } from "@/lib/metrics/types";
 import { cn } from "@/lib/utils";
 
 /**
- * Tuile de statistique : pastille à gauche, libellé, valeur et variation à
- * droite.
+ * Tuile de statistique : pastille à gauche, et à droite le bloc empilé —
+ * libellé **au-dessus** du chiffre, variation dessous — centré verticalement
+ * et aligné contre le bord droit.
  *
- * L'icône était refusée tant qu'elle se posait **au-dessus** du chiffre : dix
- * pictogrammes empilés au-dessus de dix nombres font un mur de symboles. En
- * colonne de gauche, elle ne concurrence plus rien — elle donne à l'œil un
- * repère pour retrouver « le budget » sans relire les dix libellés.
+ * L'empilement remplace la disposition libellé-à-gauche / chiffre-à-droite :
+ * sur une rangée de tuiles, l'œil lit désormais chaque carte de haut en bas
+ * — quoi, combien, comment ça bouge — et les chiffres restent alignés en
+ * colonne d'une carte à l'autre.
+ *
+ * La variation s'affiche toujours : sans période de comparaison, `Delta`
+ * rend « N/A » — un tiret neutre vaut mieux qu'une case qui change de forme.
  */
 export function StatTile({
   metric,
@@ -37,33 +41,19 @@ export function StatTile({
     >
       <MetricIcon metric={metric} />
 
-      {/* Pastille et libellé à gauche, chiffre et variation **contre le bord
-          droit** : sur une rangée de tuiles, les nombres s'alignent alors sur
-          une même colonne et se comparent d'un coup d'œil. Collés au libellé,
-          ils démarraient à une abscisse différente par carte. */}
-      {/* Le libellé revient à la ligne au lieu d'être tronqué : la colonne de
-          l'entonnoir a resserré les tuiles, et « Budget dépensé » devenait
-          « BUDG… ». Un libellé sur deux lignes se lit, un libellé coupé non. */}
-      <p
-        className="type-overline text-text-secondary min-w-0 flex-1 leading-tight"
-        title={definition.label}
-      >
-        {definition.label}
-      </p>
-
-      <div className="shrink-0 text-right">
-        {/* Chiffres proportionnels : `tabular-nums` sur une grande valeur isolée
-            donnerait des chasses égales et un rendu lâche. */}
+      <div className="flex min-w-0 flex-1 flex-col items-end justify-center gap-1 text-right">
+        <p
+          className="type-overline text-text-secondary leading-tight"
+          title={definition.label}
+        >
+          {definition.label}
+        </p>
+        {/* Chiffres proportionnels : `tabular-nums` sur une grande valeur
+            isolée donnerait des chasses égales et un rendu lâche. */}
         <p className="text-text-primary text-xl leading-none font-semibold">
           {formatMetric(metric, value)}
         </p>
-        {delta ? (
-          <Delta
-            ratio={delta.ratio}
-            sentiment={delta.sentiment}
-            className="mt-1.5"
-          />
-        ) : null}
+        {delta ? <Delta ratio={delta.ratio} sentiment={delta.sentiment} /> : null}
       </div>
     </div>
   );
@@ -72,10 +62,9 @@ export function StatTile({
 /**
  * Chiffre héros : la seule réponse à « est-ce que ça a marché ». Un par vue.
  *
- * Il tenait une colonne entière et deux rangées de haut. Le chiffre restait le
- * plus gros de l'écran sans avoir besoin de tout cet air autour : la carte est
- * désormais **couchée** — pastille, chiffre, variation, puis la phrase — et
- * rend deux tuiles de place au reste de la bande.
+ * Même grammaire que la tuile — libellé au-dessus, chiffre, variation — mais
+ * en plus grand, et suivi de la phrase qu'on recopierait dans un mail au
+ * client.
  */
 export function HeroFigure({
   metric,
@@ -94,7 +83,6 @@ export function HeroFigure({
   className?: string;
 }) {
   const definition = METRIC_DEFINITIONS[metric];
-  const hasComparison = delta && delta.ratio !== null;
 
   return (
     <div
@@ -111,13 +99,9 @@ export function HeroFigure({
           <p className="text-text-primary text-3xl leading-none font-bold">
             {formatMetric(metric, value)}
           </p>
-          {hasComparison ? (
-            <Delta ratio={delta.ratio} sentiment={delta.sentiment} />
-          ) : (
-            <span className="type-caption text-text-secondary">
-              Pas de comparaison sur la période précédente
-            </span>
-          )}
+          {/* Toujours la pastille : sans comparaison, elle dit « N/A » — même
+              langage que les tuiles, jamais une phrase d'excuse. */}
+          {delta ? <Delta ratio={delta.ratio} sentiment={delta.sentiment} /> : null}
         </div>
 
         {/* La lecture en clair plutôt qu'un vide : c'est la phrase qu'on

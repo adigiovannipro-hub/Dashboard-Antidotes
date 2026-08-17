@@ -245,6 +245,37 @@ export async function addYearBoard(scope: Scope): Promise<YearBoardResult> {
   }
 }
 
+/**
+ * Supprime le tableau entier — l'année et tout ce qu'elle contient, en
+ * cascade. Pas de corbeille à ce niveau : la politique RLS ne l'accorde
+ * qu'au propriétaire, et la boîte de confirmation a déjà dit le prix.
+ */
+export async function deleteBoard(scope: Scope): Promise<PlanningResult> {
+  try {
+    const { workspace } = await guard(scope);
+    const supabase = await createClient();
+
+    const { data: deleted, error } = await supabase
+      .from("planning_boards")
+      .delete()
+      .eq("workspace_id", workspace.id)
+      .eq("slug", scope.board)
+      .select("id");
+    if (error) throw new Error(error.message);
+
+    // La RLS filtre en silence : zéro ligne veut dire « pas propriétaire »,
+    // pas « déjà supprimé ».
+    if ((deleted ?? []).length === 0) {
+      return { ok: false, error: "La suppression d'un tableau est réservée au propriétaire." };
+    }
+
+    revalidatePath(`/espace/${scope.workspace}/planning`);
+    return { ok: true, message: "Tableau supprimé." };
+  } catch (error) {
+    return fail(error);
+  }
+}
+
 export async function renameMonth(
   scope: Scope,
   input: { monthId: string; label: string },

@@ -17,6 +17,7 @@ import {
 import { detailTitle, HERO_METRIC, KPI_SETS } from "@/lib/reporting/kpi-sets";
 import type { ReportingNetwork } from "@/lib/reporting/networks";
 import type { SocialPost } from "@/lib/supabase/database.types";
+import { heatmapBackground, performanceRank } from "@/lib/viz/palette";
 
 /**
  * Le tableau de bord organique — Instagram et Facebook, même squelette que le
@@ -59,7 +60,7 @@ export function OrganicDashboard({
           metric={hero}
           value={computeMetric(hero, total, mode)}
           delta={delta(hero)}
-          sentence={`${formatValue(posts.length, "integer")} publication${posts.length > 1 ? "s" : ""} parue${posts.length > 1 ? "s" : ""}, ${formatMetric("impressions", total.impressions)} vues${
+          sentence={`${formatValue(posts.length, "integer")} publication${posts.length > 1 ? "s" : ""}, ${formatMetric("reach", total.reach)} personnes touchées${
             followersNow !== null
               ? ` — ${formatValue(followersNow, "integer")} abonnés aujourd'hui`
               : ""
@@ -105,12 +106,22 @@ export function OrganicDashboard({
   );
 }
 
+const KIND_LABELS: Record<SocialPost["media_kind"], string> = {
+  image: "Post",
+  carousel: "Carrousel",
+  video: "Reel",
+};
+
+type PostColumn = {
+  header: string;
+  value: (post: SocialPost) => number;
+};
+
 /**
- * Le détail par publication, dans le même langage que le tableau des ad sets :
- * table dense `text-xs`, rangs séparés par le trait de grille.
- *
- * La vignette est décorative — la ligne se comprend par la légende et la
- * date — donc `alt` vide et un carré neutre quand elle manque.
+ * Le détail par publication — même langage que le tableau des ad sets, heatmap
+ * divergente comprise : les meilleures valeurs de chaque colonne en vert, les
+ * moins bonnes en rouge, toutes les mesures organiques étant « plus c'est
+ * haut, mieux c'est ».
  */
 function PostsTable({
   posts,
@@ -127,14 +138,23 @@ function PostsTable({
     );
   }
 
-  const headers = [
-    "Vues",
-    "Portée",
-    "J'aime",
-    "Commentaires",
-    ...(withSaves ? ["Enregistrements"] : []),
-    "Partages",
+  const columns: PostColumn[] = [
+    { header: "Vues", value: (post) => Number(post.impressions) },
+    {
+      header: "Vues vidéo",
+      value: (post) => (post.media_kind === "video" ? Number(post.impressions) : 0),
+    },
+    { header: "J'aime", value: (post) => Number(post.likes) },
+    { header: "Commentaires", value: (post) => Number(post.comments) },
+    ...(withSaves
+      ? [{ header: "Enregistrements", value: (post: SocialPost) => Number(post.saves) }]
+      : []),
+    { header: "Partages", value: (post) => Number(post.shares) },
   ];
+
+  // Les échelles de heatmap par colonne, calculées une fois sur les lignes
+  // affichées — comme le tableau des ad sets.
+  const columnValues = columns.map((column) => posts.map(column.value));
 
   return (
     <div className="overflow-x-auto">
@@ -145,64 +165,88 @@ function PostsTable({
               Publication
             </th>
             <th scope="col" className="px-2 pb-2 font-medium">
+              Type
+            </th>
+            <th scope="col" className="px-2 pb-2 font-medium">
               Date
             </th>
-            {headers.map((header) => (
-              <th key={header} scope="col" className="px-2 pb-2 text-right font-medium">
-                {header}
+            {columns.map((column) => (
+              <th
+                key={column.header}
+                scope="col"
+                className="px-2 pb-2 text-right font-medium"
+              >
+                {column.header}
               </th>
             ))}
           </tr>
         </thead>
         <tbody>
-          {posts.map((post) => {
-            const numbers = [
-              post.impressions,
-              post.reach,
-              post.likes,
-              post.comments,
-              ...(withSaves ? [post.saves] : []),
-              post.shares,
-            ];
-            return (
-              <tr key={post.id} className="border-t border-[var(--viz-grid)]">
-                <th scope="row" className="px-2 py-2 text-left font-normal">
-                  <a
-                    href={post.permalink ?? undefined}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="focus-visible:ring-brand flex max-w-[22rem] items-center gap-2.5 rounded focus-visible:ring-2 focus-visible:outline-none"
-                  >
-                    {post.thumbnail_url ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={post.thumbnail_url}
-                        alt=""
-                        className="size-9 shrink-0 rounded-sm object-cover"
-                      />
-                    ) : (
-                      <span className="bg-surface-sunken text-text-tertiary flex size-9 shrink-0 items-center justify-center rounded-sm">
-                        <ImageOff className="size-4" strokeWidth={1.75} aria-hidden />
-                      </span>
-                    )}
-                    <span className="truncate" title={post.caption ?? undefined}>
-                      {post.caption?.trim() || "Sans légende"}
+          {posts.map((post) => (
+            <tr key={post.id} className="border-t border-[var(--viz-grid)]">
+              <th scope="row" className="px-2 py-2 text-left font-normal">
+                <a
+                  href={post.permalink ?? undefined}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="focus-visible:ring-brand flex max-w-[20rem] items-center gap-2.5 rounded focus-visible:ring-2 focus-visible:outline-none"
+                >
+                  {post.thumbnail_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={post.thumbnail_url}
+                      alt=""
+                      className="size-9 shrink-0 rounded-sm object-cover"
+                    />
+                  ) : (
+                    <span className="bg-surface-sunken text-text-tertiary flex size-9 shrink-0 items-center justify-center rounded-sm">
+                      <ImageOff className="size-4" strokeWidth={1.75} aria-hidden />
                     </span>
-                  </a>
-                </th>
-                <td className="text-muted-foreground px-2 py-2 whitespace-nowrap">
-                  {formatDayFr(post.published_at.slice(0, 10))}
-                </td>
-                {numbers.map((value, index) => (
-                  <td key={headers[index]} className="px-2 py-2 text-right">
-                    {formatValue(Number(value), "integer")}
+                  )}
+                  <span className="truncate" title={post.caption ?? undefined}>
+                    {post.caption?.trim() || "Sans légende"}
+                  </span>
+                </a>
+              </th>
+              <td className="px-2 py-2">
+                <span className="bg-surface-sunken text-text-secondary rounded-pill px-2 py-0.5 font-medium whitespace-nowrap">
+                  {KIND_LABELS[post.media_kind] ?? "Post"}
+                </span>
+              </td>
+              <td className="text-muted-foreground px-2 py-2 whitespace-nowrap">
+                {formatDayFr(post.published_at.slice(0, 10))}
+              </td>
+              {columns.map((column, index) => {
+                const value = column.value(post);
+                // Une vue vidéo sur un post fixe n'est pas une contre-performance :
+                // la colonne ne se teinte que là où elle a un sens.
+                const shaded =
+                  column.header !== "Vues vidéo" || post.media_kind === "video";
+                const rank = shaded
+                  ? performanceRank(value, columnValues[index]!, false)
+                  : 0;
+                return (
+                  <td
+                    key={column.header}
+                    className="px-2 py-2 text-right"
+                    style={
+                      shaded
+                        ? { backgroundColor: heatmapBackground(rank) }
+                        : undefined
+                    }
+                  >
+                    {formatValue(value, "integer")}
                   </td>
-                ))}
-              </tr>
-            );
-          })}
+                );
+              })}
+            </tr>
+          ))}
         </tbody>
       </table>
+      <p className="text-muted-foreground mt-3 text-xs">
+        Fond vert&nbsp;: les meilleures valeurs de la colonne ; fond
+        rouge&nbsp;: les moins bonnes.
+      </p>
     </div>
   );
 }

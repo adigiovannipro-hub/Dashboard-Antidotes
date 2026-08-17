@@ -20,13 +20,14 @@ import type { ReportingNetwork } from "./networks";
 /**
  * Le chiffre héros de chaque onglet — un par vue, celui qui répond seul.
  *
- * En organique il n'y a pas de ROAS : c'est la portée qui dit si le mois a
- * porté, le reste la nuance.
+ * En organique il n'y a pas de ROAS : c'est le **taux d'engagement** qui dit
+ * si le contenu a porté — la portée dit combien ont vu, l'engagement dit
+ * combien s'en sont souciés.
  */
 export const HERO_METRIC: Record<ReportingNetwork, MetricId> = {
   "meta-ads": "roas",
-  instagram: "reach",
-  facebook: "reach",
+  instagram: "engagementRate",
+  facebook: "engagementRate",
 };
 
 export const KPI_SETS: Record<ReportingNetwork, MetricId[]> = {
@@ -42,10 +43,19 @@ export const KPI_SETS: Record<ReportingNetwork, MetricId[]> = {
     "ctr",
     "landingPageViews",
   ],
-  /* Organique : rien de monétaire. L'ordre suit la lecture d'un rapport
-     social — combien de monde, combien de fois, et ce qu'ils en ont fait. */
-  instagram: ["impressions", "frequency", "comments", "saves", "shares"],
-  facebook: ["impressions", "frequency", "comments", "shares"],
+  /* Organique : rien de monétaire, pas de répétition — elle ne dit rien d'un
+     feed. L'ordre suit la lecture d'un rapport social : combien de monde,
+     combien de fois, et ce qu'ils en ont fait. */
+  instagram: [
+    "reach",
+    "impressions",
+    "videoViews",
+    "likes",
+    "comments",
+    "saves",
+    "shares",
+  ],
+  facebook: ["reach", "impressions", "videoViews", "likes", "comments", "shares"],
 };
 
 /** Les découpages d'audience ont-ils un sens sur cet onglet ? */
