@@ -57,12 +57,18 @@ export default async function ModerationInboxPage({
       : null,
   );
 
-  const [signedLogos, conversations, counters, connections] = await Promise.all([
-    signLogoUrls(logoPaths),
-    listConversations({ filters }),
-    getInboxCounters({ view, clientId: activeClient?.id }),
-    listChannelConnections(),
-  ]);
+  /* Le fil part **en même temps** que la liste quand l'URL le nomme : c'était
+     la lenteur ressentie entre deux conversations — la liste et les compteurs
+     d'abord, le fil seulement ensuite, soit deux allers-retours en série pour
+     un clic qui ne change que le volet de droite. */
+  const [signedLogos, conversations, counters, connections, requestedThread] =
+    await Promise.all([
+      signLogoUrls(logoPaths),
+      listConversations({ filters }),
+      getInboxCounters({ view, clientId: activeClient?.id }),
+      listChannelConnections(),
+      query.conv ? getConversationThread(query.conv) : null,
+    ]);
 
   const clients: ClientChip[] = context.clients.map((client) => {
     const path = client.workspace_id
@@ -77,11 +83,14 @@ export default async function ModerationInboxPage({
   });
 
   // La conversation ouverte vient de l'URL : un opérateur peut envoyer un lien
-  // direct à un collègue, et le retour arrière fonctionne.
+  // direct à un collègue, et le retour arrière fonctionne. Sans `?conv=`, on
+  // ouvre la première de la liste — connue trop tard pour la course ci-dessus.
   const selectedId = query.conv ?? conversations[0]?.id ?? null;
-  const thread = selectedId
-    ? await getConversationThread(selectedId)
-    : { conversation: null, messages: [], draft: null };
+  const thread =
+    requestedThread ??
+    (selectedId
+      ? await getConversationThread(selectedId)
+      : { conversation: null, messages: [], draft: null });
 
   return (
     <Inbox

@@ -18,11 +18,26 @@ import type {
  * pattern `auto-forward.ts` des Reçus.
  */
 
+/**
+ * Une pièce jointe de message — GIF, image, sticker.
+ *
+ * `url` est ce qui s'affiche, `href` ce qui s'ouvre. Les deux peuvent être
+ * absentes séparément : un GIF a les deux, un lien partagé n'a que `href`.
+ */
+export type IngestedAttachment = {
+  type: string;
+  url: string | null;
+  href: string | null;
+  title: string | null;
+};
+
 export type IngestedMessage = {
   /** Identifiant natif de la plateforme : la clé de déduplication. */
   externalId: string;
   authorExternalId: string | null;
   authorHandle: string | null;
+  authorAvatarUrl: string | null;
+  attachments: IngestedAttachment[];
   body: string;
   /** Vrai quand le message vient de la marque — réponse faite ailleurs. */
   fromBrand: boolean;
@@ -80,6 +95,31 @@ export function excerptOf(body: string, max = 140): string | null {
   if (flat.length <= max) return flat;
   return `${flat.slice(0, max - 1).trimEnd()}…`;
 }
+
+/**
+ * L'extrait d'un message pour la liste.
+ *
+ * Un commentaire en GIF n'a pas de texte : sans repli, la ligne s'affichait
+ * vide alors qu'il s'y passe quelque chose. On nomme alors la pièce jointe.
+ */
+function excerptOfMessage(message: IngestedMessage | null): string | null {
+  if (!message) return null;
+  const text = excerptOf(message.body);
+  if (text) return text;
+  const attachment = message.attachments[0];
+  if (!attachment) return null;
+  return ATTACHMENT_LABELS[attachment.type] ?? "Pièce jointe";
+}
+
+/** Les types d'attachement que Meta rend, dits en français. */
+export const ATTACHMENT_LABELS: Record<string, string> = {
+  animated_image_share: "GIF",
+  animated_image_video: "GIF",
+  sticker: "Sticker",
+  photo: "Photo",
+  video_inline: "Vidéo",
+  share: "Lien partagé",
+};
 
 function parseTime(iso: string): number {
   const time = Date.parse(iso);
@@ -184,9 +224,7 @@ export function planThreadState(options: {
     priority,
     flags,
     detected_locale: locale,
-    excerpt: lastInbound
-      ? excerptOf(lastInbound.body)
-      : excerptOf(thread.messages.at(-1)?.body ?? ""),
+    excerpt: excerptOfMessage(lastInbound ?? thread.messages.at(-1) ?? null),
     last_message_at: new Date(lastMessageAt || Date.now()).toISOString(),
     message_count: thread.messages.length,
   };

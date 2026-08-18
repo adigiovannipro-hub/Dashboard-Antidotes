@@ -157,6 +157,40 @@ describe("igCommentsToThreads", () => {
   });
 });
 
+describe("pageCommentsToThreads — pièces jointes", () => {
+  it("garde le GIF d'un commentaire sans texte", () => {
+    const threads = pageCommentsToThreads({
+      post: pagePost(),
+      comments: [
+        pageComment({
+          message: undefined,
+          attachment: {
+            type: "animated_image_share",
+            title: "Applause",
+            media: { image: { src: "https://cdn.example.com/clap.gif" } },
+            target: { url: "https://giphy.com/clap" },
+          },
+        }),
+      ],
+      brand: PAGE_BRAND,
+    });
+
+    const attachment = threads[0]!.messages[0]!.attachments[0]!;
+    expect(attachment.type).toBe("animated_image_share");
+    expect(attachment.url).toBe("https://cdn.example.com/clap.gif");
+    expect(attachment.href).toBe("https://giphy.com/clap");
+  });
+
+  it("n'invente pas de pièce jointe quand Meta n'en rend pas", () => {
+    const threads = pageCommentsToThreads({
+      post: pagePost(),
+      comments: [pageComment()],
+      brand: PAGE_BRAND,
+    });
+    expect(threads[0]!.messages[0]!.attachments).toEqual([]);
+  });
+});
+
 describe("pageCommentsToThreads", () => {
   it("regroupe le flux à plat par commentaire de tête", () => {
     const threads = pageCommentsToThreads({

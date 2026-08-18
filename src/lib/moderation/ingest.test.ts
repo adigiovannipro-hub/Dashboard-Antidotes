@@ -7,6 +7,8 @@ const message = (over: Partial<IngestedMessage> = {}): IngestedMessage => ({
   externalId: "m1",
   authorExternalId: "u1",
   authorHandle: "claire.d",
+  authorAvatarUrl: null,
+  attachments: [],
   body: "Bonjour, est-ce que le modèle existe en bleu ?",
   fromBrand: false,
   sentAt: "2026-08-10T10:00:00.000Z",
@@ -48,6 +50,33 @@ describe("excerptOf", () => {
 
   it("rend null pour un corps vide — jamais une chaîne vide", () => {
     expect(excerptOf("   \n ")).toBeNull();
+  });
+});
+
+describe("planThreadState — extrait d'un message sans texte", () => {
+  it("nomme la pièce jointe quand le commentaire n'est qu'un GIF", () => {
+    const plan = planThreadState({
+      existing: null,
+      thread: thread({
+        messages: [
+          message({
+            body: "",
+            attachments: [
+              { type: "animated_image_share", url: "https://cdn/gif.gif", href: null, title: null },
+            ],
+          }),
+        ],
+      }),
+    });
+    expect(plan.excerpt).toBe("GIF");
+  });
+
+  it("rend null quand il n'y a ni texte ni pièce jointe", () => {
+    const plan = planThreadState({
+      existing: null,
+      thread: thread({ messages: [message({ body: "" })] }),
+    });
+    expect(plan.excerpt).toBeNull();
   });
 });
 

@@ -1,5 +1,6 @@
 import { excerptOf } from "@/lib/moderation/ingest";
 import type {
+  IngestedAttachment,
   IngestedMessage,
   IngestedPost,
   IngestedThread,
@@ -22,6 +23,7 @@ export type MetaCommentAuthor = {
   id?: string;
   name?: string;
   username?: string;
+  picture?: { data?: { url?: string } };
 };
 
 /** Un commentaire Instagram, réponses imbriquées comprises. */
@@ -34,6 +36,21 @@ export type MetaIgCommentRow = {
   replies?: { data?: MetaIgCommentRow[] };
 };
 
+/**
+ * La pièce jointe d'un commentaire de Page : GIF, image, sticker, vidéo.
+ *
+ * Sur Facebook, une réponse en GIF est un commentaire dont le `message` est
+ * **vide** — tout est dans l'attachement. Sans ce champ, le fil affichait une
+ * bulle blanche sans rien dedans.
+ */
+export type MetaCommentAttachment = {
+  type?: string;
+  url?: string;
+  title?: string;
+  media?: { image?: { src?: string; width?: number; height?: number } };
+  target?: { url?: string };
+};
+
 /** Un commentaire de Page, à plat (`filter=stream`), rattaché par `parent`. */
 export type MetaPageCommentRow = {
   id: string;
@@ -41,6 +58,7 @@ export type MetaPageCommentRow = {
   created_time?: string;
   from?: MetaCommentAuthor;
   parent?: { id?: string };
+  attachment?: MetaCommentAttachment;
 };
 
 /** Le strict nécessaire d'un média Instagram pour situer ses commentaires. */
@@ -115,6 +133,30 @@ function byDate(a: IngestedMessage, b: IngestedMessage): number {
   return Date.parse(a.sentAt) - Date.parse(b.sentAt);
 }
 
+/**
+ * L'attachement d'un commentaire, réduit à ce que le fil affiche.
+ *
+ * Un GIF Facebook arrive en `type: "animated_image_share"` : l'image animée
+ * est dans `media.image.src`, et `target.url` pointe la source. On garde les
+ * deux — l'une s'affiche, l'autre s'ouvre.
+ */
+function toAttachments(
+  attachment: MetaCommentAttachment | undefined,
+): IngestedAttachment[] {
+  if (!attachment) return [];
+  const src = attachment.media?.image?.src ?? null;
+  const href = attachment.target?.url ?? attachment.url ?? null;
+  if (!src && !href) return [];
+  return [
+    {
+      type: attachment.type ?? "unknown",
+      url: src,
+      href,
+      title: attachment.title ?? null,
+    },
+  ];
+}
+
 /** Le premier auteur qui n'est pas la marque donne son nom au fil. */
 function toThread(options: {
   channel: "instagram" | "facebook";
@@ -131,7 +173,7 @@ function toThread(options: {
     externalThreadId: options.externalThreadId,
     participantExternalId: participant.authorExternalId,
     participantHandle: participant.authorHandle,
-    participantAvatarUrl: null,
+    participantAvatarUrl: participant.authorAvatarUrl,
     post: options.post,
     messages: [...options.messages].sort(byDate),
   };
@@ -160,7 +202,11 @@ export function igCommentsToThreads(options: {
       return {
         externalId: row.id,
         authorExternalId: row.from?.id ?? null,
-        authorHandle: row.username ?? row.from?.username ?? null,
+        authorHandle: row.username ?? row.from?.username ?? row.from?.name ?? null,
+        authorAvatarUrl: row.from?.picture?.data?.url ?? null,
+        // Instagram ne rend pas de pièce jointe sur un commentaire : le GIF
+        // d'un commentaire est un cas Facebook.
+        attachments: [],
         body: row.text ?? "",
         fromBrand,
         sentAt: toIso(row.timestamp, post.publishedAt ?? new Date(0).toISOString()),
@@ -200,9 +246,11 @@ export function pageCommentsToThreads(options: {
     messages.push({
       externalId: row.id,
       authorExternalId: row.from?.id ?? null,
-      // Facebook masque l'auteur quand sa confidentialité l'exige : le fil
-      // s'affiche alors « Inconnu », ce qui est la vérité.
-      authorHandle: row.from?.name ?? null,
+      // Facebook masque l'auteur quand sa confidentialité l'exige : le fil le
+      // dit alors, plutôt que d'inventer un nom.
+      authorHandle: row.from?.name ?? row.from?.username ?? null,
+      authorAvatarUrl: row.from?.picture?.data?.url ?? null,
+      attachments: toAttachments(row.attachment),
       body: row.message ?? "",
       fromBrand: isBrand(row.from, undefined, options.brand),
       sentAt: toIso(row.created_time, post.publishedAt ?? new Date(0).toISOString()),

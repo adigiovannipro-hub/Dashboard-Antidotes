@@ -1,9 +1,18 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useTransition,
+} from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { AlertTriangle, Inbox as InboxIcon, Search } from "lucide-react";
+import { toast } from "sonner";
 
+import { applyInboxGesture, type InboxGesture } from "@/app/actions/moderation";
 import { Panel } from "@/components/ds/surface";
 import { ConversationList } from "@/components/moderation/conversation-list";
 import { ConversationThread } from "@/components/moderation/conversation-thread";
@@ -12,6 +21,7 @@ import {
   type ClientChip,
 } from "@/components/moderation/inbox-filter-bar";
 import { ShortcutsHint } from "@/components/moderation/shortcuts-hint";
+import { SelectionBar } from "@/components/moderation/selection-bar";
 import { ModerationSyncButton } from "@/components/moderation/sync-button";
 import { Input } from "@/components/ui/input";
 import type {
@@ -80,6 +90,23 @@ export function Inbox({
   const searchParams = useSearchParams();
   const searchRef = useRef<HTMLInputElement>(null);
   const [search, setSearch] = useState(initialSearch);
+  const [checked, setChecked] = useState<Set<string>>(new Set());
+  const [gesturePending, startGesture] = useTransition();
+
+  /* La conversation ouverte, en avance sur le serveur.
+     Le surlignage attendait la page rendue côté serveur : un clic restait
+     sans effet visible le temps de l'aller-retour, et on cliquait deux fois.
+     L'état local prend la main dès le clic et **s'efface tout seul** quand le
+     serveur rattrape — `base` retient depuis quelle conversation on est
+     parti : dès que `selectedId` en diffère, la réponse est arrivée. Dérivé
+     au rendu, sans effet : un `setState` dans un effet ferait un rendu de
+     plus à chaque clic, pour le même résultat. */
+  const [optimistic, setOptimistic] = useState<{
+    id: string;
+    base: string | null;
+  } | null>(null);
+  const shownId =
+    optimistic && optimistic.base === selectedId ? optimistic.id : selectedId;
 
   const clientById = useMemo(
     () => new Map(clients.map((client) => [client.id, client])),
@@ -87,18 +114,50 @@ export function Inbox({
   );
 
   const selectedIndex = useMemo(
-    () => conversations.findIndex((conversation) => conversation.id === selectedId),
-    [conversations, selectedId],
+    () => conversations.findIndex((conversation) => conversation.id === shownId),
+    [conversations, shownId],
   );
 
   const goTo = useCallback(
     (conversationId: string) => {
+      setOptimistic({ id: conversationId, base: selectedId });
       const next = new URLSearchParams(searchParams.toString());
       next.set("conv", conversationId);
       router.push(`${pathname}?${next}`, { scroll: false });
     },
-    [pathname, router, searchParams],
+    [pathname, router, searchParams, selectedId],
   );
+
+  const runGesture = useCallback(
+    (ids: string[], gesture: InboxGesture) => {
+      startGesture(async () => {
+        const result = await applyInboxGesture({ conversationIds: ids, gesture });
+        if (result.ok) {
+          toast.success(result.message);
+          // Une ligne archivée ou supprimée quitte la vue : la garder cochée
+          // ferait promettre à la barre des lignes qui n'y sont plus.
+          setChecked((current) => {
+            const next = new Set(current);
+            for (const id of ids) next.delete(id);
+            return next;
+          });
+          router.refresh();
+        } else {
+          toast.error(result.error);
+        }
+      });
+    },
+    [router],
+  );
+
+  const toggleChecked = useCallback((id: string, isChecked: boolean) => {
+    setChecked((current) => {
+      const next = new Set(current);
+      if (isChecked) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  }, []);
 
   const closeThread = useCallback(() => {
     const next = new URLSearchParams(searchParams.toString());
@@ -174,6 +233,11 @@ export function Inbox({
     ? clientById.get(thread.conversation.client_id)
     : undefined;
 
+  // Une conversation disparue de la liste (filtre changé, ligne archivée) ne
+  // doit pas rester cochée en fantôme.
+  const visibleIds = new Set(conversations.map((conversation) => conversation.id));
+  const checkedVisible = [...checked].filter((id) => visibleIds.has(id));
+
   if (clients.length === 0) {
     // Le module avant la première synchronisation — visible de l'owner seul.
     return (
@@ -247,10 +311,17 @@ export function Inbox({
           partir de lg, le panneau est borné à l'écran : chaque volet défile
           chez lui et les actions du fil restent sous la main — cent messages
           ne font pas cent écrans de page. */}
-      <Panel className="flex min-h-0 flex-1 overflow-hidden lg:h-[calc(100dvh-14.75rem)] lg:min-h-96 lg:flex-none">
+      <Panel className="relative flex min-h-0 flex-1 overflow-visible lg:h-[calc(100dvh-14.75rem)] lg:min-h-96 lg:flex-none">
+        <SelectionBar
+          count={checkedVisible.length}
+          pending={gesturePending}
+          onGesture={(gesture) => runGesture(checkedVisible, gesture)}
+          onClear={() => setChecked(new Set())}
+        />
+
         <div
           className={cn(
-            "min-h-0 w-full overflow-y-auto border-border md:w-96 md:shrink-0 md:border-r",
+            "min-h-0 w-full overflow-y-auto rounded-l-lg border-border md:w-96 md:shrink-0 md:border-r",
             threadOpen ? "hidden md:block" : "block",
           )}
         >
@@ -258,7 +329,11 @@ export function Inbox({
             conversations={conversations}
             clients={clientById}
             showClient={clientSlug === null && clients.length > 1}
-            selectedId={selectedId}
+            selectedId={shownId}
+            selectedIds={checked}
+            pending={gesturePending}
+            onToggle={toggleChecked}
+            onGesture={runGesture}
             emptyMessage={
               view === "messages"
                 ? "Les messages privés ne sont pas encore branchés — leur permission Meta n'est pas demandée. Les commentaires, eux, sont relevés chaque heure."
@@ -270,7 +345,7 @@ export function Inbox({
 
         <div
           className={cn(
-            "min-h-0 min-w-0 flex-1 flex-col",
+            "min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-r-lg",
             threadOpen ? "flex" : "hidden md:flex",
           )}
         >

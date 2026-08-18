@@ -421,6 +421,9 @@ export async function fetchInstagramComments(options: {
   return fetchAllPages<MetaIgCommentRow>(
     buildUrl(`/${options.mediaId}/comments`, {
       access_token: options.accessToken,
+      /* `username` **et** `from` : Instagram ne rend `from` que sur les
+         comptes que l'app atteint, et `username` sur tous les autres — les
+         demander tous les deux est ce qui évite un fil « Inconnu ». */
       fields:
         "id,text,timestamp,username,from{id,username},replies{id,text,timestamp,username,from{id,username}}",
       limit: "50",
@@ -442,7 +445,10 @@ export async function fetchPageComments(options: {
     buildUrl(`/${options.postId}/comments`, {
       access_token: options.accessToken,
       filter: "stream",
-      fields: "id,message,created_time,from{id,name},parent{id}",
+      /* `attachment` : sur Facebook, une réponse en GIF est un commentaire au
+         message vide dont tout le contenu est là. `picture` donne l'avatar. */
+      fields:
+        "id,message,created_time,from{id,name,picture{url}},parent{id},attachment{type,url,title,media{image{src}},target{url}}",
       limit: "100",
     }),
   );
@@ -477,6 +483,53 @@ async function postGraph<T>(
   }
 
   return payload;
+}
+
+/**
+ * Le pseudo d'un commentaire, redemandé un par un.
+ *
+ * Le listing ne rend pas toujours l'auteur : Instagram omet `username` et
+ * `from` pour certains comptes personnels, et le fil s'affiche alors sans
+ * nom. Un appel direct sur le commentaire les rend parfois — quand il ne les
+ * rend pas, c'est que Meta les masque, et l'écran doit le dire plutôt que de
+ * laisser croire à une panne.
+ */
+export async function fetchCommentAuthors(options: {
+  ids: readonly string[];
+  accessToken: string;
+}): Promise<Map<string, { handle: string | null; externalId: string | null }>> {
+  const found = new Map<string, { handle: string | null; externalId: string | null }>();
+
+  for (let start = 0; start < options.ids.length; start += 10) {
+    const batch = options.ids.slice(start, start + 10);
+    const results = await Promise.all(
+      batch.map(async (id) => {
+        try {
+          const payload = await fetchGraph<{
+            username?: string;
+            from?: { id?: string; username?: string; name?: string };
+          }>(
+            buildUrl(`/${id}`, {
+              access_token: options.accessToken,
+              fields: "username,from{id,username,name}",
+            }),
+          );
+          const handle =
+            payload.username ?? payload.from?.username ?? payload.from?.name ?? null;
+          if (!handle && !payload.from?.id) return null;
+          return [id, { handle, externalId: payload.from?.id ?? null }] as const;
+        } catch {
+          // Un auteur que Meta refuse de nommer n'est pas une panne.
+          return null;
+        }
+      }),
+    );
+    for (const entry of results) {
+      if (entry) found.set(entry[0], entry[1]);
+    }
+  }
+
+  return found;
 }
 
 /** Réponse à un commentaire Instagram — `instagram_manage_comments` requise. */

@@ -8,6 +8,7 @@ import {
 } from "@/lib/connectors/meta/comments";
 import { explainMetaError } from "@/lib/connectors/meta/errors";
 import {
+  fetchCommentAuthors,
   fetchInstagramComments,
   fetchInstagramMediaLite,
   fetchPageComments,
@@ -234,6 +235,7 @@ async function upsertThreads(options: {
       author_external_id: message.authorExternalId,
       author_handle: message.authorHandle,
       body: message.body,
+      attachments: message.attachments,
       origin: "platform",
       sent_at: message.sentAt,
     }));
@@ -268,6 +270,27 @@ async function pullThreads(options: {
   const since = sinceDate();
   const threads: IngestedThread[] = [];
 
+  const withAuthors = async (collected: IngestedThread[]) => {
+    // Les fils dont Meta n'a pas nommé l'auteur : un appel direct sur le
+    // commentaire le rend parfois. Ceux qu'il ne rend toujours pas sont
+    // masqués par Meta, et l'écran le dira.
+    const orphans = collected.filter((thread) => !thread.participantHandle);
+    if (orphans.length === 0) return collected;
+
+    const recovered = await fetchCommentAuthors({
+      ids: orphans.map((thread) => thread.externalThreadId),
+      accessToken,
+    });
+    for (const thread of orphans) {
+      const author = recovered.get(thread.externalThreadId);
+      if (!author) continue;
+      thread.participantHandle = author.handle;
+      thread.participantExternalId =
+        thread.participantExternalId ?? author.externalId;
+    }
+    return collected;
+  };
+
   if (channel === "instagram") {
     const media = await fetchInstagramMediaLite({
       igUserId: account.external_id,
@@ -286,7 +309,7 @@ async function pullThreads(options: {
       });
       threads.push(...igCommentsToThreads({ media: item, comments, brand }));
     }
-    return threads;
+    return withAuthors(threads);
   }
 
   const posts = await fetchPagePostsLite({
@@ -301,7 +324,7 @@ async function pullThreads(options: {
     const comments = await fetchPageComments({ postId: post.id, accessToken });
     threads.push(...pageCommentsToThreads({ post, comments, brand }));
   }
-  return threads;
+  return withAuthors(threads);
 }
 
 export async function syncModerationInbox(options: {

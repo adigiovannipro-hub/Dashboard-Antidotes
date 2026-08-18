@@ -57,7 +57,7 @@ export const STATUS_LABELS: Record<ConversationStatus, string> = {
   awaiting_validation: "En attente de validation",
   validated: "Validé",
   sent: "Envoyé",
-  ignored: "Ignoré",
+  ignored: "Archivé",
   snoozed: "En attente",
   send_failed: "Échec d'envoi",
   answered_elsewhere: "Répondu ailleurs",
@@ -237,6 +237,18 @@ export type ModerationClient = {
   archived_at: string | null;
   created_at: string;
 };
+
+/**
+ * Le pseudo d'un participant, ou la raison de son absence.
+ *
+ * Meta ne nomme pas toujours l'auteur d'un commentaire — compte personnel qui
+ * l'a restreint, confidentialité Facebook. « Inconnu » laissait croire à une
+ * panne de notre côté ; la phrase dit qui masque, et que le fil reste
+ * répondable.
+ */
+export function participantLabel(handle: string | null): string {
+  return handle ?? "Auteur masqué par Meta";
+}
 
 export type Conversation = {
   id: string;

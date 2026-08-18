@@ -2,12 +2,15 @@
 
 import { useEffect, useRef } from "react";
 
+import type { InboxGesture } from "@/app/actions/moderation";
 import { StatusPill, type StatusTone } from "@/components/ds/status-pill";
 import type { ClientChip } from "@/components/moderation/inbox-filter-bar";
+import { RowActions } from "@/components/moderation/row-actions";
 import {
   CHANNEL_LABELS,
   FLAG_LABELS,
   KIND_LABELS,
+  participantLabel,
   STATUS_LABELS,
   type Conversation,
   type ConversationStatus,
@@ -44,16 +47,25 @@ export function ConversationList({
   clients,
   showClient,
   selectedId,
+  selectedIds,
   emptyMessage,
+  pending,
   onSelect,
+  onToggle,
+  onGesture,
 }: {
   conversations: Conversation[];
   clients: Map<string, ClientChip>;
   /** Vrai en vue croisée : chaque ligne rappelle son client. */
   showClient: boolean;
   selectedId: string | null;
+  /** Les lignes cochées — la sélection multiple, distincte de l'ouverture. */
+  selectedIds: Set<string>;
   emptyMessage: string;
+  pending: boolean;
   onSelect: (id: string) => void;
+  onToggle: (id: string, checked: boolean) => void;
+  onGesture: (ids: string[], gesture: InboxGesture) => void;
 }) {
   const selectedRef = useRef<HTMLButtonElement>(null);
 
@@ -75,19 +87,49 @@ export function ConversationList({
     <ul aria-label="Conversations">
       {conversations.map((conversation) => {
         const active = conversation.id === selectedId;
+        const checked = selectedIds.has(conversation.id);
         const client = clients.get(conversation.client_id);
         return (
-          <li key={conversation.id}>
+          <li key={conversation.id} className="group relative">
+            {/* La coche est **hors** du bouton d'ouverture : cocher pour agir
+                en lot et ouvrir pour lire sont deux gestes, et une case dans
+                un bouton coche en ouvrant. */}
+            <label
+              className="absolute top-2.5 left-2.5 z-10 flex size-5 cursor-pointer items-center justify-center"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <input
+                type="checkbox"
+                checked={checked}
+                onChange={(event) => onToggle(conversation.id, event.target.checked)}
+                aria-label={`Sélectionner la conversation de ${participantLabel(conversation.participant_handle)}`}
+                className="focus-visible:ring-ring size-4 cursor-pointer rounded-sm border-border accent-[var(--accent-ink)] focus-visible:ring-2 focus-visible:outline-none"
+              />
+            </label>
+
+            <RowActions
+              unread={conversation.unread}
+              archived={conversation.status === "ignored"}
+              pending={pending}
+              onGesture={(gesture) => onGesture([conversation.id], gesture)}
+            />
+
             <button
               ref={active ? selectedRef : undefined}
               type="button"
               onClick={() => onSelect(conversation.id)}
               aria-current={active ? "true" : undefined}
               className={cn(
-                "focus-visible:ring-ring relative w-full border-b border-border px-3 py-2.5 text-left transition-colors duration-(--motion-duration) ease-standard focus-visible:ring-2 focus-visible:-outline-offset-2 focus-visible:outline-none",
+                "focus-visible:ring-ring relative w-full border-b border-border py-2.5 pr-3 pl-9 text-left transition-colors duration-(--motion-duration) ease-standard focus-visible:ring-2 focus-visible:-outline-offset-2 focus-visible:outline-none",
                 // La sélection se marque par la menthe et un filet vert à
-                // gauche, comme partout ailleurs.
-                active ? "bg-accent-subtle/50" : "hover:bg-surface-sunken",
+                // gauche, comme partout ailleurs. Une ligne cochée se teinte
+                // aussi : sans ça, la barre annonce « 3 » sans qu'on voie
+                // lesquelles.
+                active
+                  ? "bg-accent-subtle/50"
+                  : checked
+                    ? "bg-surface-sunken"
+                    : "hover:bg-surface-sunken",
               )}
             >
               {active ? (
@@ -106,10 +148,19 @@ export function ConversationList({
                 ) : (
                   <span className="mt-1.5 size-1.5 shrink-0" />
                 )}
-                <span className="type-label min-w-0 flex-1 truncate text-text-primary">
-                  {conversation.participant_handle ?? "Inconnu"}
+                <span
+                  className={cn(
+                    "type-label min-w-0 flex-1 truncate",
+                    conversation.participant_handle
+                      ? "text-text-primary"
+                      : // Un auteur que Meta masque n'est pas un pseudo : il
+                        // se lit en secondaire, comme l'information qu'il est.
+                        "text-text-secondary italic",
+                  )}
+                >
+                  {participantLabel(conversation.participant_handle)}
                 </span>
-                <span className="type-caption shrink-0 text-text-secondary tabular-nums">
+                <span className="type-caption mr-14 shrink-0 text-text-secondary tabular-nums">
                   {relativeTime(conversation.last_message_at)}
                 </span>
               </div>
