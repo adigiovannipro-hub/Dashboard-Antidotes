@@ -42,12 +42,26 @@ export function OrganicDashboard({
   period: { label: string; comparison: string };
 }) {
   const mode = DEFAULT_CLICK_MODE;
-  const delta = (metric: MetricId) =>
-    computeDelta(
+
+  /* Aucune publication lue ⇒ **rien n'a été mesuré**, et ce n'est pas la même
+     chose que zéro. Sur Facebook le cas est structurel : Meta réserve la
+     lecture des posts d'une Page à son App Review, et six tuiles à « 0 » se
+     lisent comme une contre-performance du client au lieu d'une mesure
+     absente. La règle de la maison vaut ici comme ailleurs — une source
+     absente affiche « — », jamais une valeur inventée. */
+  const aucunePublication = posts.length === 0;
+  const mesure = (metric: MetricId) =>
+    aucunePublication ? null : computeMetric(metric, total, mode);
+
+  // Pas de comparaison sans mesure : un delta contre rien ne veut rien dire.
+  const delta = (metric: MetricId) => {
+    if (aucunePublication) return undefined;
+    return computeDelta(
       metric,
       computeMetric(metric, total, mode),
       computeMetric(metric, previousTotal, mode),
     );
+  };
 
   const networkName = network === "instagram" ? "Instagram" : "Facebook";
   const hero = HERO_METRIC[network];
@@ -57,9 +71,15 @@ export function OrganicDashboard({
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <HeroFigure
           metric={hero}
-          value={computeMetric(hero, total, mode)}
+          value={mesure(hero)}
           delta={delta(hero)}
-          sentence={`${formatValue(posts.length, "integer")} publication${posts.length > 1 ? "s" : ""}, ${formatMetric("impressions", total.impressions)} vues${
+          /* Sans publication lue, « 0 vues » contredirait les tuiles à « — »
+             juste à côté : on ne dit pas un chiffre qu'on n'a pas mesuré. */
+          sentence={`${
+            aucunePublication
+              ? "Aucune publication lue sur la période"
+              : `${formatValue(posts.length, "integer")} publication${posts.length > 1 ? "s" : ""}, ${formatMetric("impressions", total.impressions)} vues`
+          }${
             followersNow !== null
               ? ` — ${formatValue(followersNow, "integer")} abonnés aujourd'hui`
               : ""
@@ -72,7 +92,7 @@ export function OrganicDashboard({
           <StatTile
             key={metric}
             metric={metric}
-            value={computeMetric(metric, total, mode)}
+            value={mesure(metric)}
             delta={delta(metric)}
           />
         ))}
@@ -84,7 +104,11 @@ export function OrganicDashboard({
         <PanelHeader
           title={detailTitle(network)}
           count={posts.length}
-          description="Publications parues sur la période. Cliquer un en-tête trie le tableau."
+          description={
+            aucunePublication && network === "facebook"
+              ? "Meta réserve la lecture des publications d'une Page aux applications passées par son App Review — l'application n'a pas même le droit de demander la permission. Les abonnés, eux, se lisent sans elle."
+              : "Publications parues sur la période. Cliquer un en-tête trie le tableau."
+          }
         />
         <PanelBody>
           <PostsTable posts={posts} withSaves={network === "instagram"} />
