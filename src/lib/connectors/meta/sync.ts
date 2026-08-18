@@ -13,6 +13,7 @@ import {
   fetchPagePosts,
 } from "./graph";
 import { explainMetaError } from "./errors";
+import { collectByChunks } from "./windows";
 import {
   aggregateBreakdown,
   syncWindow,
@@ -251,10 +252,28 @@ async function syncAds(
 ): Promise<number> {
   const { admin, workspaceId, dataSourceId, accessToken, window } = context;
 
+  /* Découpé, et pas demandé d'un bloc : le refus « Please reduce the amount
+     of data you're asking for » ne vient pas de la durée seule mais de
+     durée × ventilation. Les Insights par région au grain jour rendent une
+     ligne par région et par jour ; le rattrapage initial en demande douze
+     mois, et le compte publicitaire d'I-WAY a refusé au premier passage.
+     `collectByChunks` n'essaie la fenêtre entière qu'en premier — le cas
+     courant reste donc un seul appel. */
   const [rows, ageGender, regions] = await Promise.all([
-    fetchAdInsights({ adAccountId, accessToken, ...window }),
-    fetchAdBreakdowns({ adAccountId, accessToken, ...window, breakdowns: "age,gender" }),
-    fetchAdBreakdowns({ adAccountId, accessToken, ...window, breakdowns: "region" }),
+    collectByChunks(window, (chunk) =>
+      fetchAdInsights({ adAccountId, accessToken, ...chunk }),
+    ),
+    collectByChunks(window, (chunk) =>
+      fetchAdBreakdowns({
+        adAccountId,
+        accessToken,
+        ...chunk,
+        breakdowns: "age,gender",
+      }),
+    ),
+    collectByChunks(window, (chunk) =>
+      fetchAdBreakdowns({ adAccountId, accessToken, ...chunk, breakdowns: "region" }),
+    ),
   ]);
 
   // Les entités se déduisent des lignes : Meta ne rend que ce qui a dépensé,

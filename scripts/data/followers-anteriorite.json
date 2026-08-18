@@ -1,0 +1,70 @@
+{
+  "_lisez_moi": [
+    "Antériorité des abonnés, relevée à la main sur les tableaux Looker avant",
+    "qu'Antidotes ne collecte lui-même. Chaque point est un relevé mensuel, posé",
+    "au 1er du mois. Au-delà de la dernière date, c'est le connecteur qui écrit.",
+    "",
+    "Ces chiffres sont RECOPIÉS D'UNE CAPTURE : ils sont donc à relire avant",
+    "import, et corrigeables ici sans toucher au script. `source` vaut 'looker'",
+    "en base, jamais 'api' — l'origine reste lisible pour toujours.",
+    "",
+    "Le tableau Looker « Meta » porte les abonnés INSTAGRAM et non Facebook :",
+    "I-WAY y affiche 21 742 en juillet 2026 quand son onglet Facebook d'Antidotes",
+    "en compte 295. Les deux ne peuvent pas désigner la même page."
+  ],
+  "series": [
+    {
+      "workspace": "i-way",
+      "platform": "instagram",
+      "libelle": "I-WAY — Instagram (onglet Meta du Looker)",
+      "points": [
+        ["2025-06-01", 14373],
+        ["2025-07-01", 15588],
+        ["2025-08-01", 15798],
+        ["2025-09-01", 16934],
+        ["2025-10-01", 18066],
+        ["2025-11-01", 18738],
+        ["2025-12-01", 19862],
+        ["2026-01-01", 20665],
+        ["2026-02-01", 20934],
+        ["2026-03-01", 21288],
+        ["2026-04-01", 21438],
+        ["2026-05-01", 21980],
+        ["2026-06-01", 21914],
+        ["2026-07-01", 21742]
+      ]
+    },
+    {
+      "workspace": "i-way",
+      "platform": "tiktok",
+      "libelle": "I-WAY — TikTok",
+      "points": [
+        ["2025-06-01", 13186],
+        ["2025-07-01", 13237],
+        ["2025-08-01", 13287],
+        ["2025-09-01", 13277],
+        ["2025-10-01", 13283],
+        ["2025-11-01", 13457],
+        ["2025-12-01", 13534],
+        ["2026-01-01", 13556],
+        ["2026-02-01", 13575],
+        ["2026-03-01", 13576],
+        ["2026-04-01", 13570],
+        ["2026-05-01", 13645],
+        ["2026-06-01", 13717],
+        ["2026-07-01", 13772]
+      ]
+    },
+    {
+      "workspace": "bondet",
+      "platform": "instagram",
+      "libelle": "Bondet — Instagram (onglet Meta du Looker)",
+      "points": [
+        ["2026-04-01", 1529],
+        ["2026-05-01", 2500],
+        ["2026-06-01", 2777],
+        ["2026-07-01", 2939]
+      ]
+    }
+  ]
+}
