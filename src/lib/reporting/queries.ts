@@ -17,6 +17,7 @@ import {
   aggregateCustomEvents,
   buildAdSetRows,
   buildBreakdown,
+  foldPurchaseEvents,
   metricsRowToRaw,
   monthlyFollowersSeries,
   sumPosts,
@@ -34,6 +35,8 @@ export type AdsData = {
   hasData: boolean;
   /** Les événements pixel propres au client — 0051. Vide pour la plupart. */
   customEvents: CustomEventTotal[];
+  /** Ceux que ce client compte comme des achats — réglage par compte. */
+  purchaseEventNames: string[];
   adSets: MetricsTableRow[];
   total: RawMetrics;
   previousTotal: RawMetrics;
@@ -98,15 +101,52 @@ export async function getAdsData(options: {
   const followers = (followersQuery.data ?? []) as unknown as SocialFollowers[];
   const customs = (customQuery.data ?? []) as unknown as AdCustomEventDaily[];
 
+  /* Les événements que ce client compte comme des achats. Réglage par compte
+     publicitaire, appliqué **à la lecture** : les lignes collectées restent
+     fidèles à Meta, et changer d'avis ne demande pas de resynchroniser. */
+  const { data: sourceRows } = await supabase
+    .from("data_sources")
+    .select("purchase_event_names")
+    .eq("workspace_id", options.workspaceId)
+    .eq("provider", "meta_ads");
+
+  const purchaseEventNames = [
+    ...new Set(
+      ((sourceRows ?? []) as unknown as { purchase_event_names: string[] | null }[])
+        .flatMap((row) => row.purchase_event_names ?? []),
+    ),
+  ];
+
+  // Les événements de la période, par ad set, pour que la colonne « Achats »
+  // du tableau dise la même chose que la carte du haut.
+  const customsByEntity = new Map<string, AdCustomEventDaily[]>();
+  for (const row of customs) {
+    const list = customsByEntity.get(row.entity_id) ?? [];
+    list.push(row);
+    customsByEntity.set(row.entity_id, list);
+  }
+  const eventsByEntity = new Map(
+    [...customsByEntity.entries()].map(([entityId, rows]) => [
+      entityId,
+      aggregateCustomEvents(rows, 0),
+    ]),
+  );
+
   const current = allMetrics.filter((row) => row.date >= options.range.from);
   const before = allMetrics.filter((row) => row.date < options.range.from);
 
-  const total = sumRawMetrics(current.map(metricsRowToRaw));
+  const allEvents = aggregateCustomEvents(customs, 0);
+  const total = foldPurchaseEvents(
+    sumRawMetrics(current.map(metricsRowToRaw)),
+    allEvents,
+    purchaseEventNames,
+  );
 
   return {
     hasData: current.length > 0,
     customEvents: aggregateCustomEvents(customs, total.spend),
-    adSets: buildAdSetRows(entities, current),
+    purchaseEventNames,
+    adSets: buildAdSetRows(entities, current, eventsByEntity, purchaseEventNames),
     total,
     previousTotal: sumRawMetrics(before.map(metricsRowToRaw)),
     age: buildBreakdown(breakdowns, "age"),

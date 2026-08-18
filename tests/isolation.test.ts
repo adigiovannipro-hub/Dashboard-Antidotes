@@ -43,6 +43,7 @@ suite("isolation entre espaces (RLS)", () => {
     clientB: "",
     entityB: "",
     dashboardA: "",
+    sourceB: "",
   };
   const userIds: string[] = [];
   const clients: Record<keyof typeof emails, SupabaseClient> = {} as never;
@@ -100,6 +101,7 @@ suite("isolation entre espaces (RLS)", () => {
       })
       .select("id")
       .single();
+    ids.sourceB = source!.id;
 
     const { data: entity } = await admin
       .from("ad_entities")
@@ -228,6 +230,31 @@ suite("isolation entre espaces (RLS)", () => {
       expect(error).not.toBeNull();
     });
 
+    /* Le réglage « compte comme achat » de 0053 vit sur `data_sources` : il
+       décide de ce que le client lira comme une vente. Un membre qui n'est pas
+       owner le voit — la connexion lui est visible — mais ne le règle pas. */
+    it("lit la connexion de son espace sans pouvoir décider ce qui compte comme un achat", async () => {
+      const { data: lu } = await clients.clientB
+        .from("data_sources")
+        .select("id")
+        .eq("id", ids.sourceB);
+      expect(lu).toHaveLength(1);
+
+      await clients.clientB
+        .from("data_sources")
+        .update({ purchase_event_names: ["Achat inventé"] })
+        .eq("id", ids.sourceB);
+
+      // Un `update` que la RLS filtre ne rend pas d'erreur : il ne touche
+      // simplement aucune ligne. C'est la base qu'on relit, pas le retour.
+      const { data } = await admin
+        .from("data_sources")
+        .select("purchase_event_names")
+        .eq("id", ids.sourceB)
+        .single();
+      expect(data?.purchase_event_names).toEqual([]);
+    });
+
     it("peut en revanche modifier la disposition de son propre dashboard", async () => {
       const { error } = await clients.clientA
         .from("dashboards")
@@ -272,6 +299,23 @@ suite("isolation entre espaces (RLS)", () => {
     it("lit les données de tous les clients", async () => {
       const { data } = await clients.owner.from("ad_metrics_daily").select("spend");
       expect(data?.length).toBeGreaterThan(0);
+    });
+
+    // L'autre moitié de la règle : une politique trop stricte casserait le
+    // produit aussi sûrement qu'une trop large le rendrait dangereux.
+    it("règle bien ce qui compte comme un achat sur un compte publicitaire", async () => {
+      const { error } = await clients.owner
+        .from("data_sources")
+        .update({ purchase_event_names: ["Validation Shop Lyon"] })
+        .eq("id", ids.sourceB);
+      expect(error).toBeNull();
+
+      const { data } = await admin
+        .from("data_sources")
+        .select("purchase_event_names")
+        .eq("id", ids.sourceB)
+        .single();
+      expect(data?.purchase_event_names).toEqual(["Validation Shop Lyon"]);
     });
   });
 

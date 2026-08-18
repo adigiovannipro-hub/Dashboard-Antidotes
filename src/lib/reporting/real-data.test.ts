@@ -8,10 +8,12 @@ import type {
   SocialPost,
 } from "@/lib/supabase/database.types";
 import { previousRange } from "./period";
+import { EMPTY_RAW_METRICS } from "@/lib/metrics/types";
 import {
   aggregateCustomEvents,
   buildAdSetRows,
   buildBreakdown,
+  foldPurchaseEvents,
   metricsRowToRaw,
   monthlyFollowersSeries,
   sumPosts,
@@ -290,5 +292,65 @@ describe("aggregateCustomEvents", () => {
   it("ignore un nom vide et une liste vide", () => {
     expect(aggregateCustomEvents([{ event_name: "  ", count: 5, value: 0 }], 10)).toEqual([]);
     expect(aggregateCustomEvents([], 10)).toEqual([]);
+  });
+});
+
+describe("foldPurchaseEvents", () => {
+  const base = { ...EMPTY_RAW_METRICS, spend: 200, purchases: 0, purchaseValue: 0 };
+  const events = [
+    { name: "Validation Shop Lyon", count: 4, value: null, costPer: 50 },
+    { name: "Validation Resa Lyon", count: 1, value: null, costPer: 200 },
+  ];
+
+  it("ne touche à rien sans réglage", () => {
+    // Le défaut : un événement personnalisé n'est pas une vente.
+    expect(foldPurchaseEvents(base, events, [])).toEqual(base);
+  });
+
+  it("verse dans les achats l'événement désigné, et lui seul", () => {
+    const out = foldPurchaseEvents(base, events, ["Validation Shop Lyon"]);
+    expect(out.purchases).toBe(4);
+  });
+
+  it("additionne plusieurs événements désignés", () => {
+    const out = foldPurchaseEvents(base, events, [
+      "Validation Shop Lyon",
+      "Validation Resa Lyon",
+    ]);
+    expect(out.purchases).toBe(5);
+  });
+
+  it("ignore casse et accents du réglage saisi à la main", () => {
+    const out = foldPurchaseEvents(base, events, ["validation shop lyon"]);
+    expect(out.purchases).toBe(4);
+  });
+
+  it("n'invente aucun chiffre d'affaires", () => {
+    /* Un événement sans montant rend le CPA juste et laisse le ROAS à zéro.
+       Inventer un panier moyen ferait apparaître un chiffre d'affaires que
+       personne n'a encaissé. */
+    const out = foldPurchaseEvents(base, events, ["Validation Shop Lyon"]);
+    expect(out.purchaseValue).toBe(0);
+  });
+
+  it("ajoute le montant quand l'événement en porte un", () => {
+    const out = foldPurchaseEvents(
+      base,
+      [{ name: "Devis", count: 2, value: 300, costPer: 100 }],
+      ["Devis"],
+    );
+    expect(out.purchases).toBe(2);
+    expect(out.purchaseValue).toBe(300);
+  });
+
+  it("s'ajoute aux achats déjà mesurés, sans les remplacer", () => {
+    const avecAchats = { ...base, purchases: 3, purchaseValue: 90 };
+    const out = foldPurchaseEvents(avecAchats, events, ["Validation Shop Lyon"]);
+    expect(out.purchases).toBe(7);
+    expect(out.purchaseValue).toBe(90);
+  });
+
+  it("ignore un nom réglé qui ne correspond à aucun événement", () => {
+    expect(foldPurchaseEvents(base, events, ["Inexistant"])).toEqual(base);
   });
 });

@@ -84,6 +84,9 @@ export type DataSource = {
   backfill_from: string | null;
   last_sync_at: string | null;
   last_error: string | null;
+  /* Événements pixel personnalisés comptés comme achats — 0053. Réglage par
+     compte : « Résa Confirmée » est une vente chez I-WAY, pas ailleurs. */
+  purchase_event_names: string[];
   created_at: string;
 }
 

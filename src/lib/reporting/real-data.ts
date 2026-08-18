@@ -51,6 +51,11 @@ export function metricsRowToRaw(row: AdMetricsDaily): RawMetrics {
 export function buildAdSetRows(
   entities: AdEntity[],
   metrics: AdMetricsDaily[],
+  /* Les événements désignés comme achats, par ad set. La colonne « Achats »
+     du tableau doit dire la même chose que la carte du haut, sinon on lit
+     deux totaux différents sur le même écran. */
+  purchaseEvents: ReadonlyMap<string, CustomEventTotal[]> = new Map(),
+  purchaseEventNames: readonly string[] = [],
 ): MetricsTableRow[] {
   const byId = new Map(entities.map((entity) => [entity.id, entity]));
   const byExternal = new Map(entities.map((entity) => [entity.external_id, entity]));
@@ -67,6 +72,8 @@ export function buildAdSetRows(
     const entity = byId.get(entityId);
     if (!entity || entity.level !== "adset") continue;
 
+    const events = purchaseEvents.get(entityId) ?? [];
+
     const campaign = entity.parent_external_id
       ? byExternal.get(entity.parent_external_id)?.name
       : undefined;
@@ -75,7 +82,7 @@ export function buildAdSetRows(
       id: entity.external_id,
       campaign: campaign ?? "—",
       adSet: entity.name,
-      raw: sumRawMetrics(raws),
+      raw: foldPurchaseEvents(sumRawMetrics(raws), events, purchaseEventNames),
     });
   }
 
@@ -240,4 +247,51 @@ export function aggregateCustomEvents(
       costPer: totals.count > 0 ? spend / totals.count : null,
     }))
     .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, "fr"));
+}
+
+/**
+ * Verse dans les achats les événements que le client a désignés comme tels.
+ *
+ * Le défaut reste « aucun » : un événement personnalisé n'est pas une vente,
+ * et 0051 les tient à part pour cette raison. Mais la règle ne vaut pas
+ * partout — chez I-WAY, « Validation Shop Lyon » **est** l'achat. C'est donc
+ * un réglage par compte, appliqué **à la lecture** : les lignes collectées
+ * restent fidèles à ce que Meta a répondu, et changer d'avis ne demande pas
+ * de resynchroniser un an d'historique.
+ *
+ * Le rapprochement des noms ignore casse et accents : le réglage est saisi à
+ * la main, « validation shop lyon » doit retrouver « Validation Shop Lyon ».
+ *
+ * **Le montant ne s'invente pas.** Un événement sans valeur monétaire ajoute
+ * des achats sans ajouter de chiffre d'affaires : le CPA devient juste, le
+ * ROAS reste à zéro. C'est la vérité de la mesure, pas une approximation à
+ * corriger — inventer un panier moyen ferait apparaître un chiffre d'affaires
+ * que personne n'a encaissé.
+ */
+export function foldPurchaseEvents(
+  metrics: RawMetrics,
+  events: readonly CustomEventTotal[],
+  purchaseEventNames: readonly string[],
+): RawMetrics {
+  if (purchaseEventNames.length === 0) return metrics;
+
+  const fold = (value: string) =>
+    value
+      .normalize("NFD")
+      .replace(/\p{Diacritic}/gu, "")
+      .trim()
+      .toLowerCase();
+
+  const wanted = new Set(purchaseEventNames.map(fold));
+  const retenus = events.filter((event) => wanted.has(fold(event.name)));
+  if (retenus.length === 0) return metrics;
+
+  return {
+    ...metrics,
+    purchases:
+      metrics.purchases + retenus.reduce((total, event) => total + event.count, 0),
+    purchaseValue:
+      metrics.purchaseValue +
+      retenus.reduce((total, event) => total + (event.value ?? 0), 0),
+  };
 }

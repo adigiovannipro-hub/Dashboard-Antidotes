@@ -184,3 +184,74 @@ export async function addClientNetwork(
     return { ok: false, error: (error as Error).message };
   }
 }
+
+/**
+ * Désigne — ou retire — un événement personnalisé comme comptant pour un achat.
+ *
+ * Réglage **par compte publicitaire**, appliqué à la lecture : les lignes
+ * collectées restent fidèles à ce que Meta a répondu, et changer d'avis ne
+ * demande pas de resynchroniser un an d'historique.
+ *
+ * Le défaut reste « aucun ». Un événement personnalisé n'est pas une vente
+ * dans le cas général — chez I-WAY, si. C'est au client de trancher, compte
+ * par compte, et pas au produit d'imposer une règle.
+ */
+export async function togglePurchaseEvent(
+  workspaceSlug: string,
+  input: { name: string; compte: boolean },
+): Promise<SocialResult> {
+  const parsed = z
+    .object({ name: z.string().trim().min(1).max(200), compte: z.boolean() })
+    .safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Événement invalide." };
+
+  try {
+    const viewer = await getViewer();
+    if (!viewer) throw new Error("Session expirée.");
+
+    const workspace = await getWorkspace(workspaceSlug);
+    if (!workspace || workspace.role !== "owner") {
+      throw new Error("Action indisponible.");
+    }
+
+    const supabase = await createClient();
+    const { name, compte } = parsed.data;
+
+    const { data: sources, error: readError } = await supabase
+      .from("data_sources")
+      .select("id, purchase_event_names")
+      .eq("workspace_id", workspace.id)
+      .eq("provider", "meta_ads");
+    if (readError) throw new Error(readError.message);
+
+    const rows = (sources ?? []) as unknown as {
+      id: string;
+      purchase_event_names: string[] | null;
+    }[];
+    if (rows.length === 0) throw new Error("Aucun compte publicitaire branché.");
+
+    for (const row of rows) {
+      const current = row.purchase_event_names ?? [];
+      const next = compte
+        ? [...new Set([...current, name])]
+        : current.filter((entry) => entry !== name);
+
+      const { error } = await supabase
+        .from("data_sources")
+        .update({ purchase_event_names: next } as never)
+        .eq("id", row.id);
+      if (error) throw new Error(error.message);
+    }
+
+    revalidatePath(`/espace/${workspaceSlug}`, "layout");
+
+    return {
+      ok: true,
+      message: compte
+        ? `« ${name} » compte désormais comme un achat.`
+        : `« ${name} » ne compte plus comme un achat.`,
+    };
+  } catch (error) {
+    return { ok: false, error: (error as Error).message };
+  }
+}

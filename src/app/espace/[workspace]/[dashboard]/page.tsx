@@ -177,6 +177,9 @@ export default async function DashboardPage({
         <MetaDashboard
           adSets={ads.adSets}
           customEvents={ads.customEvents}
+          purchaseEventNames={ads.purchaseEventNames}
+          workspaceSlug={workspace.slug}
+          isOwner={isOwner}
           total={ads.total}
           previousTotal={ads.previousTotal}
           age={ads.age}
