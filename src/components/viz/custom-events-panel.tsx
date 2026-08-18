@@ -2,9 +2,11 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { Tag } from "lucide-react";
 import { toast } from "sonner";
 
 import { togglePurchaseEvent } from "@/app/actions/social";
+import { EmptyState } from "@/components/ds/empty-state";
 import { Panel, PanelBody, PanelHeader } from "@/components/ds/surface";
 import { safeAction } from "@/lib/context/safe-action";
 import { formatValue } from "@/lib/format";
@@ -21,6 +23,12 @@ import type { CustomEventTotal } from "@/lib/reporting/real-data";
  *
  * Réservé au propriétaire : un client lit ses chiffres, il ne décide pas de
  * ce qui compte comme une vente.
+ *
+ * Le panneau reste **visible et vide pour l'owner** quand aucun événement n'a
+ * encore été relevé, et disparaît pour le client. Sans ça, le réglage n'existe
+ * qu'une fois la collecte passée : il n'y avait rien à cocher, rien à lire, et
+ * rien qui dise pourquoi — une fonctionnalité invisible qu'on prend pour une
+ * panne. Le client, lui, n'a rien à faire de cette explication.
  */
 export function CustomEventsPanel({
   workspaceSlug,
@@ -33,27 +41,36 @@ export function CustomEventsPanel({
   purchaseEventNames: readonly string[];
   isOwner: boolean;
 }) {
-  if (events.length === 0) return null;
+  if (events.length === 0 && !isOwner) return null;
 
   return (
     <Panel>
       <PanelHeader
         title="Conversions du client"
-        count={events.length}
+        // Pas de « 0 » à côté du titre : le compteur redirait ce que l'état
+        // vide explique déjà, en plus sec.
+        count={events.length > 0 ? events.length : undefined}
         description="Les événements que le pixel du client émet sous ses propres noms. Cocher « compte comme achat » les verse dans les achats et le CPA — le chiffre d'affaires, lui, ne suit que si l'événement porte un montant."
       />
       <PanelBody>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {events.map((event) => (
-            <EventCard
-              key={event.name}
-              workspaceSlug={workspaceSlug}
-              event={event}
-              compte={purchaseEventNames.includes(event.name)}
-              isOwner={isOwner}
-            />
-          ))}
-        </div>
+        {events.length === 0 ? (
+          <EmptyState
+            icon={Tag}
+            message="Aucun événement personnalisé relevé sur cette période. S'il en existe côté Meta — un nom que le pixel du client a choisi lui-même — le bouton Synchroniser, en haut, les remontera : ils apparaîtront ici, avec leur case à cocher."
+          />
+        ) : (
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {events.map((event) => (
+              <EventCard
+                key={event.name}
+                workspaceSlug={workspaceSlug}
+                event={event}
+                compte={purchaseEventNames.includes(event.name)}
+                isOwner={isOwner}
+              />
+            ))}
+          </div>
+        )}
       </PanelBody>
     </Panel>
   );
