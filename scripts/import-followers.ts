@@ -26,6 +26,8 @@ import { readFileSync } from "node:fs";
 import dotenv from "dotenv";
 import { Client } from "pg";
 
+import { findWorkspaceByLabel } from "../src/lib/workspaces/lookup";
+
 dotenv.config({ path: ".env.local", quiet: true });
 
 type Serie = {
@@ -67,18 +69,23 @@ async function main() {
   let ecrits = 0;
   const absents: string[] = [];
 
+  /* Tous les espaces d'abord : le fichier nomme ses clients comme on les dit
+     à l'oral, et le slug de la base n'en découle pas — « I-WAY » y vit sous
+     un slug que personne ne connaît par cœur. Deviner l'a fait tomber. */
+  const tous = await client.query<{ id: string; slug: string; name: string }>(
+    "select id, slug, name from workspaces",
+  );
+
   try {
     for (const serie of fichier.series) {
-      const espace = await client.query<{ id: string }>(
-        "select id from workspaces where slug = $1",
-        [serie.workspace],
-      );
-      const workspaceId = espace.rows[0]?.id;
-      if (!workspaceId) {
-        // Un espace absent n'arrête pas la reprise des autres : on le nomme.
-        absents.push(serie.workspace);
+      const espace = findWorkspaceByLabel(serie.workspace, tous.rows);
+      if (!espace) {
+        // Un espace absent n'arrête pas la reprise des autres : on le nomme,
+        // et le passage échouera à la fin plutôt que de finir vert.
+        if (!absents.includes(serie.workspace)) absents.push(serie.workspace);
         continue;
       }
+      const workspaceId = espace.id;
 
       const provider = PROVIDER[serie.platform];
 
@@ -144,10 +151,20 @@ async function main() {
     await client.end();
   }
 
-  if (absents.length > 0) {
-    console.log(`\n⚠ espaces introuvables, ignorés : ${absents.join(", ")}`);
-  }
   console.log(dryRun ? "\nEssai à blanc — rien n'a été écrit." : `\n${ecrits} relevé(s) posé(s).`);
+
+  /* Un espace introuvable **fait échouer le passage**. La première fois, il
+     s'était contenté d'un avertissement : la reprise avait posé 4 relevés sur
+     32 et le workflow était resté vert. Une perte silencieuse de données ne
+     doit pas ressembler à un succès. */
+  if (absents.length > 0) {
+    console.error(
+      `\n✖ espaces introuvables : ${absents.join(", ")}\n` +
+        `  Espaces connus : ${tous.rows.map((w) => `${w.name} (${w.slug})`).join(", ")}\n` +
+        `  Corriger le champ « workspace » dans scripts/data/followers-anteriorite.json.`,
+    );
+    process.exit(1);
+  }
 }
 
 main().catch((error) => {
