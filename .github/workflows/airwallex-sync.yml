@@ -112,11 +112,16 @@ jobs:
       # consommation de minutes par deux. `if: always()` — un échec Finance ne
       # doit pas priver les Reçus de leur passage, et réciproquement.
       # Greffée sur le passage horaire : le script regarde l'heure de Paris et
-      # ne publie qu'à 16h — les 23 autres passages coûtent une seconde. Les
-      # deux créneaux cron de Vercel sont pris (Mon travail, Reporting) ; la
-      # minute 17 du schedule fait partir les posts vers 16h17, l'à-peu-près
-      # d'un schedule GitHub étant de toute façon de quelques minutes.
-      - name: Publication automatique du Planning (16h Paris)
+      # ne publie qu'**à partir de** 16h — les passages du matin coûtent une
+      # seconde. Les deux créneaux cron de Vercel sont pris (Mon travail,
+      # Reporting).
+      #
+      # « À partir de » et non « à 16h pile » : l'heure exacte n'offrait qu'une
+      # chance par jour de tomber juste, et GitHub saute près d'une exécution
+      # horaire sur deux — une fenêtre manquée coûtait la journée entière. Les
+      # huit passages de 16h à minuit rattrapent, `planning_publications`
+      # interdisant le doublon.
+      - name: Publication automatique du Planning (à partir de 16h Paris)
         if: always()
         run: pnpm publier:planning
         env:

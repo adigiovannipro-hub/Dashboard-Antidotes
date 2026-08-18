@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  isPublishWindow,
   isVideoPath,
   parisStamp,
   publishPlan,
@@ -101,5 +102,27 @@ describe("parisStamp", () => {
       date: "2026-08-18",
       hour: 0,
     });
+  });
+});
+
+describe("isPublishWindow", () => {
+  it("refuse le matin — rien ne part avant 16h", () => {
+    expect(isPublishWindow(9)).toBe(false);
+    expect(isPublishWindow(15)).toBe(false);
+  });
+
+  it("ouvre à 16h pile", () => {
+    expect(isPublishWindow(16)).toBe(true);
+  });
+
+  it("laisse rattraper toute la soirée — c'est là qu'est la correction", () => {
+    // Une seule chance par jour, c'était une chance sur deux de ne rien
+    // publier : le passage de 14h17 UTC est sauté aussi souvent qu'un autre.
+    expect(isPublishWindow(19)).toBe(true);
+    expect(isPublishWindow(23)).toBe(true);
+  });
+
+  it("se referme à minuit — pas par l'heure, par la date de Paris qui avance", () => {
+    expect(isPublishWindow(0)).toBe(false);
   });
 });

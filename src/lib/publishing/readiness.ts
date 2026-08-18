@@ -128,3 +128,27 @@ export function parisStamp(now: Date): { date: string; hour: number } {
 
 /** L'heure de Paris à laquelle la publication automatique part. */
 export const PUBLISH_HOUR_PARIS = 16;
+
+/**
+ * La publication part **à partir de** 16h, pas à 16h pile.
+ *
+ * L'exactitude coûtait des journées entières. Le seul déclencheur est un
+ * `schedule` GitHub, qui n'a qu'une chance par jour de tomber dans l'heure 16
+ * de Paris — et GitHub laisse tomber près d'une exécution horaire sur deux,
+ * sans ligne rouge ni notification. Une fenêtre sautée à 14h17 UTC, et rien
+ * ne partait de la journée.
+ *
+ * Ouverte de 16h à minuit, il faudrait que les huit passages soient sautés
+ * d'affilée pour perdre le jour. La borne haute n'a pas à s'écrire : à
+ * minuit, la date de Paris avance et les sujets du jour deviennent des
+ * retards, que le passage refuse déjà de publier.
+ *
+ * Ce qui rend l'élargissement sûr, c'est `planning_publications` : revendiquer
+ * un couple (sujet, réseau) est une insertion sous contrainte d'unicité. Un
+ * sujet parti à 16h est ignoré à 17h. Effet de bord voulu : une ligne en
+ * `error` est reprise à chaque passage, donc un compte affecté ou un wording
+ * corrigé à 18h publie à 19h au lieu de ne jamais partir.
+ */
+export function isPublishWindow(parisHour: number): boolean {
+  return parisHour >= PUBLISH_HOUR_PARIS;
+}
