@@ -51,6 +51,9 @@ async function main() {
       console.log(
         `  ✓ ${report.workspace} · ${report.channel} · ${report.account} — ${report.threads} fil(s)`,
       );
+      if (report.messagesWarning) {
+        console.warn(`    ⚠ messages privés : ${report.messagesWarning}`);
+      }
     }
   }
 

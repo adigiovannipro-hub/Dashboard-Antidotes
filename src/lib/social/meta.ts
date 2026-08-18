@@ -59,6 +59,13 @@ export const META_SCOPES = [
      bloc (« Invalid Scopes »). Les deux vont ensemble : Instagram et Page. */
   "instagram_manage_comments",
   "pages_manage_engagement",
+  /* La boîte privée : Messenger et les DM Instagram, lecture et réponse.
+     `pages_messaging` couvre les deux transports — la messagerie d'un compte
+     Instagram professionnel passe par sa Page — et `instagram_manage_messages`
+     ouvre la boîte Instagram elle-même. Mêmes conditions que les précédentes :
+     **à ajouter à l'app dans la console Meta** avant tout rebranchement. */
+  "pages_messaging",
+  "instagram_manage_messages",
   "ads_read",
   "business_management",
 ];

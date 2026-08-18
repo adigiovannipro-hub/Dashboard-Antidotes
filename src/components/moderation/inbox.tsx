@@ -334,11 +334,7 @@ export function Inbox({
             pending={gesturePending}
             onToggle={toggleChecked}
             onGesture={runGesture}
-            emptyMessage={
-              view === "messages"
-                ? "Les messages privés ne sont pas encore branchés — leur permission Meta n'est pas demandée. Les commentaires, eux, sont relevés chaque heure."
-                : "Aucune conversation ne correspond à ces filtres."
-            }
+            emptyMessage="Aucune conversation ne correspond à ces filtres."
             onSelect={goTo}
           />
         </div>

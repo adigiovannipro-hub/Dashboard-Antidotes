@@ -7,6 +7,7 @@ import type {
   MetaPageCommentRow,
   MetaPagePostLite,
 } from "./comments";
+import type { MetaConversationRow } from "./messages";
 import type { MetaInsightRow } from "./mapping";
 import type {
   MetaInsightsField,
@@ -483,6 +484,86 @@ async function postGraph<T>(
   }
 
   return payload;
+}
+
+// --- Messages privés (Modération) --------------------------------------------
+
+/**
+ * Les conversations privées d'une Page — Messenger ou Instagram.
+ *
+ * **Toujours l'identifiant de la Page**, même pour Instagram : la messagerie
+ * d'un compte Instagram professionnel passe par sa Page, avec le jeton de
+ * cette Page. C'est `platform` qui distingue les deux boîtes.
+ *
+ * Les messages sont développés dans le listing : une conversation en rend
+ * jusqu'à `messageLimit`, ce qui suffit à afficher un fil et évite un appel
+ * par conversation. Les plus récents d'abord, comme Graph les rend.
+ */
+export async function fetchConversations(options: {
+  pageId: string;
+  accessToken: string;
+  platform: "messenger" | "instagram";
+  /** Borne basse `YYYY-MM-DD` : on s'arrête dès qu'une page est plus ancienne. */
+  since: string;
+  messageLimit?: number;
+}): Promise<MetaConversationRow[]> {
+  const fields =
+    "id,updated_time,participants,messages.limit(" +
+    String(options.messageLimit ?? 25) +
+    "){id,message,created_time,from,to,attachments{mime_type,name,image_data{url,preview_url},video_data{url,preview_url},file_url}}";
+
+  const rows: MetaConversationRow[] = [];
+  let url: string | undefined = buildUrl(`/${options.pageId}/conversations`, {
+    access_token: options.accessToken,
+    platform: options.platform,
+    fields,
+    limit: "50",
+  });
+
+  for (let page = 0; url && page < MAX_PAGES; page += 1) {
+    const payload: PagedPayload<MetaConversationRow> =
+      await fetchGraph<PagedPayload<MetaConversationRow>>(url);
+    const items = payload.data ?? [];
+    rows.push(...items);
+
+    // Le listing est antichronologique : une page entièrement plus ancienne
+    // que la borne clôt la pagination.
+    const oldest = items.at(-1)?.updated_time;
+    if (oldest && oldest.slice(0, 10) < options.since) break;
+    url = payload.paging?.next;
+  }
+
+  return rows;
+}
+
+/**
+ * Répond dans une conversation privée.
+ *
+ * `recipient.id` et non l'identifiant de conversation : l'API de messagerie
+ * s'adresse à une personne. La fenêtre de 24 h de Meta s'applique — c'est
+ * `response-window.ts` qui la calcule et l'interface qui la montre ; ici, un
+ * envoi hors fenêtre revient en erreur Graph, traduite comme les autres.
+ */
+export async function sendDirectMessage(options: {
+  pageId: string;
+  recipientId: string;
+  message: string;
+  accessToken: string;
+  /** Étend la fenêtre à 7 jours — prévu pour un opérateur humain. */
+  humanAgentTag?: boolean;
+}): Promise<{ message_id?: string; id?: string }> {
+  const params: Record<string, string> = {
+    access_token: options.accessToken,
+    recipient: JSON.stringify({ id: options.recipientId }),
+    message: JSON.stringify({ text: options.message }),
+    messaging_type: options.humanAgentTag ? "MESSAGE_TAG" : "RESPONSE",
+  };
+  if (options.humanAgentTag) params.tag = "HUMAN_AGENT";
+
+  return postGraph<{ message_id?: string; id?: string }>(
+    `/${options.pageId}/messages`,
+    params,
+  );
 }
 
 /**

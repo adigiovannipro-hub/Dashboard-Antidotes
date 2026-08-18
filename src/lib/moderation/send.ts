@@ -5,7 +5,9 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   replyToInstagramComment,
   replyToPageComment,
+  sendDirectMessage,
 } from "@/lib/connectors/meta/graph";
+import { evaluateSendEligibility } from "./response-window";
 import type { Database } from "@/lib/supabase/database.types";
 import { decryptSecret } from "./crypto";
 import type { Conversation } from "./types";
@@ -13,11 +15,14 @@ import type { Conversation } from "./types";
 /**
  * L'envoi réel d'une réponse validée.
  *
- * Une réponse à un fil de commentaires part **sous le commentaire de tête** :
+ Une réponse à un fil de commentaires part **sous le commentaire de tête** :
  * Instagram n'accepte de toute façon les réponses qu'à ce niveau, et Facebook
- * y gagne un fil lisible. Les messages privés ne sont pas branchés — leur
- * permission (`pages_messaging`) n'est pas demandée — et le disent plutôt que
- * d'échouer.
+ * y gagne un fil lisible.
+ *
+ * Un message privé part par la messagerie de la Page — Instagram compris, sa
+ * boîte passant par elle — et à l'adresse de **la personne**, pas de la
+ * conversation. La fenêtre de 24 h de Meta s'applique : au-delà, le tag
+ * `human_agent` l'étend à 7 jours, ce qui est précisément son objet.
  *
  * Le jeton se lit avec le client admin : les secrets sont owner-only par RLS,
  * et c'est voulu — un opérateur ne lit jamais un jeton, il déclenche un envoi
@@ -46,14 +51,16 @@ export async function sendReply(options: {
 }): Promise<SendOutcome> {
   const { admin, conversation, body } = options;
 
-  if (
-    conversation.kind !== "comment" ||
-    (conversation.channel !== "instagram" && conversation.channel !== "facebook")
-  ) {
+  if (conversation.channel !== "instagram" && conversation.channel !== "facebook") {
     return {
       sent: false,
-      reason:
-        "L'envoi réel n'est branché que pour les commentaires Instagram et Facebook.",
+      reason: "L'envoi réel n'est branché que pour Instagram et Facebook.",
+    };
+  }
+  if (conversation.kind !== "comment" && conversation.kind !== "dm") {
+    return {
+      sent: false,
+      reason: "Ce type de conversation ne se répond pas encore depuis l'outil.",
     };
   }
 
@@ -124,8 +131,61 @@ export async function sendReply(options: {
   }
 
   const accessToken = decryptSecret(blob);
-  const commentId = conversation.external_thread_id;
 
+  if (conversation.kind === "dm") {
+    if (!conversation.participant_external_id) {
+      return {
+        sent: false,
+        reason:
+          "Meta n'a pas rendu l'identifiant de l'interlocuteur : impossible de lui écrire. Relancer une synchronisation.",
+      };
+    }
+
+    // La messagerie passe par la Page, Instagram compris.
+    const { data: accountRow, error: accountRowError } = await admin
+      .from("social_accounts")
+      .select("parent_external_id")
+      .eq("id", accountId)
+      .maybeSingle();
+    if (accountRowError) fail(`Compte social : ${accountRowError.message}`);
+    const pageId =
+      conversation.channel === "instagram"
+        ? ((accountRow as { parent_external_id?: string | null } | null)
+            ?.parent_external_id ?? null)
+        : externalAccountId;
+    if (!pageId) {
+      return {
+        sent: false,
+        reason:
+          "Aucune Page rattachée à ce compte Instagram : la messagerie passe par elle. Rebrancher Meta depuis Connexions.",
+      };
+    }
+
+    /* Au-delà de 24 h, Meta refuse l'envoi sans le tag `human_agent` — prévu
+       pour un opérateur qui répond en différé. On le pose seulement quand la
+       fenêtre standard est passée : le poser toujours reviendrait à déclarer
+       une intervention humaine là où une réponse immédiate suffit. */
+    const eligibility = evaluateSendEligibility({
+      channel: conversation.channel,
+      kind: conversation.kind,
+      lastInboundAt: new Date(conversation.last_message_at),
+    });
+
+    const outcome = await sendDirectMessage({
+      pageId,
+      recipientId: conversation.participant_external_id,
+      message: body,
+      accessToken,
+      humanAgentTag: eligibility.canSend && eligibility.requiresHumanAgentTag,
+    });
+
+    return {
+      sent: true,
+      externalMessageId: outcome.message_id ?? outcome.id ?? conversation.id,
+    };
+  }
+
+  const commentId = conversation.external_thread_id;
   const result =
     conversation.channel === "instagram"
       ? await replyToInstagramComment({ commentId, message: body, accessToken })
