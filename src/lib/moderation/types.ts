@@ -91,12 +91,14 @@ export type InboxView =
   | "tout"
   | "commentaires-instagram"
   | "commentaires-facebook"
+  | "commentaires-youtube"
   | "messages";
 
 export const VIEW_ORDER: InboxView[] = [
   "tout",
   "commentaires-instagram",
   "commentaires-facebook",
+  "commentaires-youtube",
   "messages",
 ];
 
@@ -104,6 +106,7 @@ export const VIEW_LABELS: Record<InboxView, string> = {
   tout: "Tout",
   "commentaires-instagram": "Commentaires Instagram",
   "commentaires-facebook": "Commentaires Facebook",
+  "commentaires-youtube": "Commentaires YouTube",
   messages: "Messages privés",
 };
 
@@ -124,6 +127,8 @@ export function viewMatches(
       return channel === "instagram" && kind === "comment";
     case "commentaires-facebook":
       return channel === "facebook" && kind === "comment";
+    case "commentaires-youtube":
+      return channel === "youtube" && kind === "comment";
     case "messages":
       return kind === "dm";
   }

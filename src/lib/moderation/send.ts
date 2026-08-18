@@ -7,6 +7,8 @@ import {
   replyToPageComment,
   sendDirectMessage,
 } from "@/lib/connectors/meta/graph";
+import { replyToCommentThread } from "@/lib/connectors/youtube/api";
+import { usableAccessToken } from "@/lib/connectors/youtube/credentials";
 import { evaluateSendEligibility } from "./response-window";
 import type { Database } from "@/lib/supabase/database.types";
 import { decryptSecret } from "./crypto";
@@ -51,10 +53,15 @@ export async function sendReply(options: {
 }): Promise<SendOutcome> {
   const { admin, conversation, body } = options;
 
-  if (conversation.channel !== "instagram" && conversation.channel !== "facebook") {
+  if (
+    conversation.channel !== "instagram" &&
+    conversation.channel !== "facebook" &&
+    conversation.channel !== "youtube"
+  ) {
     return {
       sent: false,
-      reason: "L'envoi réel n'est branché que pour Instagram et Facebook.",
+      reason:
+        "L'envoi réel n'est branché que pour Instagram, Facebook et YouTube.",
     };
   }
   if (conversation.kind !== "comment" && conversation.kind !== "dm") {
@@ -97,7 +104,12 @@ export async function sendReply(options: {
   const orgId = (client as { org_id?: string } | null)?.org_id;
   if (!orgId) fail("Client de modération introuvable.");
 
-  const kind = conversation.channel === "instagram" ? "instagram" : "facebook_page";
+  const kind =
+    conversation.channel === "instagram"
+      ? "instagram"
+      : conversation.channel === "youtube"
+        ? "youtube"
+        : "facebook_page";
   const { data: account, error: accountError } = await admin
     .from("social_accounts")
     .select("id")
@@ -130,7 +142,24 @@ export async function sendReply(options: {
     };
   }
 
-  const accessToken = decryptSecret(blob);
+  /* YouTube passe par Google : jeton d'une heure, rafraîchi à la volée. Le
+     renouvellement n'est pas réécrit ici — un envoi n'a pas à toucher au
+     coffre, et le relevé suivant s'en chargera. */
+  const accessToken =
+    conversation.channel === "youtube"
+      ? (await usableAccessToken(blob)).accessToken
+      : decryptSecret(blob);
+
+  if (conversation.channel === "youtube") {
+    // L'identifiant d'un fil YouTube **est** celui de son commentaire de
+    // tête : c'est à lui que la réponse s'accroche.
+    const created = await replyToCommentThread({
+      parentId: conversation.external_thread_id,
+      message: body,
+      accessToken,
+    });
+    return { sent: true, externalMessageId: created.id };
+  }
 
   if (conversation.kind === "dm") {
     if (!conversation.participant_external_id) {

@@ -7,6 +7,7 @@ import {
   pageCommentsToThreads,
 } from "@/lib/connectors/meta/comments";
 import { explainMetaError } from "@/lib/connectors/meta/errors";
+import { explainYouTubeError } from "@/lib/connectors/youtube/errors";
 import {
   fetchCommentAuthors,
   fetchConversations,
@@ -16,6 +17,15 @@ import {
   fetchPagePostsLite,
 } from "@/lib/connectors/meta/graph";
 import { conversationsToThreads } from "@/lib/connectors/meta/messages";
+import {
+  fetchChannelCommentThreads,
+  fetchVideos,
+} from "@/lib/connectors/youtube/api";
+import {
+  threadsToConversations,
+  videoIdsOf,
+} from "@/lib/connectors/youtube/comments";
+import { usableAccessToken } from "@/lib/connectors/youtube/credentials";
 import type { SocialAccountRow } from "@/lib/social/types";
 import type { Database } from "@/lib/supabase/database.types";
 import { decryptSecret } from "./crypto";
@@ -272,8 +282,7 @@ async function upsertThreads(options: {
 async function pullThreads(options: {
   account: SocialAccountRow;
   accessToken: string;
-  /** Les deux seuls canaux que Meta sert — le type le dit plutôt qu'un cast. */
-  channel: "instagram" | "facebook";
+  channel: "instagram" | "facebook" | "youtube";
 }): Promise<{ threads: IngestedThread[]; warning: string | null }> {
   const { account, accessToken, channel } = options;
   const since = sinceDate();
@@ -316,6 +325,32 @@ async function pullThreads(options: {
    * messagerie sont distinctes, et une boîte privée fermée ne doit pas priver
    * le client de ses commentaires.
    */
+  /**
+   * YouTube : les commentaires de la chaîne, toutes vidéos confondues.
+   *
+   * Pas de messagerie privée — YouTube n'en a pas —, et pas de rattrapage
+   * d'auteur : l'API nomme toujours l'auteur d'un commentaire public.
+   */
+  if (channel === "youtube") {
+    const collected = await fetchChannelCommentThreads({
+      channelId: account.external_id,
+      accessToken,
+      since,
+    });
+    const videos = await fetchVideos({
+      ids: videoIdsOf(collected),
+      accessToken,
+    });
+    return {
+      threads: threadsToConversations({
+        threads: collected,
+        videos,
+        brandChannelId: account.external_id,
+      }),
+      warning: null,
+    };
+  }
+
   const pullDirectMessages = async (): Promise<{
     threads: IngestedThread[];
     warning: string | null;
@@ -406,12 +441,12 @@ export async function syncModerationInbox(options: {
   const { data: links, error: linksError } = await admin
     .from("workspace_social_accounts")
     .select("workspace_id, kind, account_id")
-    .in("kind", ["instagram", "facebook_page"]);
+    .in("kind", ["instagram", "facebook_page", "youtube"]);
   if (linksError) fail(`Lecture des affectations : ${linksError.message}`);
 
   const linkRows = (links ?? []) as unknown as {
     workspace_id: string;
-    kind: "instagram" | "facebook_page";
+    kind: "instagram" | "facebook_page" | "youtube";
     account_id: string;
   }[];
   if (linkRows.length === 0) return reports;
@@ -433,8 +468,12 @@ export async function syncModerationInbox(options: {
     const workspace = workspaceById.get(link.workspace_id);
     if (!workspace) continue;
 
-    const channel: "instagram" | "facebook" =
-      link.kind === "instagram" ? "instagram" : "facebook";
+    const channel: "instagram" | "facebook" | "youtube" =
+      link.kind === "instagram"
+        ? "instagram"
+        : link.kind === "youtube"
+          ? "youtube"
+          : "facebook";
     const report: ModerationSyncReport = {
       workspace: workspace.name,
       channel,
@@ -465,7 +504,27 @@ export async function syncModerationInbox(options: {
       const blob = (secret as { credentials_encrypted?: string } | null)
         ?.credentials_encrypted;
       if (!blob) fail("Aucun jeton enregistré — rebrancher Meta depuis Connexions.");
-      const accessToken = decryptSecret(blob);
+      /* Deux formats de jeton, deux durées de vie : Meta rend une chaîne qui
+         vit deux mois, Google un JSON dont l'accès expire dans l'heure et se
+         renouvelle. Le rafraîchissement est réécrit tout de suite — sinon
+         chaque passage en redemanderait un. */
+      let accessToken: string;
+      if (link.kind === "youtube") {
+        const usable = await usableAccessToken(blob);
+        accessToken = usable.accessToken;
+        if (usable.refreshed) {
+          const { error: refreshError } = await admin
+            .from("social_account_secrets")
+            .update({
+              credentials_encrypted: usable.refreshed,
+              updated_at: new Date().toISOString(),
+            } as never)
+            .eq("account_id", link.account_id);
+          if (refreshError) fail(`Jeton rafraîchi : ${refreshError.message}`);
+        }
+      } else {
+        accessToken = decryptSecret(blob);
+      }
 
       // Le journal de passage du canal : une ligne par (client, canal,
       // compte), le même rôle que `data_sources` au Reporting.
@@ -509,7 +568,11 @@ export async function syncModerationInbox(options: {
           .eq("id", connectionId);
         if (doneError) fail(`Clôture du passage : ${doneError.message}`);
       } catch (error) {
-        const message = explainMetaError((error as Error).message).message;
+        const raw = (error as Error).message;
+        const message =
+          link.kind === "youtube"
+            ? explainYouTubeError(raw).message
+            : explainMetaError(raw).message;
         await admin
           .from("channel_connections")
           .update({ status: "error", last_error: message } as never)
@@ -517,7 +580,11 @@ export async function syncModerationInbox(options: {
         throw error;
       }
     } catch (error) {
-      report.error = explainMetaError((error as Error).message).message;
+      const raw = (error as Error).message;
+      report.error =
+        link.kind === "youtube"
+          ? explainYouTubeError(raw).message
+          : explainMetaError(raw).message;
     }
   }
 
