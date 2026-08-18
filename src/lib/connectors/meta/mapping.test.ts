@@ -287,4 +287,62 @@ describe("customEvents", () => {
     expect(customEvents(ligne([{ action_type: "offsite_conversion.fb_pixel_custom.", value: "1" }]))).toEqual([]);
     expect(customEvents({})).toEqual([]);
   });
+
+  /* Ce que le filtre sur un préfixe unique faisait manquer. Le pixel d'I-WAY
+     émet bien ses quatre événements — relevés au compteur du dataset — mais
+     rien ne garantit sous quelle forme Meta les rend dans `actions`. Un
+     silence se lit « ce client n'a aucune conversion », ce qui est faux. */
+  it("relève aussi une conversion personnalisée, qui ne porte que son identifiant", () => {
+    const events = customEvents(
+      ligne([{ action_type: "offsite_conversion.custom.1874320019", value: "6" }]),
+    );
+    expect(events).toEqual([{ name: "1874320019", count: 6, value: 0 }]);
+  });
+
+  it("garde un type inconnu sous sa forme brute plutôt que de le jeter", () => {
+    const events = customEvents(
+      ligne([{ action_type: "onsite_conversion.flow_complete", value: "2" }]),
+    );
+    expect(events).toEqual([
+      { name: "onsite_conversion.flow_complete", count: 2, value: 0 },
+    ]);
+  });
+
+  it("ne double aucune métrique déjà affichée ailleurs", () => {
+    /* Toutes les variantes de source d'un événement standard sont déjà
+       comptées par `actionValue` : les faire entrer ici afficherait l'achat
+       deux fois sur le même écran. */
+    const events = customEvents(
+      ligne([
+        { action_type: "purchase", value: "5" },
+        { action_type: "omni_purchase", value: "5" },
+        { action_type: "offsite_conversion.fb_pixel_purchase", value: "5" },
+        { action_type: "web_in_store_purchase", value: "1" },
+        { action_type: "offsite_conversion.fb_pixel_add_to_cart", value: "9" },
+        { action_type: "onsite_conversion.post_save", value: "3" },
+        { action_type: "post_reaction", value: "40" },
+        { action_type: "video_view", value: "900" },
+        { action_type: "link_click", value: "700" },
+      ]),
+    );
+    expect(events).toEqual([]);
+  });
+
+  it("les quatre événements d'I-WAY, tels que le pixel les nomme", () => {
+    const events = customEvents(
+      ligne([
+        { action_type: "offsite_conversion.fb_pixel_custom.Validation Shop Lyon", value: "4" },
+        { action_type: "offsite_conversion.fb_pixel_custom.Validation Shop Paris", value: "2" },
+        { action_type: "offsite_conversion.fb_pixel_custom.Validation Resa Lyon", value: "7" },
+        { action_type: "offsite_conversion.fb_pixel_custom.Validation Resa Paris", value: "3" },
+        { action_type: "landing_page_view", value: "455" },
+      ]),
+    );
+    expect(events).toEqual([
+      { name: "Validation Shop Lyon", count: 4, value: 0 },
+      { name: "Validation Shop Paris", count: 2, value: 0 },
+      { name: "Validation Resa Lyon", count: 7, value: 0 },
+      { name: "Validation Resa Paris", count: 3, value: 0 },
+    ]);
+  });
 });

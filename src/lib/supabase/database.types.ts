@@ -87,6 +87,10 @@ export type DataSource = {
   /* Événements pixel personnalisés comptés comme achats — 0053. Réglage par
      compte : « Résa Confirmée » est une vente chez I-WAY, pas ailleurs. */
   purchase_event_names: string[];
+  /* Et ceux comptés comme mises au panier — 0054. Chez I-WAY, « Validation
+     Resa » est un panier, « Validation Shop » une vente : un seul rôle ne
+     suffisait pas. */
+  add_to_cart_event_names: string[];
   created_at: string;
 }
 

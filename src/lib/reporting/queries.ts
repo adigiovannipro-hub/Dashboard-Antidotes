@@ -17,10 +17,11 @@ import {
   aggregateCustomEvents,
   buildAdSetRows,
   buildBreakdown,
-  foldPurchaseEvents,
+  foldClientConversions,
   metricsRowToRaw,
   monthlyFollowersSeries,
   sumPosts,
+  type ConversionRoles,
   type CustomEventTotal,
 } from "./real-data";
 import { sumRawMetrics } from "@/lib/metrics/aggregate";
@@ -35,8 +36,8 @@ export type AdsData = {
   hasData: boolean;
   /** Les événements pixel propres au client — 0051. Vide pour la plupart. */
   customEvents: CustomEventTotal[];
-  /** Ceux que ce client compte comme des achats — réglage par compte. */
-  purchaseEventNames: string[];
+  /** Le rôle donné à chacun — achat, panier — réglage par compte. */
+  roles: ConversionRoles;
   adSets: MetricsTableRow[];
   total: RawMetrics;
   previousTotal: RawMetrics;
@@ -101,21 +102,26 @@ export async function getAdsData(options: {
   const followers = (followersQuery.data ?? []) as unknown as SocialFollowers[];
   const customs = (customQuery.data ?? []) as unknown as AdCustomEventDaily[];
 
-  /* Les événements que ce client compte comme des achats. Réglage par compte
+  /* Le rôle donné à chaque événement du client. Réglage par compte
      publicitaire, appliqué **à la lecture** : les lignes collectées restent
      fidèles à Meta, et changer d'avis ne demande pas de resynchroniser. */
   const { data: sourceRows } = await supabase
     .from("data_sources")
-    .select("purchase_event_names")
+    .select("purchase_event_names, add_to_cart_event_names")
     .eq("workspace_id", options.workspaceId)
     .eq("provider", "meta_ads");
 
-  const purchaseEventNames = [
-    ...new Set(
-      ((sourceRows ?? []) as unknown as { purchase_event_names: string[] | null }[])
-        .flatMap((row) => row.purchase_event_names ?? []),
-    ),
-  ];
+  const reglages = (sourceRows ?? []) as unknown as {
+    purchase_event_names: string[] | null;
+    add_to_cart_event_names: string[] | null;
+  }[];
+
+  const roles: ConversionRoles = {
+    purchase: [...new Set(reglages.flatMap((row) => row.purchase_event_names ?? []))],
+    addToCart: [
+      ...new Set(reglages.flatMap((row) => row.add_to_cart_event_names ?? [])),
+    ],
+  };
 
   // Les événements de la période, par ad set, pour que la colonne « Achats »
   // du tableau dise la même chose que la carte du haut.
@@ -136,17 +142,17 @@ export async function getAdsData(options: {
   const before = allMetrics.filter((row) => row.date < options.range.from);
 
   const allEvents = aggregateCustomEvents(customs, 0);
-  const total = foldPurchaseEvents(
+  const total = foldClientConversions(
     sumRawMetrics(current.map(metricsRowToRaw)),
     allEvents,
-    purchaseEventNames,
+    roles,
   );
 
   return {
     hasData: current.length > 0,
     customEvents: aggregateCustomEvents(customs, total.spend),
-    purchaseEventNames,
-    adSets: buildAdSetRows(entities, current, eventsByEntity, purchaseEventNames),
+    roles,
+    adSets: buildAdSetRows(entities, current, eventsByEntity, roles),
     total,
     previousTotal: sumRawMetrics(before.map(metricsRowToRaw)),
     age: buildBreakdown(breakdowns, "age"),

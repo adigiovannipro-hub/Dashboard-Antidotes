@@ -54,8 +54,8 @@ export function buildAdSetRows(
   /* Les événements désignés comme achats, par ad set. La colonne « Achats »
      du tableau doit dire la même chose que la carte du haut, sinon on lit
      deux totaux différents sur le même écran. */
-  purchaseEvents: ReadonlyMap<string, CustomEventTotal[]> = new Map(),
-  purchaseEventNames: readonly string[] = [],
+  clientEvents: ReadonlyMap<string, CustomEventTotal[]> = new Map(),
+  roles: ConversionRoles = NO_CONVERSION_ROLES,
 ): MetricsTableRow[] {
   const byId = new Map(entities.map((entity) => [entity.id, entity]));
   const byExternal = new Map(entities.map((entity) => [entity.external_id, entity]));
@@ -72,7 +72,7 @@ export function buildAdSetRows(
     const entity = byId.get(entityId);
     if (!entity || entity.level !== "adset") continue;
 
-    const events = purchaseEvents.get(entityId) ?? [];
+    const events = clientEvents.get(entityId) ?? [];
 
     const campaign = entity.parent_external_id
       ? byExternal.get(entity.parent_external_id)?.name
@@ -82,7 +82,7 @@ export function buildAdSetRows(
       id: entity.external_id,
       campaign: campaign ?? "—",
       adSet: entity.name,
-      raw: foldPurchaseEvents(sumRawMetrics(raws), events, purchaseEventNames),
+      raw: foldClientConversions(sumRawMetrics(raws), events, roles),
     });
   }
 
@@ -268,30 +268,54 @@ export function aggregateCustomEvents(
  * corriger — inventer un panier moyen ferait apparaître un chiffre d'affaires
  * que personne n'a encaissé.
  */
-export function foldPurchaseEvents(
+export type ConversionRoles = {
+  /** Les événements que ce compte compte comme des ventes. */
+  purchase: readonly string[];
+  /** Ceux qu'il compte comme des mises au panier. */
+  addToCart: readonly string[];
+};
+
+export const NO_CONVERSION_ROLES: ConversionRoles = { purchase: [], addToCart: [] };
+
+/** Comparaison de noms insensible à la casse et aux accents : « Résa » = « Resa ». */
+function plie(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .trim()
+    .toLowerCase();
+}
+
+export function foldClientConversions(
   metrics: RawMetrics,
   events: readonly CustomEventTotal[],
-  purchaseEventNames: readonly string[],
+  roles: ConversionRoles,
 ): RawMetrics {
-  if (purchaseEventNames.length === 0) return metrics;
+  if (roles.purchase.length === 0 && roles.addToCart.length === 0) return metrics;
 
-  const fold = (value: string) =>
-    value
-      .normalize("NFD")
-      .replace(/\p{Diacritic}/gu, "")
-      .trim()
-      .toLowerCase();
+  const somme = (noms: readonly string[]) => {
+    if (noms.length === 0) return { count: 0, value: 0 };
+    const voulus = new Set(noms.map(plie));
+    return events
+      .filter((event) => voulus.has(plie(event.name)))
+      .reduce(
+        (total, event) => ({
+          count: total.count + event.count,
+          // `value` reste `null` quand l'événement ne porte aucun montant :
+          // on n'invente pas un panier moyen pour faire vivre le ROAS.
+          value: total.value + (event.value ?? 0),
+        }),
+        { count: 0, value: 0 },
+      );
+  };
 
-  const wanted = new Set(purchaseEventNames.map(fold));
-  const retenus = events.filter((event) => wanted.has(fold(event.name)));
-  if (retenus.length === 0) return metrics;
+  const achats = somme(roles.purchase);
+  const paniers = somme(roles.addToCart);
 
   return {
     ...metrics,
-    purchases:
-      metrics.purchases + retenus.reduce((total, event) => total + event.count, 0),
-    purchaseValue:
-      metrics.purchaseValue +
-      retenus.reduce((total, event) => total + (event.value ?? 0), 0),
+    purchases: metrics.purchases + achats.count,
+    purchaseValue: metrics.purchaseValue + achats.value,
+    addToCart: metrics.addToCart + paniers.count,
   };
 }

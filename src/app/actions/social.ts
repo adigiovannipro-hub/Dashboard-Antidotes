@@ -186,22 +186,28 @@ export async function addClientNetwork(
 }
 
 /**
- * Désigne — ou retire — un événement personnalisé comme comptant pour un achat.
+ * Donne son rôle à un événement personnalisé : achat, panier, ou aucun.
  *
  * Réglage **par compte publicitaire**, appliqué à la lecture : les lignes
  * collectées restent fidèles à ce que Meta a répondu, et changer d'avis ne
  * demande pas de resynchroniser un an d'historique.
  *
  * Le défaut reste « aucun ». Un événement personnalisé n'est pas une vente
- * dans le cas général — chez I-WAY, si. C'est au client de trancher, compte
- * par compte, et pas au produit d'imposer une règle.
+ * dans le cas général — chez I-WAY, « Validation Shop » l'est, et
+ * « Validation Resa » est une mise au panier. C'est au client de trancher,
+ * compte par compte, et pas au produit d'imposer une règle.
  */
-export async function togglePurchaseEvent(
+export type ConversionRole = "achat" | "panier" | "aucun";
+
+export async function setConversionRole(
   workspaceSlug: string,
-  input: { name: string; compte: boolean },
+  input: { name: string; role: ConversionRole },
 ): Promise<SocialResult> {
   const parsed = z
-    .object({ name: z.string().trim().min(1).max(200), compte: z.boolean() })
+    .object({
+      name: z.string().trim().min(1).max(200),
+      role: z.enum(["achat", "panier", "aucun"]),
+    })
     .safeParse(input);
   if (!parsed.success) return { ok: false, error: "Événement invalide." };
 
@@ -215,11 +221,11 @@ export async function togglePurchaseEvent(
     }
 
     const supabase = await createClient();
-    const { name, compte } = parsed.data;
+    const { name, role } = parsed.data;
 
     const { data: sources, error: readError } = await supabase
       .from("data_sources")
-      .select("id, purchase_event_names")
+      .select("id, purchase_event_names, add_to_cart_event_names")
       .eq("workspace_id", workspace.id)
       .eq("provider", "meta_ads");
     if (readError) throw new Error(readError.message);
@@ -227,30 +233,40 @@ export async function togglePurchaseEvent(
     const rows = (sources ?? []) as unknown as {
       id: string;
       purchase_event_names: string[] | null;
+      add_to_cart_event_names: string[] | null;
     }[];
     if (rows.length === 0) throw new Error("Aucun compte publicitaire branché.");
 
+    // Un événement n'a qu'un rôle : on le retire des deux listes avant de le
+    // remettre dans la bonne. Sans ça, passer d'« achat » à « panier » le
+    // ferait compter deux fois.
     for (const row of rows) {
-      const current = row.purchase_event_names ?? [];
-      const next = compte
-        ? [...new Set([...current, name])]
-        : current.filter((entry) => entry !== name);
+      const sansLui = (liste: string[] | null) =>
+        (liste ?? []).filter((entry) => entry !== name);
+
+      const achats = sansLui(row.purchase_event_names);
+      const paniers = sansLui(row.add_to_cart_event_names);
+      if (role === "achat") achats.push(name);
+      if (role === "panier") paniers.push(name);
 
       const { error } = await supabase
         .from("data_sources")
-        .update({ purchase_event_names: next } as never)
+        .update({
+          purchase_event_names: achats,
+          add_to_cart_event_names: paniers,
+        } as never)
         .eq("id", row.id);
       if (error) throw new Error(error.message);
     }
 
     revalidatePath(`/espace/${workspaceSlug}`, "layout");
 
-    return {
-      ok: true,
-      message: compte
-        ? `« ${name} » compte désormais comme un achat.`
-        : `« ${name} » ne compte plus comme un achat.`,
+    const dit: Record<ConversionRole, string> = {
+      achat: `« ${name} » compte désormais comme un achat.`,
+      panier: `« ${name} » compte désormais comme une mise au panier.`,
+      aucun: `« ${name} » ne compte plus dans les conversions.`,
     };
+    return { ok: true, message: dit[role] };
   } catch (error) {
     return { ok: false, error: (error as Error).message };
   }

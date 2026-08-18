@@ -253,21 +253,100 @@ export function syncWindow(options: {
  * On ne peut donc pas le reconnaître par une liste — il n'appartient pas au
  * produit — seulement par ce préfixe.
  */
-const CUSTOM_EVENT_PREFIX = "offsite_conversion.fb_pixel_custom.";
+/**
+ * Les préfixes sous lesquels Meta range un événement que le client a nommé
+ * lui-même. Deux formes coexistent, et le compte d'I-WAY a montré qu'on ne
+ * peut pas parier sur l'une :
+ *
+ *   • `offsite_conversion.fb_pixel_custom.<Nom>` — un `trackCustom` du pixel ;
+ *   • `offsite_conversion.custom.<id>` — une conversion personnalisée, qui ne
+ *     porte que son identifiant numérique.
+ */
+const CUSTOM_EVENT_PREFIXES = [
+  "offsite_conversion.fb_pixel_custom.",
+  "offsite_conversion.custom.",
+];
+
+/**
+ * Les types d'action que le modèle canonique consomme déjà, plus le bruit de
+ * l'API — vues de vidéo, réactions, clics sortants. Tout ce qui n'est pas là
+ * dedans est, par définition, un événement propre au client.
+ *
+ * La liste est **écrite en toutes lettres** plutôt que devinée : c'est elle
+ * qui décide de ce qui apparaît à l'écran, et une devinette y ferait entrer
+ * des doublons de métriques déjà affichées ailleurs.
+ */
+const TYPES_STANDARDS = new Set([
+  "purchase",
+  "landing_page_view",
+  "add_to_cart",
+  "initiate_checkout",
+  "comment",
+  "post",
+  "post_reaction",
+  "post_engagement",
+  "page_engagement",
+  "like",
+  "link_click",
+  "onsite_conversion.post_save",
+  "lead",
+  "complete_registration",
+  "view_content",
+  "search",
+  "video_view",
+  "outbound_click",
+  "landing_page_view_from_ad",
+]);
+
+/**
+ * Le nom lisible d'un type d'action, ou `null` si c'est une métrique standard.
+ *
+ * **Aucun filtre sur un préfixe unique.** C'est ce filtre qui a fait qu'I-WAY
+ * n'a jamais rien remonté : ses quatre événements — « Validation Shop Lyon »,
+ * « Validation Shop Paris », « Validation Resa Lyon », « Validation Resa
+ * Paris » — existent bel et bien dans le pixel (relevés au compteur du
+ * dataset), mais rien ne garantissait qu'ils arrivent sous le préfixe attendu.
+ * On garde donc **tout ce qui n'est pas standard**, sous le nom que Meta rend.
+ * Au pire un type inconnu s'affiche sous sa forme brute, ce qui se voit et se
+ * corrige ; au mieux il porte déjà son nom. Le silence, lui, ne se corrige
+ * pas : il ressemble à « ce client n'a aucune conversion ».
+ */
+export function customEventName(actionType: string): string | null {
+  const type = actionType.trim();
+  if (type.length === 0) return null;
+
+  for (const prefixe of CUSTOM_EVENT_PREFIXES) {
+    if (type.startsWith(prefixe)) {
+      // Coupé **après le préfixe** et non au dernier point : « Résa 2.0 »
+      // deviendrait « 0 ».
+      const nom = type.slice(prefixe.length).trim();
+      return nom.length > 0 ? nom : null;
+    }
+  }
+
+  // Les variantes de source d'un événement standard — `omni_purchase`,
+  // `offsite_conversion.fb_pixel_purchase` — sont déjà comptées par
+  // `actionValue`. Les laisser passer ferait apparaître l'achat deux fois.
+  const feuille = type.includes(".") ? type.slice(type.lastIndexOf(".") + 1) : type;
+  if (TYPES_STANDARDS.has(type) || TYPES_STANDARDS.has(feuille)) return null;
+  for (const prefixe of SOURCE_PREFIXES) {
+    if (feuille.startsWith(prefixe) && TYPES_STANDARDS.has(feuille.slice(prefixe.length))) {
+      return null;
+    }
+  }
+
+  return type;
+}
 
 export type CustomEvent = { name: string; count: number; value: number };
 
 /**
  * Les événements personnalisés d'une ligne d'Insights, avec leur nom.
  *
- * Ils vivent à part des métriques standards, et c'est délibéré : « Validation
- * Shop Lyon » n'est pas un achat. Les verser dans `purchases` fabriquerait un
- * ROAS à partir d'un événement qui ne porte aucun montant, et le tableau de
- * bord annoncerait un chiffre d'affaires que personne n'a encaissé.
- *
- * Le nom est pris **après le préfixe** et non au dernier point : un client
- * peut nommer son événement « Résa 2.0 », et couper au dernier point rendrait
- * « 0 ».
+ * Ils vivent à part des métriques standards par défaut : « Validation Shop
+ * Lyon » n'est pas un achat pour tout le monde. Chez I-WAY, si — c'est le
+ * réglage `purchase_event_names` / `add_to_cart_event_names` du compte qui
+ * tranche, et il s'applique **à la lecture**.
  */
 export function customEvents(row: MetaInsightRow): CustomEvent[] {
   const byName = new Map<string, CustomEvent>();
@@ -277,10 +356,8 @@ export function customEvents(row: MetaInsightRow): CustomEvent[] {
     field: "count" | "value",
   ) => {
     for (const entry of entries ?? []) {
-      if (!entry.action_type.startsWith(CUSTOM_EVENT_PREFIX)) continue;
-
-      const name = entry.action_type.slice(CUSTOM_EVENT_PREFIX.length).trim();
-      if (name.length === 0) continue;
+      const name = customEventName(entry.action_type);
+      if (name === null) continue;
 
       const current = byName.get(name) ?? { name, count: 0, value: 0 };
       current[field] += toNumber(entry.value);

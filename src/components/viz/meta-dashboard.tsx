@@ -9,7 +9,7 @@ import { MetricsTable, type MetricsTableRow } from "@/components/viz/metrics-tab
 import { HeroFigure, StatTile } from "@/components/viz/stat-tile";
 import { formatMetric } from "@/lib/format";
 import { CustomEventsPanel } from "@/components/viz/custom-events-panel";
-import type { CustomEventTotal } from "@/lib/reporting/real-data";
+import type { ConversionRoles, CustomEventTotal } from "@/lib/reporting/real-data";
 import { computeDelta } from "@/lib/metrics/aggregate";
 import { computeMetric, TOP_POSTS_COLUMNS } from "@/lib/metrics/definitions";
 import {
@@ -23,7 +23,7 @@ import { foldTail } from "@/lib/viz/palette";
 export function MetaDashboard({
   adSets,
   customEvents,
-  purchaseEventNames,
+  roles,
   workspaceSlug,
   isOwner,
   total,
@@ -36,7 +36,7 @@ export function MetaDashboard({
 }: {
   adSets: readonly MetricsTableRow[];
   customEvents: readonly CustomEventTotal[];
-  purchaseEventNames: readonly string[];
+  roles: ConversionRoles;
   workspaceSlug: string;
   isOwner: boolean;
   total: RawMetrics;
@@ -156,7 +156,7 @@ export function MetaDashboard({
       <CustomEventsPanel
         workspaceSlug={workspaceSlug}
         events={customEvents}
-        purchaseEventNames={purchaseEventNames}
+        roles={roles}
         isOwner={isOwner}
       />
 

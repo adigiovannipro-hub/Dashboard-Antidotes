@@ -5,21 +5,23 @@ import { useRouter } from "next/navigation";
 import { Tag } from "lucide-react";
 import { toast } from "sonner";
 
-import { togglePurchaseEvent } from "@/app/actions/social";
+import { setConversionRole, type ConversionRole } from "@/app/actions/social";
 import { EmptyState } from "@/components/ds/empty-state";
 import { Panel, PanelBody, PanelHeader } from "@/components/ds/surface";
 import { safeAction } from "@/lib/context/safe-action";
 import { formatValue } from "@/lib/format";
-import type { CustomEventTotal } from "@/lib/reporting/real-data";
+import type { ConversionRoles, CustomEventTotal } from "@/lib/reporting/real-data";
+import { cn } from "@/lib/utils";
 
 /**
  * Les conversions que le pixel du client émet sous ses propres noms.
  *
- * Elles sont tenues hors des achats **par défaut** : « Validation Shop Lyon »
- * n'est pas une vente dans le cas général, et l'y verser fabriquerait un ROAS
- * à partir d'un événement sans montant. Mais la règle ne vaut pas partout —
- * chez I-WAY c'est bien l'achat — d'où l'interrupteur : le client tranche,
- * compte par compte, et le réglage s'applique à la lecture.
+ * Un tel événement n'a pas de sens universel : « Validation Shop Lyon » est
+ * une vente chez I-WAY et ne l'est nulle part ailleurs. Le produit ne tranche
+ * donc pas — il demande. Chaque événement reçoit un rôle : **achat**,
+ * **panier**, ou aucun. Le rôle se pose sur le compte publicitaire et
+ * s'applique **à la lecture**, si bien qu'en changer prend effet tout de
+ * suite, sans resynchroniser un an d'historique.
  *
  * Réservé au propriétaire : un client lit ses chiffres, il ne décide pas de
  * ce qui compte comme une vente.
@@ -28,20 +30,27 @@ import type { CustomEventTotal } from "@/lib/reporting/real-data";
  * encore été relevé, et disparaît pour le client. Sans ça, le réglage n'existe
  * qu'une fois la collecte passée : il n'y avait rien à cocher, rien à lire, et
  * rien qui dise pourquoi — une fonctionnalité invisible qu'on prend pour une
- * panne. Le client, lui, n'a rien à faire de cette explication.
+ * panne.
  */
 export function CustomEventsPanel({
   workspaceSlug,
   events,
-  purchaseEventNames,
+  roles,
   isOwner,
 }: {
   workspaceSlug: string;
   events: readonly CustomEventTotal[];
-  purchaseEventNames: readonly string[];
+  roles: ConversionRoles;
   isOwner: boolean;
 }) {
   if (events.length === 0 && !isOwner) return null;
+
+  const roleDe = (name: string): ConversionRole =>
+    roles.purchase.includes(name)
+      ? "achat"
+      : roles.addToCart.includes(name)
+        ? "panier"
+        : "aucun";
 
   return (
     <Panel>
@@ -50,13 +59,13 @@ export function CustomEventsPanel({
         // Pas de « 0 » à côté du titre : le compteur redirait ce que l'état
         // vide explique déjà, en plus sec.
         count={events.length > 0 ? events.length : undefined}
-        description="Les événements que le pixel du client émet sous ses propres noms. Cocher « compte comme achat » les verse dans les achats et le CPA — le chiffre d'affaires, lui, ne suit que si l'événement porte un montant."
+        description="Les événements que le pixel du client émet sous ses propres noms. Leur donner un rôle les verse dans les achats ou les mises au panier — et donc dans le CPA. Le chiffre d'affaires, lui, ne suit que si l'événement porte un montant."
       />
       <PanelBody>
         {events.length === 0 ? (
           <EmptyState
             icon={Tag}
-            message="Aucun événement personnalisé relevé sur cette période. S'il en existe côté Meta — un nom que le pixel du client a choisi lui-même — le bouton Synchroniser, en haut, les remontera : ils apparaîtront ici, avec leur case à cocher."
+            message="Aucun événement personnalisé relevé sur cette période. S'il en existe côté Meta — un nom que le pixel du client a choisi lui-même — le bouton Synchroniser, en haut, les remontera : ils apparaîtront ici, avec leur réglage."
           />
         ) : (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
@@ -65,7 +74,7 @@ export function CustomEventsPanel({
                 key={event.name}
                 workspaceSlug={workspaceSlug}
                 event={event}
-                compte={purchaseEventNames.includes(event.name)}
+                role={roleDe(event.name)}
                 isOwner={isOwner}
               />
             ))}
@@ -76,32 +85,41 @@ export function CustomEventsPanel({
   );
 }
 
+const ROLE_LABELS: Record<ConversionRole, string> = {
+  achat: "Achat",
+  panier: "Panier",
+  aucun: "Ni l'un ni l'autre",
+};
+
+const ROLES: ConversionRole[] = ["achat", "panier", "aucun"];
+
 function EventCard({
   workspaceSlug,
   event,
-  compte,
+  role,
   isOwner,
 }: {
   workspaceSlug: string;
   event: CustomEventTotal;
-  compte: boolean;
+  role: ConversionRole;
   isOwner: boolean;
 }) {
   const router = useRouter();
-  // Optimiste : la case prend sa valeur tout de suite et revient en arrière si
-  // le serveur refuse — sinon elle mentirait jusqu'au rafraîchissement.
-  const [coche, setCoche] = useState(compte);
+  // Optimiste : le réglage prend sa valeur tout de suite et revient en arrière
+  // si le serveur refuse — sinon il mentirait jusqu'au rafraîchissement.
+  const [choisi, setChoisi] = useState(role);
   const [pending, start] = useTransition();
 
-  const basculer = (next: boolean) => {
-    const avant = coche;
-    setCoche(next);
+  const changer = (next: ConversionRole) => {
+    if (next === choisi) return;
+    const avant = choisi;
+    setChoisi(next);
     start(async () => {
       const result = await safeAction(() =>
-        togglePurchaseEvent(workspaceSlug, { name: event.name, compte: next }),
+        setConversionRole(workspaceSlug, { name: event.name, role: next }),
       );
       if (!result.ok) {
-        setCoche(avant);
+        setChoisi(avant);
         toast.error(result.error);
         return;
       }
@@ -125,19 +143,39 @@ function EventCard({
           : ""}
       </p>
 
+      {/* Trois choix exclusifs, en gouttière creuse : la même grammaire que
+          les onglets de section, parce que c'est le même geste — on choisit
+          l'un des trois, jamais plusieurs. */}
       {isOwner ? (
-        <label className="mt-3 flex w-fit cursor-pointer items-center gap-2">
-          <input
-            type="checkbox"
-            checked={coche}
-            disabled={pending}
-            onChange={(e) => basculer(e.target.checked)}
-            className="accent-brand focus-visible:ring-ring size-4 cursor-pointer rounded-sm focus-visible:ring-2 focus-visible:outline-none"
-          />
-          <span className="type-caption text-text-secondary">
-            Compte comme achat
-          </span>
-        </label>
+        <div
+          role="radiogroup"
+          aria-label={`Rôle de ${event.name}`}
+          className="bg-surface-sunken mt-3 flex gap-1 rounded-pill p-1"
+        >
+          {ROLES.map((option) => (
+            <button
+              key={option}
+              type="button"
+              role="radio"
+              aria-checked={choisi === option}
+              disabled={pending}
+              onClick={() => changer(option)}
+              className={cn(
+                "type-caption focus-visible:ring-ring flex-1 cursor-pointer rounded-pill px-2 py-1 transition-[background,color] duration-(--motion-duration) ease-standard focus-visible:ring-2 focus-visible:outline-none disabled:cursor-default",
+                /* `primary` et non `accent-ink` : en sombre l'encre d'accent
+                   devient un vert clair, et du blanc posé dessus tombe à
+                   1,39:1 — relevé à l'audit. La paire `primary` /
+                   `primary-foreground` bascule des deux côtés, comme le
+                   sélecteur de période de Finance. */
+                choisi === option
+                  ? "bg-primary text-primary-foreground font-medium"
+                  : "text-text-secondary hover:text-text-primary",
+              )}
+            >
+              {ROLE_LABELS[option]}
+            </button>
+          ))}
+        </div>
       ) : null}
     </div>
   );
