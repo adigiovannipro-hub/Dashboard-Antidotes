@@ -176,6 +176,7 @@ export default async function DashboardPage({
       {network === "meta-ads" && ads?.hasData ? (
         <MetaDashboard
           adSets={ads.adSets}
+          customEvents={ads.customEvents}
           total={ads.total}
           previousTotal={ads.previousTotal}
           age={ads.age}

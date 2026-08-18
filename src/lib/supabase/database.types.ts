@@ -115,6 +115,24 @@ export type AdEntity = {
   updated_at: string;
 }
 
+/**
+ * Un événement pixel **personnalisé** — 0051. Le nom appartient au client :
+ * « Validation Shop Lyon ». Tenu à part des métriques standards parce qu'une
+ * validation de boutique n'est pas un achat, et qu'un ROAS bâti dessus serait
+ * un chiffre d'affaires que personne n'a encaissé.
+ */
+export type AdCustomEventDaily = {
+  data_source_id: string;
+  workspace_id: string;
+  entity_id: string;
+  date: string;
+  event_name: string;
+  count: number;
+  /** Zéro signifie « sans montant », jamais « gratuit ». */
+  value: number;
+  updated_at: string;
+};
+
 export type AdMetricsDaily = {
   data_source_id: string;
   workspace_id: string;
@@ -687,6 +705,7 @@ export type Database = {
       ad_entities: Table<AdEntity>;
       ad_metrics_daily: Table<AdMetricsDaily>;
       ad_breakdowns_daily: Table<AdBreakdownDaily>;
+      ad_custom_events_daily: Table<AdCustomEventDaily>;
       social_followers: Table<SocialFollowers>;
       social_posts: Table<SocialPost>;
       dashboards: Table<Dashboard>;

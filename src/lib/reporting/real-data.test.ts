@@ -9,6 +9,7 @@ import type {
 } from "@/lib/supabase/database.types";
 import { previousRange } from "./period";
 import {
+  aggregateCustomEvents,
   buildAdSetRows,
   buildBreakdown,
   metricsRowToRaw,
@@ -218,5 +219,76 @@ describe("previousRange", () => {
       from: "2026-06-02",
       to: "2026-07-01",
     });
+  });
+});
+
+describe("aggregateCustomEvents", () => {
+  it("regroupe par nom et somme les comptes", () => {
+    const totals = aggregateCustomEvents(
+      [
+        { event_name: "Validation Shop Lyon", count: 2, value: 0 },
+        { event_name: "Validation Shop Lyon", count: 3, value: 0 },
+        { event_name: "Validation Resa Lyon", count: 1, value: 0 },
+      ],
+      500,
+    );
+
+    expect(totals.map((t) => [t.name, t.count])).toEqual([
+      ["Validation Shop Lyon", 5],
+      ["Validation Resa Lyon", 1],
+    ]);
+  });
+
+  it("recalcule le coût par événement depuis la dépense de la période", () => {
+    // Jamais une moyenne de coûts journaliers : une moyenne de moyennes est
+    // fausse, et c'est le piège classique de ce genre d'outil.
+    const totals = aggregateCustomEvents(
+      [{ event_name: "Validation Shop Lyon", count: 4, value: 0 }],
+      199.72,
+    );
+    expect(totals[0]!.costPer).toBeCloseTo(49.93, 2);
+  });
+
+  it("rend un montant nul plutôt que zéro euro", () => {
+    /* Une validation de boutique ne porte pas de montant. « 0,00 € » se
+       lirait comme un chiffre d'affaires nul, ce qui est un autre propos. */
+    const totals = aggregateCustomEvents(
+      [{ event_name: "Validation Shop Lyon", count: 2, value: 0 }],
+      100,
+    );
+    expect(totals[0]!.value).toBeNull();
+  });
+
+  it("garde le montant quand l'événement en porte un", () => {
+    const totals = aggregateCustomEvents(
+      [{ event_name: "Devis", count: 2, value: 150.5 }],
+      100,
+    );
+    expect(totals[0]!.value).toBe(150.5);
+  });
+
+  it("trie par nombre décroissant, puis par nom", () => {
+    const totals = aggregateCustomEvents(
+      [
+        { event_name: "Zèbre", count: 2, value: 0 },
+        { event_name: "Alpha", count: 2, value: 0 },
+        { event_name: "Beaucoup", count: 9, value: 0 },
+      ],
+      10,
+    );
+    expect(totals.map((t) => t.name)).toEqual(["Beaucoup", "Alpha", "Zèbre"]);
+  });
+
+  it("ne rend pas de coût sans événement", () => {
+    const totals = aggregateCustomEvents(
+      [{ event_name: "Jamais", count: 0, value: 0 }],
+      100,
+    );
+    expect(totals[0]!.costPer).toBeNull();
+  });
+
+  it("ignore un nom vide et une liste vide", () => {
+    expect(aggregateCustomEvents([{ event_name: "  ", count: 5, value: 0 }], 10)).toEqual([]);
+    expect(aggregateCustomEvents([], 10)).toEqual([]);
   });
 });

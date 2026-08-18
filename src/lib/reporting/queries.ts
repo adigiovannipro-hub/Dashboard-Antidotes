@@ -6,6 +6,7 @@ import type { RawMetrics } from "@/lib/metrics/types";
 import { createClient } from "@/lib/supabase/server";
 import type {
   AdBreakdownDaily,
+  AdCustomEventDaily,
   AdEntity,
   AdMetricsDaily,
   SocialFollowers,
@@ -13,11 +14,13 @@ import type {
 } from "@/lib/supabase/database.types";
 import { previousRange, type DateRange } from "./period";
 import {
+  aggregateCustomEvents,
   buildAdSetRows,
   buildBreakdown,
   metricsRowToRaw,
   monthlyFollowersSeries,
   sumPosts,
+  type CustomEventTotal,
 } from "./real-data";
 import { sumRawMetrics } from "@/lib/metrics/aggregate";
 
@@ -29,6 +32,8 @@ import { sumRawMetrics } from "@/lib/metrics/aggregate";
 
 export type AdsData = {
   hasData: boolean;
+  /** Les événements pixel propres au client — 0051. Vide pour la plupart. */
+  customEvents: CustomEventTotal[];
   adSets: MetricsTableRow[];
   total: RawMetrics;
   previousTotal: RawMetrics;
@@ -45,7 +50,7 @@ export async function getAdsData(options: {
   const supabase = await createClient();
   const previous = previousRange(options.range);
 
-  const [entitiesQuery, metricsQuery, breakdownsQuery, followersQuery] =
+  const [entitiesQuery, metricsQuery, breakdownsQuery, followersQuery, customQuery] =
     await Promise.all([
       supabase
         .from("ad_entities")
@@ -75,12 +80,23 @@ export async function getAdsData(options: {
         .eq("platform", "instagram")
         .order("date")
         .limit(1000),
+      /* Les événements pixel personnalisés — 0051. L'erreur est ignorée comme
+         partout ici : la RLS est l'autorité, et une liste vide est la bonne
+         réponse tant que la migration n'est pas passée. */
+      supabase
+        .from("ad_custom_events_daily")
+        .select("*")
+        .eq("workspace_id", options.workspaceId)
+        .gte("date", options.range.from)
+        .lte("date", options.range.to)
+        .limit(10000),
     ]);
 
   const entities = (entitiesQuery.data ?? []) as unknown as AdEntity[];
   const allMetrics = (metricsQuery.data ?? []) as unknown as AdMetricsDaily[];
   const breakdowns = (breakdownsQuery.data ?? []) as unknown as AdBreakdownDaily[];
   const followers = (followersQuery.data ?? []) as unknown as SocialFollowers[];
+  const customs = (customQuery.data ?? []) as unknown as AdCustomEventDaily[];
 
   const current = allMetrics.filter((row) => row.date >= options.range.from);
   const before = allMetrics.filter((row) => row.date < options.range.from);
@@ -89,6 +105,7 @@ export async function getAdsData(options: {
 
   return {
     hasData: current.length > 0,
+    customEvents: aggregateCustomEvents(customs, total.spend),
     adSets: buildAdSetRows(entities, current),
     total,
     previousTotal: sumRawMetrics(before.map(metricsRowToRaw)),

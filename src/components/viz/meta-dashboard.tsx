@@ -7,7 +7,8 @@ import { FollowersCard } from "@/components/viz/followers-card";
 import { Funnel } from "@/components/viz/funnel";
 import { MetricsTable, type MetricsTableRow } from "@/components/viz/metrics-table";
 import { HeroFigure, StatTile } from "@/components/viz/stat-tile";
-import { formatMetric } from "@/lib/format";
+import { formatMetric, formatValue } from "@/lib/format";
+import type { CustomEventTotal } from "@/lib/reporting/real-data";
 import { computeDelta } from "@/lib/metrics/aggregate";
 import { computeMetric, TOP_POSTS_COLUMNS } from "@/lib/metrics/definitions";
 import {
@@ -20,6 +21,7 @@ import { foldTail } from "@/lib/viz/palette";
 
 export function MetaDashboard({
   adSets,
+  customEvents,
   total,
   previousTotal,
   age,
@@ -29,6 +31,7 @@ export function MetaDashboard({
   period,
 }: {
   adSets: readonly MetricsTableRow[];
+  customEvents: readonly CustomEventTotal[];
   total: RawMetrics;
   previousTotal: RawMetrics;
   age: readonly BarDatum[];
@@ -142,6 +145,44 @@ export function MetaDashboard({
 
         <FollowersCard network="Instagram" data={followers} height={220} />
       </div>
+
+      {/* Les événements propres au client, quand il en a. La plupart n'en ont
+          aucun — le panneau ne s'affiche alors pas du tout, plutôt qu'un
+          encart vide qui poserait une question sans y répondre. */}
+      {customEvents.length > 0 ? (
+        <Panel>
+          <PanelHeader
+            title="Conversions du client"
+            count={customEvents.length}
+            description="Les événements que le pixel du client émet sous ses propres noms. Ce ne sont pas des achats : ils restent hors du ROAS et du chiffre d'affaires."
+          />
+          <PanelBody>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              {customEvents.map((event) => (
+                <div
+                  key={event.name}
+                  className="border-border bg-surface shadow-card rounded-lg border p-5"
+                >
+                  <p className="type-overline text-text-secondary truncate">
+                    {event.name}
+                  </p>
+                  <p className="text-text-primary mt-2 text-2xl leading-none font-semibold">
+                    {formatValue(event.count, "integer")}
+                  </p>
+                  <p className="type-caption text-text-secondary mt-2.5">
+                    {event.costPer !== null
+                      ? `${formatValue(event.costPer, "currency")} par conversion`
+                      : "Aucune conversion sur la période"}
+                    {event.value !== null
+                      ? ` · ${formatValue(event.value, "currency")} de valeur`
+                      : ""}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </PanelBody>
+        </Panel>
+      ) : null}
 
       <Panel>
         <PanelHeader

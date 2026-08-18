@@ -13,6 +13,7 @@ import {
   fetchPagePosts,
 } from "./graph";
 import { explainMetaError } from "./errors";
+import { customEvents } from "./mapping";
 import { collectByChunks } from "./windows";
 import {
   aggregateBreakdown,
@@ -187,7 +188,9 @@ export async function syncWorkspaceReporting(options: {
       try {
         let warning: string | null = null;
         if (link.kind === "meta_ad_account") {
-          report.rows = await syncAds(context, row.external_id);
+          const outcome = await syncAds(context, row.external_id);
+          report.rows = outcome.rows;
+          warning = outcome.warning;
         } else {
           const outcome = await syncOrganic(context, row);
           report.rows = outcome.rows;
@@ -249,8 +252,12 @@ export async function syncWorkspaceReporting(options: {
 async function syncAds(
   context: SourceContext,
   adAccountId: string,
-): Promise<number> {
+): Promise<{ rows: number; warning: string | null }> {
   const { admin, workspaceId, dataSourceId, accessToken, window } = context;
+  /* Ce qui a manqué sans faire échouer le passage — une table pas encore
+     migrée, typiquement. Même principe que pour l'organique : un morceau
+     absent devient un avertissement, pas une panne. */
+  const warnings: string[] = [];
 
   /* Découpé, et pas demandé d'un bloc : le refus « Please reduce the amount
      of data you're asking for » ne vient pas de la durée seule mais de
@@ -348,6 +355,44 @@ async function syncAds(
       if (metricsError) fail(`Métriques journalières : ${metricsError.message}`);
       ingested += metricRows.length;
     }
+
+    /* Les événements pixel personnalisés, à part et sous leur nom. Tous les
+       clients ne vendent pas en ligne : I-WAY optimise sur « Validation Shop
+       Lyon », que rien de standard ne sait attraper. Les verser dans
+       `purchases` fabriquerait un ROAS depuis un événement sans montant. */
+    const customRows = rows.flatMap((row: MetaInsightRow) => {
+      const entityId = row.adset_id ? entityIds.get(row.adset_id) : undefined;
+      const date = row.date_start;
+      if (!entityId || !date) return [];
+      return customEvents(row).map((event) => ({
+        data_source_id: dataSourceId,
+        workspace_id: workspaceId,
+        entity_id: entityId,
+        date,
+        event_name: event.name,
+        count: event.count,
+        value: event.value,
+        updated_at: now,
+      }));
+    });
+
+    if (customRows.length > 0) {
+      const { error: customError } = await admin
+        .from("ad_custom_events_daily")
+        .upsert(customRows as never, {
+          onConflict: "data_source_id,entity_id,date,event_name",
+        });
+      /* Table absente = migration 0051 pas encore passée. On le dit sans
+         faire tomber le reste : les métriques standards, elles, sont déjà
+         entrées. Même repli que pour `video_views`. */
+      if (customError) {
+        warnings.push(
+          `Événements personnalisés non enregistrés (${customError.message}) — migration 0051 en attente ?`,
+        );
+      } else {
+        ingested += customRows.length;
+      }
+    }
   }
 
   const breakdownRows = [
@@ -374,7 +419,7 @@ async function syncAds(
     ingested += breakdownRows.length;
   }
 
-  return ingested;
+  return { rows: ingested, warning: warnings.join(" ") || null };
 }
 
 // --- Organique ----------------------------------------------------------------

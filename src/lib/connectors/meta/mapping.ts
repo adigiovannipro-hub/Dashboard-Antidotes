@@ -244,3 +244,52 @@ export function syncWindow(options: {
       : computed;
   return { since, until: day(0) };
 }
+
+/**
+ * Le préfixe sous lequel Meta rend un événement pixel **personnalisé**.
+ *
+ * Ce qui suit est le nom que le client a donné à son événement, tel quel,
+ * espaces compris : `offsite_conversion.fb_pixel_custom.Validation Shop Lyon`.
+ * On ne peut donc pas le reconnaître par une liste — il n'appartient pas au
+ * produit — seulement par ce préfixe.
+ */
+const CUSTOM_EVENT_PREFIX = "offsite_conversion.fb_pixel_custom.";
+
+export type CustomEvent = { name: string; count: number; value: number };
+
+/**
+ * Les événements personnalisés d'une ligne d'Insights, avec leur nom.
+ *
+ * Ils vivent à part des métriques standards, et c'est délibéré : « Validation
+ * Shop Lyon » n'est pas un achat. Les verser dans `purchases` fabriquerait un
+ * ROAS à partir d'un événement qui ne porte aucun montant, et le tableau de
+ * bord annoncerait un chiffre d'affaires que personne n'a encaissé.
+ *
+ * Le nom est pris **après le préfixe** et non au dernier point : un client
+ * peut nommer son événement « Résa 2.0 », et couper au dernier point rendrait
+ * « 0 ».
+ */
+export function customEvents(row: MetaInsightRow): CustomEvent[] {
+  const byName = new Map<string, CustomEvent>();
+
+  const collect = (
+    entries: { action_type: string; value: string }[] | undefined,
+    field: "count" | "value",
+  ) => {
+    for (const entry of entries ?? []) {
+      if (!entry.action_type.startsWith(CUSTOM_EVENT_PREFIX)) continue;
+
+      const name = entry.action_type.slice(CUSTOM_EVENT_PREFIX.length).trim();
+      if (name.length === 0) continue;
+
+      const current = byName.get(name) ?? { name, count: 0, value: 0 };
+      current[field] += toNumber(entry.value);
+      byName.set(name, current);
+    }
+  };
+
+  collect(row.actions, "count");
+  collect(row.action_values, "value");
+
+  return [...byName.values()];
+}

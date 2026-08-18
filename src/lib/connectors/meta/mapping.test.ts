@@ -4,6 +4,7 @@ import {
   actionValue,
   aggregateBreakdown,
   breakdownLabel,
+  customEvents,
   syncWindow,
   toDailyMetricsColumns,
   toNumber,
@@ -196,5 +197,94 @@ describe("actionValue — priorité entre variantes", () => {
     const actions = [{ action_type: "initiate_checkout", value: "34" }];
     expect(actionValue(actions, "checkout")).toBe(0);
     expect(actionValue(actions, "initiate_checkout")).toBe(34);
+  });
+});
+
+describe("customEvents", () => {
+  /* Les cas viennent du compte I-VENT / I-WAY, lu par le connecteur Meta :
+     ses ad sets optimisent sur « Validation Shop Lyon », un événement que son
+     pixel émet sous un nom à lui. */
+  const ligne = (
+    actions: { action_type: string; value: string }[],
+    action_values?: { action_type: string; value: string }[],
+  ) => ({ actions, ...(action_values ? { action_values } : {}) });
+
+  it("relève un événement personnalisé avec son nom", () => {
+    const events = customEvents(
+      ligne([
+        {
+          action_type: "offsite_conversion.fb_pixel_custom.Validation Shop Lyon",
+          value: "4",
+        },
+      ]),
+    );
+
+    expect(events).toEqual([{ name: "Validation Shop Lyon", count: 4, value: 0 }]);
+  });
+
+  it("garde les espaces du nom tel que le client l'a écrit", () => {
+    const events = customEvents(
+      ligne([
+        {
+          action_type: "offsite_conversion.fb_pixel_custom.Validation Resa Lyon",
+          value: "1",
+        },
+      ]),
+    );
+    expect(events[0]!.name).toBe("Validation Resa Lyon");
+  });
+
+  it("coupe après le préfixe, jamais au dernier point", () => {
+    // « Résa 2.0 » deviendrait « 0 » si on coupait au dernier point.
+    const events = customEvents(
+      ligne([
+        { action_type: "offsite_conversion.fb_pixel_custom.Résa 2.0", value: "3" },
+      ]),
+    );
+    expect(events[0]!.name).toBe("Résa 2.0");
+  });
+
+  it("rassemble compte et montant sous le même nom", () => {
+    const events = customEvents(
+      ligne(
+        [{ action_type: "offsite_conversion.fb_pixel_custom.Devis", value: "2" }],
+        [{ action_type: "offsite_conversion.fb_pixel_custom.Devis", value: "150.5" }],
+      ),
+    );
+
+    expect(events).toEqual([{ name: "Devis", count: 2, value: 150.5 }]);
+  });
+
+  it("laisse les événements standards aux métriques standards", () => {
+    /* Le piège inverse : ranger un achat ici le compterait deux fois, une
+       fois en achat et une fois en « personnalisé ». */
+    const events = customEvents(
+      ligne([
+        { action_type: "offsite_conversion.fb_pixel_purchase", value: "5" },
+        { action_type: "landing_page_view", value: "300" },
+        { action_type: "omni_purchase", value: "5" },
+      ]),
+    );
+
+    expect(events).toEqual([]);
+  });
+
+  it("rend plusieurs événements du même ad set", () => {
+    const events = customEvents(
+      ligne([
+        { action_type: "offsite_conversion.fb_pixel_custom.Validation Shop Lyon", value: "4" },
+        { action_type: "offsite_conversion.fb_pixel_custom.Validation Resa Lyon", value: "1" },
+      ]),
+    );
+
+    expect(events.map((e) => e.name)).toEqual([
+      "Validation Shop Lyon",
+      "Validation Resa Lyon",
+    ]);
+  });
+
+  it("ignore un nom vide et une ligne sans actions", () => {
+    expect(customEvents(ligne([{ action_type: "offsite_conversion.fb_pixel_custom.", value: "1" }]))).toEqual([]);
+    expect(customEvents({})).toEqual([]);
   });
 });

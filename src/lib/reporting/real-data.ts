@@ -190,3 +190,54 @@ export function sumPosts(posts: SocialPost[]): RawMetrics {
     { ...EMPTY_RAW_METRICS },
   );
 }
+
+/**
+ * Ce qu'un événement personnalisé a produit sur la période.
+ *
+ * Le coût par événement est **recalculé** depuis la dépense de la période et
+ * le compte : c'est la règle du repo — seules les grandeurs additives sont
+ * stockées, tout ratio se refait. Une moyenne de coûts journaliers serait
+ * fausse, et c'est le piège classique.
+ */
+export type CustomEventTotal = {
+  name: string;
+  count: number;
+  /** Somme des montants, `null` quand l'événement n'en porte aucun. */
+  value: number | null;
+  /** Dépense de la période ÷ nombre d'événements. `null` sans événement. */
+  costPer: number | null;
+};
+
+/**
+ * Les événements personnalisés d'une période, regroupés par nom.
+ *
+ * Le tri est décroissant sur le nombre : ce qui s'est le plus produit se lit
+ * en premier. À nombre égal, l'ordre alphabétique, pour que deux passages
+ * rendent la même liste.
+ */
+export function aggregateCustomEvents(
+  rows: readonly { event_name: string; count: number; value: number }[],
+  spend: number,
+): CustomEventTotal[] {
+  const byName = new Map<string, { count: number; value: number }>();
+
+  for (const row of rows) {
+    const name = row.event_name.trim();
+    if (name.length === 0) continue;
+    const current = byName.get(name) ?? { count: 0, value: 0 };
+    current.count += Number(row.count) || 0;
+    current.value += Number(row.value) || 0;
+    byName.set(name, current);
+  }
+
+  return [...byName.entries()]
+    .map(([name, totals]) => ({
+      name,
+      count: totals.count,
+      // Zéro veut dire « sans montant », pas « gratuit » : on rend `null`
+      // plutôt qu'un « 0,00 € » qui se lirait comme un chiffre d'affaires nul.
+      value: totals.value > 0 ? totals.value : null,
+      costPer: totals.count > 0 ? spend / totals.count : null,
+    }))
+    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, "fr"));
+}
