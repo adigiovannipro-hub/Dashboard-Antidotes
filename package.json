@@ -33,7 +33,8 @@
     "sync:finance": "node --conditions=react-server --import tsx scripts/sync-finance.ts",
     "sync:recus": "node --conditions=react-server --import tsx scripts/sync-recus.ts",
     "sync:moderation": "node --conditions=react-server --import tsx scripts/sync-moderation.ts",
-    "publier:planning": "node --conditions=react-server --import tsx scripts/publish-planning.ts"
+    "publier:planning": "node --conditions=react-server --import tsx scripts/publish-planning.ts",
+    "import:followers": "tsx scripts/import-followers.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.115.0",

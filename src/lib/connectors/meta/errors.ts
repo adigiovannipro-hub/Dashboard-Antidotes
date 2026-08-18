@@ -76,6 +76,18 @@ export function explainMetaError(raw: string): MetaDiagnosis {
     };
   }
 
+  if (text.includes("reduce the amount of data")) {
+    return {
+      /* Refus de **volume**, pas de droits : la collecte redécoupe désormais
+         la fenêtre toute seule (`windows.ts`). Si le message survit à ça,
+         c'est qu'une seule journée est déjà trop lourde — un compte à
+         centaines de régions — et il n'y a rien sous le jour à tenter. */
+      message:
+        "Meta a trouvé la demande trop lourde, même découpée à la journée. Réduire la période affichée, puis relancer la synchronisation.",
+      reconnect: false,
+    };
+  }
+
   if (text.includes("rate limit") || text.includes("(#4)") || text.includes("(#17)")) {
     return {
       // Rien à faire, et surtout pas rebrancher : le quota se recharge seul.
