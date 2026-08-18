@@ -1,6 +1,12 @@
 import "server-only";
 
 import { GRAPH_API, MetaError } from "@/lib/social/meta";
+import type {
+  MetaIgCommentRow,
+  MetaIgMediaLite,
+  MetaPageCommentRow,
+  MetaPagePostLite,
+} from "./comments";
 import type { MetaInsightRow } from "./mapping";
 import type {
   MetaInsightsField,
@@ -340,6 +346,214 @@ export async function fetchPagePosts(options: {
   }
 
   return rows;
+}
+
+// --- Commentaires (Modération) ------------------------------------------------
+
+/**
+ * Les médias récents d'un compte Instagram, version légère.
+ *
+ * La Modération n'a pas besoin des statistiques : uniquement de quoi situer
+ * un commentaire (légende, permalien, vignette) et de savoir s'il y a quelque
+ * chose à relever (`comments_count`). Même arrêt de pagination borné côté
+ * client que le listing complet — le paramètre `since` de Meta est capricieux
+ * sur cette arête.
+ */
+export async function fetchInstagramMediaLite(options: {
+  igUserId: string;
+  accessToken: string;
+  /** Borne basse `YYYY-MM-DD`. */
+  since: string;
+}): Promise<MetaIgMediaLite[]> {
+  const rows: MetaIgMediaLite[] = [];
+  let url: string | undefined = buildUrl(`/${options.igUserId}/media`, {
+    access_token: options.accessToken,
+    fields:
+      "id,caption,permalink,media_type,media_product_type,media_url,thumbnail_url,timestamp,comments_count",
+    limit: "50",
+  });
+
+  for (let page = 0; url && page < MAX_PAGES; page += 1) {
+    const payload: PagedPayload<MetaIgMediaLite> =
+      await fetchGraph<PagedPayload<MetaIgMediaLite>>(url);
+    const items = payload.data ?? [];
+    rows.push(...items);
+
+    const oldest = items.at(-1)?.timestamp;
+    if (oldest && oldest.slice(0, 10) < options.since) break;
+    url = payload.paging?.next;
+  }
+
+  return rows.filter(
+    (item) => !item.timestamp || item.timestamp.slice(0, 10) >= options.since,
+  );
+}
+
+/** Les posts récents d'une Page, version légère — même logique. */
+export async function fetchPagePostsLite(options: {
+  pageId: string;
+  accessToken: string;
+  /** Secondes Unix, le format que `/published_posts` accepte. */
+  since: string;
+}): Promise<MetaPagePostLite[]> {
+  return fetchAllPages<MetaPagePostLite>(
+    buildUrl(`/${options.pageId}/published_posts`, {
+      access_token: options.accessToken,
+      fields:
+        "id,message,permalink_url,full_picture,created_time,comments.summary(true).limit(0)",
+      since: options.since,
+      limit: "50",
+    }),
+  );
+}
+
+/**
+ * Les commentaires d'un média Instagram, réponses imbriquées comprises.
+ *
+ * Graph rend les commentaires de tête ; les réponses viennent par l'expansion
+ * `replies{...}` — un seul appel par média, et un média n'en subit un que si
+ * `comments_count` dit qu'il y a quelque chose à lire.
+ */
+export async function fetchInstagramComments(options: {
+  mediaId: string;
+  accessToken: string;
+}): Promise<MetaIgCommentRow[]> {
+  return fetchAllPages<MetaIgCommentRow>(
+    buildUrl(`/${options.mediaId}/comments`, {
+      access_token: options.accessToken,
+      /* `username` **et** `from` : Instagram ne rend `from` que sur les
+         comptes que l'app atteint, et `username` sur tous les autres — les
+         demander tous les deux est ce qui évite un fil « Inconnu ». */
+      fields:
+        "id,text,timestamp,username,from{id,username},replies{id,text,timestamp,username,from{id,username}}",
+      limit: "50",
+    }),
+  );
+}
+
+/**
+ * Les commentaires d'un post de Page, à plat.
+ *
+ * `filter=stream` déplie les réponses dans le même flux, rattachées par
+ * `parent` — c'est `pageCommentsToThreads` qui regroupe.
+ */
+export async function fetchPageComments(options: {
+  postId: string;
+  accessToken: string;
+}): Promise<MetaPageCommentRow[]> {
+  return fetchAllPages<MetaPageCommentRow>(
+    buildUrl(`/${options.postId}/comments`, {
+      access_token: options.accessToken,
+      filter: "stream",
+      /* `attachment` : sur Facebook, une réponse en GIF est un commentaire au
+         message vide dont tout le contenu est là. `picture` donne l'avatar. */
+      fields:
+        "id,message,created_time,from{id,name,picture{url}},parent{id},attachment{type,url,title,media{image{src}},target{url}}",
+      limit: "100",
+    }),
+  );
+}
+
+/**
+ * Publie une réponse sous un commentaire. Rend l'identifiant du commentaire
+ * créé — la preuve, stockée sur le message sortant.
+ *
+ * Le jeton part dans le **corps** de la requête, jamais dans l'URL : une URL
+ * se retrouve dans les journaux d'erreur, un corps non.
+ */
+async function postGraph<T>(
+  path: string,
+  params: Record<string, string>,
+): Promise<T> {
+  const response = await fetch(`${GRAPH_API}${path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams(params).toString(),
+    cache: "no-store",
+  });
+  const payload = (await response.json().catch(() => ({}))) as T &
+    GraphErrorPayload;
+
+  if (!response.ok || payload.error) {
+    throw new MetaError(
+      payload.error?.message ?? `Appel Meta refusé (${response.status}).`,
+      response.status,
+      response.status >= 500 || response.status === 429,
+    );
+  }
+
+  return payload;
+}
+
+/**
+ * Le pseudo d'un commentaire, redemandé un par un.
+ *
+ * Le listing ne rend pas toujours l'auteur : Instagram omet `username` et
+ * `from` pour certains comptes personnels, et le fil s'affiche alors sans
+ * nom. Un appel direct sur le commentaire les rend parfois — quand il ne les
+ * rend pas, c'est que Meta les masque, et l'écran doit le dire plutôt que de
+ * laisser croire à une panne.
+ */
+export async function fetchCommentAuthors(options: {
+  ids: readonly string[];
+  accessToken: string;
+}): Promise<Map<string, { handle: string | null; externalId: string | null }>> {
+  const found = new Map<string, { handle: string | null; externalId: string | null }>();
+
+  for (let start = 0; start < options.ids.length; start += 10) {
+    const batch = options.ids.slice(start, start + 10);
+    const results = await Promise.all(
+      batch.map(async (id) => {
+        try {
+          const payload = await fetchGraph<{
+            username?: string;
+            from?: { id?: string; username?: string; name?: string };
+          }>(
+            buildUrl(`/${id}`, {
+              access_token: options.accessToken,
+              fields: "username,from{id,username,name}",
+            }),
+          );
+          const handle =
+            payload.username ?? payload.from?.username ?? payload.from?.name ?? null;
+          if (!handle && !payload.from?.id) return null;
+          return [id, { handle, externalId: payload.from?.id ?? null }] as const;
+        } catch {
+          // Un auteur que Meta refuse de nommer n'est pas une panne.
+          return null;
+        }
+      }),
+    );
+    for (const entry of results) {
+      if (entry) found.set(entry[0], entry[1]);
+    }
+  }
+
+  return found;
+}
+
+/** Réponse à un commentaire Instagram — `instagram_manage_comments` requise. */
+export async function replyToInstagramComment(options: {
+  commentId: string;
+  message: string;
+  accessToken: string;
+}): Promise<{ id: string }> {
+  return postGraph<{ id: string }>(`/${options.commentId}/replies`, {
+    access_token: options.accessToken,
+    message: options.message,
+  });
+}
+
+/** Réponse à un commentaire de Page — `pages_manage_engagement` requise. */
+export async function replyToPageComment(options: {
+  commentId: string;
+  message: string;
+  accessToken: string;
+}): Promise<{ id: string }> {
+  return postGraph<{ id: string }>(`/${options.commentId}/comments`, {
+    access_token: options.accessToken,
+    message: options.message,
+  });
 }
 
 /**

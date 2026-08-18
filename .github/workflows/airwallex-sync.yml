@@ -130,6 +130,19 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           CREDENTIALS_ENCRYPTION_KEY: ${{ secrets.CREDENTIALS_ENCRYPTION_KEY }}
 
+      # La Modération relève les commentaires Meta des comptes affectés dans
+      # Connexions — même greffe horaire que la publication, les créneaux cron
+      # de Vercel étant pris. Meta accepte les IP GitHub ; le passage coûte
+      # quelques secondes par compte branché.
+      - name: Synchroniser la Modération (commentaires Meta)
+        if: always()
+        run: pnpm sync:moderation
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          CREDENTIALS_ENCRYPTION_KEY: ${{ secrets.CREDENTIALS_ENCRYPTION_KEY }}
+
       - name: Synchroniser les Reçus
         if: always()
         run: pnpm sync:recus

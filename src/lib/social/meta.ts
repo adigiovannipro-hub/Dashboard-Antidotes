@@ -52,6 +52,13 @@ export const META_SCOPES = [
   "instagram_basic",
   "instagram_content_publish",
   "instagram_manage_insights",
+  /* Répondre aux commentaires depuis la Modération. Comme
+     `pages_read_user_content` : accès standard suffisant pour les comptes à
+     rôle dans l'app, mais la permission doit être **ajoutée à l'app dans la
+     console Meta** avant tout rebranchement, sinon le dialogue refuse tout en
+     bloc (« Invalid Scopes »). Les deux vont ensemble : Instagram et Page. */
+  "instagram_manage_comments",
+  "pages_manage_engagement",
   "ads_read",
   "business_management",
 ];

@@ -4,8 +4,11 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { getViewer } from "@/lib/auth";
+import { explainMetaError } from "@/lib/connectors/meta/errors";
 import { getModerationContext } from "@/lib/moderation/access";
 import { can } from "@/lib/moderation/permissions";
+import { sendReply } from "@/lib/moderation/send";
+import type { Conversation } from "@/lib/moderation/types";
 import { createAdminClient, createClient } from "@/lib/supabase/server";
 import {
   DeterministicEmbeddings,
@@ -63,6 +66,80 @@ async function audit(entry: {
     });
 }
 
+type DeliveryOutcome =
+  | { ok: true; sent: boolean; note: string | null }
+  | { ok: false; error: string };
+
+/**
+ * Tente l'envoi réel d'une réponse, et écrit tout ce qui en découle.
+ *
+ * Trois issues :
+ *   • parti — le message sortant est en base (origine `antidotes`, preuve
+ *     Graph en identifiant externe), la conversation avance ;
+ *   • pas de canal branché — rien ne part, la raison remonte en note et la
+ *     validation suit son cours ;
+ *   • refus de Meta — la conversation passe en échec d'envoi avec la cause en
+ *     français, et l'action rend l'erreur.
+ *
+ * Les écritures de messages passent par le client admin : la RLS ne les ouvre
+ * qu'à l'ingestion (`service_role`), et un envoi **est** une ingestion — celle
+ * de notre propre réponse, après la garde `requireOperator`.
+ */
+async function deliverReply(options: {
+  admin: ReturnType<typeof createAdminClient>;
+  supabase: Awaited<ReturnType<typeof createClient>>;
+  conversation: Conversation;
+  body: string;
+  actorId: string;
+  clientId: string;
+}): Promise<DeliveryOutcome> {
+  const { admin, supabase, conversation, body, actorId, clientId } = options;
+
+  try {
+    const outcome = await sendReply({ admin, conversation, body });
+    if (!outcome.sent) return { ok: true, sent: false, note: outcome.reason };
+
+    const now = new Date().toISOString();
+    await admin.from("messages").insert({
+      conversation_id: conversation.id,
+      client_id: conversation.client_id,
+      direction: "outbound",
+      external_message_id: outcome.externalMessageId,
+      body,
+      origin: "antidotes",
+      sent_at: now,
+    } as never);
+
+    await supabase
+      .from("conversations")
+      .update({
+        last_message_at: now,
+        message_count: conversation.message_count + 1,
+      })
+      .eq("id", conversation.id);
+
+    return { ok: true, sent: true, note: null };
+  } catch (error) {
+    const message = explainMetaError((error as Error).message).message;
+
+    await supabase
+      .from("conversations")
+      .update({ status: "send_failed", unread: false })
+      .eq("id", conversation.id);
+
+    await audit({
+      actorId,
+      clientId,
+      conversationId: conversation.id,
+      action: "draft.send_failed",
+      after: { error: message },
+    });
+
+    revalidatePath("/moderation");
+    return { ok: false, error: message };
+  }
+}
+
 const conversationAction = z.object({
   clientId: z.uuid(),
   conversationId: z.uuid(),
@@ -95,14 +172,34 @@ export async function validateDraft(
 
     if (!draft) return { ok: false, error: "Aucun brouillon à valider." };
 
-    // Sans connexion active à la plateforme, l'envoi réel n'a pas lieu : on
-    // enregistre l'intention et on le dit, plutôt que de faire croire à un envoi.
-    const sent = false;
+    const { data: conversationRow } = await supabase
+      .from("conversations")
+      .select("*")
+      .eq("id", parsed.data.conversationId)
+      .maybeSingle();
+    if (!conversationRow) return { ok: false, error: "Conversation introuvable." };
+    const conversation = conversationRow as unknown as Conversation;
+
+    // L'envoi réel — sous le commentaire, avec le jeton du compte branché.
+    // Un canal non branché ne bloque pas la validation : le brouillon est
+    // validé et la raison est dite, plutôt que de faire croire à un envoi.
+    const admin = createAdminClient();
+    const outcome = await deliverReply({
+      admin,
+      supabase,
+      conversation,
+      body: draft.body as string,
+      actorId: viewer.user.id,
+      clientId: parsed.data.clientId,
+    });
+    if (!outcome.ok) return outcome;
+    const { sent, note } = outcome;
 
     await supabase
       .from("drafts")
       .update({
         status: sent ? "sent" : "validated",
+        sent_at: sent ? new Date().toISOString() : null,
         reviewed_by: viewer.user.id,
         reviewed_at: new Date().toISOString(),
       })
@@ -114,7 +211,6 @@ export async function validateDraft(
       .eq("id", parsed.data.conversationId);
 
     // Les entrées FAQ citées gagnent une validation directe.
-    const admin = createAdminClient();
     for (const source of (draft.sources ?? []) as { faq_entry_id: string }[]) {
       const { data: entry } = await admin
         .from("faq_entries")
@@ -136,12 +232,12 @@ export async function validateDraft(
       after: { draft_id: draft.id, sent },
     });
 
-    revalidatePath(`/moderation/${parsed.data.clientSlug}`);
+    revalidatePath("/moderation");
     return {
       ok: true,
       message: sent
-        ? "Réponse envoyée."
-        : "Brouillon validé. L'envoi réel attend la connexion du canal.",
+        ? "Réponse publiée sous le commentaire."
+        : `Brouillon validé, rien n'est parti : ${note}`,
     };
   } catch (error) {
     return { ok: false, error: (error as Error).message };
@@ -189,7 +285,7 @@ export async function setConversationStatus(
       after: { status: parsed.data.status },
     });
 
-    revalidatePath(`/moderation/${parsed.data.clientSlug}`);
+    revalidatePath("/moderation");
     const labels = {
       ignored: "Conversation ignorée. Elle reste consultable et réouvrable.",
       snoozed: "Mise en attente.",
@@ -362,9 +458,29 @@ export async function submitCorrection(
       } as never);
     }
 
+    // La réponse corrigée part au client — même chemin que la validation.
+    // Si Meta refuse, la FAQ garde ce qu'elle vient d'apprendre : la
+    // correction reste juste, seul l'envoi a échoué, et il est visible.
+    const { data: conversationRow } = await supabase
+      .from("conversations")
+      .select("*")
+      .eq("id", input.conversationId)
+      .maybeSingle();
+    if (!conversationRow) return { ok: false, error: "Conversation introuvable." };
+
+    const delivery = await deliverReply({
+      admin,
+      supabase,
+      conversation: conversationRow as unknown as Conversation,
+      body: input.correctedBody,
+      actorId: viewer.user.id,
+      clientId: input.clientId,
+    });
+    if (!delivery.ok) return delivery;
+
     await supabase
       .from("conversations")
-      .update({ status: "validated", unread: false })
+      .update({ status: delivery.sent ? "sent" : "validated", unread: false })
       .eq("id", input.conversationId);
 
     await audit({
@@ -373,10 +489,14 @@ export async function submitCorrection(
       conversationId: input.conversationId,
       faqEntryId,
       action: "draft.refuse_and_correct",
-      after: { faq_action: plan.action, faq_entry_id: faqEntryId },
+      after: {
+        faq_action: plan.action,
+        faq_entry_id: faqEntryId,
+        sent: delivery.sent,
+      },
     });
 
-    revalidatePath(`/moderation/${input.clientSlug}`);
+    revalidatePath("/moderation");
 
     const suffix =
       plan.action === "create"
@@ -384,7 +504,203 @@ export async function submitCorrection(
         : plan.action === "enrich"
           ? " Entrée FAQ enrichie."
           : " FAQ inchangée.";
-    return { ok: true, message: `Correction enregistrée.${suffix}` };
+    const lead = delivery.sent
+      ? "Réponse corrigée publiée."
+      : `Correction enregistrée, rien n'est parti : ${delivery.note}`;
+    return { ok: true, message: `${lead}${suffix}` };
+  } catch (error) {
+    return { ok: false, error: (error as Error).message };
+  }
+}
+
+// --- Gestes de l'inbox : lu, archivage, suppression, en lot -------------------
+
+/**
+ * Les gestes qui ne changent pas la réponse, seulement le rangement.
+ *
+ * Le vocabulaire est celui de la Boîte de réception Meta, traduit vers ce que
+ * le modèle porte déjà — aucune colonne nouvelle :
+ *
+ *   `lu` / `non-lu`   `conversations.unread`
+ *   `archiver`        statut `ignored` — « rangé », pas « refusé »
+ *   `restaurer`       retour à `to_process`
+ *   `supprimer`       `deleted_at` : la conversation sort de l'inbox et le
+ *                     passage de synchronisation ne la ressuscite pas
+ *
+ * Rien n'est effacé chez Meta : le commentaire reste en ligne. C'est notre
+ * boîte qu'on range, pas la page du client.
+ */
+export type InboxGesture = "lu" | "non-lu" | "archiver" | "restaurer" | "supprimer";
+
+const GESTURE_LABELS: Record<InboxGesture, { one: string; many: string }> = {
+  lu: { one: "Marquée comme lue.", many: "Marquées comme lues." },
+  "non-lu": { one: "Marquée comme non lue.", many: "Marquées comme non lues." },
+  archiver: { one: "Archivée.", many: "Archivées." },
+  restaurer: { one: "Remise à traiter.", many: "Remises à traiter." },
+  supprimer: {
+    one: "Supprimée de l'inbox. Le commentaire reste en ligne sur Meta.",
+    many: "Supprimées de l'inbox. Les commentaires restent en ligne sur Meta.",
+  },
+};
+
+function patchOfGesture(gesture: InboxGesture): Record<string, unknown> {
+  switch (gesture) {
+    case "lu":
+      return { unread: false };
+    case "non-lu":
+      return { unread: true };
+    case "archiver":
+      return { status: "ignored", unread: false };
+    case "restaurer":
+      return { status: "to_process" };
+    case "supprimer":
+      return { deleted_at: new Date().toISOString() };
+  }
+}
+
+const gestureInput = z.object({
+  conversationIds: z.array(z.uuid()).min(1).max(200),
+  gesture: z.enum(["lu", "non-lu", "archiver", "restaurer", "supprimer"]),
+});
+
+/**
+ * Un geste appliqué à une ou plusieurs conversations.
+ *
+ * Une seule action pour l'unité et le lot : la barre de sélection et le bouton
+ * d'une ligne font exactement la même chose, et rien ne peut diverger entre
+ * les deux. La garde d'opérateur est faite **par client** — une sélection qui
+ * traverse deux clients vérifie les deux.
+ */
+export async function applyInboxGesture(input: {
+  conversationIds: string[];
+  gesture: InboxGesture;
+}): Promise<ModerationResult> {
+  const parsed = gestureInput.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Requête incomplète." };
+
+  try {
+    const supabase = await createClient();
+    const { data: rows } = await supabase
+      .from("conversations")
+      .select("id, client_id, status, unread")
+      .in("id", parsed.data.conversationIds);
+
+    const targets = (rows ?? []) as unknown as {
+      id: string;
+      client_id: string;
+      status: string;
+      unread: boolean;
+    }[];
+    if (targets.length === 0) return { ok: false, error: "Conversation introuvable." };
+
+    // Un seul contrôle par client, quel que soit le nombre de lignes.
+    const viewers = new Map<string, Awaited<ReturnType<typeof requireOperator>>>();
+    for (const clientId of new Set(targets.map((row) => row.client_id))) {
+      viewers.set(clientId, await requireOperator(clientId));
+    }
+
+    const patch = patchOfGesture(parsed.data.gesture);
+    const { error } = await supabase
+      .from("conversations")
+      .update(patch as never)
+      .in(
+        "id",
+        targets.map((row) => row.id),
+      );
+    if (error) return { ok: false, error: error.message };
+
+    for (const row of targets) {
+      await audit({
+        actorId: viewers.get(row.client_id)!.viewer.user.id,
+        clientId: row.client_id,
+        conversationId: row.id,
+        action: `conversation.${parsed.data.gesture}`,
+        before: { status: row.status, unread: row.unread },
+        after: patch,
+      });
+    }
+
+    revalidatePath("/moderation");
+    const labels = GESTURE_LABELS[parsed.data.gesture];
+    return {
+      ok: true,
+      message:
+        targets.length > 1
+          ? `${targets.length} conversations — ${labels.many.toLowerCase()}`
+          : labels.one,
+    };
+  } catch (error) {
+    return { ok: false, error: (error as Error).message };
+  }
+}
+
+const manualReply = z.object({
+  conversationId: z.uuid(),
+  body: z.string().trim().min(1, "La réponse ne peut pas être vide."),
+});
+
+/**
+ * La réponse écrite à la main, hors brouillon.
+ *
+ * Tout ne se répond pas avec la FAQ : une réponse au ton juste, une relance,
+ * un remerciement. Elle part par le même chemin que la validation d'un
+ * brouillon — publication réelle sous le commentaire, preuve en base, échec
+ * dit en français — et laisse la conversation en `sent`.
+ */
+export async function sendManualReply(input: {
+  conversationId: string;
+  body: string;
+}): Promise<ModerationResult> {
+  const parsed = manualReply.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Requête incomplète." };
+  }
+
+  try {
+    const supabase = await createClient();
+    const { data: conversationRow } = await supabase
+      .from("conversations")
+      .select("*")
+      .eq("id", parsed.data.conversationId)
+      .maybeSingle();
+    if (!conversationRow) return { ok: false, error: "Conversation introuvable." };
+
+    const conversation = conversationRow as unknown as Conversation;
+    const { viewer } = await requireOperator(conversation.client_id);
+
+    const delivery = await deliverReply({
+      admin: createAdminClient(),
+      supabase,
+      conversation,
+      body: parsed.data.body,
+      actorId: viewer.user.id,
+      clientId: conversation.client_id,
+    });
+    if (!delivery.ok) return delivery;
+
+    await supabase
+      .from("conversations")
+      .update({
+        status: delivery.sent ? "sent" : "validated",
+        unread: false,
+      })
+      .eq("id", conversation.id);
+
+    await audit({
+      actorId: viewer.user.id,
+      clientId: conversation.client_id,
+      conversationId: conversation.id,
+      action: "conversation.manual_reply",
+      after: { sent: delivery.sent, length: parsed.data.body.length },
+    });
+
+    revalidatePath("/moderation");
+    return {
+      ok: true,
+      message: delivery.sent
+        ? "Réponse publiée sous le commentaire."
+        : `Réponse enregistrée, rien n'est parti : ${delivery.note}`,
+    };
   } catch (error) {
     return { ok: false, error: (error as Error).message };
   }

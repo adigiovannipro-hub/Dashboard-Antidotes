@@ -25,7 +25,13 @@ import { cn } from "@/lib/utils";
  * le clic et la réponse. Voir `ds/pill-indicator.tsx`.
  */
 
-export type FilterOption = { value: string; label: string; href: string };
+export type FilterOption = {
+  value: string;
+  label: string;
+  href: string;
+  /** Compteur affiché après le libellé — masqué à zéro, un zéro ne crie rien. */
+  count?: number;
+};
 
 export function FilterPills({
   options,
@@ -64,7 +70,7 @@ export function FilterPills({
             aria-current={option.value === current ? "page" : undefined}
             onClick={() => select(option.value)}
             className={cn(
-              "type-caption focus-visible:ring-ring relative rounded-pill px-3 py-1.5 font-medium transition-colors duration-(--motion-duration) ease-standard focus-visible:ring-2 focus-visible:outline-none",
+              "type-caption focus-visible:ring-ring relative rounded-pill px-3 py-1.5 font-medium whitespace-nowrap transition-colors duration-(--motion-duration) ease-standard focus-visible:ring-2 focus-visible:outline-none",
               selected
                 ? // Repli sans mesure : le fond reste sur le lien, exactement
                   // comme avant l'indicateur glissant.
@@ -74,6 +80,19 @@ export function FilterPills({
           >
             <LinkPending />
             {option.label}
+            {option.count ? (
+              // Sélection : blanc translucide sur l'encre pleine. Ailleurs, un
+              // jeton blanc — `currentColor` teinté assombrissait la gouttière
+              // sous le chiffre et tombait à 4,23:1, mesuré au navigateur.
+              <span
+                className={cn(
+                  "ml-1.5 inline-block rounded-pill px-1.5 tabular-nums",
+                  selected ? "bg-current/15" : "bg-surface",
+                )}
+              >
+                {option.count}
+              </span>
+            ) : null}
           </Link>
         );
       })}

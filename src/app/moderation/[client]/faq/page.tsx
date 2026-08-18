@@ -47,7 +47,7 @@ export default async function FaqPage({
     <div className="space-y-5">
       <div className="space-y-3">
         <Link
-          href={`/moderation/${client.slug}`}
+          href={`/moderation?client=${client.slug}`}
           className="type-caption focus-visible:ring-ring inline-flex items-center gap-1 rounded-sm text-text-secondary transition-colors hover:text-text-primary focus-visible:ring-2 focus-visible:outline-none"
         >
           <ArrowLeft className="size-3.5" aria-hidden />

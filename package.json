@@ -28,9 +28,11 @@
     "seed:planning": "tsx scripts/seed-planning.ts",
     "seed:finance": "tsx scripts/seed-finance.ts",
     "purge:finance-demo": "tsx scripts/purge-finance-demo.ts",
+    "purge:moderation-demo": "tsx scripts/purge-moderation-demo.ts",
     "seed:mon-travail": "tsx scripts/seed-mon-travail.ts",
     "sync:finance": "node --conditions=react-server --import tsx scripts/sync-finance.ts",
     "sync:recus": "node --conditions=react-server --import tsx scripts/sync-recus.ts",
+    "sync:moderation": "node --conditions=react-server --import tsx scripts/sync-moderation.ts",
     "publier:planning": "node --conditions=react-server --import tsx scripts/publish-planning.ts",
     "import:followers": "tsx scripts/import-followers.ts"
   },
