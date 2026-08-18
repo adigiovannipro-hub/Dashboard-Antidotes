@@ -42,6 +42,16 @@ export function explainMetaError(raw: string): MetaDiagnosis {
   }
 
   if (
+    text.includes("pages_messaging") ||
+    text.includes("instagram_manage_messages")
+  ) {
+    return {
+      message: `Meta refuse la boîte de messages privés : les portées « pages_messaging » et « instagram_manage_messages » manquent au jeton. Les ajouter à l'application dans la console Meta si ce n'est pas fait, puis ${RECONNECT.charAt(0).toLowerCase()}${RECONNECT.slice(1)} Les commentaires, eux, continuent de remonter.`,
+      reconnect: true,
+    };
+  }
+
+  if (
     text.includes("instagram_manage_comments") ||
     text.includes("pages_manage_engagement")
   ) {

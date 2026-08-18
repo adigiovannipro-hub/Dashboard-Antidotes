@@ -9,11 +9,13 @@ import {
 import { explainMetaError } from "@/lib/connectors/meta/errors";
 import {
   fetchCommentAuthors,
+  fetchConversations,
   fetchInstagramComments,
   fetchInstagramMediaLite,
   fetchPageComments,
   fetchPagePostsLite,
 } from "@/lib/connectors/meta/graph";
+import { conversationsToThreads } from "@/lib/connectors/meta/messages";
 import type { SocialAccountRow } from "@/lib/social/types";
 import type { Database } from "@/lib/supabase/database.types";
 import { decryptSecret } from "./crypto";
@@ -46,6 +48,12 @@ export type ModerationSyncReport = {
   /** Fils vus sur la plateforme pendant ce passage. */
   threads: number;
   error: string | null;
+  /**
+   * Le relevé des messages privés a échoué alors que les commentaires sont
+   * passés : la boîte privée demande ses propres portées, et son refus ne doit
+   * pas faire tomber le reste — il devient un avertissement.
+   */
+  messagesWarning?: string | null;
 };
 
 function fail(message: string): never {
@@ -264,8 +272,9 @@ async function upsertThreads(options: {
 async function pullThreads(options: {
   account: SocialAccountRow;
   accessToken: string;
-  channel: ModerationChannel;
-}): Promise<IngestedThread[]> {
+  /** Les deux seuls canaux que Meta sert — le type le dit plutôt qu'un cast. */
+  channel: "instagram" | "facebook";
+}): Promise<{ threads: IngestedThread[]; warning: string | null }> {
   const { account, accessToken, channel } = options;
   const since = sinceDate();
   const threads: IngestedThread[] = [];
@@ -274,7 +283,11 @@ async function pullThreads(options: {
     // Les fils dont Meta n'a pas nommé l'auteur : un appel direct sur le
     // commentaire le rend parfois. Ceux qu'il ne rend toujours pas sont
     // masqués par Meta, et l'écran le dira.
-    const orphans = collected.filter((thread) => !thread.participantHandle);
+    const orphans = collected.filter(
+      // Un message privé nomme toujours son interlocuteur, et son identifiant
+      // de fil n'est pas celui d'un commentaire : l'appel échouerait.
+      (thread) => thread.kind === "comment" && !thread.participantHandle,
+    );
     if (orphans.length === 0) return collected;
 
     const recovered = await fetchCommentAuthors({
@@ -289,6 +302,57 @@ async function pullThreads(options: {
         thread.participantExternalId ?? author.externalId;
     }
     return collected;
+  };
+
+  /**
+   * Les messages privés, quand la Page est connue.
+   *
+   * Toujours via la Page, Instagram compris : la messagerie d'un compte
+   * professionnel passe par elle. Pour un compte Instagram, c'est
+   * `parent_external_id` qui la porte — sans elle, il n'y a pas de boîte à
+   * relever, et ce n'est pas une erreur.
+   *
+   * Un refus ici ne fait pas tomber les commentaires : les portées de la
+   * messagerie sont distinctes, et une boîte privée fermée ne doit pas priver
+   * le client de ses commentaires.
+   */
+  const pullDirectMessages = async (): Promise<{
+    threads: IngestedThread[];
+    warning: string | null;
+  }> => {
+    const pageId =
+      channel === "instagram" ? account.parent_external_id : account.external_id;
+    if (!pageId) {
+      return {
+        threads: [],
+        warning:
+          "Aucune Page rattachée à ce compte Instagram : la messagerie privée passe par elle. Rebrancher Meta depuis Connexions.",
+      };
+    }
+
+    try {
+      const conversations = await fetchConversations({
+        pageId,
+        accessToken,
+        platform: channel === "instagram" ? "instagram" : "messenger",
+        since,
+      });
+      return {
+        threads: conversationsToThreads({
+          conversations,
+          channel,
+          // Les deux identités de la marque : Meta nomme l'expéditeur par la
+          // Page sur Messenger, par le compte Instagram sur Instagram.
+          brandIds: [pageId, account.external_id],
+        }),
+        warning: null,
+      };
+    } catch (error) {
+      return {
+        threads: [],
+        warning: explainMetaError((error as Error).message).message,
+      };
+    }
   };
 
   if (channel === "instagram") {
@@ -309,7 +373,10 @@ async function pullThreads(options: {
       });
       threads.push(...igCommentsToThreads({ media: item, comments, brand }));
     }
-    return withAuthors(threads);
+
+    const direct = await pullDirectMessages();
+    threads.push(...direct.threads);
+    return { threads: await withAuthors(threads), warning: direct.warning };
   }
 
   const posts = await fetchPagePostsLite({
@@ -324,7 +391,10 @@ async function pullThreads(options: {
     const comments = await fetchPageComments({ postId: post.id, accessToken });
     threads.push(...pageCommentsToThreads({ post, comments, brand }));
   }
-  return withAuthors(threads);
+
+  const direct = await pullDirectMessages();
+  threads.push(...direct.threads);
+  return { threads: await withAuthors(threads), warning: direct.warning };
 }
 
 export async function syncModerationInbox(options: {
@@ -363,7 +433,7 @@ export async function syncModerationInbox(options: {
     const workspace = workspaceById.get(link.workspace_id);
     if (!workspace) continue;
 
-    const channel: ModerationChannel =
+    const channel: "instagram" | "facebook" =
       link.kind === "instagram" ? "instagram" : "facebook";
     const report: ModerationSyncReport = {
       workspace: workspace.name,
@@ -418,13 +488,14 @@ export async function syncModerationInbox(options: {
       const connectionId = (connection as unknown as { id: string }).id;
 
       try {
-        const threads = await pullThreads({ account, accessToken, channel });
+        const pulled = await pullThreads({ account, accessToken, channel });
+        report.messagesWarning = pulled.warning;
         report.threads = await upsertThreads({
           admin,
           client,
           connectionId,
           channel,
-          threads,
+          threads: pulled.threads,
         });
 
         const { error: doneError } = await admin
@@ -432,7 +503,8 @@ export async function syncModerationInbox(options: {
           .update({
             status: "connected",
             last_polled_at: new Date().toISOString(),
-            last_error: null,
+            // Le passage a abouti — l'avertissement dit ce qui manquait.
+            last_error: pulled.warning,
           } as never)
           .eq("id", connectionId);
         if (doneError) fail(`Clôture du passage : ${doneError.message}`);

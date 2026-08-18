@@ -13,6 +13,8 @@ type SyncReport = {
   account: string;
   threads: number;
   error: string | null;
+  /** Les commentaires sont passés, la boîte privée non — ou l'inverse. */
+  messagesWarning?: string | null;
 };
 
 type SyncOutcome = {
@@ -52,6 +54,7 @@ export function ModerationSyncButton() {
 
       const reports = outcome.reports ?? [];
       const failed = reports.filter((report) => report.error);
+      const warned = reports.filter((report) => report.messagesWarning);
       const threads = reports.reduce((sum, report) => sum + report.threads, 0);
 
       if (failed.length > 0) {
@@ -64,6 +67,9 @@ export function ModerationSyncButton() {
               : ""
           }`,
         );
+      } else if (warned.length > 0) {
+        // Une partie est passée : le dire, sans le vert du succès complet.
+        toast.warning(`${warned[0]?.account} : ${warned[0]?.messagesWarning}`);
       } else {
         toast.success(`Relevé terminé — ${threads} fil(s) à jour.`);
       }
