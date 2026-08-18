@@ -42,6 +42,13 @@ const PROVIDER: Record<Serie["platform"], string> = {
   tiktok: "tiktok_organic",
 };
 
+/** Le compte affecté à l'espace pour cette plateforme, dans les Connexions. */
+const KIND: Record<Serie["platform"], string> = {
+  instagram: "instagram",
+  facebook: "facebook_page",
+  tiktok: "tiktok",
+};
+
 async function main() {
   const dryRun = process.argv.includes("--dry-run");
   const url = process.env.SUPABASE_DB_URL;
@@ -76,17 +83,30 @@ async function main() {
       const provider = PROVIDER[serie.platform];
 
       /* La source du connecteur quand elle existe, pour que la clé primaire
-         dédoublonne avec les relevés d'API à venir. Sinon une source dédiée,
-         `pending` : TikTok n'a pas de connecteur, et l'histoire mérite d'être
-         posée quand même — elle attendra le sien. */
-      const existante = await client.query<{ id: string }>(
-        `select id from data_sources
-         where workspace_id = $1 and provider = $2
-         order by created_at limit 1`,
-        [workspaceId, provider],
+         `(data_source_id, platform, date)` dédoublonne avec les relevés d'API
+         à venir. Sinon une source dédiée, `pending` : TikTok n'a pas de
+         connecteur, et l'histoire mérite d'être posée quand même.
+
+         Le rapprochement passe par le **compte affecté**, pas par le premier
+         venu : `meta_organic` couvre à la fois le compte Instagram et la Page
+         Facebook, deux lignes du même `provider`. Prendre la plus ancienne
+         rattachait l'histoire Instagram à la source de la Page — l'API aurait
+         alors écrit ailleurs, et la courbe aurait porté deux points pour la
+         même date. */
+      const affectee = await client.query<{ id: string }>(
+        `select d.id
+           from workspace_social_accounts l
+           join social_accounts a on a.id = l.account_id
+           join data_sources d
+             on d.workspace_id = l.workspace_id
+            and d.provider = $3
+            and d.external_account_id = a.external_id
+          where l.workspace_id = $1 and l.kind = $2
+          limit 1`,
+        [workspaceId, KIND[serie.platform], provider],
       );
 
-      let dataSourceId = existante.rows[0]?.id;
+      let dataSourceId = affectee.rows[0]?.id;
       if (!dataSourceId) {
         const cree = await client.query<{ id: string }>(
           `insert into data_sources

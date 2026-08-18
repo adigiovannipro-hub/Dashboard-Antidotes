@@ -38,6 +38,14 @@ on:
         description: "Effacer les données de démonstration Finance (garde les vraies)"
         type: boolean
         default: false
+      import_followers:
+        description: "Reprendre l'antériorité des abonnés relevée sur Looker"
+        type: boolean
+        default: false
+      import_followers_dry_run:
+        description: "… en essai à blanc, sans rien écrire (--dry-run)"
+        type: boolean
+        default: false
       isolation_tests:
         description: "Lancer les tests d'isolation RLS contre la vraie base"
         type: boolean
@@ -80,6 +88,14 @@ jobs:
       # `db:migrate` ne rejoue jamais ce qui est déjà appliqué.
       - name: Migrations
         run: pnpm db:migrate
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+
+      # L'antériorité des abonnés : à jouer une fois par jeu de chiffres, et
+      # rejouable sans risque — la clé primaire met à jour au lieu d'empiler.
+      - name: Antériorité des abonnés
+        if: ${{ inputs.import_followers }}
+        run: pnpm import:followers ${{ inputs.import_followers_dry_run && '--dry-run' || '' }}
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
 
