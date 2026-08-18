@@ -85,7 +85,22 @@ export const META_KINDS: SocialAccountKind[] = [
  *
  * C'est la seule chose à changer le jour où LinkedIn arrive.
  */
-export const CONNECTABLE_KINDS: SocialAccountKind[] = META_KINDS;
+/**
+ * Les réseaux qu'on sait réellement brancher.
+ *
+ * Meta d'un côté — un login, trois comptes —, YouTube de l'autre, qui demande
+ * son propre aller-retour Google : les deux n'ont ni la même app, ni le même
+ * périmètre d'autorisation. Le reste s'affiche sans bouton plutôt que d'offrir
+ * une liste vide qui se lirait comme une panne.
+ */
+export const CONNECTABLE_KINDS: SocialAccountKind[] = [...META_KINDS, "youtube"];
+
+/** Par quel branchement passe un réseau — chaque famille a sa route OAuth. */
+export function connectorOf(kind: SocialAccountKind): "meta" | "youtube" | null {
+  if (META_KINDS.includes(kind)) return "meta";
+  if (kind === "youtube") return "youtube";
+  return null;
+}
 
 export function isConnectable(kind: SocialAccountKind): boolean {
   return CONNECTABLE_KINDS.includes(kind);

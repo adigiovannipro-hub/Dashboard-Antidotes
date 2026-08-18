@@ -66,15 +66,23 @@ export function ConnexionsDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
-  const connexionHref = `/api/social/meta/connexion?espace=${encodeURIComponent(
-    workspaceSlug,
-  )}&retour=${encodeURIComponent(`/espace/${workspaceSlug}/planning`)}`;
-
-  const inventory = accounts.length;
   const rows = planConnexionRows({
     networks,
     linked: Object.keys(selection) as SocialAccountKind[],
   });
+
+  const consentHref = (connector: "meta" | "youtube") =>
+    `/api/social/${connector}/connexion?espace=${encodeURIComponent(
+      workspaceSlug,
+    )}&retour=${encodeURIComponent(`/espace/${workspaceSlug}/planning`)}`;
+  const connexionHref = consentHref("meta");
+
+  // YouTube ne se branche que si le client en a un : proposer le bouton à
+  // tout le monde encombrerait la boîte de ceux qui n'y publient pas.
+  const wantsYouTube = rows.some((row) => row.kind === "youtube");
+  const youtubeLinked = accounts.some((account) => account.kind === "youtube");
+
+  const inventory = accounts.length;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -106,6 +114,22 @@ export function ConnexionsDialog({
         </div>
 
         <AddNetwork workspaceSlug={workspaceSlug} rows={rows} />
+
+        {wantsYouTube ? (
+          <Button render={<a href={consentHref("youtube")} />} variant="outline" size="sm">
+            {youtubeLinked ? (
+              <>
+                <RefreshCw className="size-3.5" strokeWidth={1.75} aria-hidden />
+                Rebrancher YouTube
+              </>
+            ) : (
+              <>
+                <Plug className="size-3.5" strokeWidth={1.75} aria-hidden />
+                Brancher YouTube
+              </>
+            )}
+          </Button>
+        ) : null}
 
         {metaConfigured ? (
           <Button

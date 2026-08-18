@@ -59,6 +59,8 @@ export async function listConversations(options: {
     query = query.eq("channel", "instagram").eq("kind", "comment");
   } else if (view === "commentaires-facebook") {
     query = query.eq("channel", "facebook").eq("kind", "comment");
+  } else if (view === "commentaires-youtube") {
+    query = query.eq("channel", "youtube").eq("kind", "comment");
   } else if (view === "messages") {
     query = query.eq("kind", "dm");
   }
