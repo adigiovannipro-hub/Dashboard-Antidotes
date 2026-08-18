@@ -131,7 +131,7 @@ Un chantier est vérifié quand `pnpm typecheck`, `pnpm lint`, `pnpm build` et `
 
 **Dès qu'un chantier touche à l'interface, les quatre commandes ne suffisent plus** : il faut avoir regardé l'écran et rejoué l'audit de contraste. Voir « Vérifier une interface ».
 
-À ne jamais lancer sans mon accord explicite : reset de base, push de migration en production, déploiement production.
+À ne jamais lancer sans mon accord explicite : reset de base, déploiement production. **Les migrations font exception depuis le 18 août** : elles s'appliquent toutes seules au push sur `main`, accord donné une fois pour toutes — voir « Migrations ». Le reste de la règle tient.
 
 ## Migrations
 
@@ -144,7 +144,9 @@ Un chantier est vérifié quand `pnpm typecheck`, `pnpm lint`, `pnpm build` et `
 - **Le numéro 0009 n'existe pas** — deux branches parallèles ont réservé leurs numéros. Trou sans conséquence, ne pas chercher à le combler.
 - `supabase/seeds/` n'est **jamais lancé** par `db:migrate` : c'est du SQL à coller à la main dans l'éditeur Supabase. Les seeds exécutables sont les scripts TypeScript, idempotents par UUID stable dérivé d'un SHA-256.
 - Les migrations de données (`0003_seed`, `0008_planning_bondet`) sont bien appliquées par `db:migrate` et sont idempotentes.
-- Aucune migration n'est appliquée au déploiement. C'est une commande à lancer à la main.
+- **Les migrations partent toutes seules au push sur `main`** — job `migrer` de `ci.yml`, ajouté le 18 août. Il ne démarre qu'**après** les quatre commandes vertes (`needs: verifier`), ne tourne ni sur une branche ni sur une pull request, et fait la queue sans s'annuler : couper une migration en cours laisserait le schéma à mi-chemin. Sans `SUPABASE_DB_URL` dans les secrets, il échoue en le disant au lieu de finir vert sans rien faire.
+- Cela **ne dispense pas du rejeu sur un Postgres jetable avant de pousser** : c'est maintenant le seul filet. Une migration fautive part désormais toute seule, et le runner ne rejoue jamais ce qui est appliqué — il faudra une migration corrective, jamais une retouche du fichier passé.
+- `db-admin` reste, et sert toujours : seeds, diagnostics, imports, tests d'isolation, et le rattrapage d'une base en retard. Il n'est simplement plus obligatoire pour le schéma.
 
 **`src/lib/supabase/database.types.ts` est écrit à la main**, pas généré — 610 lignes qui doivent rester alignées sur 2 919 lignes de SQL, sans commande de génération branchée et sans garde-fou. Toute migration qui touche une table oblige à mettre ce fichier à jour dans le même commit. Son `Enums` ne contient d'ailleurs que les 10 enums de `0001` sur les 42 déclarés : les 32 autres n'y sont jamais entrés.
 

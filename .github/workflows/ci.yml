@@ -73,3 +73,68 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ci-placeholder-service-key
           CREDENTIALS_ENCRYPTION_KEY: ci-placeholder-encryption-key
           CRON_SECRET: ci-placeholder-cron-secret
+
+  # --- Migrations automatiques ---------------------------------------------
+  #
+  # Le schéma suivait les commits à la main, par `db-admin`. Entre un
+  # déploiement et le passage de l'opérateur, le code connaissait donc des
+  # colonnes que la base n'avait pas — c'est exactement ce décalage qui a vidé
+  # la synchronisation organique pendant des jours.
+  #
+  # Trois garde-fous, et aucun n'est décoratif :
+  #
+  #   • `needs: verifier` — une migration ne part jamais devant un commit qui
+  #     ne compile pas. C'est tout l'intérêt de la poser ici plutôt que dans
+  #     un workflow séparé ;
+  #   • `if` sur `refs/heads/main` — ni les branches ni les pull requests ne
+  #     touchent la base. Une PR verte ne migre rien ;
+  #   • une file d'attente **sans annulation** : deux pushes rapprochés se
+  #     suivent au lieu de se courir dessus, et aucun passage n'est coupé au
+  #     milieu d'une transaction.
+  #
+  # Le runner ne rejoue jamais une migration déjà appliquée (nom + empreinte
+  # dans `app.schema_migrations`) : ce job ne fait donc rien la plupart du
+  # temps, et c'est le comportement voulu.
+  #
+  # `db-admin` reste pour tout le reste — seeds, diagnostics, imports, tests
+  # d'isolation. Il n'est simplement plus obligatoire pour le schéma.
+  migrer:
+    name: Migrations sur la vraie base
+    needs: verifier
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    # `cancel-in-progress: false`, à l'inverse du job de vérification :
+    # interrompre une migration en cours laisserait le schéma à mi-chemin.
+    concurrency:
+      group: migrations-production
+      cancel-in-progress: false
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.18.2
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Installation
+        run: pnpm install --frozen-lockfile
+
+      # Secret absent : on le **dit** et on échoue, plutôt que de finir vert
+      # sans avoir rien appliqué. C'est la faute qu'on vient de payer sur la
+      # reprise des abonnés — un succès qui n'a rien fait est pire qu'un rouge.
+      - name: Migrations
+        run: |
+          if [ -z "$SUPABASE_DB_URL" ]; then
+            echo "✖ SUPABASE_DB_URL absente des secrets du dépôt — aucune migration appliquée."
+            exit 1
+          fi
+          pnpm db:migrate
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
