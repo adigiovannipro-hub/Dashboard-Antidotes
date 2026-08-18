@@ -12,12 +12,26 @@
  *   `WorkspaceSocialLink`   ce que **ce client** utilise, un par réseau
  */
 
+/**
+ * Les réseaux qu'un compte peut représenter.
+ *
+ * Aligné sur `social_account_kind`, étendu par
+ * `0049_reseaux_a_connecter.sql`. Tous ne se branchent pas aujourd'hui —
+ * seul Meta a un connecteur — mais tous se **déclarent** : un client qui a
+ * YouTube à son contrat doit voir YouTube dans ses connexions, avec la vérité
+ * en face plutôt qu'une absence de ligne. Voir `CONNECTABLE_KINDS`.
+ */
 export type SocialAccountKind =
   | "instagram"
   | "facebook_page"
   | "meta_ad_account"
   | "linkedin"
-  | "tiktok";
+  | "tiktok"
+  | "youtube"
+  | "pinterest"
+  | "x"
+  | "threads"
+  | "snapchat";
 
 export const SOCIAL_ACCOUNT_LABELS: Record<SocialAccountKind, string> = {
   instagram: "Instagram",
@@ -25,6 +39,11 @@ export const SOCIAL_ACCOUNT_LABELS: Record<SocialAccountKind, string> = {
   meta_ad_account: "Compte publicitaire Meta",
   linkedin: "LinkedIn",
   tiktok: "TikTok",
+  youtube: "YouTube",
+  pinterest: "Pinterest",
+  x: "X",
+  threads: "Threads",
+  snapchat: "Snapchat",
 };
 
 /** À quoi sert le compte affecté, dit sur l'écran d'affectation. */
@@ -34,6 +53,11 @@ export const SOCIAL_ACCOUNT_PURPOSE: Record<SocialAccountKind, string> = {
   meta_ad_account: "Chiffres de campagnes du Reporting",
   linkedin: "Publication sur la page entreprise",
   tiktok: "Publication sur le compte",
+  youtube: "Publication sur la chaîne",
+  pinterest: "Épingles du compte",
+  x: "Publication sur le compte",
+  threads: "Publication sur le compte",
+  snapchat: "Publication sur le compte",
 };
 
 export type SocialAccountStatus = "connected" | "expired" | "error" | "disabled";
@@ -51,6 +75,21 @@ export const META_KINDS: SocialAccountKind[] = [
   "facebook_page",
   "meta_ad_account",
 ];
+
+/**
+ * Les réseaux qu'un connecteur sait réellement remplir aujourd'hui.
+ *
+ * Meta, et rien d'autre. Les sept autres se déclarent, s'affichent et
+ * attendent leur connecteur — l'écran le dit en toutes lettres plutôt que de
+ * montrer une liste de choix vide, qui laisserait croire à une panne.
+ *
+ * C'est la seule chose à changer le jour où LinkedIn arrive.
+ */
+export const CONNECTABLE_KINDS: SocialAccountKind[] = META_KINDS;
+
+export function isConnectable(kind: SocialAccountKind): boolean {
+  return CONNECTABLE_KINDS.includes(kind);
+}
 
 export function isSocialAccountKind(value: string): value is SocialAccountKind {
   return value in SOCIAL_ACCOUNT_LABELS;

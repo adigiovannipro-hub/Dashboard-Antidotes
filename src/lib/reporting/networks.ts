@@ -48,19 +48,25 @@ const REQUIRED_KIND: Record<ReportingNetwork, SocialAccountKind> = {
  * reste — deviner « Threads » à partir de « Meta » ferait apparaître un onglet
  * que personne n'a demandé.
  */
-export function networkFromContextName(name: string): ReportingNetwork | null {
+export function networksFromContextName(name: string): ReportingNetwork[] {
   const folded = name
     .normalize("NFD")
     .replace(/\p{Diacritic}/gu, "")
-    .toLowerCase();
+    .toLowerCase()
+    .trim();
 
-  if (folded.includes("insta")) return "instagram";
+  if (folded.includes("insta")) return ["instagram"];
   // « Meta Ads » avant « Facebook » : les deux contiennent souvent « meta ».
   // `ads` en **mot entier** : « Threads » contient la suite a-d-s, et un
   // client qui déclare Threads se retrouvait avec un onglet Meta Ads.
-  if (/\bads\b/.test(folded) || folded.includes("publicit")) return "meta-ads";
-  if (folded.includes("facebook") || folded === "fb") return "facebook";
-  return null;
+  if (/\bads\b/.test(folded) || folded.includes("publicit")) return ["meta-ads"];
+  if (folded.includes("facebook") || folded === "fb") return ["facebook"];
+  /* « Meta » seul est le réseau tel qu'on le vend : payant et organique, les
+     deux Pages. Il ouvre donc les trois onglets — c'est ce qu'on attend en
+     lisant le rapport d'un client « sur Meta ». Ce test vient en dernier :
+     « Meta Ads » a déjà été attrapé plus haut, et ne doit pas tout ouvrir. */
+  if (/\bmeta\b/.test(folded)) return ["meta-ads", "instagram", "facebook"];
+  return [];
 }
 
 export type ReportingTabs = {
@@ -68,6 +74,17 @@ export type ReportingTabs = {
   networks: ReportingNetwork[];
   /** Déclarés au Contexte, mais sans compte branché. */
   manquants: ReportingNetwork[];
+  /**
+   * Déclarés au Contexte et que le Reporting ne sait pas servir du tout —
+   * TikTok, LinkedIn : pas de connecteur, donc pas de mesures, donc pas
+   * d'onglet possible. Rendus tels qu'écrits pour que l'écran les nomme.
+   *
+   * Sans cette liste, un client déclaré sur TikTok et LinkedIn ouvrait un
+   * Reporting parfaitement vide qui ne disait pas pourquoi — ce qui se lit
+   * comme une panne, alors que c'est une fonctionnalité qui n'existe pas
+   * encore.
+   */
+  sansConnecteur: string[];
 };
 
 export function resolveReportingNetworks(input: {
@@ -77,24 +94,46 @@ export function resolveReportingNetworks(input: {
   assignedKinds: readonly SocialAccountKind[];
 }): ReportingTabs {
   const assigned = new Set(input.assignedKinds);
-  const available = (["meta-ads", "instagram", "facebook"] as const).filter(
-    (network) => assigned.has(REQUIRED_KIND[network]),
-  );
 
   const declared: ReportingNetwork[] = [];
+  const sansConnecteur: string[] = [];
   for (const name of input.contextNetworks) {
-    const network = networkFromContextName(name);
-    if (network && !declared.includes(network)) declared.push(network);
+    const networks = networksFromContextName(name);
+    if (networks.length === 0) {
+      const label = name.trim();
+      if (label.length > 0 && !sansConnecteur.includes(label)) {
+        sansConnecteur.push(label);
+      }
+      continue;
+    }
+    for (const network of networks) {
+      if (!declared.includes(network)) declared.push(network);
+    }
   }
+
+  /* Un onglet par réseau **déclaré ou branché**, et non par réseau branché
+     seulement. Le contrat commande l'écran : un client vendu sur Meta doit
+     voir ses trois onglets dès la signature, même avant qu'un compte soit
+     affecté — sinon le Reporting paraît vide sans raison et on ne sait pas
+     qu'il reste un geste à faire. L'onglet non branché n'invente rien : il
+     porte un état vide qui dit lequel affecter et où. */
+  const networks = (["meta-ads", "instagram", "facebook"] as const).filter(
+    (network) => assigned.has(REQUIRED_KIND[network]) || declared.includes(network),
+  );
 
   // Ordre fixe — payant, Instagram, Facebook — et non l'ordre du Contexte :
   // les onglets doivent tomber au même endroit d'un client à l'autre, sinon
   // on cherche « Meta Ads » à une place différente à chaque espace.
-  // Le Contexte garde son rôle : dire ce qui **manque**.
   return {
-    networks: available,
-    manquants: declared.filter((network) => !available.includes(network)),
+    networks,
+    manquants: networks.filter((network) => !assigned.has(REQUIRED_KIND[network])),
+    sansConnecteur,
   };
+}
+
+/** Le compte qu'il faut affecter pour qu'un onglet ait de quoi lire. */
+export function requiredKindFor(network: ReportingNetwork): SocialAccountKind {
+  return REQUIRED_KIND[network];
 }
 
 /** L'onglet demandé par l'URL, ou le premier de la liste. */

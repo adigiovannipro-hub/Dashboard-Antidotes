@@ -14,7 +14,7 @@ import {
 import { CashStatCard } from "@/components/finance/cash-stat-card";
 import { ExpensesTable, type DisplayExpense } from "@/components/finance/expenses-table";
 import { InvoicesBlock } from "@/components/finance/invoices-block";
-import { SyncBanner } from "@/components/finance/sync-banner";
+import { SyncBadge } from "@/components/finance/sync-badge";
 import { requireFinanceAccess } from "@/lib/finance/access";
 import { getReceiptsContext } from "@/lib/recus/access";
 import { senderDomain } from "@/lib/recus/heuristics";
@@ -33,8 +33,8 @@ import {
   getDailyFlows,
   getExpenseSummary,
   getMonthlyFlows,
+  getLastSyncRun,
   getMerchantLogoUrls,
-  getSyncOverview,
   getTreasury,
   listCategories,
   listCategoryRules,
@@ -57,7 +57,8 @@ type Search = Promise<Record<string, string | undefined>>;
  *
  * Tout est lu depuis Supabase — jamais d'appel Airwallex au rendu. Ce que
  * l'écran montre est ce que la dernière synchronisation a laissé, et l'en-tête
- * dit de quand elle date.
+ * dit de quand elle date — et en relance une au chargement quand elle traîne,
+ * le passage programmé étant un cron GitHub qui en laisse tomber un sur deux.
  */
 export default async function FinancePage({
   searchParams,
@@ -99,7 +100,7 @@ export default async function FinancePage({
       sort: params.sort,
       page: params.page,
     }),
-    getSyncOverview(context.orgId),
+    getLastSyncRun(context.orgId),
     getExpenseSummary(context.orgId, params.month),
     cookies(),
   ]);
@@ -154,7 +155,13 @@ export default async function FinancePage({
       <SectionHeader
         title="Finance"
         description="Facturation, trésorerie et dépenses."
-        action={<SyncBanner lastRun={sync.last_run} />}
+        action={
+          <SyncBadge
+            lastRunAt={sync?.started_at ?? null}
+            lastRunStatus={sync?.status ?? null}
+            canTrigger={context.canDecide}
+          />
+        }
       />
 
       <StatGrid>

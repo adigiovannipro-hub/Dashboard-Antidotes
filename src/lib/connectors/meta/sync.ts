@@ -149,6 +149,18 @@ export async function syncWorkspaceReporting(options: {
         atLeastSince: options.atLeastSince,
       });
 
+      /* Le rattrapage initial se trace une fois : `backfill_from` garde la
+         date atteinte, et `last_sync_at` fait que les passages suivants se
+         contentent des 35 jours glissants. Sans cette trace, on ne saurait
+         plus jusqu'où l'historique est fiable. */
+      if (!last_sync_at) {
+        const { error: backfillError } = await admin
+          .from("data_sources")
+          .update({ backfill_from: window.since } as never)
+          .eq("id", dataSourceId);
+        if (backfillError) fail(`Trace du rattrapage : ${backfillError.message}`);
+      }
+
       const { data: run, error: runError } = await admin
         .from("sync_runs")
         .insert({
@@ -348,6 +360,52 @@ async function syncAds(
 
 // --- Organique ----------------------------------------------------------------
 
+/**
+ * Colonnes de `social_posts` arrivées après coup, et dont l'absence ne doit
+ * pas coûter la collecte entière.
+ *
+ * Les migrations de ce dépôt s'appliquent à la main : entre un déploiement
+ * et le passage de db-admin, le code connaît des colonnes que la base n'a
+ * pas encore. Perdre tout un mois d'impressions pour un « type de média »
+ * manquant serait un mauvais échange — d'autant que l'écriture échoue en
+ * bloc, sans rien enregistrer du tout.
+ */
+const OPTIONAL_POST_COLUMNS = ["media_kind", "video_views"] as const;
+
+/**
+ * Enregistre les publications, quitte à laisser de côté les colonnes que la
+ * base ne connaît pas encore. Rend la liste de celles qui ont manqué.
+ */
+async function upsertPosts(
+  admin: Admin,
+  rows: Record<string, unknown>[],
+): Promise<string[]> {
+  const { error } = await admin
+    .from("social_posts")
+    .upsert(rows as never, { onConflict: "data_source_id,external_id" });
+  if (!error) return [];
+
+  // PostgREST nomme la colonne inconnue dans son message : c'est le seul
+  // moyen de distinguer une migration en retard d'une vraie panne.
+  const missing = OPTIONAL_POST_COLUMNS.filter((column) =>
+    error.message.includes(`'${column}'`),
+  );
+  if (missing.length === 0) fail(`Publications : ${error.message}`);
+
+  const trimmed = rows.map((row) => {
+    const copy = { ...row };
+    for (const column of missing) delete copy[column];
+    return copy;
+  });
+
+  const { error: retryError } = await admin
+    .from("social_posts")
+    .upsert(trimmed as never, { onConflict: "data_source_id,external_id" });
+  if (retryError) fail(`Publications : ${retryError.message}`);
+
+  return [...missing];
+}
+
 async function syncOrganic(
   context: SourceContext,
   account: SocialAccountRow,
@@ -394,17 +452,25 @@ async function syncOrganic(
 
   if (posts.length > 0) {
     const now = new Date().toISOString();
-    const { error } = await admin.from("social_posts").upsert(
-      posts.map((post) => ({
-        data_source_id: dataSourceId,
-        workspace_id: workspaceId,
-        platform,
-        ...post,
-        updated_at: now,
-      })) as never,
-      { onConflict: "data_source_id,external_id" },
-    );
-    if (error) fail(`Publications : ${error.message}`);
+    const rows = posts.map((post) => ({
+      data_source_id: dataSourceId,
+      workspace_id: workspaceId,
+      platform,
+      ...post,
+      updated_at: now,
+    }));
+
+    const missingColumns = await upsertPosts(admin, rows);
+    if (missingColumns.length > 0) {
+      warning = [
+        warning,
+        `Migration en attente : ${missingColumns
+          .map((column) => `« ${column} »`)
+          .join(" et ")} ${missingColumns.length > 1 ? "manquent" : "manque"} à la table des publications (0047-0048). Les chiffres sont enregistrés, ces colonnes-là restent vides jusqu'au prochain passage de db-admin.`,
+      ]
+        .filter(Boolean)
+        .join(" — ");
+    }
     ingested += posts.length;
   }
 

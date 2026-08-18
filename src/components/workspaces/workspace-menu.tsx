@@ -8,7 +8,6 @@ import { toast } from "sonner";
 import {
   attachLogo,
   deleteWorkspace,
-  duplicateWorkspace,
   loadWorkspaceAdmin,
   prepareLogoUpload,
   removeLogo,
@@ -36,6 +35,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
+import { DuplicateDialog } from "./duplicate-dialog";
 import { PartnersDialog, type WorkspaceAdminData } from "./partners-dialog";
 
 /**
@@ -110,7 +110,7 @@ export function WorkspaceMenu({
           </DropdownMenuItem>
           <DropdownMenuItem onClick={() => setDialogue("duplicate")}>
             <Copy className="size-3.5" aria-hidden />
-            Dupliquer
+            Ouvrir un client à partir de celui-ci
           </DropdownMenuItem>
           <DropdownMenuItem
             onClick={() => {
@@ -295,43 +295,6 @@ function RenameDialog({
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
           aria-label="Nom de l'espace"
-        />
-      </label>
-    </ActionDialog>
-  );
-}
-
-function DuplicateDialog({
-  slug,
-  name,
-  onClose,
-}: {
-  slug: string;
-  name: string;
-  onClose: () => void;
-}) {
-  const router = useRouter();
-  const [draft, setDraft] = useState(`${name} (copie)`);
-
-  return (
-    <ActionDialog
-      onClose={onClose}
-      title="Dupliquer l'espace"
-      description="Copie la configuration : les tableaux avec leurs colonnes et leur vocabulaire, les tableaux de bord. Aucune publication, aucun document, aucun brief ne suit."
-      submitLabel="Dupliquer"
-      disabled={draft.trim().length < 2}
-      run={() => duplicateWorkspace({ workspace: slug }, { name: draft })}
-      onDone={(result) => {
-        if (result.ok && result.slug) router.push(`/espace/${result.slug}`);
-      }}
-    >
-      <label className="flex flex-col gap-1.5">
-        <span className="type-overline text-text-secondary">Nom du nouvel espace</span>
-        <Input
-          autoFocus
-          value={draft}
-          onChange={(event) => setDraft(event.target.value)}
-          aria-label="Nom du nouvel espace"
         />
       </label>
     </ActionDialog>

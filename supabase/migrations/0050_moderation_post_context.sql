@@ -10,8 +10,12 @@
 --
 -- Nullables : un message privé n'a pas de publication.
 
+-- `if not exists` par nécessité, pas par confort : cette migration est née
+-- 0049 sur sa branche, numéro qu'une autre branche avait déjà pris. Renumérotée
+-- en 0050, elle redevient « jamais appliquée » aux yeux du runner, qui la
+-- rejouerait sur une base où les colonnes existent déjà.
 alter table conversations
-  add column post_external_id text,
-  add column post_permalink text,
-  add column post_excerpt text,
-  add column post_thumbnail_url text;
+  add column if not exists post_external_id text,
+  add column if not exists post_permalink text,
+  add column if not exists post_excerpt text,
+  add column if not exists post_thumbnail_url text;

@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { getViewer, getWorkspace } from "@/lib/auth";
+import { normalizeDeliverables } from "@/lib/context/deliverables";
+import { networkKey } from "@/lib/context/types";
 import { createClient } from "@/lib/supabase/server";
 
 /**
@@ -29,6 +31,11 @@ const linkSchema = z.object({
     "meta_ad_account",
     "linkedin",
     "tiktok",
+    "youtube",
+    "pinterest",
+    "x",
+    "threads",
+    "snapchat",
   ]),
   /** Chaîne vide : on retire l'affectation. */
   accountId: z.union([z.uuid(), z.literal("")]),
@@ -97,6 +104,82 @@ export async function linkSocialAccount(
     revalidatePath(`/espace/${workspaceSlug}`, "layout");
 
     return { ok: true, message: "Compte affecté à cet espace." };
+  } catch (error) {
+    return { ok: false, error: (error as Error).message };
+  }
+}
+
+/**
+ * Déclare un réseau de plus pour ce client, depuis l'écran des connexions.
+ *
+ * Il rejoint les **livrables du Contexte**, et pas une liste parallèle propre
+ * aux connexions. C'est le point de tout ce chantier : la liste des réseaux
+ * d'un client a une seule source, et les trois écrans qui la lisent —
+ * Contexte, couloirs du planning, connexions — disent donc la même chose.
+ *
+ * Sans quantités : on déclare qu'on est sur ce réseau, le volume se pose au
+ * contrat, dans le Contexte. Un réseau déjà présent ne rend pas d'erreur —
+ * l'ajouter deux fois n'est pas une faute, c'est un non-événement.
+ */
+export async function addClientNetwork(
+  workspaceSlug: string,
+  input: { nom: string },
+): Promise<SocialResult> {
+  const parsed = z.string().trim().min(1).max(60).safeParse(input.nom);
+  if (!parsed.success) return { ok: false, error: "Nom de réseau invalide." };
+
+  try {
+    const viewer = await getViewer();
+    if (!viewer) throw new Error("Session expirée.");
+
+    const workspace = await getWorkspace(workspaceSlug);
+    if (!workspace || workspace.role !== "owner") {
+      throw new Error("Action indisponible.");
+    }
+
+    const supabase = await createClient();
+    const nom = parsed.data;
+
+    const { data: active } = await supabase
+      .from("client_context")
+      .select("id, deliverables")
+      .eq("workspace_id", workspace.id)
+      .eq("is_active", true)
+      .maybeSingle();
+
+    const row = active as { id: string; deliverables: unknown } | null;
+    const current = normalizeDeliverables(row?.deliverables);
+
+    if (current.reseaux.some((reseau) => networkKey(reseau.nom) === networkKey(nom))) {
+      return { ok: true, message: `${nom} est déjà déclaré.` };
+    }
+
+    const deliverables = {
+      ...current,
+      reseaux: [...current.reseaux, { nom, publications: [] }],
+    };
+
+    if (row) {
+      const { error } = await supabase
+        .from("client_context")
+        .update({ deliverables } as never)
+        .eq("id", row.id);
+      if (error) throw new Error(error.message);
+    } else {
+      const { error } = await supabase.from("client_context").insert({
+        workspace_id: workspace.id,
+        deliverables,
+        created_by: viewer.user.id,
+      } as never);
+      if (error) throw new Error(error.message);
+    }
+
+    revalidatePath(`/espace/${workspaceSlug}`, "layout");
+
+    return {
+      ok: true,
+      message: `${nom} ajouté aux réseaux du client. Ses quantités se posent au Contexte.`,
+    };
   } catch (error) {
     return { ok: false, error: (error as Error).message };
   }

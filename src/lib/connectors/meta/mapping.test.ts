@@ -150,12 +150,16 @@ describe("aggregateBreakdown", () => {
 describe("syncWindow", () => {
   const now = new Date("2026-08-17T10:00:00Z");
 
-  it("remonte 90 jours au premier passage", () => {
+  it("remonte douze mois au premier passage, au 1ᵉʳ du mois", () => {
+    // Le rattrapage initial ne se rejoue pas : Meta finit par ne plus servir
+    // les statistiques des vieilles publications.
     const window = syncWindow({ lastSyncAt: null, now });
-    expect(window).toEqual({ since: "2026-05-19", until: "2026-08-17" });
+    expect(window).toEqual({ since: "2025-08-01", until: "2026-08-17" });
   });
 
   it("remonte 35 jours ensuite — Meta réécrit les conversions sur 28 jours", () => {
+    // Et surtout : re-balayer l'année à chaque passage coûterait des milliers
+    // d'appels pour redire la même chose.
     const window = syncWindow({ lastSyncAt: "2026-08-16T04:00:00Z", now });
     expect(window).toEqual({ since: "2026-07-13", until: "2026-08-17" });
   });

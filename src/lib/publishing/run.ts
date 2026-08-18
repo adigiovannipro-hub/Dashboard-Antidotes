@@ -7,6 +7,7 @@ import { VISUALS_BUCKET } from "@/lib/planning/storage";
 import type { Database } from "@/lib/supabase/database.types";
 import { publishFacebook, publishInstagram } from "./meta-publish";
 import {
+  isPublishWindow,
   parisStamp,
   PUBLISH_BLOCKER_LABELS,
   PUBLISH_HOUR_PARIS,
@@ -19,12 +20,17 @@ import {
 /**
  * Le passage de publication automatique.
  *
- * Chaque jour à 16h heure de Paris : tout sujet **validé** dont la date est
- * aujourd'hui part sur les réseaux de son couloir. Le déclencheur est le
- * statut posé par l'agence — pas une file séparée à entretenir — et le
+ * Chaque jour **à partir de** 16h heure de Paris : tout sujet **validé** dont
+ * la date est aujourd'hui part sur les réseaux de son couloir. Le déclencheur
+ * est le statut posé par l'agence — pas une file séparée à entretenir — et le
  * verrou est la table `planning_publications` : revendiquer un couple
  * (sujet, réseau) est une insertion sous contrainte d'unicité, deux passages
  * concurrents ne publieront jamais deux fois.
+ *
+ * « À partir de » et non « à 16h pile » : le passage horaire de GitHub saute
+ * près d'une fenêtre sur deux, et l'heure exacte n'offrait qu'une chance par
+ * jour — voir `isPublishWindow`. Les passages suivants rattrapent, le verrou
+ * empêchant tout doublon.
  *
  * Un sujet en retard ne part pas : publier le 20 un post prévu le 12 sans
  * qu'un humain l'ait décidé serait pire que le trou. Il reste en rouge dans
@@ -74,8 +80,8 @@ export async function runScheduledPublishing(options: {
     ignored: [],
   };
 
-  if (paris.hour !== PUBLISH_HOUR_PARIS && !force) {
-    report.skipped = `Il est ${paris.hour}h à Paris — la publication part à ${PUBLISH_HOUR_PARIS}h.`;
+  if (!isPublishWindow(paris.hour) && !force) {
+    report.skipped = `Il est ${paris.hour}h à Paris — la publication part à partir de ${PUBLISH_HOUR_PARIS}h.`;
     return report;
   }
 

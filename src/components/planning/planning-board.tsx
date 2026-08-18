@@ -91,6 +91,7 @@ export function PlanningBoardView({
   isOwner,
   socialAccounts,
   socialSelection,
+  socialNetworks,
   metaConfigured,
   view,
 }: {
@@ -118,6 +119,8 @@ export function PlanningBoardView({
   socialAccounts: SocialAccountRow[];
   /** Le compte retenu par cet espace, réseau par réseau. */
   socialSelection: SocialSelection;
+  /** Les réseaux déclarés aux livrables : ils font les lignes des connexions. */
+  socialNetworks: string[];
   /** `META_APP_ID` renseignée : sans elle, le dialogue explique quoi faire. */
   metaConfigured: boolean;
   /** L'état de lecture relu du cookie : tri, mois ouverts, réseaux repliés. */
@@ -570,6 +573,7 @@ export function PlanningBoardView({
         workspaceName={workspaceName}
         accounts={socialAccounts}
         selection={socialSelection}
+        networks={socialNetworks}
         metaConfigured={metaConfigured}
         open={connexionsOpen && isOwner}
         onOpenChange={setConnexionsOpen}

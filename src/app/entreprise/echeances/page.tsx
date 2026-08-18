@@ -8,6 +8,7 @@ import { ForecastChart } from "@/components/billing/forecast-chart";
 import type { BoardRow, InstallmentLine } from "@/components/billing/installment-row";
 import { NewEngagementDialog } from "@/components/billing/new-engagement-dialog";
 import { StageGroup } from "@/components/billing/stage-group";
+import { SyncBadge } from "@/components/finance/sync-badge";
 import { requireFinanceAccess } from "@/lib/finance/access";
 import { isOverdue } from "@/lib/finance/invoices";
 import { formatMoney } from "@/lib/finance/money";
@@ -31,6 +32,7 @@ import {
   listKnownClients,
   listUnmatchedInvoices,
 } from "@/lib/billing/queries";
+import { getLastSyncRun } from "@/lib/finance/queries";
 import type { BillingInstallment } from "@/lib/billing/types";
 
 export const metadata: Metadata = { title: "Échéances de facturation · Mon entreprise" };
@@ -45,17 +47,24 @@ export const metadata: Metadata = { title: "Échéances de facturation · Mon en
  * une fois ; ses mensualités traversent ensuite les groupes toutes seules :
  * « Devis confirmé » tant que le mois de prestation court, « À facturer »
  * dès le 1er du mois suivant (dérivé de la date, pas d'un traitement),
- * « Facturée » puis « Payée » au rythme du rapprochement Airwallex horaire.
+ * « Facturée » puis « Payée » au rythme du rapprochement Airwallex — que le
+ * chargement de cette page relance quand il traîne, le passage programmé
+ * étant un cron GitHub qui en laisse tomber près d'un sur deux.
  * Les boutons des lignes ne sont que le filet manuel.
  */
 export default async function EcheancesPage() {
   const context = await requireFinanceAccess();
 
-  const [engagements, living, orphanInvoices, knownClients] = await Promise.all([
+  const [engagements, living, orphanInvoices, knownClients, sync] = await Promise.all([
     listEngagements({ orgId: context.orgId }),
     listInstallments({ orgId: context.orgId }),
     listUnmatchedInvoices({ orgId: context.orgId }),
     listKnownClients({ orgId: context.orgId }),
+    /* Le même journal que Finance, et c'est le point : les deux écrans lisent
+       la même chaîne Airwallex — les factures rapprochées ici sortent de
+       l'étape `invoices` de là-bas. Synchroniser d'un côté met les deux à
+       jour. */
+    getLastSyncRun(context.orgId),
   ]);
 
   /* Les échéances s'aplatissent avec leur devis : le nom du client et le
@@ -146,7 +155,16 @@ export default async function EcheancesPage() {
         title="Échéances de facturation"
         description="Chaque devis signé engendre ses mensualités — et les factures émises hors devis s'affichent aussi : l'écran montre la facturation réelle."
         action={
-          context.canDecide ? <NewEngagementDialog knownClients={knownClients} /> : undefined
+          <div className="flex items-center gap-3">
+            <SyncBadge
+              lastRunAt={sync?.started_at ?? null}
+              lastRunStatus={sync?.status ?? null}
+              canTrigger={context.canDecide}
+            />
+            {context.canDecide ? (
+              <NewEngagementDialog knownClients={knownClients} />
+            ) : null}
+          </div>
         }
       />
 

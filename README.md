@@ -221,13 +221,26 @@ Supabase, l'écran lit la base, et la bannière dit de quand datent les
 chiffres. L'historique de solde n'existera que par les instantanés que chaque
 passage déposera — l'API ne rend aucun passé.
 
-La synchronisation tourne **toutes les heures via GitHub Actions**
-(`.github/workflows/airwallex-sync.yml`) — pas par Vercel Cron, dont le plan
-Hobby rejette tout déploiement demandant mieux que le quotidien. Pour
-l'activer : le secret `CRON_SECRET` (même valeur que sur Vercel) et la
-variable `APP_URL` dans *Settings → Secrets and variables → Actions*, plus les
-clés `AIRWALLEX_*` sur Vercel. Sans elles, la route répond poliment qu'elle ne
-peut rien faire — et le dit dans l'onglet Actions.
+La synchronisation tourne **sur une machine GitHub**
+(`.github/workflows/airwallex-sync.yml`), pas sur Vercel : Airwallex refuse les
+adresses IP de l'hébergeur, et le plan Hobby rejette de toute façon tout
+déploiement demandant mieux qu'un cron quotidien. Ses clés se posent dans
+*Settings → Secrets and variables → Actions* — la liste est en tête du
+workflow.
+
+Elle a **deux déclencheurs**. Un passage programmé toutes les heures, qui fait
+le fond ; et **l'ouverture de Finance ou d'Échéances**, qui la relance quand
+la dernière remonte à plus de dix minutes. Le second n'est pas un confort : un
+`cron` GitHub est une intention, pas une garantie — près d'une exécution
+horaire sur deux n'a jamais lieu, avec des trous de plusieurs heures, et rien
+ne le signale. L'en-tête des deux écrans dit l'âge des chiffres en clair,
+passe en ambre au-delà de quatre-vingt-dix minutes, et porte un bouton
+« Synchroniser » pour ne pas attendre les dix minutes.
+
+Ce déclenchement demande un jeton GitHub à portée fine — `GITHUB_SYNC_TOKEN`,
+droit *Actions : read and write* sur ce seul dépôt — posé sur Vercel. Sans
+lui, le passage horaire continue et l'écran dit que la relance est
+indisponible plutôt que d'offrir un bouton mort.
 
 Le dépôt s'administre **sans terminal** : le workflow *Base de données*
 (*Actions → Base de données → Run workflow*) applique les migrations, amorce

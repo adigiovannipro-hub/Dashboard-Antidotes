@@ -2,31 +2,45 @@ import { describe, expect, it } from "vitest";
 
 import {
   currentNetwork,
-  networkFromContextName,
+  networksFromContextName,
   resolveReportingNetworks,
 } from "./networks";
 
-describe("networkFromContextName", () => {
+describe("networksFromContextName", () => {
   it("reconnaît Instagram quelle que soit la casse et les accents", () => {
-    expect(networkFromContextName("Instagram")).toBe("instagram");
-    expect(networkFromContextName("instagram")).toBe("instagram");
-    expect(networkFromContextName("Insta")).toBe("instagram");
+    expect(networksFromContextName("Instagram")).toEqual(["instagram"]);
+    expect(networksFromContextName("instagram")).toEqual(["instagram"]);
+    expect(networksFromContextName("Insta")).toEqual(["instagram"]);
   });
 
   it("reconnaît le payant avant Facebook", () => {
-    expect(networkFromContextName("Meta Ads")).toBe("meta-ads");
-    expect(networkFromContextName("Publicité Meta")).toBe("meta-ads");
+    expect(networksFromContextName("Meta Ads")).toEqual(["meta-ads"]);
+    expect(networksFromContextName("Publicité Meta")).toEqual(["meta-ads"]);
   });
 
   it("reconnaît la Page Facebook", () => {
-    expect(networkFromContextName("Facebook")).toBe("facebook");
-    expect(networkFromContextName("fb")).toBe("facebook");
+    expect(networksFromContextName("Facebook")).toEqual(["facebook"]);
+    expect(networksFromContextName("fb")).toEqual(["facebook"]);
+  });
+
+  it("ouvre les trois onglets pour « Meta » seul", () => {
+    // C'est ainsi qu'on vend Meta : payant et organique, les deux Pages.
+    expect(networksFromContextName("Meta")).toEqual([
+      "meta-ads",
+      "instagram",
+      "facebook",
+    ]);
+  });
+
+  it("ne confond pas « Meta » et « Meta Ads »", () => {
+    // « Meta Ads » ne doit pas ouvrir l'organique : c'est le payant seul.
+    expect(networksFromContextName("Meta Ads")).toEqual(["meta-ads"]);
   });
 
   it("ne devine pas un réseau qu'elle ne connaît pas", () => {
-    expect(networkFromContextName("Threads")).toBeNull();
-    expect(networkFromContextName("Pinterest")).toBeNull();
-    expect(networkFromContextName("")).toBeNull();
+    expect(networksFromContextName("Threads")).toEqual([]);
+    expect(networksFromContextName("Pinterest")).toEqual([]);
+    expect(networksFromContextName("")).toEqual([]);
   });
 });
 
@@ -50,25 +64,46 @@ describe("resolveReportingNetworks", () => {
     expect(tabs.manquants).toEqual([]);
   });
 
-  it("n'ouvre pas d'onglet vers un réseau sans compte branché", () => {
+  it("ouvre les trois onglets d'un client déclaré sur Meta", () => {
+    const tabs = resolveReportingNetworks({
+      contextNetworks: ["Meta"],
+      assignedKinds: [],
+    });
+
+    expect(tabs.networks).toEqual(["meta-ads", "instagram", "facebook"]);
+  });
+
+  it("ouvre l'onglet déclaré même sans compte affecté", () => {
+    /* Le contrat commande l'écran : sans ça, un client vendu sur Meta ouvrait
+       un Reporting vide qui ne disait pas qu'il restait un geste à faire. */
     const tabs = resolveReportingNetworks({
       contextNetworks: ["Instagram", "Facebook"],
       assignedKinds: ["instagram"],
     });
 
-    expect(tabs.networks).toEqual(["instagram"]);
-    // Il ne disparaît pas pour autant : l'écran doit pouvoir le dire.
+    expect(tabs.networks).toEqual(["instagram", "facebook"]);
+    // Il est là, et l'écran sait qu'il lui manque son compte.
     expect(tabs.manquants).toEqual(["facebook"]);
   });
 
-  it("ne rend rien quand aucun compte n'est affecté", () => {
+  it("nomme les réseaux qu'aucun connecteur ne sert", () => {
+    // Le cas d'I-WAY : TikTok et LinkedIn au contrat, zéro connecteur.
     const tabs = resolveReportingNetworks({
-      contextNetworks: ["Instagram"],
+      contextNetworks: ["TikTok", "LinkedIn"],
       assignedKinds: [],
     });
 
     expect(tabs.networks).toEqual([]);
-    expect(tabs.manquants).toEqual(["instagram"]);
+    expect(tabs.sansConnecteur).toEqual(["TikTok", "LinkedIn"]);
+  });
+
+  it("rend les noms tels que le client les a écrits", () => {
+    const tabs = resolveReportingNetworks({
+      contextNetworks: ["Newsletter"],
+      assignedKinds: [],
+    });
+
+    expect(tabs.sansConnecteur).toEqual(["Newsletter"]);
   });
 
   it("ignore un doublon du Contexte", () => {
@@ -79,12 +114,23 @@ describe("resolveReportingNetworks", () => {
 
     expect(tabs.networks).toEqual(["instagram"]);
   });
+
+  it("ne rend aucun onglet quand rien n'est déclaré ni branché", () => {
+    const tabs = resolveReportingNetworks({
+      contextNetworks: [],
+      assignedKinds: [],
+    });
+
+    expect(tabs.networks).toEqual([]);
+    expect(tabs.sansConnecteur).toEqual([]);
+  });
 });
 
 describe("currentNetwork", () => {
   const tabs = {
     networks: ["instagram", "meta-ads"] as const,
     manquants: [],
+    sansConnecteur: [],
   };
 
   it("suit l'URL quand l'onglet demandé existe", () => {
@@ -100,6 +146,8 @@ describe("currentNetwork", () => {
   });
 
   it("ne rend rien quand il n'y a aucun onglet", () => {
-    expect(currentNetwork({ networks: [], manquants: [] }, undefined)).toBeNull();
+    expect(
+      currentNetwork({ networks: [], manquants: [], sansConnecteur: [] }, undefined),
+    ).toBeNull();
   });
 });
