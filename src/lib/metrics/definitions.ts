@@ -202,6 +202,12 @@ export const TOP_POSTS_COLUMNS: MetricId[] = [
   "cpm",
   "cpl",
   "clicks",
+  /* Les vues de page juste après les clics : c'est la marche suivante de
+     l'entonnoir, et l'écart entre les deux est ce qu'on vient lire — un ad
+     set qui fait cliquer sans faire arriver dit quelque chose de la vitesse
+     de la page, pas de la créa. La grandeur était collectée, stockée et
+     relue depuis le début ; seule la colonne manquait au tableau. */
+  "landingPageViews",
   "ctr",
   "cpc",
   "comments",
