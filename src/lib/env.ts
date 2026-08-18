@@ -33,6 +33,10 @@ const serverSchema = {
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
   CREDENTIALS_ENCRYPTION_KEY: z.string().min(1),
   CRON_SECRET: z.string().min(1),
+  /* Déclenche le workflow GitHub qui synchronise Airwallex — l'hébergeur ne
+     peut pas le faire lui-même, Airwallex refusant ses adresses IP. Jeton à
+     portée fine, droit « Actions : read and write » sur ce seul dépôt. */
+  GITHUB_SYNC_TOKEN: z.string().min(1),
 } as const;
 
 export type ServerEnvKey = keyof typeof serverSchema;

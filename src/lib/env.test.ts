@@ -16,6 +16,7 @@ const KEYS = [
   "SUPABASE_SERVICE_ROLE_KEY",
   "CREDENTIALS_ENCRYPTION_KEY",
   "CRON_SECRET",
+  "GITHUB_SYNC_TOKEN",
 ] as const;
 
 const saved: Record<string, string | undefined> = {};

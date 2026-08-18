@@ -7,7 +7,6 @@ import type {
   FinanceCategory,
   FinanceCategoryRule,
   FinanceInvoice,
-  FinanceSyncKind,
   FinanceSyncRun,
   FinanceTransaction,
 } from "./types";
@@ -512,31 +511,24 @@ export async function listCategoryRules(
 
 // --- Synchronisation -------------------------------------------------------
 
-export type SyncOverview = {
-  /** Le tout dernier passage, quel qu'en soit le sort. */
-  last_run: FinanceSyncRun | null;
-  /** Le dernier passage de chaque nature, pour le détail. */
-  by_kind: Partial<Record<FinanceSyncKind, FinanceSyncRun>>;
-};
-
-export async function getSyncOverview(orgId: string): Promise<SyncOverview> {
+/**
+ * Le seul dernier passage, réussi ou non — l'âge affiché en tête de Finance
+ * et d'Échéances, et l'état que la route de synchronisation renvoie au badge.
+ *
+ * Une ligne et non vingt : les deux écrans n'affichent que celle-là, et la
+ * route la relit à chaque battement du sondage.
+ */
+export async function getLastSyncRun(orgId: string): Promise<FinanceSyncRun | null> {
   const supabase = await createClient();
 
-  const { data, error } = await supabase
+  const { data } = await supabase
     .from("finance_sync_runs")
     .select("*")
     .eq("org_id", orgId)
     .order("started_at", { ascending: false })
-    .limit(20);
-  if (error) throw new Error(`Lecture du journal de synchronisation : ${error.message}`);
+    .limit(1);
 
-  const runs = (data ?? []) as unknown as FinanceSyncRun[];
-  const byKind: SyncOverview["by_kind"] = {};
-  for (const run of runs) {
-    byKind[run.kind] ??= run;
-  }
-
-  return { last_run: runs[0] ?? null, by_kind: byKind };
+  return ((data ?? []) as unknown as FinanceSyncRun[])[0] ?? null;
 }
 
 // --- Logos de marchands ------------------------------------------------------

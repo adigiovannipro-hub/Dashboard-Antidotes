@@ -12,15 +12,29 @@
 # La route `/api/cron/sync-finance` reste en place et reste correcte — elle ne
 # peut simplement pas aboutir de là où elle s'exécute.
 #
-# Coût : ~720 exécutions d'une à deux minutes par mois, sur les 2 000 minutes
-# gratuites d'un dépôt privé. La CI comprise, on reste large. Le navigateur de
-# rendu ajoute une dizaine de secondes par passage, cache restauré.
+# Coût : le schedule tourne ~400 fois par mois (GitHub en laisse tomber la
+# moitié) à une ou deux minutes l'unité, sur les 2 000 minutes gratuites d'un
+# dépôt privé. Le navigateur de rendu ajoute une dizaine de secondes par
+# passage, cache restauré. Les déclenchements depuis l'écran s'ajoutent à ce
+# budget : la fenêtre de fraîcheur de dix minutes les plafonne à six par heure
+# d'utilisation réelle, soit quelques dizaines de minutes par mois — mais c'est
+# le poste à regarder en premier si la facture Actions se met à monter.
 #
-# Deux choses à savoir sur les schedules GitHub :
+# Trois choses à savoir sur les schedules GitHub :
 #   • l'heure n'est pas garantie à la minute près — un décalage de quelques
 #     minutes est normal, et sans conséquence ici ;
 #   • GitHub suspend les schedules d'un dépôt inactif 60 jours — un simple
-#     commit les relance.
+#     commit les relance ;
+#   • surtout : **près d'une exécution horaire sur deux n'a jamais lieu**.
+#     Relevé sur ce dépôt le 18/08/2026 — 13 exécutions le 17 au lieu de 24,
+#     des trous de 2 h 30 en journée, et 6 h d'affilée le matin du 18. Le
+#     `cron` est une intention, pas une garantie, et rien ne le signale.
+#
+# C'est pourquoi ce workflow n'est plus le seul déclencheur : ouvrir Finance ou
+# Échéances lance un `workflow_dispatch` depuis l'application quand la dernière
+# exécution remonte à plus de dix minutes (`/api/finance/sync`, jeton
+# `GITHUB_SYNC_TOKEN`). Le passage programmé reste le filet de fond — c'est lui
+# qui relève les Reçus et publie le Planning quand personne n'ouvre l'écran.
 #
 # Secrets requis (Settings → Secrets and variables → Actions) :
 #   NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY,
