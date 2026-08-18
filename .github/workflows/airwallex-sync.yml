@@ -13,7 +13,8 @@
 # peut simplement pas aboutir de là où elle s'exécute.
 #
 # Coût : le schedule tourne ~400 fois par mois (GitHub en laisse tomber la
-# moitié) à une ou deux minutes l'unité, sur les 2 000 minutes gratuites d'un
+# moitié) à une minute l'unité — 56 s mesurées de bout en bout le 18/08/2026,
+# dont 16 s de Finance et 9 s de Reçus — sur les 2 000 minutes gratuites d'un
 # dépôt privé. Le navigateur de rendu ajoute une dizaine de secondes par
 # passage, cache restauré. Les déclenchements depuis l'écran s'ajoutent à ce
 # budget : la fenêtre de fraîcheur de dix minutes les plafonne à six par heure
