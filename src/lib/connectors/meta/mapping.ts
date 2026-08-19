@@ -276,6 +276,27 @@ const CUSTOM_EVENT_PREFIXES = [
  * qui décide de ce qui apparaît à l'écran, et une devinette y ferait entrer
  * des doublons de métriques déjà affichées ailleurs.
  */
+/**
+ * L'agrégat sous lequel Meta rend les événements `trackCustom` **sans leurs
+ * noms** dans les Insights. Relevé en production sur I-WAY : le Gestionnaire
+ * affiche bien « Validation Shop Lyon » colonne par colonne, mais l'API ne
+ * rend que ce total — 11 conversions, 466,30 € de valeur sur juin, le même
+ * champ que le « Website custom conversions » du Looker.
+ */
+export const PIXEL_CUSTOM_AGGREGATE = "offsite_conversion.fb_pixel_custom";
+
+/**
+ * Le bruit d'engagement que « garder tout ce qui n'est pas standard » a
+ * laissé passer au premier vrai sync : huit cartes de likes et de
+ * sauvegardes, toutes redites de métriques déjà affichées ailleurs. Relevé
+ * en production, exclu nommément — et purgé de la base par 0055.
+ */
+/* Uniquement ce qui a été **vu** : `onsite_conversion.messaging_*` n'y entre
+   pas — `messaging_conversation_started_7d` est LA conversion d'une campagne
+   click-to-Messenger, l'exclure d'avance referait le silence qu'on répare. */
+const TYPES_BRUIT = new Set(["post_interaction_net", "post_interaction_gross"]);
+const PREFIXES_BRUIT = ["onsite_conversion.post_"];
+
 const TYPES_STANDARDS = new Set([
   "purchase",
   "landing_page_view",
@@ -324,6 +345,10 @@ export function customEventName(actionType: string): string | null {
     }
   }
 
+  if (TYPES_BRUIT.has(type) || PREFIXES_BRUIT.some((p) => type.startsWith(p))) {
+    return null;
+  }
+
   // Les variantes de source d'un événement standard — `omni_purchase`,
   // `offsite_conversion.fb_pixel_purchase` — sont déjà comptées par
   // `actionValue`. Les laisser passer ferait apparaître l'achat deux fois.
@@ -350,6 +375,7 @@ export type CustomEvent = { name: string; count: number; value: number };
  */
 export function customEvents(row: MetaInsightRow): CustomEvent[] {
   const byName = new Map<string, CustomEvent>();
+  let nommes = false;
 
   const collect = (
     entries: { action_type: string; value: string }[] | undefined,
@@ -358,6 +384,9 @@ export function customEvents(row: MetaInsightRow): CustomEvent[] {
     for (const entry of entries ?? []) {
       const name = customEventName(entry.action_type);
       if (name === null) continue;
+      if (entry.action_type.trim().startsWith(`${PIXEL_CUSTOM_AGGREGATE}.`)) {
+        nommes = true;
+      }
 
       const current = byName.get(name) ?? { name, count: 0, value: 0 };
       current[field] += toNumber(entry.value);
@@ -367,6 +396,11 @@ export function customEvents(row: MetaInsightRow): CustomEvent[] {
 
   collect(row.actions, "count");
   collect(row.action_values, "value");
+
+  /* L'agrégat est la somme des événements nommés : quand Meta rend les deux
+     formes, ne garder que le détail — les compter ensemble doublerait tout.
+     Quand seul l'agrégat arrive — le cas d'I-WAY aujourd'hui — il reste. */
+  if (nommes) byName.delete(PIXEL_CUSTOM_AGGREGATE);
 
   return [...byName.values()];
 }

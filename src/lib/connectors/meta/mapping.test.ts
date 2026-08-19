@@ -328,6 +328,65 @@ describe("customEvents", () => {
     expect(events).toEqual([]);
   });
 
+  /* Les trois faits relevés en production au premier vrai sync : l'API rend
+     un agrégat sans nom, elle rend aussi un bruit d'engagement, et le Looker
+     de référence lit exactement cet agrégat (11 conversions, 466,30 €). */
+  it("garde l'agrégat du pixel quand Meta ne rend pas les noms — le cas d'I-WAY", () => {
+    const events = customEvents(
+      ligne(
+        [{ action_type: "offsite_conversion.fb_pixel_custom", value: "11" }],
+        [{ action_type: "offsite_conversion.fb_pixel_custom", value: "466.30" }],
+      ),
+    );
+    expect(events).toEqual([
+      { name: "offsite_conversion.fb_pixel_custom", count: 11, value: 466.3 },
+    ]);
+  });
+
+  it("efface l'agrégat quand les noms sont là — il en est la somme", () => {
+    const events = customEvents(
+      ligne([
+        { action_type: "offsite_conversion.fb_pixel_custom", value: "6" },
+        { action_type: "offsite_conversion.fb_pixel_custom.Validation Shop Lyon", value: "4" },
+        { action_type: "offsite_conversion.fb_pixel_custom.Validation Resa Lyon", value: "2" },
+      ]),
+    );
+    expect(events.map((e) => e.name)).toEqual([
+      "Validation Shop Lyon",
+      "Validation Resa Lyon",
+    ]);
+  });
+
+  it("écarte le bruit d'engagement relevé en production", () => {
+    const events = customEvents(
+      ligne([
+        { action_type: "post_interaction_net", value: "1041" },
+        { action_type: "post_interaction_gross", value: "983" },
+        { action_type: "onsite_conversion.post_net_like", value: "697" },
+        { action_type: "onsite_conversion.post_unlike", value: "53" },
+        { action_type: "onsite_conversion.post_net_save", value: "52" },
+        { action_type: "onsite_conversion.post_net_comment", value: "34" },
+        { action_type: "onsite_conversion.post_unsave", value: "5" },
+      ]),
+    );
+    expect(events).toEqual([]);
+  });
+
+  it("garde les conversions Messenger — seul le bruit vu est exclu", () => {
+    /* `messaging_conversation_started_7d` est LA conversion d'une campagne
+       click-to-Messenger : l'exclure d'avance referait le silence d'I-WAY
+       pour le prochain client. Rien de messagerie n'a été vu en production —
+       donc rien de messagerie dans le bruit. */
+    const events = customEvents(
+      ligne([
+        { action_type: "onsite_conversion.messaging_conversation_started_7d", value: "9" },
+      ]),
+    );
+    expect(events).toEqual([
+      { name: "onsite_conversion.messaging_conversation_started_7d", count: 9, value: 0 },
+    ]);
+  });
+
   it("les quatre événements d'I-WAY, tels que le pixel les nomme", () => {
     const events = customEvents(
       ligne([

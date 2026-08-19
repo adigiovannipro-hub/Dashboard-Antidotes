@@ -86,12 +86,15 @@ export async function getAdsData(options: {
         .limit(1000),
       /* Les événements pixel personnalisés — 0051. L'erreur est ignorée comme
          partout ici : la RLS est l'autorité, et une liste vide est la bonne
-         réponse tant que la migration n'est pas passée. */
+         réponse tant que la migration n'est pas passée. La fenêtre couvre la
+         période **et sa comparaison**, comme pour les métriques : chez un
+         client dont tous les achats viennent du pixel, une comparaison qui ne
+         les lirait pas afficherait « M-1 : 0 » pour toujours. */
       supabase
         .from("ad_custom_events_daily")
         .select("*")
         .eq("workspace_id", options.workspaceId)
-        .gte("date", options.range.from)
+        .gte("date", previous.from)
         .lte("date", options.range.to)
         .limit(10000),
     ]);
@@ -100,7 +103,9 @@ export async function getAdsData(options: {
   const allMetrics = (metricsQuery.data ?? []) as unknown as AdMetricsDaily[];
   const breakdowns = (breakdownsQuery.data ?? []) as unknown as AdBreakdownDaily[];
   const followers = (followersQuery.data ?? []) as unknown as SocialFollowers[];
-  const customs = (customQuery.data ?? []) as unknown as AdCustomEventDaily[];
+  const allCustoms = (customQuery.data ?? []) as unknown as AdCustomEventDaily[];
+  const customs = allCustoms.filter((row) => row.date >= options.range.from);
+  const customsBefore = allCustoms.filter((row) => row.date < options.range.from);
 
   /* Le rôle donné à chaque événement du client. Réglage par compte
      publicitaire, appliqué **à la lecture** : les lignes collectées restent
@@ -148,13 +153,21 @@ export async function getAdsData(options: {
     roles,
   );
 
+  // La comparaison se plie comme la période : sans ça, le delta d'un client
+  // au pixel custom dirait « +∞ » chaque mois.
+  const previousTotal = foldClientConversions(
+    sumRawMetrics(before.map(metricsRowToRaw)),
+    aggregateCustomEvents(customsBefore, 0),
+    roles,
+  );
+
   return {
     hasData: current.length > 0,
     customEvents: aggregateCustomEvents(customs, total.spend),
     roles,
     adSets: buildAdSetRows(entities, current, eventsByEntity, roles),
     total,
-    previousTotal: sumRawMetrics(before.map(metricsRowToRaw)),
+    previousTotal,
     age: buildBreakdown(breakdowns, "age"),
     gender: buildBreakdown(breakdowns, "gender"),
     regions: buildBreakdown(breakdowns, "region"),

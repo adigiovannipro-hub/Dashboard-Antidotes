@@ -376,15 +376,29 @@ async function syncAds(
       }));
     });
 
-    if (customRows.length > 0) {
+    /* La fenêtre se **remplace**, elle ne s'accumule pas. Le nom d'événement
+       fait partie de la clé : un upsert seul laisserait vivre pour toujours
+       les lignes dont le nom a changé de forme — l'agrégat
+       `offsite_conversion.fb_pixel_custom` d'hier à côté des noms détaillés
+       de demain, et le fold compterait les deux. Effacer la fenêtre qu'on
+       vient de relire rend le passage idempotent par période, comme partout
+       ailleurs. Une table absente (0051 pas passée) suit le même repli. */
+    const { error: purgeError } = await admin
+      .from("ad_custom_events_daily")
+      .delete()
+      .eq("data_source_id", dataSourceId)
+      .gte("date", window.since)
+      .lte("date", window.until);
+    if (purgeError) {
+      warnings.push(
+        `Événements personnalisés non rafraîchis (${purgeError.message}) — migration 0051 en attente ?`,
+      );
+    } else if (customRows.length > 0) {
       const { error: customError } = await admin
         .from("ad_custom_events_daily")
         .upsert(customRows as never, {
           onConflict: "data_source_id,entity_id,date,event_name",
         });
-      /* Table absente = migration 0051 pas encore passée. On le dit sans
-         faire tomber le reste : les métriques standards, elles, sont déjà
-         entrées. Même repli que pour `video_views`. */
       if (customError) {
         warnings.push(
           `Événements personnalisés non enregistrés (${customError.message}) — migration 0051 en attente ?`,

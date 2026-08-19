@@ -85,6 +85,15 @@ export function CustomEventsPanel({
   );
 }
 
+/**
+ * Les types que Meta rend sans nom lisible. L'agrégat du pixel est le seul
+ * connu à ce jour : l'API ne détaille pas les `trackCustom` par nom, elle en
+ * rend la somme. Le nom brut reste la clé du réglage — seul l'affichage change.
+ */
+const EVENT_LABELS: Record<string, string> = {
+  "offsite_conversion.fb_pixel_custom": "Conversions du pixel (total)",
+};
+
 const ROLE_LABELS: Record<ConversionRole, string> = {
   achat: "Achat",
   panier: "Panier",
@@ -130,7 +139,9 @@ function EventCard({
 
   return (
     <div className="border-border bg-surface shadow-card rounded-lg border p-5">
-      <p className="type-overline text-text-secondary truncate">{event.name}</p>
+      <p className="type-overline text-text-secondary truncate">
+        {EVENT_LABELS[event.name] ?? event.name}
+      </p>
       <p className="text-text-primary mt-2 text-2xl leading-none font-semibold">
         {formatValue(event.count, "integer")}
       </p>
