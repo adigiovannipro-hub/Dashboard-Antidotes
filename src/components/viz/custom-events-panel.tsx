@@ -10,7 +10,11 @@ import { EmptyState } from "@/components/ds/empty-state";
 import { Panel, PanelBody, PanelHeader } from "@/components/ds/surface";
 import { safeAction } from "@/lib/context/safe-action";
 import { formatValue } from "@/lib/format";
-import type { ConversionRoles, CustomEventTotal } from "@/lib/reporting/real-data";
+import {
+  conversionRoleOf,
+  type ConversionRoles,
+  type CustomEventTotal,
+} from "@/lib/reporting/real-data";
 import { cn } from "@/lib/utils";
 
 /**
@@ -45,12 +49,9 @@ export function CustomEventsPanel({
 }) {
   if (events.length === 0 && !isOwner) return null;
 
-  const roleDe = (name: string): ConversionRole =>
-    roles.purchase.includes(name)
-      ? "achat"
-      : roles.addToCart.includes(name)
-        ? "panier"
-        : "aucun";
+  /* Le même rapprochement plié que la lecture : jugé en strict, une carte
+     affichait « Ni l'un ni l'autre » pendant que les tuiles la comptaient. */
+  const roleDe = (name: string): ConversionRole => conversionRoleOf(name, roles);
 
   return (
     <Panel>

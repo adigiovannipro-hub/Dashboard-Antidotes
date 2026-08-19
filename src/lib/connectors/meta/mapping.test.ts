@@ -26,6 +26,19 @@ describe("toNumber", () => {
 });
 
 describe("actionValue", () => {
+  it("préfère omni_purchase quelle que soit sa place dans le tableau", () => {
+    /* L'ordre du tableau de Meta n'est pas garanti : un `find` dessus
+       faisait gagner la variante pixel un jour, l'omni le lendemain, et le
+       compte variait sans raison. `omni_*` est le sur-ensemble multi-canal —
+       il gagne, dans les deux ordres. */
+    const a = [
+      { action_type: "offsite_conversion.fb_pixel_purchase", value: "5" },
+      { action_type: "omni_purchase", value: "8" },
+    ];
+    expect(actionValue(a, "purchase")).toBe(8);
+    expect(actionValue([...a].reverse(), "purchase")).toBe(8);
+  });
+
   const actions = [
     { action_type: "landing_page_view", value: "625" },
     { action_type: "offsite_conversion.fb_pixel_purchase", value: "8" },

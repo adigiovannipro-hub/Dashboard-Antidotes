@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { getViewer, getWorkspace } from "@/lib/auth";
+import { foldEventName } from "@/lib/reporting/real-data";
 import { normalizeDeliverables } from "@/lib/context/deliverables";
 import { networkKey } from "@/lib/context/types";
 import { createClient } from "@/lib/supabase/server";
@@ -238,11 +239,14 @@ export async function setConversionRole(
     if (rows.length === 0) throw new Error("Aucun compte publicitaire branché.");
 
     // Un événement n'a qu'un rôle : on le retire des deux listes avant de le
-    // remettre dans la bonne. Sans ça, passer d'« achat » à « panier » le
-    // ferait compter deux fois.
+    // remettre dans la bonne. Le retrait se fait **en plié**, comme la
+    // lecture rapproche : un retrait strict laisserait vivre « Résa » quand
+    // le pixel relève « Resa », et le même événement compterait des deux
+    // côtés.
     for (const row of rows) {
+      const cible = foldEventName(name);
       const sansLui = (liste: string[] | null) =>
-        (liste ?? []).filter((entry) => entry !== name);
+        (liste ?? []).filter((entry) => foldEventName(entry) !== cible);
 
       const achats = sansLui(row.purchase_event_names);
       const paniers = sansLui(row.add_to_cart_event_names);

@@ -76,13 +76,21 @@ export function actionValue(
   const exact = actions.find((action) => action.action_type === type);
   if (exact) return toNumber(exact.value);
 
-  const variant = actions.find((action) => {
-    // Le préfixe de source se coupe au dernier point : de
-    // `offsite_conversion.fb_pixel_purchase` il reste `fb_pixel_purchase`.
-    const tail = action.action_type.split(".").pop() ?? "";
-    return tail === type || SOURCE_PREFIXES.some((p) => tail === `${p}${type}`);
-  });
-  return toNumber(variant?.value);
+  /* La variante se choisit dans l'ordre de SOURCE_PREFIXES, jamais dans
+     l'ordre du tableau que Meta rend — cet ordre n'est pas garanti, et un
+     `find` dessus faisait gagner tantôt `omni_purchase`, tantôt
+     `offsite_conversion.fb_pixel_purchase` selon le jour. `omni_*` d'abord :
+     c'est le sur-ensemble multi-canal, les autres n'en sont que des vues. */
+  const tailOf = (actionType: string) => actionType.split(".").pop() ?? "";
+  const bare = actions.find((action) => tailOf(action.action_type) === type);
+  if (bare) return toNumber(bare.value);
+  for (const prefix of SOURCE_PREFIXES) {
+    const variant = actions.find(
+      (action) => tailOf(action.action_type) === `${prefix}${type}`,
+    );
+    if (variant) return toNumber(variant.value);
+  }
+  return 0;
 }
 
 /** Une ligne d'Insights vers le modèle canonique. */

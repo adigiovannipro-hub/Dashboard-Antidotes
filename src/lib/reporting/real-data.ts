@@ -277,13 +277,32 @@ export type ConversionRoles = {
 
 export const NO_CONVERSION_ROLES: ConversionRoles = { purchase: [], addToCart: [] };
 
-/** Comparaison de noms insensible à la casse et aux accents : « Résa » = « Resa ». */
-function plie(value: string): string {
+/**
+ * Comparaison de noms insensible à la casse et aux accents : « Résa » =
+ * « Resa ». Exportée pour que l'écriture (`setConversionRole`) et l'affichage
+ * (le rôle coché sur la carte) rapprochent **exactement comme la lecture** :
+ * trois comparaisons différentes du même nom finissent toujours par un écran
+ * qui se contredit.
+ */
+export function foldEventName(value: string): string {
   return value
     .normalize("NFD")
     .replace(/\p{Diacritic}/gu, "")
     .trim()
     .toLowerCase();
+}
+
+/** Le rôle d'un événement d'après les listes du compte — rapproché en plié. */
+export function conversionRoleOf(
+  name: string,
+  roles: ConversionRoles,
+): "achat" | "panier" | "aucun" {
+  const folded = foldEventName(name);
+  if (roles.purchase.some((entry) => foldEventName(entry) === folded)) return "achat";
+  if (roles.addToCart.some((entry) => foldEventName(entry) === folded)) {
+    return "panier";
+  }
+  return "aucun";
 }
 
 export function foldClientConversions(
@@ -293,11 +312,12 @@ export function foldClientConversions(
 ): RawMetrics {
   if (roles.purchase.length === 0 && roles.addToCart.length === 0) return metrics;
 
-  const somme = (noms: readonly string[]) => {
-    if (noms.length === 0) return { count: 0, value: 0 };
-    const voulus = new Set(noms.map(plie));
-    return events
-      .filter((event) => voulus.has(plie(event.name)))
+  /* Un événement n'a qu'un rôle, et l'achat gagne : si une variante de
+     casse ou d'accent du même nom traînait dans les deux listes, le compter
+     des deux côtés gonflerait tuiles, entonnoir et tableau à la fois. */
+  const somme = (role: "achat" | "panier") =>
+    events
+      .filter((event) => conversionRoleOf(event.name, roles) === role)
       .reduce(
         (total, event) => ({
           count: total.count + event.count,
@@ -307,10 +327,9 @@ export function foldClientConversions(
         }),
         { count: 0, value: 0 },
       );
-  };
 
-  const achats = somme(roles.purchase);
-  const paniers = somme(roles.addToCart);
+  const achats = somme("achat");
+  const paniers = somme("panier");
 
   return {
     ...metrics,

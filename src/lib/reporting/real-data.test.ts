@@ -381,4 +381,16 @@ describe("foldClientConversions", () => {
       foldClientConversions(base, events, { purchase: ["Inexistant"], addToCart: [] }),
     ).toEqual(base);
   });
+
+  it("un événement présent dans les deux listes ne compte qu'une fois — l'achat gagne", () => {
+    /* Le cas que la revue adversariale a trouvé : une variante d'accent du
+       même nom dans chaque liste (« Résa » posé à la main, « Resa » relevé).
+       Compter des deux côtés gonflerait tuiles, entonnoir et tableau. */
+    const out = foldClientConversions(base, events, {
+      purchase: ["Validation Résa Lyon"],
+      addToCart: ["Validation Resa Lyon"],
+    });
+    expect(out.purchases).toBe(1);
+    expect(out.addToCart).toBe(0);
+  });
 });
