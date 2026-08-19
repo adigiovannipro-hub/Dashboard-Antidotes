@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { PlugZap, TriangleAlert } from "lucide-react";
 
 import { EmptyState } from "@/components/ds/empty-state";
+import { ConversionsMenu } from "@/components/viz/conversions-menu";
 import { MetaDashboard } from "@/components/viz/meta-dashboard";
 import { OrganicDashboard } from "@/components/viz/organic-dashboard";
 import { RangePicker } from "@/components/viz/range-picker";
@@ -136,7 +137,23 @@ export default async function DashboardPage({
           ) : null}
         </div>
         {network ? (
-          <div className="flex shrink-0 items-center gap-2">
+          /* La rangée d'actions passe à la ligne : à trois boutons elle
+             faisait 467 px pour 390 de large, et la page défilait
+             horizontalement sur téléphone. `shrink-0` empêchait l'ajustement
+             sans autoriser le retour à la ligne. */
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            {/* Le réglage des conversions du client vit ici, replié : il ne
+                concerne qu'un compte sur cinq et se touche deux fois par an —
+                un panneau pleine largeur en faisait le sujet de l'écran. Le
+                menu ne s'affiche pas du tout sans événement à régler. */}
+            {network === "meta-ads" && ads ? (
+              <ConversionsMenu
+                workspaceSlug={workspace.slug}
+                events={ads.customEvents}
+                roles={ads.roles}
+                isOwner={isOwner}
+              />
+            ) : null}
             {/* La collecte part du début de la période **de comparaison** :
                 demander juillet sans juin rendrait tous les M-1 en N/A. */}
             {isOwner ? (
@@ -176,10 +193,6 @@ export default async function DashboardPage({
       {network === "meta-ads" && ads?.hasData ? (
         <MetaDashboard
           adSets={ads.adSets}
-          customEvents={ads.customEvents}
-          roles={ads.roles}
-          workspaceSlug={workspace.slug}
-          isOwner={isOwner}
           total={ads.total}
           previousTotal={ads.previousTotal}
           age={ads.age}

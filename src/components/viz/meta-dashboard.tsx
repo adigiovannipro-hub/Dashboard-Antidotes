@@ -8,8 +8,6 @@ import { Funnel } from "@/components/viz/funnel";
 import { MetricsTable, type MetricsTableRow } from "@/components/viz/metrics-table";
 import { HeroFigure, StatTile } from "@/components/viz/stat-tile";
 import { formatMetric } from "@/lib/format";
-import { CustomEventsPanel } from "@/components/viz/custom-events-panel";
-import type { ConversionRoles, CustomEventTotal } from "@/lib/reporting/real-data";
 import { computeDelta } from "@/lib/metrics/aggregate";
 import { computeMetric, TOP_POSTS_COLUMNS } from "@/lib/metrics/definitions";
 import {
@@ -22,10 +20,6 @@ import { foldTail } from "@/lib/viz/palette";
 
 export function MetaDashboard({
   adSets,
-  customEvents,
-  roles,
-  workspaceSlug,
-  isOwner,
   total,
   previousTotal,
   age,
@@ -35,10 +29,6 @@ export function MetaDashboard({
   period,
 }: {
   adSets: readonly MetricsTableRow[];
-  customEvents: readonly CustomEventTotal[];
-  roles: ConversionRoles;
-  workspaceSlug: string;
-  isOwner: boolean;
   total: RawMetrics;
   previousTotal: RawMetrics;
   age: readonly BarDatum[];
@@ -152,13 +142,6 @@ export function MetaDashboard({
 
         <FollowersCard network="Instagram" data={followers} height={220} />
       </div>
-
-      <CustomEventsPanel
-        workspaceSlug={workspaceSlug}
-        events={customEvents}
-        roles={roles}
-        isOwner={isOwner}
-      />
 
       <Panel>
         <PanelHeader
