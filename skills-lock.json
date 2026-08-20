@@ -31,6 +31,12 @@
       "skillPath": "skills/caveman/SKILL.md",
       "computedHash": "59e1fe0d3eeb4189ee5c467efde567672e5cacb41f157c477a6152ca907d44ea"
     },
+    "composio": {
+      "source": "ComposioHQ/composio",
+      "sourceType": "github",
+      "skillPath": "skills/composio/SKILL.md",
+      "computedHash": "7a41fbd11708e8e18acff2873e945c42f40c9bd290a19251ae0a24b8d9e3ec54"
+    },
     "design": {
       "source": "nextlevelbuilder/ui-ux-pro-max-skill",
       "sourceType": "github",
