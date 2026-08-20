@@ -21,6 +21,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { formatPlainNumber } from "@/lib/format";
 import type { PlanningOwner, ResolvedVisual } from "@/lib/planning/types";
 import { isImagePath } from "@/lib/planning/storage";
 import { cn } from "@/lib/utils";
@@ -155,6 +156,10 @@ export function NumberCell({
   const incoming = value === null ? "" : String(value);
   const [draft, setDraft] = useState(incoming);
   const [synced, setSynced] = useState(incoming);
+  // Au repos la cellule montre le nombre mis en forme (« 1 200 ») ; dès qu'on
+  // y entre, elle rend la saisie brute — un séparateur de milliers dans un
+  // champ qu'on est en train de taper se retourne contre l'utilisateur.
+  const [editing, setEditing] = useState(false);
 
   if (incoming !== synced && draft === synced) {
     setSynced(incoming);
@@ -175,13 +180,23 @@ export function NumberCell({
     onCommit(parsed);
   }
 
+  const parsedDraft = Number(draft.trim().replace(",", "."));
+  const display =
+    editing || draft.trim() === "" || !Number.isFinite(parsedDraft)
+      ? draft
+      : formatPlainNumber(parsedDraft);
+
   return (
     <input
       inputMode="decimal"
-      value={draft}
+      value={display}
       aria-label={ariaLabel}
       onChange={(event) => setDraft(event.target.value)}
-      onBlur={commit}
+      onFocus={() => setEditing(true)}
+      onBlur={() => {
+        setEditing(false);
+        commit();
+      }}
       onKeyDown={(event) => {
         if (event.key === "Enter") event.currentTarget.blur();
       }}

@@ -55,6 +55,19 @@ export function formatDelta(ratio: number | null): string {
  * Formate les grands nombres en version compacte pour les axes de graphiques
  * (`2777` → « 2,8 k »), afin de ne pas saturer les graduations.
  */
+/**
+ * Un nombre saisi à la main, rendu lisible au repos — séparateurs de milliers
+ * français, décimales conservées si elles existent. Sans devise : une colonne
+ * de nombres du planning peut compter des euros comme des unités, et inventer
+ * un symbole serait affirmer ce qu'on ne sait pas.
+ */
+const plainNumber = new Intl.NumberFormat(LOCALE, { maximumFractionDigits: 2 });
+
+export function formatPlainNumber(value: number | null): string {
+  if (value === null || !Number.isFinite(value)) return "";
+  return plainNumber.format(value);
+}
+
 export function formatCompact(value: number): string {
   return new Intl.NumberFormat(LOCALE, {
     notation: "compact",

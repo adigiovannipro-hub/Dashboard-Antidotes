@@ -5,6 +5,7 @@ import { ChevronRight, Plus, Trash2 } from "lucide-react";
 
 import { createLane, deleteMonth, renameMonth } from "@/app/actions/planning";
 import { FeedPreviewButton } from "@/components/planning/feed-preview";
+import { PlatformIcon } from "@/components/planning/platform-icon";
 import { TextCell, useCellAction } from "@/components/planning/cells";
 import { LaneTable, type DateSort } from "@/components/planning/lane-table";
 import type { Scope } from "@/components/planning/subject-row";
@@ -89,13 +90,29 @@ export function MonthGroup({
   return (
     <section
       aria-label={month.label}
-      className="overflow-hidden rounded-xl border border-border"
+      className={cn(
+        "border-border-strong overflow-hidden rounded-xl border transition-shadow",
+        // Le mois ouvert est celui qu'on travaille : il se détache du fond.
+        effectiveOpen && "shadow-card",
+      )}
+      // Le rail gauche est la colonne vertébrale de l'année : à l'encre pour le
+      // mois ouvert, au vert de marque pour les mois qui portent du travail,
+      // effacé pour les mois vides. On repère d'un coup d'œil où il y a
+      // quelque chose sans lire douze libellés identiques.
+      style={{
+        borderLeftWidth: 4,
+        borderLeftColor: effectiveOpen
+          ? "var(--accent-ink)"
+          : live.length > 0
+            ? "var(--accent)"
+            : "var(--border-line)",
+      }}
     >
       <header
         className={cn(
-          "flex items-center gap-2 px-3 py-2.5 transition-colors",
-          // Un mois ouvert se détache du fond : c'est celui qu'on lit.
-          effectiveOpen ? "bg-surface-sunken" : "hover:bg-muted/40",
+          "flex items-center gap-2.5 px-3 transition-colors",
+          // Un mois ouvert prend de la hauteur ; replié, il reste un rang.
+          effectiveOpen ? "bg-surface-sunken py-3" : "py-2 hover:bg-surface-sunken/60",
         )}
         // Survoler un mois replié avec une ligne en main l'ouvre : on peut
         // déposer dans n'importe quel mois sans lâcher.
@@ -120,36 +137,66 @@ export function MonthGroup({
           />
         </button>
 
-        {/* Repère neutre, et non plus le rouge de marque : un mois n'est ni un
-            retard ni une alerte, et la couleur d'état ne sert qu'à ça. */}
-        <span aria-hidden className="bg-border-strong h-5 w-1 rounded-pill" />
-
         <div className="w-44">
           <TextCell
             value={month.label}
             ariaLabel="Nom du mois"
-            className="text-text-primary text-sm font-semibold tracking-wide uppercase"
+            className={cn(
+              "font-bold tracking-wider uppercase",
+              // Le mois ouvert domine la page ; les autres restent lisibles
+              // sans réclamer l'attention. Un mois vide passe à l'encre
+              // secondaire : parcourue de haut en bas, l'année ne présente
+              // alors que les mois qui portent quelque chose.
+              effectiveOpen ? "text-base" : "text-sm",
+              live.length > 0 ? "text-text-primary" : "text-text-secondary",
+            )}
             onCommit={(next) =>
               run(() => renameMonth(scope, { monthId: month.id, label: next }))
             }
           />
         </div>
 
-        <span className="text-muted-foreground text-xs tabular-nums">
-          {live.length} publication{live.length > 1 ? "s" : ""}
-        </span>
+        {/* Le compte en pastille verte, les réseaux en pastilles de marque :
+            un mois replié dit combien de publications et sur quoi, sans
+            l'ouvrir — « 3 · publications · 1 réseau » demandait de lire pour
+            apprendre moins. Un mois vide n'a pas de chiffre à mettre en
+            avant : il le dit d'un mot et s'efface. */}
+        {live.length > 0 ? (
+          <span className="flex min-w-0 items-center gap-2">
+            <span className="bg-accent-subtle text-accent-ink rounded-full px-2 py-0.5 text-[11px] font-semibold tabular-nums">
+              {live.length}
+            </span>
 
-        {sponsoring > 0 ? (
-          <span className="text-muted-foreground text-xs tabular-nums">
-            ·{" "}
-            {new Intl.NumberFormat("fr-FR", {
-              style: "currency",
-              currency: "EUR",
-              maximumFractionDigits: 0,
-            }).format(sponsoring)}{" "}
-            de sponso
+            {month.lanes.length > 0 ? (
+              <span className="flex items-center gap-1">
+                {month.lanes.map((lane) => (
+                  <PlatformIcon key={lane.id} platform={lane.platform} />
+                ))}
+              </span>
+            ) : null}
+
+            {sponsoring > 0 ? (
+              <span className="text-text-secondary type-caption tabular-nums">
+                {new Intl.NumberFormat("fr-FR", {
+                  style: "currency",
+                  currency: "EUR",
+                  maximumFractionDigits: 0,
+                }).format(sponsoring)}{" "}
+                de sponso
+              </span>
+            ) : null}
           </span>
-        ) : null}
+        ) : (
+          // Un mois sans le moindre couloir n'a rien à dire : son titre en
+          // encre secondaire et son rail effacé le disent déjà, et sept
+          // « Mois vide » alignés faisaient sept fois du bruit. Un mois qui
+          // porte des couloirs mais aucune publication, lui, mérite le mot.
+          month.lanes.length > 0 ? (
+            <span className="text-text-secondary type-caption">
+              Aucune publication
+            </span>
+          ) : null
+        )}
 
         <div className="ml-auto flex items-center gap-1">
           <FeedPreviewButton onClick={onPreviewFeed} />
@@ -199,7 +246,7 @@ export function MonthGroup({
       </header>
 
       {effectiveOpen ? (
-        <div className="space-y-3 border-t border-border p-3">
+        <div className="border-border-strong bg-canvas space-y-3 border-t p-3">
           {month.lanes.length === 0 ? (
             <p className="type-caption rounded-md border border-dashed border-border px-3 py-4 text-center text-text-secondary">
               Aucun réseau pour ce mois. Ajoutez-en un pour commencer à poser des

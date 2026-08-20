@@ -176,7 +176,7 @@ describe("gabarit de grille", () => {
     expect(template.startsWith("52px")).toBe(true);
     expect(template.endsWith("40px")).toBe(true);
     // La piste des retours suit celle du sujet.
-    expect(template).toContain("minmax(200px,1.4fr) 40px");
+    expect(template).toContain("minmax(230px,2fr) 40px");
   });
 
   it("suit les colonnes visibles, et elles seules", () => {

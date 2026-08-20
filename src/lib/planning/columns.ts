@@ -104,12 +104,16 @@ export const WIDTH_BY_TYPE: Record<ColumnType, string> = {
 };
 
 const BUILTIN_WIDTHS: Record<BuiltinKey, string> = {
-  name: "minmax(200px,1.4fr)",
+  // Le sujet est l'ancre de la ligne : c'est lui qu'on lit pour savoir de quoi
+  // parle la publication. Il passait après le wording, qui n'est qu'un aperçu
+  // tronqué de toute façon — « Coulisses de l'atelier luneti » coupé en
+  // plein mot ne dit plus rien.
+  name: "minmax(230px,2fr)",
   status: WIDTH_BY_TYPE.status,
   format: "120px",
   date: WIDTH_BY_TYPE.date,
   visual: "76px",
-  wording: "minmax(220px,1.8fr)",
+  wording: "minmax(170px,1.2fr)",
   sponsoring: WIDTH_BY_TYPE.number,
   objective: WIDTH_BY_TYPE.dropdown,
   ad_status: "108px",
@@ -247,7 +251,7 @@ export function builtinColumns(options: ResolveOptions = {}): ColumnDef[] {
       id: "sponsoring",
       builtin: "sponsoring",
       type: "number",
-      label: "Sponsorisation",
+      label: "Sponso",
       width: BUILTIN_WIDTHS.sponsoring,
       hidden: false,
       removable: false,
