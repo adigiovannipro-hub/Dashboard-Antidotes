@@ -6,6 +6,8 @@ import { getExpense, listExpenses } from "./airwallex";
 import { evaluateAutoForward } from "./auto-forward";
 import { extractReceipt } from "./extraction";
 import {
+  archiveMessage,
+  canArchive,
   getAttachment,
   getMessage,
   htmlToText,
@@ -707,12 +709,41 @@ export async function forwardDocument(options: {
       })
       .eq("id", document.id);
 
+    /* Le mail sort de la boîte de réception une fois la pièce partie : elle
+       est traitée, elle n'a plus rien à faire sous les yeux. Jamais bloquant —
+       un archivage raté ne doit pas faire passer pour échoué un transfert qui,
+       lui, a réussi ; le mail restera simplement dans la boîte.
+
+       Les boîtes connectées avant l'ajout du droit d'écriture n'ont que
+       `gmail.readonly` : on ne tente rien plutôt que d'appeler pour un 403. */
+    let archived = false;
+    if (canArchive(source.granted_scopes)) {
+      try {
+        await archiveMessage({
+          accessToken,
+          messageId: document.external_message_id,
+        });
+        archived = true;
+      } catch (error) {
+        console.error(
+          `Archivage Gmail impossible pour ${document.id} : ${
+            error instanceof Error ? error.message : "erreur inconnue"
+          }`,
+        );
+      }
+    }
+
     await logEvent(admin, {
       orgId: document.org_id,
       documentId: document.id,
       actorId: options.actorId,
       action: options.auto ? "document.auto_forwarded" : "document.forwarded",
-      after: { to: source.forward_to, pdf_origin: file.origin, gmail_id: sentId },
+      after: {
+        to: source.forward_to,
+        pdf_origin: file.origin,
+        gmail_id: sentId,
+        gmail_archived: archived,
+      },
     });
 
     return { ok: true, messageId: sentId };

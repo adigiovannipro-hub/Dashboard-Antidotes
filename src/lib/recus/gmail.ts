@@ -27,11 +27,25 @@ const OAUTH_TOKEN_URL = "https://oauth2.googleapis.com/token";
 const OAUTH_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth";
 const GMAIL_API = "https://gmail.googleapis.com/gmail/v1/users/me";
 
+/**
+ * `gmail.modify` et non `gmail.readonly` : lire ne suffit plus depuis que le
+ * mail se range tout seul une fois la pièce partie. `modify` couvre la
+ * lecture — les deux ensemble afficheraient deux permissions Gmail au
+ * consentement pour un seul besoin.
+ *
+ * Ce qu'il autorise reste borné à ce qu'on en fait : retirer le libellé
+ * `INBOX` d'un message déjà transféré. Aucune suppression, jamais.
+ */
 export const GMAIL_SCOPES = [
-  "https://www.googleapis.com/auth/gmail.readonly",
+  "https://www.googleapis.com/auth/gmail.modify",
   "https://www.googleapis.com/auth/gmail.send",
   "https://www.googleapis.com/auth/userinfo.email",
 ];
+
+/** Le droit d'écriture est-il accordé à cette boîte ? */
+export function canArchive(grantedScopes: string[]): boolean {
+  return grantedScopes.includes("https://www.googleapis.com/auth/gmail.modify");
+}
 
 export class GmailError extends Error {
   constructor(
@@ -390,6 +404,28 @@ export async function getRawMessage(
 }
 
 /** Envoie un message MIME déjà construit. Renvoie son identifiant Gmail. */
+/**
+ * Sort un message de la boîte de réception, sans le supprimer.
+ *
+ * Retirer `INBOX` est exactement ce que fait le bouton « Archiver » de Gmail :
+ * le message reste dans « Tous les messages », dans ses conversations et dans
+ * la recherche. Rien n'est détruit — un justificatif comptable ne se jette
+ * pas, et surtout pas par un automatisme.
+ */
+export async function archiveMessage(options: {
+  accessToken: string;
+  messageId: string;
+}): Promise<void> {
+  await call<{ id: string }>(
+    options.accessToken,
+    `/messages/${encodeURIComponent(options.messageId)}/modify`,
+    {
+      method: "POST",
+      body: JSON.stringify({ removeLabelIds: ["INBOX"] }),
+    },
+  );
+}
+
 export async function sendMessage(options: {
   accessToken: string;
   mime: string;
