@@ -156,8 +156,11 @@ export function SubjectRowView({
         onRowDrop(row.id, isAfter(event), draggedId);
       }}
       className={cn(
-        "group/row border-border/60 [&>*+*]:border-border/50 grid cursor-pointer border-b px-2 transition-colors [&>*+*]:border-l",
-        selected ? "bg-brand-mint/40" : "hover:bg-muted/40",
+        // Filets pleins et non estompés : sur le blanc du tableau, un
+        // `border/50` disparaissait — les cellules flottaient sans grille et
+        // l'œil perdait la ligne qu'il suivait.
+        "group/row border-border-strong [&>*+*]:border-border-strong grid cursor-pointer border-b px-2 transition-colors [&>*+*]:border-l",
+        selected ? "bg-brand-mint/50" : "hover:bg-surface-sunken",
         pending && "opacity-60",
         // Pendant le drag, l'original s'estompe : c'est la copie sous le
         // curseur qui porte la ligne.
@@ -171,7 +174,7 @@ export function SubjectRowView({
       {/* Poignée de drag + coche de sélection */}
       <span
         onClick={(event) => event.stopPropagation()}
-        className="flex items-center justify-center gap-0.5 py-1"
+        className="flex items-center justify-center gap-0.5 py-1.5"
       >
         <span
           draggable
@@ -254,7 +257,7 @@ function Cell({
   const stop = (node: React.ReactNode) => (
     <span
       onClick={(event) => event.stopPropagation()}
-      className="flex min-w-0 items-center px-1 py-1"
+      className="flex min-w-0 items-center px-1 py-1.5"
     >
       {node}
     </span>
@@ -370,7 +373,7 @@ function Cell({
 
     case "updated":
       return (
-        <span className="flex min-w-0 items-center justify-center px-1 py-1">
+        <span className="flex min-w-0 items-center justify-center px-1 py-1.5">
           <LastUpdateCell updater={row.updater} label={row.updated_label} />
         </span>
       );

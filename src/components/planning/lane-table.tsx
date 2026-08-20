@@ -12,7 +12,7 @@ import {
 } from "@/app/actions/planning";
 import { TextCell, useCellAction } from "@/components/planning/cells";
 import { AddColumnMenu, ColumnHeaderMenu } from "@/components/planning/column-menus";
-import { PlatformIcon } from "@/components/planning/platform-icon";
+import { PlatformIcon, platformColor } from "@/components/planning/platform-icon";
 import {
   SUBJECT_DRAG_TYPE,
   SubjectRowView,
@@ -112,11 +112,24 @@ export function LaneTable({
 
   return (
     <section
-      className="overflow-hidden rounded-md border border-border bg-background"
+      className="border-border-strong relative overflow-hidden rounded-md border bg-background"
       aria-label={lane.name}
+      // Un liseré aux couleurs du réseau court sur toute la hauteur du
+      // couloir : à trois réseaux empilés dans un mois, c'est ce qui dit d'un
+      // coup d'œil où l'on se trouve, sans relire les en-têtes.
+      style={{ borderLeftColor: platformColor(lane.platform), borderLeftWidth: 3 }}
     >
+      {/* L'en-tête du couloir porte la couleur du réseau sur son bord gauche :
+          c'est le repère qui rattache les lignes à leur plateforme, comme la
+          barre de groupe de Monday.
+
+          Il reste **blanc** alors que la ligne d'en-têtes de colonnes juste
+          en dessous est grise : deux bandes grises collées formaient un bloc
+          de 60 px où le nom du réseau se noyait dans « SUJET · STATUT · … ».
+          Alterner surface et creux fait ressortir l'emboîtement mois → réseau
+          → colonnes. */}
       <header
-        className="flex items-center gap-2 bg-surface-sunken px-2 py-1.5"
+        className="border-border-strong bg-surface flex items-center gap-2 border-b px-2 py-2"
         onDragOver={(event) => {
           if (![...event.dataTransfer.types].includes(SUBJECT_DRAG_TYPE)) return;
           event.preventDefault();
@@ -145,18 +158,24 @@ export function LaneTable({
 
         <PlatformIcon platform={lane.platform} />
 
-        <div className="w-40">
+        {/* 7 rem et non 10 : le champ est un `input`, dont la largeur naturelle
+            (une vingtaine de caractères) éloignait le compteur du nom. Fixe
+            plutôt qu'ajustée au texte, pour que les compteurs de deux couloirs
+            empilés tombent l'un sous l'autre. */}
+        <div className="w-28 shrink-0">
           <TextCell
             value={lane.name}
             ariaLabel="Nom du réseau"
-            className="text-xs font-semibold tracking-wide uppercase"
+            className="text-text-primary text-xs font-bold tracking-wider uppercase"
             onCommit={(next) =>
               run(() => renameLane(scope, { laneId: lane.id, name: next }))
             }
           />
         </div>
 
-        <span className="bg-muted text-muted-foreground rounded-full px-1.5 py-0.5 text-[11px] tabular-nums">
+        {/* Encre primaire et non secondaire : sur le gris de `border-strong`,
+            l'encre secondaire tombait à 3,9:1, mesuré au navigateur. */}
+        <span className="bg-border-strong text-text-primary rounded-full px-2 py-0.5 text-[11px] font-semibold tabular-nums">
           {live.length}
         </span>
 
@@ -188,7 +207,7 @@ export function LaneTable({
             {/* Mêmes filets verticaux que les lignes (`[&>*+*]`), même padding
                 par cellule : en-tête et lignes restent alignés au pixel. */}
             <div
-              className="border-border bg-surface-sunken/60 [&>*+*]:border-border/50 grid border-b px-2 [&>*+*]:border-l"
+              className="border-border-strong bg-surface-sunken [&>*+*]:border-border-strong grid border-b px-2 [&>*+*]:border-l"
               style={{ gridTemplateColumns: template }}
             >
               <span className="flex items-center justify-center py-1">
@@ -294,6 +313,24 @@ export function LaneTable({
   );
 }
 
+/**
+ * L'alignement d'un en-tête suit celui de son contenu : du texte se cale à
+ * gauche, un nombre à droite, une étiquette pleine largeur reste centrée.
+ */
+function headerAlign(column: ColumnDef): "start" | "center" | "end" {
+  if (column.builtin === "sponsoring" || column.type === "number") return "end";
+  if (
+    column.builtin === "name" ||
+    column.builtin === "wording" ||
+    column.builtin === "date" ||
+    column.type === "text" ||
+    column.type === "date"
+  ) {
+    return "start";
+  }
+  return "center";
+}
+
 function HeaderCell({
   scope,
   column,
@@ -316,6 +353,7 @@ function HeaderCell({
       column={column}
       onSortToggle={isDate ? onSortToggle : undefined}
       sorted={isDate && sort !== "position" ? sort : null}
+      align={headerAlign(column)}
     />
   );
 
@@ -365,7 +403,7 @@ function HeaderCell({
       <>
         <span
           data-col
-          className="text-muted-foreground relative flex min-w-0 items-center px-1 py-1"
+          className="text-text-secondary relative flex min-w-0 items-center px-1 py-1.5"
         >
           {menu}
           {handle}
@@ -378,7 +416,7 @@ function HeaderCell({
   return (
     <span
       data-col
-      className="text-muted-foreground relative flex min-w-0 items-center px-1 py-1"
+      className="text-text-secondary relative flex min-w-0 items-center px-1 py-1.5"
     >
       {menu}
       {handle}

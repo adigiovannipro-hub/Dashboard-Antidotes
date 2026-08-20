@@ -42,6 +42,7 @@ import {
   type ColumnDef,
   type ColumnLabel,
 } from "@/lib/planning/columns";
+import { cn } from "@/lib/utils";
 
 /**
  * Les menus qui font du tableau un tableau *à construire* : l'en-tête de
@@ -54,12 +55,15 @@ export function ColumnHeaderMenu({
   column,
   onSortToggle,
   sorted,
+  align = "center",
 }: {
   scope: Scope;
   column: ColumnDef;
   /** Présent uniquement sur la colonne Date : le tri chrono / inverse. */
   onSortToggle?: () => void;
   sorted?: "asc" | "desc" | null;
+  /** Aligné sur le contenu de la colonne, pas sur le milieu de la case. */
+  align?: "start" | "center" | "end";
 }) {
   const { run } = useCellAction();
   const [renaming, setRenaming] = useState(false);
@@ -99,11 +103,19 @@ export function ColumnHeaderMenu({
   return (
     <>
       <DropdownMenu>
-        {/* Centré et clippé, sans exception : un titre trop long se tronque
-            dans sa colonne au lieu de déborder sur la voisine. */}
+        {/* Clippé sans exception : un titre trop long se tronque dans sa
+            colonne au lieu de déborder sur la voisine. Aligné comme son
+            contenu, en revanche — « SUJET » centré au-dessus de titres calés à
+            gauche, ou « SPONSORIS. » au-dessus de montants alignés à droite,
+            c'est un décalage par colonne que l'œil paie à chaque ligne. */}
         <DropdownMenuTrigger
           aria-label={`Options de la colonne ${column.label}`}
-          className="hover:bg-muted focus-visible:ring-brand flex w-full min-w-0 items-center justify-center gap-1 overflow-hidden rounded-sm px-1 py-0.5 text-center text-[11px] font-medium tracking-wide uppercase outline-none focus-visible:ring-2"
+          className={cn(
+            "hover:bg-muted focus-visible:ring-brand flex w-full min-w-0 items-center gap-1 overflow-hidden rounded-sm px-1 py-0.5 text-[11px] font-medium tracking-wide uppercase outline-none focus-visible:ring-2",
+            align === "start" && "justify-start text-left",
+            align === "center" && "justify-center text-center",
+            align === "end" && "justify-end text-right",
+          )}
         >
           <span className="min-w-0 truncate">{column.label}</span>
           {sorted ? (

@@ -430,9 +430,10 @@ export function PlanningBoardView({
           les wordings.
         </p>
       ) : (
-        // Chaque mois est un bloc à part entière : l'année se lit comme une
-        // pile de cartes, pas comme une liste continue.
-        <div className="space-y-4">
+        // Douze mois espacés de 20 px se lisaient comme douze cartes
+        // flottantes, chacune du même poids — dont onze vides. Serrés, ils
+        // forment une pile qu'on parcourt, et le mois ouvert s'en détache.
+        <div className="space-y-1.5">
           {visibleMonths.map((month) => (
             <MonthGroup
               key={month.id}
