@@ -157,3 +157,18 @@ export function maskDayFr(text: string): string {
   if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`;
   return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
 }
+
+/**
+ * Une durée en français : `45 min`, `1 h 05`, `8 h`.
+ *
+ * Sert aux leçons de l'Academy — la somme d'un module, la durée d'une vidéo.
+ * Une durée absente s'affiche `—`, jamais `0 min` : zéro serait une mesure.
+ */
+export function formatDuration(minutes: number | null): string {
+  if (minutes === null || minutes <= 0) return NOT_AVAILABLE;
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  if (hours === 0) return `${minutes} min`;
+  if (rest === 0) return `${hours} h`;
+  return `${hours} h ${String(rest).padStart(2, "0")}`;
+}
