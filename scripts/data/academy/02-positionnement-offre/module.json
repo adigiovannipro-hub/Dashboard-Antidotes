@@ -1,0 +1,126 @@
+{
+  "slug": "positionnement-offre",
+  "title": "Positionnement et offre",
+  "description": "Ce module t'apprend à choisir une niche rentable, à structurer deux lignes d'offre claires et à t'appuyer sur la méthodologie SPEED pour vendre un chemin plutôt que des posts. Il se termine par la construction d'une page d'offre en cinq blocs qui circule et convainc sans toi.",
+  "position": 2,
+  "lessons": [
+    {
+      "position": 1,
+      "slug": "choisir-sa-niche",
+      "title": "Choisir sa niche",
+      "summary": "Comparaison de cinq familles de clients — retail, lifestyle/e-commerce, marque employeur, institutionnel, marques en transition digitale — sur trois critères : budget du client type, cycle de vente et affinité réelle. La leçon fournit une grille de notation à remplir en 45 minutes pour identifier les deux niches à prospecter en priorité.",
+      "duration_min": 10,
+      "script_file": "01-choisir-sa-niche.md",
+      "resources": [
+        {
+          "title": "Grille de notation des niches",
+          "description": "Un tableur cinq niches par quatre colonnes (budget, cycle de vente, affinité, prospects accessibles) avec notation de 1 à 5 et pondération possible.",
+          "kind": "template",
+          "url": null
+        },
+        {
+          "title": "Checklist d'évaluation d'une niche",
+          "description": "Les questions à se poser avant de retenir une niche : capacité du client type à payer 1 000 € HT par mois, durée du cycle de vente rapportée à ta trésorerie, affinité réelle et volume de prospects atteignables.",
+          "kind": "checklist",
+          "url": null
+        },
+        {
+          "title": "LinkedIn",
+          "description": "L'outil de référence pour compter concrètement les prospects accessibles de chaque niche dans ta zone avant de trancher.",
+          "kind": "tool",
+          "url": "https://www.linkedin.com"
+        }
+      ]
+    },
+    {
+      "position": 2,
+      "slug": "offre-lisible",
+      "title": "Construire une offre lisible : accompagnement opérationnel vs advisory",
+      "summary": "Deux lignes d'offre distinctes : l'accompagnement opérationnel (planning, 8-12 posts, modération, reporting, 800 à 3 000 € HT par mois) où tu produis, et l'advisory (audit puis suivi mensuel facturé au TJM de 350-550 € HT) où l'équipe du client exécute. La leçon fixe les règles de cohabitation : jamais mélangées dans un devis, la stratégie one-shot comme porte d'entrée, et des exclusions écrites.",
+      "duration_min": 9,
+      "script_file": "02-offre-lisible.md",
+      "resources": [
+        {
+          "title": "Fiche d'offre en six lignes",
+          "description": "Un gabarit à remplir pour chaque ligne d'offre : nom, cible, trois puces de contenu, prix, durée d'engagement et une exclusion.",
+          "kind": "template",
+          "url": null
+        },
+        {
+          "title": "Checklist de périmètre et d'exclusions",
+          "description": "La liste des demandes hors périmètre à écarter ou facturer à part : site web, graphisme print, newsletter, événementiel, avis Google.",
+          "kind": "checklist",
+          "url": null
+        },
+        {
+          "title": "Urssaf — simulateur de revenus indépendant",
+          "description": "Pour calculer ce que ton TJM et tes forfaits mensuels laissent réellement après cotisations avant de fixer tes prix.",
+          "kind": "link",
+          "url": "https://www.urssaf.fr"
+        }
+      ]
+    },
+    {
+      "position": 3,
+      "slug": "methodologie-speed",
+      "title": "La méthodologie SPEED : les cinq étapes, ce qu'elles produisent, comment les vendre",
+      "summary": "Les cinq étapes de SPEED détaillées avec leur livrable : audit de 15-20 pages à trois constats (Situation), plateforme de positionnement (Positionnement), charte éditoriale avec matrice piliers-formats-réseaux (Expression), planning et process de validation (Exécution), reporting mensuel commenté (Données). La leçon montre comment la méthode découpe tes offres — stratégie one-shot à 1 500-3 000 € HT, retainer mensuel — et structure ton call de découverte en deux minutes.",
+      "duration_min": 9,
+      "script_file": "03-methodologie-speed.md",
+      "resources": [
+        {
+          "title": "Trame d'audit SPEED (étape Situation)",
+          "description": "Le plan type du rapport d'audit de 15 à 20 pages : réseaux, données, marché, et la page finale des trois constats majeurs.",
+          "kind": "template",
+          "url": null
+        },
+        {
+          "title": "Matrice éditoriale piliers × formats × réseaux",
+          "description": "Le tableau vierge de l'étape Expression : une ligne par pilier avec format, réseau et fréquence de publication.",
+          "kind": "template",
+          "url": null
+        },
+        {
+          "title": "Checklist des cinq livrables SPEED",
+          "description": "Un point de contrôle par étape pour vérifier qu'aucun livrable ne manque avant de clore une phase chez un client.",
+          "kind": "checklist",
+          "url": null
+        },
+        {
+          "title": "Meta Business Suite",
+          "description": "La source des données d'audience et d'engagement nécessaires aux étapes Situation et Données sur Facebook et Instagram.",
+          "kind": "tool",
+          "url": "https://business.facebook.com"
+        }
+      ]
+    },
+    {
+      "position": 4,
+      "slug": "packager-son-offre",
+      "title": "Packager son offre en une page qui se vend seule",
+      "summary": "La structure d'une page d'offre en cinq blocs ordonnés : promesse en une phrase (cible, résultat, mécanisme), preuve chiffrée et datée, livrables nommés en trois blocs, prix plancher affiché en fourchette, appel à l'action unique avec lien de réservation. La leçon liste aussi ce qu'on retire — biographie, liste d'outils, formules à tiroirs, jargon — et donne le test des dix secondes pour valider la page.",
+      "duration_min": 9,
+      "script_file": "04-packager-son-offre.md",
+      "resources": [
+        {
+          "title": "Gabarit de page d'offre en cinq blocs",
+          "description": "La page type à compléter : promesse, preuve, contenu en trois blocs de livrables, prix en fourchette et appel à l'action unique.",
+          "kind": "template",
+          "url": null
+        },
+        {
+          "title": "Checklist du test des dix secondes",
+          "description": "Les trois questions auxquelles un lecteur extérieur doit savoir répondre après dix secondes : ce que tu vends, à qui, et combien.",
+          "kind": "checklist",
+          "url": null
+        },
+        {
+          "title": "Calendly",
+          "description": "Un outil de prise de rendez-vous en ligne pour transformer ton appel à l'action en lien de réservation direct.",
+          "kind": "tool",
+          "url": "https://calendly.com"
+        }
+      ]
+    }
+  ]
+}

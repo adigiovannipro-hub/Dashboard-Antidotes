@@ -1,0 +1,148 @@
+{
+  "slug": "acquisition-client",
+  "title": "Acquisition client",
+  "description": "Ce module couvre toute la chaîne d'acquisition d'un client en freelance social media : le choix des canaux, la prospection outbound, le call de découverte, le traitement des objections et la proposition commerciale. Chaque leçon donne des chiffres de référence, des scripts rédigés mot pour mot et un cas client détaillé pour passer du prospect froid au contrat signé.",
+  "position": 3,
+  "lessons": [
+    {
+      "position": 1,
+      "slug": "canaux-qui-marchent",
+      "title": "Les canaux qui marchent réellement en freelance social media",
+      "summary": "Cette leçon hiérarchise les quatre canaux d'acquisition qui rapportent réellement des clients en freelance social media : bouche-à-oreille outillé, LinkedIn personnel, outbound ciblé et partenariats agences. Tu repars avec les chiffres honnêtes de chaque canal — rendement, délai, coût en heures — et une répartition concrète de cinq heures de prospection hebdomadaires.",
+      "duration_min": 10,
+      "script_file": "01-canaux-qui-marchent.md",
+      "resources": [
+        {
+          "title": "Tableau de suivi des canaux d'acquisition",
+          "description": "Un tableur qui suit, canal par canal, les contacts engagés, les rendez-vous obtenus et les clients signés chaque mois.",
+          "kind": "template",
+          "url": null
+        },
+        {
+          "title": "Checklist du bouche-à-oreille outillé",
+          "description": "Les trois gestes à déclencher — demande de mise en relation à J+90, étude de cas d'une page, réactivation du réseau dormant — avec leurs formulations types.",
+          "kind": "checklist",
+          "url": null
+        },
+        {
+          "title": "LinkedIn",
+          "description": "Le réseau où se trouvent les dirigeants de PME que tu cibles, à la fois vitrine de preuve et canal de prospection.",
+          "kind": "link",
+          "url": "https://www.linkedin.com"
+        }
+      ]
+    },
+    {
+      "position": 2,
+      "slug": "prospection-outbound",
+      "title": "Prospection outbound : ciblage, séquences, taux à atteindre",
+      "summary": "Cette leçon construit ta machine de prospection outbound : une liste de prospects qualifiés par signaux d'achat, une séquence de trois messages rédigés, et les taux de référence à surveiller. Tu apprends à viser 8 à 12 réponses et 2 à 4 rendez-vous pour 100 contacts, et à diagnostiquer précisément ce qui bloque quand les chiffres décrochent.",
+      "duration_min": 10,
+      "script_file": "02-prospection-outbound.md",
+      "resources": [
+        {
+          "title": "Modèles des trois messages de séquence",
+          "description": "Les trois messages rédigés — observation, apport de valeur, clôture polie — avec les zones à personnaliser pour chaque prospect.",
+          "kind": "template",
+          "url": null
+        },
+        {
+          "title": "Tableur de prospection à sept colonnes",
+          "description": "La structure complète du fichier de suivi : entreprise, décideur, canal, signal observé, dates d'envoi, relances et statut.",
+          "kind": "template",
+          "url": null
+        },
+        {
+          "title": "Bibliothèque publicitaire Meta",
+          "description": "L'outil public qui montre les publicités actives d'une entreprise, ton meilleur détecteur de signaux d'achat.",
+          "kind": "tool",
+          "url": "https://www.facebook.com/ads/library"
+        }
+      ]
+    },
+    {
+      "position": 3,
+      "slug": "call-de-decouverte",
+      "title": "Le call de découverte : questions, structure, cadrage budget",
+      "summary": "Cette leçon donne la trame du call de découverte en cinq temps — cadrage, situation, enjeu, budget, prochaine étape — avec les questions de qualification rédigées mot pour mot. Tu apprends notamment à annoncer ta fourchette de prix sans gêne et à ne jamais raccrocher sans une étape datée dans l'agenda.",
+      "duration_min": 10,
+      "script_file": "03-call-de-decouverte.md",
+      "resources": [
+        {
+          "title": "Trame du call de découverte en cinq temps",
+          "description": "La page à garder sous les yeux pendant le call : les cinq temps minutés et les questions de qualification rédigées mot pour mot.",
+          "kind": "template",
+          "url": null
+        },
+        {
+          "title": "Checklist de préparation avant call",
+          "description": "Les vérifications à faire en quinze minutes : profil du dirigeant, comptes sociaux, site, publicités actives et trois observations factuelles à noter.",
+          "kind": "checklist",
+          "url": null
+        },
+        {
+          "title": "Calendly",
+          "description": "Un outil de prise de rendez-vous qui permet de poser le call de restitution dans l'agenda avant de raccrocher.",
+          "kind": "tool",
+          "url": "https://calendly.com"
+        }
+      ]
+    },
+    {
+      "position": 4,
+      "slug": "traiter-les-objections",
+      "title": "Traiter les objections",
+      "summary": "Cette leçon traite les quatre objections qui reviennent dans neuf calls sur dix : le prix, le report à plus tard, la personne déjà en place et le test en interne. Tu repars avec la méthode accueillir-creuser-répondre et une réponse chiffrée prête pour chaque cas, sans jamais baisser ton prix à périmètre égal.",
+      "duration_min": 10,
+      "script_file": "04-traiter-les-objections.md",
+      "resources": [
+        {
+          "title": "Fiche des quatre objections",
+          "description": "Les quatre cases — prix, délai, personne en place, test interne — avec pour chacune la question pour creuser et la réponse chiffrée à compléter avec tes tarifs.",
+          "kind": "template",
+          "url": null
+        },
+        {
+          "title": "Message de suivi à J+90",
+          "description": "Le message type à envoyer trois mois après un « on va tester en interne », avec les trois chiffres à demander au prospect.",
+          "kind": "template",
+          "url": null
+        },
+        {
+          "title": "Checklist accueillir-creuser-répondre",
+          "description": "Le réflexe en trois temps à dérouler face à toute objection, avec les formulations d'accueil et les questions de creusage types.",
+          "kind": "checklist",
+          "url": null
+        }
+      ]
+    },
+    {
+      "position": 5,
+      "slug": "proposition-commerciale",
+      "title": "Rédiger une proposition commerciale qui se signe",
+      "summary": "Cette leçon détaille la structure d'une proposition commerciale de sept pages qui confirme la décision prise en call au lieu d'essayer de vendre seule. Tu y construis le rappel du diagnostic avec les mots du prospect, les deux options de prix dont une haute d'ancrage, et la validité limitée à quinze jours.",
+      "duration_min": 10,
+      "script_file": "05-proposition-commerciale.md",
+      "resources": [
+        {
+          "title": "Trame de proposition commerciale en sept pages",
+          "description": "Le document réutilisable avec les sept pages titrées, les zones à personnaliser et la page des deux options pré-remplie.",
+          "kind": "template",
+          "url": null
+        },
+        {
+          "title": "Checklist de relecture avant envoi",
+          "description": "Les vérifications finales : mots du prospect en page 1, objectifs chiffrés, livrables quantifiés, validité datée et call de restitution posé dans l'agenda.",
+          "kind": "checklist",
+          "url": null
+        },
+        {
+          "title": "Canva",
+          "description": "Un outil de mise en page gratuit pour habiller ta trame de propale sans y passer plus de trente minutes.",
+          "kind": "tool",
+          "url": "https://www.canva.com"
+        }
+      ]
+    }
+  ]
+}

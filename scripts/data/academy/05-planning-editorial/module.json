@@ -1,0 +1,126 @@
+{
+  "slug": "planning-editorial",
+  "title": "Planning éditorial",
+  "description": "Ce module apprend à transformer une stratégie éditoriale en calendrier publiable : générer un mois d'intentions sans page blanche, le répartir sur plusieurs réseaux, le faire valider en un seul cycle. Il se termine par le board type qui permet de tenir quatre clients et quarante posts par mois sans rien perdre.",
+  "position": 5,
+  "lessons": [
+    {
+      "position": 1,
+      "slug": "du-pilier-au-sujet",
+      "title": "Du pilier au sujet : générer des intentions éditoriales",
+      "summary": "La mécanique en cinq étapes qui descend des piliers stratégiques vers des sujets datés : volume contractuel, pondération par pilier, bibliothèque de huit angles, croisement avec le calendrier du mois, formulation. Une session d'une heure entre le 15 et le 20 remplace quatre semaines de page blanche.",
+      "duration_min": 9,
+      "script_file": "01-du-pilier-au-sujet.md",
+      "resources": [
+        {
+          "title": "Matrice piliers × angles",
+          "description": "Tableur prêt à remplir avec les piliers en lignes, les huit angles en colonnes et une zone de pondération du volume mensuel.",
+          "kind": "template",
+          "url": null
+        },
+        {
+          "title": "Checklist d'une intention complète",
+          "description": "Les six informations que chaque ligne d'intention doit porter — titre de travail, pilier, angle, format, réseau, date — avec un exemple conforme et un contre-exemple.",
+          "kind": "checklist",
+          "url": null
+        },
+        {
+          "title": "Bibliothèque des huit angles",
+          "description": "Les huit angles réutilisables de la leçon, chacun illustré par deux exemples de sujets dans des secteurs différents.",
+          "kind": "template",
+          "url": null
+        }
+      ]
+    },
+    {
+      "position": 2,
+      "slug": "planning-mensuel-multiplateformes",
+      "title": "Bâtir un planning mensuel multi-plateformes",
+      "summary": "Construire le calendrier dans le bon ordre : hiérarchie des réseaux, rythme hebdomadaire avant les dates, jours fixes, déclinaisons décalées plutôt que duplications, contrôle d'équilibre semaine par semaine. Sur 12 posts, on produit environ 8 contenus natifs et on en décline 4 — c'est là que se joue la marge.",
+      "duration_min": 9,
+      "script_file": "02-planning-mensuel-multiplateformes.md",
+      "resources": [
+        {
+          "title": "Grille de planning mensuel multi-réseaux",
+          "description": "Grille de quatre semaines avec hiérarchie des réseaux, jours fixes, case flexible, et un marquage natif ou déclinaison pour chaque post.",
+          "kind": "template",
+          "url": null
+        },
+        {
+          "title": "Checklist d'équilibre hebdomadaire",
+          "description": "Les trois contrôles à passer sur chaque semaine avant d'envoyer le planning : un post conversion minimum, pas deux formats lourds, de l'air autour des temps forts.",
+          "kind": "checklist",
+          "url": null
+        },
+        {
+          "title": "Meta Business Suite",
+          "description": "L'outil gratuit de Meta pour programmer les publications Facebook et Instagram posées dans le planning.",
+          "kind": "tool",
+          "url": "https://business.facebook.com"
+        }
+      ]
+    },
+    {
+      "position": 3,
+      "slug": "validation-client",
+      "title": "Le process de validation client sans allers-retours infinis",
+      "summary": "Un seul cycle de validation par mois : envoi le 20, retours groupés sous 5 jours ouvrés dans un canal unique, corrections sous 3 jours, clause de validation tacite signée dès le devis. La leçon détaille aussi le tri des retours en trois familles et la séquence de relance J+3, J+5, J+6 quand le client ne répond pas.",
+      "duration_min": 9,
+      "script_file": "03-validation-client.md",
+      "resources": [
+        {
+          "title": "Clause de validation tacite prête à coller",
+          "description": "Les trois phrases contractuelles du cycle de validation, avec deux variantes de délais et la formulation qui la présente comme une garantie de ponctualité.",
+          "kind": "template",
+          "url": null
+        },
+        {
+          "title": "Séquence de relance en trois messages",
+          "description": "Les messages types de J+3, J+5 et J+6, du rappel neutre à l'application de la clause, à personnaliser en trente secondes.",
+          "kind": "template",
+          "url": null
+        },
+        {
+          "title": "Checklist du cycle de validation",
+          "description": "Les quatre temps datés du cycle et le tri des retours en trois familles — factuel, style, stratégique — avec la réponse à donner pour chacune.",
+          "kind": "checklist",
+          "url": null
+        }
+      ]
+    },
+    {
+      "position": 4,
+      "slug": "industrialiser-avec-un-outil",
+      "title": "Industrialiser avec un outil de gestion",
+      "summary": "Le board type qui fait tenir quatre clients : un board par client à structure identique, groupes par mois, dix colonnes fixes, sept statuts dont chacun désigne qui a la main, déclinaisons en sous-éléments et retours client sur la ligne. Trois rituels le font vivre : 20 minutes chaque lundi, la génération du mois suivant le 15, la relecture du mois écoulé pour le reporting.",
+      "duration_min": 9,
+      "script_file": "04-industrialiser-avec-un-outil.md",
+      "resources": [
+        {
+          "title": "Board type : colonnes et statuts",
+          "description": "La structure complète à reproduire dans n'importe quel outil — les dix colonnes, les sept statuts avec leur responsable, et la logique des sous-éléments par réseau.",
+          "kind": "template",
+          "url": null
+        },
+        {
+          "title": "Rituel du lundi en 20 minutes",
+          "description": "Le déroulé minuté de la revue hebdomadaire par client : avancement des statuts, filtre des relances, contrôle que la semaine qui s'ouvre est entièrement programmée.",
+          "kind": "checklist",
+          "url": null
+        },
+        {
+          "title": "Trello",
+          "description": "Outil de gestion en tableaux dont la version gratuite suffit pour construire le board type jusqu'à quatre clients.",
+          "kind": "tool",
+          "url": "https://trello.com"
+        },
+        {
+          "title": "Notion",
+          "description": "Alternative gratuite en base de données, adaptée si tu préfères des vues filtrées par statut ou par client.",
+          "kind": "tool",
+          "url": "https://www.notion.so"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,182 @@
+{
+  "slug": "ecriture-copywriting",
+  "title": "Écriture et copywriting",
+  "description": "Ce module t'apprend à écrire des posts qui arrêtent le scroll et convertissent, plateforme par plateforme : LinkedIn, Instagram, Facebook, TikTok, X et Threads. Tu repars avec les mécaniques d'accroche, une structure de post par réseau et une méthode de dosage des CTA qui préserve la portée.",
+  "position": 6,
+  "lessons": [
+    {
+      "position": 1,
+      "slug": "mecaniques-de-l-accroche",
+      "title": "L'accroche : les mécaniques psychologiques qui fonctionnent",
+      "summary": "Cette leçon détaille les quatre mécaniques psychologiques d'une accroche efficace : curiosité, spécificité, tension et preuve, avec des exemples réécrits avant/après. Tu apprends la méthode des dix accroches et tu constitues une banque d'accroches réutilisable, classée par mécanique et par pilier éditorial.",
+      "duration_min": 9,
+      "script_file": "01-mecaniques-de-l-accroche.md",
+      "resources": [
+        {
+          "title": "Banque d'accroches",
+          "description": "Tableau à quatre colonnes (mécanique, accroche, pilier, statut) pour capitaliser les accroches non utilisées et ne plus jamais partir de zéro.",
+          "kind": "template",
+          "url": null
+        },
+        {
+          "title": "Test de l'accroche en 5 questions",
+          "description": "Checklist de validation d'une première ligne avant publication : boucle ouverte, spécificité, promesse tenue par le post, marque absente des dix premiers mots, lecture autonome.",
+          "kind": "checklist",
+          "url": null
+        },
+        {
+          "title": "Grille avant/après par mécanique",
+          "description": "Modèle de réécriture d'une accroche existante selon les quatre mécaniques, avec un exemple rempli sur un cas assurance.",
+          "kind": "template",
+          "url": null
+        }
+      ]
+    },
+    {
+      "position": 2,
+      "slug": "ecrire-pour-linkedin",
+      "title": "Écrire pour LinkedIn",
+      "summary": "Tu découvres la structure exacte d'un post LinkedIn performant : hook intégré aux 210 premiers caractères, vouvoiement systématique, flèches contextuelles pour aérer, zéro gras dans l'accroche et question finale à réponse courte. La leçon couvre aussi le lien en premier commentaire, la longueur cible de 1 200 à 1 800 caractères et la fenêtre de publication du mardi au jeudi entre 8 h et 10 h.",
+      "duration_min": 9,
+      "script_file": "02-ecrire-pour-linkedin.md",
+      "resources": [
+        {
+          "title": "Structure de post LinkedIn en 5 blocs",
+          "description": "Trame à remplir : accroche de 210 caractères, contexte chiffré, développement fléché, chute, question finale.",
+          "kind": "template",
+          "url": null
+        },
+        {
+          "title": "Relecture avant publication LinkedIn",
+          "description": "Les huit vérifications avant de publier : gras, lien, hashtags, longueur, vouvoiement, question, créneau et disponibilité pour la première heure de commentaires.",
+          "kind": "checklist",
+          "url": null
+        },
+        {
+          "title": "LinkedIn",
+          "description": "La plateforme elle-même, pour repérer les posts qui performent dans la niche de ton client avant d'écrire les tiens.",
+          "kind": "link",
+          "url": "https://www.linkedin.com"
+        }
+      ]
+    },
+    {
+      "position": 3,
+      "slug": "ecrire-pour-instagram-facebook",
+      "title": "Écrire pour Instagram et Facebook",
+      "summary": "Cette leçon montre comment écrire pour Instagram — première ligne autonome sous 125 caractères, CTA d'enregistrement, lien en bio — puis adapter la légende à Facebook, où le lien est cliquable, le partage domine et le format court gagne. Tu repars avec une méthode d'adaptation en trois gestes qui remplace le copier-coller entre les deux plateformes.",
+      "duration_min": 9,
+      "script_file": "03-ecrire-pour-instagram-facebook.md",
+      "resources": [
+        {
+          "title": "Trame de légende Instagram",
+          "description": "Modèle en quatre blocs : première ligne autonome, corps aéré une phrase par ligne, CTA unique, trois à cinq hashtags de niche.",
+          "kind": "template",
+          "url": null
+        },
+        {
+          "title": "Adaptation Instagram vers Facebook",
+          "description": "Les trois gestes d'adaptation d'une légende : hashtags et lien, coupe de 30 à 40 % du corps, remplacement du CTA d'enregistrement.",
+          "kind": "checklist",
+          "url": null
+        },
+        {
+          "title": "Meta Business Suite",
+          "description": "L'outil gratuit de Meta pour programmer et adapter les publications Instagram et Facebook d'un même client.",
+          "kind": "tool",
+          "url": "https://business.facebook.com"
+        }
+      ]
+    },
+    {
+      "position": 4,
+      "slug": "ecrire-pour-tiktok",
+      "title": "Écrire pour TikTok",
+      "summary": "Sur TikTok, tu n'écris pas des posts mais des scripts pensés pour l'oral et les sous-titres, avec un ton neutre qui ne force pas la proximité. La leçon donne la structure chronométrée d'un script de 30 secondes — hook en trois couches, promesse, trois points, chute — et la question de clôture qui déclenche les tags en commentaires.",
+      "duration_min": 9,
+      "script_file": "04-ecrire-pour-tiktok.md",
+      "resources": [
+        {
+          "title": "Script TikTok 30 secondes",
+          "description": "Trame chronométrée : hook 0-2 s avec texte écran, promesse, trois points, chute et question de clôture, avec compteur de 70 mots maximum.",
+          "kind": "template",
+          "url": null
+        },
+        {
+          "title": "Sous-titres et tournage",
+          "description": "Vérifications avant publication : lecture à voix haute chronométrée, sous-titres synchronisés de quatre à six mots par ligne, mots pivots mis en valeur, question finale ciblée.",
+          "kind": "checklist",
+          "url": null
+        },
+        {
+          "title": "CapCut",
+          "description": "Outil de montage gratuit pour générer puis corriger les sous-titres automatiques des vidéos TikTok.",
+          "kind": "tool",
+          "url": "https://www.capcut.com"
+        }
+      ]
+    },
+    {
+      "position": 5,
+      "slug": "ecrire-pour-x-threads",
+      "title": "Écrire pour X et Threads",
+      "summary": "Tu apprends l'architecture du thread en sept tweets : hook chiffré sans mention ni lien, cinq points autonomes, synthèse avec CTA motivé, mentions et liens réservés au dernier tweet ou aux réponses. La leçon détaille aussi ce qui sépare X de Threads et comment dériver un même contenu en post conversationnel pour Threads sans le dupliquer.",
+      "duration_min": 9,
+      "script_file": "05-ecrire-pour-x-threads.md",
+      "resources": [
+        {
+          "title": "Squelette de thread en 7 tweets",
+          "description": "Trame à remplir : tweet 1 avec chiffre et promesse, cinq points autonomes sous 280 caractères, tweet 7 en synthèse avec CTA, emplacements des mentions et du lien.",
+          "kind": "template",
+          "url": null
+        },
+        {
+          "title": "Relecture d'un thread avant publication",
+          "description": "Contrôles finaux : tweet 1 sans mention ni lien ni hashtag, autonomie de chaque tweet lu seul, longueurs, CTA unique en clôture.",
+          "kind": "checklist",
+          "url": null
+        },
+        {
+          "title": "X",
+          "description": "La plateforme, pour observer les threads qui performent dans le secteur du client avant de rédiger.",
+          "kind": "link",
+          "url": "https://x.com"
+        },
+        {
+          "title": "Threads",
+          "description": "La plateforme de Meta, pour repérer le ton conversationnel attendu avant d'y dériver tes contenus.",
+          "kind": "link",
+          "url": "https://www.threads.net"
+        }
+      ]
+    },
+    {
+      "position": 6,
+      "slug": "le-cta",
+      "title": "Le CTA : orienter vers la conversion sans casser la portée",
+      "summary": "Cette leçon classe les CTA en trois familles — engagement, trafic, conversion — et fixe leur dosage sur un mois de publication : environ 70/20/10 sur 10 à 12 posts. Tu vois où placer chaque CTA, comment contourner les pénalités sur les liens sortants et l'engagement bait, et comment mesurer chaque famille au reporting mensuel.",
+      "duration_min": 9,
+      "script_file": "06-le-cta.md",
+      "resources": [
+        {
+          "title": "Matrice CTA par objectif et par réseau",
+          "description": "Tableau croisant les trois familles de CTA avec les cinq réseaux, formulations types et emplacement du lien pour chacun.",
+          "kind": "template",
+          "url": null
+        },
+        {
+          "title": "Audit CTA d'un mois de publications",
+          "description": "Grille à quatre colonnes (sujet, CTA cité mot pour mot, famille, résultat) pour calculer la répartition réelle et la comparer au dosage 70/20/10.",
+          "kind": "checklist",
+          "url": null
+        },
+        {
+          "title": "Metricool",
+          "description": "Outil freemium de programmation et de statistiques pour suivre clics et engagement post par post.",
+          "kind": "tool",
+          "url": "https://metricool.com"
+        }
+      ]
+    }
+  ]
+}
