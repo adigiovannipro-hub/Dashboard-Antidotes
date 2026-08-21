@@ -9,6 +9,7 @@ import { ArchiveSection } from "@/components/mon-travail/archive-section";
 import { ClientCard } from "@/components/mon-travail/client-card";
 import { PublicationsSection } from "@/components/mon-travail/publications-section";
 import { TasksSection } from "@/components/mon-travail/tasks-section";
+import { WorkSyncButton } from "@/components/mon-travail/work-sync-button";
 import { WorkspaceCard } from "@/components/mon-travail/workspace-card";
 import { buildCardModel } from "@/lib/production/card-model";
 import { getProductionSnapshots } from "@/lib/production/queries";
@@ -83,6 +84,10 @@ export default async function HubPage({
       viewer={viewer}
       title={travail ? "Mon travail" : "Espaces"}
       subtitle={travail ? dayLabel(today) : `${viewer.workspaces.length} espaces accessibles`}
+      /* Relancer le passage quotidien à la demande. Le cron ne tourne qu'à
+         4 h du matin — une réunion de 10 h attendrait sinon le lendemain,
+         alors que c'est en sortant de l'appel qu'on veut ses actions. */
+      actions={travail ? <WorkSyncButton /> : undefined}
     >
       {/* `pb-16` : l'archivé s'allume en montant dans la fenêtre, et la
           dernière ligne d'une page ne finit jamais d'y entrer — elle serait

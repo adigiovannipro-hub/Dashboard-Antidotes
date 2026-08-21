@@ -377,6 +377,8 @@ Le dépôt embarque des skills dans `.claude/skills/`, certains en lien symboliq
 
 **Les scripts Node ne lisent pas `.env.local` tout seuls.** Next le fait nativement, `dotenv/config` ne lit que `.env`. Un script lancé à la main doit pointer explicitement sur `.env.local`.
 
+**Un cron quotidien n'est pas un outil de travail.** « Mon travail » relit Fathom à 4 h du matin — une réunion de 10 h voit donc ses tâches arriver le lendemain, ce qui est le bon comportement pour du fond de tâche et le mauvais pour le geste qu'on a en sortant d'un appel. La route acceptait déjà le propriétaire depuis son navigateur, mais une URL à retenir qui rend du JSON brut n'est pas un bouton : **Relire mes réunions**, dans la barre de page, relance le passage et **dit ce qui s'est passé**. Le message distingue les trois cas que « 0 tâche » confondait — des tâches créées, des réunions relues sans rien de neuf, et une étape qui **ne s'est pas exécutée** faute de `FATHOM_API_KEY`. C'est ce troisième cas qui fait chercher un défaut dans le parseur alors que la clé manque simplement à l'environnement.
+
 **Les tests d'isolation se sautent en silence.** Sans `.env.local` renseigné, la suite passe en `describe.skip` : `pnpm test` est vert **sans avoir rien prouvé** sur la RLS. Un vert n'est une preuve d'isolation que si les tests ont réellement tourné contre la base, migrations appliquées.
 
 **En accès ouvert, la RLS ne protège plus rien.** Voir la section État actuel. L'accès ouvert désarme les 92 politiques d'un coup : c'est un réglage de construction, il n'a rien à faire sur un environnement qui porte les données d'un client.
