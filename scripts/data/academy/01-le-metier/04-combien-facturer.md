@@ -1,6 +1,6 @@
 ## L'accroche
 
-Le moment le plus redouté d'un appel découverte, c'est celui où le prospect demande : « Et niveau budget, ça donne quoi ? » La plupart des freelances improvisent. Ils pensent aux prix vus sur Malt, retirent 20 % « pour être sûrs de l'avoir », et lâchent un chiffre qu'ils regretteront pendant douze mois. Parce qu'un prix lâché sous la pression ne se rattrape pas : tu ne peux pas rappeler la semaine suivante pour dire que finalement c'est 40 % plus cher. Résultat classique : un accompagnement à 700 € par mois qui, une fois le temps réel compté, revient à 22 € de l'heure. La solution n'est pas d'avoir du culot. C'est d'avoir une grille : des prix construits à partir de ton taux journalier, écrits avant l'appel, que tu n'improvises jamais. Dans cette leçon, tu vas construire cette grille chiffre par chiffre, puis apprendre à la présenter sans trembler.
+Le moment le plus redouté d'un appel découverte, c'est celui où le prospect demande : « Et niveau budget, ça donne quoi ? » La plupart des freelances improvisent. Ils pensent aux prix vus sur Malt, retirent 20 % « pour être sûrs de l'avoir », et lâchent un chiffre qu'ils regretteront pendant douze mois. Un prix lâché sous la pression ne se rattrape pas : tu ne rappelleras pas la semaine suivante pour annoncer 40 % de plus. Résultat classique : un accompagnement à 700 € par mois qui, une fois le temps réel compté, revient à 22 € de l'heure. La solution n'est pas le culot, c'est la grille : des prix construits depuis ton taux journalier, écrits avant l'appel, jamais improvisés. Dans cette leçon, tu vas construire cette grille chiffre par chiffre, puis apprendre à la présenter sans trembler.
 
 ## Le contenu
 
@@ -18,9 +18,9 @@ La méthode tient en trois étapes : estimer les jours par livrable, multiplier 
 
 La stratégie social media : quatre à cinq jours de travail — audit, entretiens, construction, restitution. 4,5 jours fois 450 € : 2 025 €. Prix affiché : 2 200 €, dans la fourchette marché de 1 500 à 3 000 €. La marge au-dessus du calcul brut couvre les imprévus et l'avant-vente.
 
-Le retainer starter : deux jours et demi à trois jours par mois — planning, huit à douze posts sur deux réseaux, modération, reporting. 2,75 jours fois 450 € : 1 240 €. Prix affiché : 1 200 € par mois, dans la fourchette 800-1 500 €, et la rentabilité montera avec les mois puisque tu produiras plus vite.
+Le retainer starter : deux jours et demi à trois jours par mois — planning, huit à douze posts sur deux réseaux, modération, reporting. 2,75 jours fois 450 € : 1 240 €. Prix affiché : 1 300 € par mois, dans la fourchette 800-1 500 €, et la rentabilité montera avec les mois puisque tu produiras plus vite.
 
-L'accompagnement complet : quatre à six jours par mois. 5 jours fois 450 € : 2 250 €. Prix affiché : 2 200 à 2 400 €, dans la fourchette 1 500-3 000 €.
+L'accompagnement complet : quatre à six jours par mois. 5 jours fois 450 € : 2 250 €. Prix affiché : 2 400 €, dans la fourchette 1 500-3 000 €.
 
 La gestion publicitaire : un jour et demi par mois. 1,5 jour fois 450 € : 675 €. Prix affiché : 700 € en forfait, avec bascule à 10-15 % du budget média au-delà de 5 000 € de dépense mensuelle.
 
@@ -40,7 +40,7 @@ Deux : envoie la proposition sous 48 heures, avec les trois options, et recomman
 
 Trois : ne baisse jamais un prix, retire du périmètre. « 1 900 €, c'est au-dessus de mon budget » n'appelle pas une remise, mais un ajustement : « On peut passer à 1 500 € en retirant les deux vidéos mensuelles. » Une remise sans contrepartie dit que ton premier prix était faux — et t'engage à négocier chaque renouvellement.
 
-Dernier point : augmente tes prix de 10 % par an, ou à chaque nouveau client entrant. Tes anciens clients gardent leur tarif un an de plus : c'est leur avantage de fidélité, et ton argument pour annoncer la hausse sans friction.
+Dernier point : augmente tes prix de 10 % par an, ou à chaque nouveau client. Tes anciens clients gardent leur tarif un an de plus : leur avantage de fidélité, et ton argument pour annoncer la hausse sans friction.
 
 ## Exemple appliqué
 
@@ -56,7 +56,7 @@ Le directeur communication répond : le standard l'intéresse, mais son budget p
 
 Facturer à l'heure. L'heure punit ton efficacité : plus tu deviens rapide, moins tu gagnes. Elle pousse aussi le client à surveiller ton temps au lieu de regarder tes résultats. Le forfait à périmètre écrit protège les deux parties.
 
-Copier les prix des autres. Le freelance vu sur Malt à 300 € la journée a peut-être un conjoint qui paie le loyer, une clientèle low-cost, ou trois mois d'activité. Son prix ne dit rien de tes coûts ni de ton positionnement. Ta grille se construit depuis ton TJM, pas depuis la peur du voisin.
+Copier les prix des autres. Le freelance vu sur Malt à 300 € la journée a peut-être un conjoint qui paie le loyer, une clientèle low-cost ou trois mois d'activité. Son prix ne dit rien de tes coûts ni de ton positionnement. Ta grille se construit depuis ton TJM, pas depuis la peur du voisin.
 
 Lâcher un chiffre à chaud. Un prix improvisé en call est presque toujours trop bas, et il t'engage. La fourchette à l'oral plus la proposition sous 48 heures : cette mécanique seule peut te faire gagner 20 % de revenu sur une année.
 

@@ -55,7 +55,7 @@ Laisser la stratégie se renégocier dans les commentaires. « Finalement je n'a
 
 Ne pas écrire la clause de validation tacite. Sans elle, le silence du client devient ton retard. Tu n'as aucun levier de relance, et « je n'ai pas eu le temps de valider » devient un motif recevable de posts non publiés — qu'on te reprochera quand même.
 
-Relancer sans conséquence. Trois « petit rappel :) » sans suite apprennent au client que tes délais sont décoratifs. La relance de J+5 énonce ce qui se passe demain, et à J+6 ça se passe.
+Relancer sans conséquence. Trois « petit rappel » sans suite apprennent au client que tes délais sont décoratifs. La relance de J+5 énonce ce qui se passe demain, et à J+6 ça se passe.
 
 ## Action immédiate
 

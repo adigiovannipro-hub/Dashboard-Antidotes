@@ -1,0 +1,98 @@
+{
+  "slug": "publicite-google",
+  "title": "Publicité Google",
+  "description": "Ce module apprend à utiliser Google Ads sans gaspiller le budget des clients : choisir la bonne famille de campagne, construire un Search rentable pas à pas, et arbitrer les budgets face à Meta. Il donne les grilles de décision, les réglages à verrouiller et la méthode de mesure blended qui rend les reportings crédibles.",
+  "position": 9,
+  "lessons": [
+    {
+      "position": 1,
+      "slug": "search-pmax-youtube",
+      "title": "Search, Performance Max, YouTube : quoi utiliser quand",
+      "summary": "Les trois familles de campagnes Google servent des rôles distincts : le Search capte une demande existante, Performance Max automatise tout mais exige un historique de conversions, YouTube crée la demande sans livrer de conversions directes. La leçon donne une grille de décision en trois questions et les seuils de budget en dessous desquels on se concentre sur une seule campagne.",
+      "duration_min": 10,
+      "script_file": "01-search-pmax-youtube.md",
+      "resources": [
+        {
+          "title": "Grille de décision Search / PMax / YouTube",
+          "description": "Un tableau à trois questions (demande existante, historique de conversions, budget et assets vidéo) qui désigne la famille de campagne adaptée à chaque client.",
+          "kind": "template",
+          "url": null
+        },
+        {
+          "title": "Audit express d'un compte Google Ads",
+          "description": "Une checklist en quatre points : types de campagnes actifs, répartition du budget, Réseau Display et partenaires de recherche décochés, suivi de conversion branché sur une action à valeur business.",
+          "kind": "checklist",
+          "url": null
+        },
+        {
+          "title": "Google Ads",
+          "description": "L'interface de création et de gestion des campagnes, qui contient aussi le planificateur de mots-clés pour vérifier volumes et CPC avant tout engagement.",
+          "kind": "tool",
+          "url": "https://ads.google.com"
+        }
+      ]
+    },
+    {
+      "position": 2,
+      "slug": "campagne-search-rentable",
+      "title": "Construire une campagne Search rentable",
+      "summary": "Six étapes dans l'ordre : mots-clés transactionnels, correspondances exact et expression avec exclusions dès le jour un, annonces responsives à quatre registres, extensions, enchères adaptées à la maturité du compte, et suivi de conversion testé avant le premier euro. La leçon détaille aussi la routine hebdomadaire du rapport des termes de recherche, qui fait la rentabilité dans la durée.",
+      "duration_min": 10,
+      "script_file": "02-campagne-search-rentable.md",
+      "resources": [
+        {
+          "title": "Squelette de campagne Search",
+          "description": "Un tableur type avec les groupes d'annonces, les mots-clés et leur correspondance, la liste d'exclusions de départ et la page de destination associée à chaque groupe.",
+          "kind": "template",
+          "url": null
+        },
+        {
+          "title": "Checklist de lancement Search",
+          "description": "Les vérifications avant activation : réseaux Display et partenaires décochés, conversion testée en conditions réelles, extensions posées, plafond de CPC cohérent avec le planificateur.",
+          "kind": "checklist",
+          "url": null
+        },
+        {
+          "title": "Aide Google Ads",
+          "description": "La documentation officielle de Google sur les correspondances de mots-clés, les stratégies d'enchères et les composants d'annonces.",
+          "kind": "link",
+          "url": "https://support.google.com/google-ads"
+        },
+        {
+          "title": "Google Ads",
+          "description": "L'interface où se construisent la campagne, les exclusions et le rapport des termes de recherche à relire chaque semaine.",
+          "kind": "tool",
+          "url": "https://ads.google.com"
+        }
+      ]
+    },
+    {
+      "position": 3,
+      "slug": "arbitrer-meta-google",
+      "title": "Mesurer et arbitrer entre Meta et Google",
+      "summary": "Meta et Google attribuent les mêmes ventes selon des règles différentes, donc leurs chiffres ne s'additionnent jamais et ne se comparent pas directement. La leçon installe le référentiel blended (MER, coût d'acquisition global), le tableau mensuel côte à côte, et la logique d'arbitrage qui remplit d'abord le Search avant d'étendre la prospection Meta, un mouvement de budget à la fois.",
+      "duration_min": 10,
+      "script_file": "03-arbitrer-meta-google.md",
+      "resources": [
+        {
+          "title": "Tableau blended mensuel",
+          "description": "Un tableur à huit colonnes par mois — dépenses Meta, Google et totale, CA déclaré par chaque régie, CA réel, MER, commentaire — qui sert de première page au reporting.",
+          "kind": "template",
+          "url": null
+        },
+        {
+          "title": "Protocole d'arbitrage budgétaire",
+          "description": "Une checklist qui encadre chaque mouvement de budget : un seul changement à la fois, plus ou moins 20 pour cent, fenêtre de deux à trois semaines, seuil de MER qui valide ou annule la décision.",
+          "kind": "checklist",
+          "url": null
+        },
+        {
+          "title": "Meta Business Suite",
+          "description": "L'accès au Gestionnaire de publicités Meta, où se lisent les dépenses et le CA attribué, et où se règle la fenêtre d'attribution à aligner avant toute comparaison.",
+          "kind": "tool",
+          "url": "https://business.facebook.com"
+        }
+      ]
+    }
+  ]
+}

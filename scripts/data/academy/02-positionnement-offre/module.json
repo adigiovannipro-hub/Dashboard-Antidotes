@@ -104,7 +104,7 @@
       "resources": [
         {
           "title": "Gabarit de page d'offre en cinq blocs",
-          "description": "La page type à compléter : promesse, preuve, contenu en trois blocs de livrables, prix en fourchette et appel à l'action unique.",
+          "description": "La page type à remplir bloc par bloc : promesse, preuve, contenu en trois blocs de livrables, prix en fourchette et appel à l'action unique.",
           "kind": "template",
           "url": null
         },

@@ -1,6 +1,6 @@
 ## L'accroche
 
-Claire, freelance social media à Angers depuis deux ans, a fait l'exercice en décembre : reprendre toutes ses factures de l'année et les classer par type de prestation. Résultat : 91 % de son chiffre d'affaires venait de quatre livrables. Les 9 % restants — une couverture d'événement, deux formations, un shooting — lui avaient pris presque autant d'énergie commerciale que tout le reste. Ce ratio n'est pas propre à Claire. Chez la quasi-totalité des social media managers freelances installés, 90 % du chiffre d'affaires tient dans les quatre mêmes livrables. Si tu les connais, tu sais quoi construire, quoi vendre, et quoi refuser. Si tu les ignores, tu vas passer un an à accepter tout ce qui passe, en te dispersant sur des prestations qui ne se répètent jamais. Dans cette leçon, on détaille les quatre : leur contenu exact, leur prix, le temps qu'ils te prennent, et ce que le client en voit.
+Claire, freelance social media à Angers depuis deux ans, a fait l'exercice en décembre : reprendre toutes ses factures de l'année et les classer par type de prestation. Résultat : 91 % de son chiffre d'affaires venait de quatre livrables. Les 9 % restants — une couverture d'événement, deux formations, un shooting — lui avaient pris presque autant d'énergie commerciale que tout le reste. Ce ratio n'est pas propre à Claire : chez la quasi-totalité des freelances installés, 90 % du chiffre d'affaires tient dans les quatre mêmes livrables. Si tu les connais, tu sais quoi construire, quoi vendre et quoi refuser. Sinon, tu passeras un an à accepter tout ce qui passe, sur des prestations qui ne se répètent jamais. Dans cette leçon, on détaille les quatre : leur contenu exact, leur prix, le temps qu'ils te prennent, et ce que le client en voit.
 
 ## Le contenu
 
@@ -12,7 +12,7 @@ Ce qu'il contient : un audit de l'existant — les comptes du client, ses donné
 
 Le temps de production : trois à cinq jours pleins. Une journée d'audit et d'entretien avec le client, deux à trois jours de construction, une demi-journée de mise en forme, une restitution d'une heure trente.
 
-Ce que le client voit : un document de 25 à 40 pages, présenté de vive voix, qu'il peut montrer à son associé ou à sa direction. C'est un objet tangible, et c'est important : le one-shot doit se toucher.
+Ce que le client voit : un document de 25 à 40 pages, présenté de vive voix, qu'il peut montrer à son associé ou à sa direction. Un objet tangible : le one-shot doit se toucher.
 
 Son vrai rôle : ouvrir la porte du retainer. Une stratégie bien restituée débouche sur un accompagnement mensuel dans la majorité des cas, parce que la question suivante du client est toujours « et qui exécute ça ? ».
 
@@ -62,7 +62,7 @@ Mois 4 : les fondations tiennent, tu ajoutes la gestion Meta Ads à 800 € par 
 
 Mois 7 : ton reporting montre que le retour sur dépense publicitaire est passé de 3,1 à 1,9 en un mois. Tu détectes la cause — une audience saturée — et tu réalloues vers une audience similaire avant que la fondatrice ait remarqué la baisse. Elle le lit dans le reporting, déjà résolu.
 
-Première année complète : 2 400 + 15 600 + 7 200 = 25 200 € HT sur ce seul client. Quatre livrables, aucune prestation exotique.
+Première année, compte mois par mois : 2 400 € de stratégie, onze mensualités de retainer à 1 300 € soit 14 300 €, neuf mois de gestion publicitaire à 800 € soit 7 200 €. Total : 23 900 € HT sur ce seul client. Quatre livrables, aucune prestation exotique.
 
 ## Les erreurs fréquentes
 

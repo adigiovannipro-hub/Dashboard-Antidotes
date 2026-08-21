@@ -1,0 +1,126 @@
+{
+  "slug": "mesure-reporting",
+  "title": "Mesure et reporting",
+  "description": "Ce module t'apprend à choisir les métriques qui déclenchent des décisions, à construire un reporting mensuel que ton client lit en cinq minutes, et à mener la réunion qui fait durer le retainer. Il se termine par l'automatisation de la collecte pour sortir du copier-coller sans jamais automatiser l'analyse.",
+  "position": 11,
+  "lessons": [
+    {
+      "position": 1,
+      "slug": "metriques-par-plateforme",
+      "title": "Les métriques qui comptent par plateforme",
+      "summary": "Pour Instagram, Facebook, LinkedIn, TikTok et la publicité, tu retiens trois ou quatre métriques capables de déclencher une décision, et tu écartes les likes bruts, les impressions et le total d'abonnés. La leçon démonte aussi les deux pièges de calcul qui faussent les reportings : la moyenne de taux ligne à ligne et la portée additionnée jour par jour.",
+      "duration_min": 9,
+      "script_file": "01-metriques-par-plateforme.md",
+      "resources": [
+        {
+          "title": "Checklist des métriques par plateforme",
+          "description": "La liste des trois ou quatre métriques à suivre par réseau, avec leur définition exacte, la décision qu'elles peuvent déclencher et les métriques à ignorer.",
+          "kind": "checklist",
+          "url": null
+        },
+        {
+          "title": "Modèle de tableau de suivi mensuel",
+          "description": "Une feuille de calcul prête à remplir : une ligne par métrique retenue, les grandeurs brutes additives, et les ratios recalculés sur les totaux pour éviter la moyenne de taux.",
+          "kind": "template",
+          "url": null
+        },
+        {
+          "title": "Meta Business Suite",
+          "description": "L'interface native où lire et exporter les statistiques Facebook et Instagram de tes clients.",
+          "kind": "tool",
+          "url": "https://business.facebook.com"
+        }
+      ]
+    },
+    {
+      "position": 2,
+      "slug": "reporting-mensuel",
+      "title": "Construire un reporting mensuel que le client comprend",
+      "summary": "Tu construis un reporting en quatre blocs — synthèse chiffrée avec variations, détail par réseau, top et flop des contenus avec hypothèses, décisions pour le mois suivant — qui répond aux trois questions du client : que s'est-il passé, est-ce bien, que fait-on. Tu retires les vignettes de posts, le jargon et les graphiques décoratifs, car ce que le client paie, c'est le commentaire qu'il ne pourrait pas écrire lui-même.",
+      "duration_min": 9,
+      "script_file": "02-reporting-mensuel.md",
+      "resources": [
+        {
+          "title": "Trame de reporting mensuel en quatre blocs",
+          "description": "Le modèle de document de 4 à 6 pages : page de synthèse à quatre ou six chiffres avec variations, détail par réseau, contenus commentés, décisions du mois suivant.",
+          "kind": "template",
+          "url": null
+        },
+        {
+          "title": "Checklist avant envoi du reporting",
+          "description": "Les vérifications à faire avant chaque envoi : variations présentes sur chaque chiffre, jargon traduit, au moins une phrase de lecture par page, deux à trois décisions reliées à des chiffres.",
+          "kind": "checklist",
+          "url": null
+        },
+        {
+          "title": "Looker Studio",
+          "description": "L'outil gratuit de Google pour transformer ta trame de reporting en tableau de bord partageable avec le client.",
+          "kind": "tool",
+          "url": "https://lookerstudio.google.com"
+        }
+      ]
+    },
+    {
+      "position": 3,
+      "slug": "presenter-les-resultats",
+      "title": "Présenter les résultats et défendre ses recommandations",
+      "summary": "Tu mènes la réunion mensuelle en trente minutes et quatre temps — chiffres clés, ce qui a marché ou non, décisions en questions fermées, mois suivant — avec le reporting envoyé 48 heures avant. Tu apprends à annoncer un mauvais mois en donnant le chiffre d'abord, la cause prouvée, puis le plan, et à défendre chaque recommandation par un chiffre, un coût et un test réversible.",
+      "duration_min": 9,
+      "script_file": "03-presenter-les-resultats.md",
+      "resources": [
+        {
+          "title": "Ordre du jour type de la réunion mensuelle",
+          "description": "La trame de trente minutes en quatre temps, avec les trois messages à préparer, les décisions à formuler en questions fermées et le modèle d'e-mail de compte rendu en cinq lignes.",
+          "kind": "template",
+          "url": null
+        },
+        {
+          "title": "Checklist pour annoncer un mauvais mois",
+          "description": "La séquence chiffre nu, cause factuelle parmi les trois familles (marché, contenu, dispositif), plan daté — et les deux interdits : s'excuser d'une mesure et accuser l'algorithme sans preuve.",
+          "kind": "checklist",
+          "url": null
+        },
+        {
+          "title": "Grille de chiffrage d'une recommandation",
+          "description": "Le format en trois appuis pour chaque recommandation : le chiffre d'origine, le coût et le gain attendu avec échéance, la version test réversible à proposer.",
+          "kind": "template",
+          "url": null
+        }
+      ]
+    },
+    {
+      "position": 4,
+      "slug": "automatiser-la-collecte",
+      "title": "Automatiser la collecte de données",
+      "summary": "Tu passes de quatre heures de copier-coller mensuel à des tableaux qui se remplissent seuls, en trois niveaux : exports CSV vers un tableur structuré, connecteurs payants vers Looker Studio, puis un modèle de tableau de bord par client alimenté en continu. Tu automatises d'abord ton plus gros retainer et les données publicitaires, tu vérifies tout chiffre aberrant avant envoi, et tu n'automatises jamais le commentaire.",
+      "duration_min": 9,
+      "script_file": "04-automatiser-la-collecte.md",
+      "resources": [
+        {
+          "title": "Looker Studio",
+          "description": "L'outil gratuit de Google pour construire des tableaux de bord alimentés par connecteurs, avec GA4, Google Ads et Google Sheets en sources natives gratuites.",
+          "kind": "tool",
+          "url": "https://lookerstudio.google.com"
+        },
+        {
+          "title": "Metricool",
+          "description": "Un outil de reporting social media avec connecteurs Meta, Instagram, LinkedIn et TikTok, une des options payantes pour alimenter Looker Studio.",
+          "kind": "tool",
+          "url": "https://metricool.com"
+        },
+        {
+          "title": "Checklist : quoi automatiser en premier",
+          "description": "L'ordre de priorité — plus gros retainer, données publicitaires, organique mensuel — avec les cas à ne pas automatiser et le contrôle des chiffres aberrants avant chaque envoi.",
+          "kind": "checklist",
+          "url": null
+        },
+        {
+          "title": "Inventaire de ta collecte manuelle",
+          "description": "Un tableau à remplir en une heure : chaque chiffre recopié à la main, sa source, le temps de collecte, pour identifier les trois premiers candidats à l'automatisation.",
+          "kind": "template",
+          "url": null
+        }
+      ]
+    }
+  ]
+}

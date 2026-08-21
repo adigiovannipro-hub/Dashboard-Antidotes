@@ -98,7 +98,7 @@
       "resources": [
         {
           "title": "Fiche des quatre objections",
-          "description": "Les quatre cases — prix, délai, personne en place, test interne — avec pour chacune la question pour creuser et la réponse chiffrée à compléter avec tes tarifs.",
+          "description": "Les quatre cases — prix, délai, personne en place, test interne — avec pour chacune la question pour creuser et la réponse chiffrée que tu personnalises avec tes propres tarifs.",
           "kind": "template",
           "url": null
         },

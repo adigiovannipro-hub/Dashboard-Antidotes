@@ -46,7 +46,7 @@ Contenu, trois blocs. « Stratégie de lancement » : audit du compte, positionn
 
 Prochaine étape : « Réserve un call de 30 minutes », avec le lien de son agenda en ligne.
 
-Ce que ça change dans ses chiffres : avant, chaque premier contact débouchait sur un long mail et un devis personnalisé — environ deux heures par prospect. Maintenant elle envoie la page dans les cinq minutes qui suivent le premier échange. Sur ses vingt derniers envois : six calls réservés, deux signatures — cohérent avec un closing à 25-30 % — et surtout quatre prospects hors budget qui se sont éliminés seuls en voyant « à partir de 900 € », sans lui coûter un seul rendez-vous.
+Ce que ça change dans ses chiffres : avant, chaque premier contact débouchait sur un long mail et un devis personnalisé — environ deux heures par prospect. Maintenant elle envoie la page dans les cinq minutes qui suivent le premier échange. Sur ses vingt derniers envois : sept calls réservés, deux signatures — cohérent avec un closing à 25-30 % — et surtout quatre prospects hors budget qui se sont éliminés seuls en voyant « à partir de 900 € », sans lui coûter un seul rendez-vous.
 
 ## Les erreurs fréquentes
 

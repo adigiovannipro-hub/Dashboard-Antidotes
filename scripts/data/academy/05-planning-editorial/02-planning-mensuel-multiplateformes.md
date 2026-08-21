@@ -4,7 +4,7 @@ Tu as tes 12 intentions du mois, propres, datées, validées dans ta tête. Tu o
 
 ## Le contenu
 
-On est en plein dans le premier E d'Exécution de SPEED : transformer des intentions en calendrier publiable. Le principe qui gouverne tout : un sujet n'est pas un post. Un sujet se décline par réseau, il ne se duplique pas.
+On est en plein dans le deuxième E de SPEED, l'Exécution : transformer des intentions en calendrier publiable. Le principe qui gouverne tout : un sujet n'est pas un post. Un sujet se décline par réseau, il ne se duplique pas.
 
 ### Étape 1 — hiérarchise les réseaux
 
@@ -22,7 +22,7 @@ Le mardi et le jeudi sur le principal, le mercredi sur le secondaire, par exempl
 
 Un sujet fort du réseau principal peut vivre sur le secondaire, à trois conditions. Le format s'adapte : un reel Instagram devient un post photo + texte sur Facebook, un carrousel LinkedIn devient trois stories. La date se décale : deux à trois jours entre les deux versions, jamais le même jour — tu doubles la durée de vie du sujet au lieu de cannibaliser sa portée. Et la caption se réécrit : même message, codes du réseau. Le copier-coller intégral, c'est le signal le plus visible d'un community management au rabais, et les clients le voient.
 
-Concrètement, sur 12 posts : environ 7 sujets natifs pour le principal, et 4 à 5 déclinaisons ou sujets propres pour le secondaire. Tu ne produis pas 12 contenus de zéro, tu en produis 8 et tu en déclines 4. C'est ça, la marge.
+Concrètement, sur 12 posts : 8 sujets natifs sur le principal — deux par semaine —, et 4 déclinaisons sur le secondaire. Tu ne produis pas 12 contenus de zéro, tu en produis 8 et tu en déclines 4. Une déclinaison coûte une vingtaine de minutes quand un contenu natif en coûte une heure et demie : sur un retainer starter, c'est cette ligne-là qui décide si le contrat est rentable.
 
 ### Étape 5 — vérifie l'équilibre semaine par semaine
 
