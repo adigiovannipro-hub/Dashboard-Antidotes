@@ -34,7 +34,8 @@
     "sync:recus": "node --conditions=react-server --import tsx scripts/sync-recus.ts",
     "sync:moderation": "node --conditions=react-server --import tsx scripts/sync-moderation.ts",
     "publier:planning": "node --conditions=react-server --import tsx scripts/publish-planning.ts",
-    "import:followers": "tsx scripts/import-followers.ts"
+    "import:followers": "tsx scripts/import-followers.ts",
+    "generate:academy-seed": "tsx scripts/generate-academy-seed.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.115.0",
