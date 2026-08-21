@@ -16,7 +16,7 @@ Le budget hebdomadaire minimum pour apprendre se calcule en une ligne : coût pa
 
 CPA de 20 € : il faut 1 000 € par semaine, soit environ 4 300 € par mois. CPA de 40 € : 2 000 € par semaine, plus de 8 500 € par mois. Coût par prospect de 8 € en génération de leads : 400 € par semaine, environ 1 700 € par mois — déjà plus accessible.
 
-Fais ce calcul pour chaque compte que tu auditères en phase S de SPEED. La plupart des petits comptes sont cinq à dix fois en dessous du seuil. Ce n'est pas une nuance : c'est la différence entre un système qui apprend et un système qui tire au hasard.
+Fais ce calcul pour chaque compte que tu audites en phase S de SPEED. La plupart des petits comptes sont cinq à dix fois en dessous du seuil. Ce n'est pas une nuance : c'est la différence entre un système qui apprend et un système qui tire au hasard.
 
 ### Les signaux d'un compte qui ne peut pas apprendre
 

@@ -2330,7 +2330,7 @@ on conflict (id) do nothing;
 insert into academy_lessons (id, module_id, course_id, org_id, slug, title, summary, script_mdx, duration_min, video_provider, resources, order_index, published)
 select '33bd3386-7fb7-4f08-9ddc-608512778227'::uuid, m.id, m.course_id, m.org_id, 'objectif-et-evenement', $sq$Choisir le bon objectif et le bon événement d'optimisation$sq$, $sq$Tu alignes objectif de campagne, événement d'optimisation et réalité du pixel avant de dépenser un euro. Tu vois pourquoi une campagne trafic ruine un objectif de vente, et comment vérifier le Gestionnaire d'événements en dix minutes : volumes sur 7 jours, déduplication, valeur d'achat.$sq$, $sq$## L'accroche
 
-Claire reprend le compte d'un client en début d'année. L'ancien prestataire faisait tourner une campagne « Trafic » depuis huit mois. Les rapports étaient flatteurs : 4 200 clics par mois à 0,38 € le clic. Le client était content — jusqu'au jour où il a compté ce que ça produisait vraiment : 9 demandes de devis. Neuf. Soit un coût réel de 177 € par demande, caché derrière un coût par clic qui avait l'air imbattable. Le problème n'était ni la créa ni l'audience. C'était l'instruction donnée à la machine. Meta livre exactement ce que tu lui demandes : tu demandes des clics, il te trouve des gens qui cliquent sur tout. Tu demandes des ventes, il cherche des acheteurs. Le choix de l'objectif et de l'événement d'optimisation est la décision la plus importante de toute ta gestion publicitaire, et c'est celle qui se prend en trente secondes sans réfléchir. Cette leçon t'apprend à la prendre correctement.
+Claire reprend le compte d'un client en début d'année. L'ancien prestataire faisait tourner une campagne « Trafic » depuis huit mois. Les rapports étaient flatteurs : 4 200 clics par mois à 0,43 € le clic. Le client était content — jusqu'au jour où il a compté ce que ça produisait vraiment : 9 demandes de devis. Neuf. Soit un coût réel de 200 € par demande, caché derrière un coût par clic qui avait l'air imbattable. Le problème n'était ni la créa ni l'audience. C'était l'instruction donnée à la machine. Meta livre exactement ce que tu lui demandes : tu demandes des clics, il te trouve des gens qui cliquent sur tout. Tu demandes des ventes, il cherche des acheteurs. Le choix de l'objectif et de l'événement d'optimisation est la décision la plus importante de toute ta gestion publicitaire, et c'est celle qui se prend en trente secondes sans réfléchir. Cette leçon t'apprend à la prendre correctement.
 
 ## Le contenu
 
@@ -2414,7 +2414,7 @@ Le budget hebdomadaire minimum pour apprendre se calcule en une ligne : coût pa
 
 CPA de 20 € : il faut 1 000 € par semaine, soit environ 4 300 € par mois. CPA de 40 € : 2 000 € par semaine, plus de 8 500 € par mois. Coût par prospect de 8 € en génération de leads : 400 € par semaine, environ 1 700 € par mois — déjà plus accessible.
 
-Fais ce calcul pour chaque compte que tu auditères en phase S de SPEED. La plupart des petits comptes sont cinq à dix fois en dessous du seuil. Ce n'est pas une nuance : c'est la différence entre un système qui apprend et un système qui tire au hasard.
+Fais ce calcul pour chaque compte que tu audites en phase S de SPEED. La plupart des petits comptes sont cinq à dix fois en dessous du seuil. Ce n'est pas une nuance : c'est la différence entre un système qui apprend et un système qui tire au hasard.
 
 ### Les signaux d'un compte qui ne peut pas apprendre
 
