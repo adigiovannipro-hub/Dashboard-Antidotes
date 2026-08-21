@@ -186,6 +186,16 @@ function NativePlayer({
   );
 }
 
+/**
+ * L'emplacement d'une vidéo absente — **court, pas en 16:9**.
+ *
+ * Un cadre 16:9 pleine largeur fait 450 px de vide mesurés au navigateur,
+ * juste au-dessus du titre : sur une formation dont les 54 leçons attendent
+ * encore leur tournage, chaque page s'ouvrirait sur un trou. La charte
+ * tranche — « un état vide est court et donne une sortie » —, et c'est le
+ * script qui doit occuper la meilleure zone de l'écran. Le 16:9 revient dès
+ * qu'il y a une vidéo à cadrer.
+ */
 function Placeholder({
   isAdmin,
   adminHref,
@@ -196,9 +206,15 @@ function Placeholder({
   reason: string;
 }) {
   return (
-    <div className="flex aspect-video w-full flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-border-strong bg-surface-sunken">
-      <Video aria-hidden strokeWidth={1.75} className="size-5 text-text-tertiary" />
-      <p className="type-body text-text-secondary">{reason} — le script se lit dès maintenant.</p>
+    <div className="flex flex-wrap items-center gap-3 rounded-lg border border-dashed border-border-strong bg-surface-sunken px-5 py-4">
+      <Video
+        aria-hidden
+        strokeWidth={1.75}
+        className="size-5 shrink-0 text-text-tertiary"
+      />
+      <p className="type-body min-w-0 flex-1 text-text-secondary">
+        {reason} — le script se lit dès maintenant.
+      </p>
       {isAdmin ? (
         <Link
           href={adminHref}

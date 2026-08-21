@@ -263,7 +263,10 @@ export default async function AcademyLessonPage({ params }: { params: Params }) 
                   >
                     {candidate.title}
                   </span>
-                  <span className="type-caption shrink-0 text-text-tertiary tabular-nums">
+                  {/* La durée est du texte : `--text-secondary`. L'encre
+                      tertiaire, à 2,79:1, ne sert qu'aux icônes — comme la
+                      pastille d'état juste au-dessus. */}
+                  <span className="type-caption shrink-0 text-text-secondary tabular-nums">
                     {candidate.duration_min ? `${candidate.duration_min} min` : ""}
                   </span>
                 </Link>

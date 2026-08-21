@@ -127,7 +127,10 @@ export default async function AcademyAdminPage({
                   >
                     {module.title}
                   </span>
-                  <span className="type-caption shrink-0 text-text-tertiary tabular-nums">
+                  {/* `--text-secondary` et non `--text-tertiary` : ce dernier
+                      est à 2,79:1 sur blanc, réservé aux icônes — un compteur
+                      se lit. Relevé à l'audit, pas à la relecture. */}
+                  <span className="type-caption shrink-0 text-text-secondary tabular-nums">
                     {lessonCountByModule.get(module.id) ?? 0}
                   </span>
                   <StatusPill
