@@ -18,7 +18,7 @@ La règle qui change tout : PMax se nourrit de données de conversion. Sans hist
 
 ### YouTube : créer la demande, pas la récolter
 
-Les campagnes vidéo YouTube servent la notoriété et la considération. Le coût par vue est bas — comptez 0,02 à 0,06 € la vue en France — donc tu touches beaucoup de monde pour pas cher. En échange, il ne faut pas attendre de conversions directes : quelqu'un qui regarde une vidéo entre deux tutos ne sort pas sa carte bleue. YouTube se juge sur la couverture, le taux de vue, la mémorisation, et sur ce qu'il alimente ensuite : les audiences de personnes ayant vu tes vidéos se recyclent en retargeting, et les recherches de marque augmentent dans les semaines qui suivent une campagne bien faite.
+Les campagnes vidéo YouTube servent la notoriété et la considération. Le coût par vue est bas — compte 0,02 à 0,06 € la vue en France — donc tu touches beaucoup de monde pour pas cher. En échange, il ne faut pas attendre de conversions directes : quelqu'un qui regarde une vidéo entre deux tutos ne sort pas sa carte bleue. YouTube se juge sur la couverture, le taux de vue, la mémorisation, et sur ce qu'il alimente ensuite : les audiences de personnes ayant vu tes vidéos se recyclent en retargeting, et les recherches de marque augmentent dans les semaines qui suivent une campagne bien faite.
 
 Prérequis souvent oublié : il faut des vidéos. Pas un montage de photos avec de la musique libre de droits — une vraie création pensée pour capter en 5 secondes. Si le client n'a ni les assets ni le budget pour en produire, YouTube n'est pas pour lui, point.
 
@@ -26,7 +26,7 @@ Prérequis souvent oublié : il faut des vidéos. Pas un montage de photos avec 
 
 Trois questions, dans l'ordre. Un : la demande existe-t-elle ? Si oui, Search d'abord, toujours. Deux : le compte a-t-il un historique de conversions et, pour un e-commerce, un flux produit ? Si oui, PMax peut venir en complément du Search, jamais à la place. Trois : le client a-t-il un budget dédié à la notoriété et des vidéos ? Si oui seulement, YouTube.
 
-Côté budget : sous 1 000 € de média par mois, une seule campagne Search bien construite. Vouloir répartir 900 € sur trois campagnes, c'est condamner les trois à ne jamais apprendre. Et rappelle-toi ton propre modèle : tu factures la gestion 500 à 1 000 € HT par mois en forfait. En dessous de 1 000-1 500 € de budget média mensuel, ta prestation coûte plus cher que la pub — dis-le au client plutôt que de vendre une gestion qui ne pourra pas être rentable.
+Côté budget : sous 1 000 € de média par mois, une seule campagne Search bien construite. Vouloir répartir 900 € sur trois campagnes, c'est condamner les trois à ne jamais apprendre. Et rappelle-toi ton propre modèle : tu factures la gestion 500 à 1 000 € HT par mois en forfait, et 10 à 15 % du budget média au-delà de 5 000 € de dépense mensuelle. Sous 1 000 € de média, ton forfait pèse donc la moitié ou plus de ce qui part réellement en publicité. Ça ne se tient que si le ticket moyen est élevé : un projet d'artisan à 9 000 € absorbe sans problème 500 € de gestion, une vente à 40 € non. Dis-le au client avant de signer, pas au troisième reporting.
 
 ## Exemple appliqué
 
