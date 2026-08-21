@@ -8,7 +8,7 @@ import { shouldComplete } from "@/lib/academy/progress";
 import { videoUploadError } from "@/lib/academy/upload";
 import { parseVideoUrl } from "@/lib/academy/video";
 import { createClient } from "@/lib/supabase/server";
-import { slugify, uniqueSlug } from "@/lib/workspaces/slug";
+import { uniqueSlug } from "@/lib/workspaces/slug";
 
 export type AcademyResult =
   | { ok: true; message?: string }
@@ -186,6 +186,88 @@ export async function saveLessonNote(input: {
     );
     if (error) throw new Error(error.message);
 
+    return OK;
+  } catch (error) {
+    return fail(error);
+  }
+}
+
+// === Back-office : cours =======================================================
+
+const createCourseInput = z.object({
+  title: z.string().trim().min(1, "Le titre ne peut pas être vide.").max(120),
+  description: z.string().trim().max(600).nullable(),
+});
+
+/** La création du cours — utile avant le seed, ou pour une seconde formation. */
+export async function createCourse(input: {
+  title: string;
+  description: string | null;
+}): Promise<AcademyResult> {
+  const parsed = createCourseInput.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Saisie invalide." };
+  }
+
+  try {
+    const context = await guardAdmin();
+    const supabase = await createClient();
+
+    const { data: siblings } = await supabase
+      .from("academy_courses")
+      .select("slug, order_index")
+      .eq("org_id", context.orgId);
+
+    const taken = new Set((siblings ?? []).map((sibling) => sibling.slug));
+    const nextIndex =
+      Math.max(0, ...(siblings ?? []).map((sibling) => sibling.order_index)) + 1;
+
+    const { error } = await supabase.from("academy_courses").insert({
+      org_id: context.orgId,
+      slug: uniqueSlug(parsed.data.title, taken),
+      title: parsed.data.title,
+      description: parsed.data.description,
+      order_index: nextIndex,
+      published: false,
+    });
+    if (error) throw new Error(error.message);
+
+    revalidateAcademy();
+    return { ok: true, message: "Formation créée, en brouillon." };
+  } catch (error) {
+    return fail(error);
+  }
+}
+
+const updateCourseInput = z.object({
+  courseId: z.uuid(),
+  patch: z
+    .object({
+      title: z.string().trim().min(1).max(120).optional(),
+      description: z.string().trim().max(600).nullable().optional(),
+      published: z.boolean().optional(),
+    })
+    .refine((patch) => Object.keys(patch).length > 0, "Rien à modifier."),
+});
+
+export async function updateCourse(input: {
+  courseId: string;
+  patch: { title?: string; description?: string | null; published?: boolean };
+}): Promise<AcademyResult> {
+  const parsed = updateCourseInput.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Saisie invalide." };
+
+  try {
+    await guardAdmin();
+    const supabase = await createClient();
+
+    const { error } = await supabase
+      .from("academy_courses")
+      .update(parsed.data.patch)
+      .eq("id", parsed.data.courseId);
+    if (error) throw new Error(error.message);
+
+    revalidateAcademy();
     return OK;
   } catch (error) {
     return fail(error);
