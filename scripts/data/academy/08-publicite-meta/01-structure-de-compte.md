@@ -1,6 +1,6 @@
 ## L'accroche
 
-Tu récupères le compte publicitaire d'un nouveau client. Tu ouvres le Gestionnaire de publicités et tu trouves 17 campagnes, dont 11 actives. Des noms comme « Test 3 - copie - copie » ou « Promo aout FINAL ». Des budgets de 4 € par jour éparpillés sur 9 ad sets. Personne ne sait ce qui tourne, ni pourquoi. Le client te dit : « On dépense 1 500 € par mois et on ne sait pas ce que ça rapporte. » C'est la situation la plus fréquente que tu rencontreras en reprise de compte. Ce n'est pas un problème de créa, pas un problème de ciblage : c'est un problème de structure. Et tant que la structure est bancale, tout le reste est illisible — impossible de dire quelle audience marche, quelle créa fatigue, quel budget produit quoi. Dans cette leçon, tu vas apprendre ce qui se décide à chaque étage de la hiérarchie Meta, et une structure simple qui tient pour 90 % des comptes que tu géreras en freelance.
+Tu récupères le compte publicitaire d'un nouveau client. Tu ouvres le Gestionnaire de publicités et tu trouves 17 campagnes, dont 9 actives. Des noms comme « Test 3 - copie - copie » ou « Promo aout FINAL ». Des budgets de 5 € par jour éparpillés sur 10 ad sets. Personne ne sait ce qui tourne, ni pourquoi. Le client te dit : « On dépense 1 500 € par mois et on ne sait pas ce que ça rapporte. » C'est la situation la plus fréquente que tu rencontreras en reprise de compte. Ce n'est pas un problème de créa, pas un problème de ciblage : c'est un problème de structure. Et tant que la structure est bancale, tout le reste est illisible — impossible de dire quelle audience marche, quelle créa fatigue, quel budget produit quoi. Dans cette leçon, tu vas apprendre ce qui se décide à chaque étage de la hiérarchie Meta, et une structure simple qui tient pour 90 % des comptes que tu géreras en freelance.
 
 ## Le contenu
 
@@ -40,7 +40,7 @@ Deux modes existent. Le budget au niveau de l'ad set (ABO) : tu contrôles exact
 
 Prenons un e-commerce lifestyle : une marque de linge de maison en lin lavé, panier moyen 85 €, budget média 3 000 € par mois. Toi, tu factures 750 € par mois en gestion publicitaire, dans la fourchette du forfait ads.
 
-À la reprise, le compte porte 9 campagnes héritées de l'ancien prestataire, dont 5 actives avec des budgets entre 3 et 12 € par jour. Tu coupes tout et tu reconstruis.
+À la reprise, le compte porte 9 campagnes héritées de l'ancien prestataire, dont 5 actives, et 18 ad sets aux budgets éparpillés entre 3 et 12 € par jour — une centaine d'euros quotidiens que personne ne sait rattacher à un résultat. Tu coupes tout et tu reconstruis.
 
 Campagne 1 — LINEA_VENTES_PROSPECTION : 70 € par jour, un ad set France 25-65 ans sans centre d'intérêt, optimisation sur l'achat. Quatre annonces : une vidéo de fabrication à l'atelier, un carrousel des trois best-sellers, un témoignage client en format UGC, une image statique avec l'offre de bienvenue.
 
@@ -48,7 +48,7 @@ Campagne 2 — LINEA_VENTES_RETARGETING : 20 € par jour, un ad set qui regroup
 
 Campagne 3 — LINEA_TEST : 10 € par jour, allumée uniquement quand une nouvelle créa doit être validée avant de rejoindre la prospection.
 
-Résultat au premier mois : le compte passe de 23 lignes actives à 7. Le CPA, illisible avant — entre 19 € et 74 € selon les lignes —, se stabilise à 31 € en prospection. Et ton reporting mensuel tient en trois blocs qui correspondent aux trois campagnes : ton client comprend enfin où va son argent, ce qui est la première raison pour laquelle il te gardera.
+Résultat au premier mois : le compte passe de 23 lignes actives à 6 — trois campagnes, trois ad sets. Le CPA, illisible avant — entre 19 € et 74 € selon les lignes —, se stabilise à 31 € en prospection. Et ton reporting mensuel tient en trois blocs qui correspondent aux trois campagnes : ton client comprend enfin où va son argent, ce qui est la première raison pour laquelle il te gardera.
 
 ## Les erreurs fréquentes
 

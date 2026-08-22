@@ -42,7 +42,7 @@ Une mutuelle santé régionale, cible B2C : des particuliers de 55 à 70 ans, pr
 
 Étape 1, le pixel. Le Gestionnaire d'événements montre que le formulaire de devis déclenche bien un événement Prospect : 60 à 70 par semaine toutes sources confondues. Volume suffisant pour optimiser directement dessus.
 
-Étape 2, la reconstruction. Elle coupe la campagne trafic et lance une campagne objectif prospects, optimisation sur l'événement Prospect, un ad set 55-70 ans en audience large régionale. Premier mois : 110 devis à 14,50 € de coût par prospect. Contre 9 devis à 177 € auparavant, pour le même budget. Même argent, autre instruction, résultat multiplié par douze.
+Étape 2, la reconstruction. Elle coupe la campagne trafic et lance une campagne objectif prospects, optimisation sur l'événement Prospect, un ad set 55-70 ans en audience large régionale. Premier mois : 124 devis à 14,50 € de coût par prospect, pour 1 798 € dépensés. Contre 9 devis à 200 € auparavant, pour le même budget. Même argent, autre instruction, résultat multiplié par près de quatorze.
 
 Étape 3, la qualité. Le client rappelle les demandes et constate que beaucoup ne sont pas éligibles. Claire ajoute deux champs de qualification au formulaire : tranche d'âge et régime actuel. Le coût par prospect monte à 19 € — moins de monde va au bout — mais le taux de transformation devis vers contrat passe de 8 % à 22 %. Le coût par contrat signé tombe de 181 € à 86 €. C'est ce chiffre-là qu'elle met en première ligne du reporting mensuel : c'est lui qui fait durer le contrat, et c'est exactement l'étape D de SPEED — mesurer ce qui compte pour le client, pas ce qui flatte la campagne.
 

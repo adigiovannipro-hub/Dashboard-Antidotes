@@ -20,7 +20,7 @@ Les impressions, le taux d'engagement, les clics, et les republications. Sur Lin
 
 ### TikTok et Reels : trois métriques
 
-Le taux de complétion ou la durée moyenne de visionnage, les vues, les partages. Sur du format vidéo court, la complétion est la métrique reine : une vidéo de 20 secondes regardée en moyenne 6 secondes perd l'algorithme à la troisième seconde du hook. Les likes, ici encore, ne pilotent rien.
+Le taux de complétion ou la durée moyenne de visionnage, les vues, les partages. Sur du format vidéo court, la complétion est la métrique reine : une vidéo de 20 secondes regardée en moyenne 6 secondes plafonne à 30 % de complétion, et ça se joue dans les trois premières secondes, pas à la fin. Les likes, ici encore, ne pilotent rien.
 
 ### La publicité Meta et Google : quatre métriques
 
@@ -36,7 +36,7 @@ Dernier réflexe : ne compare jamais un taux d'engagement Instagram à un taux L
 
 ## Exemple appliqué
 
-Prenons une marque e-commerce lifestyle : bougies et objets déco vendus en ligne, panier moyen 45 €, 24 000 abonnés Instagram, une page Facebook secondaire, 1 200 € de budget Meta Ads par mois. Sur les quarante métriques disponibles, tu en retiens six. Instagram : taux d'engagement sur portée, portée mensuelle, clics sortants. Facebook : portée seulement, le réseau est secondaire. Ads : coût par achat et ROAS. Le mois de mars donne : 26 publications, portée 92 000, taux d'engagement 4,2 %, 640 clics sortants, 38 achats attribués aux ads à 31,60 € le CPA, ROAS 1,4. Lecture immédiate : l'organique est sain, mais un ROAS de 1,4 sur un panier de 45 € ne couvre pas la marge. Décision déclenchée : couper les deux audiences froides les plus chères, tester un catalogue en retargeting. Sans le filtre, tu aurais présenté quarante chiffres et aucune décision. Avec six métriques, la réunion mensuelle dure vingt minutes et débouche sur un arbitrage budgétaire. C'est exactement ce qu'on te paie.
+Prenons une marque e-commerce lifestyle : bougies et objets déco vendus en ligne, panier moyen 45 €, 24 000 abonnés Instagram, une page Facebook secondaire, 1 200 € de budget Meta Ads par mois. Sur les quarante métriques disponibles, tu en retiens six. Instagram : taux d'engagement sur portée, portée mensuelle, clics sortants. Facebook : portée seulement, le réseau est secondaire. Ads : coût par achat et ROAS. Le mois de mars donne : 26 publications, portée 92 000, taux d'engagement 4,2 %, 640 clics sortants, 38 achats attribués aux ads pour 1 200 € dépensés — soit 31,58 € le CPA, et 1 710 € de chiffre d'affaires au panier moyen, donc un ROAS de 1,43. Lecture immédiate : l'organique est sain, mais un ROAS de 1,43 sur un panier de 45 € ne couvre pas la marge. Décision déclenchée : couper les deux audiences froides les plus chères, tester un catalogue en retargeting. Sans le filtre, tu aurais présenté quarante chiffres et aucune décision. Avec six métriques, la réunion mensuelle dure vingt minutes et débouche sur un arbitrage budgétaire. C'est exactement ce qu'on te paie.
 
 ## Les erreurs fréquentes
 

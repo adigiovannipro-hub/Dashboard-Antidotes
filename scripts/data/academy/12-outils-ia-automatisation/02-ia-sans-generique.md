@@ -4,9 +4,9 @@ Ouvre LinkedIn et lis dix posts. Tu vas en reconnaître la moitié au premier co
 
 ## Le contenu
 
-### Le principe : l'IA aux extrémités, jamais au centre
+### Le principe : l'IA avant et après, jamais sur l'écriture
 
-Ta chaîne de production a cinq maillons : recherche, angle, structure, écriture, relecture. L'IA est excellente aux deux bouts — chercher, synthétiser, structurer, vérifier la cohérence — et médiocre au centre, là où vit la voix. Retiens la formule : l'IA propose, tu tranches, tu signes. Tout ce qui part chez le client ou en publication porte ta réécriture.
+Ta chaîne de production a cinq maillons : recherche, angle, structure, écriture, relecture. L'IA est bonne sur les trois premiers et sur le dernier — chercher, proposer des angles, structurer, vérifier la cohérence — et médiocre sur le quatrième, l'écriture, là où vit la voix. Retiens la formule : l'IA propose, tu tranches, tu signes. Tout ce qui part chez le client ou en publication porte ta réécriture.
 
 ### Où l'IA te fait vraiment gagner du temps
 
@@ -50,7 +50,7 @@ Le document de voix tient sur une page : on dit « adhérent », jamais « clien
 
 Production du post « remboursement des lunettes » : l'IA propose dix angles, tu retiens « les trois questions à se poser avant de changer de monture ». Elle structure le carrousel en cinq écrans. Toi, tu réécris l'accroche à la main — « Votre monture a plus de deux ans ? Lisez ceci avant de repasser en caisse » —, tu vérifies les montants du 100 % santé sur le site officiel de l'Assurance Maladie, et le post part en validation conformité.
 
-Résultat mesuré sur trois mois : temps de production par post passé de 1 h 30 à 50 minutes, quinze posts produits au lieu de dix à temps égal, taux d'engagement stable à 4,1 % — la voix n'a pas bougé, et c'est tout l'enjeu. Et zéro retour de la conformité sur un chiffre, parce qu'aucun chiffre n'est sorti d'une génération.
+Résultat mesuré sur trois mois : temps de production par post passé de 1 h 30 à 50 minutes, dix-huit posts produits au lieu de dix pour les mêmes quinze heures, taux d'engagement stable à 4,1 % — la voix n'a pas bougé, et c'est tout l'enjeu. Et zéro retour de la conformité sur un chiffre, parce qu'aucun chiffre n'est sorti d'une génération.
 
 ## Les erreurs fréquentes
 

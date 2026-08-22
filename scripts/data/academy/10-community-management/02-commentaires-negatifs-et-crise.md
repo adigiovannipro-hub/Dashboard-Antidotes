@@ -16,13 +16,13 @@ Le mécontent réel a un problème concret : une commande, une date, un numéro.
 
 Le troll n'a pas de problème à résoudre. Aucun achat vérifiable, un compte récent ou vide, des provocations générales — « de toute façon cette marque a toujours été nulle » — et il revient sous chaque réponse. Son but est ta réaction, pas une solution.
 
-La crise, ce n'est pas un commentaire, c'est une dynamique. Trois signaux : le volume — plus de dix commentaires négatifs sur le même sujet en moins de deux heures là où la page en reçoit deux par jour ; la propagation — partages, stories, un compte extérieur qui s'en empare ; et la sortie de la plateforme — un journaliste, un forum, un article. Deux signaux sur trois : tu déclenches le protocole de crise.
+La crise, ce n'est pas un commentaire, c'est une dynamique. Trois signaux : le volume — plus de dix commentaires négatifs sur le même sujet en moins de deux heures là où la page en reçoit deux par jour, quand la charte fait déjà escalader à cinq ; la propagation — partages, stories, un compte extérieur qui s'en empare ; et la sortie de la plateforme — un journaliste, un forum, un article. Deux signaux sur trois : tu déclenches le protocole de crise.
 
 ### Répondre au mécontent : quatre temps
 
 Un, accuse réception vite et en public, sous quatre heures ouvrées. Pas encore de solution, juste : vous êtes entendu.
 
-Deux, personnalise. Prénom, reprise du problème précis. Quinze réponses identiques copiées-collées sous quinze commentaires se voient et disent « robot ».
+Deux, personnalise. Prénom, reprise du problème précis. Quinze réponses identiques copiées-collées se voient et disent « robot ».
 
 Trois, bascule en privé, mais annonce-le en public : « Je vous envoie un message privé pour récupérer votre numéro de commande. » Le numéro de commande, l'adresse, le montant du remboursement : rien de tout ça en public. Mais la bascule doit se voir, sinon le fil donne l'impression que la marque a fui.
 
@@ -62,11 +62,11 @@ Une marque de décoration en ligne, 60 000 abonnés Instagram, que tu gères en 
 
 Ensuite, 78 messages privés en 48 h, traités avec une trame courte et le numéro de commande vérifié un par un. Un point public par jour pendant trois jours, à 10 h, comme annoncé. Le 18, un post transparent raconte l'incident, et un code de 15 % — validé par la fondatrice, pas décidé par toi — part aux 300 clients touchés.
 
-Bilan : 9 demandes de remboursement sur 300 commandes, aucun article de presse, un solde d'abonnés positif sur la semaine. Onze heures de travail au-delà du forfait, facturées deux jours à 400 € HT comme le contrat le prévoyait. La fondatrice a resigné pour un an le mois suivant — pas malgré la crise, à cause de sa gestion.
+Bilan : 9 demandes de remboursement sur 300 commandes, aucun article de presse, un solde d'abonnés positif sur la semaine. Quatorze heures de travail au-delà du forfait, soit deux jours pleins facturés 800 € HT au TJM de 400 €, comme le contrat le prévoyait. La fondatrice a resigné pour un an le mois suivant — pas malgré la crise, à cause de sa gestion.
 
 ## Les erreurs fréquentes
 
-Supprimer un commentaire légitime. C'est l'erreur la plus chère. L'auteur a une capture, il la republie avec « ils censurent », et tu transformes une réclamation en scandale. On ne supprime que l'illégal ; le reste se traite ou se masque selon la charte.
+Supprimer un commentaire légitime. C'est l'erreur la plus chère : l'auteur republie sa capture avec « ils censurent », et une réclamation devient un scandale. On ne supprime que l'illégal ; le reste se traite ou se masque selon la charte.
 
 Répondre à chaud. Tu lis « voleurs », tu tapes ta réponse, tu l'envoies : elle est trop sèche, et tout le monde la lit. Écris-la, attends dix minutes, relis, envoie. Aucun commentaire n'exige une réponse en moins de dix minutes.
 

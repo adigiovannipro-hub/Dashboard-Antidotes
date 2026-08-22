@@ -42,7 +42,7 @@ Prévois la marche arrière avant de monter : fixe un seuil de CPA au-delà duqu
 
 ### Ce que le scaling change à ta facturation
 
-Ton forfait de gestion — 500 à 1 000 € par mois — est calibré pour un budget média jusqu'à environ 5 000 € par mois. Au-delà, passe à 10-15 % du budget média : un compte qui dépense plus exige plus de surveillance, plus de créas, plus de reporting. Négocie cette bascule dans le contrat dès le départ, quand tout le monde est calme — pas au moment où le client double la mise et regarde chaque euro.
+Ton forfait de gestion — 500 à 1 000 € par mois — est calibré pour un budget média jusqu'à environ 5 000 € par mois. Au-delà, passe à 10-15 % du budget média : un compte qui dépense plus exige plus de surveillance, plus de créas, plus de reporting. Vérifie que le pourcentage dépasse bien ton forfait au moment de la bascule — 10 % de 5 000 € font 500 €, soit moins qu'un forfait à 800 € : tu travaillerais plus pour gagner moins. Négocie cette bascule dans le contrat dès le départ, quand tout le monde est calme — pas au moment où le client double la mise et regarde chaque euro.
 
 ## Exemple appliqué
 
@@ -50,9 +50,9 @@ Une mutuelle santé régionale, cible B2C. La campagne de devis « complémentai
 
 Vérification des cinq conditions. CPL stable : oui. Apprentissage : sorti. Économie : un devis se transforme en contrat dans 20 % des cas, et un contrat rapporte largement plus que les 75 € que coûte donc un contrat en acquisition — validé. Créas : deux variantes neuves sont produites avant le premier palier. L'aval : deux conseillers rappellent les demandes ; 250 devis par mois, c'est 11 à 12 rappels par jour ouvré — c'est leur limite haute. Tu le dis au client, il réorganise les plannings de rappel. Cette conversation-là, presque personne ne la tient, et c'est elle qui sauvera la suite.
 
-Le plan : 60 € par jour, puis 72 à J+1, 86 à J+5, 104 à J+9, 125 à J+14. Le CPL glisse de 15 € à 17,20 € — annoncé, accepté. À 125 € par jour, la fréquence sur 30 jours dépasse 3,8 : signe de saturation de l'audience senior régionale. Passage à l'horizontal : un deuxième ad set sur les 40-54 ans travailleurs indépendants, avec deux créas dédiées sur l'angle « une mutuelle qui couvre aussi votre activité », à 40 € par jour.
+Le plan : 60 € par jour, puis 72 à J+4, 86 à J+8, 104 à J+12, 125 à J+16. Le CPL glisse de 15 € à 17,20 € — annoncé, accepté. À 125 € par jour, la fréquence sur 30 jours dépasse 3,8 : signe de saturation de l'audience senior régionale. Passage à l'horizontal : un deuxième ad set sur les 40-54 ans travailleurs indépendants, avec deux créas dédiées sur l'angle « une mutuelle qui couvre aussi votre activité », à 40 € par jour.
 
-Bilan à deux mois : 4 950 € de budget média mensuel, 268 devis, CPL moyen à 18,50 € — 23 % au-dessus du point de départ, pour un volume plus que doublé. Et ton contrat prévoit déjà la bascule : au prochain palier, le compte franchit 5 000 € de média et ta rémunération passe du forfait de 800 € à 10 % du budget.
+Bilan à deux mois : 4 950 € de budget média mensuel, 268 devis, CPL moyen à 18,50 € — 23 % au-dessus du point de départ, pour un volume plus que doublé. Et ton contrat prévoit déjà la bascule : au palier suivant, le compte franchit 5 000 € de média — 190 € par jour, 5 700 € par mois — et ta rémunération passe du forfait de 800 € à 15 % du budget, soit 855 €, puis autant que le compte grandit.
 
 ## Les erreurs fréquentes
 

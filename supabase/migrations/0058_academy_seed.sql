@@ -2258,7 +2258,7 @@ on conflict (id) do nothing;
 insert into academy_lessons (id, module_id, course_id, org_id, slug, title, summary, script_mdx, duration_min, video_provider, resources, order_index, published)
 select 'f7ab0322-c925-46dd-9748-df288723010b'::uuid, m.id, m.course_id, m.org_id, 'structure-de-compte', $sq$Structure de compte : campagnes, ad sets, créas$sq$, $sq$Tu apprends ce qui se décide à chaque étage de la hiérarchie Meta : objectif en campagne, audience et événement d'optimisation en ad set, créa en annonce. Tu repars avec une structure type à trois campagnes (prospection 70 %, retargeting 20 %, test 10 %) et une convention de nommage applicable dès la reprise d'un compte.$sq$, $sq$## L'accroche
 
-Tu récupères le compte publicitaire d'un nouveau client. Tu ouvres le Gestionnaire de publicités et tu trouves 17 campagnes, dont 11 actives. Des noms comme « Test 3 - copie - copie » ou « Promo aout FINAL ». Des budgets de 4 € par jour éparpillés sur 9 ad sets. Personne ne sait ce qui tourne, ni pourquoi. Le client te dit : « On dépense 1 500 € par mois et on ne sait pas ce que ça rapporte. » C'est la situation la plus fréquente que tu rencontreras en reprise de compte. Ce n'est pas un problème de créa, pas un problème de ciblage : c'est un problème de structure. Et tant que la structure est bancale, tout le reste est illisible — impossible de dire quelle audience marche, quelle créa fatigue, quel budget produit quoi. Dans cette leçon, tu vas apprendre ce qui se décide à chaque étage de la hiérarchie Meta, et une structure simple qui tient pour 90 % des comptes que tu géreras en freelance.
+Tu récupères le compte publicitaire d'un nouveau client. Tu ouvres le Gestionnaire de publicités et tu trouves 17 campagnes, dont 9 actives. Des noms comme « Test 3 - copie - copie » ou « Promo aout FINAL ». Des budgets de 5 € par jour éparpillés sur 10 ad sets. Personne ne sait ce qui tourne, ni pourquoi. Le client te dit : « On dépense 1 500 € par mois et on ne sait pas ce que ça rapporte. » C'est la situation la plus fréquente que tu rencontreras en reprise de compte. Ce n'est pas un problème de créa, pas un problème de ciblage : c'est un problème de structure. Et tant que la structure est bancale, tout le reste est illisible — impossible de dire quelle audience marche, quelle créa fatigue, quel budget produit quoi. Dans cette leçon, tu vas apprendre ce qui se décide à chaque étage de la hiérarchie Meta, et une structure simple qui tient pour 90 % des comptes que tu géreras en freelance.
 
 ## Le contenu
 
@@ -2298,7 +2298,7 @@ Deux modes existent. Le budget au niveau de l'ad set (ABO) : tu contrôles exact
 
 Prenons un e-commerce lifestyle : une marque de linge de maison en lin lavé, panier moyen 85 €, budget média 3 000 € par mois. Toi, tu factures 750 € par mois en gestion publicitaire, dans la fourchette du forfait ads.
 
-À la reprise, le compte porte 9 campagnes héritées de l'ancien prestataire, dont 5 actives avec des budgets entre 3 et 12 € par jour. Tu coupes tout et tu reconstruis.
+À la reprise, le compte porte 9 campagnes héritées de l'ancien prestataire, dont 5 actives, et 18 ad sets aux budgets éparpillés entre 3 et 12 € par jour — une centaine d'euros quotidiens que personne ne sait rattacher à un résultat. Tu coupes tout et tu reconstruis.
 
 Campagne 1 — LINEA_VENTES_PROSPECTION : 70 € par jour, un ad set France 25-65 ans sans centre d'intérêt, optimisation sur l'achat. Quatre annonces : une vidéo de fabrication à l'atelier, un carrousel des trois best-sellers, un témoignage client en format UGC, une image statique avec l'offre de bienvenue.
 
@@ -2306,7 +2306,7 @@ Campagne 2 — LINEA_VENTES_RETARGETING : 20 € par jour, un ad set qui regroup
 
 Campagne 3 — LINEA_TEST : 10 € par jour, allumée uniquement quand une nouvelle créa doit être validée avant de rejoindre la prospection.
 
-Résultat au premier mois : le compte passe de 23 lignes actives à 7. Le CPA, illisible avant — entre 19 € et 74 € selon les lignes —, se stabilise à 31 € en prospection. Et ton reporting mensuel tient en trois blocs qui correspondent aux trois campagnes : ton client comprend enfin où va son argent, ce qui est la première raison pour laquelle il te gardera.
+Résultat au premier mois : le compte passe de 23 lignes actives à 6 — trois campagnes, trois ad sets. Le CPA, illisible avant — entre 19 € et 74 € selon les lignes —, se stabilise à 31 € en prospection. Et ton reporting mensuel tient en trois blocs qui correspondent aux trois campagnes : ton client comprend enfin où va son argent, ce qui est la première raison pour laquelle il te gardera.
 
 ## Les erreurs fréquentes
 
@@ -2372,7 +2372,7 @@ Une mutuelle santé régionale, cible B2C : des particuliers de 55 à 70 ans, pr
 
 Étape 1, le pixel. Le Gestionnaire d'événements montre que le formulaire de devis déclenche bien un événement Prospect : 60 à 70 par semaine toutes sources confondues. Volume suffisant pour optimiser directement dessus.
 
-Étape 2, la reconstruction. Elle coupe la campagne trafic et lance une campagne objectif prospects, optimisation sur l'événement Prospect, un ad set 55-70 ans en audience large régionale. Premier mois : 110 devis à 14,50 € de coût par prospect. Contre 9 devis à 177 € auparavant, pour le même budget. Même argent, autre instruction, résultat multiplié par douze.
+Étape 2, la reconstruction. Elle coupe la campagne trafic et lance une campagne objectif prospects, optimisation sur l'événement Prospect, un ad set 55-70 ans en audience large régionale. Premier mois : 124 devis à 14,50 € de coût par prospect, pour 1 798 € dépensés. Contre 9 devis à 200 € auparavant, pour le même budget. Même argent, autre instruction, résultat multiplié par près de quatorze.
 
 Étape 3, la qualité. Le client rappelle les demandes et constate que beaucoup ne sont pas éligibles. Claire ajoute deux champs de qualification au formulaire : tranche d'âge et régime actuel. Le coût par prospect monte à 19 € — moins de monde va au bout — mais le taux de transformation devis vers contrat passe de 8 % à 22 %. Le coût par contrat signé tombe de 181 € à 86 €. C'est ce chiffre-là qu'elle met en première ligne du reporting mensuel : c'est lui qui fait durer le contrat, et c'est exactement l'étape D de SPEED — mesurer ce qui compte pour le client, pas ce qui flatte la campagne.
 
@@ -2502,13 +2502,13 @@ Le rythme dépend de la taille de l'audience et du budget — plus tu dépenses 
 
 ## Exemple appliqué
 
-Une société de transport premium B2B : chauffeurs privés pour dirigeants, délégations et transferts d'affaires, clientèle d'entreprises. La cible sur Meta : assistantes de direction, office managers et dirigeants d'une grande métropole — une audience atteignable d'environ 90 000 personnes. Budget : 1 200 € par mois, soit 40 € par jour, campagne de génération de leads avec une seule créa vidéo qui marchait très bien au lancement.
+Une société de transport premium B2B : chauffeurs privés pour dirigeants, délégations et transferts d'affaires, clientèle d'entreprises. La cible sur Meta : assistantes de direction, office managers et dirigeants d'une grande métropole — une audience atteignable d'environ 20 000 personnes. Budget : 1 200 € par mois, soit 40 € par jour, campagne de génération de leads avec une seule créa vidéo qui marchait très bien au lancement.
 
-Le relevé hebdomadaire raconte tout. Semaine 2 : fréquence 30 jours à 2,1, CTR 1,3 %, CPL 28 €. Semaine 5 : fréquence 3,6, CTR 0,9 %, CPL 39 €. Semaine 7 : fréquence 5,2, CTR 0,55 %, CPL 63 €. À 40 € par jour sur 90 000 personnes, toute l'audience a vu la vidéo cinq fois en sept semaines. Elle n'est pas mauvaise : elle est épuisée.
+Le relevé hebdomadaire raconte tout. Semaine 2 : fréquence cumulée à 2,1, CTR 1,3 %, CPL 28 €. Semaine 5 : fréquence 3,6, CTR 0,9 %, CPL 39 €. Semaine 7 : fréquence 5,2, CTR 0,55 %, CPL 63 €. À 40 € par jour pendant sept semaines, soit 1 960 € à un CPM autour de 19 €, l'audience de 20 000 personnes a vu la vidéo cinq fois. Elle n'est pas mauvaise : elle est épuisée.
 
 La rotation mise en place : trois créas neuves, chacune sur un angle différent du même service — la ponctualité garantie, portée par un témoignage client filmé ; la simplicité de facturation, montrée par une capture de l'espace entreprise ; le confort, en vidéo courte de l'intérieur des berlines. Introduites en une semaine, l'ancienne vidéo coupée à J+10. Résultat : CPL revenu à 31 € en dix jours, CTR moyen à 1,1 %.
 
-La vraie leçon vient après : sur une audience de 90 000 personnes, la fatigue reviendra toutes les trois semaines, mécaniquement. La rotation n'est pas une intervention d'urgence, c'est un rythme — une créa neuve toutes les trois semaines, inscrite noir sur blanc dans le planning de production du client.
+La vraie leçon vient après : sur une audience de 20 000 personnes, la fatigue reviendra toutes les trois semaines, mécaniquement. La rotation n'est pas une intervention d'urgence, c'est un rythme — une créa neuve toutes les trois semaines, inscrite noir sur blanc dans le planning de production du client.
 
 ## Les erreurs fréquentes
 
@@ -2646,7 +2646,7 @@ Prévois la marche arrière avant de monter : fixe un seuil de CPA au-delà duqu
 
 ### Ce que le scaling change à ta facturation
 
-Ton forfait de gestion — 500 à 1 000 € par mois — est calibré pour un budget média jusqu'à environ 5 000 € par mois. Au-delà, passe à 10-15 % du budget média : un compte qui dépense plus exige plus de surveillance, plus de créas, plus de reporting. Négocie cette bascule dans le contrat dès le départ, quand tout le monde est calme — pas au moment où le client double la mise et regarde chaque euro.
+Ton forfait de gestion — 500 à 1 000 € par mois — est calibré pour un budget média jusqu'à environ 5 000 € par mois. Au-delà, passe à 10-15 % du budget média : un compte qui dépense plus exige plus de surveillance, plus de créas, plus de reporting. Vérifie que le pourcentage dépasse bien ton forfait au moment de la bascule — 10 % de 5 000 € font 500 €, soit moins qu'un forfait à 800 € : tu travaillerais plus pour gagner moins. Négocie cette bascule dans le contrat dès le départ, quand tout le monde est calme — pas au moment où le client double la mise et regarde chaque euro.
 
 ## Exemple appliqué
 
@@ -2654,9 +2654,9 @@ Une mutuelle santé régionale, cible B2C. La campagne de devis « complémentai
 
 Vérification des cinq conditions. CPL stable : oui. Apprentissage : sorti. Économie : un devis se transforme en contrat dans 20 % des cas, et un contrat rapporte largement plus que les 75 € que coûte donc un contrat en acquisition — validé. Créas : deux variantes neuves sont produites avant le premier palier. L'aval : deux conseillers rappellent les demandes ; 250 devis par mois, c'est 11 à 12 rappels par jour ouvré — c'est leur limite haute. Tu le dis au client, il réorganise les plannings de rappel. Cette conversation-là, presque personne ne la tient, et c'est elle qui sauvera la suite.
 
-Le plan : 60 € par jour, puis 72 à J+1, 86 à J+5, 104 à J+9, 125 à J+14. Le CPL glisse de 15 € à 17,20 € — annoncé, accepté. À 125 € par jour, la fréquence sur 30 jours dépasse 3,8 : signe de saturation de l'audience senior régionale. Passage à l'horizontal : un deuxième ad set sur les 40-54 ans travailleurs indépendants, avec deux créas dédiées sur l'angle « une mutuelle qui couvre aussi votre activité », à 40 € par jour.
+Le plan : 60 € par jour, puis 72 à J+4, 86 à J+8, 104 à J+12, 125 à J+16. Le CPL glisse de 15 € à 17,20 € — annoncé, accepté. À 125 € par jour, la fréquence sur 30 jours dépasse 3,8 : signe de saturation de l'audience senior régionale. Passage à l'horizontal : un deuxième ad set sur les 40-54 ans travailleurs indépendants, avec deux créas dédiées sur l'angle « une mutuelle qui couvre aussi votre activité », à 40 € par jour.
 
-Bilan à deux mois : 4 950 € de budget média mensuel, 268 devis, CPL moyen à 18,50 € — 23 % au-dessus du point de départ, pour un volume plus que doublé. Et ton contrat prévoit déjà la bascule : au prochain palier, le compte franchit 5 000 € de média et ta rémunération passe du forfait de 800 € à 10 % du budget.
+Bilan à deux mois : 4 950 € de budget média mensuel, 268 devis, CPL moyen à 18,50 € — 23 % au-dessus du point de départ, pour un volume plus que doublé. Et ton contrat prévoit déjà la bascule : au palier suivant, le compte franchit 5 000 € de média — 190 € par jour, 5 700 € par mois — et ta rémunération passe du forfait de 800 € à 15 % du budget, soit 855 €, puis autant que le compte grandit.
 
 ## Les erreurs fréquentes
 
@@ -2704,7 +2704,7 @@ La règle qui change tout : PMax se nourrit de données de conversion. Sans hist
 
 ### YouTube : créer la demande, pas la récolter
 
-Les campagnes vidéo YouTube servent la notoriété et la considération. Le coût par vue est bas — comptez 0,02 à 0,06 € la vue en France — donc tu touches beaucoup de monde pour pas cher. En échange, il ne faut pas attendre de conversions directes : quelqu'un qui regarde une vidéo entre deux tutos ne sort pas sa carte bleue. YouTube se juge sur la couverture, le taux de vue, la mémorisation, et sur ce qu'il alimente ensuite : les audiences de personnes ayant vu tes vidéos se recyclent en retargeting, et les recherches de marque augmentent dans les semaines qui suivent une campagne bien faite.
+Les campagnes vidéo YouTube servent la notoriété et la considération. Le coût par vue est bas — compte 0,02 à 0,06 € la vue en France — donc tu touches beaucoup de monde pour pas cher. En échange, il ne faut pas attendre de conversions directes : quelqu'un qui regarde une vidéo entre deux tutos ne sort pas sa carte bleue. YouTube se juge sur la couverture, le taux de vue, la mémorisation, et sur ce qu'il alimente ensuite : les audiences de personnes ayant vu tes vidéos se recyclent en retargeting, et les recherches de marque augmentent dans les semaines qui suivent une campagne bien faite.
 
 Prérequis souvent oublié : il faut des vidéos. Pas un montage de photos avec de la musique libre de droits — une vraie création pensée pour capter en 5 secondes. Si le client n'a ni les assets ni le budget pour en produire, YouTube n'est pas pour lui, point.
 
@@ -2712,7 +2712,7 @@ Prérequis souvent oublié : il faut des vidéos. Pas un montage de photos avec 
 
 Trois questions, dans l'ordre. Un : la demande existe-t-elle ? Si oui, Search d'abord, toujours. Deux : le compte a-t-il un historique de conversions et, pour un e-commerce, un flux produit ? Si oui, PMax peut venir en complément du Search, jamais à la place. Trois : le client a-t-il un budget dédié à la notoriété et des vidéos ? Si oui seulement, YouTube.
 
-Côté budget : sous 1 000 € de média par mois, une seule campagne Search bien construite. Vouloir répartir 900 € sur trois campagnes, c'est condamner les trois à ne jamais apprendre. Et rappelle-toi ton propre modèle : tu factures la gestion 500 à 1 000 € HT par mois en forfait. En dessous de 1 000-1 500 € de budget média mensuel, ta prestation coûte plus cher que la pub — dis-le au client plutôt que de vendre une gestion qui ne pourra pas être rentable.
+Côté budget : sous 1 000 € de média par mois, une seule campagne Search bien construite. Vouloir répartir 900 € sur trois campagnes, c'est condamner les trois à ne jamais apprendre. Et rappelle-toi ton propre modèle : tu factures la gestion 500 à 1 000 € HT par mois en forfait, et 10 à 15 % du budget média au-delà de 5 000 € de dépense mensuelle. Sous 1 000 € de média, ton forfait pèse donc la moitié ou plus de ce qui part réellement en publicité. Ça ne se tient que si le ticket moyen est élevé : un projet d'artisan à 9 000 € absorbe sans problème 500 € de gestion, une vente à 40 € non. Dis-le au client avant de signer, pas au troisième reporting.
 
 ## Exemple appliqué
 
@@ -2806,19 +2806,19 @@ on conflict (id) do nothing;
 insert into academy_lessons (id, module_id, course_id, org_id, slug, title, summary, script_mdx, duration_min, video_provider, resources, order_index, published)
 select 'bf4aa5b0-4bfc-4172-8a9e-1c9fe2bdeaa3'::uuid, m.id, m.course_id, m.org_id, 'arbitrer-meta-google', $sq$Mesurer et arbitrer entre Meta et Google$sq$, $sq$Meta et Google attribuent les mêmes ventes selon des règles différentes, donc leurs chiffres ne s'additionnent jamais et ne se comparent pas directement. La leçon installe le référentiel blended (MER, coût d'acquisition global), le tableau mensuel côte à côte, et la logique d'arbitrage qui remplit d'abord le Search avant d'étendre la prospection Meta, un mouvement de budget à la fois.$sq$, $sq$## L'accroche
 
-Fin de mois, tu prépares le reporting. Le Gestionnaire de publicités Meta annonce 42 000 € de chiffre d'affaires attribué. Google Ads en revendique 21 000 €. Tu additionnes : 63 000 €. Sauf que le back-office du client affiche 51 000 € de ventes totales — pub, SEO, email et bouche-à-oreille compris. Les deux régies réunies prétendent avoir généré plus que tout ce que le client a réellement encaissé. Qui ment ? Personne, et tout le monde : chaque plateforme s'attribue les conversions selon ses propres règles, et la même vente est revendiquée deux fois. Si tu présentes ces chiffres bruts au client, tu perds ta crédibilité le jour où il fait l'addition lui-même. Et surtout, tu es incapable de répondre à la seule question qui compte : le prochain euro de budget, il va chez Meta ou chez Google ? Cette leçon te donne la méthode pour comparer ce qui est comparable et trancher.
+Fin de mois, tu prépares le reporting. Le Gestionnaire de publicités Meta annonce 42 000 € de chiffre d'affaires attribué. Google Ads en revendique 21 000 €. Tu additionnes : 63 000 €. Sauf que le back-office du client affiche 51 000 € de ventes totales — pub, SEO, email et bouche-à-oreille compris. Les deux régies revendiquent donc plus que tout ce qu'il a encaissé. Qui ment ? Personne, et tout le monde : chaque plateforme s'attribue les conversions selon ses propres règles, et la même vente est revendiquée deux fois. Si tu présentes ces chiffres bruts au client, tu perds ta crédibilité le jour où il fait l'addition lui-même. Et surtout, tu es incapable de répondre à la seule question qui compte : le prochain euro, il va chez Meta ou chez Google ? Cette leçon te donne la méthode pour comparer ce qui est comparable et trancher.
 
 ## Le contenu
 
 ### Pourquoi les chiffres ne collent jamais
 
-Meta attribue par défaut une vente à une pub si la personne a cliqué dans les 7 jours ou simplement vu la pub dans les 24 heures avant d'acheter. Google attribue au clic, avec un modèle piloté par les données qui répartit le mérite entre les clics Google — et uniquement les clics Google. Conséquence mécanique : une cliente voit une pub Instagram lundi, tape le nom de la marque sur Google mercredi, clique sur l'annonce Search et achète. Meta compte la vente (vue à moins de 7 jours... elle a même cliqué ? peu importe, la fenêtre couvre). Google compte la même vente. Une vente réelle, deux ventes déclarées. Aucune des deux plateformes ne voit l'autre, aucune ne dédoublonne. Additionner leurs chiffres, c'est fabriquer un mensonge.
+Meta attribue par défaut une vente à une pub si la personne a cliqué dans les 7 jours ou simplement vu la pub dans les 24 heures avant d'acheter. Google attribue au clic, avec un modèle piloté par les données qui répartit le mérite entre les clics Google — et uniquement les clics Google. Conséquence mécanique : une cliente clique sur une pub Instagram lundi, tape le nom de la marque sur Google mercredi, clique sur l'annonce Search et achète. Meta compte la vente — le clic de lundi tombe dans sa fenêtre de 7 jours. Google compte la même vente — pour lui, le clic Search est le dernier, et c'est le seul qu'il voit. Une vente réelle, deux ventes déclarées. Aucune des deux plateformes ne voit l'autre, aucune ne dédoublonne.
 
 ### Le référentiel commun : le blended
 
-Puisque chaque régie triche à sa façon, il te faut un juge extérieur : les chiffres réels du client. Deux indicateurs suffisent. Le MER — Marketing Efficiency Ratio — : chiffre d'affaires total divisé par dépense publicitaire totale. Et le coût d'acquisition blended : dépense publicitaire totale divisée par nombre de nouveaux clients, toutes sources confondues. Ces deux chiffres ne peuvent pas mentir, parce qu'ils partent de la réalité comptable.
+Puisque chaque régie triche à sa façon, il te faut un juge extérieur : les chiffres réels du client. Deux indicateurs suffisent. Le MER — Marketing Efficiency Ratio — : chiffre d'affaires total divisé par dépense publicitaire totale. Et le coût d'acquisition blended : dépense publicitaire totale divisée par nombre de nouveaux clients, toutes sources confondues. Ces deux chiffres partent de la réalité comptable : ils ne mentent pas.
 
-La règle d'usage tient en une phrase : les chiffres des plateformes servent à comparer des campagnes à l'intérieur d'une plateforme ; le blended sert à arbitrer entre les plateformes. Le ROAS Meta de la campagne A contre la campagne B, oui. Le ROAS Meta contre le ROAS Google, non — ce ne sont pas les mêmes règles du jeu.
+La règle d'usage tient en une phrase : les chiffres des plateformes servent à comparer des campagnes à l'intérieur d'une plateforme ; le blended sert à arbitrer entre les plateformes. Le ROAS Meta de la campagne A contre celui de la campagne B, oui ; le ROAS Meta contre le ROAS Google, non — ce ne sont pas les mêmes règles du jeu.
 
 ### Construire le tableau côte à côte
 
@@ -2832,13 +2832,13 @@ D'où la logique d'arbitrage, en trois temps. Un : remplis d'abord le Search —
 
 ### Le rendre lisible pour le client
 
-Ton reporting mensuel commenté — le livrable qui fait durer le retainer — ne montre jamais les deux ROAS côte à côte sans explication. Structure en quatre blocs : dépense totale, CA réel et MER ; ce que chaque plateforme a fait dans son rôle (Google capte, Meta crée) ; la décision du mois et pourquoi ; ce qu'on surveille le mois prochain. Un client qui comprend l'arbitrage renouvelle. Un client qui reçoit deux chiffres contradictoires finit par douter des deux — et de toi.
+Ton reporting mensuel commenté — le livrable qui fait durer le retainer — ne montre jamais les deux ROAS côte à côte sans explication. Structure en quatre blocs : dépense totale, CA réel et MER ; ce que chaque plateforme a fait dans son rôle (Google capte, Meta crée) ; la décision du mois et pourquoi ; ce qu'on surveille le mois prochain. Un client qui comprend l'arbitrage renouvelle ; celui qui reçoit deux chiffres contradictoires doute des deux — et de toi.
 
 ## Exemple appliqué
 
 Cas e-commerce lifestyle : une marque de bougies et parfums d'intérieur, panier moyen 55 €. Chiffres du mois : 38 500 € de CA total, 4 500 € de dépense pub — 3 000 € chez Meta, 1 500 € chez Google. Meta déclare 21 000 € de CA attribué, ROAS 7. Google déclare 14 000 €, ROAS 9,3. Total revendiqué : 35 000 €, soit 91 % du CA du client — comme si le SEO, l'email et les clientes fidèles n'existaient pas. Invraisemblable, donc on juge au blended : MER de 8,6 (38 500 / 4 500). Sain pour cette marge.
 
-Maintenant l'arbitrage. Le ROAS Google est gonflé par la campagne sur le nom de la marque : les gens qui tapent « bougies [marque] » auraient acheté de toute façon, au moins en partie. On isole donc le Search générique — « bougie parfumée naturelle », « parfum d'intérieur artisanal » — et là, le taux d'impressions n'est qu'à 45 % avec un coût par conversion de 12 €, contre 19 € chez Meta en prospection. Il reste de la demande non captée, moins chère que la création de demande. Décision : plus 500 € sur le Search générique le mois prochain, budgets Meta inchangés, et un seul juge — si le MER du mois suivant reste au-dessus de 8, le mouvement est validé ; s'il décroche vers 7, on revient en arrière. La décision est écrite dans le reporting, avec le chiffre qui la déclenchera dans un sens ou dans l'autre. C'est ce qui te distingue d'un freelance qui « a un bon feeling sur Google ».
+Maintenant l'arbitrage. Le ROAS Google est gonflé par la campagne sur le nom de la marque : les gens qui tapent « bougies [marque] » auraient acheté de toute façon, au moins en partie. On isole donc le Search générique — « bougie parfumée naturelle », « parfum d'intérieur artisanal » — et là, le taux d'impressions n'est qu'à 45 % avec un coût par conversion de 12 €, contre 19 € chez Meta en prospection. Il reste de la demande non captée, moins chère que la création de demande. Décision : plus 300 € sur le Search générique le mois prochain — 20 % du budget Google, le plafond que s'impose le protocole — budgets Meta inchangés. Le verdict se pose d'avance et se chiffre : à 12 € la conversion, ces 300 € doivent produire environ 25 ventes, soit 1 375 € de chiffre au panier de 55 €. Le mois suivant tournerait alors à 39 875 € de CA pour 4 800 € de dépense, MER 8,3. On valide si le MER tient au-dessus de 8,3 ; s'il décroche sous 8, on revient en arrière. Le chiffre qui tranchera est écrit dans le reporting avant le mois, pas après. C'est ce qui te distingue d'un freelance qui « a un bon feeling sur Google ».
 
 ## Les erreurs fréquentes
 
@@ -2854,7 +2854,7 @@ Décider sur une semaine de données. Une semaine, c'est du bruit : une météo,
 
 ## Action immédiate
 
-Prends ton client qui investit sur les deux plateformes — ou l'un des deux canaux s'il n'en a qu'un — et construis le tableau blended sur les trois derniers mois. Huit colonnes : dépense Meta, dépense Google, dépense totale, CA déclaré Meta, CA déclaré Google, CA réel, MER, commentaire. Les dépenses et les CA déclarés se lisent dans les deux gestionnaires en cinq minutes ; le CA réel sort du back-office ou d'une question au client. Trente minutes de travail. À la fin, tu verras probablement que la somme des CA déclarés dépasse le CA réel : garde ce tableau, c'est la première page de ton prochain reporting et l'argument qui justifie ton arbitrage budgétaire.$sq$, 10, 'none'::academy_video_provider, $sq$[{"title":"Tableau blended mensuel","description":"Un tableur à huit colonnes par mois — dépenses Meta, Google et totale, CA déclaré par chaque régie, CA réel, MER, commentaire — qui sert de première page au reporting.","kind":"template","url":null},{"title":"Protocole d'arbitrage budgétaire","description":"Une checklist qui encadre chaque mouvement de budget : un seul changement à la fois, plus ou moins 20 pour cent, fenêtre de deux à trois semaines, seuil de MER qui valide ou annule la décision.","kind":"checklist","url":null},{"title":"Meta Business Suite","description":"L'accès au Gestionnaire de publicités Meta, où se lisent les dépenses et le CA attribué, et où se règle la fenêtre d'attribution à aligner avant toute comparaison.","kind":"tool","url":"https://business.facebook.com"}]$sq$::jsonb, 3, true
+Prends ton client qui investit sur les deux plateformes — ou l'un des deux canaux s'il n'en a qu'un — et construis le tableau blended sur les trois derniers mois, avec les huit colonnes décrites plus haut. Les dépenses et les CA déclarés se lisent dans les deux gestionnaires en cinq minutes ; le CA réel sort du back-office ou d'une question au client. Trente minutes de travail. Garde ce tableau : c'est la première page de ton prochain reporting et l'argument qui justifie ton arbitrage budgétaire.$sq$, 10, 'none'::academy_video_provider, $sq$[{"title":"Tableau blended mensuel","description":"Un tableur à huit colonnes par mois — dépenses Meta, Google et totale, CA déclaré par chaque régie, CA réel, MER, commentaire — qui sert de première page au reporting.","kind":"template","url":null},{"title":"Protocole d'arbitrage budgétaire","description":"Une checklist qui encadre chaque mouvement de budget : un seul changement à la fois, plus ou moins 20 pour cent, fenêtre de deux à trois semaines, seuil de MER qui valide ou annule la décision.","kind":"checklist","url":null},{"title":"Meta Business Suite","description":"L'accès au Gestionnaire de publicités Meta, où se lisent les dépenses et le CA attribué, et où se règle la fenêtre d'attribution à aligner avant toute comparaison.","kind":"tool","url":"https://business.facebook.com"}]$sq$::jsonb, 3, true
 from academy_modules m
 where m.id = 'c1f0f22a-9d94-49fe-88ab-3b7c8cbaa376'::uuid
 on conflict (id) do nothing;
@@ -2870,13 +2870,13 @@ select 'fb8579f7-beb5-47b8-a946-b50f513d115e'::uuid, m.id, m.course_id, m.org_id
 
 Il est 21 h 47, un jeudi. Ton téléphone vibre. Ton client te transfère une capture d'écran : sous le post publié le matin, un commentaire dit « Votre mutuelle refuse de rembourser l'hospitalisation de ma mère depuis quatre mois. Honte à vous. » Et il te pose la question que tu redoutes : « On fait quoi ? On supprime ? »
 
-Si rien n'a été écrit avant, tu vas improviser. Improviser à 22 h, sous pression, sur un sujet sensible, avec un client qui panique : c'est exactement comme ça qu'on aggrave un problème au lieu de le régler. Tu vas répondre trop vite, ou masquer un commentaire légitime, ou promettre un remboursement que personne ne t'a autorisé à promettre.
+Si rien n'a été écrit avant, tu vas improviser. Improviser à 22 h, sous pression, avec un client qui panique : c'est comme ça qu'on aggrave un problème au lieu de le régler. Tu vas répondre trop vite, ou masquer un commentaire légitime, ou promettre un remboursement que personne ne t'a autorisé à promettre.
 
 La différence entre un community manager amateur et un pro, ce n'est pas la qualité des réponses. C'est qu'un pro a cadré les règles avant le premier commentaire. Ce cadre s'appelle une charte de modération, elle tient sur deux pages, et tu vas apprendre à l'écrire dans cette leçon.
 
 ## Le contenu
 
-La modération vit dans le E d'Exécution de la méthode SPEED : c'est du quotidien, du répétitif, et c'est justement pour ça qu'il faut des règles écrites. Une décision qu'on prend cinquante fois par mois ne doit jamais dépendre de ton humeur ni de celle du client.
+La modération vit dans le second E de la méthode SPEED, celui de l'Exécution : c'est du quotidien, du répétitif, et c'est justement pour ça qu'il faut des règles écrites. Une décision qu'on prend cinquante fois par mois ne doit jamais dépendre de ton humeur ni de celle du client.
 
 ### Les quatre gestes possibles
 
@@ -2910,7 +2910,7 @@ Tu ne rédiges pas la charte seul dans ton coin. Tu la construis avec le client,
 
 Tu repars, tu rédiges deux pages, tu envoies pour validation écrite — un mail avec « validé » suffit — et tu ranges le document là où vous travaillez déjà ensemble. Une charte que le client n'a pas validée par écrit ne te protège de rien : le jour où un masquage fait polémique, c'est ta décision, pas la sienne.
 
-La charte se facture. Soit elle est incluse dans la stratégie social media vendue en one-shot entre 1 500 et 3 000 € HT, soit tu la produis au démarrage du retainer, sur la première mensualité. Elle te prend trois heures la première fois, une heure et demie ensuite. Et elle se relit tous les six mois : les questions fréquentes changent, les contacts d'escalade aussi.
+La charte se facture. Soit elle est incluse dans la stratégie social media vendue en one-shot entre 1 500 et 3 000 € HT, soit tu la produis au démarrage du retainer, sur la première mensualité. Elle te prend trois heures la première fois, une heure et demie ensuite.
 
 ## Exemple appliqué
 
@@ -2926,7 +2926,7 @@ Résultat après trois mois : temps de réponse moyen passé de 31 h à 5 h ouvr
 
 ## Les erreurs fréquentes
 
-Écrire la charte seul et l'envoyer pour information. Le client ne l'a pas construite, donc il ne l'applique pas : il continue de te transférer chaque commentaire avec « on fait quoi ? ». La charte se co-écrit en atelier, sinon elle reste ton document, pas le sien.
+Écrire la charte seul et l'envoyer pour information. Le client ne l'a pas construite, donc il ne l'applique pas : il continue de te transférer chaque commentaire avec « on fait quoi ? ». La charte se co-écrit en atelier.
 
 Confondre masquer et supprimer. Une suppression se remarque : l'auteur revient, furieux, et republie ailleurs avec capture. Un masquage lui reste invisible. Et sur une critique non insultante, aucun des deux : tu réponds.
 
@@ -2962,13 +2962,13 @@ Le mécontent réel a un problème concret : une commande, une date, un numéro.
 
 Le troll n'a pas de problème à résoudre. Aucun achat vérifiable, un compte récent ou vide, des provocations générales — « de toute façon cette marque a toujours été nulle » — et il revient sous chaque réponse. Son but est ta réaction, pas une solution.
 
-La crise, ce n'est pas un commentaire, c'est une dynamique. Trois signaux : le volume — plus de dix commentaires négatifs sur le même sujet en moins de deux heures là où la page en reçoit deux par jour ; la propagation — partages, stories, un compte extérieur qui s'en empare ; et la sortie de la plateforme — un journaliste, un forum, un article. Deux signaux sur trois : tu déclenches le protocole de crise.
+La crise, ce n'est pas un commentaire, c'est une dynamique. Trois signaux : le volume — plus de dix commentaires négatifs sur le même sujet en moins de deux heures là où la page en reçoit deux par jour, quand la charte fait déjà escalader à cinq ; la propagation — partages, stories, un compte extérieur qui s'en empare ; et la sortie de la plateforme — un journaliste, un forum, un article. Deux signaux sur trois : tu déclenches le protocole de crise.
 
 ### Répondre au mécontent : quatre temps
 
 Un, accuse réception vite et en public, sous quatre heures ouvrées. Pas encore de solution, juste : vous êtes entendu.
 
-Deux, personnalise. Prénom, reprise du problème précis. Quinze réponses identiques copiées-collées sous quinze commentaires se voient et disent « robot ».
+Deux, personnalise. Prénom, reprise du problème précis. Quinze réponses identiques copiées-collées se voient et disent « robot ».
 
 Trois, bascule en privé, mais annonce-le en public : « Je vous envoie un message privé pour récupérer votre numéro de commande. » Le numéro de commande, l'adresse, le montant du remboursement : rien de tout ça en public. Mais la bascule doit se voir, sinon le fil donne l'impression que la marque a fui.
 
@@ -3008,11 +3008,11 @@ Une marque de décoration en ligne, 60 000 abonnés Instagram, que tu gères en 
 
 Ensuite, 78 messages privés en 48 h, traités avec une trame courte et le numéro de commande vérifié un par un. Un point public par jour pendant trois jours, à 10 h, comme annoncé. Le 18, un post transparent raconte l'incident, et un code de 15 % — validé par la fondatrice, pas décidé par toi — part aux 300 clients touchés.
 
-Bilan : 9 demandes de remboursement sur 300 commandes, aucun article de presse, un solde d'abonnés positif sur la semaine. Onze heures de travail au-delà du forfait, facturées deux jours à 400 € HT comme le contrat le prévoyait. La fondatrice a resigné pour un an le mois suivant — pas malgré la crise, à cause de sa gestion.
+Bilan : 9 demandes de remboursement sur 300 commandes, aucun article de presse, un solde d'abonnés positif sur la semaine. Quatorze heures de travail au-delà du forfait, soit deux jours pleins facturés 800 € HT au TJM de 400 €, comme le contrat le prévoyait. La fondatrice a resigné pour un an le mois suivant — pas malgré la crise, à cause de sa gestion.
 
 ## Les erreurs fréquentes
 
-Supprimer un commentaire légitime. C'est l'erreur la plus chère. L'auteur a une capture, il la republie avec « ils censurent », et tu transformes une réclamation en scandale. On ne supprime que l'illégal ; le reste se traite ou se masque selon la charte.
+Supprimer un commentaire légitime. C'est l'erreur la plus chère : l'auteur republie sa capture avec « ils censurent », et une réclamation devient un scandale. On ne supprime que l'illégal ; le reste se traite ou se masque selon la charte.
 
 Répondre à chaud. Tu lis « voleurs », tu tapes ta réponse, tu l'envoies : elle est trop sèche, et tout le monde la lit. Écris-la, attends dix minutes, relis, envoie. Aucun commentaire n'exige une réponse en moins de dix minutes.
 
@@ -3034,15 +3034,15 @@ select 'fc069b7c-a8c4-4161-a72a-b514c7676af4'::uuid, m.id, m.course_id, m.org_id
 
 Claire, freelance à Angers, quatre clients. Huit boîtes de réception : quatre comptes Instagram, trois pages Facebook, un LinkedIn. Un lundi matin, elle ouvre par acquit de conscience la messagerie d'un client et trouve un message privé vieux de cinq jours : une demande de devis, précise, avec un budget. Le prospect n'a jamais eu de réponse. Il a commandé ailleurs.
 
-Le problème de Claire n'est pas le volume. Quatre-vingts messages par semaine tous clients confondus, c'est seize par jour ouvré — une demi-heure de travail réel. Son problème, c'est la dispersion : huit boîtes, huit applications, zéro vue d'ensemble, et la peur permanente d'avoir raté quelque chose. Alors elle vérifie tout, tout le temps, entre deux tâches — et elle rate quand même.
+Le problème de Claire n'est pas le volume. Quatre-vingts messages par semaine tous clients confondus, c'est seize par jour ouvré — une heure et demie de travail réel. Son problème, c'est la dispersion : huit boîtes, huit applications, zéro vue d'ensemble, et la peur permanente d'avoir raté quelque chose. Alors elle vérifie tout, tout le temps, entre deux tâches — et elle rate quand même.
 
 La modération multi-clients ne se gagne pas en répondant plus vite. Elle se gagne avec un système : un point d'entrée par client, une liste unique, des créneaux fixes, un ordre de priorité constant. C'est ce système qu'on monte dans cette leçon.
 
 ## Le contenu
 
-### Centraliser : réduire huit boîtes à quatre, puis à une liste
+### Centraliser : de huit boîtes à cinq, puis à une liste
 
-Premier geste, mécanique : pour chaque client présent sur Meta, ouvre la boîte de réception de Meta Business Suite. Elle regroupe commentaires Facebook, commentaires Instagram et messages privés des deux réseaux dans une seule interface, avec des statuts. Quatre clients, quatre boîtes au lieu de huit — et l'accès passe par un rôle nominatif dans le Business Manager du client, jamais par des identifiants partagés.
+Premier geste, mécanique : pour chaque client présent sur Meta, ouvre la boîte de réception de Meta Business Suite. Elle regroupe commentaires Facebook, commentaires Instagram et messages privés des deux réseaux dans une seule interface, avec des statuts. Quatre clients, quatre boîtes Meta au lieu de sept ; seul le LinkedIn du quatrième reste à part, soit cinq points d'entrée au lieu de huit — et l'accès passe par un rôle nominatif dans le Business Manager du client, jamais par des identifiants partagés.
 
 Deuxième geste : une liste unique pour toi, tous clients confondus. Un tableau — Notion ou Sheets suffisent — avec sept colonnes : client, canal, auteur, type de demande, reçu le, échéance, statut. Trois statuts, pas plus : à traiter, en attente du client, traité. N'y entre que ce qui demande une action différée : le compliment auquel tu réponds en dix secondes n'a rien à faire dans un tableau. La question technique escaladée au client, si — c'est précisément elle qu'on oublie.
 
@@ -3050,9 +3050,9 @@ Deuxième geste : une liste unique pour toi, tous clients confondus. Un tableau 
 
 Le poison du community management, c'est le fil de l'eau : répondre à chaque notification quand elle tombe. Seize interruptions par jour détruisent tes plages de production — et tes posts, tes stratégies, tes reportings sont ce qui paie vraiment.
 
-À la place, trois créneaux fixes : 9 h, 13 h 30, 17 h 30. Vingt à trente minutes chacun. À chaque créneau, tu balaies les clients dans le même ordre, toujours : boîte Business Suite, réponses immédiates, tableau pour le reste. En dehors des créneaux, notifications coupées.
+À la place, trois créneaux fixes : 9 h, 13 h, 17 h. Vingt à trente minutes chacun. À chaque créneau, tu balaies les clients dans le même ordre, toujours : boîte Business Suite, réponses immédiates, tableau pour le reste. En dehors des créneaux, notifications coupées.
 
-Trois relevés par jour ouvré, c'est au maximum quatre heures et demie entre deux passages : tu peux donc t'engager par écrit sur « réponse sous une demi-journée ouvrée » et le tenir sans y penser. C'est la mécanique de la leçon sur la charte : le délai promis découle du rythme de relevé, jamais l'inverse.
+Trois relevés par jour ouvré, c'est au maximum quatre heures entre deux passages : tu peux donc t'engager par écrit sur les 4 h ouvrées de la charte et les tenir sans y penser. C'est la mécanique de la leçon sur la charte : le délai promis découle du rythme de relevé, jamais l'inverse.
 
 Reste la vraie urgence. Elle ne passe pas par les notifications : elle passe par un accord avec chaque client — « si ça déborde, appelle-moi ». Un emballement de crise se repère à l'œil nu par le client lui-même ; tout le reste attend le prochain créneau.
 
@@ -3064,11 +3064,11 @@ L'ordre inverse est tentant, parce que le spam et les compliments sont faciles. 
 
 ### Prouver le travail
 
-La modération est invisible : quand tout va bien, le client ne voit rien. Mesure deux chiffres par client et par mois : le volume traité et le temps de réponse médian. Ils sortent de ton tableau en cinq minutes, et ils entrent dans le reporting mensuel commenté — le D de SPEED. « 112 messages traités, réponse médiane 2 h 40, 3 demandes de devis transmises » : une ligne, et le retainer ne se discute plus. Ce que tu ne montres pas n'existe pas.
+La modération est invisible : quand tout va bien, le client ne voit rien. Mesure deux chiffres par client et par mois : le volume traité et le temps de réponse médian. Ils sortent de ton tableau en cinq minutes, et ils entrent dans le reporting mensuel commenté — le D de SPEED. « 112 messages traités, réponse médiane 2 h 40, deux demandes de revendeurs transmises » : une ligne, et le retainer ne se discute plus. Ce que tu ne montres pas n'existe pas.
 
 ### Cadrer le périmètre et la frontière
 
-Dans le contrat, la modération se décrit en une phrase précise : « modération des commentaires et messages privés, deux réseaux, trois relevés par jour ouvré, réponse sous une demi-journée ouvrée, du lundi au vendredi 9 h - 18 h ». C'est inclus dans un retainer starter à 800 - 1 500 € HT par mois. Ce qui sort du périmètre — week-ends, volume triplé pendant une campagne, SAV complet — fait l'objet d'un avenant, pas d'un effort silencieux.
+Dans le contrat, la modération se décrit en une phrase précise : « modération des commentaires et messages privés, deux réseaux, trois relevés par jour ouvré, réponse sous 4 h ouvrées aux demandes d'achat et sous 24 h ouvrées au reste, du lundi au vendredi 9 h - 18 h ». C'est inclus dans un retainer starter à 800 - 1 500 € HT par mois. Ce qui sort du périmètre — week-ends, volume triplé pendant une campagne, SAV complet — fait l'objet d'un avenant, pas d'un effort silencieux.
 
 Et une règle d'attribution : une boîte, un propriétaire. Toi en premier niveau, le client en second sur escalade. S'il répond aussi, au hasard de ses connexions, vous doublonnez et vous vous contredisez. Fixe la règle dès le départ : celui qui répond, c'est toi, et lui n'intervient que sur les fils que tu lui transmets.
 
@@ -3080,7 +3080,7 @@ Avant le système, Claire répondait au fil de l'eau. C'est chez ce client que l
 
 Elle a monté le système en une matinée. Business Suite configuré avec un accès par rôle. Tableau unique à sept colonnes. Réponses types pour les huit questions récurrentes, validées avec le brasseur : les points de vente, les créneaux de visite, le lien de la boutique en ligne. Une règle d'escalade : toute demande de professionnel — caviste, bar, restaurant — part au brasseur le jour même, avec le contact en copie, et Claire relance si le brasseur n'a pas répondu sous 48 h.
 
-Trois mois plus tard, les chiffres du reporting : réponse médiane passée de 26 h à 3 h 10 ; deux demandes de revendeurs traitées le jour même, devenues deux nouveaux points de vente ; temps de modération réel : 2 h 30 par semaine, contre 4 h éparpillées avant. Le brasseur voit chaque mois la ligne modération de son reporting. Quand il a demandé si le tarif pouvait baisser, Claire a montré la ligne : 112 messages traités, deux revendeurs signés. La discussion a duré trente secondes.
+Trois mois plus tard, les chiffres du reporting : réponse médiane passée de 26 h à 2 h 40 ; deux demandes de revendeurs traitées le jour même, devenues deux nouveaux points de vente ; temps de modération réel : 2 h 30 par semaine, contre 4 h éparpillées avant. Le brasseur voit chaque mois la ligne modération de son reporting. Quand il a demandé si le tarif pouvait baisser, Claire a montré la ligne : 112 messages traités, deux revendeurs signés. La discussion a duré trente secondes.
 
 ## Les erreurs fréquentes
 
@@ -3096,7 +3096,7 @@ Utiliser des identifiants partagés. Le mot de passe du compte Instagram du clie
 
 ## Action immédiate
 
-Monte le socle du système, maintenant. Un : ouvre Meta Business Suite pour chacun de tes clients et vérifie que tu y accèdes par un rôle nominatif — sinon, demande l'invitation aujourd'hui. Deux : crée ton tableau à sept colonnes — client, canal, auteur, type, reçu le, échéance, statut. Trois : pose trois créneaux récurrents dans ton agenda dès demain, 9 h, 13 h 30, 17 h 30, et coupe les notifications des applications sociales sur ton téléphone. Quarante-cinq minutes, et demain à 9 h 30 tu sauras qu'aucun message n'attend nulle part.$sq$, 10, 'none'::academy_video_provider, $sq$[{"title":"Tableau de modération multi-clients","description":"Modèle de tableau à sept colonnes — client, canal, auteur, type, reçu le, échéance, statut — avec les trois statuts et l'ordre de priorité de traitement.","kind":"template","url":null},{"title":"Routine de relevé à heures fixes","description":"Checklist des trois créneaux quotidiens : ordre de balayage des clients, priorités dans chaque relevé, règles de coupure des notifications et cas d'interruption autorisés.","kind":"checklist","url":null},{"title":"Meta Business Suite","description":"La boîte de réception unifiée qui regroupe commentaires et messages Facebook et Instagram d'une page, avec accès par rôles nominatifs.","kind":"tool","url":"https://business.facebook.com"}]$sq$::jsonb, 3, true
+Monte le socle du système, maintenant. Un : ouvre Meta Business Suite pour chacun de tes clients et vérifie que tu y accèdes par un rôle nominatif — sinon, demande l'invitation aujourd'hui. Deux : crée ton tableau à sept colonnes — client, canal, auteur, type, reçu le, échéance, statut. Trois : pose trois créneaux récurrents dans ton agenda dès demain, 9 h, 13 h, 17 h, et coupe les notifications des applications sociales sur ton téléphone. Quarante-cinq minutes, et demain à 9 h 30 tu sauras qu'aucun message n'attend nulle part.$sq$, 10, 'none'::academy_video_provider, $sq$[{"title":"Tableau de modération multi-clients","description":"Modèle de tableau à sept colonnes — client, canal, auteur, type, reçu le, échéance, statut — avec les trois statuts et l'ordre de priorité de traitement.","kind":"template","url":null},{"title":"Routine de relevé à heures fixes","description":"Checklist des trois créneaux quotidiens : ordre de balayage des clients, priorités dans chaque relevé, règles de coupure des notifications et cas d'interruption autorisés.","kind":"checklist","url":null},{"title":"Meta Business Suite","description":"La boîte de réception unifiée qui regroupe commentaires et messages Facebook et Instagram d'une page, avec accès par rôles nominatifs.","kind":"tool","url":"https://business.facebook.com"}]$sq$::jsonb, 3, true
 from academy_modules m
 where m.id = '2e37c79a-1aad-42d0-8633-355c68188a4c'::uuid
 on conflict (id) do nothing;
@@ -3130,7 +3130,7 @@ Les impressions, le taux d'engagement, les clics, et les republications. Sur Lin
 
 ### TikTok et Reels : trois métriques
 
-Le taux de complétion ou la durée moyenne de visionnage, les vues, les partages. Sur du format vidéo court, la complétion est la métrique reine : une vidéo de 20 secondes regardée en moyenne 6 secondes perd l'algorithme à la troisième seconde du hook. Les likes, ici encore, ne pilotent rien.
+Le taux de complétion ou la durée moyenne de visionnage, les vues, les partages. Sur du format vidéo court, la complétion est la métrique reine : une vidéo de 20 secondes regardée en moyenne 6 secondes plafonne à 30 % de complétion, et ça se joue dans les trois premières secondes, pas à la fin. Les likes, ici encore, ne pilotent rien.
 
 ### La publicité Meta et Google : quatre métriques
 
@@ -3146,7 +3146,7 @@ Dernier réflexe : ne compare jamais un taux d'engagement Instagram à un taux L
 
 ## Exemple appliqué
 
-Prenons une marque e-commerce lifestyle : bougies et objets déco vendus en ligne, panier moyen 45 €, 24 000 abonnés Instagram, une page Facebook secondaire, 1 200 € de budget Meta Ads par mois. Sur les quarante métriques disponibles, tu en retiens six. Instagram : taux d'engagement sur portée, portée mensuelle, clics sortants. Facebook : portée seulement, le réseau est secondaire. Ads : coût par achat et ROAS. Le mois de mars donne : 26 publications, portée 92 000, taux d'engagement 4,2 %, 640 clics sortants, 38 achats attribués aux ads à 31,60 € le CPA, ROAS 1,4. Lecture immédiate : l'organique est sain, mais un ROAS de 1,4 sur un panier de 45 € ne couvre pas la marge. Décision déclenchée : couper les deux audiences froides les plus chères, tester un catalogue en retargeting. Sans le filtre, tu aurais présenté quarante chiffres et aucune décision. Avec six métriques, la réunion mensuelle dure vingt minutes et débouche sur un arbitrage budgétaire. C'est exactement ce qu'on te paie.
+Prenons une marque e-commerce lifestyle : bougies et objets déco vendus en ligne, panier moyen 45 €, 24 000 abonnés Instagram, une page Facebook secondaire, 1 200 € de budget Meta Ads par mois. Sur les quarante métriques disponibles, tu en retiens six. Instagram : taux d'engagement sur portée, portée mensuelle, clics sortants. Facebook : portée seulement, le réseau est secondaire. Ads : coût par achat et ROAS. Le mois de mars donne : 26 publications, portée 92 000, taux d'engagement 4,2 %, 640 clics sortants, 38 achats attribués aux ads pour 1 200 € dépensés — soit 31,58 € le CPA, et 1 710 € de chiffre d'affaires au panier moyen, donc un ROAS de 1,43. Lecture immédiate : l'organique est sain, mais un ROAS de 1,43 sur un panier de 45 € ne couvre pas la marge. Décision déclenchée : couper les deux audiences froides les plus chères, tester un catalogue en retargeting. Sans le filtre, tu aurais présenté quarante chiffres et aucune décision. Avec six métriques, la réunion mensuelle dure vingt minutes et débouche sur un arbitrage budgétaire. C'est exactement ce qu'on te paie.
 
 ## Les erreurs fréquentes
 
@@ -3206,7 +3206,7 @@ Un PDF de 4 à 6 pages ou un lien vers un tableau de bord, envoyé à date fixe 
 
 ## Exemple appliqué
 
-Prenons une assurance mutualiste B2C, régionale, dont l'objectif social media est la génération de demandes de devis santé. Page 1, quatre chiffres : 42 demandes de devis (+27 % vs mars), coût par demande 18,40 € (−12 %), portée totale 210 000 personnes (+9 %), taux d'engagement 2,8 % (stable). Commentaire : « La campagne témoignages adhérents a produit 26 des 42 demandes, à un coût inférieur de 30 % à la campagne produit. La portée organique progresse grâce aux deux vidéos pédagogiques sur le 100 % santé. » Page 2 : détail Facebook et Instagram — Facebook domine, c'est là que vit la cible 45-65 ans, et le reporting l'assume au lieu de gonfler Instagram. Page 3 : top 3 des contenus, dont le témoignage d'une adhérente de Cholet, 3 fois la portée moyenne, hypothèse : incarnation locale plutôt que discours produit. Page 4, deux décisions : réallouer 400 € de la campagne produit vers les témoignages, et produire deux témoignages supplémentaires en mai. La cliente lit cinq minutes, valide les deux décisions en réunion. Le document fait cinq pages. L'ancien en faisait vingt et ne déclenchait rien.
+Prenons une assurance mutualiste B2C, régionale, dont l'objectif social media est la génération de demandes de devis santé. Page 1, quatre chiffres : 42 demandes de devis (+27 % vs mars), coût par demande 18,40 € (−12 %), portée totale 210 000 personnes (+9 %), taux d'engagement 2,8 % (stable). Commentaire : « Sur 772,80 € de budget média, la campagne témoignages adhérents a produit 26 des 42 demandes, à un coût inférieur de 30 % à la campagne produit. La portée organique progresse grâce aux deux vidéos pédagogiques sur le 100 % santé. » Page 2 : détail Facebook et Instagram — Facebook domine, c'est là que vit la cible 45-65 ans, et le reporting l'assume au lieu de gonfler Instagram. Page 3 : top 3 des contenus, dont le témoignage d'une adhérente de Cholet, 3 fois la portée moyenne, hypothèse : incarnation locale plutôt que discours produit. Page 4, deux décisions : réallouer 250 € de la campagne produit vers les témoignages, et produire deux témoignages supplémentaires en mai. La cliente lit cinq minutes, valide les deux décisions en réunion. Le document fait cinq pages. L'ancien en faisait vingt et ne déclenchait rien.
 
 ## Les erreurs fréquentes
 
@@ -3300,7 +3300,7 @@ Coût : zéro. Le geste : un Google Sheets par client, un onglet par mois, exact
 
 ### Niveau 2 : les connecteurs
 
-Le geste : un tableau de bord Looker Studio — l'outil de Google, gratuit — branché sur tes sources. Les connecteurs Google sont natifs et gratuits : Google Analytics 4, Google Ads, Google Sheets. Pour Meta, Instagram, LinkedIn ou TikTok, il faut un connecteur tiers payant : Supermetrics, Porter Metrics, Metricool et d'autres. Compte entre 15 et 100 € par mois selon l'outil et le nombre de comptes — vérifie les tarifs au moment de choisir, ils bougent. Le calcul de rentabilité est simple : à un TJM de 400 €, ton heure vaut environ 57 €. Si un connecteur à 30 € par mois t'économise trois heures, il te rapporte 140 € nets mensuels. Et ce coût d'outillage se prévoit dans tes prix : c'est une des raisons pour lesquelles un retainer se vend 800 à 1 500 €, pas 400.
+Le geste : un tableau de bord Looker Studio — l'outil de Google, gratuit — branché sur tes sources. Les connecteurs Google sont natifs et gratuits : Google Analytics 4, Google Ads, Google Sheets. Pour Meta, Instagram, LinkedIn ou TikTok, il faut un connecteur tiers payant : Supermetrics, Porter Metrics, Metricool et d'autres. Compte entre 15 et 100 € par mois selon l'outil et le nombre de comptes — vérifie les tarifs au moment de choisir, ils bougent. Le calcul de rentabilité est simple : à un TJM de 400 €, ton heure vaut environ 57 €. Si un connecteur à 30 € par mois t'économise trois heures, il te rapporte 141 € nets par mois : 171 € de temps récupéré moins 30 € d'abonnement. Et ce coût d'outillage se prévoit dans tes prix : c'est une des raisons pour lesquelles un retainer se vend 800 à 1 500 €, pas 400.
 
 ### Niveau 3 : le tableau qui se remplit seul
 
@@ -3316,7 +3316,7 @@ Un connecteur, ça casse. Un jeton d'accès expire, une API change, et la case a
 
 ## Exemple appliqué
 
-Prenons un cas artisan/produit : une savonnerie artisanale, retainer starter à 900 € par mois, Instagram et Facebook, dix posts mensuels. La collecte manuelle prenait deux heures trente chaque mois : exports Meta, retraitement, mise en forme, plus le reporting lui-même. La gérante ne regardait les chiffres qu'en réunion. Mise en place en une journée : un Looker Studio branché sur un connecteur tiers à une vingtaine d'euros par mois — absorbé dans le retainer, le calcul tient largement — avec la page 1 du reporting reproduite à l'identique : portée, taux d'engagement sur portée, clics vers la boutique, abonnés nets, chaque chiffre avec sa variation. Résultat au mois suivant : trente-cinq minutes de travail au lieu de deux heures trente, dont trente d'analyse et de commentaire. Effet inattendu : la gérante consulte le lien chaque semaine, arrive en réunion en ayant déjà vu les chiffres, et la réunion passe entièrement sur les décisions — le mois d'après, elle a validé sans discuter le passage à douze posts. Sur un an, c'est vingt-deux heures récupérées sur un seul client, réinvesties dans le travail visible.
+Prenons un cas artisan/produit : une savonnerie artisanale, retainer starter à 900 € par mois, Instagram et Facebook, dix posts mensuels. La collecte manuelle prenait deux heures trente chaque mois : exports Meta, retraitement, mise en forme, plus le reporting lui-même. La gérante ne regardait les chiffres qu'en réunion. Mise en place en une journée : un Looker Studio branché sur un connecteur tiers à une vingtaine d'euros par mois — absorbé dans le retainer, le calcul tient largement — avec la page 1 du reporting reproduite à l'identique : portée, taux d'engagement sur portée, clics vers la boutique, abonnés nets, chaque chiffre avec sa variation. Résultat au mois suivant : quarante-cinq minutes de travail au lieu de deux heures trente, dont quarante d'analyse et de commentaire. Effet inattendu : la gérante consulte le lien chaque semaine, arrive en réunion en ayant déjà vu les chiffres, et la réunion passe entièrement sur les décisions — le mois d'après, elle a validé sans discuter le passage à douze posts. Sur un an, c'est vingt et une heures récupérées sur un seul client, réinvesties dans le travail visible.
 
 ## Les erreurs fréquentes
 
@@ -3326,7 +3326,7 @@ Construire une usine à gaz. Quatre clients ne justifient pas un pipeline avec s
 
 Faire confiance aveugle au connecteur. Jeton expiré, API modifiée, compte débranché : le tableau affiche des zéros ou s'arrête de se remplir, et personne ne le voit avant la réunion. Le contrôle des chiffres aberrants avant envoi n'est pas optionnel.
 
-Payer sans compter. Trois outils qui se recouvrent, des abonnements par client jamais répercutés : à 80 € par mois d'outillage non pensé, tu rends un dixième d'un retainer starter. Un seul outil, choisi pour couvrir tes réseaux, coût connu et intégré dans tes prix.
+Payer sans compter. Trois outils qui se recouvrent, des abonnements par client jamais répercutés : à 80 € par mois d'outillage non pensé, tu rends un dixième d'un retainer starter à 800 €. Un seul outil, choisi pour couvrir tes réseaux, coût connu et intégré dans tes prix.
 
 Automatiser avant d'avoir choisi. Brancher quarante métriques « pour les avoir » reproduit en automatique le reporting-catalogue qu'on a démonté dans ce module. D'abord le tri de la leçon sur les métriques, ensuite seulement l'automatisation. On automatise un choix, pas un entrepôt.
 
@@ -3346,7 +3346,7 @@ on conflict (id) do nothing;
 insert into academy_lessons (id, module_id, course_id, org_id, slug, title, summary, script_mdx, duration_min, video_provider, resources, order_index, published)
 select 'b3ac451c-ba10-4986-b06c-444befe79f03'::uuid, m.id, m.course_id, m.org_id, 'stack-outils-minimale', $sq$La stack outils minimale d'un freelance social media$sq$, $sq$Les huit outils qui couvrent réellement le travail, avec leur coût mensuel ligne par ligne — entre 29 et 54 € en vitesse de croisière. Et la liste de ce qu'on n'achète pas la première année, avec les trois signaux qui font passer au payant.$sq$, $sq$## L'accroche
 
-Tu viens de te lancer, et ton premier réflexe, c'est de t'équiper. Hootsuite, 99 € par mois. La suite Adobe, 67 €. Un outil de veille, 41 €. Un CRM, 29 €. Avant d'avoir signé ton premier client, tu portes déjà 236 € de charges fixes mensuelles. À un TJM de 400 €, c'est une demi-journée de travail qui part chaque mois dans des outils que tu utilises à 10 % de leurs capacités. J'ai vu des freelances arrêter au sixième mois, pas faute de clients, mais parce que leurs charges mangeaient une marge qui n'existait pas encore. La réalité, c'est qu'un freelance social media rentable tourne avec 6 à 8 outils, pour moins de 80 € par mois — et souvent moins de 50. Dans cette leçon, je te donne la liste exacte, ligne par ligne, le coût réel, et surtout ce que tu n'achètes pas la première année.
+Tu viens de te lancer, et ton premier réflexe, c'est de t'équiper. Hootsuite, 99 € par mois. La suite Adobe, 67 €. Un outil de veille, 41 €. Un CRM, 29 €. Avant d'avoir signé ton premier client, tu portes déjà 236 € de charges fixes mensuelles. À un TJM de 400 €, c'est plus d'une demi-journée de travail qui part chaque mois dans des outils que tu utilises à 10 % de leurs capacités. J'ai vu des freelances arrêter au sixième mois, pas faute de clients, mais parce que leurs charges mangeaient une marge qui n'existait pas encore. La réalité, c'est qu'un freelance social media rentable tourne avec 6 à 8 outils, pour moins de 80 € par mois — et souvent moins de 50. Dans cette leçon, je te donne la liste exacte, ligne par ligne, le coût réel, et surtout ce que tu n'achètes pas la première année.
 
 ## Le contenu
 
@@ -3374,11 +3374,11 @@ Deuxième règle : chaque outil doit être rattachable à un des quatre livrable
 
 **8. Bitwarden — 0 €.** Gestionnaire de mots de passe. Tu vas manipuler les accès de tes clients : comptes publicitaires, pages, parfois des boîtes mail. Les stocker dans un fichier texte ou les échanger par WhatsApp est une faute professionnelle, pas une négligence.
 
-Fais l'addition : entre 29 et 54 € par mois en vitesse de croisière, et environ 25 € les six premiers mois si tu restes sur les plans gratuits partout où c'est possible.
+Fais l'addition : entre 29 et 54 € par mois en vitesse de croisière, et 19 € les six premiers mois — Canva Pro et Google Workspace seuls, plans gratuits partout ailleurs.
 
 ### Ce que tu n'achètes pas la première année
 
-**Un outil de reporting automatisé.** Souvent plus de 100 € par mois. En dessous de quatre clients, un export manuel des statistiques et un modèle de rapport bien construit font le travail en 45 minutes par client. Tu automatiseras quand le reporting te coûtera plus d'une journée par mois.
+**Un outil de reporting automatisé.** Souvent plus de 100 € par mois. En dessous de quatre clients, un export manuel des statistiques et un modèle de rapport bien construit font le travail en 45 minutes par client. Tu automatiseras quand le reporting te coûtera plus de trois heures par mois, soit à partir de quatre clients.
 
 **Un outil de social listening.** Conçu pour des marques nationales qui surveillent leur réputation. Aucun de tes clients à 800 ou 1 500 € par mois n'en a l'usage.
 
@@ -3390,7 +3390,7 @@ Fais l'addition : entre 29 et 54 € par mois en vitesse de croisière, et envir
 
 ### Quand passer au payant
 
-Trois signaux, et un seul suffit. Un : tu gères trois réseaux ou plus hors Meta pour au moins deux clients — passe sur un programmateur payant. Deux : ton reporting mensuel dépasse une journée cumulée — commence à chiffrer un outil dédié, en le comparant à ton taux horaire. Trois : tu refuses un client parce qu'un outil gratuit te bloque — la limite te coûte déjà plus cher que l'abonnement.
+Trois signaux, et un seul suffit. Un : tu gères trois réseaux ou plus hors Meta pour au moins deux clients — passe sur un programmateur payant. Deux : ton reporting mensuel dépasse trois heures cumulées — commence à chiffrer un outil dédié, en le comparant à ton taux horaire. Trois : tu refuses un client parce qu'un outil gratuit te bloque — la limite te coûte déjà plus cher que l'abonnement.
 
 ## Exemple appliqué
 
@@ -3404,7 +3404,7 @@ Coût d'outils imputable à ce client : environ 31 € par mois, soit 3 % du ret
 
 **S'équiper avant de signer.** Les charges fixes avant le chiffre d'affaires, c'est le sens interdit. Tant que tu n'as pas deux clients, ta stack doit tenir sous 30 € par mois.
 
-**Prendre l'abonnement annuel tout de suite.** Le rabais de 20 % te fait économiser 40 € et t'enferme douze mois sur un outil que tu n'as pas éprouvé. Deux mois en mensuel d'abord, l'annuel ensuite si l'outil a survécu.
+**Prendre l'abonnement annuel tout de suite.** Sur un abonnement à 15 € par mois, le rabais de 20 % te fait économiser 36 € sur l'année et t'enferme douze mois sur un outil que tu n'as pas éprouvé. Deux mois en mensuel d'abord, l'annuel ensuite si l'outil a survécu.
 
 **Empiler des outils qui font la même chose.** Buffer plus Metricool plus Later, c'est trois abonnements pour une seule fonction. Un outil par fonction, une fonction par outil.
 
@@ -3426,9 +3426,9 @@ Ouvre LinkedIn et lis dix posts. Tu vas en reconnaître la moitié au premier co
 
 ## Le contenu
 
-### Le principe : l'IA aux extrémités, jamais au centre
+### Le principe : l'IA avant et après, jamais sur l'écriture
 
-Ta chaîne de production a cinq maillons : recherche, angle, structure, écriture, relecture. L'IA est excellente aux deux bouts — chercher, synthétiser, structurer, vérifier la cohérence — et médiocre au centre, là où vit la voix. Retiens la formule : l'IA propose, tu tranches, tu signes. Tout ce qui part chez le client ou en publication porte ta réécriture.
+Ta chaîne de production a cinq maillons : recherche, angle, structure, écriture, relecture. L'IA est bonne sur les trois premiers et sur le dernier — chercher, proposer des angles, structurer, vérifier la cohérence — et médiocre sur le quatrième, l'écriture, là où vit la voix. Retiens la formule : l'IA propose, tu tranches, tu signes. Tout ce qui part chez le client ou en publication porte ta réécriture.
 
 ### Où l'IA te fait vraiment gagner du temps
 
@@ -3472,7 +3472,7 @@ Le document de voix tient sur une page : on dit « adhérent », jamais « clien
 
 Production du post « remboursement des lunettes » : l'IA propose dix angles, tu retiens « les trois questions à se poser avant de changer de monture ». Elle structure le carrousel en cinq écrans. Toi, tu réécris l'accroche à la main — « Votre monture a plus de deux ans ? Lisez ceci avant de repasser en caisse » —, tu vérifies les montants du 100 % santé sur le site officiel de l'Assurance Maladie, et le post part en validation conformité.
 
-Résultat mesuré sur trois mois : temps de production par post passé de 1 h 30 à 50 minutes, quinze posts produits au lieu de dix à temps égal, taux d'engagement stable à 4,1 % — la voix n'a pas bougé, et c'est tout l'enjeu. Et zéro retour de la conformité sur un chiffre, parce qu'aucun chiffre n'est sorti d'une génération.
+Résultat mesuré sur trois mois : temps de production par post passé de 1 h 30 à 50 minutes, dix-huit posts produits au lieu de dix pour les mêmes quinze heures, taux d'engagement stable à 4,1 % — la voix n'a pas bougé, et c'est tout l'enjeu. Et zéro retour de la conformité sur un chiffre, parce qu'aucun chiffre n'est sorti d'une génération.
 
 ## Les erreurs fréquentes
 
@@ -3538,9 +3538,9 @@ Toute automatisation qui écrit vers l'extérieur — publication, email, messag
 
 Une société de transport premium B2B — chauffeurs pour dirigeants et délégations, clientèle grands comptes. Retainer à 1 800 € HT par mois : huit posts LinkedIn, gestion des campagnes Google Ads en forfait, reporting mensuel commenté.
 
-Avant automatisation, le temps invisible sur ce client : publication manuelle des huit posts, 20 minutes chacun en comptant la connexion et les vérifications, soit 2 h 40 ; collecte des statistiques LinkedIn et Google Ads en captures d'écran recollées dans un document, 2 h 30 ; validation du planning obtenue après trois relances d'un dirigeant injoignable par définition.
+Avant automatisation, le temps mécanique sur ce client : publication manuelle des huit posts, 20 minutes chacun en comptant la connexion et les vérifications, soit 2 h 40 ; reporting monté à la main — captures d'écran des statistiques LinkedIn et Google Ads recollées dans un document, puis rédaction du commentaire —, 2 h 45 ; validation du planning obtenue après trois relances d'un dirigeant injoignable par définition.
 
-Trois automatisations posées en une après-midi. La programmation native LinkedIn : les huit posts partent d'une session unique de 40 minutes — deux heures récupérées. Looker Studio branché sur Google Ads, plus un export LinkedIn mensuel déposé dans un Sheet : le rapport arrive pré-rempli, il reste 45 minutes de commentaire — deux heures récupérées. Un rappel automatique de validation à J-3 et J-1 : le planning revient signé en un seul aller-retour.
+Trois automatisations posées en une journée. La programmation native LinkedIn : les huit posts partent d'une session unique de 40 minutes — deux heures récupérées. Looker Studio branché sur Google Ads, plus un export LinkedIn mensuel déposé dans un Sheet : le rapport arrive pré-rempli, il reste 45 minutes de commentaire — deux heures récupérées. Un rappel automatique de validation à J-3 et J-1 : le planning revient signé en un seul aller-retour.
 
 Bilan : environ 4 h 30 gagnées par mois sur ce seul client, soit 270 € de temps au taux horaire, pour cinq heures de mise en place. Remboursée avant la fin du deuxième mois. Effet secondaire qui n'apparaît dans aucun calcul : le reporting part le 3 du mois au lieu du 12, et le client le remarque. La ponctualité perçue est un argument de renouvellement que tu n'as même pas eu à défendre.
 

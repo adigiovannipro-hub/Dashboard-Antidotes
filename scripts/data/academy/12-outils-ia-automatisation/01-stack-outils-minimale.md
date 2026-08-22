@@ -1,6 +1,6 @@
 ## L'accroche
 
-Tu viens de te lancer, et ton premier réflexe, c'est de t'équiper. Hootsuite, 99 € par mois. La suite Adobe, 67 €. Un outil de veille, 41 €. Un CRM, 29 €. Avant d'avoir signé ton premier client, tu portes déjà 236 € de charges fixes mensuelles. À un TJM de 400 €, c'est une demi-journée de travail qui part chaque mois dans des outils que tu utilises à 10 % de leurs capacités. J'ai vu des freelances arrêter au sixième mois, pas faute de clients, mais parce que leurs charges mangeaient une marge qui n'existait pas encore. La réalité, c'est qu'un freelance social media rentable tourne avec 6 à 8 outils, pour moins de 80 € par mois — et souvent moins de 50. Dans cette leçon, je te donne la liste exacte, ligne par ligne, le coût réel, et surtout ce que tu n'achètes pas la première année.
+Tu viens de te lancer, et ton premier réflexe, c'est de t'équiper. Hootsuite, 99 € par mois. La suite Adobe, 67 €. Un outil de veille, 41 €. Un CRM, 29 €. Avant d'avoir signé ton premier client, tu portes déjà 236 € de charges fixes mensuelles. À un TJM de 400 €, c'est plus d'une demi-journée de travail qui part chaque mois dans des outils que tu utilises à 10 % de leurs capacités. J'ai vu des freelances arrêter au sixième mois, pas faute de clients, mais parce que leurs charges mangeaient une marge qui n'existait pas encore. La réalité, c'est qu'un freelance social media rentable tourne avec 6 à 8 outils, pour moins de 80 € par mois — et souvent moins de 50. Dans cette leçon, je te donne la liste exacte, ligne par ligne, le coût réel, et surtout ce que tu n'achètes pas la première année.
 
 ## Le contenu
 
@@ -28,11 +28,11 @@ Deuxième règle : chaque outil doit être rattachable à un des quatre livrable
 
 **8. Bitwarden — 0 €.** Gestionnaire de mots de passe. Tu vas manipuler les accès de tes clients : comptes publicitaires, pages, parfois des boîtes mail. Les stocker dans un fichier texte ou les échanger par WhatsApp est une faute professionnelle, pas une négligence.
 
-Fais l'addition : entre 29 et 54 € par mois en vitesse de croisière, et environ 25 € les six premiers mois si tu restes sur les plans gratuits partout où c'est possible.
+Fais l'addition : entre 29 et 54 € par mois en vitesse de croisière, et 19 € les six premiers mois — Canva Pro et Google Workspace seuls, plans gratuits partout ailleurs.
 
 ### Ce que tu n'achètes pas la première année
 
-**Un outil de reporting automatisé.** Souvent plus de 100 € par mois. En dessous de quatre clients, un export manuel des statistiques et un modèle de rapport bien construit font le travail en 45 minutes par client. Tu automatiseras quand le reporting te coûtera plus d'une journée par mois.
+**Un outil de reporting automatisé.** Souvent plus de 100 € par mois. En dessous de quatre clients, un export manuel des statistiques et un modèle de rapport bien construit font le travail en 45 minutes par client. Tu automatiseras quand le reporting te coûtera plus de trois heures par mois, soit à partir de quatre clients.
 
 **Un outil de social listening.** Conçu pour des marques nationales qui surveillent leur réputation. Aucun de tes clients à 800 ou 1 500 € par mois n'en a l'usage.
 
@@ -44,7 +44,7 @@ Fais l'addition : entre 29 et 54 € par mois en vitesse de croisière, et envir
 
 ### Quand passer au payant
 
-Trois signaux, et un seul suffit. Un : tu gères trois réseaux ou plus hors Meta pour au moins deux clients — passe sur un programmateur payant. Deux : ton reporting mensuel dépasse une journée cumulée — commence à chiffrer un outil dédié, en le comparant à ton taux horaire. Trois : tu refuses un client parce qu'un outil gratuit te bloque — la limite te coûte déjà plus cher que l'abonnement.
+Trois signaux, et un seul suffit. Un : tu gères trois réseaux ou plus hors Meta pour au moins deux clients — passe sur un programmateur payant. Deux : ton reporting mensuel dépasse trois heures cumulées — commence à chiffrer un outil dédié, en le comparant à ton taux horaire. Trois : tu refuses un client parce qu'un outil gratuit te bloque — la limite te coûte déjà plus cher que l'abonnement.
 
 ## Exemple appliqué
 
@@ -58,7 +58,7 @@ Coût d'outils imputable à ce client : environ 31 € par mois, soit 3 % du ret
 
 **S'équiper avant de signer.** Les charges fixes avant le chiffre d'affaires, c'est le sens interdit. Tant que tu n'as pas deux clients, ta stack doit tenir sous 30 € par mois.
 
-**Prendre l'abonnement annuel tout de suite.** Le rabais de 20 % te fait économiser 40 € et t'enferme douze mois sur un outil que tu n'as pas éprouvé. Deux mois en mensuel d'abord, l'annuel ensuite si l'outil a survécu.
+**Prendre l'abonnement annuel tout de suite.** Sur un abonnement à 15 € par mois, le rabais de 20 % te fait économiser 36 € sur l'année et t'enferme douze mois sur un outil que tu n'as pas éprouvé. Deux mois en mensuel d'abord, l'annuel ensuite si l'outil a survécu.
 
 **Empiler des outils qui font la même chose.** Buffer plus Metricool plus Later, c'est trois abonnements pour une seule fonction. Un outil par fonction, une fonction par outil.
 

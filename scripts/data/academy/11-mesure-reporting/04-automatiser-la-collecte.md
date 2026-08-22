@@ -12,7 +12,7 @@ Coût : zéro. Le geste : un Google Sheets par client, un onglet par mois, exact
 
 ### Niveau 2 : les connecteurs
 
-Le geste : un tableau de bord Looker Studio — l'outil de Google, gratuit — branché sur tes sources. Les connecteurs Google sont natifs et gratuits : Google Analytics 4, Google Ads, Google Sheets. Pour Meta, Instagram, LinkedIn ou TikTok, il faut un connecteur tiers payant : Supermetrics, Porter Metrics, Metricool et d'autres. Compte entre 15 et 100 € par mois selon l'outil et le nombre de comptes — vérifie les tarifs au moment de choisir, ils bougent. Le calcul de rentabilité est simple : à un TJM de 400 €, ton heure vaut environ 57 €. Si un connecteur à 30 € par mois t'économise trois heures, il te rapporte 140 € nets mensuels. Et ce coût d'outillage se prévoit dans tes prix : c'est une des raisons pour lesquelles un retainer se vend 800 à 1 500 €, pas 400.
+Le geste : un tableau de bord Looker Studio — l'outil de Google, gratuit — branché sur tes sources. Les connecteurs Google sont natifs et gratuits : Google Analytics 4, Google Ads, Google Sheets. Pour Meta, Instagram, LinkedIn ou TikTok, il faut un connecteur tiers payant : Supermetrics, Porter Metrics, Metricool et d'autres. Compte entre 15 et 100 € par mois selon l'outil et le nombre de comptes — vérifie les tarifs au moment de choisir, ils bougent. Le calcul de rentabilité est simple : à un TJM de 400 €, ton heure vaut environ 57 €. Si un connecteur à 30 € par mois t'économise trois heures, il te rapporte 141 € nets par mois : 171 € de temps récupéré moins 30 € d'abonnement. Et ce coût d'outillage se prévoit dans tes prix : c'est une des raisons pour lesquelles un retainer se vend 800 à 1 500 €, pas 400.
 
 ### Niveau 3 : le tableau qui se remplit seul
 
@@ -28,7 +28,7 @@ Un connecteur, ça casse. Un jeton d'accès expire, une API change, et la case a
 
 ## Exemple appliqué
 
-Prenons un cas artisan/produit : une savonnerie artisanale, retainer starter à 900 € par mois, Instagram et Facebook, dix posts mensuels. La collecte manuelle prenait deux heures trente chaque mois : exports Meta, retraitement, mise en forme, plus le reporting lui-même. La gérante ne regardait les chiffres qu'en réunion. Mise en place en une journée : un Looker Studio branché sur un connecteur tiers à une vingtaine d'euros par mois — absorbé dans le retainer, le calcul tient largement — avec la page 1 du reporting reproduite à l'identique : portée, taux d'engagement sur portée, clics vers la boutique, abonnés nets, chaque chiffre avec sa variation. Résultat au mois suivant : trente-cinq minutes de travail au lieu de deux heures trente, dont trente d'analyse et de commentaire. Effet inattendu : la gérante consulte le lien chaque semaine, arrive en réunion en ayant déjà vu les chiffres, et la réunion passe entièrement sur les décisions — le mois d'après, elle a validé sans discuter le passage à douze posts. Sur un an, c'est vingt-deux heures récupérées sur un seul client, réinvesties dans le travail visible.
+Prenons un cas artisan/produit : une savonnerie artisanale, retainer starter à 900 € par mois, Instagram et Facebook, dix posts mensuels. La collecte manuelle prenait deux heures trente chaque mois : exports Meta, retraitement, mise en forme, plus le reporting lui-même. La gérante ne regardait les chiffres qu'en réunion. Mise en place en une journée : un Looker Studio branché sur un connecteur tiers à une vingtaine d'euros par mois — absorbé dans le retainer, le calcul tient largement — avec la page 1 du reporting reproduite à l'identique : portée, taux d'engagement sur portée, clics vers la boutique, abonnés nets, chaque chiffre avec sa variation. Résultat au mois suivant : quarante-cinq minutes de travail au lieu de deux heures trente, dont quarante d'analyse et de commentaire. Effet inattendu : la gérante consulte le lien chaque semaine, arrive en réunion en ayant déjà vu les chiffres, et la réunion passe entièrement sur les décisions — le mois d'après, elle a validé sans discuter le passage à douze posts. Sur un an, c'est vingt et une heures récupérées sur un seul client, réinvesties dans le travail visible.
 
 ## Les erreurs fréquentes
 
@@ -38,7 +38,7 @@ Construire une usine à gaz. Quatre clients ne justifient pas un pipeline avec s
 
 Faire confiance aveugle au connecteur. Jeton expiré, API modifiée, compte débranché : le tableau affiche des zéros ou s'arrête de se remplir, et personne ne le voit avant la réunion. Le contrôle des chiffres aberrants avant envoi n'est pas optionnel.
 
-Payer sans compter. Trois outils qui se recouvrent, des abonnements par client jamais répercutés : à 80 € par mois d'outillage non pensé, tu rends un dixième d'un retainer starter. Un seul outil, choisi pour couvrir tes réseaux, coût connu et intégré dans tes prix.
+Payer sans compter. Trois outils qui se recouvrent, des abonnements par client jamais répercutés : à 80 € par mois d'outillage non pensé, tu rends un dixième d'un retainer starter à 800 €. Un seul outil, choisi pour couvrir tes réseaux, coût connu et intégré dans tes prix.
 
 Automatiser avant d'avoir choisi. Brancher quarante métriques « pour les avoir » reproduit en automatique le reporting-catalogue qu'on a démonté dans ce module. D'abord le tri de la leçon sur les métriques, ensuite seulement l'automatisation. On automatise un choix, pas un entrepôt.
 

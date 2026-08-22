@@ -2,13 +2,13 @@
 
 Il est 21 h 47, un jeudi. Ton téléphone vibre. Ton client te transfère une capture d'écran : sous le post publié le matin, un commentaire dit « Votre mutuelle refuse de rembourser l'hospitalisation de ma mère depuis quatre mois. Honte à vous. » Et il te pose la question que tu redoutes : « On fait quoi ? On supprime ? »
 
-Si rien n'a été écrit avant, tu vas improviser. Improviser à 22 h, sous pression, sur un sujet sensible, avec un client qui panique : c'est exactement comme ça qu'on aggrave un problème au lieu de le régler. Tu vas répondre trop vite, ou masquer un commentaire légitime, ou promettre un remboursement que personne ne t'a autorisé à promettre.
+Si rien n'a été écrit avant, tu vas improviser. Improviser à 22 h, sous pression, avec un client qui panique : c'est comme ça qu'on aggrave un problème au lieu de le régler. Tu vas répondre trop vite, ou masquer un commentaire légitime, ou promettre un remboursement que personne ne t'a autorisé à promettre.
 
 La différence entre un community manager amateur et un pro, ce n'est pas la qualité des réponses. C'est qu'un pro a cadré les règles avant le premier commentaire. Ce cadre s'appelle une charte de modération, elle tient sur deux pages, et tu vas apprendre à l'écrire dans cette leçon.
 
 ## Le contenu
 
-La modération vit dans le E d'Exécution de la méthode SPEED : c'est du quotidien, du répétitif, et c'est justement pour ça qu'il faut des règles écrites. Une décision qu'on prend cinquante fois par mois ne doit jamais dépendre de ton humeur ni de celle du client.
+La modération vit dans le second E de la méthode SPEED, celui de l'Exécution : c'est du quotidien, du répétitif, et c'est justement pour ça qu'il faut des règles écrites. Une décision qu'on prend cinquante fois par mois ne doit jamais dépendre de ton humeur ni de celle du client.
 
 ### Les quatre gestes possibles
 
@@ -42,7 +42,7 @@ Tu ne rédiges pas la charte seul dans ton coin. Tu la construis avec le client,
 
 Tu repars, tu rédiges deux pages, tu envoies pour validation écrite — un mail avec « validé » suffit — et tu ranges le document là où vous travaillez déjà ensemble. Une charte que le client n'a pas validée par écrit ne te protège de rien : le jour où un masquage fait polémique, c'est ta décision, pas la sienne.
 
-La charte se facture. Soit elle est incluse dans la stratégie social media vendue en one-shot entre 1 500 et 3 000 € HT, soit tu la produis au démarrage du retainer, sur la première mensualité. Elle te prend trois heures la première fois, une heure et demie ensuite. Et elle se relit tous les six mois : les questions fréquentes changent, les contacts d'escalade aussi.
+La charte se facture. Soit elle est incluse dans la stratégie social media vendue en one-shot entre 1 500 et 3 000 € HT, soit tu la produis au démarrage du retainer, sur la première mensualité. Elle te prend trois heures la première fois, une heure et demie ensuite.
 
 ## Exemple appliqué
 
@@ -58,7 +58,7 @@ Résultat après trois mois : temps de réponse moyen passé de 31 h à 5 h ouvr
 
 ## Les erreurs fréquentes
 
-Écrire la charte seul et l'envoyer pour information. Le client ne l'a pas construite, donc il ne l'applique pas : il continue de te transférer chaque commentaire avec « on fait quoi ? ». La charte se co-écrit en atelier, sinon elle reste ton document, pas le sien.
+Écrire la charte seul et l'envoyer pour information. Le client ne l'a pas construite, donc il ne l'applique pas : il continue de te transférer chaque commentaire avec « on fait quoi ? ». La charte se co-écrit en atelier.
 
 Confondre masquer et supprimer. Une suppression se remarque : l'auteur revient, furieux, et republie ailleurs avec capture. Un masquage lui reste invisible. Et sur une critique non insultante, aucun des deux : tu réponds.
 

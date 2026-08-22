@@ -34,13 +34,13 @@ Le rythme dépend de la taille de l'audience et du budget — plus tu dépenses 
 
 ## Exemple appliqué
 
-Une société de transport premium B2B : chauffeurs privés pour dirigeants, délégations et transferts d'affaires, clientèle d'entreprises. La cible sur Meta : assistantes de direction, office managers et dirigeants d'une grande métropole — une audience atteignable d'environ 90 000 personnes. Budget : 1 200 € par mois, soit 40 € par jour, campagne de génération de leads avec une seule créa vidéo qui marchait très bien au lancement.
+Une société de transport premium B2B : chauffeurs privés pour dirigeants, délégations et transferts d'affaires, clientèle d'entreprises. La cible sur Meta : assistantes de direction, office managers et dirigeants d'une grande métropole — une audience atteignable d'environ 20 000 personnes. Budget : 1 200 € par mois, soit 40 € par jour, campagne de génération de leads avec une seule créa vidéo qui marchait très bien au lancement.
 
-Le relevé hebdomadaire raconte tout. Semaine 2 : fréquence 30 jours à 2,1, CTR 1,3 %, CPL 28 €. Semaine 5 : fréquence 3,6, CTR 0,9 %, CPL 39 €. Semaine 7 : fréquence 5,2, CTR 0,55 %, CPL 63 €. À 40 € par jour sur 90 000 personnes, toute l'audience a vu la vidéo cinq fois en sept semaines. Elle n'est pas mauvaise : elle est épuisée.
+Le relevé hebdomadaire raconte tout. Semaine 2 : fréquence cumulée à 2,1, CTR 1,3 %, CPL 28 €. Semaine 5 : fréquence 3,6, CTR 0,9 %, CPL 39 €. Semaine 7 : fréquence 5,2, CTR 0,55 %, CPL 63 €. À 40 € par jour pendant sept semaines, soit 1 960 € à un CPM autour de 19 €, l'audience de 20 000 personnes a vu la vidéo cinq fois. Elle n'est pas mauvaise : elle est épuisée.
 
 La rotation mise en place : trois créas neuves, chacune sur un angle différent du même service — la ponctualité garantie, portée par un témoignage client filmé ; la simplicité de facturation, montrée par une capture de l'espace entreprise ; le confort, en vidéo courte de l'intérieur des berlines. Introduites en une semaine, l'ancienne vidéo coupée à J+10. Résultat : CPL revenu à 31 € en dix jours, CTR moyen à 1,1 %.
 
-La vraie leçon vient après : sur une audience de 90 000 personnes, la fatigue reviendra toutes les trois semaines, mécaniquement. La rotation n'est pas une intervention d'urgence, c'est un rythme — une créa neuve toutes les trois semaines, inscrite noir sur blanc dans le planning de production du client.
+La vraie leçon vient après : sur une audience de 20 000 personnes, la fatigue reviendra toutes les trois semaines, mécaniquement. La rotation n'est pas une intervention d'urgence, c'est un rythme — une créa neuve toutes les trois semaines, inscrite noir sur blanc dans le planning de production du client.
 
 ## Les erreurs fréquentes
 
