@@ -286,11 +286,57 @@ describe("buildCardModel", () => {
     expect(model.subtitle).toBe("Août · Cycle indisponible");
     expect(model.segments.every((segment) => segment.tone === "idle")).toBe(true);
     expect(model.info).toContain("0032");
+    // Sans les tables, un clic sur un segment répondrait 500 : la carte le dit
+    // au composant, qui rend les segments inertes.
+    expect(model.moduleReady).toBe(false);
+    expect(model.views[0]!.menu).toEqual([]);
     // Les mesures venues du planning restent : elles, sont vraies.
     expect(model.metrics).toContainEqual({
       label: "À publier sous 7 jours",
       value: "3",
     });
+  });
+
+  it("désactive dans le menu ce qui est impossible, avec la raison", () => {
+    // Le cas I-WAY : un espace sans planning le mois d'avant. Le menu lançait
+    // le job quand même, il échouait à la première ligne, et l'écran donnait
+    // l'impression que le clic n'avait rien fait.
+    const model = build({}, { today: "2026-08-03" });
+    const reporting = model.views[0]!.menu.find((entry) => entry.phase === "reporting")!;
+    expect(reporting.disabled).toBe(true);
+    expect(reporting.reason).toBe("Aucune publication en juillet à analyser");
+
+    const intentions = model.views[0]!.menu.find(
+      (entry) => entry.phase === "intentions",
+    )!;
+    expect(intentions.disabled).toBe(false);
+    expect(intentions.targetMonth).toBe("2026-09-01");
+  });
+
+  it("ouvre le menu dès qu'il y a de la matière", () => {
+    const model = build({
+      phases: upToWording,
+      target: { total: 12, withWording: 4, validated: 0, scheduled: 0, firstPublication: null },
+      previous: { published: 8, total: 9 },
+    });
+    expect(model.views[0]!.menu.every((entry) => !entry.disabled)).toBe(true);
+    // La validation n'est pas un job : le menu doit le dire au composant,
+    // sinon le clic part vers `/api/generate/programmation`.
+    expect(
+      model.views[0]!.menu.find((entry) => entry.phase === "programmation")!.kind,
+    ).toBe("validation");
+  });
+
+  it("refuse le reporting d'un mois d'avance, qui n'est pas écoulé", () => {
+    const model = build({ phases: upToWording }, { today: "2026-08-24" });
+    const octobre = model.views[1]!;
+    const reporting = octobre.menu.find((entry) => entry.phase === "reporting")!;
+    expect(reporting.disabled).toBe(true);
+    expect(reporting.reason).toBe("Le reporting analyse un mois écoulé");
+    // Et l'envoi en validation vise bien octobre, pas le mois par défaut.
+    expect(
+      octobre.menu.find((entry) => entry.phase === "programmation")!.targetMonth,
+    ).toBe("2026-10-01");
   });
 
   it("masque la ligne modération quand l'espace n'en a pas", () => {
