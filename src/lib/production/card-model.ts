@@ -124,9 +124,21 @@ export type CardMonthView = {
   metrics: CardMetric[];
   info: string | null;
   action: CardAction | null;
+  /**
+   * Les quatre phases telles que le menu `…` les propose, **gardes comprises**.
+   *
+   * Le menu lançait jusqu'ici n'importe quelle phase sans regarder si elle
+   * était possible : « Générer le reporting » sur un espace sans planning le
+   * mois d'avant créait un job qui échouait aussitôt, et l'écran donnait
+   * l'impression que le clic n'avait rien fait. Une action impossible se
+   * désactive ici, avec sa raison, comme le bouton principal.
+   */
+  menu: CardAction[];
 };
 
 export type ProductionCardModel = {
+  /** `false` quand les tables du module manquent : rien n'est modifiable. */
+  moduleReady: boolean;
   /**
    * Les mois sélectionnables, du mois par défaut aux deux suivants. La carte
    * s'ouvre toujours sur le premier : un choix mémorisé cacherait un retard.
@@ -150,6 +162,14 @@ export type ProductionCardModel = {
   action: CardAction | null;
   /** Job `pending`/`running` à suivre — le bouton devient son témoin. */
   activeJob: CardJob | null;
+};
+
+/** Les actions du menu, sans compteur : elles restent lisibles à tout moment. */
+export const MENU_ACTION_LABELS: Record<ProductionPhase, string> = {
+  intentions: "Générer les intentions",
+  wording: "Rédiger les wordings",
+  programmation: "Envoyer en validation",
+  reporting: "Générer le reporting",
 };
 
 /** Libellé du bouton pendant qu'un job tourne ; le compteur s'y accroche. */
@@ -404,6 +424,40 @@ export function buildCardModel(options: {
     }
   }
 
+  // --- Menu des quatre phases ------------------------------------------------
+  // Mêmes gardes que le bouton, mais pour toutes les phases : le menu est un
+  // raccourci pour rejouer une phase hors de son tour, pas une porte dérobée
+  // vers un job qui échouera à la première ligne.
+  const menu: CardAction[] = PHASE_ORDER.map((phase) => {
+    const entry = {
+      phase,
+      targetMonth: targetMonthFor(phase, today),
+      label: MENU_ACTION_LABELS[phase],
+      kind: (phase === "programmation" ? "validation" : "generate") as CardAction["kind"],
+    };
+    switch (phase) {
+      case "wording":
+      case "programmation":
+        return {
+          ...entry,
+          disabled: snapshot.target.total === 0,
+          reason:
+            snapshot.target.total === 0 ? `Aucune publication pour ${nextLabel}` : null,
+        };
+      case "reporting":
+        return {
+          ...entry,
+          disabled: snapshot.previous.total === 0,
+          reason:
+            snapshot.previous.total === 0
+              ? `Aucune publication en ${previousLabel} à analyser`
+              : null,
+        };
+      default:
+        return { ...entry, disabled: false, reason: null };
+    }
+  });
+
   // --- Les mois d'avance -----------------------------------------------------
   // Le mois par défaut d'abord : la carte s'ouvre toujours dessus, un choix
   // mémorisé cacherait un retard.
@@ -418,6 +472,7 @@ export function buildCardModel(options: {
     metrics,
     info,
     action,
+    menu,
   };
 
   const views: CardMonthView[] = [defaultView];
@@ -433,6 +488,7 @@ export function buildCardModel(options: {
   }
 
   return {
+    moduleReady: true,
     views,
     subtitle: view.subtitle,
     segments: view.segments,
@@ -501,11 +557,12 @@ function buildAheadView(options: {
 
   let action: CardAction | null = null;
   if (current) {
-    const base = { phase: current, targetMonth, kind: "generate" as const };
+    const base = { phase: current, targetMonth };
     switch (current) {
       case "intentions":
         action = {
           ...base,
+          kind: "generate",
           label: `Générer les intentions ${de}`,
           disabled: false,
           reason: null,
@@ -514,6 +571,7 @@ function buildAheadView(options: {
       case "wording":
         action = {
           ...base,
+          kind: "generate",
           label:
             remaining === 1
               ? "Rédiger le contenu restant"
@@ -523,18 +581,41 @@ function buildAheadView(options: {
         };
         break;
       case "programmation":
+        // Même geste qu'au mois par défaut : plus rien ne se « programme »,
+        // on envoie le planning au client. La vue d'avance proposait encore
+        // `generate`, qui appelait le stub de programmation — un clic sans
+        // effet visible, exactement le défaut qu'on corrige ailleurs.
         action = {
           ...base,
-          label:
-            options.stats.validated === 1
-              ? "Programmer le post validé"
-              : `Programmer les ${options.stats.validated} posts validés`,
-          disabled: options.stats.validated === 0,
-          reason: options.stats.validated === 0 ? "Aucun post validé à programmer" : null,
+          kind: "validation",
+          label: "Envoyer en validation",
+          disabled: options.stats.total === 0,
+          reason: options.stats.total === 0 ? `Aucune publication pour ${label.toLowerCase()}` : null,
         };
         break;
     }
   }
+
+  const menu: CardAction[] = PHASE_ORDER.map((phase) => {
+    const entry = {
+      phase,
+      targetMonth,
+      label: MENU_ACTION_LABELS[phase],
+      kind: (phase === "programmation" ? "validation" : "generate") as CardAction["kind"],
+    };
+    // Le reporting analyse un mois écoulé : il n'a rien à dire d'un mois qui
+    // n'a pas encore commencé, et le proposer ferait échouer un job pour rien.
+    if (phase === "reporting") {
+      return { ...entry, disabled: true, reason: "Le reporting analyse un mois écoulé" };
+    }
+    if (phase === "intentions") return { ...entry, disabled: false, reason: null };
+    return {
+      ...entry,
+      disabled: options.stats.total === 0,
+      reason:
+        options.stats.total === 0 ? `Aucune publication pour ${label.toLowerCase()}` : null,
+    };
+  });
 
   return {
     targetMonth,
@@ -549,6 +630,7 @@ function buildAheadView(options: {
       ? `${label} n'est pas encore dans la fenêtre. Rien n'est en retard.`
       : `${label} est bouclé.`,
     action,
+    menu,
   };
 }
 
@@ -583,6 +665,7 @@ function buildUnavailableModel(options: {
   const subtitle = `${monthLabel(options.monthKey)} · Cycle indisponible`;
 
   return {
+    moduleReady: false,
     // Une seule vue : sans les tables du module, il n'y a pas de mois à
     // parcourir — le sélecteur n'aurait rien à montrer.
     views: [
@@ -597,6 +680,7 @@ function buildUnavailableModel(options: {
         metrics: [],
         info: MODULE_MISSING_NOTICE,
         action: null,
+        menu: [],
       },
     ],
     subtitle,

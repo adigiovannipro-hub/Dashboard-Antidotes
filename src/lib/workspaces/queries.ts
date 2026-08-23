@@ -64,6 +64,46 @@ export async function listWorkspacePages(workspaceId: string): Promise<Workspace
 }
 
 /**
+ * Le tableau de bord d'entrée de chaque espace — sa page « reporting ».
+ *
+ * Une seule requête pour tous les espaces : l'accueil affiche jusqu'à N
+ * cartes, et `listWorkspacePages()` en ferait deux par carte. Un espace sans
+ * tableau de bord n'a pas d'entrée dans la carte renvoyée — le lien ne doit
+ * pas exister plutôt que pointer une page inexistante.
+ *
+ * Sans ça, « Ouvrir le reporting » visait `/espace/[slug]`, qui n'est qu'une
+ * porte : elle redirige vers la première page de l'espace, et le planning
+ * passe **avant** le reporting dans `listWorkspacePages()`. Le menu ouvrait
+ * donc toujours le planning éditorial.
+ */
+export async function listReportingSlugs(
+  workspaceIds: string[],
+): Promise<Map<string, string>> {
+  const found = new Map<string, string>();
+  if (workspaceIds.length === 0) return found;
+
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("dashboards")
+    .select("workspace_id, slug, name")
+    .in("workspace_id", workspaceIds)
+    .order("position")
+    .limit(200);
+
+  for (const dashboard of (data ?? []) as unknown as {
+    workspace_id: string;
+    slug: string;
+    name: string;
+  }[]) {
+    if (isPlanningLike(dashboard.name)) continue;
+    if (found.has(dashboard.workspace_id)) continue;
+    found.set(dashboard.workspace_id, dashboard.slug);
+  }
+
+  return found;
+}
+
+/**
  * Les pages masquées à une adresse. Absence de ligne vaut visible : un
  * partenaire invité sans passer par la matrice voit l'espace entier.
  */
