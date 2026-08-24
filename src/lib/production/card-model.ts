@@ -52,6 +52,13 @@ export type ProductionSnapshot = {
   };
   /** Le mois écoulé, M−1 : la matière du reporting. */
   previous: {
+    /**
+     * Les régies ont-elles mesuré quelque chose sur ce mois ?
+     *
+     * Distinct de `total`, qui compte des lignes de planning : un mois peut
+     * être plein de chiffres Meta sans qu'aucune ligne n'ait été saisie.
+     */
+    hasRealData: boolean;
     published: number;
     total: number;
   };
@@ -220,6 +227,15 @@ export function buildCardModel(options: {
   const monthKey = today.slice(0, 7);
   const nextLabel = monthLabelLower(shiftMonth(monthKey, 1));
   const previousLabel = monthLabelLower(shiftMonth(monthKey, -1));
+  /* Le reporting a besoin de **données**, pas d'un tableau. Un client arrivé
+     en cours de route peut très bien avoir des chiffres Meta en juillet sans y
+     avoir tenu de planning : lui refuser son bilan pour une ligne de tableau
+     absente n'avait aucun sens. On ne bloque que quand il n'y a rien du tout. */
+  const rienAAnalyser =
+    snapshot.previous.total === 0 && !snapshot.previous.hasRealData;
+  const raisonReporting = rienAAnalyser
+    ? `Aucune donnée ni publication en ${previousLabel} à analyser`
+    : null;
   const nextOf = ofMonth(shiftMonth(monthKey, 1));
   const previousOf = ofMonth(shiftMonth(monthKey, -1));
 
@@ -413,11 +429,8 @@ export function buildCardModel(options: {
             ...base,
             kind: "generate",
             label: `Générer le reporting ${previousOf}`,
-            disabled: snapshot.previous.total === 0,
-            reason:
-              snapshot.previous.total === 0
-                ? `Aucune publication en ${previousLabel} à analyser`
-                : null,
+            disabled: rienAAnalyser,
+            reason: raisonReporting,
           };
           break;
       }
@@ -447,11 +460,8 @@ export function buildCardModel(options: {
       case "reporting":
         return {
           ...entry,
-          disabled: snapshot.previous.total === 0,
-          reason:
-            snapshot.previous.total === 0
-              ? `Aucune publication en ${previousLabel} à analyser`
-              : null,
+          disabled: rienAAnalyser,
+          reason: raisonReporting,
         };
       default:
         return { ...entry, disabled: false, reason: null };

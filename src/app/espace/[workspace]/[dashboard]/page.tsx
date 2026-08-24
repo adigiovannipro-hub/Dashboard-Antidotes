@@ -5,6 +5,7 @@ import { PlugZap, TriangleAlert } from "lucide-react";
 import { EmptyState } from "@/components/ds/empty-state";
 import { ConversionsMenu } from "@/components/viz/conversions-menu";
 import { MetaDashboard } from "@/components/viz/meta-dashboard";
+import { MonthlyReport } from "@/components/production/monthly-report";
 import { OrganicDashboard } from "@/components/viz/organic-dashboard";
 import { RangePicker } from "@/components/viz/range-picker";
 import { ReportingTabs } from "@/components/viz/reporting-tabs";
@@ -34,6 +35,7 @@ import {
   getOrganicData,
   listReportingSources,
 } from "@/lib/reporting/queries";
+import { getClientReport } from "@/lib/production/queries";
 import { listWorkspaceSocialLinks } from "@/lib/social/queries";
 import { createClient } from "@/lib/supabase/server";
 import { requirePageAccess } from "@/lib/workspaces/access";
@@ -128,6 +130,16 @@ export default async function DashboardPage({
   const isOwner = workspace.role === "owner";
   const failing = sources.filter((source) => source.last_error);
 
+  /* La synthèse du mois, produite par la phase Reporting de la carte cockpit.
+     Réservée au propriétaire — elle est écrite par un modèle et sert à
+     préparer le point client, pas à le livrer. Elle n'existe que pour un mois
+     entier : une plage libre n'a pas de bilan mensuel, et en afficher un
+     laisserait croire qu'il porte sur la période affichée. */
+  const report =
+    isOwner && !customRange
+      ? await getClientReport({ workspaceId: workspace.id, month: `${month}-01` })
+      : null;
+
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
@@ -188,6 +200,10 @@ export default async function DashboardPage({
             </p>
           ))}
         </div>
+      ) : null}
+
+      {report ? (
+        <MonthlyReport report={report} monthLabel={monthLabel(month)} />
       ) : null}
 
       {network === "meta-ads" && ads?.hasData ? (

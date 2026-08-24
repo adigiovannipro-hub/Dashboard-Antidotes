@@ -37,7 +37,7 @@ const snapshot = (overrides: Partial<ProductionSnapshot> = {}): ProductionSnapsh
   moduleReady: true,
   phases: [],
   target: { total: 0, withWording: 0, validated: 0, scheduled: 0, firstPublication: null },
-  previous: { published: 0, total: 0 },
+  previous: { published: 0, total: 0, hasRealData: false },
   ahead: {},
   jobs: [],
   ...overrides,
@@ -158,12 +158,29 @@ describe("buildCardModel", () => {
     });
   });
 
-  it("bloque le reporting d'un mois sans publications", () => {
+  it("bloque le reporting d'un mois sans rien du tout", () => {
     const model = build({}, { today: "2026-08-03" });
     expect(model.currentPhase).toBe("reporting");
     expect(model.action?.label).toBe("Générer le reporting de juillet");
     expect(model.action?.disabled).toBe(true);
-    expect(model.action?.reason).toBe("Aucune publication en juillet à analyser");
+    expect(model.action?.reason).toBe(
+      "Aucune donnée ni publication en juillet à analyser",
+    );
+  });
+
+  it("ouvre le reporting sur les seules données de régie, sans planning", () => {
+    // Le cas d'un client arrivé en cours de route : ses chiffres Meta de
+    // juillet existent, son planning de juillet non. Lui refuser son bilan
+    // pour une ligne de tableau absente n'avait aucun sens.
+    const model = build(
+      { previous: { published: 0, total: 0, hasRealData: true } },
+      { today: "2026-08-03" },
+    );
+    expect(model.action?.disabled).toBe(false);
+    expect(model.action?.reason).toBeNull();
+    expect(
+      model.views[0]!.menu.find((entry) => entry.phase === "reporting")!.disabled,
+    ).toBe(false);
   });
 
   it("fait du bouton le témoin d'un job actif et de sa progression", () => {
@@ -304,7 +321,9 @@ describe("buildCardModel", () => {
     const model = build({}, { today: "2026-08-03" });
     const reporting = model.views[0]!.menu.find((entry) => entry.phase === "reporting")!;
     expect(reporting.disabled).toBe(true);
-    expect(reporting.reason).toBe("Aucune publication en juillet à analyser");
+    expect(reporting.reason).toBe(
+      "Aucune donnée ni publication en juillet à analyser",
+    );
 
     const intentions = model.views[0]!.menu.find(
       (entry) => entry.phase === "intentions",
@@ -317,7 +336,7 @@ describe("buildCardModel", () => {
     const model = build({
       phases: upToWording,
       target: { total: 12, withWording: 4, validated: 0, scheduled: 0, firstPublication: null },
-      previous: { published: 8, total: 9 },
+      previous: { published: 8, total: 9, hasRealData: false },
     });
     expect(model.views[0]!.menu.every((entry) => !entry.disabled)).toBe(true);
     // La validation n'est pas un job : le menu doit le dire au composant,
