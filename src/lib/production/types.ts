@@ -118,6 +118,29 @@ export type GenerationJobResult = {
   summary?: string;
 };
 
+/**
+ * La synthèse mensuelle produite par la phase Reporting (migration 0056).
+ *
+ * Elle vit à part du job qui l'a produite : un job est une trace d'exécution
+ * purgée sans état d'âme, un bilan de mois se relit six mois plus tard. Et
+ * elle reste **interne** — écrite par un modèle, elle sert à préparer le point
+ * client, pas à le livrer.
+ */
+export type ClientReport = {
+  id: string;
+  org_id: string;
+  workspace_id: string;
+  /** Premier jour du mois analysé, `YYYY-MM-01`. */
+  target_month: string;
+  /** Le compte rendu en markdown, sortie brute du modèle. */
+  report: string;
+  /** Sur quoi il s'appuie réellement — la relecture doit pouvoir le savoir. */
+  has_ads_data: boolean;
+  has_organic_data: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
 export type WordingHistoryEntry = {
   id: string;
   org_id: string;

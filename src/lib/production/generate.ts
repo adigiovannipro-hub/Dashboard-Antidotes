@@ -19,6 +19,31 @@ import {
   type ExistingPublication,
 } from "./quotas";
 import { needsContent } from "./wording-state";
+import {
+  EMPTY_FACTS,
+  hasAnything,
+  hasRealData,
+  renderReportingFacts,
+  type OrganicFacts,
+  type OrganicPlatform,
+  type ReportingFacts,
+} from "./reporting-facts";
+import { sumRawMetrics } from "@/lib/metrics/aggregate";
+import type { RawMetrics } from "@/lib/metrics/types";
+import {
+  aggregateCustomEvents,
+  foldClientConversions,
+  metricsRowToRaw,
+  sumPosts,
+  NO_CONVERSION_ROLES,
+  type ConversionRoles,
+} from "@/lib/reporting/real-data";
+import type {
+  AdCustomEventDaily,
+  AdMetricsDaily,
+  SocialFollowers,
+  SocialPost,
+} from "@/lib/supabase/database.types";
 import { schedulePublications, type SchedulablePost } from "@/lib/scheduling/publish";
 import { createAdminClient } from "@/lib/supabase/server";
 import { monthLabelLower, shiftMonth } from "./phases";
@@ -1013,73 +1038,266 @@ async function runProgrammation(
 
 // --- Phase : reporting -------------------------------------------------------
 
+// --- Les vraies données de la période ----------------------------------------
+
+/** Dernier jour du mois, borne haute inclusive. */
+function monthEnd(month: string): string {
+  const [year, index] = month.slice(0, 7).split("-").map(Number);
+  return new Date(Date.UTC(year!, index!, 0)).toISOString().slice(0, 10);
+}
+
+/**
+ * Ce que les régies ont réellement mesuré, pour le mois analysé et le mois
+ * d'avant — la comparaison se calcule ici, pas dans la tête du modèle.
+ *
+ * Une seule fenêtre couvre les deux mois, les lignes se répartissent ensuite
+ * en mémoire sur la borne : c'est la façon de faire de `getAdsData()`, et deux
+ * requêtes pour deux mois contigus n'apporteraient rien.
+ *
+ * Client `service_role` assumé : le worker tourne dans un `after()`, sans
+ * session. La garde owner a été faite par la route qui a créé le job.
+ */
+async function readReportingFacts(
+  supabase: SupabaseAdmin,
+  workspaceId: string,
+  month: string,
+): Promise<Omit<ReportingFacts, "planning" | "previousPlanning">> {
+  const from = month;
+  const to = monthEnd(month);
+  const previousFrom = `${shiftMonth(month.slice(0, 7), -1)}-01`;
+  const previousTo = monthEnd(previousFrom);
+
+  const [metricsQuery, eventsQuery, sourcesQuery, postsQuery, followersQuery] =
+    await Promise.all([
+      supabase
+        .from("ad_metrics_daily")
+        .select("*")
+        .eq("workspace_id", workspaceId)
+        .gte("date", previousFrom)
+        .lte("date", to)
+        .limit(10000),
+      supabase
+        .from("ad_custom_events_daily")
+        .select("*")
+        .eq("workspace_id", workspaceId)
+        .gte("date", previousFrom)
+        .lte("date", to)
+        .limit(10000),
+      // Les rôles d'événement se règlent par compte publicitaire : un même
+      // espace peut en porter deux, et « Validation Shop » n'est un achat que
+      // là où le client l'a dit.
+      supabase
+        .from("data_sources")
+        .select("purchase_event_names, add_to_cart_event_names")
+        .eq("workspace_id", workspaceId)
+        .eq("provider", "meta_ads")
+        .limit(10),
+      supabase
+        .from("social_posts")
+        .select("*")
+        .eq("workspace_id", workspaceId)
+        .gte("published_at", `${previousFrom}T00:00:00Z`)
+        .lte("published_at", `${to}T23:59:59Z`)
+        .limit(500),
+      supabase
+        .from("social_followers")
+        .select("*")
+        .eq("workspace_id", workspaceId)
+        .lte("date", to)
+        .order("date")
+        .limit(2000),
+    ]);
+
+  // --- Payant ---------------------------------------------------------------
+  const metricRows = (metricsQuery.data ?? []) as unknown as AdMetricsDaily[];
+  const eventRows = (eventsQuery.data ?? []) as unknown as AdCustomEventDaily[];
+
+  const roles: ConversionRoles = ((sourcesQuery.data ?? []) as unknown as {
+    purchase_event_names: string[] | null;
+    add_to_cart_event_names: string[] | null;
+  }[]).reduce<ConversionRoles>(
+    (merged, source) => ({
+      purchase: [...merged.purchase, ...(source.purchase_event_names ?? [])],
+      addToCart: [...merged.addToCart, ...(source.add_to_cart_event_names ?? [])],
+    }),
+    NO_CONVERSION_ROLES,
+  );
+
+  const inMonth = (date: string) => date >= from && date <= to;
+
+  // Le repli se fait à la lecture, comme sur l'écran : chez un client dont tous
+  // les achats viennent d'événements pixel, sauter cette étape afficherait
+  // « 0 achat » là où le Gestionnaire en compte onze. La dépense de la fenêtre
+  // est passée à l'agrégat, qui recalcule le coût par conversion depuis elle.
+  const foldWindow = (rows: AdMetricsDaily[], events: AdCustomEventDaily[]): RawMetrics => {
+    const base = sumRawMetrics(rows.map(metricsRowToRaw));
+    return foldClientConversions(base, aggregateCustomEvents(events, base.spend), roles);
+  };
+
+  const ads =
+    metricRows.length > 0 || eventRows.length > 0
+      ? {
+          total: foldWindow(
+            metricRows.filter((row) => inMonth(row.date)),
+            eventRows.filter((row) => inMonth(row.date)),
+          ),
+          previousTotal: foldWindow(
+            metricRows.filter((row) => row.date >= previousFrom && row.date <= previousTo),
+            eventRows.filter((row) => row.date >= previousFrom && row.date <= previousTo),
+          ),
+        }
+      : null;
+
+  // --- Organique ------------------------------------------------------------
+  const posts = (postsQuery.data ?? []) as unknown as SocialPost[];
+  const followers = (followersQuery.data ?? []) as unknown as SocialFollowers[];
+
+  const platforms = new Set<OrganicPlatform>();
+  for (const post of posts) {
+    if (post.platform === "instagram" || post.platform === "facebook") {
+      platforms.add(post.platform);
+    }
+  }
+  for (const row of followers) {
+    if (row.platform === "instagram" || row.platform === "facebook") {
+      platforms.add(row.platform);
+    }
+  }
+
+  const organic: OrganicFacts[] = [...platforms].map((platform) => {
+    const mine = posts.filter((post) => post.platform === platform);
+    const current = mine.filter((post) => post.published_at.slice(0, 10) >= from);
+    const before = mine.filter((post) => post.published_at.slice(0, 10) < from);
+    const mineFollowers = followers.filter((row) => row.platform === platform);
+    /* Le dernier relevé **de la période**, pas le dernier tout court : un
+       relevé d'août ne dit rien de l'état des abonnés fin juillet. */
+    const last = mineFollowers.filter((row) => row.date <= to).at(-1) ?? null;
+    const beforeLast =
+      mineFollowers.filter((row) => row.date < from).at(-1) ?? null;
+
+    return {
+      platform,
+      posts: current.length,
+      previousPosts: before.length,
+      total: sumPosts(current),
+      previousTotal: sumPosts(before),
+      followers: last ? last.followers_count : null,
+      previousFollowers: beforeLast ? beforeLast.followers_count : null,
+      top: [...current]
+        .sort((a, b) => b.reach - a.reach || b.video_views - a.video_views)
+        .slice(0, 5)
+        .map((post) => ({
+          name: post.caption ? post.caption.slice(0, 80) : "sans légende",
+          publishedAt: post.published_at.slice(0, 10),
+          reach: post.reach,
+          engagement: post.likes + post.comments + post.shares + post.saves,
+        })),
+    };
+  });
+
+  return { month, ads, organic };
+}
+
 async function runReporting(
   supabase: SupabaseAdmin,
   job: GenerationJob,
 ): Promise<PhaseOutcome> {
-  const board = await getEditorialBoard(supabase, job.workspace_id);
-  if (!board) {
-    return failure("Aucun planning éditorial pour cet espace.");
-  }
-
   const monthKey = job.target_month.slice(0, 7);
   const previousKey = `${shiftMonth(monthKey, -1)}-01`;
-  const months = await getMonths(supabase, board.id, [job.target_month, previousKey]);
-  const analyzedMonth = months.find((month) => month.month === job.target_month);
-  if (!analyzedMonth) {
-    return failure(`Aucun planning pour ${fullMonthLabel(job.target_month)} : rien à analyser.`);
-  }
 
+  // Les régies d'abord : ce sont elles qui portent la performance. Le planning
+  // vient ensuite, et ne dit pas la même chose — il dit ce qui était **prévu**,
+  // ce qu'aucune régie ne sait.
+  const mesures = await readReportingFacts(supabase, job.workspace_id, job.target_month);
+
+  const board = await getEditorialBoard(supabase, job.workspace_id);
+  const months = board
+    ? await getMonths(supabase, board.id, [job.target_month, previousKey])
+    : [];
+  const analyzedMonth = months.find((month) => month.month === job.target_month);
+  const previousMonth = months.find((month) => month.month === previousKey);
   const subjects = await getSubjects(supabase, months.map((month) => month.id));
   const lanePlatforms = await getLanePlatforms(
     supabase,
     months.map((month) => month.id),
   );
 
-  const describeMonth = (monthId: string | undefined): string => {
-    if (!monthId) return "Aucune donnée.";
-    const rows = subjects.filter((subject) => subject.month_id === monthId);
-    if (rows.length === 0) return "Aucune publication.";
-
-    const byPlatform = new Map<string, { total: number; published: number }>();
-    for (const subject of rows) {
+  const volumesOf = (
+    monthId: string | undefined,
+  ): { platform: string; planned: number; published: number }[] => {
+    if (!monthId) return [];
+    const byPlatform = new Map<string, { planned: number; published: number }>();
+    for (const subject of subjects.filter((row) => row.month_id === monthId)) {
       const label = platformLabelOf(lanePlatforms.get(subject.lane_id));
-      const entry = byPlatform.get(label) ?? { total: 0, published: 0 };
-      entry.total += 1;
+      const entry = byPlatform.get(label) ?? { planned: 0, published: 0 };
+      entry.planned += 1;
       if (subject.status === "published") entry.published += 1;
       byPlatform.set(label, entry);
     }
-    return [...byPlatform.entries()]
-      .map(
-        ([label, entry]) =>
-          `- ${label} : ${entry.published} publié${entry.published > 1 ? "s" : ""} sur ${entry.total} prévu${entry.total > 1 ? "s" : ""}`,
-      )
-      .join("\n");
+    return [...byPlatform.entries()].map(([platform, entry]) => ({ platform, ...entry }));
   };
+
+  const facts: ReportingFacts = {
+    ...EMPTY_FACTS,
+    ...mesures,
+    planning: volumesOf(analyzedMonth?.id),
+    previousPlanning: volumesOf(previousMonth?.id),
+  };
+
+  /* La garde ne porte plus sur le planning seul. Un espace peut très bien
+     avoir des chiffres Meta en juillet sans y avoir tenu de planning — c'est
+     le cas d'un client arrivé en cours de route — et lui refuser son bilan
+     pour une ligne de tableau absente n'avait aucun sens. On échoue seulement
+     quand il n'y a **rien** : ni mesure, ni prévision. */
+  if (!hasAnything(facts)) {
+    return failure(
+      `Aucune donnée pour ${fullMonthLabel(job.target_month)} : ni chiffres de régie, ni planning à analyser.`,
+    );
+  }
 
   const publishedRows = subjects
     .filter(
-      (subject) => subject.month_id === analyzedMonth.id && subject.status === "published",
+      (subject) =>
+        analyzedMonth !== undefined &&
+        subject.month_id === analyzedMonth.id &&
+        subject.status === "published",
     )
     .sort((a, b) => (a.scheduled_on ?? "").localeCompare(b.scheduled_on ?? ""));
 
+  /* Le détail publication par publication vient des réseaux quand ils l'ont
+     rendu — c'est là que se lisent les tops et les flops que le prompt demande.
+     Le planning ne sert qu'à nommer ce que les réseaux ne nomment pas. */
+  const mesuresParPost = facts.organic.flatMap((entry) =>
+    entry.top.map(
+      (post) =>
+        `- ${post.publishedAt} · ${entry.platform === "instagram" ? "Instagram" : "Facebook"} · « ${post.name} » : ${post.reach > 0 ? `${post.reach} de portée` : "portée non rendue"}, ${post.engagement} interactions`,
+    ),
+  );
+
+  const lignesPlanning = publishedRows.map(
+    (subject) =>
+      `- ${subject.scheduled_on ?? "sans date"} · ${platformLabelOf(lanePlatforms.get(subject.lane_id))} · ${formatLabelOf(subject.format)} · « ${subject.name} »`,
+  );
+
   const postsData =
-    publishedRows
-      .map(
-        (subject) =>
-          `- ${subject.scheduled_on ?? "sans date"} · ${platformLabelOf(lanePlatforms.get(subject.lane_id))} · ${formatLabelOf(subject.format)} · « ${subject.name} » — performances chiffrées non disponibles`,
-      )
-      .join("\n") || "Aucune publication publiée ce mois.";
+    [
+      ...(mesuresParPost.length > 0
+        ? ["Mesuré par les réseaux :", ...mesuresParPost]
+        : []),
+      ...(lignesPlanning.length > 0
+        ? ["", "Au planning éditorial (sujets, sans mesure individuelle) :", ...lignesPlanning]
+        : []),
+    ]
+      .join("\n")
+      .trim() || "Aucune publication publiée ce mois.";
 
   const context = await getClientContext({ workspaceId: job.workspace_id });
-  const previousMonth = months.find((month) => month.month === previousKey);
 
   const system = renderPrompt("reporting", {
     client_context: context.client_context,
     target_month: fullMonthLabel(job.target_month),
-    metrics: `Volumes issus du planning éditorial (les données de portée et d'engagement des régies ne sont pas encore branchées) :\n${describeMonth(analyzedMonth.id)}`,
+    metrics: renderReportingFacts(facts),
     posts_data: postsData,
-    metrics_previous: describeMonth(previousMonth?.id),
     objectifs: context.objectifs,
   });
 
@@ -1090,11 +1308,37 @@ async function runReporting(
     effort: "medium",
   });
 
+  /* Le rapport vit dans sa propre table, pas dans le job : un job est une
+     trace d'exécution, purgée sans état d'âme ; un bilan de mois se relit six
+     mois plus tard en préparant le point client. Un rapport par espace et par
+     mois — régénérer remplace, ce qui est le geste attendu après une
+     synchronisation. */
+  const { error } = await supabase.from("client_reports").upsert(
+    {
+      org_id: job.org_id,
+      workspace_id: job.workspace_id,
+      target_month: job.target_month,
+      report,
+      has_ads_data: facts.ads !== null,
+      has_organic_data: facts.organic.some(
+        (entry) => entry.posts > 0 || entry.followers !== null,
+      ),
+    } as never,
+    { onConflict: "workspace_id,target_month" },
+  );
+  if (error) {
+    return failure(
+      `Compte rendu rédigé mais pas enregistré : ${error.message}. La table \`client_reports\` manque peut-être (migrations 0056 et 0057).`,
+    );
+  }
+
   return {
     status: "done",
     result: {
       report,
-      summary: `Reporting de ${fullMonthLabel(job.target_month)} généré.`,
+      summary: hasRealData(facts)
+        ? `Reporting de ${fullMonthLabel(job.target_month)} généré.`
+        : `Reporting de ${fullMonthLabel(job.target_month)} généré sur les volumes du planning : aucune donnée de régie pour ce mois.`,
     },
     error: null,
     progressCurrent: 1,

@@ -46,6 +46,7 @@ suite("isolation du module Production (RLS)", () => {
     phase: "",
     job: "",
     hook: "",
+    report: "",
   };
   const userIds: string[] = [];
   const clients: Record<keyof typeof emails, SupabaseClient> = {} as never;
@@ -177,6 +178,19 @@ suite("isolation du module Production (RLS)", () => {
       .single();
     ids.hook = hook!.id;
 
+    const { data: report } = await admin
+      .from("client_reports")
+      .insert({
+        org_id: ids.org,
+        workspace_id: ids.workspace,
+        target_month: "2026-07-01",
+        report: "### Synthèse\nJuillet progresse.",
+        has_ads_data: true,
+      })
+      .select("id")
+      .single();
+    ids.report = report!.id;
+
     // Les invitations précèdent la création des comptes : c'est le trigger
     // `app.handle_new_user` qui transforme l'invitation en accès.
     await admin.from("invitations").insert([
@@ -216,6 +230,34 @@ suite("isolation du module Production (RLS)", () => {
         .select("id, phase")
         .eq("id", ids.phase);
       expect(data).toEqual([]);
+    });
+
+    it("ne lit pas la synthèse mensuelle écrite sur son propre compte", async () => {
+      // Le choix produit : la synthèse est **interne**. Elle est rédigée par un
+      // modèle à partir des chiffres du client, et sert à préparer le point
+      // mensuel — pas à être livrée telle quelle.
+      const { data } = await clients.client
+        .from("client_reports")
+        .select("id, report")
+        .eq("workspace_id", ids.workspace);
+      expect(data).toEqual([]);
+    });
+
+    it("ne peut ni écrire ni modifier une synthèse", async () => {
+      const { error } = await clients.client.from("client_reports").insert({
+        org_id: ids.org,
+        workspace_id: ids.workspace,
+        target_month: "2026-06-01",
+        report: "Bilan écrit par le client.",
+      });
+      expect(error).not.toBeNull();
+
+      const { data: updated } = await clients.client
+        .from("client_reports")
+        .update({ report: "Réécrit." })
+        .eq("id", ids.report)
+        .select("id");
+      expect(updated ?? []).toEqual([]);
     });
 
     it("ne lit ni les jobs ni l'historique des accroches de son propre espace", async () => {
@@ -294,6 +336,35 @@ suite("isolation du module Production (RLS)", () => {
         .eq("id", created!.id)
         .select("status");
       expect(updated?.[0]?.status).toBe("done");
+    });
+
+    it("lit la synthèse d'un mois et la remplace en régénérant", async () => {
+      const { data: lue } = await clients.owner
+        .from("client_reports")
+        .select("id, report")
+        .eq("id", ids.report);
+      expect(lue).toHaveLength(1);
+
+      // Régénérer remplace : un rapport par espace et par mois, sinon deux
+      // bilans du même juillet se contrediraient sur la même page.
+      const { error } = await clients.owner.from("client_reports").upsert(
+        {
+          org_id: ids.org,
+          workspace_id: ids.workspace,
+          target_month: "2026-07-01",
+          report: "### Synthèse\nVersion régénérée.",
+          has_ads_data: true,
+        },
+        { onConflict: "workspace_id,target_month" },
+      );
+      expect(error).toBeNull();
+
+      const { data: apres } = await admin
+        .from("client_reports")
+        .select("report")
+        .eq("workspace_id", ids.workspace);
+      expect(apres).toHaveLength(1);
+      expect(apres?.[0]?.report).toContain("Version régénérée");
     });
 
     it("fait avancer un job et archive une accroche", async () => {

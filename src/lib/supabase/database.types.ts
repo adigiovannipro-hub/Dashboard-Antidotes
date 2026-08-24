@@ -658,12 +658,14 @@ import type { WorkspacePageGrant } from "@/lib/workspaces/types";
    branche pour historiser une accroche validée. */
 export type {
   ClientPhase as ClientPhaseRow,
+  ClientReport as ClientReportRow,
   GenerationJob as GenerationJobRow,
   WordingHistoryEntry as WordingHistoryRow,
 } from "@/lib/production/types";
 
 import type {
   ClientPhase,
+  ClientReport,
   GenerationJob,
   WordingHistoryEntry,
 } from "@/lib/production/types";
@@ -764,6 +766,7 @@ export type Database = {
       client_assets: Table<ClientAsset>;
       workspace_page_grants: Table<WorkspacePageGrant>;
       client_phases: Table<ClientPhase>;
+      client_reports: Table<ClientReport>;
       generation_jobs: Table<GenerationJob>;
       wording_history: Table<WordingHistoryEntry>;
       social_accounts: Table<SocialAccount>;

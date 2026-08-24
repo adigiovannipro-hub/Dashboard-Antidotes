@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { EXCLUDED_STATUSES } from "@/lib/planning/types";
 import { shiftMonth, type PhaseSlice } from "./phases";
 import { AHEAD_MONTHS, EMPTY_AHEAD, type ProductionSnapshot } from "./card-model";
-import type { GenerationJob } from "./types";
+import type { ClientReport, GenerationJob } from "./types";
 import { needsContent } from "./wording-state";
 
 /**
@@ -40,7 +40,7 @@ const EMPTY_SNAPSHOT: Omit<ProductionSnapshot, "workspace_id"> = {
   moduleReady: true,
   phases: [],
   target: { total: 0, withWording: 0, validated: 0, scheduled: 0, firstPublication: null },
-  previous: { published: 0, total: 0 },
+  previous: { published: 0, total: 0, hasRealData: false },
   ahead: {},
   jobs: [],
 };
@@ -53,6 +53,31 @@ type SubjectSlice = {
   status: string;
   scheduled_on: string | null;
 };
+
+/**
+ * La synthèse d'un mois, si elle a été générée.
+ *
+ * Owner-only par la RLS de 0057 : un client ne lit pas le bilan que l'agence
+ * écrit sur son propre compte. L'appelant passe quand même la garde de rôle
+ * avant d'afficher le panneau — en accès ouvert, la RLS ne protège plus rien.
+ *
+ * L'erreur est ignorée comme partout dans les `queries.ts` : une table absente
+ * vaut « pas de rapport », et le panneau ne s'affiche simplement pas.
+ */
+export async function getClientReport(options: {
+  workspaceId: string;
+  /** Premier jour du mois analysé, `YYYY-MM-01`. */
+  month: string;
+}): Promise<ClientReport | null> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("client_reports")
+    .select("*")
+    .eq("workspace_id", options.workspaceId)
+    .eq("target_month", options.month)
+    .maybeSingle();
+  return (data as unknown as ClientReport | null) ?? null;
+}
 
 export async function getProductionSnapshots(options: {
   workspaceIds: string[];
@@ -118,7 +143,16 @@ export async function getProductionSnapshots(options: {
   const monthIds = months.map((month) => month.id);
   const monthById = new Map(months.map((month) => [month.id, month]));
 
-  const [phases, jobs, subjects, withWording] = await Promise.all([
+  // Le mois précédent, borné : le reporting l'analyse, et sa garde doit savoir
+  // si les régies ont mesuré quelque chose — pas seulement si un tableau a été
+  // rempli à la main.
+  const previousEnd = new Date(
+    Date.UTC(Number(monthKey.slice(0, 4)), Number(monthKey.slice(5, 7)) - 1, 0),
+  )
+    .toISOString()
+    .slice(0, 10);
+
+  const [phases, jobs, subjects, withWording, mesures] = await Promise.all([
     supabase
       .from("client_phases")
       .select("workspace_id, phase, target_month, status, completed_at, due_start, due_end")
@@ -162,7 +196,46 @@ export async function getProductionSnapshots(options: {
           .limit(2000)
           .then(({ data }) => new Set(((data ?? []) as { id: string }[]).map((row) => row.id)))
       : Promise.resolve(new Set<string>()),
+    // Trois lectures d'une seule colonne : on ne veut pas les chiffres, juste
+    // savoir quels espaces en ont. Un relevé d'abonnés compte — c'est une
+    // mesure du mois, même sans publication.
+    Promise.all([
+      supabase
+        .from("ad_metrics_daily")
+        .select("workspace_id")
+        .in("workspace_id", options.workspaceIds)
+        .gte("date", previousMonth)
+        .lte("date", previousEnd)
+        .limit(5000),
+      supabase
+        .from("social_posts")
+        .select("workspace_id")
+        .in("workspace_id", options.workspaceIds)
+        .gte("published_at", `${previousMonth}T00:00:00Z`)
+        .lte("published_at", `${previousEnd}T23:59:59Z`)
+        .limit(2000),
+      supabase
+        .from("social_followers")
+        .select("workspace_id")
+        .in("workspace_id", options.workspaceIds)
+        .gte("date", previousMonth)
+        .lte("date", previousEnd)
+        .limit(5000),
+    ]).then((results) => {
+      const found = new Set<string>();
+      for (const { data } of results) {
+        for (const row of (data ?? []) as unknown as { workspace_id: string }[]) {
+          found.add(row.workspace_id);
+        }
+      }
+      return found;
+    }),
   ]);
+
+  for (const workspaceId of mesures) {
+    const snapshot = result.get(workspaceId);
+    if (snapshot) snapshot.previous.hasRealData = true;
+  }
 
   // Une seule des deux tables suffit à déclarer le module absent : elles
   // arrivent par la même migration, et un demi-module ne se montre pas.
