@@ -37,10 +37,18 @@ describe("networksFromContextName", () => {
     expect(networksFromContextName("Meta Ads")).toEqual(["meta-ads"]);
   });
 
+  it("reconnaît le site web du client", () => {
+    expect(networksFromContextName("Site Web")).toEqual(["site-web"]);
+    expect(networksFromContextName("Site internet")).toEqual(["site-web"]);
+    expect(networksFromContextName("web")).toEqual(["site-web"]);
+  });
+
   it("ne devine pas un réseau qu'elle ne connaît pas", () => {
     expect(networksFromContextName("Threads")).toEqual([]);
     expect(networksFromContextName("Pinterest")).toEqual([]);
     expect(networksFromContextName("")).toEqual([]);
+    // « Website » n'est pas « web » en mot entier — on ne devine pas.
+    expect(networksFromContextName("Webtoon")).toEqual([]);
   });
 });
 
@@ -123,6 +131,28 @@ describe("resolveReportingNetworks", () => {
 
     expect(tabs.networks).toEqual([]);
     expect(tabs.sansConnecteur).toEqual([]);
+  });
+
+  it("ouvre Site Web dès qu'une propriété GA est rattachée, en dernier", () => {
+    const tabs = resolveReportingNetworks({
+      contextNetworks: ["Instagram"],
+      assignedKinds: ["instagram"],
+      hasWebSource: true,
+    });
+
+    expect(tabs.networks).toEqual(["instagram", "site-web"]);
+    expect(tabs.manquants).toEqual([]);
+  });
+
+  it("ouvre Site Web déclaré au Contexte même sans propriété rattachée", () => {
+    const tabs = resolveReportingNetworks({
+      contextNetworks: ["Site Web"],
+      assignedKinds: [],
+    });
+
+    expect(tabs.networks).toEqual(["site-web"]);
+    // Il est là, et l'écran sait qu'il lui manque sa propriété.
+    expect(tabs.manquants).toEqual(["site-web"]);
   });
 });
 

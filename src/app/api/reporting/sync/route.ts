@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { getWorkspace } from "@/lib/auth";
+import { syncWorkspaceWebAnalytics } from "@/lib/connectors/google-analytics/sync";
 import { syncWorkspaceReporting } from "@/lib/connectors/meta/sync";
 import { missingServerEnv } from "@/lib/env";
 import { createAdminClient } from "@/lib/supabase/server";
@@ -59,14 +60,24 @@ export async function POST(request: Request) {
     workspaceId: workspace.id,
     atLeastSince: parsed.data.du,
   });
+  // Le Site Web de l'espace, s'il a une propriété GA rattachée — le même
+  // bouton couvre tous les onglets, personne ne synchronise « par réseau ».
+  const webReports = await syncWorkspaceWebAnalytics({
+    admin,
+    workspaceId: workspace.id,
+    atLeastSince: parsed.data.du,
+  });
 
-  const errors = reports.filter((report) => report.error);
+  const errors = [
+    ...reports.filter((report) => report.error),
+    ...webReports.filter((report) => report.error),
+  ];
   return NextResponse.json({
     ok: errors.length === 0,
-    reports,
+    reports: [...reports, ...webReports],
     note:
-      reports.length === 0
-        ? `Aucun compte Meta affecté à cet espace. ${COMPOSIO_TRANSITION_NOTE}`
+      reports.length === 0 && webReports.length === 0
+        ? `Aucun compte Meta affecté à cet espace, aucune propriété GA rattachée. ${COMPOSIO_TRANSITION_NOTE}`
         : undefined,
   });
 }

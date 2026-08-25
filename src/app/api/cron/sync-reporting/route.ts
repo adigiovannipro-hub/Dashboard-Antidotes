@@ -1,13 +1,15 @@
 import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
 
+import { syncWorkspaceWebAnalytics } from "@/lib/connectors/google-analytics/sync";
 import { syncWorkspaceReporting } from "@/lib/connectors/meta/sync";
 import { missingServerEnv, serverEnv } from "@/lib/env";
 import { createAdminClient } from "@/lib/supabase/server";
 
 /**
  * La synchronisation quotidienne du Reporting — tous les espaces qui ont un
- * compte Meta affecté dans Connexions.
+ * compte Meta affecté dans Connexions, puis toutes les propriétés Google
+ * Analytics rattachées (l'onglet Site Web, via Composio).
  *
  * Une fois par jour suffit : les chiffres publicitaires de la veille ne
  * bougent plus assez vite pour mériter mieux, et le bouton « Synchroniser »
@@ -75,10 +77,6 @@ export async function GET(request: Request) {
     ),
   ];
 
-  if (workspaceIds.length === 0) {
-    return NextResponse.json({ ok: true, note: "Aucun compte Meta affecté." });
-  }
-
   const report: Record<string, unknown> = {};
   const errors: string[] = [];
 
@@ -96,6 +94,48 @@ export async function GET(request: Request) {
         `espace ${workspaceId} : ${error instanceof Error ? error.message : "erreur"}`,
       );
     }
+  }
+
+  /* Le Site Web ensuite : les espaces qui ont une propriété GA rattachée.
+     Même règle que pour Meta — l'`error` de la requête est testé, une table
+     absente ne doit jamais ressembler à « rien à faire ». */
+  const { data: webSources, error: webSourcesError } = await admin
+    .from("data_sources")
+    .select("workspace_id")
+    .eq("provider", "google_analytics");
+  if (webSourcesError) {
+    errors.push(`Lecture des propriétés GA : ${webSourcesError.message}`);
+  }
+
+  const webWorkspaceIds = [
+    ...new Set(
+      ((webSources ?? []) as { workspace_id: string }[]).map(
+        (source) => source.workspace_id,
+      ),
+    ),
+  ];
+
+  for (const workspaceId of webWorkspaceIds) {
+    try {
+      const sources = await syncWorkspaceWebAnalytics({ admin, workspaceId });
+      report[`web:${workspaceId}`] = sources;
+      for (const source of sources) {
+        if (source.error) {
+          errors.push(`${source.property} : ${source.error}`);
+        }
+      }
+    } catch (error) {
+      errors.push(
+        `site web ${workspaceId} : ${error instanceof Error ? error.message : "erreur"}`,
+      );
+    }
+  }
+
+  if (workspaceIds.length === 0 && webWorkspaceIds.length === 0) {
+    return NextResponse.json({
+      ok: true,
+      note: "Aucun compte Meta affecté, aucune propriété GA rattachée.",
+    });
   }
 
   /* 200 même en échec partiel : un 500 ferait rejouer par l'ordonnanceur ce

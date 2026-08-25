@@ -168,6 +168,44 @@ export function previousRange(range: DateRange): DateRange {
   return { from: isoDay(previousFrom), to: isoDay(previousTo) };
 }
 
+/**
+ * La même plage, un an plus tôt — la comparaison de l'onglet Site Web.
+ *
+ * Le trafic d'un site est saisonnier là où une campagne ne l'est pas :
+ * comparer juillet à juin dirait « effondrement » chaque été. Le rapport
+ * Looker de référence comparait déjà à N-1, et c'est ce qu'on reproduit.
+ *
+ * Un mois civil entier se compare au même mois civil de l'année d'avant —
+ * juillet 2026 à juillet 2025, même quand leurs longueurs diffèrent (février).
+ * Une plage libre garde ses dates, décalées d'un an ; un 29 février sans
+ * équivalent se replie sur le 28.
+ */
+export function sameRangeLastYear(range: DateRange): DateRange {
+  const from = new Date(`${range.from}T00:00:00Z`);
+  const to = new Date(`${range.to}T00:00:00Z`);
+
+  const isFullMonth =
+    from.getUTCDate() === 1 &&
+    monthKey(from) === monthKey(to) &&
+    range.to === monthBounds(monthKey(from)).to;
+  if (isFullMonth) {
+    const [year, month] = monthKey(from).split("-");
+    return monthBounds(`${Number(year) - 1}-${month}`);
+  }
+
+  return { from: shiftYearBack(range.from), to: shiftYearBack(range.to) };
+}
+
+/** `2026-02-29` → `2025-02-28` : le jour se replie, jamais ne déborde. */
+function shiftYearBack(day: string): string {
+  const [year, month, date] = day.split("-").map(Number);
+  const shifted = new Date(Date.UTC((year ?? 1970) - 1, (month ?? 1) - 1, date ?? 1));
+  if (shifted.getUTCMonth() !== (month ?? 1) - 1) {
+    return monthBounds(`${(year ?? 1970) - 1}-${String(month).padStart(2, "0")}`).to;
+  }
+  return isoDay(shifted);
+}
+
 const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
 
 /** La plage demandée par l'URL, bornes remises dans l'ordre si besoin. */

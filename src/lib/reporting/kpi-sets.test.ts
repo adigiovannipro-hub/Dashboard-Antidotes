@@ -2,9 +2,11 @@ import { describe, expect, it } from "vitest";
 
 import { METRIC_DEFINITIONS } from "@/lib/metrics/definitions";
 import { detailTitle, hasPersona, HERO_METRIC, KPI_SETS } from "./kpi-sets";
-import { REPORTING_NETWORK_LABELS, type ReportingNetwork } from "./networks";
+import type { SocialReportingNetwork } from "./networks";
 
-const NETWORKS = Object.keys(REPORTING_NETWORK_LABELS) as ReportingNetwork[];
+// Les onglets sociaux seulement : le Site Web a ses propres mesures, hors du
+// catalogue publicitaire — c'est `web/data.ts` qui les porte.
+const NETWORKS = Object.keys(KPI_SETS) as SocialReportingNetwork[];
 
 describe("KPI_SETS", () => {
   it("couvre tous les réseaux du Reporting", () => {

@@ -14,7 +14,9 @@ export type DataProvider =
   | "meta_ads"
   | "meta_organic"
   | "tiktok_ads"
-  | "tiktok_organic";
+  | "tiktok_organic"
+  // 0060 — Google Analytics 4, lu à travers Composio.
+  | "google_analytics";
 export type DataSourceStatus = "pending" | "connected" | "error" | "disabled";
 export type SyncStatus = "running" | "success" | "error";
 export type AdLevel = "campaign" | "adset" | "ad";
@@ -207,6 +209,64 @@ export type SocialPost = {
   shares: number;
   updated_at: string;
 }
+
+// --- Trafic web (migration 0060) --------------------------------------------
+// Deux grains, à dessein : le jour porte les courbes et les sommes additives,
+// le mois civil porte les visiteurs uniques que GA4 dédoublonne par période —
+// additionner des uniques quotidiens surcompterait un visiteur revenu deux
+// jours de suite.
+
+export type WebBreakdownType = "source" | "device" | "city" | "retention";
+
+export type WebMetricsDaily = {
+  data_source_id: string;
+  workspace_id: string;
+  date: string;
+  /** Uniques du jour — leur somme sur une période est une approximation haute. */
+  total_users: number;
+  sessions: number;
+  /** Sessions engagées GA4 : le complément du taux de rebond. */
+  engaged_sessions: number;
+  page_views: number;
+  /** Durée cumulée des sessions du jour, en secondes (moyenne × sessions). */
+  session_seconds: number;
+  updated_at: string;
+};
+
+export type WebMetricsMonthly = {
+  data_source_id: string;
+  workspace_id: string;
+  /** Le 1ᵉʳ du mois civil. */
+  month: string;
+  /** Uniques du mois, dédoublonnés par GA : le chiffre du rapport. */
+  total_users: number;
+  new_users: number;
+  updated_at: string;
+};
+
+export type WebBreakdownMonthly = {
+  data_source_id: string;
+  workspace_id: string;
+  month: string;
+  type: WebBreakdownType;
+  /** La valeur telle que GA la rend : « tiktok », « mobile », « (not set) ». */
+  value: string;
+  users: number;
+  sessions: number;
+  updated_at: string;
+};
+
+export type WebPageMonthly = {
+  data_source_id: string;
+  workspace_id: string;
+  month: string;
+  path: string;
+  views: number;
+  sessions: number;
+  engaged_sessions: number;
+  session_seconds: number;
+  updated_at: string;
+};
 
 export type Dashboard = {
   id: string;
@@ -717,6 +777,10 @@ export type Database = {
       ad_custom_events_daily: Table<AdCustomEventDaily>;
       social_followers: Table<SocialFollowers>;
       social_posts: Table<SocialPost>;
+      web_metrics_daily: Table<WebMetricsDaily>;
+      web_metrics_monthly: Table<WebMetricsMonthly>;
+      web_breakdowns_monthly: Table<WebBreakdownMonthly>;
+      web_pages_monthly: Table<WebPageMonthly>;
       dashboards: Table<Dashboard>;
       share_links: Table<ShareLink>;
       audit_log: Table<AuditLogEntry>;

@@ -1,5 +1,5 @@
 import type { MetricId } from "@/lib/metrics/types";
-import type { ReportingNetwork } from "./networks";
+import type { SocialReportingNetwork } from "./networks";
 
 /**
  * Quelles mesures chaque onglet du Reporting affiche.
@@ -24,13 +24,13 @@ import type { ReportingNetwork } from "./networks";
  * si le contenu a porté — la portée dit combien ont vu, l'engagement dit
  * combien s'en sont souciés.
  */
-export const HERO_METRIC: Record<ReportingNetwork, MetricId> = {
+export const HERO_METRIC: Record<SocialReportingNetwork, MetricId> = {
   "meta-ads": "roas",
   instagram: "engagementRate",
   facebook: "engagementRate",
 };
 
-export const KPI_SETS: Record<ReportingNetwork, MetricId[]> = {
+export const KPI_SETS: Record<SocialReportingNetwork, MetricId[]> = {
   "meta-ads": [
     "spend",
     "earn",
@@ -60,7 +60,7 @@ export const KPI_SETS: Record<ReportingNetwork, MetricId[]> = {
 };
 
 /** Les découpages d'audience ont-ils un sens sur cet onglet ? */
-export function hasPersona(network: ReportingNetwork): boolean {
+export function hasPersona(network: SocialReportingNetwork): boolean {
   // Âge, genre et région viennent du breakdown **publicitaire**. Sur
   // l'organique, Instagram ne les donne que pour les abonnés, et Facebook pas
   // du tout : les afficher au même endroit laisserait croire à la même
@@ -69,7 +69,7 @@ export function hasPersona(network: ReportingNetwork): boolean {
 }
 
 /** Le tableau de détail : par ad set en payant, par publication en organique. */
-export function detailTitle(network: ReportingNetwork): string {
+export function detailTitle(network: SocialReportingNetwork): string {
   return network === "meta-ads"
     ? "Performance par ad set"
     : "Performance par publication";

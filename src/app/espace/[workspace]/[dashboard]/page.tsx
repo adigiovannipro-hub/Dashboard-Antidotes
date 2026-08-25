@@ -29,12 +29,15 @@ import {
   parseRange,
   previousMonth,
   previousRange,
+  sameRangeLastYear,
 } from "@/lib/reporting/period";
 import {
   getAdsData,
   getOrganicData,
   listReportingSources,
 } from "@/lib/reporting/queries";
+import { WebDashboard } from "@/components/viz/web-dashboard";
+import { getWebData } from "@/lib/web/queries";
 import { getClientReport } from "@/lib/production/queries";
 import { listWorkspaceSocialLinks } from "@/lib/social/queries";
 import { createClient } from "@/lib/supabase/server";
@@ -91,12 +94,14 @@ export default async function DashboardPage({
   ]);
 
   // Les onglets se déduisent de ce qui est branché ; le Contexte sert à dire
-  // ce qui manque.
+  // ce qui manque. Le Site Web s'ouvre sur une propriété GA rattachée, pas
+  // sur un compte social.
   const tabs = resolveReportingNetworks({
     contextNetworks: (context?.deliverables?.reseaux ?? []).map(
       (reseau) => reseau.nom,
     ),
     assignedKinds: links.map((link) => link.kind),
+    hasWebSource: sources.some((source) => source.provider === "google_analytics"),
   });
   const network = currentNetwork(tabs, query.reseau);
 
@@ -115,17 +120,28 @@ export default async function DashboardPage({
     network === "instagram" || network === "facebook"
       ? await getOrganicData({ workspaceId: workspace.id, platform: network, range })
       : null;
+  const web =
+    network === "site-web"
+      ? await getWebData({ workspaceId: workspace.id, range })
+      : null;
 
   // La période vit dans la carte héros, pas dans un en-tête : le nom de la
   // page est déjà dans la navigation, le redire coûtait une bande entière.
+  // Le Site Web se compare à l'année N-1 — le trafic d'un site est
+  // saisonnier, et c'est ce que faisait le rapport Looker de référence.
+  const yearComparison = customRange
+    ? "la même période un an plus tôt"
+    : monthLabel(`${Number(month.slice(0, 4)) - 1}${month.slice(4)}`);
   const period = customRange
     ? {
         label: `du ${formatDayFr(customRange.from)} au ${formatDayFr(customRange.to)}`,
-        comparison: "la période précédente",
+        comparison:
+          network === "site-web" ? yearComparison : "la période précédente",
       }
     : {
         label: monthLabel(month),
-        comparison: monthLabel(previousMonth(month)),
+        comparison:
+          network === "site-web" ? yearComparison : monthLabel(previousMonth(month)),
       };
 
   const isOwner = workspace.role === "owner";
@@ -168,11 +184,16 @@ export default async function DashboardPage({
               />
             ) : null}
             {/* La collecte part du début de la période **de comparaison** :
-                demander juillet sans juin rendrait tous les M-1 en N/A. */}
+                demander juillet sans juin rendrait tous les M-1 en N/A — et
+                sur le Site Web, la comparaison vit un an en arrière. */}
             {isOwner ? (
               <SyncButton
                 workspaceSlug={workspace.slug}
-                du={previousRange(range).from}
+                du={
+                  network === "site-web"
+                    ? sameRangeLastYear(range).from
+                    : previousRange(range).from
+                }
               />
             ) : null}
             <RangePicker
@@ -228,6 +249,8 @@ export default async function DashboardPage({
           followersNow={organic.followersNow}
           period={period}
         />
+      ) : network === "site-web" && web?.hasData ? (
+        <WebDashboard data={web} period={period} />
       ) : (
         <EmptyState icon={PlugZap} message={emptyMessage({ network, tabs, period })} />
       )}
@@ -255,6 +278,14 @@ function emptyMessage(input: {
 }): string {
   const { network, tabs, period } = input;
 
+  if (network === "site-web") {
+    // La source du Site Web n'est pas un compte social : le geste n'est pas
+    // le même, le message non plus.
+    return tabs.manquants.includes(network)
+      ? "Le Site Web est au contrat du client, mais aucune propriété Google Analytics n'est rattachée à cet espace. Le rattachement se fait par la passerelle Composio — voir docs/web-analytics-setup.md."
+      : `La propriété Google Analytics est rattachée, mais aucune donnée n'est encore synchronisée pour ${period.label}. Le bouton Synchroniser lance la collecte.`;
+  }
+
   if (network) {
     return tabs.manquants.includes(network)
       ? `${REPORTING_NETWORK_LABELS[network]} est au contrat du client, mais aucun compte ne lui est affecté. ${COMPOSIO_TRANSITION_NOTE}`
@@ -263,7 +294,7 @@ function emptyMessage(input: {
 
   if (tabs.sansConnecteur.length > 0) {
     const noms = tabs.sansConnecteur.join(", ");
-    return `Ce client est déclaré sur ${noms}. Le Reporting ne sait lire que Meta aujourd'hui — Instagram, Facebook et les campagnes — et ces réseaux-là n'ont pas encore de connecteur. Rien à réparer : c'est un chantier à venir.`;
+    return `Ce client est déclaré sur ${noms}. Le Reporting ne sait lire que Meta et le Site Web (Google Analytics) aujourd'hui, et ces réseaux-là n'ont pas encore de connecteur. Rien à réparer : c'est un chantier à venir.`;
   }
 
   return `Aucun réseau n'est déclaré aux livrables de ce client, et aucun compte ne lui est affecté. La déclaration se fait au Contexte. ${COMPOSIO_TRANSITION_NOTE}`;
