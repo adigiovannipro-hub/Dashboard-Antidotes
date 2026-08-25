@@ -318,7 +318,10 @@ export function sourcesByMonth(
   rows: readonly WebBreakdownMonthly[],
   options?: { cap?: number },
 ): SourcesByMonth {
-  const cap = options?.cap ?? 5;
+  // Trois sources nommées plus « Autres » : la palette ne garantit la
+  // séparation daltonisme toutes-paires que sur trois teintes
+  // (`ALL_PAIRS_SERIES_CAP`), et les tokens s'arrêtent là.
+  const cap = options?.cap ?? 3;
 
   const bySource = new Map<string, number>();
   const byMonth = new Map<string, Map<string, number>>();

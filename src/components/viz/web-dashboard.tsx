@@ -128,36 +128,35 @@ export function WebDashboard({
         />
       </div>
 
-      {/* Persona à gauche, sources à droite : on lit d'abord qui visite,
-          ensuite par où ils arrivent. */}
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
-        <Panel>
-          <PanelHeader
-            title="Persona"
-            description={`Répartition des visiteurs — ${period.label}.`}
-          />
-          <PanelBody>
-            <div className="grid gap-6 md:grid-cols-3">
-              <Breakdown title="Visiteurs">
-                <BarList data={foldBreakdown(data.breakdowns, "retention")} />
-              </Breakdown>
-              <Breakdown title="Appareils">
-                <BarList data={foldBreakdown(data.breakdowns, "device")} />
-              </Breakdown>
-              <Breakdown title="Villes">
-                <BarList data={foldBreakdown(data.breakdowns, "city")} />
-              </Breakdown>
-            </div>
-          </PanelBody>
-        </Panel>
-
-        <VizCard
-          title="Sources de trafic"
-          subtitle="Sessions par source, mois par mois sur l'année écoulée — quelle que soit la période choisie"
-          chart={<WebSourcesView data={sources} />}
-          table={<WebSourcesTable data={sources} />}
+      {/* Persona puis sources, chacun sur sa bande : on lit d'abord qui
+          visite, ensuite par où ils arrivent. Côte à côte, les trois listes
+          du Persona se marchaient dessus dès que l'écran serrait. */}
+      <Panel>
+        <PanelHeader
+          title="Persona"
+          description={`Répartition des visiteurs — ${period.label}.`}
         />
-      </div>
+        <PanelBody>
+          <div className="grid gap-6 md:grid-cols-3">
+            <Breakdown title="Visiteurs">
+              <BarList data={foldBreakdown(data.breakdowns, "retention")} />
+            </Breakdown>
+            <Breakdown title="Appareils">
+              <BarList data={foldBreakdown(data.breakdowns, "device")} />
+            </Breakdown>
+            <Breakdown title="Villes">
+              <BarList data={foldBreakdown(data.breakdowns, "city")} />
+            </Breakdown>
+          </div>
+        </PanelBody>
+      </Panel>
+
+      <VizCard
+        title="Sources de trafic"
+        subtitle="Sessions par source, mois par mois sur l'année écoulée — quelle que soit la période choisie"
+        chart={<WebSourcesView data={sources} />}
+        table={<WebSourcesTable data={sources} />}
+      />
 
       <Panel>
         <PanelHeader

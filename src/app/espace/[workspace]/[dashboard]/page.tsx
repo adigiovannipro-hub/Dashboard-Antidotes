@@ -160,7 +160,10 @@ export default async function DashboardPage({
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
-        <div className="min-w-0 flex-1">
+        {/* `basis-full` sous sm : les onglets défilent désormais au lieu de
+            passer à la ligne, donc ils savent rétrécir — sans pleine largeur
+            réservée, la rangée d'actions les écrasait à un filet. */}
+        <div className="min-w-0 flex-1 max-sm:basis-full">
           {network ? (
             <ReportingTabs networks={tabs.networks} current={network} />
           ) : null}
