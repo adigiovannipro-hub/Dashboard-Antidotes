@@ -65,8 +65,13 @@ async function main() {
   }
 
   const { createAdminClient } = await import("../src/lib/supabase/server");
-  const { ingestSource, rematchPendingDocuments, syncExpenses, verifyAttachments } =
-    await import("../src/lib/recus/pipeline");
+  const {
+    archivePendingMails,
+    ingestSource,
+    rematchPendingDocuments,
+    syncExpenses,
+    verifyAttachments,
+  } = await import("../src/lib/recus/pipeline");
 
   const admin = createAdminClient();
 
@@ -107,6 +112,22 @@ async function main() {
     } catch (error) {
       errors.push(`boîte ${source.email_address}`);
       console.error(`✗ boîte ${source.email_address} : ${message(error)}`);
+    }
+  }
+
+  /* Le rangement des mails déjà partis, que le transfert n'a pas pu faire :
+     ceux d'avant le droit d'écriture, et ceux dont le rangement a échoué. */
+  for (const source of sources) {
+    try {
+      const report = await archivePendingMails(source.id);
+      if (report.examined > 0) {
+        console.log(
+          `✓ rangement ${source.email_address} : ${JSON.stringify(report)}`,
+        );
+      }
+    } catch (error) {
+      errors.push(`rangement ${source.email_address}`);
+      console.error(`✗ rangement ${source.email_address} : ${message(error)}`);
     }
   }
 

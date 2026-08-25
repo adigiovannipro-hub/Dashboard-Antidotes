@@ -214,6 +214,8 @@ export type ReceiptDocument = {
   match_candidates: MatchCandidate[];
   forwarded_at: string | null;
   forwarded_message_id: string | null;
+  /** Quand le mail d'origine est sorti de la boîte de réception Gmail. */
+  gmail_archived_at: string | null;
   expense_attachment_baseline: number | null;
   attached_at: string | null;
   attach_checks: number;

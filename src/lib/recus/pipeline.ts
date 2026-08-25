@@ -619,6 +619,109 @@ export type ForwardResult =
  * compte. C'est la raison pour laquelle le module passe par l'API Gmail plutôt
  * que par un relais SMTP quelconque.
  */
+/**
+ * Sort de la boîte de réception le mail d'une pièce partie, et le note.
+ *
+ * Jamais bloquant : un rangement raté ne doit pas faire passer pour échoué un
+ * transfert qui, lui, a réussi — la pièce repartirait une seconde fois. Le
+ * mail reste alors en boîte, et le rattrapage horaire le reprendra.
+ *
+ * Le refus de Gmail se dit à voix haute plutôt que de se deviner. La version
+ * précédente lisait `granted_scopes` et ne tentait rien quand le droit
+ * d'écriture manquait : un silence de plus, exactement ce qu'on cherche à
+ * supprimer partout ailleurs dans ce module.
+ */
+async function archiveForwardedMail(
+  admin: ReturnType<typeof createAdminClient>,
+  options: {
+    accessToken: string;
+    source: ReceiptSource;
+    documentId: string;
+    messageId: string;
+  },
+): Promise<boolean> {
+  try {
+    await archiveMessage({
+      accessToken: options.accessToken,
+      messageId: options.messageId,
+    });
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : "erreur inconnue";
+    console.error(
+      canArchive(options.source.granted_scopes)
+        ? `Rangement Gmail refusé pour ${options.documentId} : ${reason}`
+        : `Rangement Gmail impossible pour ${options.documentId} : la boîte ${options.source.email_address} a été connectée avant l'ajout du droit d'écriture. La reconnecter depuis Finance pour que les mails se rangent. (${reason})`,
+    );
+    return false;
+  }
+
+  await admin
+    .from("receipt_documents")
+    .update({ gmail_archived_at: new Date().toISOString() })
+    .eq("id", options.documentId);
+
+  return true;
+}
+
+/**
+ * Range les mails des pièces parties avant que le droit d'écriture existe.
+ *
+ * Sans ce rattrapage, tout ce qui a été transféré jusqu'ici resterait en boîte
+ * pour toujours : le rangement n'a lieu qu'au moment du transfert, et un
+ * transfert ne se rejoue pas. Passage horaire, borné à trente jours — au-delà,
+ * le mail a de toute façon été rangé à la main.
+ */
+export async function archivePendingMails(sourceId: string): Promise<{
+  examined: number;
+  archived: number;
+}> {
+  const admin = createAdminClient();
+
+  const { data: sourceRow } = await admin
+    .from("receipt_sources")
+    .select("*")
+    .eq("id", sourceId)
+    .single();
+  if (!sourceRow) throw new Error("Boîte introuvable.");
+  const source = sourceRow as unknown as ReceiptSource;
+
+  const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+
+  const { data, error } = await admin
+    .from("receipt_documents")
+    .select("id, external_message_id")
+    .eq("source_id", sourceId)
+    .not("forwarded_at", "is", null)
+    .is("gmail_archived_at", null)
+    .gte("forwarded_at", since)
+    .limit(50);
+  if (error) throw new Error(`Lecture des pièces à ranger : ${error.message}`);
+
+  const pending = (data ?? []) as unknown as {
+    id: string;
+    external_message_id: string;
+  }[];
+  if (pending.length === 0) return { examined: 0, archived: 0 };
+
+  const accessToken = await accessTokenFor(admin, source);
+
+  let archived = 0;
+  for (const document of pending) {
+    const done = await archiveForwardedMail(admin, {
+      accessToken,
+      source,
+      documentId: document.id,
+      messageId: document.external_message_id,
+    });
+    if (done) archived += 1;
+    /* Un refus vaut pour toute la boîte — droit manquant, jeton révoqué. En
+       insister cinquante fois ne ferait que cinquante lignes de log. */
+    if (!done) break;
+  }
+
+  return { examined: pending.length, archived };
+}
+
 export async function forwardDocument(options: {
   documentId: string;
   actorId: string | null;
@@ -716,22 +819,12 @@ export async function forwardDocument(options: {
 
        Les boîtes connectées avant l'ajout du droit d'écriture n'ont que
        `gmail.readonly` : on ne tente rien plutôt que d'appeler pour un 403. */
-    let archived = false;
-    if (canArchive(source.granted_scopes)) {
-      try {
-        await archiveMessage({
-          accessToken,
-          messageId: document.external_message_id,
-        });
-        archived = true;
-      } catch (error) {
-        console.error(
-          `Archivage Gmail impossible pour ${document.id} : ${
-            error instanceof Error ? error.message : "erreur inconnue"
-          }`,
-        );
-      }
-    }
+    const archived = await archiveForwardedMail(admin, {
+      accessToken,
+      source,
+      documentId: document.id,
+      messageId: document.external_message_id,
+    });
 
     await logEvent(admin, {
       orgId: document.org_id,
