@@ -247,7 +247,7 @@ describe("foldBreakdown", () => {
     ];
 
     const folded = foldBreakdown(rows, "retention");
-    expect(folded.find((item) => item.label === "Nouveaux visiteurs")?.value).toBe(25863);
+    expect(folded.find((item) => item.label === "Nouveaux")?.value).toBe(25863);
   });
 });
 

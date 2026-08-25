@@ -128,35 +128,38 @@ export function WebDashboard({
         />
       </div>
 
-      {/* Persona puis sources, chacun sur sa bande : on lit d'abord qui
-          visite, ensuite par où ils arrivent. Côte à côte, les trois listes
-          du Persona se marchaient dessus dès que l'écran serrait. */}
-      <Panel>
-        <PanelHeader
-          title="Persona"
-          description={`Répartition des visiteurs — ${period.label}.`}
-        />
-        <PanelBody>
-          <div className="grid gap-6 md:grid-cols-3">
-            <Breakdown title="Visiteurs">
-              <BarList data={foldBreakdown(data.breakdowns, "retention")} />
-            </Breakdown>
-            <Breakdown title="Appareils">
-              <BarList data={foldBreakdown(data.breakdowns, "device")} />
-            </Breakdown>
-            <Breakdown title="Villes">
-              <BarList data={foldBreakdown(data.breakdowns, "city")} />
-            </Breakdown>
-          </div>
-        </PanelBody>
-      </Panel>
+      {/* Persona et sources côte à côte, à parts égales : on lit d'un même
+          regard qui visite et par où ils arrivent. Le 50/50 laisse aux trois
+          listes du Persona la place de leurs libellés — raccourcis exprès,
+          « Nouveaux » sous un titre qui dit déjà « Visiteurs ». */}
+      <div className="grid gap-5 xl:grid-cols-2">
+        <Panel>
+          <PanelHeader
+            title="Persona"
+            description={`Répartition des visiteurs — ${period.label}.`}
+          />
+          <PanelBody>
+            <div className="grid gap-6 sm:grid-cols-3">
+              <Breakdown title="Visiteurs">
+                <BarList data={foldBreakdown(data.breakdowns, "retention")} />
+              </Breakdown>
+              <Breakdown title="Appareils">
+                <BarList data={foldBreakdown(data.breakdowns, "device")} />
+              </Breakdown>
+              <Breakdown title="Villes">
+                <BarList data={foldBreakdown(data.breakdowns, "city")} />
+              </Breakdown>
+            </div>
+          </PanelBody>
+        </Panel>
 
-      <VizCard
-        title="Sources de trafic"
-        subtitle="Sessions par source, mois par mois sur l'année écoulée — quelle que soit la période choisie"
-        chart={<WebSourcesView data={sources} />}
-        table={<WebSourcesTable data={sources} />}
-      />
+        <VizCard
+          title="Sources de trafic"
+          subtitle="Sessions par source, mois par mois sur l'année écoulée — quelle que soit la période choisie"
+          chart={<WebSourcesView data={sources} />}
+          table={<WebSourcesTable data={sources} />}
+        />
+      </div>
 
       <Panel>
         <PanelHeader

@@ -219,8 +219,10 @@ export function alignedDailySeries(input: {
 
 /** Libellés français des valeurs GA qui en méritent un. Le reste passe tel quel. */
 const BREAKDOWN_LABELS: Record<string, string> = {
-  new: "Nouveaux visiteurs",
-  returning: "Visiteurs connus",
+  // Courts à dessein : la colonne s'intitule déjà « Visiteurs », et
+  // « Nouveaux visiteurs » ne tenait pas dans un tiers de demi-panneau.
+  new: "Nouveaux",
+  returning: "Connus",
   "(not set)": "Indéterminé",
   "(direct)": "Accès direct",
   mobile: "Mobile",

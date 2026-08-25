@@ -100,7 +100,12 @@ export function WebPagesTable({
   }
 
   return (
-    <div className="overflow-x-auto">
+    /* Sept lignes visibles, le reste défile dans le panneau — même règle que
+       les groupes des Échéances : un site a vite trente pages, et la longue
+       traîne à une vue n'a pas à pousser tout l'écran vers le bas. L'en-tête
+       et le total restent collés aux bords : le tri et la somme se lisent
+       quelle que soit la position du défilement. */
+    <div className="max-h-[21rem] overflow-x-auto overflow-y-auto">
       <table className="w-full min-w-max text-xs">
         <caption className="sr-only">
           Pages du site, triées par{" "}
@@ -109,7 +114,7 @@ export function WebPagesTable({
         </caption>
         <thead>
           <tr className="text-muted-foreground text-left">
-            <th scope="col" className="px-2 pb-2 font-medium">
+            <th scope="col" className="bg-surface sticky top-0 z-10 px-2 pb-2 font-medium">
               Chemin de la page
             </th>
             {COLUMNS.map((column) => {
@@ -118,7 +123,7 @@ export function WebPagesTable({
                 <th
                   key={column.key}
                   scope="col"
-                  className="pb-2 font-medium"
+                  className="bg-surface sticky top-0 z-10 pb-2 font-medium"
                   aria-sort={
                     isSorted ? (sort.desc ? "descending" : "ascending") : "none"
                   }
@@ -189,12 +194,20 @@ export function WebPagesTable({
         </tbody>
 
         <tfoot>
-          <tr className="border-t-2 border-[var(--viz-axis)] font-semibold">
-            <th scope="row" className="px-2 pt-2 text-left">
+          {/* Le filet vit sur les cellules et non sur la rangée : une bordure
+              de `tr` ne suit pas une rangée `sticky`. */}
+          <tr className="font-semibold">
+            <th
+              scope="row"
+              className="bg-surface sticky bottom-0 border-t-2 border-[var(--viz-axis)] px-2 py-2 text-left"
+            >
               Total général
             </th>
             {COLUMNS.map((column) => (
-              <td key={column.key} className="px-2 pt-2 text-right tabular-nums">
+              <td
+                key={column.key}
+                className="bg-surface sticky bottom-0 border-t-2 border-[var(--viz-axis)] px-2 py-2 text-right tabular-nums"
+              >
                 {render(column, column.value(total))}
               </td>
             ))}
