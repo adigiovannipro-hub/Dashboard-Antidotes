@@ -39,6 +39,7 @@ import { getClientReport } from "@/lib/production/queries";
 import { listWorkspaceSocialLinks } from "@/lib/social/queries";
 import { createClient } from "@/lib/supabase/server";
 import { requirePageAccess } from "@/lib/workspaces/access";
+import { COMPOSIO_TRANSITION_NOTE } from "@/lib/social/direct-connect";
 
 type Params = Promise<{ workspace: string; dashboard: string }>;
 type Query = Promise<{ reseau?: string; mois?: string; du?: string; au?: string }>;
@@ -256,7 +257,7 @@ function emptyMessage(input: {
 
   if (network) {
     return tabs.manquants.includes(network)
-      ? `${REPORTING_NETWORK_LABELS[network]} est au contrat du client, mais aucun compte ne lui est affecté — à faire depuis Connexions, sur le Planning.`
+      ? `${REPORTING_NETWORK_LABELS[network]} est au contrat du client, mais aucun compte ne lui est affecté. ${COMPOSIO_TRANSITION_NOTE}`
       : `${REPORTING_NETWORK_LABELS[network]} est branché, mais aucune donnée n'est encore synchronisée pour ${period.label}. Le bouton Synchroniser lance la collecte.`;
   }
 
@@ -265,5 +266,5 @@ function emptyMessage(input: {
     return `Ce client est déclaré sur ${noms}. Le Reporting ne sait lire que Meta aujourd'hui — Instagram, Facebook et les campagnes — et ces réseaux-là n'ont pas encore de connecteur. Rien à réparer : c'est un chantier à venir.`;
   }
 
-  return "Aucun réseau n'est déclaré aux livrables de ce client, et aucun compte ne lui est affecté. Les deux se règlent depuis le Contexte et depuis Connexions.";
+  return `Aucun réseau n'est déclaré aux livrables de ce client, et aucun compte ne lui est affecté. La déclaration se fait au Contexte. ${COMPOSIO_TRANSITION_NOTE}`;
 }

@@ -37,6 +37,7 @@ import type {
   StatusGroup,
 } from "@/lib/moderation/types";
 import { cn } from "@/lib/utils";
+import { COMPOSIO_TRANSITION_NOTE } from "@/lib/social/direct-connect";
 
 /**
  * L'inbox de modération, croisée tous clients.
@@ -248,9 +249,8 @@ export function Inbox({
           className="size-5 shrink-0 text-text-tertiary"
         />
         <p className="type-body min-w-0 flex-1 text-text-secondary">
-          Rien n&apos;est encore relevé. Brancher un compte Instagram ou une
-          Page dans Connexions, sur le Planning d&apos;un espace, puis lancer
-          le premier relevé — ensuite, il tourne chaque heure tout seul.
+          Rien n&apos;est encore relevé, et rien ne peut l&apos;être tant
+          qu&apos;aucun compte n&apos;est branché. {COMPOSIO_TRANSITION_NOTE}
         </p>
         <ModerationSyncButton />
       </div>

@@ -5,6 +5,7 @@ import { getWorkspace } from "@/lib/auth";
 import { syncWorkspaceReporting } from "@/lib/connectors/meta/sync";
 import { missingServerEnv } from "@/lib/env";
 import { createAdminClient } from "@/lib/supabase/server";
+import { COMPOSIO_TRANSITION_NOTE } from "@/lib/social/direct-connect";
 
 /**
  * La synchronisation à la demande — le bouton « Synchroniser » du Reporting.
@@ -65,7 +66,7 @@ export async function POST(request: Request) {
     reports,
     note:
       reports.length === 0
-        ? "Aucun compte Meta affecté à cet espace — à faire depuis Connexions, sur le Planning."
+        ? `Aucun compte Meta affecté à cet espace. ${COMPOSIO_TRANSITION_NOTE}`
         : undefined,
   });
 }

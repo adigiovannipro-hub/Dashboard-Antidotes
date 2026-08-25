@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 import { getWorkspace } from "@/lib/auth";
 import { publicEnv } from "@/lib/env";
 import { buildConsentUrl, youtubeConfigured } from "@/lib/social/youtube";
+import { isDirectConnectEnabled } from "@/lib/social/direct-connect";
 
 /**
  * Départ du branchement YouTube d'un espace client.
@@ -27,6 +28,10 @@ export function redirectUri(): string {
 }
 
 export async function GET(request: Request) {
+  // Bascule Composio : le chemin direct est fermé. 404 et non 403 — la route
+  // n'a plus lieu d'être, il n'y a pas de droit à réclamer.
+  if (!isDirectConnectEnabled()) return new NextResponse(null, { status: 404 });
+
   const url = new URL(request.url);
   const params = url.searchParams;
   const workspaceSlug = params.get("espace");
