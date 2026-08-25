@@ -15,6 +15,10 @@ import {
 import { Input } from "@/components/ui/input";
 import { NETWORK_SUGGESTIONS, networkKey } from "@/lib/context/types";
 import { safeAction } from "@/lib/context/safe-action";
+import {
+  COMPOSIO_TRANSITION_NOTE,
+  isDirectConnectEnabled,
+} from "@/lib/social/direct-connect";
 import { planConnexionRows, type ConnexionRow } from "@/lib/social/networks";
 import {
   isConnectable,
@@ -92,9 +96,9 @@ export function ConnexionsDialog({
         </DialogHeader>
 
         <p className="type-caption text-text-secondary">
-          Un compte par réseau, choisi parmi ceux que le branchement Meta de
-          l&apos;agence atteint. C&apos;est ce choix qui décide où part une
-          publication, et d&apos;où viennent les chiffres du Reporting.
+          Un compte par réseau : c&apos;est ce choix qui décide où part une
+          publication, et d&apos;où viennent les chiffres du Reporting. Les
+          comptes proposés sont ceux de l&apos;inventaire de l&apos;agence.
         </p>
 
         <div className="border-border-line divide-border-line max-h-[45vh] divide-y overflow-y-auto rounded-md border">
@@ -115,61 +119,76 @@ export function ConnexionsDialog({
 
         <AddNetwork workspaceSlug={workspaceSlug} rows={rows} />
 
-        {wantsYouTube ? (
-          <Button render={<a href={consentHref("youtube")} />} variant="outline" size="sm">
-            {youtubeLinked ? (
-              <>
-                <RefreshCw className="size-3.5" strokeWidth={1.75} aria-hidden />
-                Rebrancher YouTube
-              </>
-            ) : (
-              <>
-                <Plug className="size-3.5" strokeWidth={1.75} aria-hidden />
-                Brancher YouTube
-              </>
-            )}
-          </Button>
-        ) : null}
+        {isDirectConnectEnabled() ? (
+          <>
+          {wantsYouTube ? (
+            <Button render={<a href={consentHref("youtube")} />} variant="outline" size="sm">
+              {youtubeLinked ? (
+                <>
+                  <RefreshCw className="size-3.5" strokeWidth={1.75} aria-hidden />
+                  Rebrancher YouTube
+                </>
+              ) : (
+                <>
+                  <Plug className="size-3.5" strokeWidth={1.75} aria-hidden />
+                  Brancher YouTube
+                </>
+              )}
+            </Button>
+          ) : null}
 
-        {metaConfigured ? (
-          <Button
-            render={<a href={connexionHref} />}
-            variant={inventory > 0 ? "outline" : "accent"}
-            size="sm"
-          >
-            {inventory > 0 ? (
-              <>
-                <RefreshCw className="size-3.5" strokeWidth={1.75} aria-hidden />
-                Rebrancher Meta
-              </>
-            ) : (
-              <>
-                <Plug className="size-3.5" strokeWidth={1.75} aria-hidden />
-                Brancher Meta
-              </>
-            )}
-          </Button>
+          {metaConfigured ? (
+            <Button
+              render={<a href={connexionHref} />}
+              variant={inventory > 0 ? "outline" : "accent"}
+              size="sm"
+            >
+              {inventory > 0 ? (
+                <>
+                  <RefreshCw className="size-3.5" strokeWidth={1.75} aria-hidden />
+                  Rebrancher Meta
+                </>
+              ) : (
+                <>
+                  <Plug className="size-3.5" strokeWidth={1.75} aria-hidden />
+                  Brancher Meta
+                </>
+              )}
+            </Button>
+          ) : (
+            <div className="border-border-line bg-surface-sunken rounded-md border p-3">
+              <p className="type-caption text-text-secondary">
+                L&apos;application Meta n&apos;est pas encore configurée :
+                renseigne <code>META_APP_ID</code> et <code>META_APP_SECRET</code>{" "}
+                dans Vercel, et le bouton de branchement apparaîtra. La
+                publication sur Instagram demande en plus la validation de Meta
+                (App Review), une à trois semaines.
+              </p>
+            </div>
+          )}
+
+          {/* `--text-tertiary` est à 2,79:1 : réservé aux icônes, jamais au texte. */}
+          <p className="type-caption text-text-secondary">
+            Rebrancher met l&apos;inventaire à jour sans toucher aux affectations
+            déjà faites ici. Seul Meta a un connecteur aujourd&apos;hui : les
+            autres réseaux se déclarent, s&apos;affichent, et attendent le leur.
+            Pour LinkedIn et TikTok, les démarches à engager sont listées dans{" "}
+            <code>docs/connecteurs-linkedin-tiktok.md</code> — ce sont les
+            validations qui prennent des semaines, pas le code.
+          </p>
+          </>
         ) : (
-          <div className="border-border-line bg-surface-sunken rounded-md border p-3">
+          <div className="border-border-line bg-surface-sunken space-y-2 rounded-md border p-3">
             <p className="type-caption text-text-secondary">
-              L&apos;application Meta n&apos;est pas encore configurée :
-              renseigne <code>META_APP_ID</code> et <code>META_APP_SECRET</code>{" "}
-              dans Vercel, et le bouton de branchement apparaîtra. La
-              publication sur Instagram demande en plus la validation de Meta
-              (App Review), une à trois semaines.
+              {COMPOSIO_TRANSITION_NOTE}
+            </p>
+            <p className="type-caption text-text-secondary">
+              Les affectations déjà faites ici restent en place : c&apos;est le
+              branchement qui change de main, pas le choix du compte sur lequel
+              ce client publie.
             </p>
           </div>
         )}
-
-        {/* `--text-tertiary` est à 2,79:1 : réservé aux icônes, jamais au texte. */}
-        <p className="type-caption text-text-secondary">
-          Rebrancher met l&apos;inventaire à jour sans toucher aux affectations
-          déjà faites ici. Seul Meta a un connecteur aujourd&apos;hui : les
-          autres réseaux se déclarent, s&apos;affichent, et attendent le leur.
-          Pour LinkedIn et TikTok, les démarches à engager sont listées dans{" "}
-          <code>docs/connecteurs-linkedin-tiktok.md</code> — ce sont les
-          validations qui prennent des semaines, pas le code.
-        </p>
       </DialogContent>
     </Dialog>
   );

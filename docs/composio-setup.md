@@ -119,3 +119,60 @@ npm install @composio/core
 Puis, dans un script serveur, lister les outils réellement exposés pour un
 service avant d'écrire quoi que ce soit autour. **Ne jamais inventer un nom
 d'outil** : ils se découvrent à l'exécution.
+
+## État au 25/08/2026 — les branchements directs sont fermés
+
+Le chemin direct est **neutralisé**, pas supprimé :
+`src/lib/social/direct-connect.ts` porte la constante `BRANCHEMENT_DIRECT`,
+aujourd'hui `false`. Deux chemins de branchement qui cohabitent, ce sont deux
+jeux de jetons pour le même compte et rien pour dire lequel fait autorité.
+
+Ce que la constante ferme, vérifié sur `build && start` :
+
+| Surface | Avant | Maintenant |
+|---|---|---|
+| `/api/social/meta/connexion` et son callback | dialogue Facebook Login | **404** |
+| `/api/social/youtube/connexion` et son callback | dialogue Google | **404** |
+| Boîte « Connexions » du Planning | boutons Brancher / Rebrancher | la note de bascule |
+| État vide du Reporting | « à faire depuis Connexions » | la note de bascule |
+| Modération avant premier relevé | « brancher un compte… » | la note de bascule |
+| Notes de `/api/reporting/sync` et `/api/moderation/sync` | idem | la note de bascule |
+
+Le message est **unique** (`COMPOSIO_TRANSITION_NOTE`) : cinq formulations,
+ce sont cinq vérités qui divergent au premier changement.
+
+Ce qui n'est **pas** touché, volontairement : les tables (`social_accounts`,
+`workspace_social_accounts`, `social_account_secrets`), les affectations déjà
+faites, les connecteurs Meta et YouTube, l'OAuth Gmail des Reçus et la chaîne
+Airwallex. Les deux dernières fonctionnent en production et ne sont pas au
+programme de la bascule.
+
+Rallumer le chemin direct est un geste unique : passer la constante à `true`.
+
+## Le blocage à lever avant toute intégration
+
+**`composio.dev` est refusé par la politique réseau des sessions distantes.**
+Mesuré le 25/08/2026 : `CONNECT` répond **403** sur `docs.composio.dev` comme
+sur `backend.composio.dev`. Conséquences directes :
+
+- pas d'appel au SDK ni à l'API depuis une session ;
+- pas de lecture de la documentation vivante, donc **aucun moyen de découvrir
+  les noms d'outils** — et la règle est de ne jamais les inventer ;
+- ni `composio login` ni `composio setup --target auto` : ces commandes
+  relèvent de « For You » (clé `ck_`, navigateur), pas du SDK Platform, et
+  aucune des deux ne peut aboutir sans réseau.
+
+Le déblocage est un réglage d'environnement, pas de code : autoriser
+`composio.dev` (docs et backend) dans la politique réseau de l'environnement
+d'exécution. Sans lui, l'intégration ne peut être qu'écrite à l'aveugle et
+jamais vérifiée — ce qui est exactement le faux positif qu'on s'interdit.
+
+## Point de reprise, une fois le réseau ouvert et la clé posée
+
+1. `COMPOSIO_API_KEY` dans `.env.local`, sur Vercel et dans les secrets Actions.
+2. Lister les toolkits réellement exposés pour Meta, LinkedIn, TikTok et
+   YouTube, et **les noms d'outils**, avant d'écrire quoi que ce soit.
+3. Trancher la question ouverte : les Insights publicitaires Meta au grain
+   jour, avec `breakdowns` et `action_values`, passent-ils ? Si non, le
+   connecteur Meta Ads reste tel quel et seule l'organique bascule.
+4. Répondre aux trois questions de coût de la section précédente.

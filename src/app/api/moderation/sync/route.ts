@@ -4,6 +4,7 @@ import { getViewer } from "@/lib/auth";
 import { missingServerEnv } from "@/lib/env";
 import { syncModerationInbox } from "@/lib/moderation/sync";
 import { createAdminClient } from "@/lib/supabase/server";
+import { COMPOSIO_TRANSITION_NOTE } from "@/lib/social/direct-connect";
 
 /**
  * La synchronisation à la demande — le bouton « Synchroniser » de l'inbox.
@@ -45,7 +46,7 @@ export async function POST() {
     reports,
     note:
       reports.length === 0
-        ? "Aucun compte Instagram ou Page affecté — à faire depuis Connexions, sur le Planning d'un espace."
+        ? `Aucun compte Instagram ou Page affecté. ${COMPOSIO_TRANSITION_NOTE}`
         : undefined,
   });
 }

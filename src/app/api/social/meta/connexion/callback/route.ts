@@ -14,6 +14,7 @@ import {
 import type { SocialAccountKind } from "@/lib/social/types";
 import { createAdminClient } from "@/lib/supabase/server";
 import { META_STATE_COOKIE, redirectUri } from "../route";
+import { isDirectConnectEnabled } from "@/lib/social/direct-connect";
 
 /**
  * Retour de Meta : on échange le code, puis on enregistre d'un coup tout ce
@@ -82,6 +83,10 @@ function lostState(): NextResponse {
 }
 
 export async function GET(request: Request) {
+  // Bascule Composio : le chemin direct est fermé. 404 et non 403 — la route
+  // n'a plus lieu d'être, il n'y a pas de droit à réclamer.
+  if (!isDirectConnectEnabled()) return new NextResponse(null, { status: 404 });
+
   const url = new URL(request.url);
   const code = url.searchParams.get("code");
   const state = url.searchParams.get("state");

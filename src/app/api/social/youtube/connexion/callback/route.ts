@@ -8,6 +8,7 @@ import { serializeTokens } from "@/lib/connectors/youtube/credentials";
 import { exchangeCode, listChannels, YOUTUBE_SCOPES } from "@/lib/social/youtube";
 import { createAdminClient } from "@/lib/supabase/server";
 import { YOUTUBE_STATE_COOKIE, redirectUri } from "../route";
+import { isDirectConnectEnabled } from "@/lib/social/direct-connect";
 
 /**
  * Retour de Google : on échange le code, puis on enregistre les chaînes que le
@@ -35,6 +36,10 @@ function statesMatch(received: string, expected: string): boolean {
 }
 
 export async function GET(request: Request) {
+  // Bascule Composio : le chemin direct est fermé. 404 et non 403 — la route
+  // n'a plus lieu d'être, il n'y a pas de droit à réclamer.
+  if (!isDirectConnectEnabled()) return new NextResponse(null, { status: 404 });
+
   const url = new URL(request.url);
   const store = await cookies();
   const cookie = store.get(YOUTUBE_STATE_COOKIE)?.value;
