@@ -90,6 +90,21 @@ export function gaTransport(options: {
           : "Réponse Composio sans détail d'erreur.",
       );
     }
-    return (result.data ?? {}) as GaRunReportResponse;
+
+    /* Au-delà d'une certaine taille, Composio ne rend pas les lignes : il
+       écrit la réponse dans un fichier et `data` ne porte plus que le chemin
+       (`storedInFile`). Un rapport sans ses lignes se lirait comme « zéro
+       ligne », c'est-à-dire un mensonge silencieux — on échoue bruyamment.
+       Le connecteur découpe ses fenêtres au mois exprès pour ne jamais
+       arriver ici ; si ça arrive, c'est la fenêtre qu'il faut réduire. */
+    const data = (result.data ?? {}) as GaRunReportResponse & {
+      storedInFile?: boolean;
+    };
+    if (data.storedInFile) {
+      throw new Error(
+        "Réponse Composio trop volumineuse, rangée dans un fichier au lieu d'être rendue : réduire la fenêtre demandée (défaut du connecteur, à signaler).",
+      );
+    }
+    return data;
   };
 }

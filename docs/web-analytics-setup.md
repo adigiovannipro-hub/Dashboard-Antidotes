@@ -55,12 +55,17 @@ que faisait le rapport Looker de référence.
 
 ## Volumes et coût
 
-Un passage = 7 appels d'outil Composio par propriété (1 quotidien, 1 mensuel,
-4 ventilations, 1 pages). Une propriété synchronisée chaque jour ≈ **210
-appels/mois** — à confronter au palier Composio le jour où ses tarifs seront
-lus (`docs/composio-setup.md`, section Coût). L'API Analytics Data de Google
-est gratuite (quota 25 000 jetons/jour par propriété, très au-dessus de ce
-que 7 rapports consomment).
+Les rapports se demandent **mois par mois** : au-delà d'une certaine
+taille, Composio range la réponse dans un fichier au lieu de la rendre, et le
+transport refuse ce cas plutôt que de le lire comme « zéro ligne » (constaté
+sur le premier rattrapage ANMF). En croisière, la fenêtre de 8 jours touche
+1 à 2 mois : **7 à 11 appels par jour et par propriété, ≈ 250-330/mois** — à
+confronter au palier Composio le jour où ses tarifs seront lus
+(`docs/composio-setup.md`, section Coût). Le rattrapage initial (une trentaine
+de mois) coûte ~130 appels, une fois. L'API Analytics Data de Google est
+gratuite (quota 25 000 jetons/jour par propriété, très au-dessus). Les villes
+sont bornées aux 50 premières de chaque mois : la longue traîne ferait tout
+le volume, l'écran n'en replie que six.
 
 Côté base : le site ANMF pèse ~900 jours × 1 ligne quotidienne, plus quelques
 milliers de lignes mensuelles — négligeable devant `ad_metrics_daily`.

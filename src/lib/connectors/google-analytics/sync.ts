@@ -174,7 +174,21 @@ export async function syncWorkspaceWebAnalytics(options: {
   return reports;
 }
 
-/** Un passage sur une propriété : sept rapports, quatre tables, des upserts. */
+/**
+ * Un passage sur une propriété.
+ *
+ * **Les rapports se demandent mois par mois, jamais en une fois.** Au-delà
+ * d'une certaine taille, Composio range la réponse dans un fichier au lieu de
+ * la rendre — le transport refuse alors bruyamment (voir `composio.ts`). Un
+ * mois de quotidien fait ~31 lignes, un mois de sources quelques dizaines :
+ * chaque réponse reste petite par construction. Seuls les rapports à faible
+ * cardinalité (uniques mensuels, appareils, nouveaux/connus) couvrent la
+ * fenêtre entière en un appel.
+ *
+ * Les villes sont bornées aux 50 premières de chaque mois : la longue traîne
+ * (des centaines de villes à 1 visiteur) ferait tout le volume, et l'écran
+ * n'en replie que six.
+ */
 async function syncProperty(context: {
   admin: Admin;
   workspaceId: string;
@@ -184,7 +198,6 @@ async function syncProperty(context: {
   window: { since: string; until: string };
 }): Promise<number> {
   const { admin, workspaceId, dataSourceId, property, transport, window } = context;
-  let rows = 0;
 
   const stamp = { data_source_id: dataSourceId, workspace_id: workspaceId };
   const months = monthsCovering(window.since, window.until);
@@ -193,16 +206,95 @@ async function syncProperty(context: {
       ? { from: months[0]!, to: monthWindow(months.at(-1)!).to }
       : { from: window.since, to: window.until };
 
-  // --- Le quotidien : courbes et sommes additives ---------------------------
-  const daily = dailyRows(
+  const daily: ReturnType<typeof dailyRows> = [];
+  const breakdowns: ReturnType<typeof breakdownRows> = [];
+  const pages: ReturnType<typeof pageRows> = [];
+
+  for (const month of months) {
+    const bounds = monthWindow(month);
+    // Jamais au-delà d'aujourd'hui : GA rendrait des zéros pour demain.
+    const range = {
+      startDate: bounds.from,
+      endDate: bounds.to > window.until ? window.until : bounds.to,
+    };
+
+    daily.push(
+      ...dailyRows(
+        await transport({
+          property,
+          dateRanges: [range],
+          dimensions: [{ name: "date" }],
+          metrics: DAILY_METRICS.map((name) => ({ name })),
+        }),
+      ),
+    );
+
+    breakdowns.push(
+      ...breakdownRows(
+        await transport({
+          property,
+          dateRanges: [range],
+          dimensions: [{ name: "yearMonth" }, { name: "sessionSource" }],
+          metrics: BREAKDOWN_METRICS.map((name) => ({ name })),
+          limit: 200,
+          orderBys: [{ metric: { metricName: "sessions" }, desc: true }],
+        }),
+        "source",
+      ),
+      ...breakdownRows(
+        await transport({
+          property,
+          dateRanges: [range],
+          dimensions: [{ name: "yearMonth" }, { name: "city" }],
+          metrics: BREAKDOWN_METRICS.map((name) => ({ name })),
+          limit: 50,
+          orderBys: [{ metric: { metricName: "totalUsers" }, desc: true }],
+        }),
+        "city",
+      ),
+    );
+
+    pages.push(
+      ...pageRows(
+        await transport({
+          property,
+          dateRanges: [range],
+          dimensions: [{ name: "yearMonth" }, { name: "pagePath" }],
+          metrics: PAGE_METRICS.map((name) => ({ name })),
+          limit: 500,
+          orderBys: [{ metric: { metricName: "screenPageViews" }, desc: true }],
+        }),
+      ),
+    );
+  }
+
+  // --- Faible cardinalité : la fenêtre entière en un appel ------------------
+  const monthlyUniques = monthlyRows(
     await transport({
       property,
-      dateRanges: [{ startDate: window.since, endDate: window.until }],
-      dimensions: [{ name: "date" }],
-      metrics: DAILY_METRICS.map((name) => ({ name })),
-      limit: 100000,
+      dateRanges: [{ startDate: monthly.from, endDate: monthly.to }],
+      dimensions: [{ name: "yearMonth" }],
+      metrics: MONTHLY_METRICS.map((name) => ({ name })),
     }),
   );
+
+  for (const type of ["device", "retention"] as WebBreakdownKind[]) {
+    breakdowns.push(
+      ...breakdownRows(
+        await transport({
+          property,
+          dateRanges: [{ startDate: monthly.from, endDate: monthly.to }],
+          dimensions: [{ name: "yearMonth" }, { name: BREAKDOWN_DIMENSIONS[type] }],
+          metrics: BREAKDOWN_METRICS.map((name) => ({ name })),
+        }),
+        type,
+      ),
+    );
+  }
+
+  // --- Les upserts, une fois tout collecté ----------------------------------
+  let rows = 0;
+
   if (daily.length > 0) {
     const { error } = await admin
       .from("web_metrics_daily")
@@ -213,16 +305,6 @@ async function syncProperty(context: {
     rows += daily.length;
   }
 
-  // --- Les uniques mensuels : le chiffre exact du rapport -------------------
-  const monthlyUniques = monthlyRows(
-    await transport({
-      property,
-      dateRanges: [{ startDate: monthly.from, endDate: monthly.to }],
-      dimensions: [{ name: "yearMonth" }],
-      metrics: MONTHLY_METRICS.map((name) => ({ name })),
-      limit: 100000,
-    }),
-  );
   if (monthlyUniques.length > 0) {
     const { error } = await admin
       .from("web_metrics_monthly")
@@ -233,39 +315,16 @@ async function syncProperty(context: {
     rows += monthlyUniques.length;
   }
 
-  // --- Les ventilations : sources, appareils, villes, nouveaux/connus -------
-  for (const type of Object.keys(BREAKDOWN_DIMENSIONS) as WebBreakdownKind[]) {
-    const breakdown = breakdownRows(
-      await transport({
-        property,
-        dateRanges: [{ startDate: monthly.from, endDate: monthly.to }],
-        dimensions: [{ name: "yearMonth" }, { name: BREAKDOWN_DIMENSIONS[type] }],
-        metrics: BREAKDOWN_METRICS.map((name) => ({ name })),
-        limit: 100000,
-      }),
-      type,
-    );
-    if (breakdown.length === 0) continue;
-
+  if (breakdowns.length > 0) {
     const { error } = await admin
       .from("web_breakdowns_monthly")
-      .upsert(breakdown.map((row) => ({ ...stamp, ...row })) as never, {
+      .upsert(breakdowns.map((row) => ({ ...stamp, ...row })) as never, {
         onConflict: "data_source_id,month,type,value",
       });
-    if (error) fail(`Écriture de la ventilation ${type} : ${error.message}`);
-    rows += breakdown.length;
+    if (error) fail(`Écriture des ventilations : ${error.message}`);
+    rows += breakdowns.length;
   }
 
-  // --- Les pages : le tableau Top Pages -------------------------------------
-  const pages = pageRows(
-    await transport({
-      property,
-      dateRanges: [{ startDate: monthly.from, endDate: monthly.to }],
-      dimensions: [{ name: "yearMonth" }, { name: "pagePath" }],
-      metrics: PAGE_METRICS.map((name) => ({ name })),
-      limit: 100000,
-    }),
-  );
   if (pages.length > 0) {
     const { error } = await admin
       .from("web_pages_monthly")
