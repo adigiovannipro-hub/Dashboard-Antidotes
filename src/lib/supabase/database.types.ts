@@ -241,6 +241,12 @@ export type WebMetricsMonthly = {
   /** Uniques du mois, dédoublonnés par GA : le chiffre du rapport. */
   total_users: number;
   new_users: number;
+  // 0062 — les totaux exacts du mois : même les sessions ne se somment pas
+  // parfaitement depuis le quotidien (GA recoupe à minuit).
+  sessions: number;
+  engaged_sessions: number;
+  page_views: number;
+  session_seconds: number;
   updated_at: string;
 };
 

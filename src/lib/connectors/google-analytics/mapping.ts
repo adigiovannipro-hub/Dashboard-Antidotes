@@ -26,8 +26,20 @@ export const DAILY_METRICS = [
   "averageSessionDuration",
 ] as const;
 
-/** Uniques mensuels — le chiffre exact que GA dédoublonne par mois. */
-export const MONTHLY_METRICS = ["totalUsers", "newUsers"] as const;
+/**
+ * Les totaux mensuels exacts — uniques dédoublonnés, mais aussi sessions et
+ * compagnie : GA recoupe à minuit une session à cheval sur deux jours, et la
+ * somme des quotidiens dépasse d'un demi-pourcent le chiffre du mois. Sur un
+ * mois civil, l'écran affiche ces totaux-là.
+ */
+export const MONTHLY_METRICS = [
+  "totalUsers",
+  "newUsers",
+  "sessions",
+  "engagedSessions",
+  "screenPageViews",
+  "averageSessionDuration",
+] as const;
 
 /** Chaque ventilation rapporte visiteurs et sessions, mois par mois. */
 export const BREAKDOWN_METRICS = ["totalUsers", "sessions"] as const;
@@ -63,6 +75,10 @@ export type WebMonthlyColumns = {
   month: string;
   total_users: number;
   new_users: number;
+  sessions: number;
+  engaged_sessions: number;
+  page_views: number;
+  session_seconds: number;
 };
 
 export type WebBreakdownColumns = {
@@ -133,10 +149,15 @@ export function monthlyRows(response: GaRunReportResponse): WebMonthlyColumns[] 
     const month = gaMonth(dimension(row, 0));
     if (!month) continue;
 
+    const sessions = metricNumber(row, 2);
     rows.push({
       month,
       total_users: metricNumber(row, 0),
       new_users: metricNumber(row, 1),
+      sessions,
+      engaged_sessions: metricNumber(row, 3),
+      page_views: metricNumber(row, 4),
+      session_seconds: Math.round(metricNumber(row, 5) * sessions * 100) / 100,
     });
   }
   return rows;

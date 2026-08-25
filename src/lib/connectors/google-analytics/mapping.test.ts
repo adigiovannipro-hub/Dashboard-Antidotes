@@ -86,11 +86,23 @@ describe("dailyRows", () => {
 });
 
 describe("monthlyRows", () => {
-  it("lit les uniques dédoublonnés du mois", () => {
-    const rows = monthlyRows(report([{ dims: ["202607"], metrics: [16433, 15863] }]));
+  it("lit les totaux exacts du mois, durée cumulée comprise", () => {
+    // 18 005 sessions et non la somme des jours (18 084) : GA recoupe à
+    // minuit, et le chiffre du mois est celui que le client lisait.
+    const rows = monthlyRows(
+      report([{ dims: ["202607"], metrics: [16433, 15863, 18005, 2099, 20611, "30.43"] }]),
+    );
 
     expect(rows).toEqual([
-      { month: "2026-07-01", total_users: 16433, new_users: 15863 },
+      {
+        month: "2026-07-01",
+        total_users: 16433,
+        new_users: 15863,
+        sessions: 18005,
+        engaged_sessions: 2099,
+        page_views: 20611,
+        session_seconds: 547892.15,
+      },
     ]);
   });
 });

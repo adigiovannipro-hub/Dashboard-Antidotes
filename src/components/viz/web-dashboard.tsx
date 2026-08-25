@@ -15,7 +15,7 @@ import {
   foldPages,
   sourcesByMonth,
   sumWebDaily,
-  usersForRange,
+  totalsForRange,
   webDelta,
 } from "@/lib/web/data";
 
@@ -37,19 +37,27 @@ export function WebDashboard({
   data: WebData;
   period: { label: string; comparison: string };
 }) {
-  const totals = sumWebDaily(data.daily);
-  const previousTotals = sumWebDaily(data.previousDaily);
-
-  const users = usersForRange({
+  // Les totaux du rapport GA sur un mois civil, la somme des jours sinon —
+  // et la comparaison N-1 est pliée de la même façon, sinon le delta
+  // comparerait deux définitions.
+  const current = totalsForRange({
     range: data.range,
     monthly: data.monthly,
-    dailySum: totals.users,
+    daily: sumWebDaily(data.daily),
   });
-  const previousUsers = usersForRange({
+  const previous = totalsForRange({
     range: data.previousRange,
     monthly: data.previousMonthly,
-    dailySum: previousTotals.users,
+    daily: sumWebDaily(data.previousDaily),
   });
+  const totals = current.totals;
+  const previousTotals = previous.totals;
+
+  const usersNote = !current.exact
+    ? "Somme des visiteurs quotidiens — sur une plage libre, un même visiteur peut compter deux fois."
+    : current.monthCount > 1
+      ? "Somme des uniques mensuels — un visiteur revenu sur deux mois compte deux fois."
+      : undefined;
 
   const spark = (value: (row: (typeof data.daily)[number]) => number | null) =>
     alignedDailySeries({
@@ -60,7 +68,7 @@ export function WebDashboard({
       value,
     });
 
-  const hasPrevious = data.previousDaily.length > 0;
+  const hasPrevious = previousTotals.sessions > 0 || previousTotals.users > 0;
   const previousOr = (value: number | null) => (hasPrevious ? value : null);
 
   const sources = sourcesByMonth(data.sourcesYear);
@@ -71,20 +79,12 @@ export function WebDashboard({
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <WebKpiCard
           label="Nombre total d'utilisateurs"
-          value={users.value}
+          value={totals.users}
           kind="integer"
-          delta={webDelta(
-            users.value,
-            previousOr(previousUsers.value),
-            "up-good",
-          )}
+          delta={webDelta(totals.users, previousOr(previousTotals.users), "up-good")}
           points={spark((row) => row.total_users)}
           comparisonLabel={period.comparison}
-          note={
-            users.exact
-              ? undefined
-              : "Somme des visiteurs quotidiens — sur une plage libre, un même visiteur peut compter deux fois."
-          }
+          note={usersNote}
         />
         <WebKpiCard
           label="Durée moyenne de la session"

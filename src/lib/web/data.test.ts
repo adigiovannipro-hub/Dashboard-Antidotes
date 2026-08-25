@@ -14,7 +14,7 @@ import {
   fullMonthsOf,
   sourcesByMonth,
   sumWebDaily,
-  usersForRange,
+  totalsForRange,
   webDelta,
 } from "./data";
 
@@ -92,7 +92,7 @@ describe("fullMonthsOf", () => {
   });
 });
 
-describe("usersForRange", () => {
+describe("totalsForRange", () => {
   const monthly = [
     {
       data_source_id: "source",
@@ -100,41 +100,68 @@ describe("usersForRange", () => {
       month: "2026-07-01",
       total_users: 16433,
       new_users: 15863,
+      sessions: 18005,
+      engaged_sessions: 2099,
+      page_views: 20611,
+      session_seconds: 547892.15,
       updated_at: "2026-08-25T00:00:00Z",
     },
   ];
+  const dailySums = {
+    users: 17685,
+    sessions: 18084,
+    engagedSessions: 2110,
+    pageViews: 20611,
+    sessionSeconds: 548000,
+  };
 
-  it("rend l'exact de GA sur un mois civil entier", () => {
-    // 16 433 est le chiffre que le client lisait dans Looker — pas la somme
-    // des uniques quotidiens, qui recompte un visiteur revenu deux jours.
-    expect(
-      usersForRange({
-        range: { from: "2026-07-01", to: "2026-07-31" },
-        monthly,
-        dailySum: 19000,
-      }),
-    ).toEqual({ value: 16433, exact: true });
+  it("rend les totaux du rapport GA sur un mois civil entier", () => {
+    // 16 433 utilisateurs et 18 005 sessions : les chiffres que le client
+    // lisait dans Looker — pas les sommes quotidiennes, que GA gonfle en
+    // recoupant à minuit et en recomptant un visiteur revenu deux jours.
+    const { totals, exact, monthCount } = totalsForRange({
+      range: { from: "2026-07-01", to: "2026-07-31" },
+      monthly,
+      daily: dailySums,
+    });
+
+    expect(exact).toBe(true);
+    expect(monthCount).toBe(1);
+    expect(totals.users).toBe(16433);
+    expect(totals.sessions).toBe(18005);
   });
 
-  it("retombe sur la somme quotidienne pour une plage libre", () => {
-    expect(
-      usersForRange({
-        range: { from: "2026-07-10", to: "2026-07-24" },
-        monthly,
-        dailySum: 9000,
-      }),
-    ).toEqual({ value: 9000, exact: false });
+  it("retombe sur les sommes quotidiennes pour une plage libre", () => {
+    const { totals, exact } = totalsForRange({
+      range: { from: "2026-07-10", to: "2026-07-24" },
+      monthly,
+      daily: dailySums,
+    });
+
+    expect(exact).toBe(false);
+    expect(totals).toEqual(dailySums);
   });
 
-  it("retombe sur la somme quand un mois demandé manque en base", () => {
+  it("retombe sur les sommes quand un mois demandé manque en base", () => {
     // Mieux vaut un chiffre approché qu'un exact tronqué d'un mois.
-    expect(
-      usersForRange({
-        range: { from: "2026-06-01", to: "2026-07-31" },
-        monthly,
-        dailySum: 21000,
-      }),
-    ).toEqual({ value: 21000, exact: false });
+    const { exact } = totalsForRange({
+      range: { from: "2026-06-01", to: "2026-07-31" },
+      monthly,
+      daily: dailySums,
+    });
+    expect(exact).toBe(false);
+  });
+
+  it("ignore une ligne mensuelle d'avant 0062, qui n'a pas ses totaux", () => {
+    // Une ligne à zéro session mais pleine d'utilisateurs vient du schéma
+    // d'avant : la prendre pour exacte afficherait « 0 session » pour un
+    // mois plein.
+    const { exact } = totalsForRange({
+      range: { from: "2026-07-01", to: "2026-07-31" },
+      monthly: [{ ...monthly[0]!, sessions: 0, engaged_sessions: 0 }],
+      daily: dailySums,
+    });
+    expect(exact).toBe(false);
   });
 });
 

@@ -75,27 +75,41 @@ export function fullMonthsOf(range: DateRange): string[] | null {
 }
 
 /**
- * Les visiteurs d'une plage : exacts quand elle est faite de mois civils
- * entiers **tous présents en base**, approchés par la somme quotidienne sinon.
- * Un mois demandé mais absent fait retomber sur l'approximation : mieux vaut
- * un chiffre approché qu'un chiffre exact tronqué d'un mois.
+ * Les totaux d'une plage : ceux du rapport GA quand elle est faite de mois
+ * civils entiers **tous présents en base avec leurs totaux**, la somme des
+ * quotidiens sinon. Même les sessions ne se somment pas parfaitement depuis
+ * le jour — GA recoupe à minuit — et les visiteurs encore moins : sur le mois
+ * que le client lit, le chiffre doit être celui qu'il lisait dans Looker.
+ *
+ * Un mois demandé mais absent, ou présent sans ses totaux (ligne d'avant
+ * 0062), fait retomber sur l'approximation : mieux vaut un chiffre approché
+ * qu'un exact tronqué d'un mois.
  */
-export function usersForRange(input: {
+export function totalsForRange(input: {
   range: DateRange;
   monthly: readonly WebMetricsMonthly[];
-  dailySum: number;
-}): { value: number; exact: boolean } {
+  daily: WebTotals;
+}): { totals: WebTotals; exact: boolean; monthCount: number } {
   const months = fullMonthsOf(input.range);
   if (months) {
-    const byMonth = new Map(input.monthly.map((row) => [row.month, row.total_users]));
-    if (months.every((month) => byMonth.has(month))) {
-      return {
-        value: months.reduce((sum, month) => sum + (byMonth.get(month) ?? 0), 0),
-        exact: true,
-      };
+    const byMonth = new Map(input.monthly.map((row) => [row.month, row]));
+    const rows = months.map((month) => byMonth.get(month));
+    const usable = rows.every(
+      (row) => row && (row.sessions > 0 || row.total_users === 0),
+    );
+    if (usable) {
+      const totals: WebTotals = { ...EMPTY_WEB_TOTALS };
+      for (const row of rows as WebMetricsMonthly[]) {
+        totals.users += row.total_users;
+        totals.sessions += row.sessions;
+        totals.engagedSessions += row.engaged_sessions;
+        totals.pageViews += row.page_views;
+        totals.sessionSeconds += Number(row.session_seconds);
+      }
+      return { totals, exact: true, monthCount: months.length };
     }
   }
-  return { value: input.dailySum, exact: false };
+  return { totals: input.daily, exact: false, monthCount: 0 };
 }
 
 /** Durée moyenne d'une session, en secondes. `null` sans session mesurée. */
