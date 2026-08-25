@@ -75,6 +75,24 @@ export function formatCompact(value: number): string {
   }).format(value);
 }
 
+/**
+ * Une durée en secondes, rendue `hh:mm:ss` — la forme du rapport Looker
+ * (« 00:00:30 »), reprise à l'identique pour que le client retrouve sa
+ * lecture. Les secondes s'arrondissent : personne ne lit une session au
+ * dixième.
+ */
+export function formatDuration(seconds: number | null): string {
+  if (seconds === null || !Number.isFinite(seconds) || seconds < 0) {
+    return NOT_AVAILABLE;
+  }
+  const whole = Math.round(seconds);
+  const hours = Math.floor(whole / 3600);
+  const minutes = Math.floor((whole % 3600) / 60);
+  const rest = whole % 60;
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return `${pad(hours)}:${pad(minutes)}:${pad(rest)}`;
+}
+
 const octets = new Intl.NumberFormat(LOCALE, { maximumFractionDigits: 1 });
 
 /** Taille d'un fichier : `1234567` → « 1,2 Mo ». */

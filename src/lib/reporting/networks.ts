@@ -18,12 +18,21 @@ import type { SocialAccountKind } from "@/lib/social/types";
  * au lieu de faire comme s'il n'existait pas.
  */
 
-export type ReportingNetwork = "meta-ads" | "instagram" | "facebook";
+export type ReportingNetwork = "meta-ads" | "instagram" | "facebook" | "site-web";
+
+/**
+ * Les onglets sociaux — ceux dont la donnée vient d'un compte affecté dans
+ * Connexions. « Site Web » n'en est pas un : sa source est une propriété
+ * Google Analytics, rattachée à l'espace dans `data_sources`, pas un compte
+ * social.
+ */
+export type SocialReportingNetwork = Exclude<ReportingNetwork, "site-web">;
 
 export const REPORTING_NETWORK_LABELS: Record<ReportingNetwork, string> = {
   "meta-ads": "Meta Ads",
   instagram: "Instagram",
   facebook: "Facebook",
+  "site-web": "Site Web",
 };
 
 /** Ce que chaque onglet montre, dit en une ligne sous le titre. */
@@ -31,10 +40,11 @@ export const REPORTING_NETWORK_SUBTITLES: Record<ReportingNetwork, string> = {
   "meta-ads": "Campagnes payantes — budget, portée, conversions.",
   instagram: "Publications organiques — portée, engagement, abonnés.",
   facebook: "Page organique — portée, engagement, abonnés.",
+  "site-web": "Trafic du site — audience, sources, pages vues.",
 };
 
 /** Le compte qu'il faut avoir branché pour que l'onglet ait de quoi lire. */
-const REQUIRED_KIND: Record<ReportingNetwork, SocialAccountKind> = {
+const REQUIRED_KIND: Record<SocialReportingNetwork, SocialAccountKind> = {
   "meta-ads": "meta_ad_account",
   instagram: "instagram",
   facebook: "facebook_page",
@@ -61,6 +71,8 @@ export function networksFromContextName(name: string): ReportingNetwork[] {
   // client qui déclare Threads se retrouvait avec un onglet Meta Ads.
   if (/\bads\b/.test(folded) || folded.includes("publicit")) return ["meta-ads"];
   if (folded.includes("facebook") || folded === "fb") return ["facebook"];
+  // « Site Web », « Site internet », « Web » : le trafic du site du client.
+  if (/\bsite\b/.test(folded) || /\bweb\b/.test(folded)) return ["site-web"];
   /* « Meta » seul est le réseau tel qu'on le vend : payant et organique, les
      deux Pages. Il ouvre donc les trois onglets — c'est ce qu'on attend en
      lisant le rapport d'un client « sur Meta ». Ce test vient en dernier :
@@ -92,8 +104,15 @@ export function resolveReportingNetworks(input: {
   contextNetworks: readonly string[];
   /** Les types de comptes affectés à cet espace dans Connexions. */
   assignedKinds: readonly SocialAccountKind[];
+  /**
+   * Une propriété Google Analytics est-elle rattachée à l'espace ? C'est
+   * l'équivalent du compte affecté pour l'onglet Site Web — sa source n'est
+   * pas un compte social, elle vit dans `data_sources`.
+   */
+  hasWebSource?: boolean;
 }): ReportingTabs {
   const assigned = new Set(input.assignedKinds);
+  const hasWebSource = input.hasWebSource ?? false;
 
   const declared: ReportingNetwork[] = [];
   const sansConnecteur: string[] = [];
@@ -117,22 +136,28 @@ export function resolveReportingNetworks(input: {
      affecté — sinon le Reporting paraît vide sans raison et on ne sait pas
      qu'il reste un geste à faire. L'onglet non branché n'invente rien : il
      porte un état vide qui dit lequel affecter et où. */
-  const networks = (["meta-ads", "instagram", "facebook"] as const).filter(
-    (network) => assigned.has(REQUIRED_KIND[network]) || declared.includes(network),
+  /* « Branché » ne veut pas dire la même chose partout : un compte affecté
+     pour les réseaux sociaux, une propriété GA rattachée pour le Site Web. */
+  const connected = (network: ReportingNetwork): boolean =>
+    network === "site-web" ? hasWebSource : assigned.has(REQUIRED_KIND[network]);
+
+  const networks = (["meta-ads", "instagram", "facebook", "site-web"] as const).filter(
+    (network) => connected(network) || declared.includes(network),
   );
 
-  // Ordre fixe — payant, Instagram, Facebook — et non l'ordre du Contexte :
-  // les onglets doivent tomber au même endroit d'un client à l'autre, sinon
-  // on cherche « Meta Ads » à une place différente à chaque espace.
+  // Ordre fixe — payant, Instagram, Facebook, Site Web — et non l'ordre du
+  // Contexte : les onglets doivent tomber au même endroit d'un client à
+  // l'autre, sinon on cherche « Meta Ads » à une place différente à chaque
+  // espace.
   return {
     networks,
-    manquants: networks.filter((network) => !assigned.has(REQUIRED_KIND[network])),
+    manquants: networks.filter((network) => !connected(network)),
     sansConnecteur,
   };
 }
 
-/** Le compte qu'il faut affecter pour qu'un onglet ait de quoi lire. */
-export function requiredKindFor(network: ReportingNetwork): SocialAccountKind {
+/** Le compte qu'il faut affecter pour qu'un onglet social ait de quoi lire. */
+export function requiredKindFor(network: SocialReportingNetwork): SocialAccountKind {
   return REQUIRED_KIND[network];
 }
 

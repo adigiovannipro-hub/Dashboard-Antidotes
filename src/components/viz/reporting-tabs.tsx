@@ -54,7 +54,10 @@ export function ReportingTabs({
     <nav aria-label="Réseaux">
       <ul
         ref={listRef}
-        className="border-border relative flex items-center gap-4 border-b"
+        /* Défilement horizontal plutôt que retour à la ligne : à quatre
+           onglets sur téléphone, « Meta Ads » se coupait en deux lignes et la
+           rangée chevauchait les boutons d'à côté. */
+        className="border-border relative flex items-center gap-4 overflow-x-auto border-b"
       >
         <PillIndicator box={box} variant="underline" />
 
@@ -67,7 +70,7 @@ export function ReportingTabs({
                 aria-current={network === current ? "page" : undefined}
                 onClick={() => select(network)}
                 className={cn(
-                  "type-label focus-visible:ring-ring relative -mb-px block border-b-2 px-0.5 pb-2.5 transition-colors duration-(--motion-duration) ease-standard focus-visible:ring-2 focus-visible:outline-none",
+                  "type-label focus-visible:ring-ring relative -mb-px block border-b-2 px-0.5 pb-2.5 whitespace-nowrap transition-colors duration-(--motion-duration) ease-standard focus-visible:ring-2 focus-visible:outline-none",
                   isActive
                     ? cn(
                         "text-text-primary",

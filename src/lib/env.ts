@@ -37,6 +37,10 @@ const serverSchema = {
      peut pas le faire lui-même, Airwallex refusant ses adresses IP. Jeton à
      portée fine, droit « Actions : read and write » sur ce seul dépôt. */
   GITHUB_SYNC_TOKEN: z.string().min(1),
+  /* Clé du projet Composio Platform (`ak_…`) — la passerelle qui porte les
+     jetons Google Analytics. Serveur uniquement : elle ouvre l'accès à tous
+     les comptes connectés du projet. Voir `docs/web-analytics-setup.md`. */
+  COMPOSIO_API_KEY: z.string().min(1),
 } as const;
 
 export type ServerEnvKey = keyof typeof serverSchema;

@@ -11,6 +11,7 @@ import {
   presetOf,
   presetRange,
   previousMonth,
+  sameRangeLastYear,
 } from "./period";
 
 const aout = new Date("2026-08-14T09:00:00Z");
@@ -145,5 +146,36 @@ describe("parseRange", () => {
   it("refuse une borne manquante ou mal formée", () => {
     expect(parseRange("2026-07-01", undefined)).toBeNull();
     expect(parseRange("01/07/2026", "2026-07-31")).toBeNull();
+  });
+});
+
+describe("sameRangeLastYear", () => {
+  it("compare un mois civil au même mois de l'année d'avant", () => {
+    expect(sameRangeLastYear({ from: "2026-07-01", to: "2026-07-31" })).toEqual({
+      from: "2025-07-01",
+      to: "2025-07-31",
+    });
+  });
+
+  it("garde le mois entier même quand sa longueur change", () => {
+    // Février 2024 est bissextile : le mois de comparaison va bien au 29.
+    expect(sameRangeLastYear({ from: "2025-02-01", to: "2025-02-28" })).toEqual({
+      from: "2024-02-01",
+      to: "2024-02-29",
+    });
+  });
+
+  it("décale une plage libre d'un an, jour pour jour", () => {
+    expect(sameRangeLastYear({ from: "2026-07-10", to: "2026-07-24" })).toEqual({
+      from: "2025-07-10",
+      to: "2025-07-24",
+    });
+  });
+
+  it("replie un 29 février sans équivalent sur le 28", () => {
+    expect(sameRangeLastYear({ from: "2024-02-29", to: "2024-03-05" })).toEqual({
+      from: "2023-02-28",
+      to: "2023-03-05",
+    });
   });
 });

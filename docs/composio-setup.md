@@ -120,7 +120,15 @@ Puis, dans un script serveur, lister les outils réellement exposés pour un
 service avant d'écrire quoi que ce soit autour. **Ne jamais inventer un nom
 d'outil** : ils se découvrent à l'exécution.
 
-## État au 25/08/2026 — les branchements directs sont fermés
+## État au 25/08/2026 — la première intégration est en place
+
+**Google Analytics est le premier connecteur qui passe par la passerelle** :
+l'onglet Site Web du Reporting lit GA4 à travers le SDK `@composio/core`
+(`src/lib/connectors/google-analytics/composio.ts`), avec la clé
+`COMPOSIO_API_KEY` et les comptes rangés sous l'UUID de l'espace client.
+Démarches et volumes : `docs/web-analytics-setup.md`.
+
+## Les branchements directs sont fermés
 
 Le chemin direct est **neutralisé**, pas supprimé :
 `src/lib/social/direct-connect.ts` porte la constante `BRANCHEMENT_DIRECT`,

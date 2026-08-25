@@ -13,7 +13,7 @@ import {
   type RawMetrics,
 } from "@/lib/metrics/types";
 import { detailTitle, HERO_METRIC, KPI_SETS } from "@/lib/reporting/kpi-sets";
-import type { ReportingNetwork } from "@/lib/reporting/networks";
+import type { SocialReportingNetwork } from "@/lib/reporting/networks";
 import type { SocialPost } from "@/lib/supabase/database.types";
 
 /**
@@ -33,7 +33,7 @@ export function OrganicDashboard({
   followersNow,
   period,
 }: {
-  network: Exclude<ReportingNetwork, "meta-ads">;
+  network: Exclude<SocialReportingNetwork, "meta-ads">;
   posts: readonly SocialPost[];
   total: RawMetrics;
   previousTotal: RawMetrics;
