@@ -1,6 +1,9 @@
 import { cn } from "@/lib/utils";
 import { StatusPill, type StatusTone } from "@/components/ds/status-pill";
-import { InstallmentAction } from "@/components/billing/installment-action";
+import {
+  DeleteInstallmentButton,
+  InstallmentAction,
+} from "@/components/billing/installment-action";
 import { InstallmentCells } from "@/components/billing/installment-cells";
 import { dayLabel } from "@/lib/billing/format";
 import { isLate, isPaymentOverdue } from "@/lib/billing/schedule";
@@ -43,8 +46,10 @@ export type BoardRow =
   | { kind: "invoice"; invoice: UnmatchedInvoice };
 
 /** Gabarit partagé par l'en-tête et les lignes. */
+/* Cinq colonnes — la colonne HT est partie : Antidotes facture sans TVA,
+   HT et TTC affichaient le même chiffre deux fois, et l'œil devait choisir. */
 export const INSTALLMENT_GRID =
-  "md:grid md:grid-cols-[8.5rem_minmax(0,1.4fr)_8.5rem_7rem_7rem_minmax(9rem,auto)] md:items-center md:gap-x-4";
+  "md:grid md:grid-cols-[8.5rem_minmax(0,1.4fr)_8.5rem_8rem_minmax(9rem,auto)] md:items-center md:gap-x-4";
 
 export function InstallmentsHeader() {
   return (
@@ -57,8 +62,7 @@ export function InstallmentsHeader() {
       <span>Statut</span>
       <span>Client · Projet</span>
       <span>Période</span>
-      <span className="text-right">Montant HT</span>
-      <span className="text-right">Montant TTC</span>
+      <span className="text-right">Montant</span>
       <span>
         <span className="sr-only">Actions</span>
       </span>
@@ -192,9 +196,6 @@ export function InvoiceRow({
       <span className="type-label text-text-primary text-left tabular-nums md:text-right">
         {formatMoney(invoice.amount_cents, invoice.currency)}
       </span>
-      <span className="type-body text-text-secondary text-left tabular-nums md:text-right">
-        {formatMoney(invoice.amount_cents, invoice.currency)}
-      </span>
 
       <span />
     </div>
@@ -209,11 +210,10 @@ export function InvoiceRow({
 function RowActions({ line, stage }: { line: InstallmentLine; stage: InstallmentStage }) {
   switch (stage) {
     case "confirmed":
-      return (
-        <InstallmentAction installmentId={line.id} status="skipped" variant="ghost">
-          Passer
-        </InstallmentAction>
-      );
+      /* « Passer » n'a plus sa place ici : un mois planifié qui ne doit pas
+         exister se supprime — la trace d'un mois offert se pose au moment de
+         facturer, pas des mois à l'avance. */
+      return <DeleteInstallmentButton installmentId={line.id} />;
     case "to_invoice":
       return (
         <>

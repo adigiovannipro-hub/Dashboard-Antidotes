@@ -3,8 +3,12 @@ import { ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Counter, Panel, PanelBody, PanelRows } from "@/components/ds/surface";
 import { StatusPill } from "@/components/ds/status-pill";
+import { AddInstallmentDialog } from "@/components/billing/add-installment-dialog";
 import { EngagementActions } from "@/components/billing/engagement-actions";
-import { InstallmentAction } from "@/components/billing/installment-action";
+import {
+  DeleteInstallmentButton,
+  InstallmentAction,
+} from "@/components/billing/installment-action";
 import { InstallmentCells } from "@/components/billing/installment-cells";
 import {
   ROW_LABELS,
@@ -17,7 +21,6 @@ import {
   isPaymentOverdue,
   lastMonthOf,
   stageOf,
-  totalsOf,
   ttcTotalsOf,
 } from "@/lib/billing/schedule";
 import {
@@ -103,8 +106,10 @@ export function EngagementList({
   );
 }
 
+/* Sans colonne HT — même décision que les groupes du board : à 0 % de TVA,
+   deux colonnes affichaient le même chiffre. */
 const MONTH_GRID =
-  "md:grid md:grid-cols-[8.5rem_8.5rem_6.5rem_6.5rem_minmax(0,1fr)_5rem] md:items-center md:gap-x-4";
+  "md:grid md:grid-cols-[8.5rem_8.5rem_7rem_minmax(0,1fr)_auto] md:items-center md:gap-x-4";
 
 /* La colonne d'état ouvre la ligne, à la même largeur que dans les groupes du
    board : l'œil descend une seule colonne d'étiquettes du haut de la page
@@ -145,13 +150,12 @@ function EngagementDetails({
           </p>
           <p className="type-caption text-text-secondary">
             {period} · {engagement.months_count} mois ·{" "}
-            {formatMoney(engagement.monthly_amount_cents, engagement.currency)} HT/mois
+            {formatMoney(engagement.monthly_amount_cents, engagement.currency)}/mois
           </p>
         </div>
 
         <span className="type-label text-text-primary tabular-nums md:text-right">
-          {formatTotals(totalsOf(billable))}
-          <span className="type-caption text-text-secondary font-normal"> HT</span>
+          {formatTotals(ttcTotalsOf(billable))}
         </span>
 
         <ChevronDown
@@ -170,12 +174,17 @@ function EngagementDetails({
 
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border px-5 py-3">
           <p className="type-caption text-text-secondary tabular-nums">
-            Total facturable : {formatTotals(totalsOf(billable))} HT ·{" "}
-            {formatTotals(ttcTotalsOf(billable))} TTC
+            Total facturable : {formatTotals(ttcTotalsOf(billable))}
             {engagement.notes ? ` — ${engagement.notes}` : ""}
           </p>
           {canDecide ? (
-            <EngagementActions engagementId={engagement.id} active={active} />
+            <div className="flex flex-wrap items-center gap-2">
+              <AddInstallmentDialog
+                engagementId={engagement.id}
+                clientName={engagement.client_name}
+              />
+              <EngagementActions engagementId={engagement.id} active={active} />
+            </div>
           ) : null}
         </div>
       </div>
@@ -211,9 +220,6 @@ function EngagementMonthRow({
           <span className="type-body text-text-secondary text-left line-through tabular-nums md:text-right">
             {formatMoney(line.amount_cents, line.currency)}
           </span>
-          <span className="type-caption text-text-secondary text-left tabular-nums md:text-right">
-            —
-          </span>
         </>
       ) : (
         <InstallmentCells
@@ -236,6 +242,10 @@ function EngagementMonthRow({
               Rétablir
             </InstallmentAction>
           ) : null}
+          {/* Toute ligne du détail se supprime — la modification se répercute
+              aux groupes du haut à l'instant : c'est la même table, l'écran
+              entier la relit au rendu suivant. */}
+          <DeleteInstallmentButton installmentId={line.id} />
         </div>
       ) : (
         <span />

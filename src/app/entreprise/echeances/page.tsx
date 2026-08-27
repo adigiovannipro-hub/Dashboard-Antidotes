@@ -174,7 +174,7 @@ export default async function EcheancesPage() {
           value={kpis.toInvoice.count > 0 ? formatTotals(kpis.toInvoice.totals) : "0 €"}
           context={
             kpis.toInvoice.count > 0
-              ? `${kpis.toInvoice.count} facture${kpis.toInvoice.count > 1 ? "s" : ""} à émettre en HT`
+              ? `${kpis.toInvoice.count} facture${kpis.toInvoice.count > 1 ? "s" : ""} à émettre`
               : "rien à émettre aujourd'hui"
           }
           icon={FileClock}
@@ -205,7 +205,7 @@ export default async function EcheancesPage() {
           value={averageMonthly > 0 ? formatMoney(averageMonthly, "EUR") : "0 €"}
           context={
             forecastMonths > 0
-              ? `moyenne HT des ${forecastMonths} prochains mois aux devis`
+              ? `moyenne des ${forecastMonths} prochains mois aux devis`
               : "aucun devis confirmé à venir"
           }
           icon={Repeat}

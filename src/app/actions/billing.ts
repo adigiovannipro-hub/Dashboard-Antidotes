@@ -7,6 +7,7 @@ import { requireFinanceAccess } from "@/lib/finance/access";
 import {
   installmentsFor,
   issueDateFor,
+  lastMonthOf,
   monthsBetween,
 } from "@/lib/billing/schedule";
 import { createClient } from "@/lib/supabase/server";
@@ -298,6 +299,141 @@ export async function setInstallmentStatus(
 
   refresh();
   return { ok: true, message: "Échéance mise à jour." };
+}
+
+// --- Supprimer une échéance --------------------------------------------------
+
+const deleteInstallmentInput = z.object({ installmentId: z.uuid() });
+
+/**
+ * Suppression réelle d'une seule mensualité — le mois qui n'aurait jamais dû
+ * exister, la ligne doublonnée d'une saisie. Pour un mois offert qui garde sa
+ * trace, c'est « Passer » depuis « À facturer ».
+ *
+ * Une ligne rapprochée d'une facture Airwallex peut partir aussi : la facture
+ * ne disparaît pas, elle redevient « hors devis » et reste visible dans ses
+ * groupes — l'écran montre la facturation réelle, la suppression ne retire
+ * que la planification.
+ */
+export async function deleteInstallment(
+  _previous: BillingActionResult | null,
+  formData: FormData,
+): Promise<BillingActionResult> {
+  const parsed = deleteInstallmentInput.safeParse({
+    installmentId: formData.get("installmentId"),
+  });
+  if (!parsed.success) return { ok: false, error: "Requête incomplète." };
+
+  const context = await requireFinanceAccess();
+  if (!context.canDecide) return { ok: false, error: "Action indisponible." };
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("billing_installments")
+    .delete()
+    .eq("id", parsed.data.installmentId)
+    .eq("org_id", context.orgId)
+    .select("id");
+
+  if (error) return { ok: false, error: `Suppression refusée : ${error.message}` };
+  if (!data || data.length === 0) return { ok: false, error: "Échéance introuvable." };
+
+  refresh();
+  return { ok: true, message: "Mensualité supprimée." };
+}
+
+// --- Ajouter une échéance à un devis existant --------------------------------
+
+const addInstallmentInput = z.object({
+  engagementId: z.uuid(),
+  serviceMonth: isoMonth,
+  amount: frenchAmount,
+  notes: z.string().trim().max(500).optional(),
+});
+
+/**
+ * Une mensualité de plus sur un devis en cours — la prolongation d'un mois,
+ * la rallonge exceptionnelle. Elle naît « Devis confirmé » et avance ensuite
+ * comme les autres : bascule « à facturer » dérivée de la date, rapprochement
+ * Airwallex. Un seul endroit de vérité, donc elle apparaît partout d'un coup
+ * — groupes du board, prévisionnel, cartes.
+ *
+ * Si le mois sort de la période affichée du devis, la fenêtre s'étend : un
+ * devis « janvier → juin » qui gagne juillet se dit désormais
+ * « janvier → juillet », sinon l'en-tête mentirait sur ses propres lignes.
+ */
+export async function addInstallment(
+  _previous: BillingActionResult | null,
+  formData: FormData,
+): Promise<BillingActionResult> {
+  const parsed = addInstallmentInput.safeParse({
+    engagementId: formData.get("engagementId"),
+    serviceMonth: formData.get("serviceMonth"),
+    amount: formData.get("amount"),
+    notes: formData.get("notes") || undefined,
+  });
+  if (!parsed.success) return { ok: false, error: "Mois ou montant invalide." };
+
+  const context = await requireFinanceAccess();
+  if (!context.canDecide) return { ok: false, error: "Action indisponible." };
+
+  const supabase = await createClient();
+
+  const { data: engagementRow, error: readError } = await supabase
+    .from("billing_engagements")
+    .select("first_month, months_count, vat_rate, currency")
+    .eq("id", parsed.data.engagementId)
+    .eq("org_id", context.orgId)
+    .maybeSingle();
+  if (readError || !engagementRow) return { ok: false, error: "Devis introuvable." };
+
+  const engagement = engagementRow as {
+    first_month: string;
+    months_count: number;
+    vat_rate: number;
+    currency: string;
+  };
+
+  const { error } = await supabase.from("billing_installments").insert({
+    org_id: context.orgId,
+    engagement_id: parsed.data.engagementId,
+    service_month: parsed.data.serviceMonth,
+    issue_on: issueDateFor(parsed.data.serviceMonth),
+    amount_cents: Math.round(parsed.data.amount * 100),
+    vat_rate: engagement.vat_rate,
+    currency: engagement.currency,
+    status: "pending",
+    notes: parsed.data.notes ?? null,
+  } as never);
+
+  if (error) {
+    const message = error.message.includes("billing_installments_engagement_id_service_month")
+      ? "Ce devis a déjà une mensualité sur ce mois."
+      : error.message;
+    return { ok: false, error: `Ajout refusé : ${message}` };
+  }
+
+  /* La fenêtre du devis suit ses lignes. `months_count` n'est pas un simple
+     affichage : `lastMonthOf` en dérive la période, et la bascule de statut
+     du devis s'y réfère. */
+  const firstMonth =
+    parsed.data.serviceMonth < engagement.first_month
+      ? parsed.data.serviceMonth
+      : engagement.first_month;
+  const lastCurrent = lastMonthOf(engagement);
+  const lastMonth =
+    parsed.data.serviceMonth > lastCurrent ? parsed.data.serviceMonth : lastCurrent;
+  const monthsCount = monthsBetween(firstMonth, lastMonth);
+  if (firstMonth !== engagement.first_month || monthsCount !== engagement.months_count) {
+    await supabase
+      .from("billing_engagements")
+      .update({ first_month: firstMonth, months_count: monthsCount } as never)
+      .eq("id", parsed.data.engagementId)
+      .eq("org_id", context.orgId);
+  }
+
+  refresh();
+  return { ok: true, message: "Mensualité ajoutée au devis." };
 }
 
 // --- Terminer un devis -------------------------------------------------------

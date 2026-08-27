@@ -56,7 +56,6 @@ export function InstallmentCells({
   const [champ, setChamp] = useState<Champ | null>(null);
 
   const periode = periodLabel(serviceMonth);
-  const ht = formatMoney(amountCents, currency);
   const ttc = formatMoney(ttcCentsOf(amountCents, vatRate), currency);
 
   if (!canEdit) {
@@ -66,9 +65,6 @@ export function InstallmentCells({
           {periode}
         </span>
         <span className="type-label text-text-primary text-left tabular-nums md:text-right">
-          {ht}
-        </span>
-        <span className="type-body text-text-secondary text-left tabular-nums md:text-right">
           {ttc}
         </span>
       </>
@@ -91,20 +87,14 @@ export function InstallmentCells({
         {periode}
       </button>
 
-      <button
-        type="button"
-        onClick={() => setChamp("ht")}
-        aria-label={`Modifier le montant hors taxe de ${monthLabel(serviceMonth)}`}
-        className={`${cellule} type-label text-text-primary px-1 text-left tabular-nums md:text-right`}
-      >
-        {ht}
-      </button>
-
+      {/* Un seul montant à l'écran — le TTC, celui que la facture portera.
+          Le dialogue garde ses deux champs couplés pour le jour où la TVA
+          reviendrait ; « ht » n'est simplement plus un point d'entrée. */}
       <button
         type="button"
         onClick={() => setChamp("ttc")}
-        aria-label={`Modifier le montant toutes taxes de ${monthLabel(serviceMonth)}`}
-        className={`${cellule} type-body text-text-secondary px-1 text-left tabular-nums md:text-right`}
+        aria-label={`Modifier le montant de ${monthLabel(serviceMonth)}`}
+        className={`${cellule} type-label text-text-primary px-1 text-left tabular-nums md:text-right`}
       >
         {ttc}
       </button>
