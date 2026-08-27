@@ -3,8 +3,12 @@
 import { useState } from "react";
 
 import type { BreakdownEntry } from "@/lib/finance/breakdown";
+import {
+  categoryColor,
+  OTHER_COLOR,
+  UNCATEGORIZED_COLOR,
+} from "@/lib/finance/category-colors";
 import { formatMoney } from "@/lib/finance/money";
-import { foldTail, seriesColor } from "@/lib/viz/palette";
 import { cn } from "@/lib/utils";
 
 /**
@@ -16,12 +20,15 @@ import { cn } from "@/lib/utils";
  * recatégoriser une ligne aussi — la répartition et le tableau lisent la même
  * résolution, ils ne peuvent pas se contredire.
  *
- * Trois parts colorées et pas une de plus, le reste replié dans « Autres » en
- * gris : la palette ne garantit la séparation daltonisme en toutes paires que
- * sur trois teintes (règle du design system, même cap que le donut du
- * Reporting). La **liste** à droite, elle, montre toutes les catégories avec
- * leur total — c'est elle qui répond à « combien pour cette catégorie ce
- * mois-ci », le camembert donne la silhouette.
+ * Chaque part porte la **couleur de sa catégorie** — stable, dérivée du slug,
+ * dans la gamme de la charte (verts, olive, doré, oranges — voir
+ * `category-colors.ts`) : « Virements » garde sa teinte d'un mois à l'autre,
+ * là où la couleur par rang repeignait tout au changement de filtre. Les
+ * petites parts se replient dans « Autres » en gris, pour que le camembert
+ * reste une silhouette lisible. La **liste** à droite montre toutes les
+ * catégories avec leur total — c'est elle qui répond à « combien pour cette
+ * catégorie ce mois-ci », et c'est elle qui porte l'identité pour de bon :
+ * une gamme chaude resserrée ne sépare pas vert et orange pour tout le monde.
  */
 
 const SIZE = 168;
@@ -31,8 +38,9 @@ const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 /** Le blanc de la surface sépare les parts — jamais un contour. */
 const SURFACE_GAP = 2;
 
-/** Au-delà, la queue part dans « Autres » — cap toutes-paires de la palette. */
-const SLICE_CAP = 3;
+/** Au-delà, la queue part dans « Autres » : un donut ne se lit plus passé
+    six parts — la couleur par entité n'y change rien. */
+const SLICE_CAP = 6;
 
 const OTHER_LABEL = "Autres";
 
@@ -57,27 +65,39 @@ export function CategoryDonut({
     );
   }
 
-  const folded = foldTail(
-    entries.map((entry) => ({ label: entry.label, value: entry.cents })),
-    SLICE_CAP,
-    OTHER_LABEL,
-  );
+  /* Les entrées arrivent triées de la plus grosse à la plus petite : les
+     `SLICE_CAP` premières gardent leur part, la queue s'agrège en « Autres ». */
+  const kept = entries.slice(0, SLICE_CAP);
+  const tail = entries.slice(SLICE_CAP);
+  const tailCents = tail.reduce((sum, entry) => sum + entry.cents, 0);
+  const folded = [
+    ...kept.map((entry) => ({ label: entry.label, slug: entry.slug, cents: entry.cents })),
+    ...(tailCents > 0
+      ? [{ label: OTHER_LABEL, slug: null, cents: tailCents }]
+      : []),
+  ];
 
   // Décalages dérivés, jamais accumulés dans une variable réassignée.
   const segments = folded.map((slice, index) => {
-    const share = slice.value / totalCents;
+    const share = slice.cents / totalCents;
     const length = share * CIRCUMFERENCE;
     const preceding = folded
       .slice(0, index)
-      .reduce((sum, previous) => sum + previous.value / totalCents, 0);
+      .reduce((sum, previous) => sum + previous.cents / totalCents, 0);
 
     return {
       label: slice.label,
-      cents: slice.value,
+      cents: slice.cents,
       share,
-      // « Autres » n'est pas une catégorie : gris neutre, hors palette de
-      // séries — une teinte générée casserait la sûreté daltonisme.
-      color: slice.isOther ? "var(--text-tertiary)" : seriesColor(index),
+      /* La couleur suit l'entité, jamais le rang. « Autres » et « Sans
+         catégorie » sont des gris : ce ne sont pas des catégories, une teinte
+         de charte les ferait passer pour telles. */
+      color:
+        slice.label === OTHER_LABEL
+          ? OTHER_COLOR
+          : slice.slug
+            ? categoryColor(slice.slug)
+            : UNCATEGORIZED_COLOR,
       dash: Math.max(length - SURFACE_GAP, 0),
       offset: preceding * CIRCUMFERENCE,
     };
