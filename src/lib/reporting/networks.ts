@@ -43,6 +43,24 @@ export const REPORTING_NETWORK_SUBTITLES: Record<ReportingNetwork, string> = {
   "site-web": "Trafic du site — audience, sources, pages vues.",
 };
 
+/**
+ * Les fournisseurs de `data_sources` dont chaque onglet dépend.
+ *
+ * Le bandeau d'erreur de la page filtrait par espace mais pas par onglet : le
+ * refus d'une clé Composio — qui ne concerne que le Site Web — s'affichait
+ * aussi sur Meta Ads, Instagram et Facebook, où les chiffres étaient pourtant
+ * complets. Une alerte posée sur des chiffres sains fait accuser les chiffres.
+ *
+ * `meta_organic` sert deux onglets : le connecteur crée une source par compte
+ * affecté (Instagram, Page), toutes deux sous ce fournisseur — on ne sait pas
+ * les départager sans deviner sur le nom, donc on ne devine pas.
+ */
+export function providersForNetwork(network: ReportingNetwork): string[] {
+  if (network === "site-web") return ["google_analytics"];
+  if (network === "meta-ads") return ["meta_ads"];
+  return ["meta_organic"];
+}
+
 /** Le compte qu'il faut avoir branché pour que l'onglet ait de quoi lire. */
 const REQUIRED_KIND: Record<SocialReportingNetwork, SocialAccountKind> = {
   "meta-ads": "meta_ad_account",

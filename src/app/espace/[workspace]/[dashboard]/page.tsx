@@ -15,6 +15,7 @@ import { getActiveContext } from "@/lib/context/queries";
 import { formatDayFr } from "@/lib/format";
 import {
   currentNetwork,
+  providersForNetwork,
   REPORTING_NETWORK_LABELS,
   resolveReportingNetworks,
   type ReportingNetwork,
@@ -145,7 +146,14 @@ export default async function DashboardPage({
       };
 
   const isOwner = workspace.role === "owner";
-  const failing = sources.filter((source) => source.last_error);
+  // Seules les sources de l'onglet ouvert : l'erreur du Site Web n'a rien à
+  // dire sur des chiffres Meta complets. Sans onglet, tout se dit — il n'y a
+  // pas de chiffres à accuser.
+  const failing = sources.filter(
+    (source) =>
+      source.last_error &&
+      (network === null || providersForNetwork(network).includes(source.provider)),
+  );
 
   /* La synthèse du mois, produite par la phase Reporting de la carte cockpit.
      Réservée au propriétaire — elle est écrite par un modèle et sert à

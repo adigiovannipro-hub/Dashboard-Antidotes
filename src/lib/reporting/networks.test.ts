@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   currentNetwork,
   networksFromContextName,
+  providersForNetwork,
   resolveReportingNetworks,
 } from "./networks";
 
@@ -179,5 +180,20 @@ describe("currentNetwork", () => {
     expect(
       currentNetwork({ networks: [], manquants: [], sansConnecteur: [] }, undefined),
     ).toBeNull();
+  });
+});
+
+describe("providersForNetwork", () => {
+  it("réserve l'erreur Google Analytics à l'onglet Site Web", () => {
+    expect(providersForNetwork("site-web")).toEqual(["google_analytics"]);
+    expect(providersForNetwork("meta-ads")).not.toContain("google_analytics");
+    expect(providersForNetwork("instagram")).not.toContain("google_analytics");
+    expect(providersForNetwork("facebook")).not.toContain("google_analytics");
+  });
+
+  it("relie chaque onglet social à son fournisseur", () => {
+    expect(providersForNetwork("meta-ads")).toEqual(["meta_ads"]);
+    expect(providersForNetwork("instagram")).toEqual(["meta_organic"]);
+    expect(providersForNetwork("facebook")).toEqual(["meta_organic"]);
   });
 });
