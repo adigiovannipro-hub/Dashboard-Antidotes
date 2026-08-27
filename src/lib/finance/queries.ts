@@ -1,6 +1,7 @@
 import "server-only";
 
 import { createClient } from "@/lib/supabase/server";
+import type { BreakdownRow } from "./breakdown";
 import type {
   FinanceAccount,
   FinanceBalanceSnapshot,
@@ -507,6 +508,43 @@ export async function listCategoryRules(
   if (error) throw new Error(`Lecture des règles de catégories : ${error.message}`);
 
   return (data ?? []) as unknown as FinanceCategoryRule[];
+}
+
+/**
+ * Les lignes de la période, réduites à ce que la répartition consomme.
+ *
+ * Requête à part du tableau : lui est paginé à vingt-cinq lignes, la
+ * répartition doit voir **tout** le mois — sommer une page donnerait un
+ * camembert qui change en tournant les pages. Colonnes minimales, plafond
+ * large : trois mois de rythme actuel tiennent en ~300 lignes.
+ */
+export async function listExpensesForBreakdown(options: {
+  orgId: string;
+  /** Mois observé `AAAA-MM`, ou `null` : toute la période synchronisée. */
+  month: string | null;
+}): Promise<BreakdownRow[]> {
+  const supabase = await createClient();
+
+  let query = supabase
+    .from("finance_transactions")
+    .select(
+      "billing_amount_cents, billing_currency, category_id, category_raw, merchant, merchant_raw",
+    )
+    .eq("org_id", options.orgId)
+    .limit(2000);
+
+  if (options.month) {
+    const [year, monthNumber] = options.month.split("-").map(Number);
+    query = query
+      .gte("occurred_at", `${options.month}-01`)
+      .lt(
+        "occurred_at",
+        new Date(Date.UTC(year!, monthNumber!, 1)).toISOString().slice(0, 10),
+      );
+  }
+
+  const { data } = await query;
+  return (data ?? []) as unknown as BreakdownRow[];
 }
 
 // --- Synchronisation -------------------------------------------------------

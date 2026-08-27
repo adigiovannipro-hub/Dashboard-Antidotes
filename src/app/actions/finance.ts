@@ -56,6 +56,18 @@ export async function recategorizeTransaction(
   // Client de session, pas de service : la RLS autorise précisément ce geste
   // aux owners — l'action n'a aucune raison de la contourner.
   const supabase = await createClient();
+
+  /* Le marchand se lit avant d'écrire : c'est lui qui porte la mémoire. */
+  const { data: existing, error: readError } = await supabase
+    .from("finance_transactions")
+    .select("merchant, merchant_raw")
+    .eq("id", parsed.data.transactionId)
+    .eq("org_id", context.orgId)
+    .maybeSingle();
+  if (readError || !existing) {
+    return { ok: false, error: "Dépense introuvable." };
+  }
+
   const { error } = await supabase
     .from("finance_transactions")
     .update({ category_id: parsed.data.categoryId })
@@ -64,6 +76,44 @@ export async function recategorizeTransaction(
 
   if (error) return { ok: false, error: `Recatégorisation refusée : ${error.message}` };
 
+  /* La mémoire du geste : une règle par marchand, pour que le prélèvement du
+     mois prochain arrive déjà rangé — c'est `resolveCategory` qui la lit à
+     l'affichage, et `applyCategoryRules` qui la matérialise au fil des
+     synchronisations. Ranger = poser la règle, retirer = l'effacer : deux
+     vérités pour un même marchand se contrediraient d'une ligne à l'autre.
+     Meilleur effort assumé — la ligne, elle, est déjà rangée. */
+  const merchant = (existing as { merchant: string | null; merchant_raw: string | null });
+  const matcher = (merchant.merchant ?? merchant.merchant_raw)?.trim() ?? "";
+  let remembered = false;
+
+  if (matcher !== "") {
+    if (parsed.data.categoryId) {
+      const { error: ruleError } = await supabase.from("finance_category_rules").upsert(
+        {
+          org_id: context.orgId,
+          matcher,
+          category_id: parsed.data.categoryId,
+        } as never,
+        { onConflict: "org_id,matcher" },
+      );
+      remembered = !ruleError;
+    } else {
+      const { error: ruleError } = await supabase
+        .from("finance_category_rules")
+        .delete()
+        .eq("org_id", context.orgId)
+        .eq("matcher", matcher);
+      remembered = !ruleError;
+    }
+  }
+
   revalidatePath(FINANCE_PATH);
-  return { ok: true, message: "Catégorie mise à jour." };
+  return {
+    ok: true,
+    message: remembered
+      ? parsed.data.categoryId
+        ? `Catégorie mise à jour — « ${matcher} » sera rangé ainsi désormais.`
+        : `Catégorie retirée — « ${matcher} » ne sera plus rangé automatiquement.`
+      : "Catégorie mise à jour.",
+  };
 }

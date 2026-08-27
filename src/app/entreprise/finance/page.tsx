@@ -12,6 +12,7 @@ import {
   type ReceiptRow,
 } from "@/components/finance/receipts-panel";
 import { CashStatCard } from "@/components/finance/cash-stat-card";
+import { CategoryDonut } from "@/components/finance/category-donut";
 import { ExpensesTable, type DisplayExpense } from "@/components/finance/expenses-table";
 import { InvoicesBlock } from "@/components/finance/invoices-block";
 import { SyncBadge } from "@/components/finance/sync-badge";
@@ -24,6 +25,7 @@ import {
   listForwardedDocuments,
   listMerchantRules,
 } from "@/lib/recus/queries";
+import { buildExpenseBreakdown } from "@/lib/finance/breakdown";
 import { resolveCategory } from "@/lib/finance/categories";
 import { invoiceKpis } from "@/lib/finance/invoices";
 import { formatMoney } from "@/lib/finance/money";
@@ -39,6 +41,7 @@ import {
   listCategories,
   listCategoryRules,
   listExpenses,
+  listExpensesForBreakdown,
   listInvoices,
 } from "@/lib/finance/queries";
 import { CASH_HIDDEN_COOKIE } from "@/lib/ui-preferences";
@@ -79,6 +82,7 @@ export default async function FinancePage({
     categories,
     rules,
     expenses,
+    breakdownRows,
     sync,
     summary,
     cookieStore,
@@ -100,6 +104,9 @@ export default async function FinancePage({
       sort: params.sort,
       page: params.page,
     }),
+    /* Toutes les lignes du mois observé, pas la page : la répartition somme
+       la période entière, le tableau n'en montre que vingt-cinq. */
+    listExpensesForBreakdown({ orgId: context.orgId, month: params.month ?? null }),
     getLastSyncRun(context.orgId),
     getExpenseSummary(context.orgId, params.month),
     cookies(),
@@ -120,22 +127,36 @@ export default async function FinancePage({
     )],
   );
 
-  const rows: DisplayExpense[] = expenses.rows.map((transaction) => ({
-    ...transaction,
-    category_label: transaction.category_id
-      ? (categoryNames.get(transaction.category_id) ?? null)
-      : (resolveCategory(
+  const rows: DisplayExpense[] = expenses.rows.map((transaction) => {
+    const resolved = transaction.category_id
+      ? null
+      : resolveCategory(
           {
             category_raw: transaction.category_raw,
             merchant: transaction.merchant ?? transaction.merchant_raw,
           },
           rules,
           categories,
-        )?.name ?? transaction.category_raw),
-    logo_url:
-      logoUrls[merchantKey(transaction.merchant ?? transaction.merchant_raw)] ??
-      null,
-  }));
+        );
+    return {
+      ...transaction,
+      category_label: transaction.category_id
+        ? (categoryNames.get(transaction.category_id) ?? null)
+        : (resolved?.name ?? transaction.category_raw),
+      /* Ce que le sélecteur de la ligne affiche : le rangement effectif,
+         manuel ou résolu — jamais « Sans catégorie » sur une ligne rangée. */
+      category_effective_id: transaction.category_id ?? resolved?.id ?? null,
+      logo_url:
+        logoUrls[merchantKey(transaction.merchant ?? transaction.merchant_raw)] ??
+        null,
+    };
+  });
+
+  /* La répartition range avec exactement les mêmes règles que le tableau. */
+  const breakdown = buildExpenseBreakdown(breakdownRows, rules, categories);
+  const breakdownPeriodLabel = params.month
+    ? `en ${monthName(params.month)}`
+    : "toute la période";
 
   /* Les indicateurs de facturation lisent le miroir Airwallex, la réalité
      comptable — les noms de clients sont ceux des vraies factures. Le module
@@ -274,12 +295,23 @@ export default async function FinancePage({
           }
         />
         <PanelBody>
+          {/* La répartition d'abord : elle répond à « où part l'argent ce
+              mois-ci » avant que le tableau ne donne le détail ligne à ligne.
+              Même filtre de mois que lui — les pastilles de l'en-tête. */}
+          <div className="border-border-line mb-5 border-b pb-5">
+            <CategoryDonut
+              entries={breakdown.entries}
+              totalCents={breakdown.total_cents}
+              periodLabel={breakdownPeriodLabel}
+            />
+          </div>
           <ExpensesTable
             rows={rows}
             total={expenses.total}
             page={expenses.page}
             pageCount={expenses.page_count}
             categories={categories}
+            canDecide={context.canDecide}
           />
         </PanelBody>
       </Panel>
