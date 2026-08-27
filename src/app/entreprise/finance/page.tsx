@@ -252,34 +252,60 @@ export default async function FinancePage({
             première synchronisation — contrairement à l'ancienne courbe du
             solde, qui ne pouvait se dessiner qu'au fil des instantanés
             horaires et restait vide des semaines. */}
-        <Panel>
+        <Panel className="flex flex-col">
           <PanelHeader
             title="Entrées et sorties"
             description="Le solde du wallet en vert, ce qui en sort en rouge."
           />
-          <PanelBody>
+          {/* `flex-1` : la Facturation d'en face décide de la hauteur de la
+              rangée, la courbe remplit la sienne au lieu de flotter sur 280 px
+              au-dessus d'un vide. */}
+          <PanelBody className="min-h-0 flex-1">
             <FlowsChart months={monthlyFlows} days={dailyFlows} />
           </PanelBody>
         </Panel>
       </div>
 
-      {receipts ? (
-        <Panel>
+      {/* Les Reçus n'ont pas besoin d'une pleine largeur — une ligne par
+          pièce, souvent une seule — et la répartition se lisait mal étirée :
+          les montants de la légende partaient à un écran des libellés. Les
+          deux se partagent la rangée ; sans boîte connectée, la répartition
+          la prend en entier. */}
+      <div className="grid gap-5 lg:grid-cols-5">
+        {receipts ? (
+          <Panel className="lg:col-span-2">
+            <PanelHeader
+              title="Reçus"
+              count={receipts.rows.length}
+              description="Les justificatifs reçus par mail, à envoyer à Airwallex."
+              action={<ReceiptsArchive rows={receipts.archives} />}
+            />
+            <PanelBody>
+              <ReceiptsPanel
+                rows={receipts.rows}
+                autoForwardOpen={receipts.autoForwardOpen}
+                canDecide={receipts.canDecide}
+              />
+            </PanelBody>
+          </Panel>
+        ) : null}
+
+        {/* La répartition suit le mois des pastilles du panneau Dépenses —
+            même paramètre d'URL, le filtre pilote les deux d'un clic. */}
+        <Panel className={receipts ? "lg:col-span-3" : "lg:col-span-5"}>
           <PanelHeader
-            title="Reçus"
-            count={receipts.rows.length}
-            description="Les justificatifs reçus par mail, à envoyer à Airwallex."
-            action={<ReceiptsArchive rows={receipts.archives} />}
+            title="Répartition des dépenses"
+            description={`Additionnées par catégorie, ${breakdownPeriodLabel} — le mois se choisit sur le panneau Dépenses.`}
           />
           <PanelBody>
-            <ReceiptsPanel
-              rows={receipts.rows}
-              autoForwardOpen={receipts.autoForwardOpen}
-              canDecide={receipts.canDecide}
+            <CategoryDonut
+              entries={breakdown.entries}
+              totalCents={breakdown.total_cents}
+              periodLabel={breakdownPeriodLabel}
             />
           </PanelBody>
         </Panel>
-      ) : null}
+      </div>
 
       <Panel>
         <PanelHeader
@@ -295,16 +321,6 @@ export default async function FinancePage({
           }
         />
         <PanelBody>
-          {/* La répartition d'abord : elle répond à « où part l'argent ce
-              mois-ci » avant que le tableau ne donne le détail ligne à ligne.
-              Même filtre de mois que lui — les pastilles de l'en-tête. */}
-          <div className="border-border-line mb-5 border-b pb-5">
-            <CategoryDonut
-              entries={breakdown.entries}
-              totalCents={breakdown.total_cents}
-              periodLabel={breakdownPeriodLabel}
-            />
-          </div>
           <ExpensesTable
             rows={rows}
             total={expenses.total}
