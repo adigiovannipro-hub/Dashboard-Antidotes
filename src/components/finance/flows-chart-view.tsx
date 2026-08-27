@@ -39,7 +39,11 @@ export function FlowsChartView({
     current.kind === "day" ? days.slice(-current.span) : months.slice(-current.span);
 
   return (
-    <div className="space-y-3">
+    /* Pleine hauteur : la card d'en face — la Facturation — impose la sienne
+       à la rangée, et la courbe s'étirait sur 280 px au-dessus d'un grand
+       vide. La chaîne `flex` fait descendre la hauteur jusqu'au
+       `ResponsiveContainer`, qui mesure son parent. */
+    <div className="flex h-full flex-col gap-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div
           role="group"
@@ -66,7 +70,9 @@ export function FlowsChartView({
         <Legend kind={current.kind} />
       </div>
 
-      <Chart flows={flows} kind={current.kind} />
+      <div className="min-h-0 flex-1">
+        <Chart flows={flows} kind={current.kind} />
+      </div>
     </div>
   );
 }
@@ -114,8 +120,11 @@ function Chart({ flows, kind }: { flows: PeriodFlow[]; kind: "day" | "month" }) 
   const last = flows.at(-1);
 
   return (
-    <div>
-      <div style={{ height: 280 }}>
+    <div className="flex h-full min-h-0 flex-col">
+      {/* 280 px de plancher — la hauteur historique — et tout l'espace
+          au-delà. `min-h-0` : sans lui, un enfant flex refuse de rétrécir et
+          le conteneur mesuré ne suit jamais la card. */}
+      <div className="min-h-[280px] flex-1">
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart
             data={data}
