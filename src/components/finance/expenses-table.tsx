@@ -1,8 +1,14 @@
 "use client";
 
-import { useId } from "react";
+import { useActionState, useEffect, useId, useRef } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ArrowDown, ArrowUp, Download, Store } from "lucide-react";
+import { toast } from "sonner";
+
+import {
+  recategorizeTransaction,
+  type FinanceActionResult,
+} from "@/app/actions/finance";
 
 import { DateField } from "@/components/ds/date-field";
 import { StatusPill, type StatusTone } from "@/components/ds/status-pill";
@@ -39,6 +45,11 @@ import {
 export type DisplayExpense = FinanceTransaction & {
   /** Catégorie résolue (plan Antidotes), sinon le libellé Airwallex brut. */
   category_label: string | null;
+  /** Identifiant de la catégorie **effective** — posée à la main ou résolue
+      par les règles. C'est la valeur que le sélecteur de la ligne affiche :
+      montrer « Sans catégorie » sur une ligne que le tableau range en
+      « Restauration » serait un mensonge d'un pixel à l'autre. */
+  category_effective_id: string | null;
   /** URL signée du logo du marchand, quand la synchronisation l'a trouvé. */
   logo_url: string | null;
 };
@@ -49,12 +60,15 @@ export function ExpensesTable({
   page,
   pageCount,
   categories,
+  canDecide,
 }: {
   rows: DisplayExpense[];
   total: number;
   page: number;
   pageCount: number;
   categories: FinanceCategory[];
+  /** Le propriétaire recatégorise ; un lecteur voit le libellé nu. */
+  canDecide: boolean;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -212,7 +226,11 @@ export function ExpensesTable({
                       <Amount row={row} />
                     </TableCell>
                     <TableCell className="text-muted-foreground">
-                      {row.category_label ?? "—"}
+                      {canDecide ? (
+                        <CategoryCell row={row} categories={categories} />
+                      ) : (
+                        (row.category_label ?? "—")
+                      )}
                     </TableCell>
                     <TableCell>
                       <StatusBadge status={row.status} />
@@ -237,8 +255,11 @@ export function ExpensesTable({
                 <div className="mt-2 flex flex-wrap items-center gap-1.5">
                   <span className="type-caption text-text-secondary mr-auto tabular-nums">
                     {formatDate(row.occurred_at)}
-                    {row.category_label ? ` · ${row.category_label}` : ""}
+                    {!canDecide && row.category_label ? ` · ${row.category_label}` : ""}
                   </span>
+                  {canDecide ? (
+                    <CategoryCell row={row} categories={categories} />
+                  ) : null}
                   <StatusBadge status={row.status} />
                   <ReceiptBadge row={row} />
                 </div>
@@ -422,6 +443,57 @@ const DATE = new Intl.DateTimeFormat("fr-FR", {
   month: "2-digit",
   year: "numeric",
 });
+
+/**
+ * La cellule Catégorie, éditable d'un geste.
+ *
+ * Un `<select>` natif — pas de dialogue : ranger une dépense est un geste de
+ * tri du quotidien, il doit coûter un clic. Le changement part aussitôt
+ * (`requestSubmit`) et le serveur répond deux choses : la ligne est rangée,
+ * **et le marchand s'en souviendra** — le prélèvement du mois prochain
+ * arrivera déjà classé. Le toast le dit, parce que cette mémoire est
+ * invisible autrement.
+ */
+function CategoryCell({
+  row,
+  categories,
+}: {
+  row: DisplayExpense;
+  categories: FinanceCategory[];
+}) {
+  const [state, submit, pending] = useActionState<FinanceActionResult | null, FormData>(
+    recategorizeTransaction,
+    null,
+  );
+  const formRef = useRef<HTMLFormElement>(null);
+
+  useEffect(() => {
+    if (!state) return;
+    if (state.ok) toast.success(state.message);
+    else toast.error(state.error);
+  }, [state]);
+
+  return (
+    <form ref={formRef} action={submit}>
+      <input type="hidden" name="transactionId" value={row.id} />
+      <select
+        name="categoryId"
+        aria-label={`Catégorie de ${row.merchant ?? row.merchant_raw ?? "la dépense"}`}
+        className="border-border-line bg-surface text-text-primary focus-visible:ring-ring hover:border-border h-7 max-w-48 rounded-sm border px-1.5 text-xs focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50"
+        defaultValue={row.category_effective_id ?? ""}
+        disabled={pending}
+        onChange={() => formRef.current?.requestSubmit()}
+      >
+        <option value="">Sans catégorie</option>
+        {categories.map((category) => (
+          <option key={category.id} value={category.id}>
+            {category.name}
+          </option>
+        ))}
+      </select>
+    </form>
+  );
+}
 
 function formatDate(iso: string): string {
   const date = new Date(iso);
