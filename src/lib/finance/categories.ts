@@ -118,6 +118,20 @@ const MERCHANT_CATEGORY_HINTS: readonly [string, string][] = [
   ["airwallex", "frais"],
 ];
 
+/**
+ * Le slug d'une catégorie personnalisée, dérivé de son nom.
+ *
+ * Même normalisation que la résolution — minuscules, accents à plat — plus le
+ * passage en kebab-case, parce que le slug est l'identité stable : « Salaires »
+ * et « salaires  » doivent désigner la même catégorie, jamais deux.
+ */
+export function slugifyCategoryName(name: string): string {
+  return normalize(name)
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 40);
+}
+
 export function resolveCategory(
   source: CategorySource,
   rules: readonly FinanceCategoryRule[],
