@@ -41,8 +41,8 @@ describe("buildExpenseBreakdown", () => {
 
     expect(breakdown.total_cents).toBe(1100);
     expect(breakdown.entries).toEqual([
-      { label: "Logiciels & abonnements", cents: 600, share: 600 / 1100 },
-      { label: "Restauration", cents: 500, share: 500 / 1100 },
+      { label: "Logiciels & abonnements", slug: "logiciels", cents: 600, share: 600 / 1100 },
+      { label: "Restauration", slug: "restauration", cents: 500, share: 500 / 1100 },
     ]);
   });
 
@@ -104,5 +104,19 @@ describe("buildExpenseBreakdown", () => {
       total_cents: 0,
       entries: [],
     });
+  });
+});
+
+describe("buildExpenseBreakdown — identité couleur", () => {
+  it("porte le slug de la catégorie, et null pour « Sans catégorie »", () => {
+    const breakdown = buildExpenseBreakdown(
+      [row({ category_id: RESTO.id }), row({ merchant: "Mystère SARL" })],
+      [],
+      CATEGORIES,
+    );
+    expect(breakdown.entries.find((e) => e.label === "Restauration")?.slug).toBe(
+      "restauration",
+    );
+    expect(breakdown.entries.find((e) => e.label === "Sans catégorie")?.slug).toBeNull();
   });
 });

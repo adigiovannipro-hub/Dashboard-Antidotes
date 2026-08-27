@@ -29,6 +29,9 @@ export type BreakdownRow = {
 
 export type BreakdownEntry = {
   label: string;
+  /** Slug de la catégorie — l'identité stable qui porte la couleur.
+      `null` pour « Sans catégorie », qui n'en est pas une. */
+  slug: string | null;
   cents: number;
   /** Part du total, dans [0, 1]. */
   share: number;
@@ -48,7 +51,8 @@ export function buildExpenseBreakdown(
   rules: readonly FinanceCategoryRule[],
   categories: readonly FinanceCategory[],
 ): ExpenseBreakdown {
-  const nameById = new Map(categories.map((category) => [category.id, category.name]));
+  const byId = new Map(categories.map((category) => [category.id, category]));
+  const slugByName = new Map(categories.map((category) => [category.name, category.slug]));
 
   const byLabel = new Map<string, number>();
   let total = 0;
@@ -60,8 +64,8 @@ export function buildExpenseBreakdown(
 
     // La priorité est celle de l'affichage : le rangement manuel d'abord,
     // puis règles → nom → correspondances embarquées, puis l'aveu.
-    const label =
-      (row.category_id ? nameById.get(row.category_id) : null) ??
+    const resolved =
+      (row.category_id ? byId.get(row.category_id) : null) ??
       resolveCategory(
         {
           category_raw: row.category_raw,
@@ -69,8 +73,8 @@ export function buildExpenseBreakdown(
         },
         rules,
         categories,
-      )?.name ??
-      UNCATEGORIZED_LABEL;
+      );
+    const label = resolved?.name ?? UNCATEGORIZED_LABEL;
 
     byLabel.set(label, (byLabel.get(label) ?? 0) + cents);
     total += cents;
@@ -79,6 +83,7 @@ export function buildExpenseBreakdown(
   const entries = [...byLabel.entries()]
     .map(([label, cents]) => ({
       label,
+      slug: slugByName.get(label) ?? null,
       cents,
       share: total > 0 ? cents / total : 0,
     }))
