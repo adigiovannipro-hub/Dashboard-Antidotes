@@ -1,14 +1,24 @@
 "use client";
 
-import { useActionState, useEffect, useId, useRef } from "react";
+import { useActionState, useEffect, useId, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ArrowDown, ArrowUp, Download, Store } from "lucide-react";
 import { toast } from "sonner";
 
 import {
+  createCategoryAndAssign,
   recategorizeTransaction,
   type FinanceActionResult,
 } from "@/app/actions/finance";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { PendingLabel } from "@/components/ds/pending-label";
 
 import { DateField } from "@/components/ds/date-field";
 import { StatusPill, type StatusTone } from "@/components/ds/status-pill";
@@ -454,6 +464,9 @@ const DATE = new Intl.DateTimeFormat("fr-FR", {
  * arrivera déjà classé. Le toast le dit, parce que cette mémoire est
  * invisible autrement.
  */
+/** Valeur sentinelle du sélecteur : ouvrir la création au lieu de ranger. */
+const NEW_CATEGORY_VALUE = "__nouvelle__";
+
 function CategoryCell({
   row,
   categories,
@@ -466,6 +479,7 @@ function CategoryCell({
     null,
   );
   const formRef = useRef<HTMLFormElement>(null);
+  const [creating, setCreating] = useState(false);
 
   useEffect(() => {
     if (!state) return;
@@ -474,24 +488,120 @@ function CategoryCell({
   }, [state]);
 
   return (
-    <form ref={formRef} action={submit}>
-      <input type="hidden" name="transactionId" value={row.id} />
-      <select
-        name="categoryId"
-        aria-label={`Catégorie de ${row.merchant ?? row.merchant_raw ?? "la dépense"}`}
-        className="border-border-line bg-surface text-text-primary focus-visible:ring-ring hover:border-border h-7 max-w-48 rounded-sm border px-1.5 text-xs focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50"
-        defaultValue={row.category_effective_id ?? ""}
-        disabled={pending}
-        onChange={() => formRef.current?.requestSubmit()}
-      >
-        <option value="">Sans catégorie</option>
-        {categories.map((category) => (
-          <option key={category.id} value={category.id}>
-            {category.name}
-          </option>
-        ))}
-      </select>
-    </form>
+    <>
+      <form ref={formRef} action={submit}>
+        <input type="hidden" name="transactionId" value={row.id} />
+        <select
+          name="categoryId"
+          aria-label={`Catégorie de ${row.merchant ?? row.merchant_raw ?? "la dépense"}`}
+          className="border-border-line bg-surface text-text-primary focus-visible:ring-ring hover:border-border h-7 max-w-48 rounded-sm border px-1.5 text-xs focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50"
+          defaultValue={row.category_effective_id ?? ""}
+          disabled={pending}
+          onChange={(event) => {
+            /* La sentinelle n'est pas un rangement : le sélecteur revient à sa
+               valeur d'avant — sinon « + Nouvelle catégorie… » resterait
+               affiché en guise de catégorie — et le dialogue prend la main. */
+            if (event.target.value === NEW_CATEGORY_VALUE) {
+              event.target.value = row.category_effective_id ?? "";
+              setCreating(true);
+              return;
+            }
+            formRef.current?.requestSubmit();
+          }}
+        >
+          <option value="">Sans catégorie</option>
+          {categories.map((category) => (
+            <option key={category.id} value={category.id}>
+              {category.name}
+            </option>
+          ))}
+          <option value={NEW_CATEGORY_VALUE}>+ Nouvelle catégorie…</option>
+        </select>
+      </form>
+
+      {creating ? (
+        <NewCategoryDialog
+          row={row}
+          open={creating}
+          onOpenChange={setCreating}
+        />
+      ) : null}
+    </>
+  );
+}
+
+/**
+ * La création d'une catégorie personnalisée, depuis la ligne qui en a besoin.
+ *
+ * Un seul champ, un seul geste : la catégorie est créée **et** la dépense
+ * rangée dedans — avec la règle par marchand, comme n'importe quel rangement.
+ * Un nom déjà pris sous une autre écriture range dans l'existante au lieu de
+ * créer un doublon.
+ */
+function NewCategoryDialog({
+  row,
+  open,
+  onOpenChange,
+}: {
+  row: DisplayExpense;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const [state, submit, pending] = useActionState<FinanceActionResult | null, FormData>(
+    createCategoryAndAssign,
+    null,
+  );
+
+  useEffect(() => {
+    if (!state) return;
+    if (state.ok) {
+      toast.success(state.message);
+      onOpenChange(false);
+    } else {
+      toast.error(state.error);
+    }
+  }, [state, onOpenChange]);
+
+  const merchantLabel = row.merchant ?? row.merchant_raw ?? "cette dépense";
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-sm">
+        <DialogHeader>
+          <DialogTitle>Nouvelle catégorie</DialogTitle>
+          <DialogDescription>
+            Elle sera créée dans le plan, appliquée à « {merchantLabel} », et
+            retiendra ce marchand pour les prochaines fois.
+          </DialogDescription>
+        </DialogHeader>
+        <form action={submit} className="space-y-4">
+          <input type="hidden" name="transactionId" value={row.id} />
+          <Input
+            name="name"
+            placeholder="Salaires, Comptabilité, Matériel…"
+            maxLength={40}
+            autoFocus
+            required
+          />
+          <div className="flex justify-end gap-2">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => onOpenChange(false)}
+              disabled={pending}
+            >
+              Annuler
+            </Button>
+            <Button type="submit" variant="accent" size="sm" disabled={pending}>
+              <PendingLabel pending={pending} busy="Création…">
+                Créer et ranger
+              </PendingLabel>
+            </Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
 

@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { getFinanceContext } from "@/lib/finance/access";
+import { slugifyCategoryName } from "@/lib/finance/categories";
+import type { FinanceCategory } from "@/lib/finance/types";
 import { createClient } from "@/lib/supabase/server";
 
 /**
@@ -53,16 +55,38 @@ export async function recategorizeTransaction(
   const context = await getFinanceContext();
   if (!context?.canDecide) return { ok: false, error: "Action indisponible." };
 
-  // Client de session, pas de service : la RLS autorise précisément ce geste
-  // aux owners — l'action n'a aucune raison de la contourner.
+  const outcome = await assignCategory({
+    orgId: context.orgId,
+    transactionId: parsed.data.transactionId,
+    categoryId: parsed.data.categoryId,
+  });
+  if (!outcome.ok) return outcome;
+
+  revalidatePath(FINANCE_PATH);
+  return outcome;
+}
+
+/**
+ * Le cœur du rangement, partagé par les deux gestes — recatégoriser, et créer
+ * une catégorie en rangeant dans la foulée. Deux implémentations divergeraient
+ * au premier correctif.
+ *
+ * Client de session, pas de service : la RLS autorise précisément ce geste
+ * aux owners — aucune raison de la contourner.
+ */
+async function assignCategory(input: {
+  orgId: string;
+  transactionId: string;
+  categoryId: string | null;
+}): Promise<FinanceActionResult> {
   const supabase = await createClient();
 
   /* Le marchand se lit avant d'écrire : c'est lui qui porte la mémoire. */
   const { data: existing, error: readError } = await supabase
     .from("finance_transactions")
     .select("merchant, merchant_raw")
-    .eq("id", parsed.data.transactionId)
-    .eq("org_id", context.orgId)
+    .eq("id", input.transactionId)
+    .eq("org_id", input.orgId)
     .maybeSingle();
   if (readError || !existing) {
     return { ok: false, error: "Dépense introuvable." };
@@ -70,9 +94,9 @@ export async function recategorizeTransaction(
 
   const { error } = await supabase
     .from("finance_transactions")
-    .update({ category_id: parsed.data.categoryId })
-    .eq("id", parsed.data.transactionId)
-    .eq("org_id", context.orgId);
+    .update({ category_id: input.categoryId })
+    .eq("id", input.transactionId)
+    .eq("org_id", input.orgId);
 
   if (error) return { ok: false, error: `Recatégorisation refusée : ${error.message}` };
 
@@ -82,17 +106,17 @@ export async function recategorizeTransaction(
      synchronisations. Ranger = poser la règle, retirer = l'effacer : deux
      vérités pour un même marchand se contrediraient d'une ligne à l'autre.
      Meilleur effort assumé — la ligne, elle, est déjà rangée. */
-  const merchant = (existing as { merchant: string | null; merchant_raw: string | null });
+  const merchant = existing as { merchant: string | null; merchant_raw: string | null };
   const matcher = (merchant.merchant ?? merchant.merchant_raw)?.trim() ?? "";
   let remembered = false;
 
   if (matcher !== "") {
-    if (parsed.data.categoryId) {
+    if (input.categoryId) {
       const { error: ruleError } = await supabase.from("finance_category_rules").upsert(
         {
-          org_id: context.orgId,
+          org_id: input.orgId,
           matcher,
-          category_id: parsed.data.categoryId,
+          category_id: input.categoryId,
         } as never,
         { onConflict: "org_id,matcher" },
       );
@@ -101,19 +125,109 @@ export async function recategorizeTransaction(
       const { error: ruleError } = await supabase
         .from("finance_category_rules")
         .delete()
-        .eq("org_id", context.orgId)
+        .eq("org_id", input.orgId)
         .eq("matcher", matcher);
       remembered = !ruleError;
     }
   }
 
-  revalidatePath(FINANCE_PATH);
   return {
     ok: true,
     message: remembered
-      ? parsed.data.categoryId
+      ? input.categoryId
         ? `Catégorie mise à jour — « ${matcher} » sera rangé ainsi désormais.`
         : `Catégorie retirée — « ${matcher} » ne sera plus rangé automatiquement.`
       : "Catégorie mise à jour.",
+  };
+}
+
+const createCategoryAction = z.object({
+  transactionId: z.uuid(),
+  name: z
+    .string()
+    .trim()
+    .min(1, "Le nom est vide.")
+    .max(40, "Quarante caractères au plus."),
+});
+
+/**
+ * Crée une catégorie personnalisée **et range la dépense dedans**, d'un seul
+ * geste — le besoin naît toujours devant une ligne : « ce prélèvement est un
+ * Salaire, et Salaire n'existe pas encore ».
+ *
+ * L'identité est le slug (nom normalisé) : si la catégorie existe déjà sous
+ * une autre écriture — « Matériel » contre « materiel » — on range dans
+ * l'existante au lieu de créer un doublon qui scinderait le camembert en deux
+ * parts du même sens.
+ */
+export async function createCategoryAndAssign(
+  _previous: FinanceActionResult | null,
+  formData: FormData,
+): Promise<FinanceActionResult> {
+  const parsed = createCategoryAction.safeParse({
+    transactionId: formData.get("transactionId"),
+    name: formData.get("name"),
+  });
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "Requête incomplète.",
+    };
+  }
+
+  const context = await getFinanceContext();
+  if (!context?.canDecide) return { ok: false, error: "Action indisponible." };
+
+  const slug = slugifyCategoryName(parsed.data.name);
+  if (slug === "") return { ok: false, error: "Ce nom ne contient aucune lettre." };
+
+  const supabase = await createClient();
+
+  const { data: existing } = await supabase
+    .from("finance_categories")
+    .select("*")
+    .eq("org_id", context.orgId)
+    .eq("slug", slug)
+    .maybeSingle();
+
+  let category = existing as unknown as FinanceCategory | null;
+  let created = false;
+
+  if (!category) {
+    /* En queue de liste : les positions du plan par défaut restent devant,
+       les personnalisées se départagent par le nom. */
+    const { data: inserted, error: insertError } = await supabase
+      .from("finance_categories")
+      .insert({
+        org_id: context.orgId,
+        name: parsed.data.name,
+        slug,
+        position: 100,
+      } as never)
+      .select("*")
+      .single();
+    if (insertError || !inserted) {
+      return {
+        ok: false,
+        error: `Création refusée : ${insertError?.message ?? "inconnue"}`,
+      };
+    }
+    category = inserted as unknown as FinanceCategory;
+    created = true;
+  }
+
+  const outcome = await assignCategory({
+    orgId: context.orgId,
+    transactionId: parsed.data.transactionId,
+    categoryId: category.id,
+  });
+  if (!outcome.ok) return outcome;
+
+  revalidatePath(FINANCE_PATH);
+  return {
+    ok: true,
+    message: created
+      ? `Catégorie « ${category.name} » créée — ${outcome.message.charAt(0).toLowerCase()}${outcome.message.slice(1)}`
+      : `« ${category.name} » existait déjà — ${outcome.message.charAt(0).toLowerCase()}${outcome.message.slice(1)}`,
   };
 }
