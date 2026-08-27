@@ -125,7 +125,7 @@ export function StageGroup({
           <div className="flex shrink-0 items-center gap-4">
             {rows.length > 0 ? (
               <p className="type-caption text-text-secondary hidden text-right sm:block">
-                {formatTotals(sums.ht)} HT · {formatTotals(sums.ttc)} TTC
+                {formatTotals(sums.ttc)}
               </p>
             ) : null}
             <ChevronDown
@@ -145,7 +145,7 @@ export function StageGroup({
  * Les sommes d'un groupe mixte. Une facture hors devis porte un montant
  * unique — le total Airwallex — compté tel quel des deux côtés.
  */
-function groupSums(rows: BoardRow[]): { ht: CurrencyTotals; ttc: CurrencyTotals } {
+function groupSums(rows: BoardRow[]): { ttc: CurrencyTotals } {
   const installments = rows
     .filter((row) => row.kind === "installment")
     .map((row) => row.line);
@@ -154,18 +154,19 @@ function groupSums(rows: BoardRow[]): { ht: CurrencyTotals; ttc: CurrencyTotals 
   );
 
   return {
-    ht: addTotals(totalsOf(installments), invoiceTotals),
     ttc: addTotals(ttcTotalsOf(installments), invoiceTotals),
   };
 }
 
-/** La ligne de somme du groupe, alignée sur les colonnes HT et TTC. */
+/** La ligne de somme du groupe — le total sous la colonne Montant, dans la
+    même grille que les lignes : un total qui flotte ailleurs oblige l'œil à
+    vérifier de quoi il est la somme. */
 function GroupFooter({
   count,
   sums,
 }: {
   count: number;
-  sums: { ht: CurrencyTotals; ttc: CurrencyTotals };
+  sums: { ttc: CurrencyTotals };
 }) {
   return (
     <div
@@ -178,10 +179,8 @@ function GroupFooter({
         Somme · {count} ligne{count > 1 ? "s" : ""}
       </span>
       <span className="hidden md:block" />
+      <span className="hidden md:block" />
       <span className="type-label text-text-primary text-left tabular-nums md:text-right">
-        {formatTotals(sums.ht)}
-      </span>
-      <span className="type-body text-text-secondary text-left tabular-nums md:text-right">
         {formatTotals(sums.ttc)}
       </span>
       <span className="hidden md:block" />

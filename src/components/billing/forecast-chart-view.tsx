@@ -70,7 +70,7 @@ export function ForecastChartView({ points }: { points: ForecastPoint[] }) {
         <span className="type-label text-text-primary tabular-nums">
           {formatMoney(total, "EUR")}
         </span>{" "}
-        HT prévus
+        prévus
       </p>
     </div>
   );
@@ -129,7 +129,7 @@ function Chart({ points }: { points: ForecastPoint[] }) {
                 <div className="bg-surface border-border rounded-md border px-2.5 py-1.5 shadow-card">
                   <p className="type-caption text-text-secondary">{String(label)}</p>
                   <p className="type-label text-text-primary tabular-nums">
-                    {formatMoney(point.montant, "EUR")} HT
+                    {formatMoney(point.montant, "EUR")}
                   </p>
                   <p className="type-caption text-text-secondary">
                     {point.mensualites > 0

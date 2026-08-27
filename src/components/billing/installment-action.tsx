@@ -5,6 +5,7 @@ import { Check } from "lucide-react";
 import { toast } from "sonner";
 
 import {
+  deleteInstallment,
   setInstallmentStatus,
   type BillingActionResult,
 } from "@/app/actions/billing";
@@ -52,6 +53,40 @@ export function InstallmentAction({
           <Check aria-hidden strokeWidth={1.75} data-icon="inline-start" />
         ) : null}
         {children}
+      </Button>
+    </form>
+  );
+}
+
+/**
+ * Supprimer une mensualité — le seul geste destructif d'une ligne, donc le
+ * seul qui demande confirmation. Même pattern que la suppression d'un devis.
+ */
+export function DeleteInstallmentButton({ installmentId }: { installmentId: string }) {
+  const [state, formAction, pending] = useActionState<
+    BillingActionResult | null,
+    FormData
+  >(deleteInstallment, null);
+
+  useEffect(() => {
+    if (!state) return;
+    if (state.ok) toast.success(state.message);
+    else toast.error(state.error);
+  }, [state]);
+
+  return (
+    <form
+      action={formAction}
+      className="inline-flex"
+      onSubmit={(event) => {
+        if (!window.confirm("Supprimer cette mensualité ? Elle disparaît du devis et des groupes.")) {
+          event.preventDefault();
+        }
+      }}
+    >
+      <input type="hidden" name="installmentId" value={installmentId} />
+      <Button type="submit" variant="ghost" size="sm" disabled={pending}>
+        Supprimer
       </Button>
     </form>
   );
