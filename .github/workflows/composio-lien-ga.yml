@@ -1,0 +1,38 @@
+# Génère le lien de connexion Google Analytics du projet Composio Platform.
+#
+# Pourquoi un workflow : la clé du projet (`ak_…`) vit dans les secrets — ni
+# dans le chat, ni sur un poste. Le runner l'utilise pour demander à Composio
+# un lien d'autorisation, et l'imprime dans le journal du job. Il ne reste
+# qu'à l'ouvrir et autoriser le compte Google du client.
+#
+# Actions → « Composio — lien de connexion Google Analytics » → Run workflow.
+# Le lien est dans le journal de l'étape « Lien », section du même nom.
+
+name: Composio — lien de connexion Google Analytics
+
+on:
+  workflow_dispatch:
+    inputs:
+      utilisateur:
+        description: "Identifiant sous lequel ranger le compte (défaut : anmf)"
+        type: string
+        default: "anmf"
+
+jobs:
+  lien:
+    name: Lien de connexion
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Installation
+        run: pnpm install --frozen-lockfile
+      - name: Lien
+        env:
+          COMPOSIO_API_KEY: ${{ secrets.COMPOSIO_API_KEY }}
+        run: pnpm composio:lien-ga --user "${{ inputs.utilisateur }}"
