@@ -161,7 +161,12 @@ export class LocalModelEmbeddings implements EmbeddingProvider {
         "Xenova/all-MiniLM-L6-v2",
       );
       return extractor as unknown as FeatureExtractor;
-    })();
+    })().catch((error: unknown) => {
+      // Un échec de chargement ne se met pas en cache : un téléchargement de
+      // poids peut échouer une fois, le prochain appel doit pouvoir retenter.
+      this.extractor = null;
+      throw error;
+    });
     return this.extractor;
   }
 
@@ -212,4 +217,15 @@ export function faqEmbeddingText(entry: {
   variants: string[];
 }): string {
   return [entry.question_canonical, ...entry.variants].join("\n");
+}
+
+/**
+ * Filtre PostgREST (`.or(...)`) des entrées FAQ dont l'index sémantique est à
+ * (re)faire : jamais vectorisées, source inconnue, ou vectorisées par un autre
+ * fournisseur. Deux sources d'embedding ne se comparent pas — une base mixte
+ * doit donc converger vers le fournisseur actif, y compris les vecteurs
+ * `deterministic` posés par l'amorçage de démonstration.
+ */
+export function pendingEmbeddingFilter(providerId: string): string {
+  return `embedding.is.null,embedding_source.is.null,embedding_source.neq.${providerId}`;
 }
