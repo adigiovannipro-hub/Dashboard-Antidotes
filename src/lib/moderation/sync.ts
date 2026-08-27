@@ -29,6 +29,12 @@ import { usableAccessToken } from "@/lib/connectors/youtube/credentials";
 import type { SocialAccountRow } from "@/lib/social/types";
 import type { Database } from "@/lib/supabase/database.types";
 import { decryptSecret } from "./crypto";
+import {
+  faqEmbeddingText,
+  getEmbeddingProvider,
+  pendingEmbeddingFilter,
+  toPgVector,
+} from "./embeddings";
 import { planThreadState } from "./ingest";
 import type { IngestedThread } from "./ingest";
 import type { ModerationChannel, ModerationClient } from "./types";
@@ -589,4 +595,80 @@ export async function syncModerationInbox(options: {
   }
 
   return reports;
+}
+
+// --- Indexation sémantique de la FAQ -----------------------------------------
+
+/** Bornent un passage — l'horaire suivant reprend ce qui dépasse. */
+const REINDEX_BATCH = 100;
+const EMBED_CHUNK = 16;
+
+export type FaqReindexReport = {
+  /** Entrées sans vecteur, sans source, ou vectorisées par un autre fournisseur. */
+  pending: number;
+  indexed: number;
+  /** Le modèle n'a pas pu tourner ici — le passage horaire s'en chargera. */
+  note: string | null;
+};
+
+/**
+ * Indexe les entrées FAQ en attente de vecteur.
+ *
+ * Les corrections n'embarquent plus le modèle dans le clic : 25 Mo à charger,
+ * et son binaire ONNX ne charge pas sur Vercel — l'échec emportait la réponse
+ * avec lui. Les entrées s'écrivent donc sans vecteur, et ce passage — greffé
+ * au relevé horaire, qui tourne sur une machine complète — les indexe. Il fait
+ * aussi converger les vecteurs d'un autre fournisseur (la démonstration a été
+ * amorcée en `deterministic`) : deux sources ne se comparent pas.
+ *
+ * L'indisponibilité du modèle n'est **pas** une erreur — c'est le cas normal
+ * du bouton « Relever maintenant », qui tourne sur Vercel : rien n'est perdu,
+ * l'attente est dite. Une erreur Supabase, elle, échoue franchement.
+ */
+export async function reindexFaqSearch(options: {
+  admin: Admin;
+}): Promise<FaqReindexReport> {
+  const { admin } = options;
+  const provider = getEmbeddingProvider();
+
+  const { data, error } = await admin
+    .from("faq_entries")
+    .select("id, question_canonical, variants")
+    .is("deleted_at", null)
+    .or(pendingEmbeddingFilter(provider.id))
+    .limit(REINDEX_BATCH);
+  if (error) fail(`Lecture des entrées FAQ à indexer : ${error.message}`);
+
+  const rows = (data ?? []) as unknown as {
+    id: string;
+    question_canonical: string;
+    variants: string[];
+  }[];
+  if (rows.length === 0) return { pending: 0, indexed: 0, note: null };
+
+  const vectors: number[][] = [];
+  try {
+    for (let start = 0; start < rows.length; start += EMBED_CHUNK) {
+      const batch = rows.slice(start, start + EMBED_CHUNK);
+      vectors.push(
+        ...(await provider.embedMany(batch.map((row) => faqEmbeddingText(row)))),
+      );
+    }
+  } catch (error) {
+    return { pending: rows.length, indexed: 0, note: (error as Error).message };
+  }
+
+  for (const [index, row] of rows.entries()) {
+    const { error: writeError } = await admin
+      .from("faq_entries")
+      .update({
+        embedding: toPgVector(vectors[index]!),
+        embedding_source: provider.id,
+        updated_at: new Date().toISOString(),
+      } as never)
+      .eq("id", row.id);
+    if (writeError) fail(`Écriture d'un vecteur FAQ : ${writeError.message}`);
+  }
+
+  return { pending: rows.length, indexed: rows.length, note: null };
 }

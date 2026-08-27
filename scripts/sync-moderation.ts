@@ -33,13 +33,15 @@ async function main() {
   }
 
   const { createAdminClient } = await import("../src/lib/supabase/server");
-  const { syncModerationInbox } = await import("../src/lib/moderation/sync");
+  const { reindexFaqSearch, syncModerationInbox } = await import(
+    "../src/lib/moderation/sync"
+  );
 
-  const reports = await syncModerationInbox({ admin: createAdminClient() });
+  const admin = createAdminClient();
+  const reports = await syncModerationInbox({ admin });
 
   if (reports.length === 0) {
     console.log("Aucun compte Instagram ou Page affecté : rien à relever.");
-    return;
   }
 
   for (const report of reports) {
@@ -55,6 +57,20 @@ async function main() {
         console.warn(`    ⚠ messages privés : ${report.messagesWarning}`);
       }
     }
+  }
+
+  // Les entrées FAQ écrites sans vecteur — les corrections se font sur
+  // Vercel, où le modèle d'embeddings ne charge pas — s'indexent ici, sur une
+  // machine complète. Y passent aussi les vecteurs d'un autre fournisseur.
+  const faq = await reindexFaqSearch({ admin });
+  if (faq.note) {
+    console.warn(
+      `  ⚠ FAQ : ${faq.pending} entrée(s) en attente d'indexation — ${faq.note}`,
+    );
+  } else if (faq.pending > 0) {
+    console.log(
+      `  ✓ FAQ : ${faq.indexed} entrée(s) indexée(s) pour la recherche sémantique`,
+    );
   }
 
   // Les échecs sont tracés sur `channel_connections` et visibles dans

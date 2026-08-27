@@ -10,11 +10,7 @@ import { can } from "@/lib/moderation/permissions";
 import { sendReply } from "@/lib/moderation/send";
 import type { Conversation } from "@/lib/moderation/types";
 import { createAdminClient, createClient } from "@/lib/supabase/server";
-import {
-  DeterministicEmbeddings,
-  getEmbeddingProvider,
-  toPgVector,
-} from "@/lib/moderation/embeddings";
+import { DeterministicEmbeddings, toPgVector } from "@/lib/moderation/embeddings";
 import { planLearning, recordCorrection, recordDirectValidation } from "@/lib/moderation/learning";
 
 export type ModerationResult =
@@ -389,17 +385,21 @@ export async function submitCorrection(
       existingEntry: existing as never,
     });
 
-    // Le fournisseur déterministe permet l'écriture immédiate ; le modèle local
-    // ne serait qu'un poids inutile ici, où une seule entrée est vectorisée.
+    /* Pas de modèle de langue dans le clic d'un opérateur : le modèle local
+       pèse 25 Mo à charger, et son binaire ONNX ne charge pas sur Vercel —
+       l'échec emportait la correction entière, réponse comprise. L'entrée
+       s'écrit sans vecteur (`embedding_source` null) et `reindexFaqSearch`
+       l'indexe au relevé suivant, sur une machine complète. Le fournisseur
+       déterministe (démo, tests), lui, est instantané et reste inline. */
     const provider =
       process.env.MODERATION_EMBEDDINGS === "deterministic"
         ? new DeterministicEmbeddings()
-        : getEmbeddingProvider();
+        : null;
 
     let faqEntryId: string | undefined;
 
     if (plan.action === "create") {
-      const embedding = await provider.embed(plan.embeddingText);
+      const embedding = provider ? await provider.embed(plan.embeddingText) : null;
       const { data: created } = await admin
         .from("faq_entries")
         .insert({
@@ -410,8 +410,8 @@ export async function submitCorrection(
           answer_en: plan.entry.answer_en,
           category_id: plan.entry.category_id,
           created_by: viewer.user.id,
-          embedding_source: provider.id,
-          embedding: toPgVector(embedding) as never,
+          embedding_source: provider && embedding ? provider.id : null,
+          embedding: embedding ? (toPgVector(embedding) as never) : null,
         } as never)
         .select("id")
         .single();
@@ -419,8 +419,15 @@ export async function submitCorrection(
     } else if (plan.action === "enrich") {
       const patch: Record<string, unknown> = { ...plan.patch };
       if (plan.reembed && plan.embeddingText) {
-        patch.embedding = toPgVector(await provider.embed(plan.embeddingText));
-        patch.embedding_source = provider.id;
+        if (provider) {
+          patch.embedding = toPgVector(await provider.embed(plan.embeddingText));
+          patch.embedding_source = provider.id;
+        } else {
+          /* Les variantes ont changé : l'ancien vecteur reste une bonne
+             approximation, on le garde pour la recherche — mais la source
+             passe à null pour que le relevé recalcule le vecteur à jour. */
+          patch.embedding_source = null;
+        }
       }
       patch.updated_at = new Date().toISOString();
       await admin.from("faq_entries").update(patch as never).eq("id", plan.entryId);

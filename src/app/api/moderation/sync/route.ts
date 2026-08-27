@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 import { getViewer } from "@/lib/auth";
 import { missingServerEnv } from "@/lib/env";
-import { syncModerationInbox } from "@/lib/moderation/sync";
+import { reindexFaqSearch, syncModerationInbox } from "@/lib/moderation/sync";
 import { createAdminClient } from "@/lib/supabase/server";
 import { COMPOSIO_TRANSITION_NOTE } from "@/lib/social/direct-connect";
 
@@ -39,11 +39,15 @@ export async function POST() {
   // après une garde d'owner explicite.
   const admin = createAdminClient();
   const reports = await syncModerationInbox({ admin });
+  // Les entrées FAQ en attente d'indexation. Souvent muet ici : sur Vercel le
+  // modèle d'embeddings ne charge pas, et le passage horaire s'en charge.
+  const faq = await reindexFaqSearch({ admin });
 
   const errors = reports.filter((report) => report.error);
   return NextResponse.json({
     ok: errors.length === 0,
     reports,
+    faq,
     note:
       reports.length === 0
         ? `Aucun compte Instagram ou Page affecté. ${COMPOSIO_TRANSITION_NOTE}`
