@@ -26,7 +26,7 @@ export function FollowersCard({
   height?: number;
 }) {
   const subtitle =
-    "Un point par mois, figé au relevé du 1ᵉʳ posé par le passage quotidien — synchroniser à la main ne modifie pas la courbe";
+    "Un point par mois — le relevé de fin de mois, posé par le passage quotidien. Le mois en cours avance jusqu'au 31, les mois révolus ne bougent plus";
 
   if (data.length < 2) {
     const only = data[0];

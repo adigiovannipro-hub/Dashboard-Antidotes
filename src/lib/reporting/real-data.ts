@@ -139,16 +139,21 @@ const SHORT_MONTHS = [
   "déc.",
 ];
 
+/** Profondeur de la courbe d'abonnés : un an, comme les rapports Looker. */
+const FOLLOWERS_MONTHS_SHOWN = 12;
+
 /**
- * La courbe d'abonnés : un point par mois, **figé au relevé du 1ᵉʳ**.
+ * La courbe d'abonnés : un point par mois, **le relevé de fin de mois**.
  *
- * Le passage quotidien de 5h pose un relevé chaque jour : le 1ᵉʳ du mois est
- * donc toujours couvert, automatiquement. C'est lui qui fait foi — et non le
- * dernier relevé du mois, qui bougeait à chaque synchronisation manuelle :
- * cliquer « Synchroniser » un 17 réécrivait le point du mois en cours sur
- * tous les réseaux, et une courbe qui change selon l'heure du clic n'est pas
- * une mesure. Si le 1ᵉʳ manque — premier mois d'usage — le plus ancien relevé
- * du mois tient lieu de 1ᵉʳ, puis ne bouge plus.
+ * C'est la convention des rapports historiques (Looker relevait au 31), et
+ * celle des relevés repris de ces rapports : « juillet » veut dire « où on
+ * en était au 31 juillet ». Le passage quotidien de 5h pose un relevé chaque
+ * jour : le dernier du mois est donc couvert automatiquement, et un mois
+ * révolu ne bouge plus. Seul le mois en cours avance avec les passages —
+ * c'est le comportement attendu : il converge vers sa valeur du 31.
+ *
+ * Les mois plus vieux que la fenêtre sont coupés : l'historique reste entier
+ * en base, la courbe n'en montre que les douze derniers.
  *
  * La courbe lit cette table, jamais l'API : la base est le registre.
  */
@@ -159,13 +164,14 @@ export function monthlyFollowersSeries(
   for (const row of rows) {
     const month = row.date.slice(0, 7);
     const current = byMonth.get(month);
-    if (!current || row.date < current.date) {
+    if (!current || row.date > current.date) {
       byMonth.set(month, { date: row.date, value: row.followers_count });
     }
   }
 
   return [...byMonth.entries()]
     .sort(([a], [b]) => a.localeCompare(b))
+    .slice(-FOLLOWERS_MONTHS_SHOWN)
     .map(([month, entry]) => {
       const [year, index] = month.split("-").map(Number);
       return {

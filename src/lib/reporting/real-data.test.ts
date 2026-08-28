@@ -136,19 +136,33 @@ describe("monthlyFollowersSeries", () => {
     updated_at: "",
   });
 
-  it("fige chaque mois sur son premier relevé — le 1ᵉʳ, posé par le cron", () => {
-    // Un « Synchroniser » cliqué le 28 ne doit pas réécrire le point du mois :
-    // la courbe se fige au relevé du 1ᵉʳ, l'actualisation manuelle n'y touche
-    // plus.
+  it("fige chaque mois sur son relevé de fin de mois — la convention des rapports", () => {
+    // « Juin » veut dire « où on en était au 30 juin » : c'est ce que
+    // relevaient les rapports Looker, et ce que disent les relevés repris à
+    // la main. Le dernier relevé du mois fait foi ; un mois révolu ne bouge
+    // plus puisque le cron quotidien a couvert son dernier jour.
     const series = monthlyFollowersSeries([
       snapshot("2026-06-01", 2500),
       snapshot("2026-06-28", 2700),
       snapshot("2026-07-15", 2900),
     ]);
     expect(series).toEqual([
-      { label: "juin 2026", value: 2500 },
+      { label: "juin 2026", value: 2700 },
       { label: "juil. 2026", value: 2900 },
     ]);
+  });
+
+  it("ne montre que les douze derniers mois, l'historique restant en base", () => {
+    // Quinze mois de relevés : janvier 2025 → mars 2026.
+    const rows = Array.from({ length: 15 }, (_, index) => {
+      const year = index < 12 ? 2025 : 2026;
+      const month = String((index % 12) + 1).padStart(2, "0");
+      return snapshot(`${year}-${month}-28`, 100 + index);
+    });
+    const series = monthlyFollowersSeries(rows);
+    expect(series).toHaveLength(12);
+    expect(series[0]).toEqual({ label: "avr. 2025", value: 103 });
+    expect(series.at(-1)).toEqual({ label: "mars 2026", value: 114 });
   });
 });
 
