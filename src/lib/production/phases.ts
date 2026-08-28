@@ -27,6 +27,7 @@
  */
 
 import {
+  PHASE_DISPLAY_ORDER,
   PHASE_LABELS,
   PHASE_ORDER,
   type ClientPhase,
@@ -80,7 +81,7 @@ export type PhaseCycleView = {
   currentPhase: ProductionPhase | null;
   /** « Août · Content », ou « Août · Cycle bouclé ». */
   subtitle: string;
-  /** Toujours les quatre phases, dans l'ordre de `PHASE_ORDER`. */
+  /** Toujours les quatre phases, dans l'ordre de `PHASE_DISPLAY_ORDER`. */
   segments: PhaseSegment[];
   /** « Reporting en retard » — la plus ancienne phase en retard, ou rien. */
   lateBadge: string | null;
@@ -252,7 +253,10 @@ export function evaluateCycle(input: PhaseCycleInput): PhaseCycleView {
   }
 
   // --- Tons ------------------------------------------------------------------
-  const segments: PhaseSegment[] = draft.map((entry) => {
+  // La barre s'affiche dans l'ordre chronologique du mois de travail :
+  // le Reporting du mois écoulé d'abord.
+  const displayed = PHASE_DISPLAY_ORDER.map((phase) => byPhase.get(phase)!);
+  const segments: PhaseSegment[] = displayed.map((entry) => {
     let tone: SegmentTone;
     if (isSettled(entry.status) || entry.status === "in_progress") tone = "ok";
     else if (entry.dueStart !== null && today >= entry.dueStart) tone = "urgent";

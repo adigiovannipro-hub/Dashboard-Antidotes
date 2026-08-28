@@ -36,7 +36,7 @@
     "publier:planning": "node --conditions=react-server --import tsx scripts/publish-planning.ts",
     "import:followers": "tsx scripts/import-followers.ts",
     "connect:web": "tsx scripts/connect-web-analytics.ts",
-    "composio:lien-ga": "tsx scripts/composio-lien-ga.ts",
+    "composio:lien": "tsx scripts/composio-lien.ts",
     "sync:web": "node --conditions=react-server --import tsx scripts/sync-web-analytics.ts"
   },
   "dependencies": {

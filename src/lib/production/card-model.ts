@@ -19,7 +19,7 @@ import {
 import {
   ACTIVE_JOB_STATUSES,
   PHASE_LABELS,
-  PHASE_ORDER,
+  PHASE_DISPLAY_ORDER,
   type GenerationJob,
   type GenerationJobStatus,
   type ProductionPhase,
@@ -441,7 +441,7 @@ export function buildCardModel(options: {
   // Mêmes gardes que le bouton, mais pour toutes les phases : le menu est un
   // raccourci pour rejouer une phase hors de son tour, pas une porte dérobée
   // vers un job qui échouera à la première ligne.
-  const menu: CardAction[] = PHASE_ORDER.map((phase) => {
+  const menu: CardAction[] = PHASE_DISPLAY_ORDER.map((phase) => {
     const entry = {
       phase,
       targetMonth: targetMonthFor(phase, today),
@@ -543,7 +543,7 @@ function buildAheadView(options: {
     return status === "done" || status === "skipped";
   };
 
-  const segments: PhaseSegment[] = PHASE_ORDER.map((phase) => ({
+  const segments: PhaseSegment[] = PHASE_DISPLAY_ORDER.map((phase) => ({
     phase,
     targetMonth,
     status: statusOf(phase),
@@ -606,7 +606,7 @@ function buildAheadView(options: {
     }
   }
 
-  const menu: CardAction[] = PHASE_ORDER.map((phase) => {
+  const menu: CardAction[] = PHASE_DISPLAY_ORDER.map((phase) => {
     const entry = {
       phase,
       targetMonth,
@@ -661,7 +661,7 @@ function buildUnavailableModel(options: {
   moderation: number | null;
   monthProgress: { done: number; total: number; label: string } | null;
 }): ProductionCardModel {
-  const segments: PhaseSegment[] = PHASE_ORDER.map((phase) => ({
+  const segments: PhaseSegment[] = PHASE_DISPLAY_ORDER.map((phase) => ({
     phase,
     targetMonth: `${options.monthKey}-01`,
     status: "pending",

@@ -174,8 +174,13 @@ export default async function DashboardPage({
             passer à la ligne, donc ils savent rétrécir — sans pleine largeur
             réservée, la rangée d'actions les écrasait à un filet. */}
         <div className="flex min-w-0 flex-1 items-center gap-2 max-sm:basis-full">
-          {/* Le « + » ouvre une page de plus — tout à gauche, position fixe
-              quel que soit le nombre d'onglets. Owner seulement. */}
+          <div className="min-w-0 shrink">
+            {network ? (
+              <ReportingTabs networks={tabs.networks} current={network} />
+            ) : null}
+          </div>
+          {/* Le « + » ouvre une page de plus, juste après le dernier onglet.
+              Owner seulement. */}
           {isOwner ? (
             <AddReportingPage
               workspaceSlug={workspace.slug}
@@ -193,11 +198,6 @@ export default async function DashboardPage({
               ).filter((candidate) => !tabs.networks.includes(candidate))}
             />
           ) : null}
-          <div className="min-w-0 flex-1">
-            {network ? (
-              <ReportingTabs networks={tabs.networks} current={network} />
-            ) : null}
-          </div>
         </div>
         {network ? (
           /* La rangée d'actions passe à la ligne : à trois boutons elle

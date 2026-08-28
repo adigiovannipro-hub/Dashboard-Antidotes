@@ -25,12 +25,24 @@ export const PHASE_LABELS: Record<ProductionPhase, string> = {
   reporting: "Reporting",
 };
 
-/** L'ordre d'affichage et de progression — la barre à quatre segments. */
+/** L'ordre de progression de la chaîne du mois cible. */
 export const PHASE_ORDER: ProductionPhase[] = [
   "intentions",
   "wording",
   "programmation",
   "reporting",
+];
+
+/**
+ * L'ordre d'affichage — barre de segments et menus. Le Reporting ouvre la
+ * barre : il analyse le mois écoulé et se fait **avant** les intentions du
+ * suivant, c'est la chronologie réelle du mois de travail.
+ */
+export const PHASE_DISPLAY_ORDER: ProductionPhase[] = [
+  "reporting",
+  "intentions",
+  "wording",
+  "programmation",
 ];
 
 export function isProductionPhase(value: string): value is ProductionPhase {

@@ -1,20 +1,30 @@
-# Génère le lien de connexion Google Analytics du projet Composio Platform.
+# Génère le lien de connexion d'un réseau dans le projet Composio Platform.
 #
 # Pourquoi un workflow : la clé du projet (`ak_…`) vit dans les secrets — ni
 # dans le chat, ni sur un poste. Le runner l'utilise pour demander à Composio
 # un lien d'autorisation, et l'imprime dans le journal du job. Il ne reste
-# qu'à l'ouvrir et autoriser le compte Google du client.
+# qu'à l'ouvrir et autoriser le compte du client — le compte pro qui
+# administre la page.
 #
-# Actions → « Composio — lien de connexion Google Analytics » → Run workflow.
-# Le lien est dans le journal de l'étape « Lien », section du même nom.
+# Actions → « Composio — lien de connexion » → Run workflow, choisir le
+# réseau. Le lien est dans le journal de l'étape « Lien ».
 
-name: Composio — lien de connexion Google Analytics
+name: Composio — lien de connexion
 
 on:
   workflow_dispatch:
     inputs:
+      toolkit:
+        description: "Réseau à connecter"
+        type: choice
+        options:
+          - google_analytics
+          - linkedin
+          - youtube
+          - tiktok
+        default: "linkedin"
       utilisateur:
-        description: "Identifiant sous lequel ranger le compte (défaut : anmf)"
+        description: "Identifiant sous lequel ranger le compte (UUID de l'espace client)"
         type: string
         default: "anmf"
 
@@ -35,4 +45,4 @@ jobs:
       - name: Lien
         env:
           COMPOSIO_API_KEY: ${{ secrets.COMPOSIO_API_KEY }}
-        run: pnpm composio:lien-ga --user "${{ inputs.utilisateur }}"
+        run: pnpm composio:lien --toolkit "${{ inputs.toolkit }}" --user "${{ inputs.utilisateur }}"
