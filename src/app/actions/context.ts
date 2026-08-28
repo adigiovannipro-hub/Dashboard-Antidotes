@@ -25,6 +25,10 @@ import {
   type ContextFieldKey,
   type ContextProposal,
 } from "@/lib/context/types";
+import {
+  networksFromContextName,
+  REPORTING_NETWORK_LABELS,
+} from "@/lib/reporting/networks";
 import { createClient } from "@/lib/supabase/server";
 
 export type ContextResult = { ok: true; message?: string } | { ok: false; error: string };
@@ -259,6 +263,67 @@ export async function saveDeliverables(
 
     revalidate(scope);
     return OK;
+  } catch (error) {
+    return fail(error);
+  }
+}
+
+const reportingNetworkSchema = z.enum(["meta-ads", "instagram", "facebook", "site-web"]);
+
+/**
+ * Le « + » du Reporting : déclarer un réseau de plus aux livrables du client,
+ * donc ouvrir son onglet. C'est la même écriture que l'édition des livrables
+ * au Contexte — l'onglet n'est que la lecture de cette déclaration — mais en
+ * un geste depuis la page où on constate le manque. L'onglet s'ouvre aussitôt,
+ * avec son état vide qui dit le branchement restant à faire.
+ */
+export async function addReportingNetwork(
+  scope: Scope,
+  input: { reseau: unknown },
+): Promise<ContextResult> {
+  const parsed = reportingNetworkSchema.safeParse(input.reseau);
+  if (!parsed.success) return { ok: false, error: "Réseau inconnu." };
+
+  try {
+    const { viewer, workspace } = await guardOwner(scope);
+    const supabase = await createClient();
+    const label = REPORTING_NETWORK_LABELS[parsed.data];
+
+    const active = await getActiveRow(workspace.id);
+    const deliverables = normalizeDeliverables(active?.deliverables ?? null);
+
+    // Déjà déclaré — peu importe la graphie (« Insta », « Meta »…) : la
+    // résolution est la même que celle qui construit les onglets.
+    const declared = deliverables.reseaux.flatMap((reseau) =>
+      networksFromContextName(reseau.nom),
+    );
+    if (declared.includes(parsed.data)) {
+      return { ok: true, message: `${label} est déjà déclaré pour ce client.` };
+    }
+
+    const next = {
+      ...deliverables,
+      reseaux: [...deliverables.reseaux, { nom: label, publications: [] }],
+    };
+
+    if (active) {
+      const { error } = await supabase
+        .from("client_context")
+        .update({ deliverables: next })
+        .eq("id", active.id);
+      if (error) throw new Error(error.message);
+    } else {
+      const { error } = await supabase.from("client_context").insert({
+        workspace_id: workspace.id,
+        deliverables: next,
+        created_by: viewer.user.id,
+      });
+      if (error) throw new Error(error.message);
+    }
+
+    // Toute la surface de l'espace : la page Reporting lit cette déclaration.
+    revalidatePath(`/espace/${scope.workspace}`, "layout");
+    return { ok: true, message: `${label} ajouté au Reporting.` };
   } catch (error) {
     return fail(error);
   }

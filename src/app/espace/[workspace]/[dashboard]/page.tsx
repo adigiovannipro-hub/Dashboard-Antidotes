@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { PlugZap, TriangleAlert } from "lucide-react";
 
 import { EmptyState } from "@/components/ds/empty-state";
+import { AddReportingPage } from "@/components/viz/add-reporting-page";
 import { ConversionsMenu } from "@/components/viz/conversions-menu";
 import { MetaDashboard } from "@/components/viz/meta-dashboard";
 import { MonthlyReport } from "@/components/production/monthly-report";
@@ -171,9 +172,22 @@ export default async function DashboardPage({
         {/* `basis-full` sous sm : les onglets défilent désormais au lieu de
             passer à la ligne, donc ils savent rétrécir — sans pleine largeur
             réservée, la rangée d'actions les écrasait à un filet. */}
-        <div className="min-w-0 flex-1 max-sm:basis-full">
-          {network ? (
-            <ReportingTabs networks={tabs.networks} current={network} />
+        <div className="flex min-w-0 flex-1 items-center gap-1 max-sm:basis-full">
+          <div className="min-w-0 flex-1">
+            {network ? (
+              <ReportingTabs networks={tabs.networks} current={network} />
+            ) : null}
+          </div>
+          {/* Le « + » : déclarer un réseau de plus à ce client, donc ouvrir
+              sa page. Owner seulement — un client ne redessine pas son
+              rapport. */}
+          {isOwner ? (
+            <AddReportingPage
+              workspaceSlug={workspace.slug}
+              missing={(
+                ["meta-ads", "instagram", "facebook", "site-web"] as const
+              ).filter((candidate) => !tabs.networks.includes(candidate))}
+            />
           ) : null}
         </div>
         {network ? (
