@@ -162,6 +162,16 @@ export const METRIC_DEFINITIONS: Record<MetricId, MetricDefinition> = {
     direction: "up-good",
     compute: (r) => r.videoViews,
   },
+  interactions: {
+    id: "interactions",
+    label: "Interactions",
+    format: "integer",
+    direction: "up-good",
+    /* La somme de ce que Meta rend encore par publication : depuis la
+       dépréciation des impressions organiques de Page (fin 2025), c'est le
+       chiffre agrégeable le plus honnête d'un onglet Facebook. */
+    compute: (r) => r.likes + r.comments + r.saves + r.shares,
+  },
   engagementRate: {
     id: "engagementRate",
     label: "Taux d'engagement",

@@ -115,4 +115,5 @@ export type MetricId =
   | "shares"
   | "likes"
   | "videoViews"
+  | "interactions"
   | "engagementRate";

@@ -56,6 +56,7 @@ const METRIC_ICONS: Record<MetricId, LucideIcon> = {
   shares: Send,
   likes: Heart,
   videoViews: Play,
+  interactions: Sparkles,
   engagementRate: Sparkles,
 };
 

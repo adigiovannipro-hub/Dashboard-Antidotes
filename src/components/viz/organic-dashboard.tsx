@@ -78,7 +78,14 @@ export function OrganicDashboard({
           sentence={`${
             aucunePublication
               ? "Aucune publication lue sur la période"
-              : `${formatValue(posts.length, "integer")} publication${posts.length > 1 ? "s" : ""}, ${formatMetric("impressions", total.impressions)} vues`
+              : /* Facebook : Meta ne rend plus les impressions par publication —
+                   annoncer « 0 vues » accuserait le contenu, on compte ce qui
+                   est mesuré. */
+                `${formatValue(posts.length, "integer")} publication${posts.length > 1 ? "s" : ""}, ${
+                  network === "facebook"
+                    ? `${formatMetric("interactions", total.likes + total.comments + total.saves + total.shares)} interactions`
+                    : `${formatMetric("impressions", total.impressions)} vues`
+                }`
           }${
             followersNow !== null
               ? ` — ${formatValue(followersNow, "integer")} abonnés aujourd'hui`
@@ -111,7 +118,11 @@ export function OrganicDashboard({
           }
         />
         <PanelBody>
-          <PostsTable posts={posts} withSaves={network === "instagram"} />
+          <PostsTable
+            posts={posts}
+            withSaves={network === "instagram"}
+            withImpressions={network === "instagram"}
+          />
         </PanelBody>
       </Panel>
     </div>

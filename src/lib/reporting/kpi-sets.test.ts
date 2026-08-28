@@ -46,11 +46,19 @@ describe("KPI_SETS", () => {
   it("met le taux d'engagement en tête de l'organique, sans répétition", () => {
     // La répétition ne dit rien d'un feed ; l'engagement dit tout.
     expect(HERO_METRIC.instagram).toBe("engagementRate");
-    expect(HERO_METRIC.facebook).toBe("engagementRate");
     expect(KPI_SETS.instagram).not.toContain("frequency");
     expect(KPI_SETS.facebook).not.toContain("frequency");
     expect(KPI_SETS.instagram).toContain("videoViews");
     expect(KPI_SETS.instagram).toContain("likes");
+  });
+
+  it("compte les interactions en tête de Facebook, sans impressions", () => {
+    // Fin 2025, Meta a retiré impressions et portée des publications de
+    // Page : sans dénominateur, le taux d'engagement afficherait « — » à
+    // perpétuité, et une tuile Impressions resterait à zéro pour toujours.
+    expect(HERO_METRIC.facebook).toBe("interactions");
+    expect(KPI_SETS.facebook).not.toContain("impressions");
+    expect(KPI_SETS.facebook).toContain("videoViews");
   });
 });
 

@@ -303,11 +303,13 @@ export async function fetchPagePosts(options: {
       }),
     );
 
-  const metrics = [
-    "post_impressions",
-    "post_impressions_unique",
-    "post_video_views",
-  ];
+  /* Fin 2025, Meta a retiré `post_impressions` et `post_impressions_unique`
+     des publications de Page — « not a valid insights metric », vérifié en
+     v23 sur une Page vivante. Les demander faisait échouer l'expansion
+     entière, que le repli silencieux transformait en zéros partout. Ne reste
+     par publication que `post_video_views` (accepté même sur une photo, où
+     il vaut 0). */
+  const metrics = ["post_video_views"];
 
   let rows: MetaPagePostRow[];
   try {
@@ -317,10 +319,8 @@ export async function fetchPagePosts(options: {
     rows = await fetchWith(baseFields);
   }
 
-  /* `post_video_views` n'existe pas sur un post photo : Meta refuse alors
-     l'expansion entière, et tout le listing revient sans statistiques. On
-     redemande donc au poste par poste, avec les métriques que chacun
-     accepte — d'abord les trois, puis les deux qui valent pour tout type. */
+  // Si le listing est revenu sans statistiques, on redemande au poste par
+  // poste — un refus global ne dit rien d'un post en particulier.
   const missing = rows
     .filter((row) => lacksInsights(row.insights))
     .map((row) => row.id)
@@ -331,15 +331,6 @@ export async function fetchPagePosts(options: {
       metrics,
       accessToken: options.accessToken,
     });
-    const stillMissing = missing.filter((id) => !recovered.has(id));
-    if (stillMissing.length > 0) {
-      const fallback = await fetchPostInsights({
-        ids: stillMissing,
-        metrics: ["post_impressions", "post_impressions_unique"],
-        accessToken: options.accessToken,
-      });
-      for (const [id, insights] of fallback) recovered.set(id, insights);
-    }
     for (const row of rows) {
       const insights = recovered.get(row.id);
       if (insights) row.insights = insights;
@@ -347,6 +338,33 @@ export async function fetchPagePosts(options: {
   }
 
   return rows;
+}
+
+/**
+ * Le jeton de Page, échangé contre le jeton porté par le branchement.
+ *
+ * La « nouvelle expérience Pages » refuse les insights à un jeton
+ * d'utilisateur — code 190, « un token d'accès de Page est requis » — alors
+ * que le même appel passe avec le jeton de la Page. L'échange est gratuit et
+ * idempotent : un jeton qui est déjà celui de la Page se le voit rendre.
+ * En cas de refus, on rend le jeton d'origine : les champs publics (abonnés,
+ * liste des posts) se lisent encore avec lui.
+ */
+export async function fetchPageAccessToken(options: {
+  pageId: string;
+  accessToken: string;
+}): Promise<string> {
+  try {
+    const payload = await fetchGraph<{ access_token?: string }>(
+      buildUrl(`/${options.pageId}`, {
+        access_token: options.accessToken,
+        fields: "access_token",
+      }),
+    );
+    return payload.access_token ?? options.accessToken;
+  } catch {
+    return options.accessToken;
+  }
 }
 
 // --- Commentaires (Modération) ------------------------------------------------

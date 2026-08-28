@@ -27,7 +27,12 @@ import type { SocialReportingNetwork } from "./networks";
 export const HERO_METRIC: Record<SocialReportingNetwork, MetricId> = {
   "meta-ads": "roas",
   instagram: "engagementRate",
-  facebook: "engagementRate",
+  /* Fin 2025, Meta a retiré impressions et portée des publications de Page —
+     pour tout le monde, quelle que soit la version d'API (vérifié sur pièce :
+     `post_impressions` répond « not a valid insights metric » en v23). Sans
+     dénominateur, le taux d'engagement afficherait « — » à perpétuité : les
+     interactions deviennent le chiffre héros, c'est ce que Meta mesure encore. */
+  facebook: "interactions",
 };
 
 export const KPI_SETS: Record<SocialReportingNetwork, MetricId[]> = {
@@ -56,7 +61,9 @@ export const KPI_SETS: Record<SocialReportingNetwork, MetricId[]> = {
      invariablement à zéro se lit comme une contre-performance plutôt que
      comme une absence de mesure. */
   instagram: ["impressions", "videoViews", "likes", "comments", "saves", "shares"],
-  facebook: ["impressions", "videoViews", "likes", "comments", "shares"],
+  /* Pas d'impressions : Meta ne les rend plus par publication de Page (voir
+     HERO_METRIC) — une tuile éternellement à zéro accuserait le client. */
+  facebook: ["videoViews", "likes", "comments", "shares"],
 };
 
 /** Les découpages d'audience ont-ils un sens sur cet onglet ? */

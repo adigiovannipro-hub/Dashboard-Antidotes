@@ -10,6 +10,7 @@ import {
   fetchAdInsights,
   fetchFollowersCount,
   fetchInstagramMedia,
+  fetchPageAccessToken,
   fetchPagePosts,
 } from "./graph";
 import { explainMetaError } from "./errors";
@@ -488,8 +489,20 @@ async function syncOrganic(
   context: SourceContext,
   account: SocialAccountRow,
 ): Promise<{ rows: number; warning: string | null }> {
-  const { admin, workspaceId, dataSourceId, accessToken, window } = context;
+  const { admin, workspaceId, dataSourceId, window } = context;
   const platform = account.kind === "instagram" ? "instagram" : "facebook";
+
+  /* La nouvelle expérience Pages exige un jeton **de Page** pour les
+     insights : avec le jeton du branchement, Meta rendait les posts sans
+     leurs statistiques et l'écran affichait des zéros. L'échange est
+     idempotent et sans effet sur Instagram. */
+  const accessToken =
+    account.kind === "facebook_page"
+      ? await fetchPageAccessToken({
+          pageId: account.external_id,
+          accessToken: context.accessToken,
+        })
+      : context.accessToken;
 
   /*
    * Les publications d'abord, mais **sans faire tomber le reste** : la

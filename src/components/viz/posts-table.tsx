@@ -53,20 +53,26 @@ const engagementBase = (post: SocialPost) =>
 export function PostsTable({
   posts,
   withSaves,
+  withImpressions = true,
 }: {
   posts: readonly SocialPost[];
   /** Les enregistrements n'existent que sur Instagram. */
   withSaves: boolean;
+  /** Meta ne rend plus les impressions des publications de Page (fin 2025). */
+  withImpressions?: boolean;
 }) {
   const columns = useMemo<Column[]>(() => {
-    const base: Column[] = [
-      {
+    const base: Column[] = [];
+    if (withImpressions) {
+      base.push({
         key: "impressions",
         header: "Impressions",
         kind: "integer",
         value: (post) => number(post.impressions),
         total: (rows) => sumOf(rows, (post) => number(post.impressions)),
-      },
+      });
+    }
+    base.push(
       {
         key: "videoViews",
         header: "Vues vidéo",
@@ -90,7 +96,7 @@ export function PostsTable({
         value: (post) => number(post.comments),
         total: (rows) => sumOf(rows, (post) => number(post.comments)),
       },
-    ];
+    );
 
     if (withSaves) {
       base.push({
@@ -126,10 +132,11 @@ export function PostsTable({
     );
 
     return base;
-  }, [withSaves]);
+  }, [withSaves, withImpressions]);
 
   const [sort, setSort] = useState<{ key: string; desc: boolean }>({
-    key: "impressions",
+    // Sans colonne Impressions (Facebook), les « J'aime » classent le mieux.
+    key: withImpressions ? "impressions" : "likes",
     desc: true,
   });
 
