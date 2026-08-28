@@ -18,7 +18,15 @@ import type { SocialAccountKind } from "@/lib/social/types";
  * au lieu de faire comme s'il n'existait pas.
  */
 
-export type ReportingNetwork = "meta-ads" | "instagram" | "facebook" | "site-web";
+export type ReportingNetwork =
+  | "meta-ads"
+  | "instagram"
+  | "facebook"
+  | "linkedin"
+  | "tiktok"
+  | "youtube"
+  | "x"
+  | "site-web";
 
 /**
  * Les onglets sociaux — ceux dont la donnée vient d'un compte affecté dans
@@ -28,19 +36,32 @@ export type ReportingNetwork = "meta-ads" | "instagram" | "facebook" | "site-web
  */
 export type SocialReportingNetwork = Exclude<ReportingNetwork, "site-web">;
 
+/**
+ * Les réseaux qu'un connecteur sait lire aujourd'hui. Les autres s'ajoutent
+ * quand même par le « + » : l'onglet existe, dit qu'il attend son connecteur,
+ * et la courbe d'abonnés s'affiche dès qu'un relevé existe (reprise Looker,
+ * TikTok par exemple).
+ */
+const WITH_CONNECTOR: readonly ReportingNetwork[] = [
+  "meta-ads",
+  "instagram",
+  "facebook",
+  "site-web",
+];
+
+export function hasConnector(network: ReportingNetwork): boolean {
+  return WITH_CONNECTOR.includes(network);
+}
+
 export const REPORTING_NETWORK_LABELS: Record<ReportingNetwork, string> = {
   "meta-ads": "Meta Ads",
   instagram: "Instagram",
   facebook: "Facebook",
+  linkedin: "LinkedIn",
+  tiktok: "TikTok",
+  youtube: "YouTube",
+  x: "X",
   "site-web": "Site Web",
-};
-
-/** Ce que chaque onglet montre, dit en une ligne sous le titre. */
-export const REPORTING_NETWORK_SUBTITLES: Record<ReportingNetwork, string> = {
-  "meta-ads": "Campagnes payantes — budget, portée, conversions.",
-  instagram: "Publications organiques — portée, engagement, abonnés.",
-  facebook: "Page organique — portée, engagement, abonnés.",
-  "site-web": "Trafic du site — audience, sources, pages vues.",
 };
 
 /**
@@ -58,7 +79,10 @@ export const REPORTING_NETWORK_SUBTITLES: Record<ReportingNetwork, string> = {
 export function providersForNetwork(network: ReportingNetwork): string[] {
   if (network === "site-web") return ["google_analytics"];
   if (network === "meta-ads") return ["meta_ads"];
-  return ["meta_organic"];
+  if (network === "instagram" || network === "facebook") return ["meta_organic"];
+  // Un fournisseur par réseau, même sans connecteur : la reprise Looker range
+  // déjà ses relevés sous ces slugs (`tiktok_organic` vit en base).
+  return [`${network}_organic`];
 }
 
 /** Le compte qu'il faut avoir branché pour que l'onglet ait de quoi lire. */
@@ -66,6 +90,10 @@ const REQUIRED_KIND: Record<SocialReportingNetwork, SocialAccountKind> = {
   "meta-ads": "meta_ad_account",
   instagram: "instagram",
   facebook: "facebook_page",
+  linkedin: "linkedin",
+  tiktok: "tiktok",
+  youtube: "youtube",
+  x: "x",
 };
 
 /**
@@ -89,6 +117,14 @@ export function networksFromContextName(name: string): ReportingNetwork[] {
   // client qui déclare Threads se retrouvait avec un onglet Meta Ads.
   if (/\bads\b/.test(folded) || folded.includes("publicit")) return ["meta-ads"];
   if (folded.includes("facebook") || folded === "fb") return ["facebook"];
+  if (folded.includes("linkedin")) return ["linkedin"];
+  if (folded.includes("tiktok") || folded.includes("tik tok")) return ["tiktok"];
+  if (folded.includes("youtube") || folded === "yt") return ["youtube"];
+  // « X » seul ou « Twitter » — jamais un simple `includes("x")`, qui
+  // attraperait n'importe quel mot.
+  if (folded === "x" || folded.includes("twitter") || folded === "x (twitter)") {
+    return ["x"];
+  }
   // « Site Web », « Site internet », « Web » : le trafic du site du client.
   if (/\bsite\b/.test(folded) || /\bweb\b/.test(folded)) return ["site-web"];
   /* « Meta » seul est le réseau tel qu'on le vend : payant et organique, les
@@ -105,14 +141,9 @@ export type ReportingTabs = {
   /** Déclarés au Contexte, mais sans compte branché. */
   manquants: ReportingNetwork[];
   /**
-   * Déclarés au Contexte et que le Reporting ne sait pas servir du tout —
-   * TikTok, LinkedIn : pas de connecteur, donc pas de mesures, donc pas
-   * d'onglet possible. Rendus tels qu'écrits pour que l'écran les nomme.
-   *
-   * Sans cette liste, un client déclaré sur TikTok et LinkedIn ouvrait un
-   * Reporting parfaitement vide qui ne disait pas pourquoi — ce qui se lit
-   * comme une panne, alors que c'est une fonctionnalité qui n'existe pas
-   * encore.
+   * Déclarés au Contexte sous un nom qu'on ne sait pas reconnaître —
+   * Pinterest, Threads, une newsletter. Rendus tels qu'écrits pour que
+   * l'écran les nomme au lieu de rester muet.
    */
   sansConnecteur: string[];
 };
@@ -159,14 +190,22 @@ export function resolveReportingNetworks(input: {
   const connected = (network: ReportingNetwork): boolean =>
     network === "site-web" ? hasWebSource : assigned.has(REQUIRED_KIND[network]);
 
-  const networks = (["meta-ads", "instagram", "facebook", "site-web"] as const).filter(
-    (network) => connected(network) || declared.includes(network),
-  );
+  const networks = (
+    [
+      "meta-ads",
+      "instagram",
+      "facebook",
+      "linkedin",
+      "tiktok",
+      "youtube",
+      "x",
+      "site-web",
+    ] as const
+  ).filter((network) => connected(network) || declared.includes(network));
 
-  // Ordre fixe — payant, Instagram, Facebook, Site Web — et non l'ordre du
-  // Contexte : les onglets doivent tomber au même endroit d'un client à
-  // l'autre, sinon on cherche « Meta Ads » à une place différente à chaque
-  // espace.
+  // Ordre fixe, jamais l'ordre du Contexte : les onglets doivent tomber au
+  // même endroit d'un client à l'autre, sinon on cherche « Meta Ads » à une
+  // place différente à chaque espace.
   return {
     networks,
     manquants: networks.filter((network) => !connected(network)),

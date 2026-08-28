@@ -33,6 +33,12 @@ export const HERO_METRIC: Record<SocialReportingNetwork, MetricId> = {
      dénominateur, le taux d'engagement afficherait « — » à perpétuité : les
      interactions deviennent le chiffre héros, c'est ce que Meta mesure encore. */
   facebook: "interactions",
+  // Réseaux sans connecteur encore : les vues portent la vidéo, les
+  // interactions portent le reste. Ces choix se rejugeront au branchement.
+  linkedin: "interactions",
+  tiktok: "videoViews",
+  youtube: "videoViews",
+  x: "interactions",
 };
 
 export const KPI_SETS: Record<SocialReportingNetwork, MetricId[]> = {
@@ -64,6 +70,10 @@ export const KPI_SETS: Record<SocialReportingNetwork, MetricId[]> = {
   /* Pas d'impressions : Meta ne les rend plus par publication de Page (voir
      HERO_METRIC) — une tuile éternellement à zéro accuserait le client. */
   facebook: ["videoViews", "likes", "comments", "shares"],
+  linkedin: ["likes", "comments", "shares"],
+  tiktok: ["likes", "comments", "saves", "shares"],
+  youtube: ["likes", "comments", "shares"],
+  x: ["likes", "comments", "shares"],
 };
 
 /** Les découpages d'audience ont-ils un sens sur cet onglet ? */

@@ -268,7 +268,16 @@ export async function saveDeliverables(
   }
 }
 
-const reportingNetworkSchema = z.enum(["meta-ads", "instagram", "facebook", "site-web"]);
+const reportingNetworkSchema = z.enum([
+  "meta-ads",
+  "instagram",
+  "facebook",
+  "linkedin",
+  "tiktok",
+  "youtube",
+  "x",
+  "site-web",
+]);
 
 /**
  * Le « + » du Reporting : déclarer un réseau de plus aux livrables du client,

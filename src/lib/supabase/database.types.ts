@@ -21,7 +21,13 @@ export type DataSourceStatus = "pending" | "connected" | "error" | "disabled";
 export type SyncStatus = "running" | "success" | "error";
 export type AdLevel = "campaign" | "adset" | "ad";
 export type BreakdownType = "age" | "gender" | "region";
-export type SocialPlatform = "instagram" | "facebook" | "tiktok";
+export type SocialPlatform =
+  | "instagram"
+  | "facebook"
+  | "tiktok"
+  | "linkedin"
+  | "youtube"
+  | "x";
 
 export type Workspace = {
   id: string;

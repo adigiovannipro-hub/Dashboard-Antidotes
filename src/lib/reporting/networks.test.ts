@@ -95,15 +95,17 @@ describe("resolveReportingNetworks", () => {
     expect(tabs.manquants).toEqual(["facebook"]);
   });
 
-  it("nomme les réseaux qu'aucun connecteur ne sert", () => {
-    // Le cas d'I-WAY : TikTok et LinkedIn au contrat, zéro connecteur.
+  it("ouvre un onglet aux réseaux déclarés même sans connecteur", () => {
+    // Le cas d'I-WAY : TikTok et LinkedIn au contrat. L'onglet existe —
+    // il porte la courbe d'abonnés reprise de Looker, ou dit qu'il attend
+    // son connecteur — dans l'ordre fixe, pas celui du Contexte.
     const tabs = resolveReportingNetworks({
       contextNetworks: ["TikTok", "LinkedIn"],
       assignedKinds: [],
     });
 
-    expect(tabs.networks).toEqual([]);
-    expect(tabs.sansConnecteur).toEqual(["TikTok", "LinkedIn"]);
+    expect(tabs.networks).toEqual(["linkedin", "tiktok"]);
+    expect(tabs.sansConnecteur).toEqual([]);
   });
 
   it("rend les noms tels que le client les a écrits", () => {

@@ -16,6 +16,7 @@ import { getActiveContext } from "@/lib/context/queries";
 import { formatDayFr } from "@/lib/format";
 import {
   currentNetwork,
+  hasConnector,
   providersForNetwork,
   REPORTING_NETWORK_LABELS,
   resolveReportingNetworks,
@@ -119,7 +120,7 @@ export default async function DashboardPage({
       ? await getAdsData({ workspaceId: workspace.id, range })
       : null;
   const organic =
-    network === "instagram" || network === "facebook"
+    network === "instagram" || network === "facebook" || network === "tiktok"
       ? await getOrganicData({ workspaceId: workspace.id, platform: network, range })
       : null;
   const web =
@@ -172,23 +173,31 @@ export default async function DashboardPage({
         {/* `basis-full` sous sm : les onglets défilent désormais au lieu de
             passer à la ligne, donc ils savent rétrécir — sans pleine largeur
             réservée, la rangée d'actions les écrasait à un filet. */}
-        <div className="flex min-w-0 flex-1 items-center gap-1 max-sm:basis-full">
+        <div className="flex min-w-0 flex-1 items-center gap-2 max-sm:basis-full">
+          {/* Le « + » ouvre une page de plus — tout à gauche, position fixe
+              quel que soit le nombre d'onglets. Owner seulement. */}
+          {isOwner ? (
+            <AddReportingPage
+              workspaceSlug={workspace.slug}
+              missing={(
+                [
+                  "meta-ads",
+                  "instagram",
+                  "facebook",
+                  "linkedin",
+                  "tiktok",
+                  "youtube",
+                  "x",
+                  "site-web",
+                ] as const
+              ).filter((candidate) => !tabs.networks.includes(candidate))}
+            />
+          ) : null}
           <div className="min-w-0 flex-1">
             {network ? (
               <ReportingTabs networks={tabs.networks} current={network} />
             ) : null}
           </div>
-          {/* Le « + » : déclarer un réseau de plus à ce client, donc ouvrir
-              sa page. Owner seulement — un client ne redessine pas son
-              rapport. */}
-          {isOwner ? (
-            <AddReportingPage
-              workspaceSlug={workspace.slug}
-              missing={(
-                ["meta-ads", "instagram", "facebook", "site-web"] as const
-              ).filter((candidate) => !tabs.networks.includes(candidate))}
-            />
-          ) : null}
         </div>
         {network ? (
           /* La rangée d'actions passe à la ligne : à trois boutons elle
@@ -264,7 +273,8 @@ export default async function DashboardPage({
           followers={ads.followers}
           period={period}
         />
-      ) : (network === "instagram" || network === "facebook") && organic?.hasData ? (
+      ) : (network === "instagram" || network === "facebook" || network === "tiktok") &&
+        organic?.hasData ? (
         <OrganicDashboard
           network={network}
           posts={organic.posts}
@@ -309,6 +319,10 @@ function emptyMessage(input: {
     return tabs.manquants.includes(network)
       ? "Le Site Web est au contrat du client, mais aucune propriété Google Analytics n'est rattachée à cet espace. Le rattachement se fait par la passerelle Composio — voir docs/web-analytics-setup.md."
       : `La propriété Google Analytics est rattachée, mais aucune donnée n'est encore synchronisée pour ${period.label}. Le bouton Synchroniser lance la collecte.`;
+  }
+
+  if (network && !hasConnector(network)) {
+    return `${REPORTING_NETWORK_LABELS[network]} n'a pas encore de connecteur. La page se remplira dès qu'il sera branché.`;
   }
 
   if (network) {

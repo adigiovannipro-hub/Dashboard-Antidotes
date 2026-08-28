@@ -16,7 +16,6 @@ import {
 import { safeAction } from "@/lib/context/safe-action";
 import {
   REPORTING_NETWORK_LABELS,
-  REPORTING_NETWORK_SUBTITLES,
   type ReportingNetwork,
 } from "@/lib/reporting/networks";
 import { cn } from "@/lib/utils";
@@ -75,22 +74,15 @@ export function AddReportingPage({
         <Plus className="size-4" strokeWidth={1.75} aria-hidden />
       </DropdownMenuTrigger>
 
-      <DropdownMenuContent align="start" className="w-72 min-w-72">
-        <div className="px-2 py-1.5">
-          <p className="type-label text-text-primary">Ajouter une page</p>
-          <p className="type-caption text-text-secondary mt-1">
-            La page s&apos;ouvre tout de suite ; elle dira le branchement
-            restant à faire.
-          </p>
-        </div>
+      <DropdownMenuContent align="start" className="w-44 min-w-44">
+        {/* En-tête en overline : ce n'est pas un choix, il ne doit pas se
+            confondre avec les entrées cliquables. */}
+        <p className="type-overline text-text-tertiary px-2 pt-1.5 pb-1">
+          Ajouter une page
+        </p>
         {missing.map((network) => (
           <DropdownMenuItem key={network} onClick={() => ajouter(network)}>
-            <span className="flex flex-col gap-0.5">
-              <span className="type-label">{REPORTING_NETWORK_LABELS[network]}</span>
-              <span className="type-caption text-text-secondary">
-                {REPORTING_NETWORK_SUBTITLES[network]}
-              </span>
-            </span>
+            {REPORTING_NETWORK_LABELS[network]}
           </DropdownMenuItem>
         ))}
       </DropdownMenuContent>

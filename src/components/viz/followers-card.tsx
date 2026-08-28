@@ -25,9 +25,6 @@ export function FollowersCard({
   data: readonly { label: string; value: number }[];
   height?: number;
 }) {
-  const subtitle =
-    "Un point par mois — le relevé de fin de mois, posé par le passage quotidien. Le mois en cours avance jusqu'au 31, les mois révolus ne bougent plus";
-
   if (data.length < 2) {
     const only = data[0];
     return (
@@ -39,9 +36,7 @@ export function FollowersCard({
             {only ? formatValue(only.value, "integer") : "—"}
           </p>
           <p className="type-caption text-text-secondary max-w-xs leading-relaxed">
-            {only
-              ? `Relevé de ${only.label}. La courbe démarre au deuxième relevé — un par mois, posé par la synchronisation.`
-              : "Aucun relevé pour l'instant. La synchronisation en pose un à chaque passage."}
+            {only ? `Relevé de ${only.label}.` : "Aucun relevé pour l'instant."}
           </p>
         </div>
       </div>
@@ -51,7 +46,6 @@ export function FollowersCard({
   return (
     <VizCard
       title={`Abonnés ${network}`}
-      subtitle={subtitle}
       chart={<TrendLine data={[...data]} height={height} />}
       table={
         <TrendLineTable data={[...data]} categoryLabel="Mois" valueLabel="Abonnés" />

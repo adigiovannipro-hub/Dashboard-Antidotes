@@ -186,7 +186,9 @@ export type OrganicData = {
 
 export async function getOrganicData(options: {
   workspaceId: string;
-  platform: "instagram" | "facebook";
+  // TikTok n'a pas de connecteur, mais ses relevés d'abonnés (reprise
+  // Looker) vivent déjà en base : l'onglet lit ce qui existe.
+  platform: "instagram" | "facebook" | "tiktok";
   range: DateRange;
 }): Promise<OrganicData> {
   const supabase = await createClient();

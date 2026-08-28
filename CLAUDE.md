@@ -269,6 +269,7 @@ Les règles qui se sont payées cher :
 - **Le code est en anglais, tout ce que lit un humain est en français.** Identifiants, tables, colonnes, valeurs d'enum : anglais. Commentaires, textes UI, messages d'erreur, noms de `describe`/`it`, **segments d'URL et query params** : français (`/entreprise/recus`, `?statut=`, `?nonlus=1`, `?suivant=`). Le pont entre les deux est le `*_LABELS` de chaque `types.ts`.
 - Guillemets doubles partout. Les 14 fichiers de `src/components/ui/` sont sans point-virgules : ils sont générés par shadcn, laisse-les tels quels.
 - Les commentaires expliquent **pourquoi**, pas quoi.
+- **Sobriété des textes d'interface — demande explicite d'Alessandro (28/08/2026).** Pas de phrase d'explication sous un titre, pas de mécanique interne exposée à l'écran (cadence de synchronisation, provenance d'un relevé, ce que fera un bouton « on s'en doute »). Un libellé, un chiffre, point. Le pourquoi vit dans les commentaires du code, jamais dans l'UI. Un en-tête de menu se distingue typographiquement des entrées cliquables (overline, pas la même typo que les items).
 
 ### Clients Supabase
 

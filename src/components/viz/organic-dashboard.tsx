@@ -13,7 +13,7 @@ import {
   type RawMetrics,
 } from "@/lib/metrics/types";
 import { detailTitle, HERO_METRIC, KPI_SETS } from "@/lib/reporting/kpi-sets";
-import type { SocialReportingNetwork } from "@/lib/reporting/networks";
+import { REPORTING_NETWORK_LABELS } from "@/lib/reporting/networks";
 import type { SocialPost } from "@/lib/supabase/database.types";
 
 /**
@@ -33,7 +33,7 @@ export function OrganicDashboard({
   followersNow,
   period,
 }: {
-  network: Exclude<SocialReportingNetwork, "meta-ads">;
+  network: "instagram" | "facebook" | "tiktok";
   posts: readonly SocialPost[];
   total: RawMetrics;
   previousTotal: RawMetrics;
@@ -63,7 +63,7 @@ export function OrganicDashboard({
     );
   };
 
-  const networkName = network === "instagram" ? "Instagram" : "Facebook";
+  const networkName = REPORTING_NETWORK_LABELS[network];
   const hero = HERO_METRIC[network];
 
   return (
@@ -82,9 +82,9 @@ export function OrganicDashboard({
                    annoncer « 0 vues » accuserait le contenu, on compte ce qui
                    est mesuré. */
                 `${formatValue(posts.length, "integer")} publication${posts.length > 1 ? "s" : ""}, ${
-                  network === "facebook"
-                    ? `${formatMetric("interactions", total.likes + total.comments + total.saves + total.shares)} interactions`
-                    : `${formatMetric("impressions", total.impressions)} vues`
+                  network === "instagram"
+                    ? `${formatMetric("impressions", total.impressions)} vues`
+                    : `${formatMetric("interactions", total.likes + total.comments + total.saves + total.shares)} interactions`
                 }`
           }${
             followersNow !== null
@@ -120,7 +120,7 @@ export function OrganicDashboard({
         <PanelBody>
           <PostsTable
             posts={posts}
-            withSaves={network === "instagram"}
+            withSaves={network !== "facebook"}
             withImpressions={network === "instagram"}
           />
         </PanelBody>
