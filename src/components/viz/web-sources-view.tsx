@@ -11,7 +11,6 @@ import {
 } from "recharts";
 
 import { formatCompact, formatValue } from "@/lib/format";
-import { seriesColor } from "@/lib/viz/palette";
 import type { SourcesByMonth } from "@/lib/web/data";
 
 /**
@@ -20,9 +19,17 @@ import type { SourcesByMonth } from "@/lib/web/data";
  * fenêtre, jamais le mois : « tiktok » garde sa couleur d'une barre à
  * l'autre. « Autres » est le repli de la palette, en gris hors échelle.
  *
+ * La rampe est **mono-teinte, dans les verts de la charte** — pas la palette
+ * catégorielle : son bleu et son magenta ne sont pas des couleurs de la
+ * marque, et des segments empilés se départagent très bien par la valeur.
+ * L'identité d'une source ne repose de toute façon jamais sur la seule
+ * couleur : la légende et la vue tableau la portent.
+ *
  * Un liseré de la couleur de surface sépare les segments empilés : c'est le
  * blanc qui découpe, jamais un contour.
  */
+const SOURCE_RAMP = ["var(--ordinal-1)", "var(--ordinal-2)", "var(--ordinal-3)"];
+
 export function WebSourcesView({
   data,
   height = 260,
@@ -33,7 +40,9 @@ export function WebSourcesView({
   const rows = data.months.map((month) => ({ label: month.label, ...month.values }));
 
   const colorOf = (source: string, index: number) =>
-    source === "Autres" ? "var(--viz-axis)" : seriesColor(index);
+    source === "Autres"
+      ? "var(--viz-axis)"
+      : (SOURCE_RAMP[index] ?? "var(--viz-axis)");
 
   return (
     <div>
