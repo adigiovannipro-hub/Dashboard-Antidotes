@@ -1,13 +1,15 @@
 import Link from "next/link";
-import { CalendarDays } from "lucide-react";
+import { AlertTriangle, CalendarDays } from "lucide-react";
 
 import {
   PublicationHeader,
   PublicationRowView,
 } from "@/components/mon-travail/publication-row";
+import { RescheduleLateButton } from "@/components/mon-travail/reschedule-late";
 import { Panel, PanelHeader, PanelRows } from "@/components/ds/surface";
 import { StatusPill } from "@/components/ds/status-pill";
 import { Button } from "@/components/ui/button";
+import { READY_STATUSES, type PlanningStatus } from "@/lib/planning/types";
 import type { PublicationRow } from "@/lib/mon-travail/types";
 
 /**
@@ -31,6 +33,18 @@ export function PublicationsSection({
   late: number;
 }) {
   const empty = rows.length === 0;
+
+  // Validées ou programmées, mais datées d'avant aujourd'hui : l'automate ne
+  // les prendra plus, c'est un geste humain qui les relance.
+  const today = new Date().toISOString().slice(0, 10);
+  const stuckValidated = rows.filter(
+    (row) =>
+      (READY_STATUSES as PlanningStatus[]).includes(
+        row.subject.status as PlanningStatus,
+      ) &&
+      row.subject.scheduled_on !== null &&
+      row.subject.scheduled_on < today,
+  );
 
   return (
     <Panel>
@@ -60,6 +74,26 @@ export function PublicationsSection({
           ) : null
         }
       />
+
+      {stuckValidated.length > 0 ? (
+        /* Le piège silencieux : une publication validée dont la date est
+           passée ne part plus toute seule — l'automatisation ne rattrape
+           jamais la veille. Sans cet encart, six posts Bondet sont restés
+           bloqués trois semaines sans que rien ne le dise. */
+        <div className="flex flex-wrap items-center gap-3 border-b border-border bg-warning-subtle px-5 py-3">
+          <AlertTriangle
+            aria-hidden
+            strokeWidth={1.75}
+            className="size-4.5 shrink-0 text-warning-ink"
+          />
+          <p className="type-caption min-w-0 flex-1 font-medium text-warning-ink">
+            {stuckValidated.length > 1
+              ? `${stuckValidated.length} publications validées ont dépassé leur date : elles ne partiront plus toutes seules.`
+              : "Une publication validée a dépassé sa date : elle ne partira plus toute seule."}
+          </p>
+          <RescheduleLateButton rows={stuckValidated} />
+        </div>
+      ) : null}
 
       {empty && next.length === 0 ? (
         <div className="flex flex-wrap items-center gap-3 px-5 py-4">
