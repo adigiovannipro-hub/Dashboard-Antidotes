@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Menu } from "lucide-react";
 
 import { signOut } from "@/app/actions/auth";
+import { PageTransition } from "@/components/ds/page-transition";
 import { RouteProgress } from "@/components/ds/route-progress";
 import { Sidebar } from "@/components/ds/sidebar";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -144,7 +145,7 @@ export function ShellFrame({
         </header>
 
         <main className={wide ? "mx-auto w-full flex-1 px-4 py-6 md:px-6 md:py-8" : "mx-auto w-full max-w-[90rem] flex-1 px-4 py-6 md:px-10 md:py-8"}>
-          {children}
+          <PageTransition>{children}</PageTransition>
         </main>
       </div>
     </div>
