@@ -20,7 +20,32 @@ const ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 const configured = Boolean(SUPABASE_URL && ANON_KEY && SERVICE_KEY);
-const suite = configured ? describe : describe.skip;
+
+/* La migration 20260830 part avec le push sur `main` : tant qu'elle n'est pas
+   appliquée, la base n'a ni `client_review` ni les politiques à prouver, et la
+   suite se saute **en le disant** — un rouge structurel bloquerait la porte des
+   quatre commandes pour une cause qui se résout au merge, un vert silencieux
+   ferait croire à une preuve. Sonde à la collecte, comme l'autorise Vitest. */
+const migrated = configured
+  ? await (async () => {
+      const probe = createClient(SUPABASE_URL!, SERVICE_KEY!, {
+        auth: { persistSession: false, autoRefreshToken: false },
+      });
+      const { error } = await probe
+        .from("faq_entries")
+        .select("client_review")
+        .limit(1);
+      if (error) {
+        console.warn(
+          `[faq-moderation-isolation] suite sautée : migration 20260830 non appliquée (${error.message}). À rejouer après le push sur main.`,
+        );
+        return false;
+      }
+      return true;
+    })()
+  : false;
+
+const suite = configured && migrated ? describe : describe.skip;
 
 const RUN = `zz-faqm-${Date.now()}`;
 const PASSWORD = "Test!FaqModeration-2026";
