@@ -75,7 +75,19 @@ async function main() {
     console.log("Pour en connecter un de plus, passer --user avec un autre identifiant.");
   }
 
-  const request = await composio.toolkits.authorize(userId, toolkit);
+  /* Composio a fermé l'ancien chemin pour ses OAuth gérés (30/08/2026 :
+     « Creating connections on this endpoint … is no longer supported », code
+     600) : quand la configuration d'authentification existe déjà, le lien se
+     demande à `connected_accounts/link`. `toolkits.authorize` ne reste que
+     pour un toolkit jamais configuré, où il crée la configuration. */
+  const configs = await composio.authConfigs.list({ toolkit });
+  const config =
+    configs.items.find((item) => item.status === "ENABLED") ?? configs.items[0];
+
+  const request = config
+    ? await composio.connectedAccounts.link(userId, config.id)
+    : await composio.toolkits.authorize(userId, toolkit);
+
   console.log("");
   console.log(`Ouvrir ce lien dans un navigateur et autoriser le compte ${toolkit}`);
   console.log("du client — le compte pro qui administre la page :");

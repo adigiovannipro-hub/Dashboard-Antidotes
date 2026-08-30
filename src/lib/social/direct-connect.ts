@@ -36,7 +36,14 @@
  * dans le navigateur. Une lecture d'environnement rendrait `true` au serveur
  * et `false` au client, ce qui est exactement l'incohérence qu'on veut éviter.
  */
-const BRANCHEMENT_DIRECT = false;
+/*
+ * Rallumé le 30/08/2026, le temps du rebranchement Meta : les portées ajoutées
+ * (messagerie, engagement, publications de Page) exigent de rejouer l'OAuth,
+ * et Composio ne porte pas encore Meta — fermé, il n'existait aucune porte
+ * pour rafraîchir le jeton, et les 8 canaux de Modération restaient en panne.
+ * À refermer quand la passerelle Composio saura brancher Meta.
+ */
+const BRANCHEMENT_DIRECT = true;
 
 /**
  * Le type de retour explicite est nécessaire : sans lui, TypeScript réduit la
