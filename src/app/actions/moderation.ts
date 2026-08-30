@@ -829,10 +829,39 @@ export async function saveFaqEntry(input: {
     }
 
     revalidatePath("/moderation");
+    revalidatePath("/espace", "layout");
     return {
       ok: true,
       message: parsed.data.entryId ? "Entrée mise à jour." : "Entrée créée.",
     };
+  } catch (error) {
+    return { ok: false, error: (error as Error).message };
+  }
+}
+
+/** Suppression douce d'un élément de langage — la boucle d'apprentissage garde l'historique. */
+export async function deleteFaqEntry(input: {
+  clientId: string;
+  entryId: string;
+}): Promise<ModerationResult> {
+  const parsed = z
+    .object({ clientId: z.uuid(), entryId: z.uuid() })
+    .safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Requête incomplète." };
+
+  try {
+    await requireOperator(parsed.data.clientId);
+    const supabase = await createClient();
+    const { error } = await supabase
+      .from("faq_entries")
+      .update({ deleted_at: new Date().toISOString() } as never)
+      .eq("id", parsed.data.entryId)
+      .eq("client_id", parsed.data.clientId);
+    if (error) return { ok: false, error: error.message };
+
+    revalidatePath("/moderation");
+    revalidatePath("/espace", "layout");
+    return { ok: true, message: "Entrée supprimée." };
   } catch (error) {
     return { ok: false, error: (error as Error).message };
   }
@@ -859,6 +888,7 @@ export async function submitFaqForReview(input: {
     if (error) return { ok: false, error: error.message };
 
     revalidatePath("/moderation");
+    revalidatePath("/espace", "layout");
     return {
       ok: true,
       message:
