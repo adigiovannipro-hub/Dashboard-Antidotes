@@ -49,7 +49,15 @@ import { requirePageAccess } from "@/lib/workspaces/access";
 import { COMPOSIO_TRANSITION_NOTE } from "@/lib/social/direct-connect";
 
 type Params = Promise<{ workspace: string; dashboard: string }>;
-type Query = Promise<{ reseau?: string; mois?: string; du?: string; au?: string }>;
+type Query = Promise<{
+  reseau?: string;
+  mois?: string;
+  du?: string;
+  au?: string;
+  /* Drill-down : l'identifiant Meta de l'ad set ciblé, posé au clic sur une
+     ligne du tableau. Un id inconnu retombe sur la vue entière. */
+  adset?: string;
+}>;
 
 async function load(params: Params) {
   const { workspace: workspaceSlug, dashboard: dashboardSlug } = await params;
@@ -118,7 +126,11 @@ export default async function DashboardPage({
 
   const ads =
     network === "meta-ads"
-      ? await getAdsData({ workspaceId: workspace.id, range })
+      ? await getAdsData({
+          workspaceId: workspace.id,
+          range,
+          ...(query.adset ? { entityId: query.adset } : {}),
+        })
       : null;
   const organic =
     network === "instagram" || network === "facebook" || network === "tiktok"
@@ -282,6 +294,9 @@ export default async function DashboardPage({
           regions={ads.regions}
           followers={ads.followers}
           period={period}
+          tableTotal={ads.tableTotal}
+          focus={ads.focus}
+          drillable
         />
       ) : (network === "instagram" || network === "facebook" || network === "tiktok") &&
         organic?.hasData ? (

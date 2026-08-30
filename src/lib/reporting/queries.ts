@@ -41,6 +41,11 @@ export type AdsData = {
   adSets: MetricsTableRow[];
   total: RawMetrics;
   previousTotal: RawMetrics;
+  /** Le total du compte entier, pour la ligne de pied du tableau : il ne bouge
+      pas quand un ad set est ciblé — le tableau reste l'outil de comparaison. */
+  tableTotal: RawMetrics;
+  /** L'ad set ciblé par le drill-down, résolu en clair pour la pastille. */
+  focus: { id: string; campaign: string | null; adSet: string } | null;
   age: BarDatum[];
   gender: BarDatum[];
   regions: BarDatum[];
@@ -50,6 +55,10 @@ export type AdsData = {
 export async function getAdsData(options: {
   workspaceId: string;
   range: DateRange;
+  /** Drill-down : restreint chiffres, entonnoir et événements pixel à un seul
+      ad set. Les ventilations Persona restent au compte entier — elles sont
+      collectées à ce grain (voir le sync), et l'écran le dit. */
+  entityId?: string;
   /** Lecteur imposé — la page de partage public passe l'admin, le token faisant office de droit. */
   reader?: Awaited<ReturnType<typeof createClient>>;
 }): Promise<AdsData> {
@@ -106,8 +115,26 @@ export async function getAdsData(options: {
   const breakdowns = (breakdownsQuery.data ?? []) as unknown as AdBreakdownDaily[];
   const followers = (followersQuery.data ?? []) as unknown as SocialFollowers[];
   const allCustoms = (customQuery.data ?? []) as unknown as AdCustomEventDaily[];
-  const customs = allCustoms.filter((row) => row.date >= options.range.from);
-  const customsBefore = allCustoms.filter((row) => row.date < options.range.from);
+
+  /* Le drill-down se fait à la lecture, en mémoire : un ad set inconnu — ligne
+     supprimée, URL recopiée d'un autre compte — retombe sur la vue entière au
+     lieu d'un écran de zéros qui se lirait comme une contre-performance. */
+  // La clé publique est l'identifiant Meta (celui des lignes du tableau), pas
+  // l'uuid interne : c'est lui qui vit dans l'URL et survit à un re-seed.
+  const focusEntity = options.entityId
+    ? (entities.find(
+        (entity) =>
+          entity.external_id === options.entityId && entity.level === "adset",
+      ) ?? null)
+    : null;
+  const scoped = <T extends { entity_id: string }>(rows: T[]): T[] =>
+    focusEntity ? rows.filter((row) => row.entity_id === focusEntity.id) : rows;
+
+  const customs = scoped(allCustoms.filter((row) => row.date >= options.range.from));
+  const customsBefore = scoped(
+    allCustoms.filter((row) => row.date < options.range.from),
+  );
+  const customsAll = allCustoms.filter((row) => row.date >= options.range.from);
 
   /* Le rôle donné à chaque événement du client. Réglage par compte
      publicitaire, appliqué **à la lecture** : les lignes collectées restent
@@ -131,9 +158,10 @@ export async function getAdsData(options: {
   };
 
   // Les événements de la période, par ad set, pour que la colonne « Achats »
-  // du tableau dise la même chose que la carte du haut.
+  // du tableau dise la même chose que la carte du haut. Le tableau reste
+  // entier même en drill-down : c'est lui l'outil de sélection.
   const customsByEntity = new Map<string, AdCustomEventDaily[]>();
-  for (const row of customs) {
+  for (const row of customsAll) {
     const list = customsByEntity.get(row.entity_id) ?? [];
     list.push(row);
     customsByEntity.set(row.entity_id, list);
@@ -145,8 +173,9 @@ export async function getAdsData(options: {
     ]),
   );
 
-  const current = allMetrics.filter((row) => row.date >= options.range.from);
-  const before = allMetrics.filter((row) => row.date < options.range.from);
+  const currentAll = allMetrics.filter((row) => row.date >= options.range.from);
+  const current = scoped(currentAll);
+  const before = scoped(allMetrics.filter((row) => row.date < options.range.from));
 
   const allEvents = aggregateCustomEvents(customs, 0);
   const total = foldClientConversions(
@@ -154,6 +183,14 @@ export async function getAdsData(options: {
     allEvents,
     roles,
   );
+
+  const tableTotal = focusEntity
+    ? foldClientConversions(
+        sumRawMetrics(currentAll.map(metricsRowToRaw)),
+        aggregateCustomEvents(customsAll, 0),
+        roles,
+      )
+    : total;
 
   // La comparaison se plie comme la période : sans ça, le delta d'un client
   // au pixel custom dirait « +∞ » chaque mois.
@@ -164,12 +201,24 @@ export async function getAdsData(options: {
   );
 
   return {
-    hasData: current.length > 0,
+    hasData: currentAll.length > 0,
     customEvents: aggregateCustomEvents(customs, total.spend),
     roles,
-    adSets: buildAdSetRows(entities, current, eventsByEntity, roles),
+    adSets: buildAdSetRows(entities, currentAll, eventsByEntity, roles),
     total,
     previousTotal,
+    tableTotal,
+    focus: focusEntity
+      ? {
+          id: focusEntity.external_id,
+          campaign: focusEntity.parent_external_id
+            ? (entities.find(
+                (entity) => entity.external_id === focusEntity.parent_external_id,
+              )?.name ?? null)
+            : null,
+          adSet: focusEntity.name,
+        }
+      : null,
     age: buildBreakdown(breakdowns, "age"),
     gender: buildBreakdown(breakdowns, "gender"),
     regions: buildBreakdown(breakdowns, "region"),

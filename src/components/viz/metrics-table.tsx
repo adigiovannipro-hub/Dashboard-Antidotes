@@ -56,11 +56,16 @@ export function MetricsTable({
   columns,
   total,
   mode,
+  selectedId,
+  onSelectRow,
 }: {
   rows: readonly MetricsTableRow[];
   columns: readonly MetricId[];
   total: RawMetrics;
   mode: ClickAttributionMode;
+  /** Drill-down : la ligne ciblée, surlignée ; recliquer la relâche. */
+  selectedId?: string | null;
+  onSelectRow?: (id: string | null) => void;
 }) {
   const [sort, setSort] = useState<{ metric: MetricId; desc: boolean }>({
     metric: "spend",
@@ -191,13 +196,43 @@ export function MetricsTable({
 
           <tbody>
             {sorted.map((row) => (
-              <tr key={row.id} className="border-t border-[var(--viz-grid)]">
+              <tr
+                key={row.id}
+                className={cn(
+                  "border-t border-[var(--viz-grid)]",
+                  onSelectRow &&
+                    "hover:bg-muted/40 cursor-pointer transition-colors duration-(--motion-duration)",
+                  selectedId === row.id && "bg-muted/60",
+                )}
+                onClick={
+                  onSelectRow
+                    ? () => onSelectRow(selectedId === row.id ? null : row.id)
+                    : undefined
+                }
+                aria-selected={onSelectRow ? selectedId === row.id : undefined}
+              >
                 <th
                   scope="row"
                   className="max-w-[13rem] truncate px-2 py-2 text-left font-normal"
                   title={row.campaign}
                 >
-                  {row.campaign}
+                  {onSelectRow ? (
+                    /* Le bouton porte l'accès clavier ; le clic sur la ligne
+                       entière n'est qu'un raccourci de la même action. */
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onSelectRow(selectedId === row.id ? null : row.id);
+                      }}
+                      aria-pressed={selectedId === row.id}
+                      className="focus-visible:ring-brand max-w-full truncate rounded text-left focus-visible:ring-2 focus-visible:outline-none"
+                    >
+                      {row.campaign}
+                    </button>
+                  ) : (
+                    row.campaign
+                  )}
                 </th>
                 <td
                   className="text-muted-foreground max-w-[11rem] truncate px-2 py-2"

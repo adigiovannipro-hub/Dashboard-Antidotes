@@ -1,5 +1,8 @@
 "use client";
 
+import { useRouter, useSearchParams } from "next/navigation";
+import { X } from "lucide-react";
+
 import { Panel, PanelBody, PanelHeader } from "@/components/ds/surface";
 import { BarList } from "@/components/viz/bar-list";
 import type { BarDatum } from "@/components/viz/bar-list";
@@ -27,6 +30,9 @@ export function MetaDashboard({
   regions,
   followers,
   period,
+  tableTotal,
+  focus,
+  drillable = false,
 }: {
   adSets: readonly MetricsTableRow[];
   total: RawMetrics;
@@ -36,8 +42,25 @@ export function MetaDashboard({
   regions: readonly BarDatum[];
   followers: readonly { label: string; value: number }[];
   period: { label: string; comparison: string };
+  /** Total du compte entier pour le pied du tableau — égal à `total` hors drill-down. */
+  tableTotal?: RawMetrics;
+  /** L'ad set ciblé, résolu en clair pour la pastille de filtre. */
+  focus?: { id: string; campaign: string | null; adSet: string } | null;
+  /** Le partage public reste statique : le drill-down n'est offert qu'ici. */
+  drillable?: boolean;
 }) {
   const mode = DEFAULT_CLICK_MODE;
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  /* Le filtre vit dans l'URL, comme tous les filtres de la maison : il se
+     partage par copie du lien et survit au retour arrière. */
+  const setFocus = (id: string | null) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (id) params.set("adset", id);
+    else params.delete("adset");
+    router.push(`?${params.toString()}`, { scroll: false });
+  };
 
   const delta = (metric: MetricId) =>
     computeDelta(
@@ -73,6 +96,23 @@ export function MetaDashboard({
      * bande, il se lit de gauche à droite comme le parcours qu'il décrit.
      */
     <div className="space-y-5">
+      {focus ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setFocus(null)}
+            className="rounded-pill bg-primary text-primary-foreground focus-visible:ring-brand inline-flex items-center gap-1.5 px-3 py-1.5 text-xs transition-colors duration-(--motion-duration) ease-standard focus-visible:ring-2 focus-visible:outline-none"
+            title="Retirer le filtre"
+          >
+            <span className="max-w-[24rem] truncate">
+              Ad set&nbsp;: {focus.adSet}
+              {focus.campaign ? ` · ${focus.campaign}` : ""}
+            </span>
+            <X className="size-3.5 shrink-0" strokeWidth={1.75} aria-hidden />
+          </button>
+        </div>
+      ) : null}
+
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <HeroFigure
           metric={HERO_METRIC["meta-ads"]}
@@ -117,7 +157,11 @@ export function MetaDashboard({
         <Panel>
           <PanelHeader
             title="Persona"
-            description="Répartition des impressions — qui a vu les campagnes."
+            description={
+              focus
+                ? "Répartition des impressions du compte entier — Meta ne ventile pas par ad set."
+                : "Répartition des impressions — qui a vu les campagnes."
+            }
           />
           <PanelBody>
             {/*
@@ -147,14 +191,20 @@ export function MetaDashboard({
         <PanelHeader
           title={detailTitle("meta-ads")}
           count={adSets.length}
-          description="Cliquer un en-tête trie le tableau ; le total est recalculé sur les agrégats."
+          description={
+            drillable
+              ? "Cliquer une ligne filtre la page sur cet ad set ; un en-tête trie le tableau."
+              : "Cliquer un en-tête trie le tableau ; le total est recalculé sur les agrégats."
+          }
         />
         <PanelBody>
           <MetricsTable
             rows={adSets}
             columns={TOP_POSTS_COLUMNS}
-            total={total}
+            total={tableTotal ?? total}
             mode={mode}
+            selectedId={drillable ? (focus?.id ?? null) : undefined}
+            onSelectRow={drillable ? setFocus : undefined}
           />
         </PanelBody>
       </Panel>
