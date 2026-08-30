@@ -67,6 +67,8 @@ export type Invitation = {
   org_id: string;
   workspace_id: string | null;
   role: InvitationRole;
+  first_name: string | null;
+  last_name: string | null;
   invited_by: string | null;
   created_at: string;
   expires_at: string;
@@ -77,6 +79,8 @@ export type Profile = {
   id: string;
   email: string;
   full_name: string | null;
+  first_name: string | null;
+  last_name: string | null;
   avatar_url: string | null;
   created_at: string;
 }

@@ -28,34 +28,63 @@ export default async function AccessPage() {
         .in("workspace_id", workspaceIds),
       admin
         .from("invitations")
-        .select("id, email, workspace_id, role, created_at, expires_at")
+        .select("id, email, workspace_id, role, first_name, last_name, created_at, expires_at")
         .in("org_id", orgIds)
         .is("accepted_at", null),
-      admin.from("profiles").select("id, email, full_name"),
+      admin
+        .from("profiles")
+        .select("id, email, full_name, first_name, last_name, avatar_url"),
     ]);
 
-  const emailByUser = new Map(
-    (profiles ?? []).map((profile) => [profile.id, profile.email]),
-  );
+  const profileByUser = new Map((profiles ?? []).map((profile) => [profile.id, profile]));
   const workspaceById = new Map(
     viewer.workspaces.map((workspace) => [workspace.id, workspace]),
   );
 
-  const rows = (memberships ?? []).map((membership) => ({
-    kind: "member" as const,
-    id: `${membership.user_id}:${membership.workspace_id}`,
-    userId: membership.user_id,
-    email: emailByUser.get(membership.user_id) ?? "compte supprimé",
-    workspaceId: membership.workspace_id,
-    workspaceName: workspaceById.get(membership.workspace_id)?.name ?? "—",
-    role: membership.role as "contributor" | "client",
-    since: membership.created_at,
-  }));
+  // Le bucket des avatars n'a aucune politique : les URL se signent ici, avec
+  // le client admin, après la garde owner en tête de page.
+  const avatarPaths = [
+    ...new Set(
+      (profiles ?? [])
+        .map((profile) => profile.avatar_url)
+        .filter((path): path is string => Boolean(path)),
+    ),
+  ];
+  const { data: signed } = avatarPaths.length
+    ? await admin.storage.from("member-avatars").createSignedUrls(avatarPaths, 60 * 60)
+    : { data: [] };
+  const avatarByPath = new Map(
+    (signed ?? [])
+      .filter((entry) => entry.path && entry.signedUrl)
+      .map((entry) => [entry.path as string, entry.signedUrl]),
+  );
+
+  const rows = (memberships ?? []).map((membership) => {
+    const profile = profileByUser.get(membership.user_id);
+    return {
+      kind: "member" as const,
+      id: `${membership.user_id}:${membership.workspace_id}`,
+      userId: membership.user_id,
+      email: profile?.email ?? "compte supprimé",
+      firstName: profile?.first_name ?? "",
+      lastName: profile?.last_name ?? "",
+      avatarUrl: profile?.avatar_url
+        ? (avatarByPath.get(profile.avatar_url) ?? null)
+        : null,
+      workspaceId: membership.workspace_id,
+      workspaceName: workspaceById.get(membership.workspace_id)?.name ?? "—",
+      role: membership.role as "contributor" | "client",
+      since: membership.created_at,
+    };
+  });
 
   const pending = (invitations ?? []).map((invitation) => ({
     kind: "invitation" as const,
     id: invitation.id,
     email: invitation.email,
+    fullName: [invitation.first_name, invitation.last_name]
+      .filter((part): part is string => Boolean(part))
+      .join(" "),
     workspaceId: invitation.workspace_id ?? "",
     workspaceName: invitation.workspace_id
       ? (workspaceById.get(invitation.workspace_id)?.name ?? "—")

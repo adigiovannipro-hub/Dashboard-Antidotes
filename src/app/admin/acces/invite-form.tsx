@@ -51,8 +51,20 @@ export function InviteForm({ workspaces }: { workspaces: WorkspaceAccess[] }) {
     <form
       ref={formRef}
       action={action}
-      className="border-border bg-card grid gap-4 rounded-xl border p-5 sm:grid-cols-[1fr_auto_auto] sm:items-end"
+      className="border-border bg-card space-y-4 rounded-xl border p-5"
     >
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="space-y-2">
+          <Label htmlFor="invite-first-name">Prénom</Label>
+          <Input id="invite-first-name" name="firstName" placeholder="Camille" />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="invite-last-name">Nom</Label>
+          <Input id="invite-last-name" name="lastName" placeholder="Durand" />
+        </div>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-[1fr_auto_auto] sm:items-end">
       <div className="space-y-2">
         <Label htmlFor="invite-email">Adresse email</Label>
         <Input
@@ -108,6 +120,7 @@ export function InviteForm({ workspaces }: { workspaces: WorkspaceAccess[] }) {
             <PendingLabel pending={pending} busy="Envoi…">Inviter</PendingLabel>
           </Button>
         </div>
+      </div>
       </div>
     </form>
   );
