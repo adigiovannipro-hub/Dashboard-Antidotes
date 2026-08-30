@@ -318,7 +318,10 @@ export function LaneTable({
  * gauche, un nombre à droite, une étiquette pleine largeur reste centrée.
  */
 function headerAlign(column: ColumnDef): "start" | "center" | "end" {
-  if (column.builtin === "sponsoring" || column.type === "number") return "end";
+  // « Sponso » et « Last update » se centrent : leurs cellules sont courtes et
+  // centrées, un en-tête calé au bord flottait à côté de son contenu.
+  if (column.builtin === "sponsoring" || column.builtin === "updated") return "center";
+  if (column.type === "number") return "end";
   if (
     column.builtin === "name" ||
     column.builtin === "wording" ||
