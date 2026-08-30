@@ -5,9 +5,9 @@ import { useEffect, useRef } from "react";
 import type { InboxGesture } from "@/app/actions/moderation";
 import { StatusPill, type StatusTone } from "@/components/ds/status-pill";
 import type { ClientChip } from "@/components/moderation/inbox-filter-bar";
+import { ParticipantAvatar } from "@/components/moderation/participant-avatar";
 import { RowActions } from "@/components/moderation/row-actions";
 import {
-  CHANNEL_LABELS,
   FLAG_LABELS,
   KIND_LABELS,
   participantLabel,
@@ -139,77 +139,85 @@ export function ConversationList({
                 />
               ) : null}
 
-              <div className="flex items-baseline gap-2">
-                {conversation.unread ? (
-                  <span
-                    aria-label="Non lu"
-                    className="mt-1.5 size-1.5 shrink-0 rounded-pill bg-brand"
-                  />
-                ) : (
-                  <span className="mt-1.5 size-1.5 shrink-0" />
-                )}
-                <span
-                  className={cn(
-                    "type-label min-w-0 flex-1 truncate",
-                    conversation.participant_handle
-                      ? "text-text-primary"
-                      : // Un auteur que Meta masque n'est pas un pseudo : il
-                        // se lit en secondaire, comme l'information qu'il est.
-                        "text-text-secondary italic",
-                  )}
-                >
-                  {participantLabel(conversation.participant_handle)}
-                </span>
-                <span className="type-caption mr-14 shrink-0 text-text-secondary tabular-nums">
-                  {relativeTime(conversation.last_message_at)}
-                </span>
-              </div>
+              {/* La photo d'abord : qui parle, sur quel réseau, chez quel
+                  client — trois informations dans une vignette, là où trois
+                  pastilles de texte demandaient de lire. */}
+              <div className="flex items-start gap-2.5">
+                <ParticipantAvatar
+                  handle={conversation.participant_handle}
+                  avatarUrl={conversation.participant_avatar_url}
+                  channel={conversation.channel}
+                  clientLogoUrl={showClient ? client?.logoUrl : null}
+                  clientName={showClient ? client?.name : null}
+                />
 
-              <p className="type-caption mt-1 line-clamp-2 pl-3.5 text-text-primary/80">
-                {conversation.excerpt}
-              </p>
-
-              {conversation.post_excerpt ? (
-                // La publication commentée : c'est elle qui donne le contexte
-                // d'un commentaire — sans elle, « oui, en bleu ! » ne se
-                // modère pas.
-                <p className="type-caption mt-0.5 truncate pl-3.5 text-text-secondary">
-                  Sous « {conversation.post_excerpt} »
-                </p>
-              ) : null}
-
-              <div className="mt-1.5 flex flex-wrap items-center gap-1 pl-3.5">
-                {showClient && client ? (
-                  <StatusPill tone="neutral" dot={false}>
-                    {client.logoUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element -- URL signée
-                      <img
-                        src={client.logoUrl}
-                        alt=""
-                        className="-ml-0.5 size-3.5 rounded-pill object-cover"
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-baseline gap-2">
+                    <span
+                      className={cn(
+                        "type-label min-w-0 flex-1 truncate",
+                        conversation.unread && "font-semibold",
+                        conversation.participant_handle
+                          ? "text-text-primary"
+                          : // Un auteur que Meta masque n'est pas un pseudo :
+                            // il se lit en secondaire, comme l'information
+                            // qu'il est.
+                            "text-text-secondary italic",
+                      )}
+                    >
+                      {participantLabel(conversation.participant_handle)}
+                    </span>
+                    {conversation.unread ? (
+                      <span
+                        aria-label="Non lu"
+                        className="size-2 shrink-0 rounded-pill bg-brand"
                       />
                     ) : null}
-                    {client.name}
-                  </StatusPill>
-                ) : null}
-                <StatusPill tone="neutral" dot={false}>
-                  {conversation.kind === "comment"
-                    ? CHANNEL_LABELS[conversation.channel]
-                    : `${KIND_LABELS[conversation.kind]} · ${CHANNEL_LABELS[conversation.channel]}`}
-                </StatusPill>
-                <StatusPill tone={STATUS_TONES[conversation.status]}>
-                  {STATUS_LABELS[conversation.status]}
-                </StatusPill>
-                {conversation.flags.map((flag) => (
-                  <StatusPill key={flag} tone="danger">
-                    {FLAG_LABELS[flag]}
-                  </StatusPill>
-                ))}
-                {conversation.detected_locale === "en" ? (
-                  <StatusPill tone="info" dot={false}>
-                    EN
-                  </StatusPill>
-                ) : null}
+                    <span className="type-caption mr-14 shrink-0 text-text-secondary tabular-nums">
+                      {relativeTime(conversation.last_message_at)}
+                    </span>
+                  </div>
+
+                  <p
+                    className={cn(
+                      "type-caption mt-0.5 line-clamp-2",
+                      conversation.unread
+                        ? "text-text-primary"
+                        : "text-text-primary/75",
+                    )}
+                  >
+                    {conversation.excerpt}
+                  </p>
+
+                  {conversation.post_excerpt ? (
+                    // La publication commentée : c'est elle qui donne le
+                    // contexte — sans elle, « oui, en bleu ! » ne se modère pas.
+                    <p className="type-caption mt-0.5 truncate text-text-secondary">
+                      Sous « {conversation.post_excerpt} »
+                    </p>
+                  ) : null}
+
+                  <div className="mt-1 flex flex-wrap items-center gap-1">
+                    {conversation.kind !== "comment" ? (
+                      <StatusPill tone="neutral" dot={false}>
+                        {KIND_LABELS[conversation.kind]}
+                      </StatusPill>
+                    ) : null}
+                    <StatusPill tone={STATUS_TONES[conversation.status]}>
+                      {STATUS_LABELS[conversation.status]}
+                    </StatusPill>
+                    {conversation.flags.map((flag) => (
+                      <StatusPill key={flag} tone="danger">
+                        {FLAG_LABELS[flag]}
+                      </StatusPill>
+                    ))}
+                    {conversation.detected_locale === "en" ? (
+                      <StatusPill tone="info" dot={false}>
+                        EN
+                      </StatusPill>
+                    ) : null}
+                  </div>
+                </div>
               </div>
             </button>
           </li>

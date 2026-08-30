@@ -21,6 +21,7 @@ import {
   type ModerationResult,
 } from "@/app/actions/moderation";
 import { CorrectionDialog } from "@/components/moderation/correction-dialog";
+import { ParticipantAvatar } from "@/components/moderation/participant-avatar";
 import { Button } from "@/components/ui/button";
 import {
   evaluateSendEligibility,
@@ -51,6 +52,7 @@ import { cn } from "@/lib/utils";
 export function ConversationThread({
   clientSlug,
   clientName,
+  clientLogoUrl,
   role,
   conversation,
   messages,
@@ -60,6 +62,7 @@ export function ConversationThread({
 }: {
   clientSlug: string | null;
   clientName: string | null;
+  clientLogoUrl: string | null;
   role: ModerationRole;
   conversation: Conversation | null;
   messages: ModerationMessage[];
@@ -189,15 +192,27 @@ export function ConversationThread({
           >
             <ArrowLeft className="size-4.5" strokeWidth={1.75} aria-hidden />
           </button>
-          <h2 className="type-h3 text-text-primary">
-            {participantLabel(conversation.participant_handle)}
-          </h2>
-          <span className="type-caption text-text-secondary">
-            {clientName ? `${clientName} · ` : null}
-            {CHANNEL_LABELS[conversation.channel]} ·{" "}
-            {KIND_LABELS[conversation.kind]} ·{" "}
-            {STATUS_LABELS[conversation.status]}
-          </span>
+          {/* La même vignette que la liste : on sait toujours à qui l'on
+              parle, sur quel réseau et chez quel client. */}
+          <ParticipantAvatar
+            handle={conversation.participant_handle}
+            avatarUrl={conversation.participant_avatar_url}
+            channel={conversation.channel}
+            clientLogoUrl={clientLogoUrl}
+            clientName={clientName}
+            size="lg"
+          />
+          <div className="min-w-0">
+            <h2 className="type-h3 truncate text-text-primary">
+              {participantLabel(conversation.participant_handle)}
+            </h2>
+            <span className="type-caption text-text-secondary">
+              {clientName ? `${clientName} · ` : null}
+              {CHANNEL_LABELS[conversation.channel]} ·{" "}
+              {KIND_LABELS[conversation.kind]} ·{" "}
+              {STATUS_LABELS[conversation.status]}
+            </span>
+          </div>
           <span
             className={cn(
               "type-caption ml-auto inline-flex items-center gap-1",

@@ -151,6 +151,22 @@ export function Inbox({
     [router],
   );
 
+  /* Ouvrir un fil le marque lu — le geste de toute boîte de réception — et
+     silencieusement : un toast à chaque ouverture serait du bruit. Le serveur
+     répercute vers Meta (`mark_seen`), et le miroir est complet. La référence
+     évite de re-marquer le même fil à chaque rendu. */
+  const autoReadId = useRef<string | null>(null);
+  useEffect(() => {
+    const open = thread.conversation;
+    if (!open || !open.unread || autoReadId.current === open.id) return;
+    autoReadId.current = open.id;
+    void applyInboxGesture({ conversationIds: [open.id], gesture: "lu" }).then(
+      (result) => {
+        if (result.ok) router.refresh();
+      },
+    );
+  }, [thread.conversation, router]);
+
   const toggleChecked = useCallback((id: string, isChecked: boolean) => {
     setChecked((current) => {
       const next = new Set(current);
@@ -349,6 +365,7 @@ export function Inbox({
             key={thread.conversation?.id ?? "empty"}
             clientSlug={selectedClient?.slug ?? null}
             clientName={selectedClient?.name ?? null}
+            clientLogoUrl={selectedClient?.logoUrl ?? null}
             role={role}
             conversation={thread.conversation}
             messages={thread.messages}

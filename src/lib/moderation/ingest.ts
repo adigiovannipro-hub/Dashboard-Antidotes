@@ -109,7 +109,6 @@ export function sanitizeText(value: string | null): string | null {
   if (value === null) return null;
   return (
     value
-      // eslint-disable-next-line no-control-regex -- c'est le sujet même
       .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "")
       .replace(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])/g, "")
       .replace(/(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g, "")

@@ -39,12 +39,15 @@ export function RowActions({
       <RowButton
         label={unread ? "Marquer comme lu" : "Marquer comme non lu"}
         disabled={pending}
+        // Marquer lu est LE geste de la boîte : il porte l'accent, comme la
+        // coche verte de la Boîte de réception Meta.
+        emphasis={unread}
         onClick={() => onGesture(unread ? "lu" : "non-lu")}
       >
         {unread ? (
-          <Check className="size-3.5" strokeWidth={1.75} aria-hidden />
+          <Check className="size-4" strokeWidth={2} aria-hidden />
         ) : (
-          <Mail className="size-3.5" strokeWidth={1.75} aria-hidden />
+          <Mail className="size-4" strokeWidth={1.75} aria-hidden />
         )}
       </RowButton>
 
@@ -54,9 +57,9 @@ export function RowActions({
         onClick={() => onGesture(archived ? "restaurer" : "archiver")}
       >
         {archived ? (
-          <ArchiveRestore className="size-3.5" strokeWidth={1.75} aria-hidden />
+          <ArchiveRestore className="size-4" strokeWidth={1.75} aria-hidden />
         ) : (
-          <Archive className="size-3.5" strokeWidth={1.75} aria-hidden />
+          <Archive className="size-4" strokeWidth={1.75} aria-hidden />
         )}
       </RowButton>
     </div>
@@ -66,11 +69,14 @@ export function RowActions({
 function RowButton({
   label,
   disabled,
+  emphasis,
   onClick,
   children,
 }: {
   label: string;
   disabled: boolean;
+  /** Le geste principal se voit en accent plein — les autres restent sobres. */
+  emphasis?: boolean;
   onClick: () => void;
   children: React.ReactNode;
 }) {
@@ -93,10 +99,12 @@ function RowButton({
         if (!disabled) onClick();
       }}
       className={cn(
-        "focus-visible:ring-ring flex size-6 items-center justify-center rounded-md border border-border bg-surface text-text-secondary shadow-card transition-colors duration-(--motion-duration) ease-standard focus-visible:ring-2 focus-visible:outline-none",
-        disabled
-          ? "cursor-not-allowed opacity-50"
-          : "cursor-pointer hover:bg-surface-sunken hover:text-text-primary",
+        "focus-visible:ring-ring flex size-8 items-center justify-center rounded-md border shadow-card transition-colors duration-(--motion-duration) ease-standard focus-visible:ring-2 focus-visible:outline-none",
+        emphasis
+          ? "border-transparent bg-accent-ink text-white hover:opacity-90"
+          : "border-border bg-surface text-text-secondary hover:bg-surface-sunken hover:text-text-primary",
+        disabled && "cursor-not-allowed opacity-50",
+        !disabled && "cursor-pointer",
       )}
     >
       {children}
