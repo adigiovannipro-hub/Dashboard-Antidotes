@@ -64,6 +64,79 @@ export async function listWorkspacePages(workspaceId: string): Promise<Workspace
 }
 
 /**
+ * Les pages de plusieurs espaces d'un coup — la version groupée de
+ * `listWorkspacePages()`, pour le rail : un sous-menu par client à chaque
+ * requête ferait deux lectures par espace, ici deux pour tous. Même source,
+ * mêmes règles (planning d'abord, doublons du planning écartés), sinon le
+ * sous-menu et la porte de l'espace divergeraient.
+ */
+export async function listPagesByWorkspace(
+  workspaceIds: string[],
+): Promise<Map<string, WorkspacePage[]>> {
+  const pages = new Map<string, WorkspacePage[]>();
+  if (workspaceIds.length === 0) return pages;
+
+  const supabase = await createClient();
+  const [{ data: boards }, { data: dashboards }] = await Promise.all([
+    supabase.from("planning_boards").select("workspace_id").in("workspace_id", workspaceIds),
+    supabase
+      .from("dashboards")
+      .select("workspace_id, slug, name")
+      .in("workspace_id", workspaceIds)
+      .order("position")
+      .limit(500),
+  ]);
+
+  const withBoard = new Set(
+    ((boards ?? []) as unknown as { workspace_id: string }[]).map((row) => row.workspace_id),
+  );
+  for (const id of workspaceIds) {
+    pages.set(id, withBoard.has(id) ? [{ key: PLANNING_PAGE_KEY, name: "Planning Éditorial" }] : []);
+  }
+
+  for (const dashboard of (dashboards ?? []) as unknown as {
+    workspace_id: string;
+    slug: string;
+    name: string;
+  }[]) {
+    if (isPlanningLike(dashboard.name)) continue;
+    pages.get(dashboard.workspace_id)?.push({ key: dashboard.slug, name: dashboard.name });
+  }
+
+  return pages;
+}
+
+/**
+ * Les pages masquées à une adresse, sur plusieurs espaces d'un coup — le
+ * pendant groupé de `listHiddenPages()`, pour le même rail.
+ */
+export async function listHiddenPagesByWorkspace(
+  workspaceIds: string[],
+  email: string,
+): Promise<Map<string, Set<string>>> {
+  const hidden = new Map<string, Set<string>>();
+  if (workspaceIds.length === 0) return hidden;
+
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("workspace_page_grants")
+    .select("workspace_id, page_key, visible")
+    .in("workspace_id", workspaceIds)
+    .eq("email", email.trim().toLowerCase());
+
+  for (const row of (data ?? []) as unknown as (WorkspacePageGrant & {
+    workspace_id: string;
+  })[]) {
+    if (row.visible) continue;
+    const set = hidden.get(row.workspace_id) ?? new Set<string>();
+    set.add(row.page_key);
+    hidden.set(row.workspace_id, set);
+  }
+
+  return hidden;
+}
+
+/**
  * Le tableau de bord d'entrée de chaque espace — sa page « reporting ».
  *
  * Une seule requête pour tous les espaces : l'accueil affiche jusqu'à N

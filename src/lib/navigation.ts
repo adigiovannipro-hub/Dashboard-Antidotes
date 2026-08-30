@@ -7,6 +7,10 @@ import { getModerationContext } from "@/lib/moderation/access";
 import { isModerationVisible } from "@/lib/moderation/permissions";
 import { getNavBadges } from "@/lib/mon-travail/badges";
 import { signLogoUrls } from "@/lib/workspaces/logos";
+import {
+  listHiddenPagesByWorkspace,
+  listPagesByWorkspace,
+} from "@/lib/workspaces/queries";
 
 /**
  * Le modèle de navigation du rail latéral.
@@ -56,6 +60,12 @@ export type NavEntry = {
    * l'entrée reste alors un simple lien.
    */
   manage?: { slug: string; name: string };
+  /**
+   * Les pages de l'espace, pour le sous-menu au survol. Construites de la
+   * même source que les onglets de l'espace (`listWorkspacePages` + Contexte
+   * hors client) : une page ajoutée demain apparaît ici sans retouche.
+   */
+  children?: { href: string; label: string }[];
 };
 
 export type NavGroup = { title: string; entries: NavEntry[] };
@@ -71,13 +81,39 @@ export const getAppNavigation = cache(async (): Promise<NavGroup[]> => {
 
   // Plus de `"personal"` : le rail ne porte plus de section Perso, et laisser
   // le cas ouvert aurait gardé une branche que rien n'emprunte.
-  const logos = await signLogoUrls(viewer.workspaces.map((w) => w.logo_url));
+  const spaceIds = viewer.workspaces
+    .filter((workspace) => workspace.type !== "personal")
+    .map((workspace) => workspace.id);
+  const nonOwnerIds = viewer.workspaces
+    .filter((workspace) => workspace.type !== "personal" && workspace.role !== "owner")
+    .map((workspace) => workspace.id);
+
+  const [logos, pagesByWorkspace, hiddenByWorkspace] = await Promise.all([
+    signLogoUrls(viewer.workspaces.map((w) => w.logo_url)),
+    listPagesByWorkspace(spaceIds),
+    listHiddenPagesByWorkspace(nonOwnerIds, viewer.email),
+  ]);
 
   const workspacesOfType = (type: "client" | "business") =>
     viewer.workspaces
       .filter((workspace) => workspace.type === type)
-      .map(
-        (workspace): NavEntry => ({
+      .map((workspace): NavEntry => {
+        const hidden = hiddenByWorkspace.get(workspace.id) ?? new Set<string>();
+        const children = [
+          // Même règle que les onglets de l'espace : le Contexte n'existe pas
+          // pour un client, il est rendu aux autres rôles.
+          ...(workspace.role !== "client"
+            ? [{ href: `/espace/${workspace.slug}/contexte`, label: "Contexte" }]
+            : []),
+          ...(pagesByWorkspace.get(workspace.id) ?? [])
+            .filter((page) => !hidden.has(page.key))
+            .map((page) => ({
+              href: `/espace/${workspace.slug}/${page.key}`,
+              label: page.name,
+            })),
+        ];
+
+        return {
           href: `/espace/${workspace.slug}`,
           label: workspace.name,
           icon: type === "client" ? "client" : "entreprise",
@@ -88,8 +124,9 @@ export const getAppNavigation = cache(async (): Promise<NavGroup[]> => {
             workspace.role === "owner"
               ? { slug: workspace.slug, name: workspace.name }
               : undefined,
-        }),
-      );
+          children: children.length > 0 ? children : undefined,
+        };
+      });
 
   const groups: NavGroup[] = [
     {

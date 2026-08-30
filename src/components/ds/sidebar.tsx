@@ -167,31 +167,80 @@ export function Sidebar({
                 {group.title}
               </p>
               <ul className="space-y-0.5">
-                {group.entries.map((entry) => (
-                  <li key={entry.href} className="group/espace relative">
-                    <SidebarLink
-                      entry={entry}
-                      active={isActive(entry, activePath)}
-                      collapsed={collapsed}
-                      onNavigate={() => {
-                        select(entry.href);
-                        onCloseMobile();
-                      }}
-                    />
-                    {/* Posé par-dessus la réserve de droite du lien : un
-                        bouton *dans* un lien n'est pas du HTML valide, et
-                        deux éléments côte à côte rogneraient le libellé. */}
-                    {entry.manage ? (
-                      <span className="absolute inset-y-0 right-1 flex items-center">
-                        <WorkspaceMenu
-                          slug={entry.manage.slug}
-                          name={entry.manage.name}
+                {group.entries.map((entry) => {
+                  const active = isActive(entry, activePath);
+                  return (
+                    <li key={entry.href} className="group/espace">
+                      <div className="relative">
+                        <SidebarLink
+                          entry={entry}
+                          active={active}
                           collapsed={collapsed}
+                          onNavigate={() => {
+                            select(entry.href);
+                            onCloseMobile();
+                          }}
                         />
-                      </span>
-                    ) : null}
-                  </li>
-                ))}
+                        {/* Posé par-dessus la réserve de droite du lien : un
+                            bouton *dans* un lien n'est pas du HTML valide, et
+                            deux éléments côte à côte rogneraient le libellé. */}
+                        {entry.manage ? (
+                          <span className="absolute inset-y-0 right-1 flex items-center">
+                            <WorkspaceMenu
+                              slug={entry.manage.slug}
+                              name={entry.manage.name}
+                              collapsed={collapsed}
+                            />
+                          </span>
+                        ) : null}
+                      </div>
+
+                      {/* Le sous-menu des pages de l'espace. Au survol sur
+                          grand écran — le dépli est purement CSS, la hauteur
+                          glisse de 0fr à 1fr — et déplié en continu sur
+                          l'espace courant en mobile, où le survol n'existe
+                          pas. Rail replié : rien, il n'y a plus de libellés. */}
+                      {entry.children && !collapsed ? (
+                        <div
+                          className={cn(
+                            "grid transition-[grid-template-rows] duration-(--motion-duration-slow) ease-exit motion-reduce:transition-none",
+                            active ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
+                            "md:grid-rows-[0fr] md:group-hover/espace:grid-rows-[1fr] md:group-focus-within/espace:grid-rows-[1fr]",
+                          )}
+                        >
+                          <ul className="overflow-hidden">
+                            {entry.children.map((child) => {
+                              const childActive =
+                                activePath === child.href ||
+                                activePath.startsWith(`${child.href}/`);
+                              return (
+                                <li key={child.href}>
+                                  <Link
+                                    href={child.href}
+                                    onClick={() => {
+                                      select(entry.href);
+                                      onCloseMobile();
+                                    }}
+                                    aria-current={childActive ? "page" : undefined}
+                                    className={cn(
+                                      "type-caption focus-visible:ring-ring relative ml-[1.4rem] flex items-center rounded-md border-l border-border py-1.5 pl-4 transition-colors duration-(--motion-duration) ease-standard focus-visible:ring-2 focus-visible:outline-none",
+                                      childActive
+                                        ? "font-medium text-accent-ink"
+                                        : "text-text-secondary hover:bg-muted hover:text-text-primary",
+                                    )}
+                                  >
+                                    <LinkPending />
+                                    <span className="truncate">{child.label}</span>
+                                  </Link>
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        </div>
+                      ) : null}
+                    </li>
+                  );
+                })}
               </ul>
             </div>
           ))}
