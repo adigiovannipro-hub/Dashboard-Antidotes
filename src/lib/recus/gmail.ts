@@ -243,6 +243,48 @@ export async function listMessages(options: {
   return found.slice(0, limit);
 }
 
+export type GmailMessageMeta = {
+  id: string;
+  threadId: string;
+  subject: string | null;
+  fromEmail: string;
+  fromName: string | null;
+};
+
+/**
+ * Les en-têtes d'un message, sans son corps.
+ *
+ * `format=metadata` évite de télécharger le MIME entier quand on ne veut que
+ * savoir qui écrit et à quel sujet — c'est ce que consomme « Mon travail ».
+ */
+export async function getMessageMeta(
+  accessToken: string,
+  messageId: string,
+): Promise<GmailMessageMeta> {
+  const raw = await call<{
+    id: string;
+    threadId: string;
+    payload?: { headers?: { name: string; value: string }[] };
+  }>(
+    accessToken,
+    `/messages/${messageId}?format=metadata&metadataHeaders=From&metadataHeaders=Subject`,
+  );
+
+  const headers = raw.payload?.headers ?? [];
+  const header = (name: string) =>
+    headers.find((entry) => entry.name.toLowerCase() === name.toLowerCase())
+      ?.value ?? null;
+  const from = parseAddress(header("From"));
+
+  return {
+    id: raw.id,
+    threadId: raw.threadId,
+    subject: header("Subject"),
+    fromEmail: from.email,
+    fromName: from.name,
+  };
+}
+
 type GmailPart = {
   partId?: string;
   mimeType?: string;

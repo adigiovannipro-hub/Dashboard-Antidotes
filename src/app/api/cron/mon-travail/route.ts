@@ -4,6 +4,7 @@ import { timingSafeEqual } from "node:crypto";
 import { getViewer } from "@/lib/auth";
 import { serverEnv } from "@/lib/env";
 import { monthKeyOf, todayInParis } from "@/lib/mon-travail/dates";
+import { purgeEmailTasks, syncEmailTasks } from "@/lib/mon-travail/emails-sync";
 import { purgeFathomTasks, syncFathomTasks } from "@/lib/mon-travail/fathom-sync";
 import {
   planCycleTasks,
@@ -158,6 +159,25 @@ export async function GET(request: Request) {
     } catch (error) {
       errors.push(
         `Fathom, organisation ${org.id} : ${error instanceof Error ? error.message : "erreur"}`,
+      );
+    }
+
+    /* Les mails aussi dans leur propre `try` : la boîte Gmail en panne ne doit
+       emporter ni les récurrences ni Fathom. `?purge=email` sert à effacer les
+       tâches simulées du seed avant le premier vrai passage. */
+    try {
+      const purged =
+        new URL(request.url).searchParams.get("purge") === "email"
+          ? await purgeEmailTasks({ admin, orgId: org.id })
+          : null;
+
+      report[`mails:${org.id}`] = {
+        ...(purged !== null ? { purgees: purged } : {}),
+        ...(await syncEmailTasks({ admin, orgId: org.id, today })),
+      };
+    } catch (error) {
+      errors.push(
+        `Mails, organisation ${org.id} : ${error instanceof Error ? error.message : "erreur"}`,
       );
     }
   }
