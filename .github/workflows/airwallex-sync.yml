@@ -157,3 +157,24 @@ jobs:
           GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
           GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+
+      # Le témoin de vie : un ping healthchecks.io en fin de passage, un ping
+      # /fail sur échec. C'est le renversement qui manquait — jusqu'ici, un
+      # workflow qui ne tournait plus ne prévenait personne ; désormais c'est
+      # le **silence** qui alerte, healthchecks écrivant un email quand aucun
+      # ping n'arrive dans sa fenêtre. Sans le secret `HEARTBEAT_URL`, les deux
+      # étapes ne font rien : le témoin est un bonus, jamais une dépendance.
+      # Marche à suivre : docs/monitoring.md.
+      - name: Témoin de vie
+        if: success()
+        run: |
+          if [ -n "${{ secrets.HEARTBEAT_URL }}" ]; then
+            curl -fsS -m 10 --retry 2 "${{ secrets.HEARTBEAT_URL }}" > /dev/null || true
+          fi
+
+      - name: Témoin de vie (échec)
+        if: failure()
+        run: |
+          if [ -n "${{ secrets.HEARTBEAT_URL }}" ]; then
+            curl -fsS -m 10 --retry 2 "${{ secrets.HEARTBEAT_URL }}/fail" > /dev/null || true
+          fi

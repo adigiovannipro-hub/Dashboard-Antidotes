@@ -862,6 +862,9 @@ export type Database = {
     Views: Record<string, never>;
     Functions: Record<string, never>;
     Enums: {
+      // Socle (0001) — les alias vivent en tête de fichier ; les modules
+      // suivants sont en littéraux inline, valeurs dans l'ordre de leur
+      // migration puis des `alter type ... add value` qui les étendent.
       workspace_type: WorkspaceType;
       org_role: OrgRole;
       workspace_role: WorkspaceRole;
@@ -872,6 +875,181 @@ export type Database = {
       ad_level: AdLevel;
       breakdown_type: BreakdownType;
       social_platform: SocialPlatform;
+      // Modération (0004)
+      moderation_channel:
+        | "instagram"
+        | "facebook"
+        | "whatsapp"
+        | "tiktok"
+        | "linkedin"
+        | "youtube"
+        | "google_reviews";
+      moderation_role: "operator" | "viewer";
+      conversation_kind: "dm" | "comment" | "story_mention" | "review";
+      conversation_status:
+        | "to_process"
+        | "awaiting_validation"
+        | "validated"
+        | "sent"
+        | "ignored"
+        | "snoozed"
+        | "send_failed"
+        | "answered_elsewhere";
+      conversation_priority: "normal" | "high";
+      message_direction: "inbound" | "outbound";
+      message_origin: "platform" | "antidotes" | "auto_send";
+      draft_status:
+        | "proposed"
+        | "validated"
+        | "refused"
+        | "sent"
+        | "expired"
+        | "no_answer_available";
+      ingestion_mode: "webhook" | "polling";
+      connection_status: "pending" | "connected" | "error" | "disabled";
+      webhook_status: "pending" | "processed" | "failed" | "dead";
+      story_mention_status:
+        | "new"
+        | "reshared"
+        | "replied"
+        | "ignored"
+        | "archived";
+      monday_sync_direction: "pull" | "push";
+      // Planning (0006, 0009)
+      planning_board_kind: "editorial" | "faq";
+      planning_platform:
+        | "meta"
+        | "instagram"
+        | "facebook"
+        | "linkedin"
+        | "tiktok"
+        | "youtube"
+        | "x"
+        | "pinterest"
+        | "snapchat"
+        | "other";
+      planning_format:
+        | "post"
+        | "story"
+        | "reel"
+        | "carousel"
+        | "video"
+        | "thread"
+        | "dark"
+        | "other";
+      planning_status:
+        | "idea"
+        | "dropped"
+        | "on_hold"
+        | "in_progress"
+        | "wording_todo"
+        | "to_validate"
+        | "validated"
+        | "draft"
+        | "scheduled"
+        | "published";
+      planning_ad_status: "todo" | "doing" | "done" | "blocked";
+      planning_comment_scope: "general" | "visual" | "wording";
+      planning_column_type:
+        | "status"
+        | "dropdown"
+        | "text"
+        | "date"
+        | "people"
+        | "number"
+        | "checkbox";
+      // Reçus (0010 ; « archived » ajouté par 0025)
+      receipt_provider: "gmail";
+      receipt_source_status: "pending" | "connected" | "error" | "disabled";
+      receipt_kind:
+        | "invoice"
+        | "receipt"
+        | "subscription"
+        | "statement"
+        | "other";
+      receipt_status:
+        | "detected"
+        | "awaiting_validation"
+        | "queued"
+        | "forwarded"
+        | "attached"
+        | "unmatched"
+        | "ignored"
+        | "failed"
+        | "archived";
+      receipt_pdf_origin: "attachment" | "rendered" | "none";
+      receipt_match_method: "exact" | "fuzzy" | "manual" | "none";
+      // Finance (0012 ; « ledger » ajouté par 0021/0023, « billing » par 0025)
+      finance_invoice_status: "draft" | "sent" | "paid" | "void";
+      finance_transaction_source:
+        | "airwallex"
+        | "whatsapp"
+        | "manual"
+        | "ledger";
+      finance_receipt_source: "whatsapp" | "manual" | "email";
+      finance_match_status:
+        | "none"
+        | "auto"
+        | "pending"
+        | "confirmed"
+        | "rejected";
+      finance_sync_kind:
+        | "balances"
+        | "transactions"
+        | "invoices"
+        | "ledger"
+        | "billing";
+      // Mon travail (0014)
+      work_task_source: "manual" | "fathom" | "email" | "recurring";
+      work_task_status: "pending" | "done" | "deleted";
+      // Échéances (0016)
+      billing_engagement_status: "active" | "ended";
+      billing_installment_status: "pending" | "issued" | "paid" | "skipped";
+      // Contexte client (0032)
+      client_asset_type:
+        | "website"
+        | "questionnaire"
+        | "strategy"
+        | "lookbook"
+        | "guidelines"
+        | "benchmark"
+        | "other";
+      client_asset_extraction_status: "pending" | "running" | "done" | "error";
+      planning_wording_status: "pending" | "generated" | "validated";
+      // Production (0032 ; « cancelled » ajouté par 0034)
+      production_phase:
+        | "intentions"
+        | "wording"
+        | "programmation"
+        | "reporting";
+      production_phase_status: "pending" | "in_progress" | "done" | "skipped";
+      generation_job_status:
+        | "pending"
+        | "running"
+        | "done"
+        | "error"
+        | "partial"
+        | "cancelled";
+      // Comptes sociaux (0043 ; cinq réseaux ajoutés par 0049)
+      social_account_kind:
+        | "instagram"
+        | "facebook_page"
+        | "meta_ad_account"
+        | "linkedin"
+        | "tiktok"
+        | "youtube"
+        | "pinterest"
+        | "x"
+        | "threads"
+        | "snapchat";
+      social_account_status: "connected" | "expired" | "error" | "disabled";
+      // Publication automatique du Planning (0046)
+      publish_target: "instagram" | "facebook";
+      publish_run_status: "running" | "success" | "error";
+      // Reporting Site Web (0060)
+      web_breakdown_type: WebBreakdownType;
+      // FAQ (20260830)
+      faq_client_review: "pending" | "approved" | "rejected";
     };
     CompositeTypes: Record<never, never>;
   };
