@@ -538,6 +538,9 @@ export async function fetchConversations(options: {
   /** Borne basse `YYYY-MM-DD` : on s'arrête dès qu'une page est plus ancienne. */
   since: string;
   messageLimit?: number;
+  /** Réduit sur un refus de volume : 50 fils × 25 messages avec pièces
+      jointes est exactement le genre de réponse que Meta refuse d'assembler. */
+  pageSize?: number;
 }): Promise<MetaConversationRow[]> {
   /* `unread_count` : l'état de lecture de la boîte **chez Meta**. C'est lui
      qui aligne l'inbox d'ici sur la Boîte de réception Meta — un fil déjà
@@ -552,7 +555,7 @@ export async function fetchConversations(options: {
     access_token: options.accessToken,
     platform: options.platform,
     fields,
-    limit: "50",
+    limit: String(options.pageSize ?? 50),
   });
 
   for (let page = 0; url && page < MAX_PAGES; page += 1) {

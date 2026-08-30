@@ -398,12 +398,31 @@ async function pullThreads(options: {
     }
 
     try {
-      const conversations = await fetchConversations({
-        pageId,
-        accessToken,
-        platform: channel === "instagram" ? "instagram" : "messenger",
-        since,
-      });
+      /* Le même escalier de volume que partout : 50 fils × 25 messages avec
+         pièces jointes est une réponse que Meta refuse parfois d'assembler —
+         et ce refus, rangé en avertissement, s'affichait comme « canal en
+         erreur » alors que les commentaires passaient. */
+      let conversations = null;
+      const ladders = [
+        {},
+        { pageSize: 20, messageLimit: 10 },
+        { pageSize: 10, messageLimit: 5 },
+      ] as const;
+      for (const [index, step] of ladders.entries()) {
+        try {
+          conversations = await fetchConversations({
+            pageId,
+            accessToken,
+            platform: channel === "instagram" ? "instagram" : "messenger",
+            since,
+            ...step,
+          });
+          break;
+        } catch (error) {
+          if (!isTooMuchData(error) || index === ladders.length - 1) throw error;
+        }
+      }
+      if (!conversations) throw new Error("Listing des conversations vide.");
       const dmThreads = conversationsToThreads({
         conversations,
         channel,
@@ -445,7 +464,10 @@ async function pullThreads(options: {
             failure.includes("does not exist") ||
             failure.includes("Unsupported get request")
               ? "Photos de profil : Meta ne les sert que pour les conversations récentes — les anciens fils gardent leurs initiales."
-              : `Photos de profil refusées par Meta : ${failure}`;
+              : failure.includes("(#3)") ||
+                  failure.includes("does not have the capability")
+                ? "Photos de profil : l'API de profil n'est pas ouverte à l'application sur cette Page (App Review Meta) — les initiales font foi."
+                : `Photos de profil refusées par Meta : ${failure}`;
         }
       }
 
