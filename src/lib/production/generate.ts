@@ -6,6 +6,7 @@ import { getClientContext } from "@/lib/context/get-client-context";
 import { EMPTY_DELIVERABLES, normalizeDeliverables } from "@/lib/context/deliverables";
 import type { ContextDeliverables } from "@/lib/context/types";
 import {
+  DONE_STATUSES,
   EXCLUDED_STATUSES,
   FORMAT_LABELS,
   PLATFORM_LABELS,
@@ -797,6 +798,175 @@ function formatInstruction(format: PlanningFormat): string {
   }
 }
 
+/**
+ * Rédige et écrit le wording d'un sujet — le cœur partagé entre la phase
+ * mensuelle et le bouton d'une seule publication. Un seul chemin d'écriture :
+ * si les deux divergeaient, le même sujet sortirait différent selon le geste.
+ *
+ * Jette en cas d'échec : les deux appelants savent quoi faire d'une erreur,
+ * l'un l'accumule dans son lot, l'autre la rend à l'écran.
+ */
+async function produceWording(
+  supabase: SupabaseAdmin,
+  input: {
+    subject: SubjectRow;
+    platform: PlanningPlatform | undefined;
+    orgId: string;
+    workspaceId: string;
+    intentionColumnId: string | null;
+    context: Awaited<ReturnType<typeof getClientContext>>;
+    hooks: string;
+  },
+): Promise<string> {
+  const { subject } = input;
+  const format = subject.format as PlanningFormat;
+  const isStory = format === "story";
+
+  // Le brief saisi à la main dans la colonne Wording. C'est une consigne de
+  // rédaction, pas un livrable : le texte final le remplace.
+  const brief = (subject.wording ?? "").trim();
+
+  const system = renderPrompt("wording", {
+    client_context: input.context.client_context,
+    client_assets_summaries: input.context.client_assets_summaries,
+    platform_rules: input.context.platform_rules,
+    reseau: platformLabelOf(input.platform),
+    type: formatLabelOf(subject.format),
+    template: subject.name,
+    date: subject.scheduled_on ?? "Non datée",
+    intention: intentionOf(subject, input.intentionColumnId),
+    brief_existant: brief,
+    consigne_format: formatInstruction(format),
+    accroches_historique: input.hooks,
+  });
+
+  const text = await callClaude({
+    system,
+    user: isStory
+      ? "Produis maintenant le contenu de la story, au format de sortie demandé."
+      : "Rédige maintenant la version finale, au format de sortie demandé.",
+    maxTokens: 8000,
+    effort: "medium",
+  });
+  const generated = parseModelJson<GeneratedWording>(text);
+  if (!generated.wording || generated.wording.trim() === "") {
+    throw new Error(isStory ? "Contenu de story vide." : "Wording vide.");
+  }
+
+  // La caption d'abord ; les textes de créa suivent dans la même cellule,
+  // derrière un séparateur — le board n'a pas de colonne dédiée aux créas.
+  // Une story n'a que son contenu : rien à empiler derrière.
+  const sections = [generated.wording.trim()];
+  if (!isStory && generated.contenu_crea) {
+    sections.push(`---\nContenu de la créa : ${generated.contenu_crea}`);
+  }
+  if (!isStory && generated.texte_visuel) {
+    sections.push(`---\nTexte visuel : ${generated.texte_visuel}`);
+  }
+  if (!isStory && generated.slides && generated.slides.length > 0) {
+    const slides = generated.slides
+      .map(
+        (slide, index) =>
+          `Slide ${index + 1} : ${slide.titre ?? ""}${slide.sous_titre ? ` — ${slide.sous_titre}` : ""}${slide.visuel ? ` (visuel : ${slide.visuel})` : ""}`,
+      )
+      .join("\n");
+    sections.push(`---\n${slides}`);
+  }
+
+  const wording = sections.join("\n\n");
+  const { error: updateError } = await supabase
+    .from("planning_subjects")
+    .update({ wording, status: "to_validate" } as never)
+    .eq("id", subject.id);
+  if (updateError) throw new Error(updateError.message);
+
+  // Une story n'a pas d'accroche publiée : l'historiser polluerait la liste
+  // anti-répétition avec des textes qui ne sont jamais des légendes.
+  if (!isStory && generated.accroche && generated.accroche.trim() !== "") {
+    await supabase.from("wording_history").insert({
+      org_id: input.orgId,
+      workspace_id: input.workspaceId,
+      subject_id: subject.id,
+      hook: generated.accroche.trim(),
+      full_wording: generated.wording.trim(),
+      platform: input.platform ?? null,
+      published_at: subject.scheduled_on,
+    } as never);
+  }
+
+  return wording;
+}
+
+export type SubjectWordingResult =
+  | { ok: true; wording: string }
+  | { ok: false; error: string };
+
+/**
+ * Le wording d'une seule publication, depuis le bouton de sa cellule.
+ *
+ * Même chemin que la phase mensuelle — contexte client, historique
+ * d'accroches, colonne Intention — mais sans job : un appel, un verdict.
+ * Une publication déjà partie ne se réécrit jamais ; tout le reste se
+ * régénère, brief compris, c'est le sens du bouton « recréer ».
+ */
+export async function generateWordingForSubject(
+  subjectId: string,
+): Promise<SubjectWordingResult> {
+  const supabase = createAdminClient();
+
+  const { data, error } = await supabase
+    .from("planning_subjects")
+    .select(
+      "id, lane_id, month_id, board_id, workspace_id, name, status, format, scheduled_on, wording, visual_urls, custom",
+    )
+    .eq("id", subjectId)
+    .is("deleted_at", null)
+    .maybeSingle();
+  if (error || !data) return { ok: false, error: "Publication introuvable." };
+
+  const subject = data as unknown as SubjectRow & {
+    board_id: string;
+    workspace_id: string;
+  };
+
+  if ((DONE_STATUSES as string[]).includes(subject.status)) {
+    return {
+      ok: false,
+      error: "Cette publication est déjà partie : son wording ne se réécrit pas.",
+    };
+  }
+
+  const [{ data: lane }, { data: workspace }] = await Promise.all([
+    supabase.from("planning_lanes").select("platform").eq("id", subject.lane_id).maybeSingle(),
+    supabase.from("workspaces").select("org_id").eq("id", subject.workspace_id).maybeSingle(),
+  ]);
+  if (!workspace) return { ok: false, error: "Espace introuvable." };
+
+  try {
+    const [context, hooks, intentionColumnId] = await Promise.all([
+      getClientContext({ workspaceId: subject.workspace_id }),
+      recentHooks(supabase, subject.workspace_id),
+      ensureIntentionColumn(supabase, subject.board_id, subject.workspace_id),
+    ]);
+
+    const wording = await produceWording(supabase, {
+      subject,
+      platform: (lane as { platform?: PlanningPlatform } | null)?.platform,
+      orgId: (workspace as { org_id: string }).org_id,
+      workspaceId: subject.workspace_id,
+      intentionColumnId,
+      context,
+      hooks,
+    });
+    return { ok: true, wording };
+  } catch (caught) {
+    return {
+      ok: false,
+      error: caught instanceof Error ? caught.message : "Génération impossible.",
+    };
+  }
+}
+
 async function runWording(
   supabase: SupabaseAdmin,
   job: GenerationJob,
@@ -852,80 +1022,15 @@ async function runWording(
   const failedIds: string[] = [];
 
   const processSubject = async (subject: SubjectRow): Promise<void> => {
-    const platform = lanePlatforms.get(subject.lane_id);
-    const format = subject.format as PlanningFormat;
-    const isStory = format === "story";
-
-    // Le brief saisi à la main dans la colonne Wording. C'est une consigne de
-    // rédaction, pas un livrable : le texte final le remplace.
-    const brief = (subject.wording ?? "").trim();
-
-    const system = renderPrompt("wording", {
-      client_context: context.client_context,
-      client_assets_summaries: context.client_assets_summaries,
-      platform_rules: context.platform_rules,
-      reseau: platformLabelOf(platform),
-      type: formatLabelOf(subject.format),
-      template: subject.name,
-      date: subject.scheduled_on ?? "Non datée",
-      intention: intentionOf(subject, intentionColumnId),
-      brief_existant: brief,
-      consigne_format: formatInstruction(format),
-      accroches_historique: hooks,
+    await produceWording(supabase, {
+      subject,
+      platform: lanePlatforms.get(subject.lane_id),
+      orgId: job.org_id,
+      workspaceId: job.workspace_id,
+      intentionColumnId,
+      context,
+      hooks,
     });
-
-    const text = await callClaude({
-      system,
-      user: isStory
-        ? "Produis maintenant le contenu de la story, au format de sortie demandé."
-        : "Rédige maintenant la version finale, au format de sortie demandé.",
-      maxTokens: 8000,
-      effort: "medium",
-    });
-    const generated = parseModelJson<GeneratedWording>(text);
-    if (!generated.wording || generated.wording.trim() === "") {
-      throw new Error(isStory ? "Contenu de story vide." : "Wording vide.");
-    }
-
-    // La caption d'abord ; les textes de créa suivent dans la même cellule,
-    // derrière un séparateur — le board n'a pas de colonne dédiée aux créas.
-    // Une story n'a que son contenu : rien à empiler derrière.
-    const sections = [generated.wording.trim()];
-    if (!isStory && generated.contenu_crea) {
-      sections.push(`---\nContenu de la créa : ${generated.contenu_crea}`);
-    }
-    if (!isStory && generated.texte_visuel) {
-      sections.push(`---\nTexte visuel : ${generated.texte_visuel}`);
-    }
-    if (!isStory && generated.slides && generated.slides.length > 0) {
-      const slides = generated.slides
-        .map(
-          (slide, index) =>
-            `Slide ${index + 1} : ${slide.titre ?? ""}${slide.sous_titre ? ` — ${slide.sous_titre}` : ""}${slide.visuel ? ` (visuel : ${slide.visuel})` : ""}`,
-        )
-        .join("\n");
-      sections.push(`---\n${slides}`);
-    }
-
-    const { error: updateError } = await supabase
-      .from("planning_subjects")
-      .update({ wording: sections.join("\n\n"), status: "to_validate" } as never)
-      .eq("id", subject.id);
-    if (updateError) throw new Error(updateError.message);
-
-    // Une story n'a pas d'accroche publiée : l'historiser polluerait la liste
-    // anti-répétition avec des textes qui ne sont jamais des légendes.
-    if (!isStory && generated.accroche && generated.accroche.trim() !== "") {
-      await supabase.from("wording_history").insert({
-        org_id: job.org_id,
-        workspace_id: job.workspace_id,
-        subject_id: subject.id,
-        hook: generated.accroche.trim(),
-        full_wording: generated.wording.trim(),
-        platform: platform ?? null,
-        published_at: subject.scheduled_on,
-      } as never);
-    }
   };
 
   for (let index = 0; index < missing.length; index += WORDING_BATCH_SIZE) {

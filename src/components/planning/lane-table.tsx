@@ -54,6 +54,7 @@ export function LaneTable({
   onResizePreview,
   defaultOpen,
   onOpenChange,
+  canGenerateWording,
 }: {
   scope: Scope;
   lane: LaneWithSubjects;
@@ -71,6 +72,8 @@ export function LaneTable({
   /** Ouvert sauf si le cookie dit le contraire. */
   defaultOpen: boolean;
   onOpenChange: (open: boolean) => void;
+  /** Le stylo de génération, réservé à l'agence. */
+  canGenerateWording: boolean;
 }) {
   const [open, setOpen] = useState(defaultOpen);
   const [dropTarget, setDropTarget] = useState<{
@@ -250,6 +253,7 @@ export function LaneTable({
                 gridTemplate={template}
                 owners={owners}
                 selected={selectedIds.has(subject.id)}
+                canGenerateWording={canGenerateWording}
                 bulkTargets={
                   selectedIds.has(subject.id) ? [...selectedIds] : null
                 }

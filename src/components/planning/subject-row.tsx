@@ -96,6 +96,7 @@ export function SubjectRowView({
   onRowDragOver,
   onRowDragLeave,
   onRowDrop,
+  canGenerateWording,
 }: {
   scope: Scope;
   row: Row;
@@ -104,6 +105,8 @@ export function SubjectRowView({
   owners: PlanningOwner[];
   selected: boolean;
   bulkTargets: string[] | null;
+  /** Le stylo de la cellule Wording, réservé à l'agence. */
+  canGenerateWording: boolean;
   onToggleSelect: (subjectId: string) => void;
   onOpen: (subjectId: string, focusRetours?: boolean) => void;
   /** Ouvre l'éditeur d'étiquettes de la colonne cliquée. */
@@ -222,6 +225,7 @@ export function SubjectRowView({
           onOpenRetours={() => onOpen(row.id, true)}
           onOpenSubject={() => onOpen(row.id)}
           onEditLabels={() => onEditLabels(column)}
+          canGenerateWording={canGenerateWording}
         />
       ))}
 
@@ -242,6 +246,7 @@ function Cell({
   onOpenRetours,
   onOpenSubject,
   onEditLabels,
+  canGenerateWording,
 }: {
   scope: Scope;
   column: ColumnDef;
@@ -253,6 +258,7 @@ function Cell({
   onOpenRetours: () => void;
   onOpenSubject: () => void;
   onEditLabels: () => void;
+  canGenerateWording: boolean;
 }) {
   const stop = (node: React.ReactNode) => (
     <span
@@ -335,6 +341,7 @@ function Cell({
           value={row.wording}
           subjectName={row.name}
           onCommit={(next) => edit("wording", next)}
+          generateSubjectId={canGenerateWording ? row.id : undefined}
         />,
       );
 

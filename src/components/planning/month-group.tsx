@@ -8,6 +8,7 @@ import { FeedPreviewButton } from "@/components/planning/feed-preview";
 import { PlatformIcon } from "@/components/planning/platform-icon";
 import { TextCell, useCellAction } from "@/components/planning/cells";
 import { LaneTable, type DateSort } from "@/components/planning/lane-table";
+import { MonthWordingMenu } from "@/components/planning/wording-generation";
 import type { Scope } from "@/components/planning/subject-row";
 import {
   DropdownMenu,
@@ -49,6 +50,8 @@ export function MonthGroup({
   closedLanes,
   onLaneOpenChange,
   forceOpen,
+  isOwner,
+  workspaceId,
 }: {
   scope: Scope;
   month: MonthWithLanes;
@@ -72,6 +75,9 @@ export function MonthGroup({
   onLaneOpenChange: (laneId: string, open: boolean) => void;
   /** Une recherche en cours déplie tout : un résultat caché n'existe pas. */
   forceOpen?: boolean;
+  /** La génération de wording est un outil d'agence : rien n'en est rendu au client. */
+  isOwner: boolean;
+  workspaceId: string;
 }) {
   const [open, setOpen] = useState(defaultOpen);
   const { run, pending } = useCellAction();
@@ -110,7 +116,7 @@ export function MonthGroup({
     >
       <header
         className={cn(
-          "flex items-center gap-2.5 px-3 transition-colors",
+          "group/mois flex items-center gap-2.5 px-3 transition-colors",
           // Un mois ouvert prend de la hauteur ; replié, il reste un rang.
           effectiveOpen ? "bg-surface-sunken py-3" : "py-2 hover:bg-surface-sunken/60",
         )}
@@ -199,6 +205,13 @@ export function MonthGroup({
         )}
 
         <div className="ml-auto flex items-center gap-1">
+          {isOwner ? (
+            <MonthWordingMenu
+              workspaceId={workspaceId}
+              targetMonth={month.month}
+              monthLabel={month.label}
+            />
+          ) : null}
           <FeedPreviewButton onClick={onPreviewFeed} />
 
           <DropdownMenu>
@@ -270,6 +283,7 @@ export function MonthGroup({
                 onResizePreview={onResizePreview}
                 defaultOpen={!closedLanes.includes(lane.id)}
                 onOpenChange={(next) => onLaneOpenChange(lane.id, next)}
+                canGenerateWording={isOwner}
               />
             ))
           )}

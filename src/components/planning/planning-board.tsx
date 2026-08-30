@@ -439,6 +439,8 @@ export function PlanningBoardView({
               key={month.id}
               scope={scope}
               month={month}
+              isOwner={isOwner}
+              workspaceId={board.workspace_id}
               columns={effectiveColumns}
               owners={owners}
               sort={sort}

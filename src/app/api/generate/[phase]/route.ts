@@ -27,6 +27,13 @@ const BodySchema = z.object({
   target_month: z
     .string()
     .regex(/^\d{4}-\d{2}-01$/, "Premier jour du mois attendu."),
+  /**
+   * `recreer` — phase wording seulement — repasse en « wording à faire » les
+   * sujets **à valider** du mois : la phase les réécrit alors tous, leur texte
+   * courant servant de brief. Les validés, programmés et publiés ne bougent
+   * jamais — un contenu approuvé par le client ne se régénère pas en masse.
+   */
+  mode: z.enum(["completer", "recreer"]).default("completer"),
 });
 
 /** Un job silencieux depuis dix minutes est considéré mort, pas actif. */
@@ -113,6 +120,39 @@ export async function POST(
         finished_at: new Date().toISOString(),
       } as never)
       .eq("id", active.id);
+  }
+
+  if (phase === "wording" && parsed.data.mode === "recreer") {
+    const { data: board } = await supabase
+      .from("planning_boards")
+      .select("id")
+      .eq("workspace_id", workspace.id)
+      .eq("kind", "editorial")
+      .order("position")
+      .limit(1)
+      .maybeSingle();
+    const { data: months } = board
+      ? await supabase
+          .from("planning_months")
+          .select("id")
+          .eq("board_id", board.id)
+          .eq("month", parsed.data.target_month)
+          .is("deleted_at", null)
+      : { data: [] };
+    const monthIds = (months ?? []).map((month) => month.id);
+    if (monthIds.length > 0) {
+      const { error: resetError } = await supabase
+        .from("planning_subjects")
+        .update({ status: "wording_todo" } as never)
+        .in("month_id", monthIds)
+        .eq("status", "to_validate");
+      if (resetError) {
+        return NextResponse.json(
+          { ok: false, error: "Impossible de repasser les sujets en rédaction." },
+          { status: 500 },
+        );
+      }
+    }
   }
 
   const { data: created, error: createError } = await supabase
