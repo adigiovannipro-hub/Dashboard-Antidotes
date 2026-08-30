@@ -110,7 +110,7 @@ export function WorkspaceMenu({
           </DropdownMenuItem>
           <DropdownMenuItem onClick={() => setDialogue("duplicate")}>
             <Copy className="size-3.5" aria-hidden />
-            Ouvrir un client à partir de celui-ci
+            Dupliquer
           </DropdownMenuItem>
           <DropdownMenuItem
             onClick={() => {
