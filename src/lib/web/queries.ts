@@ -52,8 +52,9 @@ function monthBack(day: string, back: number): string {
 export async function getWebData(options: {
   workspaceId: string;
   range: DateRange;
+  reader?: Awaited<ReturnType<typeof createClient>>;
 }): Promise<WebData> {
-  const supabase = await createClient();
+  const supabase = options.reader ?? (await createClient());
   const { range } = options;
   const previous = sameRangeLastYear(range);
 

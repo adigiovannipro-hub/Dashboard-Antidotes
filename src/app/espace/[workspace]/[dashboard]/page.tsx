@@ -10,6 +10,7 @@ import { MonthlyReport } from "@/components/production/monthly-report";
 import { OrganicDashboard } from "@/components/viz/organic-dashboard";
 import { RangePicker } from "@/components/viz/range-picker";
 import { ReportingTabs } from "@/components/viz/reporting-tabs";
+import { ShareButton } from "@/components/viz/share-button";
 import { SyncButton } from "@/components/viz/sync-button";
 import { getWorkspace } from "@/lib/auth";
 import { getActiveContext } from "@/lib/context/queries";
@@ -228,6 +229,15 @@ export default async function DashboardPage({
                     ? sameRangeLastYear(range).from
                     : previousRange(range).from
                 }
+              />
+            ) : null}
+            {/* Le lien public du rapport affiché — période figée au partage. */}
+            {isOwner ? (
+              <ShareButton
+                workspaceSlug={workspace.slug}
+                dashboardSlug={dashboard.slug}
+                du={range.from}
+                au={range.to}
               />
             ) : null}
             <RangePicker

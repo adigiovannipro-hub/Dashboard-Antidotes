@@ -580,3 +580,27 @@
     }
   }
 }
+
+/* --- Impression : le rapport partagé se sauve en PDF propre ---------------- */
+/* Le bouton PDF appelle l'impression du navigateur ; ces règles font le reste :
+   la navigation disparaît, les cartes se posent à plat, rien ne se coupe en
+   plein graphique. */
+@media print {
+  .print-cacher {
+    display: none !important;
+  }
+  body {
+    background: #ffffff;
+  }
+  .page-partage {
+    max-width: none;
+    padding: 0;
+  }
+  .page-partage [class*="shadow"] {
+    box-shadow: none !important;
+  }
+  .page-partage section,
+  .page-partage table {
+    break-inside: avoid;
+  }
+}

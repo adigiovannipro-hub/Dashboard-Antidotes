@@ -50,8 +50,10 @@ export type AdsData = {
 export async function getAdsData(options: {
   workspaceId: string;
   range: DateRange;
+  /** Lecteur imposé — la page de partage public passe l'admin, le token faisant office de droit. */
+  reader?: Awaited<ReturnType<typeof createClient>>;
 }): Promise<AdsData> {
-  const supabase = await createClient();
+  const supabase = options.reader ?? (await createClient());
   const previous = previousRange(options.range);
 
   const [entitiesQuery, metricsQuery, breakdownsQuery, followersQuery, customQuery] =
@@ -190,8 +192,9 @@ export async function getOrganicData(options: {
   // Looker) vivent déjà en base : l'onglet lit ce qui existe.
   platform: "instagram" | "facebook" | "tiktok";
   range: DateRange;
+  reader?: Awaited<ReturnType<typeof createClient>>;
 }): Promise<OrganicData> {
-  const supabase = await createClient();
+  const supabase = options.reader ?? (await createClient());
   const previous = previousRange(options.range);
 
   const [postsQuery, followersQuery] = await Promise.all([
