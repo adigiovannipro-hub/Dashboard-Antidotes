@@ -407,6 +407,7 @@ async function pullThreads(options: {
         {},
         { pageSize: 20, messageLimit: 10 },
         { pageSize: 10, messageLimit: 5 },
+        { pageSize: 10, messageLimit: 5, withAttachments: false },
       ] as const;
       for (const [index, step] of ladders.entries()) {
         try {
@@ -456,18 +457,20 @@ async function pullThreads(options: {
         }
         if (failure) {
           /* Constaté en production : Meta ne sert le profil (photo comprise)
-             que pour les contacts d'une conversation **récente** — sur un fil
-             ancien, l'API répond « does not exist / missing permissions ».
-             Ce cas-là est structurel et se dit calmement ; tout autre refus
-             remonte brut, c'est lui qu'on voudra lire. */
-          avatarWarning =
+             que pour les contacts d'une conversation **récente** — refus
+             « does not exist / missing permissions » sur les anciens fils —
+             et le refuse en bloc (#3) sans App Review. Ces deux limites sont
+             **structurelles** : les initiales font foi, et un état permanent
+             de « canal en erreur » pour ça masquerait les vraies pannes. On
+             ne remonte donc que les refus inattendus. */
+          const structural =
             failure.includes("does not exist") ||
-            failure.includes("Unsupported get request")
-              ? "Photos de profil : Meta ne les sert que pour les conversations récentes — les anciens fils gardent leurs initiales."
-              : failure.includes("(#3)") ||
-                  failure.includes("does not have the capability")
-                ? "Photos de profil : l'API de profil n'est pas ouverte à l'application sur cette Page (App Review Meta) — les initiales font foi."
-                : `Photos de profil refusées par Meta : ${failure}`;
+            failure.includes("Unsupported get request") ||
+            failure.includes("(#3)") ||
+            failure.includes("does not have the capability");
+          avatarWarning = structural
+            ? null
+            : `Photos de profil refusées par Meta : ${failure}`;
         }
       }
 

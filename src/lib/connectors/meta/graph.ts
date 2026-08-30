@@ -541,6 +541,9 @@ export async function fetchConversations(options: {
   /** Réduit sur un refus de volume : 50 fils × 25 messages avec pièces
       jointes est exactement le genre de réponse que Meta refuse d'assembler. */
   pageSize?: number;
+  /** Dernier palier du même refus : l'expansion des pièces jointes est le
+      champ gras — la lâcher garde le texte des messages, pas leurs médias. */
+  withAttachments?: boolean;
 }): Promise<MetaConversationRow[]> {
   /* `unread_count` : l'état de lecture de la boîte **chez Meta**. C'est lui
      qui aligne l'inbox d'ici sur la Boîte de réception Meta — un fil déjà
@@ -548,7 +551,9 @@ export async function fetchConversations(options: {
   const fields =
     "id,updated_time,unread_count,participants,messages.limit(" +
     String(options.messageLimit ?? 25) +
-    "){id,message,created_time,from,to,attachments{mime_type,name,image_data{url,preview_url},video_data{url,preview_url},file_url}}";
+    ((options.withAttachments ?? true)
+      ? "){id,message,created_time,from,to,attachments{mime_type,name,image_data{url,preview_url},video_data{url,preview_url},file_url}}"
+      : "){id,message,created_time,from,to}");
 
   const rows: MetaConversationRow[] = [];
   let url: string | undefined = buildUrl(`/${options.pageId}/conversations`, {
