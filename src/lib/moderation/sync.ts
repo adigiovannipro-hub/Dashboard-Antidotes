@@ -436,7 +436,16 @@ async function pullThreads(options: {
             profiles.get(thread.participantExternalId) ?? null;
         }
         if (failure) {
-          avatarWarning = `Photos de profil refusées par Meta : ${failure}`;
+          /* Constaté en production : Meta ne sert le profil (photo comprise)
+             que pour les contacts d'une conversation **récente** — sur un fil
+             ancien, l'API répond « does not exist / missing permissions ».
+             Ce cas-là est structurel et se dit calmement ; tout autre refus
+             remonte brut, c'est lui qu'on voudra lire. */
+          avatarWarning =
+            failure.includes("does not exist") ||
+            failure.includes("Unsupported get request")
+              ? "Photos de profil : Meta ne les sert que pour les conversations récentes — les anciens fils gardent leurs initiales."
+              : `Photos de profil refusées par Meta : ${failure}`;
         }
       }
 
@@ -453,19 +462,31 @@ async function pullThreads(options: {
     /* Le listing des médias, en repli de fenêtre sur le refus de volume de
        Meta — et sur lui seul : redemander plus petit devant un jeton expiré
        multiplierait les appels pour le même refus. */
+    /* La fenêtre seule ne suffit pas : elle ne réduit pas la **première
+       page** — 50 médias aux captions longues débordent quel que soit le
+       `since`, et Bondet est resté en erreur trois paliers de suite. Les
+       derniers échelons réduisent donc la page à 10, puis lâchent la caption
+       (le champ gras — l'extrait de publication vaut moins qu'un canal mort). */
+    const ladders = [
+      ...[POSTS_WINDOW_DAYS, ...FALLBACK_WINDOW_DAYS].map((days) => ({ days })),
+      { days: FALLBACK_WINDOW_DAYS.at(-1)!, pageSize: 10 },
+      { days: FALLBACK_WINDOW_DAYS.at(-1)!, pageSize: 10, withCaption: false },
+    ];
     let media = null;
-    for (const windowDays of [POSTS_WINDOW_DAYS, ...FALLBACK_WINDOW_DAYS]) {
+    for (const [index, step] of ladders.entries()) {
       const windowSince = new Date();
-      windowSince.setUTCDate(windowSince.getUTCDate() - windowDays);
+      windowSince.setUTCDate(windowSince.getUTCDate() - step.days);
       try {
         media = await fetchInstagramMediaLite({
           igUserId: account.external_id,
           accessToken,
           since: windowSince.toISOString().slice(0, 10),
+          ...("pageSize" in step ? { pageSize: step.pageSize } : {}),
+          ...("withCaption" in step ? { withCaption: step.withCaption } : {}),
         });
         break;
       } catch (error) {
-        if (!isTooMuchData(error) || windowDays === FALLBACK_WINDOW_DAYS.at(-1)) {
+        if (!isTooMuchData(error) || index === ladders.length - 1) {
           throw error;
         }
       }

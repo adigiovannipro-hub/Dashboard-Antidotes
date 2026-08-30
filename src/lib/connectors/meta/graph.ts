@@ -383,13 +383,20 @@ export async function fetchInstagramMediaLite(options: {
   accessToken: string;
   /** Borne basse `YYYY-MM-DD`. */
   since: string;
+  /** Réduits sur un refus de volume : la fenêtre ne change rien à la taille
+      de la **première page**, c'est elle qui déborde — 50 médias avec leurs
+      captions suffisent. Le dernier palier lâche la caption, le champ gras. */
+  pageSize?: number;
+  withCaption?: boolean;
 }): Promise<MetaIgMediaLite[]> {
   const rows: MetaIgMediaLite[] = [];
   let url: string | undefined = buildUrl(`/${options.igUserId}/media`, {
     access_token: options.accessToken,
     fields:
-      "id,caption,permalink,media_type,media_product_type,media_url,thumbnail_url,timestamp,comments_count",
-    limit: "50",
+      (options.withCaption ?? true)
+        ? "id,caption,permalink,media_type,media_product_type,media_url,thumbnail_url,timestamp,comments_count"
+        : "id,permalink,media_type,media_product_type,thumbnail_url,timestamp,comments_count",
+    limit: String(options.pageSize ?? 50),
   });
 
   for (let page = 0; url && page < MAX_PAGES; page += 1) {
