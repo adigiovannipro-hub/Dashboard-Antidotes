@@ -580,6 +580,61 @@ export async function fetchConversations(options: {
 }
 
 /**
+ * Le dernier recours de la boîte : les fils **sans** leurs messages.
+ *
+ * Même schéma que médias → commentaires : quand l'expansion `messages{...}`
+ * déborde quel que soit le palier — vécu sur la boîte Instagram de Bondet —
+ * on liste des en-têtes minuscules, puis chaque fil va chercher ses messages
+ * séparément. Plus d'appels, mais chacun de taille bornée.
+ */
+export async function fetchConversationHeaders(options: {
+  pageId: string;
+  accessToken: string;
+  platform: "messenger" | "instagram";
+  since: string;
+}): Promise<MetaConversationRow[]> {
+  const rows: MetaConversationRow[] = [];
+  let url: string | undefined = buildUrl(`/${options.pageId}/conversations`, {
+    access_token: options.accessToken,
+    platform: options.platform,
+    fields: "id,updated_time,unread_count,participants",
+    limit: "50",
+  });
+
+  for (let page = 0; url && page < MAX_PAGES; page += 1) {
+    const payload: PagedPayload<MetaConversationRow> =
+      await fetchGraph<PagedPayload<MetaConversationRow>>(url);
+    const items = payload.data ?? [];
+    rows.push(...items);
+    const oldest = items.at(-1)?.updated_time;
+    if (oldest && oldest.slice(0, 10) < options.since) break;
+    url = payload.paging?.next;
+  }
+
+  return rows;
+}
+
+/** Les messages d'un seul fil — le pendant du listing d'en-têtes. */
+export async function fetchConversationMessages(options: {
+  conversationId: string;
+  accessToken: string;
+  limit?: number;
+  withAttachments?: boolean;
+}): Promise<{ data?: unknown[] }> {
+  const payload = await fetchGraph<{ data?: unknown[] }>(
+    buildUrl(`/${options.conversationId}/messages`, {
+      access_token: options.accessToken,
+      fields:
+        (options.withAttachments ?? true)
+          ? "id,message,created_time,from,to,attachments{mime_type,name,image_data{url,preview_url},video_data{url,preview_url},file_url}"
+          : "id,message,created_time,from,to",
+      limit: String(options.limit ?? 10),
+    }),
+  );
+  return payload;
+}
+
+/**
  * Répond dans une conversation privée.
  *
  * `recipient.id` et non l'identifiant de conversation : l'API de messagerie

@@ -10,6 +10,8 @@ import { explainMetaError } from "@/lib/connectors/meta/errors";
 import { explainYouTubeError } from "@/lib/connectors/youtube/errors";
 import {
   fetchCommentAuthors,
+  fetchConversationHeaders,
+  fetchConversationMessages,
   fetchConversations,
   fetchInstagramComments,
   fetchInstagramMediaLite,
@@ -17,7 +19,10 @@ import {
   fetchPageComments,
   fetchPagePostsLite,
 } from "@/lib/connectors/meta/graph";
-import { conversationsToThreads } from "@/lib/connectors/meta/messages";
+import {
+  conversationsToThreads,
+  type MetaConversationRow,
+} from "@/lib/connectors/meta/messages";
 import {
   fetchChannelCommentThreads,
   fetchVideos,
@@ -406,10 +411,9 @@ async function pullThreads(options: {
       const ladders = [
         {},
         { pageSize: 20, messageLimit: 10 },
-        { pageSize: 10, messageLimit: 5 },
         { pageSize: 10, messageLimit: 5, withAttachments: false },
       ] as const;
-      for (const [index, step] of ladders.entries()) {
+      for (const step of ladders) {
         try {
           conversations = await fetchConversations({
             pageId,
@@ -420,10 +424,50 @@ async function pullThreads(options: {
           });
           break;
         } catch (error) {
-          if (!isTooMuchData(error) || index === ladders.length - 1) throw error;
+          if (!isTooMuchData(error)) throw error;
         }
       }
-      if (!conversations) throw new Error("Listing des conversations vide.");
+      if (!conversations) {
+        /* Dernier recours, vécu sur la boîte Instagram de Bondet : même 10
+           fils × 5 messages sans pièces jointes débordent. On passe alors au
+           schéma des commentaires — en-têtes minuscules, puis les messages
+           fil par fil, chaque appel de taille bornée. Un fil qui refuse
+           encore part sans ses messages plutôt que d'emporter la boîte. */
+        const headers = await fetchConversationHeaders({
+          pageId,
+          accessToken,
+          platform: channel === "instagram" ? "instagram" : "messenger",
+          since,
+        });
+        const recent = headers
+          .filter(
+            (header) =>
+              !header.updated_time || header.updated_time.slice(0, 10) >= since,
+          )
+          .slice(0, 30);
+        conversations = [];
+        for (const header of recent) {
+          let messages: { data?: unknown[] } = {};
+          try {
+            messages = await fetchConversationMessages({
+              conversationId: header.id,
+              accessToken,
+            });
+          } catch (error) {
+            if (!isTooMuchData(error)) throw error;
+            messages = await fetchConversationMessages({
+              conversationId: header.id,
+              accessToken,
+              limit: 3,
+              withAttachments: false,
+            }).catch(() => ({}));
+          }
+          conversations.push({
+            ...header,
+            messages: messages as MetaConversationRow["messages"],
+          });
+        }
+      }
       const dmThreads = conversationsToThreads({
         conversations,
         channel,
