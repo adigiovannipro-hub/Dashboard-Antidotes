@@ -19,6 +19,7 @@
     "db:status": "tsx scripts/migrate.ts --status",
     "sync": "tsx scripts/sync.ts",
     "import:monday": "tsx scripts/import-monday.ts",
+    "import:faq-moderation": "tsx scripts/import-faq-moderation.ts",
     "import:billing-monday": "tsx scripts/import-billing-monday.ts",
     "diagnostic:billing": "tsx scripts/diagnostic-billing.ts",
     "diagnostic:schema": "tsx scripts/diagnostic-schema.ts",

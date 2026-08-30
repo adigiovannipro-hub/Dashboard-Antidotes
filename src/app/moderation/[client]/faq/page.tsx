@@ -87,6 +87,7 @@ export default async function FaqPage({
       </Panel>
 
       <FaqTable
+        clientId={client.id}
         entries={entries}
         categories={(categories ?? []) as { id: string; name: string }[]}
         highlightId={entree ?? null}

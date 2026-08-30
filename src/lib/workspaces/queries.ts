@@ -4,6 +4,7 @@ import { createAdminClient, createClient } from "@/lib/supabase/server";
 import type { WorkspaceRole } from "@/lib/supabase/database.types";
 
 import {
+  FAQ_MODERATION_PAGE_KEY,
   PLANNING_PAGE_KEY,
   type WorkspacePage,
   type WorkspacePageGrant,
@@ -38,14 +39,20 @@ function isPlanningLike(name: string): boolean {
 export async function listWorkspacePages(workspaceId: string): Promise<WorkspacePage[]> {
   const supabase = await createClient();
 
-  const [{ data: boards }, { data: dashboards }] = await Promise.all([
-    supabase.from("planning_boards").select("id").eq("workspace_id", workspaceId).limit(1),
-    supabase
-      .from("dashboards")
-      .select("slug, name")
-      .eq("workspace_id", workspaceId)
-      .order("position"),
-  ]);
+  const [{ data: boards }, { data: dashboards }, { data: moderationClients }] =
+    await Promise.all([
+      supabase.from("planning_boards").select("id").eq("workspace_id", workspaceId).limit(1),
+      supabase
+        .from("dashboards")
+        .select("slug, name")
+        .eq("workspace_id", workspaceId)
+        .order("position"),
+      supabase
+        .from("moderation_clients")
+        .select("id")
+        .eq("workspace_id", workspaceId)
+        .limit(1),
+    ]);
 
   const pages: WorkspacePage[] = [];
 
@@ -58,6 +65,11 @@ export async function listWorkspacePages(workspaceId: string): Promise<Workspace
   for (const dashboard of dashboards ?? []) {
     if (isPlanningLike(dashboard.name)) continue;
     pages.push({ key: dashboard.slug, name: dashboard.name });
+  }
+
+  // Les éléments de langage : la seule fenêtre du client sur la Modération.
+  if ((moderationClients ?? []).length > 0) {
+    pages.push({ key: FAQ_MODERATION_PAGE_KEY, name: "FAQ Modération" });
   }
 
   return pages;
@@ -77,15 +89,20 @@ export async function listPagesByWorkspace(
   if (workspaceIds.length === 0) return pages;
 
   const supabase = await createClient();
-  const [{ data: boards }, { data: dashboards }] = await Promise.all([
-    supabase.from("planning_boards").select("workspace_id").in("workspace_id", workspaceIds),
-    supabase
-      .from("dashboards")
-      .select("workspace_id, slug, name")
-      .in("workspace_id", workspaceIds)
-      .order("position")
-      .limit(500),
-  ]);
+  const [{ data: boards }, { data: dashboards }, { data: moderationClients }] =
+    await Promise.all([
+      supabase.from("planning_boards").select("workspace_id").in("workspace_id", workspaceIds),
+      supabase
+        .from("dashboards")
+        .select("workspace_id, slug, name")
+        .in("workspace_id", workspaceIds)
+        .order("position")
+        .limit(500),
+      supabase
+        .from("moderation_clients")
+        .select("workspace_id")
+        .in("workspace_id", workspaceIds),
+    ]);
 
   const withBoard = new Set(
     ((boards ?? []) as unknown as { workspace_id: string }[]).map((row) => row.workspace_id),
@@ -101,6 +118,15 @@ export async function listPagesByWorkspace(
   }[]) {
     if (isPlanningLike(dashboard.name)) continue;
     pages.get(dashboard.workspace_id)?.push({ key: dashboard.slug, name: dashboard.name });
+  }
+
+  for (const client of (moderationClients ?? []) as unknown as {
+    workspace_id: string | null;
+  }[]) {
+    if (!client.workspace_id) continue;
+    pages
+      .get(client.workspace_id)
+      ?.push({ key: FAQ_MODERATION_PAGE_KEY, name: "FAQ Modération" });
   }
 
   return pages;

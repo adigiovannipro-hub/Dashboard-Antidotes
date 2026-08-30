@@ -331,13 +331,31 @@ export type Draft = {
   created_at: string;
 };
 
+/**
+ * Le verdict du client sur un élément de langage — posé depuis son espace,
+ * par action serveur uniquement. `null` : jamais soumis à validation.
+ */
+export type FaqClientReview = "pending" | "approved" | "rejected";
+
+export const FAQ_CLIENT_REVIEW_LABELS: Record<FaqClientReview, string> = {
+  pending: "À valider",
+  approved: "Validé",
+  rejected: "Refusé",
+};
+
 export type FaqEntry = {
   id: string;
   client_id: string;
+  /** Le titre court du board Monday (« BON CADEAU REPORT ») — l'ancre de lecture. */
+  title: string | null;
   question_canonical: string;
   variants: string[];
   answer_fr: string | null;
   answer_en: string | null;
+  /** La version courte pour TikTok, quand le board en portait une. */
+  answer_tiktok: string | null;
+  client_review: FaqClientReview | null;
+  client_reviewed_at: string | null;
   category_id: string | null;
   channels: ModerationChannel[];
   priority: number;

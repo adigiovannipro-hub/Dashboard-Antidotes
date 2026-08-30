@@ -732,3 +732,206 @@ export async function sendManualReply(input: {
     return { ok: false, error: (error as Error).message };
   }
 }
+
+// --- FAQ : édition et validation client --------------------------------------
+
+const faqEntryInput = z.object({
+  clientId: z.uuid(),
+  entryId: z.uuid().nullable(),
+  title: z.string().trim().min(1, "Le titre est obligatoire.").max(200),
+  categoryName: z.string().trim().max(80),
+  question: z.string().trim().min(1, "La question est obligatoire."),
+  answerFr: z.string().trim().max(6000),
+  answerTiktok: z.string().trim().max(6000),
+  active: z.boolean(),
+});
+
+/**
+ * Crée ou met à jour une entrée FAQ depuis l'écran.
+ *
+ * La catégorie se crée au passage si elle n'existe pas — le vocabulaire du
+ * client s'étend depuis la cellule, comme les étiquettes du planning. Une
+ * question modifiée perd son vecteur : le relevé horaire la réindexe, et
+ * d'ici là elle est simplement invisible de la recherche sémantique.
+ */
+export async function saveFaqEntry(input: {
+  clientId: string;
+  entryId: string | null;
+  title: string;
+  categoryName: string;
+  question: string;
+  answerFr: string;
+  answerTiktok: string;
+  active: boolean;
+}): Promise<ModerationResult> {
+  const parsed = faqEntryInput.safeParse(input);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "Formulaire invalide.",
+    };
+  }
+
+  try {
+    const { viewer } = await requireOperator(parsed.data.clientId);
+    const supabase = await createClient();
+
+    let categoryId: string | null = null;
+    if (parsed.data.categoryName !== "") {
+      const { data: existingCategory } = await supabase
+        .from("faq_categories")
+        .select("id")
+        .eq("client_id", parsed.data.clientId)
+        .eq("name", parsed.data.categoryName)
+        .maybeSingle();
+      if (existingCategory) {
+        categoryId = (existingCategory as { id: string }).id;
+      } else {
+        const { data: createdCategory, error: categoryError } = await supabase
+          .from("faq_categories")
+          .insert({
+            client_id: parsed.data.clientId,
+            name: parsed.data.categoryName,
+          } as never)
+          .select("id")
+          .single();
+        if (categoryError) return { ok: false, error: categoryError.message };
+        categoryId = (createdCategory as { id: string }).id;
+      }
+    }
+
+    const row = {
+      title: parsed.data.title,
+      question_canonical: parsed.data.question,
+      answer_fr: parsed.data.answerFr || null,
+      answer_tiktok: parsed.data.answerTiktok || null,
+      category_id: categoryId,
+      active: parsed.data.active,
+      embedding_source: null,
+      updated_at: new Date().toISOString(),
+    };
+
+    if (parsed.data.entryId) {
+      const { error } = await supabase
+        .from("faq_entries")
+        .update(row as never)
+        .eq("id", parsed.data.entryId)
+        .eq("client_id", parsed.data.clientId);
+      if (error) return { ok: false, error: error.message };
+    } else {
+      const { error } = await supabase.from("faq_entries").insert({
+        ...row,
+        client_id: parsed.data.clientId,
+        variants: [],
+        created_by: viewer.user.id,
+      } as never);
+      if (error) return { ok: false, error: error.message };
+    }
+
+    revalidatePath("/moderation");
+    return {
+      ok: true,
+      message: parsed.data.entryId ? "Entrée mise à jour." : "Entrée créée.",
+    };
+  } catch (error) {
+    return { ok: false, error: (error as Error).message };
+  }
+}
+
+/** Soumet des entrées au client : elles s'affichent « À valider » chez lui. */
+export async function submitFaqForReview(input: {
+  clientId: string;
+  entryIds: string[];
+}): Promise<ModerationResult> {
+  const parsed = z
+    .object({ clientId: z.uuid(), entryIds: z.array(z.uuid()).min(1).max(200) })
+    .safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Requête incomplète." };
+
+  try {
+    await requireOperator(parsed.data.clientId);
+    const supabase = await createClient();
+    const { error } = await supabase
+      .from("faq_entries")
+      .update({ client_review: "pending", client_reviewed_at: null } as never)
+      .eq("client_id", parsed.data.clientId)
+      .in("id", parsed.data.entryIds);
+    if (error) return { ok: false, error: error.message };
+
+    revalidatePath("/moderation");
+    return {
+      ok: true,
+      message:
+        parsed.data.entryIds.length > 1
+          ? `${parsed.data.entryIds.length} entrées soumises au client.`
+          : "Entrée soumise au client.",
+    };
+  } catch (error) {
+    return { ok: false, error: (error as Error).message };
+  }
+}
+
+/**
+ * Le verdict du client sur un élément de langage, depuis son espace.
+ *
+ * Client admin après une garde applicative — le quatrième cas assumé à côté
+ * des trois canoniques : la RLS filtre des lignes, pas des colonnes, et
+ * ouvrir l'update de la table au rôle client lui ouvrirait la réponse
+ * elle-même. La garde vérifie que l'utilisateur est membre de l'espace
+ * rattaché au client de modération, et l'écriture ne touche que le verdict.
+ */
+export async function setFaqClientReview(input: {
+  entryId: string;
+  verdict: "approved" | "rejected";
+}): Promise<ModerationResult> {
+  const parsed = z
+    .object({ entryId: z.uuid(), verdict: z.enum(["approved", "rejected"]) })
+    .safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Requête incomplète." };
+
+  try {
+    const viewer = await getViewer();
+    if (!viewer) return { ok: false, error: "Session expirée." };
+
+    const admin = createAdminClient();
+    const { data: entryRow, error: entryError } = await admin
+      .from("faq_entries")
+      .select("id, client_id")
+      .eq("id", parsed.data.entryId)
+      .maybeSingle();
+    if (entryError) return { ok: false, error: entryError.message };
+    if (!entryRow) return { ok: false, error: "Entrée introuvable." };
+
+    const { data: clientRow } = await admin
+      .from("moderation_clients")
+      .select("workspace_id")
+      .eq("id", (entryRow as { client_id: string }).client_id)
+      .maybeSingle();
+    const workspaceId = (clientRow as { workspace_id?: string | null } | null)
+      ?.workspace_id;
+    const member =
+      workspaceId &&
+      viewer.workspaces.some((workspace) => workspace.id === workspaceId);
+    if (!member) return { ok: false, error: "Entrée introuvable." };
+
+    const { error } = await admin
+      .from("faq_entries")
+      .update({
+        client_review: parsed.data.verdict,
+        client_reviewed_at: new Date().toISOString(),
+      } as never)
+      .eq("id", parsed.data.entryId);
+    if (error) return { ok: false, error: error.message };
+
+    revalidatePath("/espace", "layout");
+    return {
+      ok: true,
+      message:
+        parsed.data.verdict === "approved"
+          ? "Élément de langage validé."
+          : "Élément de langage refusé — l'agence le retravaille.",
+    };
+  } catch (error) {
+    return { ok: false, error: (error as Error).message };
+  }
+}

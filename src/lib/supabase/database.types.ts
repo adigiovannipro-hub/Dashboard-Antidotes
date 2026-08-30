@@ -421,10 +421,14 @@ export type DraftRow = {
 export type FaqEntryRow = {
   id: string;
   client_id: string;
+  title: string | null;
   question_canonical: string;
   variants: string[];
   answer_fr: string | null;
   answer_en: string | null;
+  answer_tiktok: string | null;
+  client_review: "pending" | "approved" | "rejected" | null;
+  client_reviewed_at: string | null;
   category_id: string | null;
   channels: string[];
   priority: number;

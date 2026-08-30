@@ -11,6 +11,9 @@ import type { WorkspaceRole } from "@/lib/supabase/database.types";
 /** Clé de la page Planning Éditorial ; les autres sont des slugs de tableau. */
 export const PLANNING_PAGE_KEY = "planning";
 
+/** La FAQ de modération de l'espace — les éléments de langage, validés par le client. */
+export const FAQ_MODERATION_PAGE_KEY = "faq-moderation";
+
 /**
  * La page Contexte n'apparaît jamais dans la matrice de droits : elle est
  * réservée à l'owner, et un droit qu'on pourrait cocher laisserait croire
