@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import {
   Briefcase,
   CalendarClock,
+  GraduationCap,
   KeyRound,
   Lock,
   MessagesSquare,
@@ -56,6 +57,7 @@ const ICONS: Record<NavIcon, LucideIcon> = {
   echeances: CalendarClock,
   recus: Receipt,
   acces: KeyRound,
+  academy: GraduationCap,
 };
 
 function isActive(entry: NavEntry, pathname: string): boolean {

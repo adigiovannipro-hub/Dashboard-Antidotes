@@ -1,0 +1,92 @@
+{
+  "slug": "outils-ia-automatisation",
+  "title": "Outils, IA et automatisation",
+  "description": "La stack minimale qui suffit vraiment à un freelance social media, et ce qu'on n'achète pas la première année. Puis l'usage juste de l'IA — là où elle accélère sans diluer la voix d'une marque — et le seuil à partir duquel une automatisation se rembourse.",
+  "position": 12,
+  "lessons": [
+    {
+      "position": 1,
+      "slug": "stack-outils-minimale",
+      "title": "La stack outils minimale d'un freelance social media",
+      "summary": "Les huit outils qui couvrent réellement le travail, avec leur coût mensuel ligne par ligne — entre 29 et 54 € en vitesse de croisière. Et la liste de ce qu'on n'achète pas la première année, avec les trois signaux qui font passer au payant.",
+      "duration_min": 10,
+      "script_file": "01-stack-outils-minimale.md",
+      "resources": [
+        {
+          "title": "Tableau d'audit de stack",
+          "description": "Quatre colonnes — outil, coût mensuel, dernière utilisation réelle, livrable facturé auquel il sert — à rejouer tous les six mois pour résilier les abonnements fantômes.",
+          "kind": "template",
+          "url": null
+        },
+        {
+          "title": "Meta Business Suite",
+          "description": "Programmation, boîte de réception et statistiques Facebook et Instagram, gratuitement : la moitié du travail d'exécution sans abonnement tiers.",
+          "kind": "tool",
+          "url": "https://business.facebook.com"
+        },
+        {
+          "title": "Checklist « avant d'acheter un outil »",
+          "description": "Les deux règles à passer avant tout abonnement : la tâche coûte plus en temps que l'outil en argent, et l'outil se rattache à un des quatre livrables facturés.",
+          "kind": "checklist",
+          "url": null
+        }
+      ]
+    },
+    {
+      "position": 2,
+      "slug": "ia-sans-generique",
+      "title": "Utiliser l'IA sans produire du contenu générique",
+      "summary": "Où l'IA entre dans la chaîne de production — recherche, déclinaisons, briefs — et où elle n'entre jamais, parce qu'un client paie pour une voix qu'on reconnaît. La méthode du document de voix, qui transforme un modèle générique en assistant calé sur la marque.",
+      "duration_min": 9,
+      "script_file": "02-ia-sans-generique.md",
+      "resources": [
+        {
+          "title": "Document de voix de marque",
+          "description": "Une page par client : dix posts performants collés en entier, vingt expressions maison, dix mots interdits, trois règles de rythme — le contexte à donner avant toute génération.",
+          "kind": "template",
+          "url": null
+        },
+        {
+          "title": "Checklist anti-générique",
+          "description": "Les signaux qui trahissent un texte non retravaillé — tournures passe-partout, paragraphes trop réguliers, chute en question ouverte — à vérifier avant publication.",
+          "kind": "checklist",
+          "url": null
+        },
+        {
+          "title": "Claude",
+          "description": "L'assistant utilisé dans la leçon pour les déclinaisons et les briefs, à nourrir du document de voix plutôt qu'à laisser écrire seul.",
+          "kind": "tool",
+          "url": "https://claude.ai"
+        }
+      ]
+    },
+    {
+      "position": 3,
+      "slug": "automatiser-les-taches",
+      "title": "Automatiser les tâches répétitives",
+      "summary": "Les quinze à vingt heures mensuelles de gestes non facturables qui empêchent de passer de quatre à six clients : publication, captures de statistiques, relances, classement. Comment les repérer, quoi automatiser en premier, et la formule qui dit si une automatisation se rembourse.",
+      "duration_min": 10,
+      "script_file": "03-automatiser-les-taches.md",
+      "resources": [
+        {
+          "title": "Grille de tri des tâches",
+          "description": "Noter chaque tâche répétée sur trois points — répétitive, fréquente, sans jugement — pour trouver celle qui mérite d'être automatisée en premier.",
+          "kind": "template",
+          "url": null
+        },
+        {
+          "title": "Calcul du seuil de rentabilité",
+          "description": "Temps gagné par mois multiplié par le taux horaire, comparé au temps de mise en place plus le coût de l'outil : sous trois mois de retour, on pose l'automatisation.",
+          "kind": "checklist",
+          "url": null
+        },
+        {
+          "title": "Make",
+          "description": "Plateforme d'automatisation sans code pour relier les outils entre eux — exports de statistiques, relances, classement de fichiers.",
+          "kind": "tool",
+          "url": "https://www.make.com"
+        }
+      ]
+    }
+  ]
+}

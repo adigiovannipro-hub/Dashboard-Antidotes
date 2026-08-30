@@ -2,6 +2,7 @@ import "server-only";
 
 import { cache } from "react";
 
+import { getAcademyContext } from "@/lib/academy/access";
 import { getViewer } from "@/lib/auth";
 import { getModerationContext } from "@/lib/moderation/access";
 import { isModerationVisible } from "@/lib/moderation/permissions";
@@ -35,7 +36,8 @@ export type NavIcon =
   | "finance"
   | "echeances"
   | "recus"
-  | "acces";
+  | "acces"
+  | "academy";
 
 export type NavEntry = {
   href: string;
@@ -74,9 +76,10 @@ export const getAppNavigation = cache(async (): Promise<NavGroup[]> => {
   const viewer = await getViewer();
   if (!viewer) return [];
 
-  const [moderation, badges] = await Promise.all([
+  const [moderation, badges, academy] = await Promise.all([
     getModerationContext(),
     getNavBadges(),
+    getAcademyContext(),
   ]);
 
   // Plus de `"personal"` : le rail ne porte plus de section Perso, et laisser
@@ -171,6 +174,20 @@ export const getAppNavigation = cache(async (): Promise<NavGroup[]> => {
                 href: "/entreprise/echeances",
                 label: "Échéances",
                 icon: "echeances",
+                match: "prefix",
+              },
+            ] satisfies NavEntry[])
+          : []),
+        // L'Academy s'ouvre à tout membre de l'organisation, pas au seul
+        // owner : c'est une formation d'équipe. Un client d'espace n'a pas
+        // l'entrée — même règle que la Modération, il n'apprend pas
+        // l'existence du module par le rail.
+        ...(academy
+          ? ([
+              {
+                href: "/academy",
+                label: "Academy",
+                icon: "academy",
                 match: "prefix",
               },
             ] satisfies NavEntry[])

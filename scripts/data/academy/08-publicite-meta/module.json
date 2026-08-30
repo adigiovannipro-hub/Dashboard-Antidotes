@@ -1,0 +1,176 @@
+{
+  "slug": "publicite-meta",
+  "title": "Publicité Meta",
+  "description": "Ce module t'apprend à gérer des comptes publicitaires Meta en freelance : structurer un compte lisible, choisir le bon événement d'optimisation, diagnostiquer les problèmes de budget et de créa. Tu repars avec les procédures pour lire un tunnel de conversion et scaler un budget sans casser ce qui marche.",
+  "position": 8,
+  "lessons": [
+    {
+      "position": 1,
+      "slug": "structure-de-compte",
+      "title": "Structure de compte : campagnes, ad sets, créas",
+      "summary": "Tu apprends ce qui se décide à chaque étage de la hiérarchie Meta : objectif en campagne, audience et événement d'optimisation en ad set, créa en annonce. Tu repars avec une structure type à trois campagnes (prospection 70 %, retargeting 20 %, test 10 %) et une convention de nommage applicable dès la reprise d'un compte.",
+      "duration_min": 9,
+      "script_file": "01-structure-de-compte.md",
+      "resources": [
+        {
+          "title": "Convention de nommage publicitaire",
+          "description": "Grille Client_Objectif_Audience_Mois avec des exemples remplis pour les campagnes, les ad sets et les annonces.",
+          "kind": "template",
+          "url": null
+        },
+        {
+          "title": "Audit de structure en 10 points",
+          "description": "Les 10 vérifications à faire en reprise de compte : lignes actives, budgets par ad set, doublons, mode de budget, exclusions.",
+          "kind": "checklist",
+          "url": null
+        },
+        {
+          "title": "Meta Business Manager",
+          "description": "L'accès au Gestionnaire de publicités et aux actifs publicitaires de tes clients.",
+          "kind": "link",
+          "url": "https://business.facebook.com"
+        }
+      ]
+    },
+    {
+      "position": 2,
+      "slug": "objectif-et-evenement",
+      "title": "Choisir le bon objectif et le bon événement d'optimisation",
+      "summary": "Tu alignes objectif de campagne, événement d'optimisation et réalité du pixel avant de dépenser un euro. Tu vois pourquoi une campagne trafic ruine un objectif de vente, et comment vérifier le Gestionnaire d'événements en dix minutes : volumes sur 7 jours, déduplication, valeur d'achat.",
+      "duration_min": 9,
+      "script_file": "02-objectif-et-evenement.md",
+      "resources": [
+        {
+          "title": "Vérification du pixel en 8 points",
+          "description": "Les contrôles à passer dans le Gestionnaire d'événements avant tout lancement : événements reçus, volumes, déduplication, paramètres de valeur.",
+          "kind": "checklist",
+          "url": null
+        },
+        {
+          "title": "Tableau objectif × événement × volume",
+          "description": "Une matrice qui croise l'objectif business du client, l'événement d'optimisation choisi et son volume hebdomadaire réel pour repérer les désalignements.",
+          "kind": "template",
+          "url": null
+        },
+        {
+          "title": "Centre d'aide Meta Business",
+          "description": "La documentation officielle des objectifs de campagne, du pixel et de l'API Conversions.",
+          "kind": "link",
+          "url": "https://www.facebook.com/business/help"
+        }
+      ]
+    },
+    {
+      "position": 3,
+      "slug": "sous-investissement",
+      "title": "Diagnostiquer un sous-investissement budgétaire",
+      "summary": "Tu identifies un compte qui dépense trop peu pour sortir de la phase d'apprentissage, avec la règle des 50 conversions par semaine et par ad set. Tu repars avec le calcul du budget minimum viable et cinq remèdes classés, de la consolidation des ad sets à la renégociation du mandat.",
+      "duration_min": 9,
+      "script_file": "03-sous-investissement.md",
+      "resources": [
+        {
+          "title": "Calculateur de budget minimum viable",
+          "description": "Un tableur qui applique la formule CPA observé × 50 par semaine et compare le résultat au budget réel du compte.",
+          "kind": "template",
+          "url": null
+        },
+        {
+          "title": "Diagnostic de sous-investissement",
+          "description": "Les 4 signaux à relever dans le Gestionnaire de publicités et les 5 remèdes dans l'ordre où les proposer au client.",
+          "kind": "checklist",
+          "url": null
+        },
+        {
+          "title": "Meta Business Manager",
+          "description": "L'accès aux mentions d'apprentissage limité et aux budgets des ad sets du compte audité.",
+          "kind": "link",
+          "url": "https://business.facebook.com"
+        }
+      ]
+    },
+    {
+      "position": 4,
+      "slug": "fatigue-creative",
+      "title": "Fatigue créative : détection et rotation",
+      "summary": "Tu détectes la fatigue créative avec trois signaux mesurables : fréquence qui monte, CTR en baisse, CPA en hausse à réglages constants. Tu organises ensuite la rotation avec un pipeline de 2 à 3 créas par mois et un rythme de renouvellement adapté à la taille de l'audience.",
+      "duration_min": 9,
+      "script_file": "04-fatigue-creative.md",
+      "resources": [
+        {
+          "title": "Tableau de rotation des créas",
+          "description": "Le suivi hebdomadaire par annonce : CTR 7 et 30 jours, fréquence, CPA, date de mise en ligne et angle de remplacement prévu.",
+          "kind": "template",
+          "url": null
+        },
+        {
+          "title": "Signaux de fatigue créative",
+          "description": "Les seuils d'alerte par type de compte (fréquence, baisse de CTR, hausse de CPA) et la règle des deux signaux sur deux semaines.",
+          "kind": "checklist",
+          "url": null
+        },
+        {
+          "title": "Bibliothèque publicitaire Meta",
+          "description": "Toutes les publicités actives des concurrents, pour nourrir tes angles de créas de remplacement.",
+          "kind": "link",
+          "url": "https://www.facebook.com/ads/library"
+        }
+      ]
+    },
+    {
+      "position": 5,
+      "slug": "abandon-de-panier",
+      "title": "Analyser l'abandon de panier et le tunnel de conversion",
+      "summary": "Tu lis le tunnel vue produit, panier, checkout, achat avec des ratios de référence pour situer la fuite en dix minutes. Tu distingues ce qui se corrige côté publicité (retargeting séquencé, exclusions) de ce qui se recommande au client côté site, chiffres à l'appui.",
+      "duration_min": 9,
+      "script_file": "05-abandon-de-panier.md",
+      "resources": [
+        {
+          "title": "Tableau de lecture du tunnel",
+          "description": "Les quatre volumes sur 30 jours, les trois ratios calculés, les fourchettes de référence et la marche prioritaire à entourer.",
+          "kind": "template",
+          "url": null
+        },
+        {
+          "title": "Parcours d'achat test sur mobile",
+          "description": "Les points à contrôler en passant soi-même commande : frais surprise, création de compte, moyens de paiement, réassurance, bugs mobile.",
+          "kind": "checklist",
+          "url": null
+        },
+        {
+          "title": "Google Analytics",
+          "description": "Le recoupement côté site des volumes et des taux de passage mesurés par le pixel Meta.",
+          "kind": "link",
+          "url": "https://analytics.google.com"
+        }
+      ]
+    },
+    {
+      "position": 6,
+      "slug": "scaling",
+      "title": "Scaling : quand et comment augmenter les budgets",
+      "summary": "Tu vérifies les cinq conditions à remplir avant d'augmenter un budget, puis tu appliques la règle des +20 % par palier tous les 3 à 4 jours. Tu choisis entre scaling vertical et horizontal, tu anticipes ce qui casse quand on va trop vite, et tu fais évoluer ta facturation au passage des 5 000 € de média mensuel.",
+      "duration_min": 10,
+      "script_file": "06-scaling.md",
+      "resources": [
+        {
+          "title": "Conditions avant scaling",
+          "description": "Les cinq cases à cocher avant le premier palier : stabilité 14 jours, apprentissage terminé, rentabilité validée, créas en réserve, aval capable.",
+          "kind": "checklist",
+          "url": null
+        },
+        {
+          "title": "Journal de paliers budgétaires",
+          "description": "Le suivi des hausses de +20 % : date, budget, CPA constaté, seuil de redescente et décision prise à chaque palier.",
+          "kind": "template",
+          "url": null
+        },
+        {
+          "title": "Meta Business Manager",
+          "description": "L'accès aux budgets, aux phases d'apprentissage et aux fréquences des ad sets à scaler.",
+          "kind": "link",
+          "url": "https://business.facebook.com"
+        }
+      ]
+    }
+  ]
+}

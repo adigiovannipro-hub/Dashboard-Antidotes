@@ -773,6 +773,29 @@ export type SocialAccountSecret = {
   updated_at: string;
 };
 
+/* --- Module Academy ---------------------------------------------------------
+   Même principe : le détail vit dans `src/lib/academy/types.ts`, aligné sur
+   les migrations 0056 et 0057. */
+export type {
+  AcademyCourse as AcademyCourseRow,
+  AcademyModule as AcademyModuleRow,
+  AcademyLesson as AcademyLessonRow,
+  AcademyProgress as AcademyProgressRow,
+  AcademyNote as AcademyNoteRow,
+  AcademyVideoProvider,
+  AcademyProgressStatus,
+} from "@/lib/academy/types";
+
+import type {
+  AcademyCourse,
+  AcademyLesson,
+  AcademyModule,
+  AcademyNote,
+  AcademyProgress,
+  AcademyProgressStatus,
+  AcademyVideoProvider,
+} from "@/lib/academy/types";
+
 type Table<Row, Insert = Partial<Row>, Update = Partial<Row>> = {
   Row: Row;
   Insert: Insert;
@@ -856,6 +879,11 @@ export type Database = {
       social_accounts: Table<SocialAccount>;
       social_account_secrets: Table<SocialAccountSecret>;
       workspace_social_accounts: Table<WorkspaceSocialLink>;
+      academy_courses: Table<AcademyCourse>;
+      academy_modules: Table<AcademyModule>;
+      academy_lessons: Table<AcademyLesson>;
+      academy_progress: Table<AcademyProgress>;
+      academy_notes: Table<AcademyNote>;
     };
     // `never` satisfait la contrainte `Record<string, GenericView>` de
     // postgrest-js tout en déclarant qu'il n'y a ni vue ni fonction exposée.
@@ -1050,6 +1078,9 @@ export type Database = {
       web_breakdown_type: WebBreakdownType;
       // FAQ (20260830)
       faq_client_review: "pending" | "approved" | "rejected";
+      // Academy (20260830a)
+      academy_video_provider: AcademyVideoProvider;
+      academy_progress_status: AcademyProgressStatus;
     };
     CompositeTypes: Record<never, never>;
   };

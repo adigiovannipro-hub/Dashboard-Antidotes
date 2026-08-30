@@ -1,0 +1,132 @@
+{
+  "slug": "le-metier",
+  "title": "Le métier, sans illusions",
+  "description": "Ce module pose les fondations du métier de social media manager freelance : ce que les clients paient vraiment, les quatre livrables qui concentrent 90 % du chiffre d'affaires et les trois modes de facturation avec le mix cible 70/20/10. Il se termine par la construction d'une grille tarifaire complète à partir d'un TJM de 350 à 550 € HT.",
+  "position": 1,
+  "lessons": [
+    {
+      "position": 1,
+      "slug": "ce-que-fait-un-smm-freelance",
+      "title": "Ce que fait vraiment un social media manager freelance",
+      "summary": "Cette leçon distingue les deux étages du métier : l'opérationnel qui produit, publie et modère, et le conseil qui décide et arbitre à partir des données. Tu comprends ce qu'un client paie réellement dans un retainer et pourquoi la part de conseil détermine ton niveau de tarif.",
+      "duration_min": 10,
+      "script_file": "01-ce-que-fait-un-smm-freelance.md",
+      "resources": [
+        {
+          "title": "Matrice opérationnel vs conseil",
+          "description": "Tableau à deux colonnes pour classer tes compétences et mesurer la part de conseil dans ce que tu vends.",
+          "kind": "template",
+          "url": null
+        },
+        {
+          "title": "Semaine type du SMM freelance",
+          "description": "Checklist des blocs de temps hebdomadaires : production, modération, échanges clients, analyse et prospection.",
+          "kind": "checklist",
+          "url": null
+        },
+        {
+          "title": "Meta Business Suite",
+          "description": "Le tableau de bord gratuit où lire les statistiques Facebook et Instagram de tes clients.",
+          "kind": "tool",
+          "url": "https://business.facebook.com"
+        }
+      ]
+    },
+    {
+      "position": 2,
+      "slug": "les-quatre-livrables",
+      "title": "Les quatre livrables qui composent 90 % du chiffre d'affaires",
+      "summary": "Cette leçon détaille les quatre livrables qui concentrent 90 % du chiffre d'affaires d'un freelance : stratégie one-shot, accompagnement éditorial mensuel, gestion publicitaire et reporting commenté. Pour chacun, tu apprends le contenu exact, le prix de marché, le temps de production et ce que le client en voit.",
+      "duration_min": 10,
+      "script_file": "02-les-quatre-livrables.md",
+      "resources": [
+        {
+          "title": "Fiche des quatre offres",
+          "description": "Modèle d'une page pour formaliser tes quatre livrables : nom, contenu, prix et temps de production.",
+          "kind": "template",
+          "url": null
+        },
+        {
+          "title": "Trame de reporting mensuel commenté",
+          "description": "Structure en cinq pages : chiffres clés comparés au mois précédent, trois enseignements, deux décisions pour le mois suivant.",
+          "kind": "template",
+          "url": null
+        },
+        {
+          "title": "Checklist de périmètre d'un retainer",
+          "description": "Les points à écrire avant de signer : nombre de posts, réseaux, allers-retours de validation et délais de modération.",
+          "kind": "checklist",
+          "url": null
+        },
+        {
+          "title": "Google Ads",
+          "description": "La plateforme publicitaire Google, à connaître pour le livrable de gestion publicitaire.",
+          "kind": "tool",
+          "url": "https://ads.google.com"
+        }
+      ]
+    },
+    {
+      "position": 3,
+      "slug": "modele-economique",
+      "title": "Le modèle économique : retainer, régie, projet — quel mix viser",
+      "summary": "Cette leçon explique les trois modes de facturation — retainer, projet, régie — avec leurs avantages, leurs risques et leurs prix de référence. Tu construis ton mix cible 70/20/10 et tu apprends les règles de pilotage : plafond de 30-35 % du chiffre d'affaires par client et maximum de 4 à 6 clients en récurrent.",
+      "duration_min": 11,
+      "script_file": "03-modele-economique.md",
+      "resources": [
+        {
+          "title": "Calculateur de mix 70/20/10",
+          "description": "Tableur à trois colonnes pour ventiler ton chiffre d'affaires par mode de facturation et mesurer l'écart au mix cible.",
+          "kind": "template",
+          "url": null
+        },
+        {
+          "title": "Clauses de sortie d'un retainer",
+          "description": "Checklist des conditions à écrire dans tout contrat récurrent : préavis de trente jours, périmètre et révision annuelle.",
+          "kind": "checklist",
+          "url": null
+        },
+        {
+          "title": "LinkedIn for Business",
+          "description": "Le point d'entrée des solutions LinkedIn, utile pour les clients B2B comme le transport premium de l'exemple.",
+          "kind": "link",
+          "url": "https://business.linkedin.com"
+        }
+      ]
+    },
+    {
+      "position": 4,
+      "slug": "combien-facturer",
+      "title": "Combien facturer et comment construire ses grilles tarifaires",
+      "summary": "Cette leçon montre comment construire une grille tarifaire complète à partir d'un TJM de 350 à 550 € HT : jours estimés par livrable, prix affichés en forfait, trois niveaux d'offre. Tu apprends aussi à présenter tes prix en appel découverte : fourchette à l'oral, proposition sous 48 heures et ajustement par le périmètre plutôt que par la remise.",
+      "duration_min": 10,
+      "script_file": "04-combien-facturer.md",
+      "resources": [
+        {
+          "title": "Grille tarifaire à trois offres",
+          "description": "Modèle d'une page : starter, standard et complet, avec prix affiché, périmètre en trois lignes et jours de production.",
+          "kind": "template",
+          "url": null
+        },
+        {
+          "title": "Checklist avant d'envoyer une proposition",
+          "description": "Les vérifications à faire : prix par jour au-dessus du TJM, recommandation écrite, périmètre chiffré et préavis mentionné.",
+          "kind": "checklist",
+          "url": null
+        },
+        {
+          "title": "Urssaf",
+          "description": "Le site officiel pour estimer tes cotisations sociales et raisonner en revenu net plutôt qu'en chiffre d'affaires.",
+          "kind": "link",
+          "url": "https://www.urssaf.fr"
+        },
+        {
+          "title": "Malt",
+          "description": "La place de marché où observer les fourchettes de TJM affichées par les freelances social media, sans les copier.",
+          "kind": "tool",
+          "url": "https://www.malt.fr"
+        }
+      ]
+    }
+  ]
+}

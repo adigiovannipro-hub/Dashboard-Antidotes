@@ -1,0 +1,132 @@
+{
+  "slug": "audit-strategie",
+  "title": "Audit et stratégie",
+  "description": "Tu apprends à auditer les réseaux d'une marque en 90 minutes, à lire les données existantes et à en tirer des objectifs et des KPIs défendables. Le module se termine par la construction d'une stratégie éditoriale complète : piliers, formats et fréquences tenables.",
+  "position": 4,
+  "lessons": [
+    {
+      "position": 1,
+      "slug": "auditer-en-90-minutes",
+      "title": "Auditer les réseaux d'une marque en 90 minutes",
+      "summary": "Le déroulé minute par minute d'un audit express : inventaire des comptes, analyse des 20 derniers posts, concurrents, signaux business, synthèse en une page. Tu en sors cinq constats chiffrés et une recommandation prioritaire à présenter en rendez-vous de découverte.",
+      "duration_min": 9,
+      "script_file": "01-auditer-en-90-minutes.md",
+      "resources": [
+        {
+          "title": "Grille d'audit express",
+          "description": "Tableur à trois onglets : inventaire des comptes, analyse des 20 derniers posts avec engagement calculé, synthèse forces-faiblesses-opportunités et recommandation prioritaire.",
+          "kind": "template",
+          "url": null
+        },
+        {
+          "title": "Les 12 points à relever par réseau",
+          "description": "La liste des relevés de l'inventaire : abonnés, date du dernier post, fréquence sur 30 jours, bio, lien, cohérence du nom et du visuel, épinglés, réponses aux commentaires, avis visibles.",
+          "kind": "checklist",
+          "url": null
+        },
+        {
+          "title": "Meta Ad Library",
+          "description": "La bibliothèque publicitaire publique de Meta, pour vérifier gratuitement si une marque ou ses concurrents diffusent des publicités.",
+          "kind": "link",
+          "url": "https://www.facebook.com/ads/library"
+        },
+        {
+          "title": "Meta Business Suite",
+          "description": "L'outil gratuit de Meta où vivent les statistiques Instagram et Facebook d'une marque, à ouvrir dès qu'on a les accès.",
+          "kind": "link",
+          "url": "https://business.facebook.com"
+        }
+      ]
+    },
+    {
+      "position": 2,
+      "slug": "lire-les-donnees",
+      "title": "Lire les données existantes et repérer les vrais problèmes",
+      "summary": "Où trouver les données existantes (Meta Business Suite, LinkedIn, Google Analytics 4), quels signaux lire sur 6 à 12 mois et comment formaliser un diagnostic en cinq constats chiffrés. La leçon démonte aussi les faux problèmes classiques : algorithme accusé à tort, benchmarks génériques, abonnés qui stagnent, flops isolés.",
+      "duration_min": 9,
+      "script_file": "02-lire-les-donnees.md",
+      "resources": [
+        {
+          "title": "Tableau de lecture sur 6 mois",
+          "description": "Export mensuel prêt à remplir : portée moyenne par post, taux d'engagement sur portée, clics vers le site, abonnés nets, fréquence de publication.",
+          "kind": "template",
+          "url": null
+        },
+        {
+          "title": "Les faux problèmes à écarter",
+          "description": "Les quatre diagnostics erronés les plus fréquents et la vérification chiffrée à faire avant de conclure sur chacun.",
+          "kind": "checklist",
+          "url": null
+        },
+        {
+          "title": "Meta Business Suite",
+          "description": "Le point d'entrée des statistiques Instagram et Facebook, dont plusieurs vues sont limitées à 90 jours : exporter dès le premier jour de mission.",
+          "kind": "link",
+          "url": "https://business.facebook.com"
+        },
+        {
+          "title": "Google Analytics",
+          "description": "Pour mesurer les sessions venues des réseaux sociaux et relier le travail social media au site du client.",
+          "kind": "tool",
+          "url": "https://analytics.google.com"
+        }
+      ]
+    },
+    {
+      "position": 3,
+      "slug": "objectifs-et-kpis",
+      "title": "Définir des objectifs et des KPIs défendables",
+      "summary": "La chaîne complète pour passer d'un objectif business à une cible chiffrée : objectif social media, KPI principal, KPIs secondaires, méthode de calcul écrite dans la stratégie. Tu apprends à écarter les métriques de vanité et à fixer des cibles à +20-30 % sur six mois à partir de l'historique.",
+      "duration_min": 9,
+      "script_file": "03-objectifs-et-kpis.md",
+      "resources": [
+        {
+          "title": "Chaîne objectif → KPI → cible",
+          "description": "Document d'une page : objectif business chiffré, objectif social media et sa famille, KPI principal avec méthode de calcul et source, KPIs secondaires, cible à six mois.",
+          "kind": "template",
+          "url": null
+        },
+        {
+          "title": "Les 4 critères d'un KPI défendable",
+          "description": "Mesurable, attribuable, comparable, relié à l'objectif : la vérification à passer avant d'écrire un KPI dans le document de stratégie.",
+          "kind": "checklist",
+          "url": null
+        },
+        {
+          "title": "Google Analytics",
+          "description": "La source des clics et sessions venus des réseaux, indispensable pour mesurer un KPI de conversion.",
+          "kind": "tool",
+          "url": "https://analytics.google.com"
+        }
+      ]
+    },
+    {
+      "position": 4,
+      "slug": "strategie-editoriale",
+      "title": "Construire la stratégie éditoriale : piliers, formats, fréquences",
+      "summary": "La méthode pour poser 3 à 4 piliers éditoriaux, choisir les formats plateforme par plateforme et fixer une fréquence calculée sur la capacité de production réelle, pas sur l'ambition. Le tout tient dans une matrice pilier × format × réseau × fréquence qui alimente ensuite le planning de chaque mois.",
+      "duration_min": 9,
+      "script_file": "04-strategie-editoriale.md",
+      "resources": [
+        {
+          "title": "Matrice piliers × formats × fréquences",
+          "description": "Le tableau final de la stratégie éditoriale : une ligne par pilier avec son pourcentage, son format, son réseau, sa fréquence mensuelle et un exemple de post.",
+          "kind": "template",
+          "url": null
+        },
+        {
+          "title": "Banque d'idées par pilier",
+          "description": "Un onglet par pilier avec 20 idées de posts, pour vérifier qu'un pilier tient dans la durée avant de l'écrire dans la stratégie.",
+          "kind": "template",
+          "url": null
+        },
+        {
+          "title": "Test de faisabilité d'une fréquence",
+          "description": "Temps de production dans le retainer, matière fournie par le client, budget : les trois contraintes à chiffrer avant de promettre un rythme de publication.",
+          "kind": "checklist",
+          "url": null
+        }
+      ]
+    }
+  ]
+}

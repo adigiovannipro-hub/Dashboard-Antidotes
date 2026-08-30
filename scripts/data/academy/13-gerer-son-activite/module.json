@@ -1,0 +1,126 @@
+{
+  "slug": "gerer-son-activite",
+  "title": "Gérer son activité",
+  "description": "Ce module couvre la gestion de ton entreprise de freelance social media : structure juridique, facturation, trésorerie, organisation multi-clients, délégation et éventuel passage en agence. Tu en sors avec des règles chiffrées applicables dès cette semaine, du premier acompte encaissé jusqu'à la décision agence ou studio solo.",
+  "position": 13,
+  "lessons": [
+    {
+      "position": 1,
+      "slug": "juridique-facturation-tresorerie",
+      "title": "Structure juridique, facturation, trésorerie",
+      "summary": "Cette leçon compare micro-entreprise et société sur des chiffres concrets, détaille les seuils à surveiller (franchise de TVA à 37 500 €, plafond micro à 77 700 €) et liste les dix mentions obligatoires d'une facture conforme. Elle installe ensuite la mécanique de trésorerie : acompte de 40-50 % sur les one-shots, provision de 30 % sur chaque encaissement, salaire fixe mensuel et réserve de trois mois de charges.",
+      "duration_min": 10,
+      "script_file": "01-juridique-facturation-tresorerie.md",
+      "resources": [
+        {
+          "title": "Modèle de facture conforme",
+          "description": "Facture prête à remplir avec les dix mentions obligatoires, la numérotation séquentielle et la mention TVA article 293 B du CGI.",
+          "kind": "template",
+          "url": null
+        },
+        {
+          "title": "Checklist trésorerie du freelance",
+          "description": "Les gestes mensuels dans l'ordre : provision de 30 % à chaque encaissement, virement de salaire fixe, suivi du CA cumulé face aux seuils, alimentation de la réserve de trois mois.",
+          "kind": "checklist",
+          "url": null
+        },
+        {
+          "title": "Portail auto-entrepreneur de l'URSSAF",
+          "description": "Le site officiel pour créer ta micro-entreprise, déclarer ton chiffre d'affaires et vérifier les taux de cotisations et seuils en vigueur.",
+          "kind": "link",
+          "url": "https://www.autoentrepreneur.urssaf.fr"
+        },
+        {
+          "title": "Site des impôts",
+          "description": "La référence officielle pour le versement libératoire, la franchise en base de TVA et tes obligations déclaratives.",
+          "kind": "link",
+          "url": "https://www.impots.gouv.fr"
+        }
+      ]
+    },
+    {
+      "position": 2,
+      "slug": "organiser-sa-semaine",
+      "title": "Organiser sa semaine sur plusieurs clients",
+      "summary": "Cette leçon montre pourquoi le changement de contexte coûte deux à trois heures par jour et le remplace par des blocs regroupés par type de tâche : production écrite, création, programmation, modération, clients, entreprise. Elle fournit une semaine type complète pour 4 à 6 clients, avec deux journées de production protégées, les réunions empilées le lundi après-midi et la modération réduite à deux rituels quotidiens de 20 minutes.",
+      "duration_min": 10,
+      "script_file": "02-organiser-sa-semaine.md",
+      "resources": [
+        {
+          "title": "Semaine type à 4-6 clients",
+          "description": "Le planning hebdomadaire complet à recopier dans ton agenda : blocs récurrents par type de tâche, créneaux de modération, demi-journée flottante de 20 % de marge.",
+          "kind": "template",
+          "url": null
+        },
+        {
+          "title": "Checklist de la revue du lundi matin",
+          "description": "Les vérifications d'ouverture de semaine : échéances des plannings, validations client en attente, programmation à jour, trous à combler et priorités des deux journées de production.",
+          "kind": "checklist",
+          "url": null
+        },
+        {
+          "title": "Google Agenda",
+          "description": "L'outil gratuit suffisant pour poser tes blocs récurrents et restreindre les créneaux de réunion proposés aux clients.",
+          "kind": "tool",
+          "url": "https://calendar.google.com"
+        }
+      ]
+    },
+    {
+      "position": 3,
+      "slug": "recruter-et-deleguer",
+      "title": "Recruter et déléguer : premiers freelances",
+      "summary": "Cette leçon établit ce qui se délègue en premier — déclinaison graphique, montage, modération de premier niveau, programmation — et ce qui ne se délègue jamais : stratégie, relation client, reporting commenté et validation finale. Elle détaille le brief en sept éléments, le contrôle sur grille avant toute livraison, et la règle des 40 % qui plafonne le coût de sous-traitance par rapport à la prestation déléguée.",
+      "duration_min": 10,
+      "script_file": "03-recruter-et-deleguer.md",
+      "resources": [
+        {
+          "title": "Modèle de brief pour sous-traitant",
+          "description": "Le brief en sept éléments : objectif et contexte, format exact, direction artistique et kit de marque, références positives et négatives, deadline et nombre d'allers-retours inclus.",
+          "kind": "template",
+          "url": null
+        },
+        {
+          "title": "Grille de contrôle avant livraison client",
+          "description": "Les cinq points à vérifier sur chaque livrable sous-traité : conformité au brief, respect de la charte, orthographe, formats techniques, cohérence avec les publications précédentes.",
+          "kind": "checklist",
+          "url": null
+        },
+        {
+          "title": "Malt",
+          "description": "La place de marché principale pour trouver et tester des graphistes et monteurs freelances avec avis clients vérifiés.",
+          "kind": "link",
+          "url": "https://www.malt.fr"
+        }
+      ]
+    },
+    {
+      "position": 4,
+      "slug": "de-freelance-a-agence",
+      "title": "Passer de freelance à agence",
+      "summary": "Cette leçon liste les signaux qui justifient d'envisager l'agence — leads refusés en flux constant, CA plafonné à 7 000-8 000 € malgré la délégation — et chiffre ce qui change : 18 000 à 20 000 € de CA mensuel nécessaires pour te payer autant qu'en freelance avec deux salariés. Elle défend aussi les alternatives légitimes, freelance premium et studio solo avec sous-traitants, et fournit la simulation en tableur pour trancher sur des chiffres.",
+      "duration_min": 11,
+      "script_file": "04-de-freelance-a-agence.md",
+      "resources": [
+        {
+          "title": "Simulateur de marge freelance vs agence",
+          "description": "Tableur à deux colonnes comparant ta situation réelle et la simulation agence : CA, masse salariale chargée, coûts de structure et revenu restant pour toi dans chaque scénario.",
+          "kind": "template",
+          "url": null
+        },
+        {
+          "title": "Checklist des signaux avant de passer en agence",
+          "description": "Les quatre signaux à valider sur six mois : leads qualifiés refusés chaque mois, plafond de CA atteint avec les leviers freelance épuisés, demandes clients hors périmètre, production déjà déléguée.",
+          "kind": "checklist",
+          "url": null
+        },
+        {
+          "title": "Entreprendre - Service Public",
+          "description": "Le portail officiel pour les démarches de création de société, le passage en SASU et les obligations d'employeur.",
+          "kind": "link",
+          "url": "https://entreprendre.service-public.fr"
+        }
+      ]
+    }
+  ]
+}

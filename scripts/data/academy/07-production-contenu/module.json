@@ -1,0 +1,132 @@
+{
+  "slug": "production-contenu",
+  "title": "Production de contenu",
+  "description": "Ce module couvre toute la chaîne de production des contenus : briefer un graphiste ou un monteur, décliner une charte de marque en système social, produire de la vidéo courte seul au smartphone et organiser une banque de fichiers propre. Tu en sors avec des process chiffrés et reproductibles qui tiennent dans un retainer sans sacrifier ta marge.",
+  "position": 7,
+  "lessons": [
+    {
+      "position": 1,
+      "slug": "brief-crea",
+      "title": "Brief créa : ce qu'un graphiste ou monteur doit recevoir",
+      "summary": "Cette leçon détaille les huit blocs d'un brief créa complet : contexte et objectif, livrables exacts, textes définitifs, références commentées, interdits, assets, délais avec allers-retours limités et circuit de validation. Elle chiffre le coût réel d'un brief flou et montre un brief appliqué à un carrousel LinkedIn pour un client transport premium B2B.",
+      "duration_min": 9,
+      "script_file": "01-brief-crea.md",
+      "resources": [
+        {
+          "title": "Modèle de brief créa en 8 blocs",
+          "description": "Document d'une page à dupliquer par visuel, avec les huit blocs en titres et une ligne d'exemple rempli sous chacun.",
+          "kind": "template",
+          "url": null
+        },
+        {
+          "title": "Checklist avant envoi du brief",
+          "description": "Les dix points à cocher avant d'envoyer un brief : wording validé, dimensions précisées, interdits listés, lien assets testé, dates posées.",
+          "kind": "checklist",
+          "url": null
+        },
+        {
+          "title": "Google Drive",
+          "description": "Espace de stockage partagé pour centraliser les assets du brief dans un seul lien plutôt que huit pièces jointes.",
+          "kind": "tool",
+          "url": "https://drive.google.com"
+        }
+      ]
+    },
+    {
+      "position": 2,
+      "slug": "direction-artistique",
+      "title": "Direction artistique et charte social media",
+      "summary": "Cette leçon apprend à traduire une charte de marque print en système social : palette réduite à quatre couleurs, deux typographies avec tailles minimales, six à huit gabarits adossés aux piliers éditoriaux, règles photo et vidéo écrites. Elle montre la déclinaison complète pour une assurance mutualiste B2C et explique pourquoi ce livrable se facture dans la mission stratégie.",
+      "duration_min": 9,
+      "script_file": "02-direction-artistique.md",
+      "resources": [
+        {
+          "title": "Charte social media en 10 slides",
+          "description": "Trame du livrable à remettre au client : palette avec codes hexadécimaux, typographies et tailles, gabarits, trois exemples appliqués et interdits.",
+          "kind": "template",
+          "url": null
+        },
+        {
+          "title": "Audit express d'une charte existante",
+          "description": "Grille d'une page pour évaluer ce qui survit à l'écran : contraste des couleurs, licences et lisibilité des typographies, versions du logo.",
+          "kind": "checklist",
+          "url": null
+        },
+        {
+          "title": "Coolors",
+          "description": "Générateur de palettes pour dériver les versions foncées lisibles des couleurs vives d'une marque.",
+          "kind": "tool",
+          "url": "https://coolors.co"
+        },
+        {
+          "title": "Google Fonts",
+          "description": "Bibliothèque de typographies libres pour remplacer une typo print sans licence digitale.",
+          "kind": "tool",
+          "url": "https://fonts.google.com"
+        }
+      ]
+    },
+    {
+      "position": 3,
+      "slug": "video-courte-sans-equipe",
+      "title": "Produire du contenu vidéo court sans équipe",
+      "summary": "Cette leçon pose un process complet de production vidéo en solo : moins de 150 € de matériel, scripts de 60 à 90 mots, tournage par lots de quatre vidéos, montage de dix minutes par vidéo dans CapCut et sous-titres systématiques. Le tout tient en deux heures par lot, soit environ 28 € de coût de production par reel au lieu de 250 à 350 € en sous-traitance.",
+      "duration_min": 8,
+      "script_file": "03-video-courte-sans-equipe.md",
+      "resources": [
+        {
+          "title": "Trame de script vidéo 60-90 mots",
+          "description": "Gabarit en trois temps — accroche en une phrase, corps en trois points maximum, chute avec appel à l'action — avec un exemple rempli.",
+          "kind": "template",
+          "url": null
+        },
+        {
+          "title": "Checklist matériel et tournage smartphone",
+          "description": "Liste du matériel à moins de 150 € et les réglages de tournage : hauteur des yeux, cadre 9:16, sujet face à la fenêtre, trois prises maximum.",
+          "kind": "checklist",
+          "url": null
+        },
+        {
+          "title": "CapCut",
+          "description": "Application de montage gratuite utilisée dans la leçon pour les coupes, les sous-titres automatiques et l'habillage aux couleurs du client.",
+          "kind": "tool",
+          "url": "https://www.capcut.com"
+        }
+      ]
+    },
+    {
+      "position": 4,
+      "slug": "banque-de-contenus",
+      "title": "Gérer une banque de contenus et un système de fichiers propre",
+      "summary": "Cette leçon met en place une arborescence unique en cinq dossiers par client, une convention de nommage CLIENT_date_reseau_format_sujet_version, une gestion des versions sans jamais de « final-final » et des accès découpés entre client et prestataires. Elle inclut la banque d'assets réutilisables avec suivi des droits à l'image et le test des trente secondes pour vérifier le système.",
+      "duration_min": 9,
+      "script_file": "04-banque-de-contenus.md",
+      "resources": [
+        {
+          "title": "Arborescence type d'un dossier client",
+          "description": "Les cinq dossiers numérotés à recréer chez chaque client — admin, stratégie, production par mois, assets de marque, reportings — avec les règles d'accès associées.",
+          "kind": "template",
+          "url": null
+        },
+        {
+          "title": "Convention de nommage des fichiers",
+          "description": "La règle CLIENT_AAAA-MM-JJ_reseau_format_sujet_vXX sur une page, avec dix exemples corrects et les pièges à éviter (espaces, accents, « final »).",
+          "kind": "checklist",
+          "url": null
+        },
+        {
+          "title": "Registre des droits sur les images",
+          "description": "Tableau simple à trois colonnes — source du visuel, échéance d'utilisation, autorisations de droit à l'image signées — à tenir dans le dossier assets de chaque client.",
+          "kind": "template",
+          "url": null
+        },
+        {
+          "title": "Google Drive",
+          "description": "Espace de stockage où construire l'arborescence partagée et découper les accès dossier par dossier.",
+          "kind": "tool",
+          "url": "https://drive.google.com"
+        }
+      ]
+    }
+  ]
+}

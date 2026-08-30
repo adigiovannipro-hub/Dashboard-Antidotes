@@ -1,0 +1,104 @@
+{
+  "slug": "community-management",
+  "title": "Community management et modération",
+  "description": "Ce module t'apprend à professionnaliser la modération : cadrer les règles avec une charte validée par le client, répondre aux commentaires négatifs sans aggraver la situation et dérouler un protocole quand une crise se déclenche. Il se termine par le système d'organisation qui permet de tenir des temps de réponse sur plusieurs clients sans y passer tes journées.",
+  "position": 10,
+  "lessons": [
+    {
+      "position": 1,
+      "slug": "cadrer-la-moderation",
+      "title": "Cadrer la modération : charte, ton, escalade",
+      "summary": "Tu apprends à construire avec ton client une charte de modération de deux pages : réponses types, règles de masquage, cas d'escalade nommés et délais tenables. La leçon détaille l'atelier d'une heure pour la co-écrire, la faire valider par écrit et la facturer.",
+      "duration_min": 10,
+      "script_file": "01-cadrer-la-moderation.md",
+      "resources": [
+        {
+          "title": "Trame de charte de modération",
+          "description": "Modèle deux pages en quatre blocs : réponses types aux dix questions fréquentes, règles de masquage, cas d'escalade avec contact nommé et délai, délais de réponse engagés.",
+          "kind": "template",
+          "url": null
+        },
+        {
+          "title": "Checklist de l'atelier charte",
+          "description": "Les cinq questions à poser au client pendant l'atelier d'une heure, plus les validations à obtenir par écrit avant la mise en application.",
+          "kind": "checklist",
+          "url": null
+        },
+        {
+          "title": "Pharos, signalement des contenus illicites",
+          "description": "La plateforme officielle du ministère de l'Intérieur pour signaler les contenus illégaux rencontrés en modération.",
+          "kind": "link",
+          "url": "https://www.internet-signalement.gouv.fr"
+        },
+        {
+          "title": "Meta Business Suite",
+          "description": "L'outil gratuit de Meta pour modérer commentaires et messages Facebook et Instagram depuis une seule interface.",
+          "kind": "tool",
+          "url": "https://business.facebook.com"
+        }
+      ]
+    },
+    {
+      "position": 2,
+      "slug": "commentaires-negatifs-et-crise",
+      "title": "Répondre aux commentaires négatifs et gérer une crise",
+      "summary": "Tu apprends à qualifier chaque commentaire négatif — mécontent réel, troll ou début de crise — puis à appliquer la grille de réponse propre à chaque cas. La leçon déroule le protocole de crise en six gestes, illustré par un incident de livraison chez un e-commerçant à 300 colis perdus.",
+      "duration_min": 10,
+      "script_file": "02-commentaires-negatifs-et-crise.md",
+      "resources": [
+        {
+          "title": "Cinq réponses types aux négatifs",
+          "description": "Modèles de réponses à valider avec chaque client : retard de livraison, produit décevant, prix contesté, critique du service et réponse unique au troll.",
+          "kind": "template",
+          "url": null
+        },
+        {
+          "title": "Protocole de crise en six gestes",
+          "description": "Checklist chronologique à dérouler dès que deux signaux de crise sur trois sont réunis : coupure des publications, appel client, réponse d'attente, journal de bord, traitement privé, bilan.",
+          "kind": "checklist",
+          "url": null
+        },
+        {
+          "title": "Journal de bord de crise",
+          "description": "Tableau horodaté à quatre colonnes — heure, événement, capture, décision — qui trace la gestion de l'incident et sert de base au bilan à froid.",
+          "kind": "template",
+          "url": null
+        },
+        {
+          "title": "Google Alerts",
+          "description": "Service gratuit d'alertes par mots-clés pour détecter quand un incident sort des réseaux sociaux et atteint le web ou la presse.",
+          "kind": "tool",
+          "url": "https://www.google.com/alerts"
+        }
+      ]
+    },
+    {
+      "position": 3,
+      "slug": "inbox-multi-clients",
+      "title": "Organiser une inbox de modération multi-clients",
+      "summary": "Tu montes un système de modération multi-clients : centralisation par Meta Business Suite, tableau de suivi unique, trois relevés quotidiens à heures fixes et ordre de priorité constant qui commence par les demandes d'achat. Tu apprends aussi à mesurer ce travail et à le montrer dans le reporting mensuel pour justifier le retainer.",
+      "duration_min": 10,
+      "script_file": "03-inbox-multi-clients.md",
+      "resources": [
+        {
+          "title": "Tableau de modération multi-clients",
+          "description": "Modèle de tableau à sept colonnes — client, canal, auteur, type, reçu le, échéance, statut — avec les trois statuts et l'ordre de priorité de traitement.",
+          "kind": "template",
+          "url": null
+        },
+        {
+          "title": "Routine de relevé à heures fixes",
+          "description": "Checklist des trois créneaux quotidiens : ordre de balayage des clients, priorités dans chaque relevé, règles de coupure des notifications et cas d'interruption autorisés.",
+          "kind": "checklist",
+          "url": null
+        },
+        {
+          "title": "Meta Business Suite",
+          "description": "La boîte de réception unifiée qui regroupe commentaires et messages Facebook et Instagram d'une page, avec accès par rôles nominatifs.",
+          "kind": "tool",
+          "url": "https://business.facebook.com"
+        }
+      ]
+    }
+  ]
+}
