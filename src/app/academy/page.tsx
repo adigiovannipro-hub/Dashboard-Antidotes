@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { requireAcademyAccess } from "@/lib/academy/access";
 import { lessonHref, loadAcademyOverview } from "@/lib/academy/overview";
 import { completionOf, resumeLesson } from "@/lib/academy/progress";
-import { formatDuration } from "@/lib/format";
+import { formatMinutes } from "@/lib/format";
 
 export const metadata: Metadata = { title: "Academy" };
 
@@ -83,7 +83,7 @@ export default async function AcademyHomePage() {
         />
         <StatCard
           label="Durée totale"
-          value={formatDuration(totalMinutes)}
+          value={formatMinutes(totalMinutes)}
           context={`${lessons.length} leçons de vidéo et de script`}
           icon={Clock3}
         />
@@ -163,7 +163,7 @@ export default async function AcademyHomePage() {
                 <div className="mt-4 flex items-center justify-between gap-3">
                   <span className="type-caption text-text-secondary tabular-nums">
                     {completion.completed} / {completion.total} leçons ·{" "}
-                    {formatDuration(minutes)}
+                    {formatMinutes(minutes)}
                   </span>
                   <span className="type-caption font-medium text-text-primary tabular-nums">
                     {completion.percent} %

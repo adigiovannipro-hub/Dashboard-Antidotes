@@ -10,7 +10,7 @@ import { requireAcademyAccess } from "@/lib/academy/access";
 import { loadAcademyOverview } from "@/lib/academy/overview";
 import { completionOf } from "@/lib/academy/progress";
 import type { AcademyProgressStatus } from "@/lib/academy/types";
-import { formatDuration } from "@/lib/format";
+import { formatMinutes } from "@/lib/format";
 
 type Params = Promise<{ module: string }>;
 
@@ -73,7 +73,7 @@ export default async function AcademyModulePage({ params }: { params: Params }) 
             className="max-w-64"
           />
           <span className="type-caption text-text-secondary tabular-nums">
-            {completion.completed} / {completion.total} leçons · {formatDuration(minutes)}
+            {completion.completed} / {completion.total} leçons · {formatMinutes(minutes)}
           </span>
         </div>
       </div>
@@ -105,7 +105,7 @@ export default async function AcademyModulePage({ params }: { params: Params }) 
                   ) : null}
                 </span>
                 <span className="type-caption hidden shrink-0 text-text-secondary tabular-nums sm:block">
-                  {formatDuration(lesson.duration_min)}
+                  {formatMinutes(lesson.duration_min)}
                 </span>
                 <StatusPill tone={row.tone} className="shrink-0">
                   {row.label}

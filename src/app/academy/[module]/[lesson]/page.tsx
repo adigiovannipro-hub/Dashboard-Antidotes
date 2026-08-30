@@ -22,7 +22,7 @@ import { requireAcademyAccess } from "@/lib/academy/access";
 import { lessonHref, loadAcademyOverview } from "@/lib/academy/overview";
 import { getLessonById, getMyNote } from "@/lib/academy/queries";
 import { RESOURCE_KIND_LABELS } from "@/lib/academy/types";
-import { formatDuration } from "@/lib/format";
+import { formatMinutes } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 type Params = Promise<{ module: string; lesson: string }>;
@@ -121,7 +121,7 @@ export default async function AcademyLessonPage({ params }: { params: Params }) 
               <h2 className="type-h2 mt-1 text-text-primary">{lesson.title}</h2>
               <div className="mt-2 flex flex-wrap items-center gap-2">
                 <span className="type-caption text-text-secondary tabular-nums">
-                  {formatDuration(lesson.duration_min)}
+                  {formatMinutes(lesson.duration_min)}
                 </span>
                 {status === "completed" ? (
                   <StatusPill tone="positive">Terminée</StatusPill>
