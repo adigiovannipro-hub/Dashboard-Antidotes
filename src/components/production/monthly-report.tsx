@@ -1,7 +1,7 @@
 import { FileText, Sparkles } from "lucide-react";
 
 import { formatDayFr } from "@/lib/format";
-import { firstSentence, parseReport } from "@/lib/production/report-markdown";
+import { parseReport, summaryParagraph } from "@/lib/production/report-markdown";
 import type { ClientReport } from "@/lib/production/types";
 
 /**
@@ -27,7 +27,9 @@ export function MonthlyReport({
   monthLabel: string;
 }) {
   const blocks = parseReport(report.report);
-  const teaser = firstSentence(report.report);
+  // Le paragraphe d'ouverture porte les éléments clés du mois analysé : il se
+  // lit panneau fermé, le dépli ne sert plus qu'au détail section par section.
+  const teaser = summaryParagraph(report.report);
   const sources = [
     report.has_ads_data ? "chiffres publicitaires" : null,
     report.has_organic_data ? "chiffres organiques" : null,

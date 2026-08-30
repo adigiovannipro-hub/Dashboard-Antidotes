@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { firstSentence, parseReport, parseSpans } from "./report-markdown";
+import { firstSentence, parseReport, parseSpans, summaryParagraph } from "./report-markdown";
 
 describe("parseSpans", () => {
   it("isole le gras et laisse le reste en texte", () => {
@@ -61,5 +61,26 @@ describe("firstSentence", () => {
 
   it("rend une chaîne vide quand il n'y a aucun paragraphe", () => {
     expect(firstSentence("### Titre seul\n- une puce")).toBe("");
+  });
+});
+
+describe("summaryParagraph", () => {
+  it("rend le premier paragraphe entier quand il tient dans la limite", () => {
+    expect(
+      summaryParagraph("### Synthèse\nJuillet progresse de 12 %. Le CPA baisse."),
+    ).toBe("Juillet progresse de 12 %. Le CPA baisse.");
+  });
+
+  it("coupe en fin de phrase, jamais au milieu d'un chiffre", () => {
+    const long = "Première phrase courte. Seconde phrase qui dépasse largement la limite fixée pour ce résumé.";
+    expect(summaryParagraph(long, 30)).toBe("Première phrase courte.");
+  });
+
+  it("tronque avec une ellipse quand aucune phrase entière ne tient", () => {
+    expect(summaryParagraph(`${"a".repeat(200)}.`, 20)).toHaveLength(20);
+  });
+
+  it("rend une chaîne vide quand il n'y a aucun paragraphe", () => {
+    expect(summaryParagraph("### Titre seul\n- une puce")).toBe("");
   });
 });

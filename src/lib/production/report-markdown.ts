@@ -88,3 +88,27 @@ export function firstSentence(markdown: string, maxLength = 140): string {
   const sentence = end === -1 ? text : text.slice(0, end + 1);
   return sentence.length > maxLength ? `${sentence.slice(0, maxLength - 1)}…` : sentence;
 }
+
+/**
+ * Le résumé du rapport : son premier paragraphe, coupé en fin de phrase.
+ *
+ * Affiché en clair sous le titre du panneau replié — les éléments clés du mois
+ * analysé se lisent sans un clic, le détail reste derrière le dépli. La coupe
+ * tombe sur la dernière phrase entière qui tient dans la limite : un résumé
+ * tronqué en plein chiffre dirait le contraire de ce qu'il résume.
+ */
+export function summaryParagraph(markdown: string, maxLength = 420): string {
+  const blocks = parseReport(markdown);
+  const paragraph = blocks.find((block) => block.kind === "paragraph");
+  if (!paragraph) return "";
+  const text = paragraph.spans.map((span) => span.text).join("").trim();
+  if (text.length <= maxLength) return text;
+
+  let cut = "";
+  for (const match of text.matchAll(/[.!?](\s|$)/g)) {
+    const end = match.index + 1;
+    if (end > maxLength) break;
+    cut = text.slice(0, end);
+  }
+  return cut !== "" ? cut : `${text.slice(0, maxLength - 1)}…`;
+}
