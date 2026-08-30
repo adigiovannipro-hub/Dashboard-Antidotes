@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { ArrowDown, ArrowUp, Plus, Search, X } from "lucide-react";
 import { toast } from "sonner";
@@ -393,9 +394,12 @@ function EntryPanel({
   const field =
     "border-border focus-visible:ring-brand w-full rounded-md border bg-transparent px-2.5 py-1.5 text-sm outline-none focus-visible:ring-2 disabled:opacity-60";
 
-  return (
+  /* Portail vers <body> : monté dans la page, le panneau héritait du contexte
+     d'empilement du contenu et passait sous la barre collante du shell. */
+  return createPortal(
     <div
-      className="fixed inset-0 z-40 bg-black/20"
+      /* z-50 : la barre de page est collante et passait devant le panneau. */
+      className="fixed inset-0 z-50 bg-black/20"
       onClick={onClose}
       role="presentation"
     >
@@ -580,6 +584,7 @@ function EntryPanel({
           ) : null}
         </footer>
       </aside>
-    </div>
+    </div>,
+    document.body,
   );
 }
