@@ -4,7 +4,16 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
-import { Archive, Plug, Plus, Search, Trash2, X } from "lucide-react";
+import {
+  Archive,
+  CalendarDays,
+  Plug,
+  Plus,
+  Search,
+  Table2,
+  Trash2,
+  X,
+} from "lucide-react";
 
 import {
   addYearBoard,
@@ -28,6 +37,7 @@ import {
   usePillIndicator,
 } from "@/components/ds/pill-indicator";
 import { LinkPending } from "@/components/ds/route-progress";
+import { CalendarView } from "@/components/planning/calendar-view";
 import { LabelsDialog } from "@/components/planning/column-menus";
 import { MonthGroup } from "@/components/planning/month-group";
 import { SubjectDrawer } from "@/components/planning/subject-drawer";
@@ -382,6 +392,33 @@ export function PlanningBoardView({
             ) : null}
           </div>
 
+          {/* Tableau ou calendrier : le choix se mémorise avec le reste de la
+              vue. La FAQ n'a pas de calendrier. */}
+          {board.kind === "editorial" ? (
+            <button
+              type="button"
+              onClick={() =>
+                remember({
+                  mode: savedView.mode === "calendrier" ? "tableau" : "calendrier",
+                })
+              }
+              aria-pressed={savedView.mode === "calendrier"}
+              className="border-border text-muted-foreground hover:text-foreground hover:bg-muted/60 focus-visible:ring-brand inline-flex h-9 items-center gap-1.5 rounded-md border px-2.5 text-xs transition-colors focus-visible:ring-2 focus-visible:outline-none"
+            >
+              {savedView.mode === "calendrier" ? (
+                <>
+                  <Table2 className="size-4" strokeWidth={1.75} aria-hidden />
+                  Tableau
+                </>
+              ) : (
+                <>
+                  <CalendarDays className="size-4" strokeWidth={1.75} aria-hidden />
+                  Calendrier
+                </>
+              )}
+            </button>
+          ) : null}
+
           {/* Le branchement des comptes du client : c'est d'ici qu'on y va,
               puisque c'est ici qu'on en a besoin. Réservé à l'agence — la
               boîte montre l'inventaire, qui nomme les comptes des autres
@@ -424,6 +461,16 @@ export function PlanningBoardView({
         <p className="type-body rounded-lg border border-dashed border-border p-10 text-center text-text-secondary">
           Ce tableau est vide. Ajoutez un mois pour commencer.
         </p>
+      ) : savedView.mode === "calendrier" &&
+        board.kind === "editorial" &&
+        !searching ? (
+        // Une recherche bascule sur la pile des mois : un résultat doit se
+        // montrer ligne à ligne, pas se deviner dans une case de calendrier.
+        <CalendarView
+          months={months}
+          initialMonthKey={currentMonthKey}
+          onOpenSubject={openSubject}
+        />
       ) : searching && visibleMonths.length === 0 ? (
         <p className="type-body rounded-lg border border-dashed border-border p-10 text-center text-text-secondary">
           Rien ne correspond à « {search.trim()} » — ni dans les sujets, ni dans

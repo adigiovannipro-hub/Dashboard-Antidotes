@@ -19,6 +19,7 @@ describe("planningViewCookie", () => {
 describe("parsePlanningView", () => {
   const view: PlanningView = {
     sort: "asc",
+    mode: "calendrier",
     months: ["2026-08"],
     closedLanes: ["lane-1"],
   };
@@ -42,9 +43,15 @@ describe("parsePlanningView", () => {
     );
     expect(parsePlanningView(raw)).toEqual({
       sort: "position",
+      mode: "tableau",
       months: ["2026-08"],
       closedLanes: [],
     });
+  });
+
+  it("écarte un mode d'affichage inconnu", () => {
+    const raw = encodeURIComponent(JSON.stringify({ mode: "mosaique" }));
+    expect(parsePlanningView(raw).mode).toBe("tableau");
   });
 
   it("distingue « tout replié » de « jamais touché »", () => {

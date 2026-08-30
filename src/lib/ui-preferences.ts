@@ -43,6 +43,8 @@ export function planningViewCookie(workspace: string, board: string): string {
 export type PlanningView = {
   /** `position` : l'ordre manuel du tableau. */
   sort: "position" | "asc" | "desc";
+  /** Tableau par défaut ; le calendrier montre un mois en grille de jours. */
+  mode: "tableau" | "calendrier";
   /**
    * Mois ouverts, par clé `YYYY-MM`.
    *
@@ -60,6 +62,7 @@ export type PlanningView = {
 
 export const DEFAULT_PLANNING_VIEW: PlanningView = {
   sort: "position",
+  mode: "tableau",
   months: null,
   closedLanes: [],
 };
@@ -86,6 +89,7 @@ export function parsePlanningView(raw: string | undefined): PlanningView {
         value.sort === "asc" || value.sort === "desc" || value.sort === "position"
           ? value.sort
           : "position",
+      mode: value.mode === "calendrier" ? "calendrier" : "tableau",
       months: Array.isArray(value.months) ? strings(value.months) : null,
       closedLanes: strings(value.closedLanes),
     };
