@@ -41,15 +41,21 @@ async function main() {
     .filter((name) => name.endsWith(".sql"))
     .sort();
 
+  /* Supabase impose TLS mais présente un certificat que Node ne valide pas
+     sans son CA. `SUPABASE_DB_SSL_CA` — chemin vers le certificat CA
+     téléchargeable du projet (Dashboard → Settings → Database → SSL) — rétablit
+     la vérification de chaîne ; sans lui on chiffre sans authentifier, comme
+     avant, plutôt que de casser tous les environnements d'un coup.
+     `sslmode=disable` reste possible pour le rejeu obligatoire sur un
+     Postgres jetable local, qui n'a pas de TLS du tout. */
+  const caPath = process.env.SUPABASE_DB_SSL_CA;
   const client = new Client({
     connectionString,
-    // Supabase impose TLS mais présente un certificat que Node ne valide pas
-    // sans son CA : on chiffre sans vérifier la chaîne. `sslmode=disable`
-    // reste possible pour le rejeu obligatoire sur un Postgres jetable local,
-    // qui n'a pas de TLS du tout.
     ssl: connectionString.includes("sslmode=disable")
       ? false
-      : { rejectUnauthorized: false },
+      : caPath
+        ? { ca: await readFile(caPath, "utf8") }
+        : { rejectUnauthorized: false },
   });
 
   /* Deux échecs de connexion reviennent assez souvent pour mériter leur
