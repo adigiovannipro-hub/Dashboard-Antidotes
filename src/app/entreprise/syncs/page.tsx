@@ -1,9 +1,8 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
-import { AppShell } from "@/components/ds/app-shell";
 import { StatusPill, type StatusTone } from "@/components/ds/status-pill";
-import { Panel, PanelHeader } from "@/components/ds/surface";
+import { Panel, PanelHeader, SectionHeader } from "@/components/ds/surface";
 import { getViewer } from "@/lib/auth";
 import { readWorkflowState } from "@/lib/finance/github-actions";
 import { CHANNEL_LABELS, type ModerationChannel } from "@/lib/moderation/types";
@@ -23,6 +22,12 @@ export const dynamic = "force-dynamic";
 
 /** Au-delà, une source se dit en retard — deux passages horaires manqués. */
 const STALE_AFTER_MS = 2 * 60 * 60 * 1000;
+
+const PROVIDER_LABELS: Record<string, string> = {
+  meta_ads: "Meta Ads",
+  meta_organic: "Meta organique",
+  google_analytics: "Site Web",
+};
 
 function ageOf(iso: string | null): { label: string; stale: boolean } {
   if (!iso) return { label: "jamais", stale: true };
@@ -66,6 +71,16 @@ export default async function SyncsPage() {
     readWorkflowState().catch(() => null),
   ]);
 
+  // Sans le nom de la source, quatre lignes « ANMF » sont indiscernables.
+  const { data: sourceRows } = await admin
+    .from("data_sources")
+    .select("id, provider, display_name");
+  const sourcesById = new Map(
+    ((sourceRows ?? []) as { id: string; provider: string; display_name: string | null }[]).map(
+      (source) => [source.id, source.display_name ?? PROVIDER_LABELS[source.provider] ?? source.provider],
+    ),
+  );
+
   const workspaceNames = new Map(
     ((workspaces ?? []) as { id: string; name: string }[]).map((w) => [w.id, w.name]),
   );
@@ -83,7 +98,7 @@ export default async function SyncsPage() {
     if (latestBySource.has(run.data_source_id)) continue;
     latestBySource.set(run.data_source_id, {
       name: workspaceNames.get(run.workspace_id) ?? "Espace",
-      detail: null,
+      detail: sourcesById.get(run.data_source_id) ?? null,
       lastAt: run.finished_at ?? run.started_at,
       error: run.error,
     });
@@ -106,13 +121,10 @@ export default async function SyncsPage() {
     }),
   );
 
+  // Le layout de la section fournit déjà le shell : la page n'en rouvre pas.
   return (
-    <AppShell
-      viewer={viewer}
-      title="État des synchronisations"
-      subtitle="L'âge réel de chaque donnée. Le cron GitHub saute des passages : c'est ici que ça se voit."
-    >
-      <div className="max-w-4xl space-y-5">
+    <div className="max-w-4xl space-y-5">
+      <SectionHeader title="État des synchronisations" />
         <SyncPanel
           title="Reporting — régies et web"
           rows={[...latestBySource.values()]}
@@ -143,8 +155,7 @@ export default async function SyncsPage() {
             )}
           </div>
         </Panel>
-      </div>
-    </AppShell>
+    </div>
   );
 }
 
