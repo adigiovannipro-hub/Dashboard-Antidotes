@@ -436,6 +436,8 @@ export async function fetchPagePostsLite(options: {
 export async function fetchInstagramComments(options: {
   mediaId: string;
   accessToken: string;
+  /** Réduit sur un refus de volume : un média viral déborde la page de 50. */
+  limit?: number;
 }): Promise<MetaIgCommentRow[]> {
   return fetchAllPages<MetaIgCommentRow>(
     buildUrl(`/${options.mediaId}/comments`, {
@@ -445,7 +447,7 @@ export async function fetchInstagramComments(options: {
          demander tous les deux est ce qui évite un fil « Inconnu ». */
       fields:
         "id,text,timestamp,username,from{id,username},replies{id,text,timestamp,username,from{id,username}}",
-      limit: "50",
+      limit: String(options.limit ?? 50),
     }),
   );
 }
@@ -525,8 +527,11 @@ export async function fetchConversations(options: {
   since: string;
   messageLimit?: number;
 }): Promise<MetaConversationRow[]> {
+  /* `unread_count` : l'état de lecture de la boîte **chez Meta**. C'est lui
+     qui aligne l'inbox d'ici sur la Boîte de réception Meta — un fil déjà
+     ouvert là-bas ne doit pas re-sonner ici. */
   const fields =
-    "id,updated_time,participants,messages.limit(" +
+    "id,updated_time,unread_count,participants,messages.limit(" +
     String(options.messageLimit ?? 25) +
     "){id,message,created_time,from,to,attachments{mime_type,name,image_data{url,preview_url},video_data{url,preview_url},file_url}}";
 
@@ -582,6 +587,71 @@ export async function sendDirectMessage(options: {
     `/${options.pageId}/messages`,
     params,
   );
+}
+
+/**
+ * Marque une conversation privée comme lue **chez Meta**.
+ *
+ * `sender_action: mark_seen` est le geste de la Page : le fil s'affiche « vu »
+ * dans la Boîte de réception Meta comme chez l'interlocuteur. C'est le miroir
+ * de `unread_count` au relevé — ouvrir ici ouvre là-bas, et inversement.
+ *
+ * Meilleur effort assumé : un refus (fenêtre, portée, PSID périmé) ne doit
+ * jamais casser le geste local qui l'a déclenché.
+ */
+export async function markConversationSeen(options: {
+  pageId: string;
+  recipientId: string;
+  accessToken: string;
+}): Promise<void> {
+  try {
+    await postGraph(`/${options.pageId}/messages`, {
+      access_token: options.accessToken,
+      recipient: JSON.stringify({ id: options.recipientId }),
+      sender_action: "mark_seen",
+    });
+  } catch {
+    // Voir ci-dessus : le lu local prime, Meta suit quand il veut bien.
+  }
+}
+
+/**
+ * Les photos de profil d'interlocuteurs de messagerie, par identifiant.
+ *
+ * L'API de profil (`/{psid}?fields=profile_pic`) répond avec le jeton de la
+ * Page pour Messenger comme pour Instagram. Elle refuse parfois — PSID trop
+ * ancien, compte supprimé — et un refus rend simplement le fil sans photo :
+ * l'inbox affiche alors des initiales, jamais une erreur.
+ */
+export async function fetchMessagingProfiles(options: {
+  ids: readonly string[];
+  accessToken: string;
+}): Promise<Map<string, string>> {
+  const found = new Map<string, string>();
+
+  for (let start = 0; start < options.ids.length; start += 10) {
+    const batch = options.ids.slice(start, start + 10);
+    const results = await Promise.all(
+      batch.map(async (id) => {
+        try {
+          const payload = await fetchGraph<{ profile_pic?: string }>(
+            buildUrl(`/${id}`, {
+              access_token: options.accessToken,
+              fields: "profile_pic",
+            }),
+          );
+          return payload.profile_pic ? ([id, payload.profile_pic] as const) : null;
+        } catch {
+          return null;
+        }
+      }),
+    );
+    for (const entry of results) {
+      if (entry) found.set(entry[0], entry[1]);
+    }
+  }
+
+  return found;
 }
 
 /**

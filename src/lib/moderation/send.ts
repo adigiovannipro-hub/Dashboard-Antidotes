@@ -3,6 +3,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import {
+  markConversationSeen,
   replyToInstagramComment,
   replyToPageComment,
   sendDirectMessage,
@@ -44,6 +45,92 @@ export type SendOutcome =
 
 function fail(message: string): never {
   throw new Error(message);
+}
+
+/**
+ * Répercute un « lu » local sur la Boîte de réception Meta.
+ *
+ * L'autre moitié du miroir : le relevé rapporte `unread_count`, ce geste
+ * envoie `mark_seen`. Meilleur effort de bout en bout — la résolution du
+ * jeton comme l'appel : un fil marqué lu ici le reste, que Meta suive ou non.
+ * Ne concerne que les messages privés Meta ; un commentaire n'a pas d'état de
+ * lecture chez eux.
+ */
+export async function markSeenOnPlatform(options: {
+  admin: Admin;
+  conversation: Pick<
+    Conversation,
+    | "channel"
+    | "kind"
+    | "client_id"
+    | "connection_id"
+    | "participant_external_id"
+  >;
+}): Promise<void> {
+  const { admin, conversation } = options;
+  if (conversation.kind !== "dm") return;
+  if (conversation.channel !== "instagram" && conversation.channel !== "facebook") {
+    return;
+  }
+  if (!conversation.connection_id || !conversation.participant_external_id) return;
+
+  try {
+    const { data: connection } = await admin
+      .from("channel_connections")
+      .select("external_account_id")
+      .eq("id", conversation.connection_id)
+      .maybeSingle();
+    const externalAccountId = (
+      connection as { external_account_id?: string } | null
+    )?.external_account_id;
+    if (!externalAccountId) return;
+
+    const { data: client } = await admin
+      .from("moderation_clients")
+      .select("org_id")
+      .eq("id", conversation.client_id)
+      .maybeSingle();
+    const orgId = (client as { org_id?: string } | null)?.org_id;
+    if (!orgId) return;
+
+    const kind =
+      conversation.channel === "instagram" ? "instagram" : "facebook_page";
+    const { data: account } = await admin
+      .from("social_accounts")
+      .select("id, parent_external_id")
+      .eq("org_id", orgId)
+      .eq("kind", kind)
+      .eq("external_id", externalAccountId)
+      .maybeSingle();
+    const accountRow = account as {
+      id?: string;
+      parent_external_id?: string | null;
+    } | null;
+    if (!accountRow?.id) return;
+
+    const pageId =
+      conversation.channel === "instagram"
+        ? (accountRow.parent_external_id ?? null)
+        : externalAccountId;
+    if (!pageId) return;
+
+    const { data: secret } = await admin
+      .from("social_account_secrets")
+      .select("credentials_encrypted")
+      .eq("account_id", accountRow.id)
+      .maybeSingle();
+    const blob = (secret as { credentials_encrypted?: string } | null)
+      ?.credentials_encrypted;
+    if (!blob) return;
+
+    await markConversationSeen({
+      pageId,
+      recipientId: conversation.participant_external_id,
+      accessToken: decryptSecret(blob),
+    });
+  } catch {
+    // Le lu local prime — voir l'en-tête de la fonction.
+  }
 }
 
 export async function sendReply(options: {

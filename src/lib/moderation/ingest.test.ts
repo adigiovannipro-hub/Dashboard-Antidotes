@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { excerptOf, planThreadState } from "./ingest";
+import { excerptOf, planThreadState, sanitizeText } from "./ingest";
 import type { ExistingThreadState, IngestedMessage, IngestedThread } from "./ingest";
 
 const message = (over: Partial<IngestedMessage> = {}): IngestedMessage => ({
@@ -222,5 +222,57 @@ describe("planThreadState", () => {
     });
     expect(plan.last_message_at).toBe("2026-08-11T09:30:00.000Z");
     expect(plan.message_count).toBe(2);
+  });
+});
+
+describe("sanitizeText", () => {
+  it("retire le caractère nul et les contrôles bruts, garde les sauts de ligne", () => {
+    const zero = String.fromCharCode(0);
+    const bell = String.fromCharCode(7);
+    expect(sanitizeText(`bon${zero}jour${bell} !\nligne 2`)).toBe(
+      "bonjour !\nligne 2",
+    );
+  });
+
+  it("retire une moitié de paire UTF-16 orpheline, garde l'emoji entier", () => {
+    expect(sanitizeText("ok \u{1F600} tronqué \uD83D fin")).toBe(
+      "ok \u{1F600} tronqué  fin",
+    );
+  });
+
+  it("laisse passer null tel quel", () => {
+    expect(sanitizeText(null)).toBeNull();
+  });
+});
+
+describe("planThreadState — état de lecture de la plateforme", () => {
+  it("un fil ouvert chez Meta n'est jamais non-lu ici, même nouveau", () => {
+    const plan = planThreadState({
+      existing: null,
+      thread: thread({ kind: "dm", platformUnread: false }),
+    });
+    expect(plan.unread).toBe(false);
+    // Lire n'est pas répondre : le fil reste à traiter.
+    expect(plan.status).toBe("to_process");
+  });
+
+  it("un fil non lu chez Meta suit la règle habituelle", () => {
+    const plan = planThreadState({
+      existing: null,
+      thread: thread({ kind: "dm", platformUnread: true }),
+    });
+    expect(plan.unread).toBe(true);
+  });
+
+  it("sans information de la plateforme, rien ne bouge", () => {
+    const existing: ExistingThreadState = {
+      status: "to_process",
+      unread: false,
+      priority: "normal",
+      flags: [],
+      last_message_at: "2026-08-10T10:00:00.000Z",
+    };
+    const plan = planThreadState({ existing, thread: thread() });
+    expect(plan.unread).toBe(false);
   });
 });

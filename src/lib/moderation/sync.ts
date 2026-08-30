@@ -13,6 +13,7 @@ import {
   fetchConversations,
   fetchInstagramComments,
   fetchInstagramMediaLite,
+  fetchMessagingProfiles,
   fetchPageComments,
   fetchPagePostsLite,
 } from "@/lib/connectors/meta/graph";
@@ -35,7 +36,7 @@ import {
   pendingEmbeddingFilter,
   toPgVector,
 } from "./embeddings";
-import { planThreadState } from "./ingest";
+import { planThreadState, sanitizeText } from "./ingest";
 import type { IngestedThread } from "./ingest";
 import type { ModerationChannel, ModerationClient } from "./types";
 
@@ -56,6 +57,24 @@ type Admin = SupabaseClient<Database>;
 
 /** Les commentaires se relèvent sur les publications des 60 derniers jours. */
 const POSTS_WINDOW_DAYS = 60;
+
+/**
+ * Fenêtres de repli quand Meta refuse la demande pour son volume — vécu sur
+ * les comptes Instagram de Bondet et d'I-WAY : mieux vaut 21 jours qui passent
+ * que 60 qui échouent, le passage suivant rattrapera le reste.
+ */
+const FALLBACK_WINDOW_DAYS = [21, 7];
+
+/** Le refus de volume de Meta — le seul qui justifie de redemander plus petit. */
+function isTooMuchData(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    error.message.toLowerCase().includes("reduce the amount of data")
+  );
+}
+
+/** Combien de photos de profil d'interlocuteurs se rattrapent par passage. */
+const AVATAR_BACKFILL_CAP = 50;
 
 export type ModerationSyncReport = {
   workspace: string;
@@ -162,7 +181,7 @@ async function upsertThreads(options: {
   const { data: existingRows, error: existingError } = await admin
     .from("conversations")
     .select(
-      "id, external_thread_id, status, unread, priority, flags, last_message_at, deleted_at",
+      "id, external_thread_id, status, unread, priority, flags, last_message_at, deleted_at, participant_avatar_url",
     )
     .eq("client_id", client.id)
     .eq("channel", channel)
@@ -183,6 +202,7 @@ async function upsertThreads(options: {
         flags: string[];
         last_message_at: string;
         deleted_at: string | null;
+        participant_avatar_url: string | null;
       }[]
     ).map((row) => [row.external_thread_id, row]),
   );
@@ -216,17 +236,20 @@ async function upsertThreads(options: {
         external_thread_id: thread.externalThreadId,
         kind: thread.kind,
         participant_external_id: thread.participantExternalId,
-        participant_handle: thread.participantHandle,
-        participant_avatar_url: thread.participantAvatarUrl,
+        participant_handle: sanitizeText(thread.participantHandle),
+        // Une photo déjà rattrapée survit à un passage qui n'en rapporte pas :
+        // Meta ne rend l'avatar qu'à certains appels, pas à tous.
+        participant_avatar_url:
+          thread.participantAvatarUrl ?? existing?.participant_avatar_url ?? null,
         status: plan.status,
         priority: plan.priority,
         unread: plan.unread,
         flags: plan.flags,
         detected_locale: plan.detected_locale,
-        excerpt: plan.excerpt,
+        excerpt: sanitizeText(plan.excerpt),
         post_external_id: thread.post?.externalId ?? null,
         post_permalink: thread.post?.permalink ?? null,
-        post_excerpt: thread.post?.excerpt ?? null,
+        post_excerpt: sanitizeText(thread.post?.excerpt ?? null),
         post_thumbnail_url: thread.post?.thumbnailUrl ?? null,
         message_count: plan.message_count,
         last_message_at: plan.last_message_at,
@@ -257,9 +280,12 @@ async function upsertThreads(options: {
       direction: message.fromBrand ? "outbound" : "inbound",
       external_message_id: message.externalId,
       author_external_id: message.authorExternalId,
-      author_handle: message.authorHandle,
-      body: message.body,
-      attachments: message.attachments,
+      author_handle: sanitizeText(message.authorHandle),
+      body: sanitizeText(message.body),
+      attachments: message.attachments.map((attachment) => ({
+        ...attachment,
+        title: sanitizeText(attachment.title),
+      })),
       origin: "platform",
       sent_at: message.sentAt,
     }));
@@ -378,16 +404,36 @@ async function pullThreads(options: {
         platform: channel === "instagram" ? "instagram" : "messenger",
         since,
       });
-      return {
-        threads: conversationsToThreads({
-          conversations,
-          channel,
-          // Les deux identités de la marque : Meta nomme l'expéditeur par la
-          // Page sur Messenger, par le compte Instagram sur Instagram.
-          brandIds: [pageId, account.external_id],
-        }),
-        warning: null,
-      };
+      const dmThreads = conversationsToThreads({
+        conversations,
+        channel,
+        // Les deux identités de la marque : Meta nomme l'expéditeur par la
+        // Page sur Messenger, par le compte Instagram sur Instagram.
+        brandIds: [pageId, account.external_id],
+      });
+
+      /* La photo de profil de l'interlocuteur : le listing ne la rend pas,
+         l'API de profil oui — plafonnée par passage, en meilleur effort.
+         L'upsert préserve les photos déjà posées, donc chaque passage n'a à
+         demander que les nouvelles têtes. */
+      const missing = [
+        ...new Set(
+          dmThreads
+            .filter((thread) => !thread.participantAvatarUrl)
+            .map((thread) => thread.participantExternalId)
+            .filter((id): id is string => Boolean(id)),
+        ),
+      ].slice(0, AVATAR_BACKFILL_CAP);
+      if (missing.length > 0) {
+        const profiles = await fetchMessagingProfiles({ ids: missing, accessToken });
+        for (const thread of dmThreads) {
+          if (thread.participantAvatarUrl || !thread.participantExternalId) continue;
+          thread.participantAvatarUrl =
+            profiles.get(thread.participantExternalId) ?? null;
+        }
+      }
+
+      return { threads: dmThreads, warning: null };
     } catch (error) {
       return {
         threads: [],
@@ -397,21 +443,45 @@ async function pullThreads(options: {
   };
 
   if (channel === "instagram") {
-    const media = await fetchInstagramMediaLite({
-      igUserId: account.external_id,
-      accessToken,
-      since,
-    });
+    /* Le listing des médias, en repli de fenêtre sur le refus de volume de
+       Meta — et sur lui seul : redemander plus petit devant un jeton expiré
+       multiplierait les appels pour le même refus. */
+    let media = null;
+    for (const windowDays of [POSTS_WINDOW_DAYS, ...FALLBACK_WINDOW_DAYS]) {
+      const windowSince = new Date();
+      windowSince.setUTCDate(windowSince.getUTCDate() - windowDays);
+      try {
+        media = await fetchInstagramMediaLite({
+          igUserId: account.external_id,
+          accessToken,
+          since: windowSince.toISOString().slice(0, 10),
+        });
+        break;
+      } catch (error) {
+        if (!isTooMuchData(error) || windowDays === FALLBACK_WINDOW_DAYS.at(-1)) {
+          throw error;
+        }
+      }
+    }
     const brand = { externalId: account.external_id, username: account.username };
 
-    for (const item of media) {
+    for (const item of media ?? []) {
       // Une story ne reçoit pas de commentaires ; zéro commentaire, zéro appel.
       if (item.media_product_type === "STORY") continue;
       if (!item.comments_count) continue;
-      const comments = await fetchInstagramComments({
-        mediaId: item.id,
-        accessToken,
-      });
+      /* Un média viral déborde la page de 50 commentaires avec réponses : le
+         même refus de volume se rattrape en demandant des pages de 10. */
+      let comments;
+      try {
+        comments = await fetchInstagramComments({ mediaId: item.id, accessToken });
+      } catch (error) {
+        if (!isTooMuchData(error)) throw error;
+        comments = await fetchInstagramComments({
+          mediaId: item.id,
+          accessToken,
+          limit: 10,
+        });
+      }
       threads.push(...igCommentsToThreads({ media: item, comments, brand }));
     }
 

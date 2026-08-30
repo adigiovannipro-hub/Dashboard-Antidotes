@@ -61,6 +61,14 @@ export type IngestedThread = {
   participantExternalId: string | null;
   participantHandle: string | null;
   participantAvatarUrl: string | null;
+  /**
+   * L'état de lecture **chez la plateforme**, quand elle le rend — Meta le
+   * fait pour les messages privés (`unread_count`). `null` : inconnu, la
+   * fusion tranche seule. `false` : ouvert là-bas, donc jamais de pastille
+   * non-lu ici — ce qui a été vu dans la Boîte de réception Meta ne re-sonne
+   * pas dans l'outil.
+   */
+  platformUnread?: boolean | null;
   /** Null pour un message privé. */
   post: IngestedPost | null;
   /** Chronologique, du plus ancien au plus récent. */
@@ -87,6 +95,26 @@ export type ThreadStatePlan = {
   last_message_at: string;
   message_count: number;
 };
+
+/**
+ * Retire ce que Postgres refuse dans un texte : le caractère nul, les
+ * caractères de contrôle bruts et les moitiés de paires UTF-16 orphelines —
+ * un emoji tronqué par la plateforme suffit à faire échouer **tout** l'upsert
+ * du passage (« invalid input syntax for type json », vécu sur un commentaire
+ * Facebook de Bondet). Les sauts de ligne restent : un message en a le droit.
+ */
+export function sanitizeText(value: string): string;
+export function sanitizeText(value: string | null): string | null;
+export function sanitizeText(value: string | null): string | null {
+  if (value === null) return null;
+  return (
+    value
+      // eslint-disable-next-line no-control-regex -- c'est le sujet même
+      .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "")
+      .replace(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])/g, "")
+      .replace(/(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g, "")
+  );
+}
 
 /** Extrait court pour la liste — une ligne, sans retour chariot. */
 export function excerptOf(body: string, max = 140): string | null {
@@ -213,6 +241,11 @@ export function planThreadState(options: {
     status = existing.status;
     unread = existing.unread;
   }
+
+  // Ce que Meta a déjà montré comme lu ne re-sonne pas ici : la pastille
+  // non-lu suit la plus stricte des deux boîtes. Le statut, lui, ne bouge
+  // pas — lire n'est pas répondre.
+  if (thread.platformUnread === false) unread = false;
 
   // La priorité ne redescend jamais : un signalement lu reste signalé.
   const priority: ConversationPriority =

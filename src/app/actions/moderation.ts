@@ -1,13 +1,14 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { z } from "zod";
 
 import { getViewer } from "@/lib/auth";
 import { explainMetaError } from "@/lib/connectors/meta/errors";
 import { getModerationContext } from "@/lib/moderation/access";
 import { can } from "@/lib/moderation/permissions";
-import { sendReply } from "@/lib/moderation/send";
+import { markSeenOnPlatform, sendReply } from "@/lib/moderation/send";
 import type { Conversation } from "@/lib/moderation/types";
 import { createAdminClient, createClient } from "@/lib/supabase/server";
 import { DeterministicEmbeddings, toPgVector } from "@/lib/moderation/embeddings";
@@ -589,7 +590,9 @@ export async function applyInboxGesture(input: {
     const supabase = await createClient();
     const { data: rows } = await supabase
       .from("conversations")
-      .select("id, client_id, status, unread")
+      .select(
+        "id, client_id, status, unread, channel, kind, connection_id, participant_external_id",
+      )
       .in("id", parsed.data.conversationIds);
 
     const targets = (rows ?? []) as unknown as {
@@ -597,6 +600,10 @@ export async function applyInboxGesture(input: {
       client_id: string;
       status: string;
       unread: boolean;
+      channel: Conversation["channel"];
+      kind: Conversation["kind"];
+      connection_id: string | null;
+      participant_external_id: string | null;
     }[];
     if (targets.length === 0) return { ok: false, error: "Conversation introuvable." };
 
@@ -624,6 +631,19 @@ export async function applyInboxGesture(input: {
         action: `conversation.${parsed.data.gesture}`,
         before: { status: row.status, unread: row.unread },
         after: patch,
+      });
+    }
+
+    // Le miroir vers Meta : un message privé lu ici s'affiche « vu » dans la
+    // Boîte de réception Meta. Après la réponse — meilleur effort, jamais
+    // bloquant — et seulement pour ce qui vient de passer au lu.
+    if (parsed.data.gesture === "lu" || parsed.data.gesture === "archiver") {
+      const admin = createAdminClient();
+      after(async () => {
+        for (const row of targets) {
+          if (!row.unread) continue;
+          await markSeenOnPlatform({ admin, conversation: row });
+        }
       });
     }
 

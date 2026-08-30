@@ -44,6 +44,8 @@ export type MetaMessageRow = {
 export type MetaConversationRow = {
   id: string;
   updated_time?: string;
+  /** Messages non lus **côté Meta** — 0 quand la boîte y a été ouverte. */
+  unread_count?: number;
   participants?: { data?: MetaMessagingParticipant[] };
   messages?: { data?: MetaMessageRow[] };
 };
@@ -149,6 +151,12 @@ export function conversationToThread(options: {
     participantExternalId: externalId,
     participantHandle: handle,
     participantAvatarUrl: null,
+    // L'état de lecture de la Boîte de réception Meta, quand il est rendu :
+    // un fil déjà ouvert là-bas ne doit pas re-sonner ici.
+    platformUnread:
+      conversation.unread_count === undefined
+        ? null
+        : conversation.unread_count > 0,
     // Un message privé ne commente aucune publication.
     post: null,
     messages,
