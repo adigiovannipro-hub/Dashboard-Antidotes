@@ -592,13 +592,20 @@ export async function fetchConversationHeaders(options: {
   accessToken: string;
   platform: "messenger" | "instagram";
   since: string;
+  pageSize?: number;
+  /** Dernier palier : même `participants` peut faire refuser la page — ils
+      se récupèrent alors fil par fil, avec les messages. */
+  withParticipants?: boolean;
 }): Promise<MetaConversationRow[]> {
   const rows: MetaConversationRow[] = [];
   let url: string | undefined = buildUrl(`/${options.pageId}/conversations`, {
     access_token: options.accessToken,
     platform: options.platform,
-    fields: "id,updated_time,unread_count,participants",
-    limit: "50",
+    fields:
+      (options.withParticipants ?? true)
+        ? "id,updated_time,unread_count,participants"
+        : "id,updated_time,unread_count",
+    limit: String(options.pageSize ?? 50),
   });
 
   for (let page = 0; url && page < MAX_PAGES; page += 1) {
@@ -612,6 +619,22 @@ export async function fetchConversationHeaders(options: {
   }
 
   return rows;
+}
+
+/** Les participants d'un seul fil, quand le listing a dû les laisser. */
+export async function fetchConversationParticipants(options: {
+  conversationId: string;
+  accessToken: string;
+}): Promise<MetaConversationRow["participants"]> {
+  const payload = await fetchGraph<{
+    participants?: MetaConversationRow["participants"];
+  }>(
+    buildUrl(`/${options.conversationId}`, {
+      access_token: options.accessToken,
+      fields: "participants",
+    }),
+  );
+  return payload.participants;
 }
 
 /** Les messages d'un seul fil — le pendant du listing d'en-têtes. */

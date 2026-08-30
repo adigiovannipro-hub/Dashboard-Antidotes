@@ -12,6 +12,7 @@ import {
   fetchCommentAuthors,
   fetchConversationHeaders,
   fetchConversationMessages,
+  fetchConversationParticipants,
   fetchConversations,
   fetchInstagramComments,
   fetchInstagramMediaLite,
@@ -428,17 +429,44 @@ async function pullThreads(options: {
         }
       }
       if (!conversations) {
-        /* Dernier recours, vécu sur la boîte Instagram de Bondet : même 10
+        /* Dernier recours, vécu sur la boîte de la Page Bondet : même 10
            fils × 5 messages sans pièces jointes débordent. On passe alors au
            schéma des commentaires — en-têtes minuscules, puis les messages
-           fil par fil, chaque appel de taille bornée. Un fil qui refuse
-           encore part sans ses messages plutôt que d'emporter la boîte. */
-        const headers = await fetchConversationHeaders({
-          pageId,
-          accessToken,
-          platform: channel === "instagram" ? "instagram" : "messenger",
-          since,
-        });
+           fil par fil, chaque appel de taille bornée. Le listing d'en-têtes
+           a ses propres paliers (jusqu'à trois champs nus, participants
+           récupérés fil par fil) : sur cette Page, Meta refusait même les
+           en-têtes à 50 avec participants. */
+        const platform = channel === "instagram" ? "instagram" : "messenger";
+        let headers = null;
+        const headerLadders = [
+          {},
+          { pageSize: 10 },
+          { pageSize: 5, withParticipants: false },
+        ] as const;
+        for (const step of headerLadders) {
+          try {
+            headers = await fetchConversationHeaders({
+              pageId,
+              accessToken,
+              platform,
+              since,
+              ...step,
+            });
+            break;
+          } catch (error) {
+            if (!isTooMuchData(error)) throw error;
+          }
+        }
+        if (!headers) {
+          /* Meta refuse jusqu'au minimum : il n'y a plus rien à découper.
+             La boîte se dit indisponible en clair — les commentaires du
+             canal, eux, sont passés. */
+          return {
+            threads: [],
+            warning:
+              "Messages privés indisponibles : Meta refuse de servir la boîte de cette Page, même réduite au minimum. Les commentaires, eux, remontent normalement.",
+          };
+        }
         const recent = headers
           .filter(
             (header) =>
@@ -462,8 +490,17 @@ async function pullThreads(options: {
               withAttachments: false,
             }).catch(() => ({}));
           }
+          // Le palier nu du listing a laissé les participants : sans eux, le
+          // fil n'a pas d'interlocuteur — ils se redemandent fil par fil.
+          const participants =
+            header.participants ??
+            (await fetchConversationParticipants({
+              conversationId: header.id,
+              accessToken,
+            }).catch(() => undefined));
           conversations.push({
             ...header,
+            participants,
             messages: messages as MetaConversationRow["messages"],
           });
         }
