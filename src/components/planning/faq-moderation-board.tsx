@@ -195,7 +195,9 @@ export function FaqModerationBoard({
         )
       }
       className={cn(
-        "hover:text-foreground focus-visible:ring-brand flex items-center gap-0.5 rounded px-1.5 py-1 text-left transition-colors focus-visible:ring-2 focus-visible:outline-none",
+        // `uppercase` répété : un bouton est un contrôle de formulaire et
+        // n'hérite pas du text-transform de la rangée.
+        "hover:text-foreground focus-visible:ring-brand flex items-center gap-0.5 rounded px-1.5 py-1 text-left uppercase transition-colors focus-visible:ring-2 focus-visible:outline-none",
         sort.key === key && "text-foreground",
       )}
     >

@@ -631,8 +631,12 @@ export async function markConversationSeen(options: {
 export async function fetchMessagingProfiles(options: {
   ids: readonly string[];
   accessToken: string;
-}): Promise<Map<string, string>> {
+}): Promise<{ profiles: Map<string, string>; failure: string | null }> {
   const found = new Map<string, string>();
+  /* Le premier refus, conservé : un lot entièrement muet s'est déjà fait
+     passer pour « pas de photo » pendant des jours — le silence coûtait le
+     diagnostic. Un refus isolé (profil supprimé, PSID périmé) reste normal. */
+  let failure: string | null = null;
 
   for (let start = 0; start < options.ids.length; start += 10) {
     const batch = options.ids.slice(start, start + 10);
@@ -646,7 +650,8 @@ export async function fetchMessagingProfiles(options: {
             }),
           );
           return payload.profile_pic ? ([id, payload.profile_pic] as const) : null;
-        } catch {
+        } catch (error) {
+          failure ??= error instanceof Error ? error.message : "refus inconnu";
           return null;
         }
       }),
@@ -656,7 +661,7 @@ export async function fetchMessagingProfiles(options: {
     }
   }
 
-  return found;
+  return { profiles: found, failure: found.size > 0 ? null : failure };
 }
 
 /**

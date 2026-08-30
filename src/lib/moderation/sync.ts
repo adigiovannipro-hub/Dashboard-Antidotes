@@ -424,16 +424,23 @@ async function pullThreads(options: {
             .filter((id): id is string => Boolean(id)),
         ),
       ].slice(0, AVATAR_BACKFILL_CAP);
+      let avatarWarning: string | null = null;
       if (missing.length > 0) {
-        const profiles = await fetchMessagingProfiles({ ids: missing, accessToken });
+        const { profiles, failure } = await fetchMessagingProfiles({
+          ids: missing,
+          accessToken,
+        });
         for (const thread of dmThreads) {
           if (thread.participantAvatarUrl || !thread.participantExternalId) continue;
           thread.participantAvatarUrl =
             profiles.get(thread.participantExternalId) ?? null;
         }
+        if (failure) {
+          avatarWarning = `Photos de profil refusées par Meta : ${failure}`;
+        }
       }
 
-      return { threads: dmThreads, warning: null };
+      return { threads: dmThreads, warning: avatarWarning };
     } catch (error) {
       return {
         threads: [],
