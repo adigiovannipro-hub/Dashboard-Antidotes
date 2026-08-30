@@ -51,7 +51,9 @@ export async function listConversations(options: {
     .select("*")
     .is("deleted_at", null)
     .order("last_message_at", { ascending: false })
-    .limit(options.limit ?? 100);
+    // 400 et non 100 : à 100, une boîte chargée coupait des clients entiers
+    // de la vue « Tout » — les plus anciens disparaissaient sans un mot.
+    .limit(options.limit ?? 400);
 
   const { filters } = options;
   const view = filters.view ?? "tout";

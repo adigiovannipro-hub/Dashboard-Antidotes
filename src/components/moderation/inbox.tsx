@@ -337,10 +337,37 @@ export function Inbox({
 
         <div
           className={cn(
-            "min-h-0 w-full overflow-y-auto rounded-l-lg border-border md:w-96 md:shrink-0 md:border-r",
-            threadOpen ? "hidden md:block" : "block",
+            "flex min-h-0 w-full flex-col rounded-l-lg border-border md:w-96 md:shrink-0 md:border-r",
+            threadOpen ? "hidden md:flex" : "flex",
           )}
         >
+          {conversations.length > 0 ? (
+            /* Tout sélectionner — la liste affichée entière, donc « tous les
+               messages d'un client » dès que le filtre client est posé : le
+               chemin direct vers le rangement ou la suppression en masse. */
+            <label className="border-border text-text-secondary hover:text-text-primary flex shrink-0 cursor-pointer items-center gap-2 border-b px-3 py-1.5 text-xs transition-colors">
+              <input
+                type="checkbox"
+                checked={
+                  checkedVisible.length === conversations.length &&
+                  conversations.length > 0
+                }
+                onChange={(event) =>
+                  setChecked(
+                    event.target.checked
+                      ? new Set(conversations.map((conversation) => conversation.id))
+                      : new Set(),
+                  )
+                }
+                className="accent-accent-ink size-3.5"
+                aria-label="Tout sélectionner"
+              />
+              {checkedVisible.length > 0
+                ? `${checkedVisible.length} sélectionnée(s)`
+                : "Tout sélectionner"}
+            </label>
+          ) : null}
+          <div className="min-h-0 flex-1 overflow-y-auto">
           <ConversationList
             conversations={conversations}
             clients={clientById}
@@ -353,6 +380,7 @@ export function Inbox({
             emptyMessage="Aucune conversation ne correspond à ces filtres."
             onSelect={goTo}
           />
+          </div>
         </div>
 
         <div

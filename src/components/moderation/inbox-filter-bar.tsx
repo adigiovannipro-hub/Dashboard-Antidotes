@@ -113,7 +113,6 @@ export function InboxFilterBar({
                 href={buildHref({ client: client.slug })}
                 logoUrl={client.logoUrl}
                 name={client.name}
-                count={counters.byClient[client.id]}
               >
                 {client.name}
               </ClientLink>
@@ -125,12 +124,14 @@ export function InboxFilterBar({
           aria-label="Statuts"
           className="flex flex-wrap items-center gap-1 md:ml-auto"
         >
+          {/* Un seul chiffre dans cette rangée : le reste à faire. Compter
+              aussi le traité et le total noyait la seule information utile. */}
           {STATUS_GROUP_ORDER.map((group) => (
             <SmallFilterLink
               key={group}
               active={statusGroup === group}
               href={buildHref({ statut: group === "a-traiter" ? null : group })}
-              count={counters.byStatusGroup[group]}
+              count={group === "a-traiter" ? counters.byStatusGroup[group] : undefined}
             >
               {STATUS_GROUP_LABELS[group]}
             </SmallFilterLink>
@@ -141,14 +142,12 @@ export function InboxFilterBar({
           <SmallFilterLink
             active={unreadOnly}
             href={buildHref({ nonlus: unreadOnly ? null : "1" })}
-            count={counters.unread}
           >
             Non lus
           </SmallFilterLink>
           <SmallFilterLink
             active={highPriorityOnly}
             href={buildHref({ priorite: highPriorityOnly ? null : "1" })}
-            count={counters.highPriority}
           >
             Signalées
           </SmallFilterLink>

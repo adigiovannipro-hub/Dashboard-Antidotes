@@ -465,29 +465,51 @@ async function pullThreads(options: {
     }
     const brand = { externalId: account.external_id, username: account.username };
 
+    /* L'échelle des replis d'un média trop lourd, du plein régime au strict
+       minimum : pages de 50 avec réponses, pages de 10, puis pages de 10
+       **sans l'expansion `replies`** — c'est elle qui pèse. Et si le dernier
+       palier refuse encore, le média est passé avec un avertissement nommé :
+       un seul reel viral ne doit plus faire tomber le canal entier — c'est
+       exactement ce qui laissait Bondet à « demande trop lourde ». */
+    let skippedMedia = 0;
     for (const item of media ?? []) {
       // Une story ne reçoit pas de commentaires ; zéro commentaire, zéro appel.
       if (item.media_product_type === "STORY") continue;
       if (!item.comments_count) continue;
-      /* Un média viral déborde la page de 50 commentaires avec réponses : le
-         même refus de volume se rattrape en demandant des pages de 10. */
-      let comments;
-      try {
-        comments = await fetchInstagramComments({ mediaId: item.id, accessToken });
-      } catch (error) {
-        if (!isTooMuchData(error)) throw error;
-        comments = await fetchInstagramComments({
-          mediaId: item.id,
-          accessToken,
-          limit: 10,
-        });
+      let comments = null;
+      for (const attempt of [
+        {},
+        { limit: 10 },
+        { limit: 10, includeReplies: false },
+      ] as const) {
+        try {
+          comments = await fetchInstagramComments({
+            mediaId: item.id,
+            accessToken,
+            ...attempt,
+          });
+          break;
+        } catch (error) {
+          if (!isTooMuchData(error)) throw error;
+        }
+      }
+      if (!comments) {
+        skippedMedia += 1;
+        continue;
       }
       threads.push(...igCommentsToThreads({ media: item, comments, brand }));
     }
+    const volumeWarning =
+      skippedMedia > 0
+        ? `${skippedMedia} publication(s) trop commentée(s) pour Meta : leurs commentaires n'ont pas pu être relevés ce passage.`
+        : null;
 
     const direct = await pullDirectMessages();
     threads.push(...direct.threads);
-    return { threads: await withAuthors(threads), warning: direct.warning };
+    return {
+      threads: await withAuthors(threads),
+      warning: [volumeWarning, direct.warning].filter(Boolean).join(" ") || null,
+    };
   }
 
   const posts = await fetchPagePostsLite({

@@ -84,9 +84,27 @@ export function ChannelBadge({
       )}
       style={{ background: brand.background }}
     >
-      <svg viewBox="0 0 24 24" className="size-[62%]">
-        <path d={brand.path} fill="#FFFFFF" />
-      </svg>
+      {channel === "instagram" ? (
+        /* À 12 px, le glyphe officiel plein devient une tache : le tracé au
+           trait — cadre arrondi, objectif, point — reste net à toute taille. */
+        <svg viewBox="0 0 24 24" className="size-[68%]" fill="none">
+          <rect
+            x="3"
+            y="3"
+            width="18"
+            height="18"
+            rx="5.2"
+            stroke="#FFFFFF"
+            strokeWidth="2.2"
+          />
+          <circle cx="12" cy="12" r="4.4" stroke="#FFFFFF" strokeWidth="2.2" />
+          <circle cx="17.3" cy="6.7" r="1.45" fill="#FFFFFF" />
+        </svg>
+      ) : (
+        <svg viewBox="0 0 24 24" className="size-[62%]">
+          <path d={brand.path} fill="#FFFFFF" />
+        </svg>
+      )}
     </span>
   );
 }

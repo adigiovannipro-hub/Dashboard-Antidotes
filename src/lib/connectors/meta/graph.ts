@@ -438,15 +438,20 @@ export async function fetchInstagramComments(options: {
   accessToken: string;
   /** Réduit sur un refus de volume : un média viral déborde la page de 50. */
   limit?: number;
+  /** Dernier palier du même refus : l'expansion `replies{...}` est ce qui
+      pèse — la retirer sacrifie les réponses imbriquées, pas le fil. */
+  includeReplies?: boolean;
 }): Promise<MetaIgCommentRow[]> {
+  const withReplies = options.includeReplies ?? true;
   return fetchAllPages<MetaIgCommentRow>(
     buildUrl(`/${options.mediaId}/comments`, {
       access_token: options.accessToken,
       /* `username` **et** `from` : Instagram ne rend `from` que sur les
          comptes que l'app atteint, et `username` sur tous les autres — les
          demander tous les deux est ce qui évite un fil « Inconnu ». */
-      fields:
-        "id,text,timestamp,username,from{id,username},replies{id,text,timestamp,username,from{id,username}}",
+      fields: withReplies
+        ? "id,text,timestamp,username,from{id,username},replies{id,text,timestamp,username,from{id,username}}"
+        : "id,text,timestamp,username,from{id,username}",
       limit: String(options.limit ?? 50),
     }),
   );
