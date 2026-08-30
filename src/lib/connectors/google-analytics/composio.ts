@@ -77,9 +77,18 @@ export function gaTransport(options: {
   connectedAccountId: string;
 }): GaTransport {
   return async (request: GaRunReportRequest): Promise<GaRunReportResponse> => {
+    /* Composio exige désormais une version d'outil à l'exécution manuelle
+       (« Toolkit version not specified » sinon, vécu le 28/08/2026 sur le sync
+       ANMF). `COMPOSIO_GA_TOOL_VERSION` permet d'épingler une version datée ;
+       à défaut on suit « latest », et le garde-fou de version est levé parce
+       qu'un sync bloqué coûte plus cher qu'un changement de schéma GA — que
+       le parseur refuse de toute façon bruyamment. */
+    const version = process.env.COMPOSIO_GA_TOOL_VERSION ?? "latest";
     const result = await client().tools.execute(RUN_REPORT, {
       userId: options.workspaceId,
       connectedAccountId: options.connectedAccountId,
+      version,
+      dangerouslySkipVersionCheck: version === "latest",
       arguments: request as unknown as Record<string, unknown>,
     });
 
