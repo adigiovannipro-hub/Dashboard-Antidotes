@@ -21,6 +21,12 @@ import {
 } from "./quotas";
 import { needsContent } from "./wording-state";
 import {
+  VALIDATED_WORDING_STATUSES,
+  pickPreviousWordings,
+  renderPreviousWordings,
+  type PreviousWordingEntry,
+} from "./previous-wordings";
+import {
   EMPTY_FACTS,
   hasAnything,
   hasRealData,
@@ -406,6 +412,61 @@ async function recentHooks(
     .join("\n");
 }
 
+/**
+ * Les derniers wordings validés du client — le registre que la rédaction doit
+ * suivre sans jamais s'y répéter. `wording_history` d'abord, puis les cellules
+ * des mois **antérieurs** au mois cible, aux statuts validés : c'est là que
+ * vit l'historique repris de Monday pendant la transition. Rien trouvé ⇒
+ * chaîne vide, et le prompt avance sur le seul brief.
+ */
+async function previousWordings(
+  supabase: SupabaseAdmin,
+  workspaceId: string,
+  boardId: string,
+  targetMonth: string,
+): Promise<string> {
+  const { data: historyRows } = await supabase
+    .from("wording_history")
+    .select("full_wording, published_at")
+    .eq("workspace_id", workspaceId)
+    .order("published_at", { ascending: false, nullsFirst: false })
+    .limit(12);
+
+  const { data: monthRows } = await supabase
+    .from("planning_months")
+    .select("id")
+    .eq("board_id", boardId)
+    .lt("month", targetMonth)
+    .is("deleted_at", null);
+  const monthIds = ((monthRows ?? []) as { id: string }[]).map((row) => row.id);
+
+  const { data: subjectRows } = monthIds.length
+    ? await supabase
+        .from("planning_subjects")
+        .select("wording, scheduled_on")
+        .in("month_id", monthIds)
+        .in("status", VALIDATED_WORDING_STATUSES as unknown as string[])
+        .not("wording", "is", null)
+        .is("deleted_at", null)
+        .order("scheduled_on", { ascending: false, nullsFirst: false })
+        .limit(40)
+    : { data: [] };
+
+  const history: PreviousWordingEntry[] = (
+    (historyRows ?? []) as unknown as { full_wording: string | null; published_at: string | null }[]
+  )
+    .filter((row) => row.full_wording)
+    .map((row) => ({ text: row.full_wording!, publishedOn: row.published_at }));
+
+  const board: PreviousWordingEntry[] = (
+    (subjectRows ?? []) as unknown as { wording: string | null; scheduled_on: string | null }[]
+  )
+    .filter((row) => row.wording)
+    .map((row) => ({ text: row.wording!, publishedOn: row.scheduled_on }));
+
+  return renderPreviousWordings(pickPreviousWordings(history, board));
+}
+
 /** « septembre 2026 » — le mois cible tel que les prompts le reçoivent. */
 function fullMonthLabel(targetMonth: string): string {
   return `${monthLabelLower(targetMonth.slice(0, 7))} ${targetMonth.slice(0, 4)}`;
@@ -477,6 +538,11 @@ type GeneratedIntention = {
   theme?: string;
   date?: string;
   intention?: string;
+  /** Le contenu de la créa se fige ici, à l'étape des intentions — c'est lui
+      qui part en validation, la phase wording n'y revient plus. */
+  contenu_crea?: string | null;
+  texte_visuel?: string | null;
+  slides?: { titre?: string; sous_titre?: string; visuel?: string }[] | null;
   sponso?: boolean;
   objectif?: string;
 };
@@ -695,10 +761,22 @@ async function runIntentions(
 
     const date =
       item.date && item.date.startsWith(monthKey) ? item.date : null;
+    // L'intention porte aussi le contenu de créa : angle, visuel, slides —
+    // tout ce que la validation doit voir, tout ce que la phase wording lira
+    // sans le réécrire.
+    const slides = (item.slides ?? [])
+      .map(
+        (slide, slideIndex) =>
+          `Slide ${slideIndex + 1} : ${slide.titre ?? ""}${slide.sous_titre ? ` — ${slide.sous_titre}` : ""}${slide.visuel ? ` (visuel : ${slide.visuel})` : ""}`,
+      )
+      .join("\n");
     const intentionText = [
       item.template ? `Template : ${item.template}` : null,
       item.theme ? `Thème : ${item.theme}` : null,
       item.intention ?? null,
+      item.contenu_crea ? `Créa : ${item.contenu_crea}` : null,
+      item.texte_visuel ? `Texte visuel : ${item.texte_visuel}` : null,
+      slides || null,
     ]
       .filter(Boolean)
       .join("\n");
@@ -754,9 +832,6 @@ async function runIntentions(
 type GeneratedWording = {
   wording?: string;
   accroche?: string;
-  contenu_crea?: string | null;
-  texte_visuel?: string | null;
-  slides?: { titre?: string; sous_titre?: string; visuel?: string }[] | null;
 };
 
 /** Les sujets passent par lots de quatre : un échec n'arrête pas les autres. */
@@ -765,36 +840,27 @@ const WORDING_BATCH_SIZE = 4;
 /**
  * La consigne de sortie propre au format.
  *
- * Une Story n'a pas de légende : ce qui compte est ce qui s'affiche à l'écran,
- * écran par écran. Lui faire produire une caption remplirait la colonne d'un
- * texte que personne ne publiera jamais.
+ * La créa est arrêtée depuis la phase d'intentions — validée, en production.
+ * Ici, chaque format ne produit que ce qui se **publie en texte** : la
+ * caption, ou pour une Story le texte des écrans. Redemander le contenu de
+ * créa fusionnait les deux phases et remplissait la cellule d'un livrable que
+ * personne n'attendait plus.
  */
 function formatInstruction(format: PlanningFormat): string {
   switch (format) {
     case "story":
       return [
-        "Ce sujet est une STORY. Il n'y a donc AUCUNE légende à écrire.",
-        "Mets dans `wording` le contenu de la story, écran par écran : pour chaque écran, le texte affiché à l'image (court, lisible en une seconde), l'intention visuelle, et l'interaction si elle s'y prête (sondage, question, curseur, lien).",
-        "Cale ce contenu sur la stratégie, les piliers de contenu et les exemples de créa du brief.",
-        "Laisse `contenu_crea` et `slides` à null. `accroche` doit valoir null : une story n'alimente pas l'historique des accroches.",
+        "Ce sujet est une STORY : il n'y a aucune légende à écrire.",
+        "Mets dans `wording` le texte affiché à l'écran, écran par écran — court, lisible en une seconde, interaction comprise si l'intention en prévoit une. La créa de chaque écran est déjà définie dans l'intention : ne la redécris pas.",
+        "`accroche` vaut null : une story n'alimente pas l'historique des accroches.",
       ].join("\n");
     case "carousel":
-      return [
-        "Ce sujet est un CARROUSEL. Produis la légende dans `wording`, et le déroulé slide par slide dans `slides` : titre, sous-titre et indication visuelle pour chacune, dernière slide en CTA.",
-        "Mets dans `contenu_crea` ce qui doit apparaître sur la créa au-delà des slides, s'il y a lieu.",
-      ].join("\n");
+      return "Ce sujet est un CARROUSEL : ses slides sont déjà définies dans l'intention et n'ont pas à être réécrites. Produis uniquement la légende qui l'accompagne, dans `wording`.";
     case "reel":
     case "video":
-      return [
-        "Ce sujet est une VIDÉO ou un REEL. Produis la légende dans `wording`.",
-        "Mets dans `contenu_crea` ce que la vidéo doit montrer et dire : accroche des trois premières secondes, déroulé, chute.",
-        "`texte_visuel` porte le texte incrusté à l'image, 6 mots maximum.",
-      ].join("\n");
+      return "Ce sujet est un REEL ou une VIDÉO : son déroulé est déjà défini dans l'intention. Produis uniquement la légende, dans `wording`.";
     default:
-      return [
-        "Ce sujet est une publication fixe. Produis la légende dans `wording`.",
-        "Mets dans `contenu_crea` ce qui doit apparaître sur le visuel : message principal, éléments à représenter, mentions obligatoires s'il y en a.",
-      ].join("\n");
+      return "Ce sujet est une publication fixe : son visuel est déjà défini dans l'intention. Produis uniquement la légende, dans `wording`.";
   }
 }
 
@@ -816,6 +882,8 @@ async function produceWording(
     intentionColumnId: string | null;
     context: Awaited<ReturnType<typeof getClientContext>>;
     hooks: string;
+    /** Les derniers wordings validés, rendus pour le prompt — le registre. */
+    previous: string;
   },
 ): Promise<string> {
   const { subject } = input;
@@ -837,6 +905,7 @@ async function produceWording(
     intention: intentionOf(subject, input.intentionColumnId),
     brief_existant: brief,
     consigne_format: formatInstruction(format),
+    wordings_precedents: input.previous,
     accroches_historique: input.hooks,
   });
 
@@ -853,27 +922,10 @@ async function produceWording(
     throw new Error(isStory ? "Contenu de story vide." : "Wording vide.");
   }
 
-  // La caption d'abord ; les textes de créa suivent dans la même cellule,
-  // derrière un séparateur — le board n'a pas de colonne dédiée aux créas.
-  // Une story n'a que son contenu : rien à empiler derrière.
-  const sections = [generated.wording.trim()];
-  if (!isStory && generated.contenu_crea) {
-    sections.push(`---\nContenu de la créa : ${generated.contenu_crea}`);
-  }
-  if (!isStory && generated.texte_visuel) {
-    sections.push(`---\nTexte visuel : ${generated.texte_visuel}`);
-  }
-  if (!isStory && generated.slides && generated.slides.length > 0) {
-    const slides = generated.slides
-      .map(
-        (slide, index) =>
-          `Slide ${index + 1} : ${slide.titre ?? ""}${slide.sous_titre ? ` — ${slide.sous_titre}` : ""}${slide.visuel ? ` (visuel : ${slide.visuel})` : ""}`,
-      )
-      .join("\n");
-    sections.push(`---\n${slides}`);
-  }
-
-  const wording = sections.join("\n\n");
+  // La cellule ne reçoit que la caption : le contenu de créa appartient à la
+  // phase d'intentions, où il a été défini et validé. L'empiler ici derrière
+  // des séparateurs refaisait le travail et noyait le texte publiable.
+  const wording = generated.wording.trim();
   const { error: updateError } = await supabase
     .from("planning_subjects")
     .update({ wording, status: "to_validate" } as never)
@@ -943,10 +995,21 @@ export async function generateWordingForSubject(
   if (!workspace) return { ok: false, error: "Espace introuvable." };
 
   try {
-    const [context, hooks, intentionColumnId] = await Promise.all([
+    // Le mois du sujet borne « les mois d'avant » pour le registre des
+    // précédents wordings ; introuvable, on prend tout l'historique.
+    const { data: subjectMonth } = await supabase
+      .from("planning_months")
+      .select("month")
+      .eq("id", subject.month_id)
+      .maybeSingle();
+    const targetMonth =
+      (subjectMonth as { month: string } | null)?.month ?? "9999-12-01";
+
+    const [context, hooks, intentionColumnId, previous] = await Promise.all([
       getClientContext({ workspaceId: subject.workspace_id }),
       recentHooks(supabase, subject.workspace_id),
       ensureIntentionColumn(supabase, subject.board_id, subject.workspace_id),
+      previousWordings(supabase, subject.workspace_id, subject.board_id, targetMonth),
     ]);
 
     const wording = await produceWording(supabase, {
@@ -957,6 +1020,7 @@ export async function generateWordingForSubject(
       intentionColumnId,
       context,
       hooks,
+      previous,
     });
     return { ok: true, wording };
   } catch (caught) {
@@ -1001,10 +1065,11 @@ async function runWording(
     };
   }
 
-  const [context, lanePlatforms, hooks] = await Promise.all([
+  const [context, lanePlatforms, hooks, previous] = await Promise.all([
     getClientContext({ workspaceId: job.workspace_id }),
     getLanePlatforms(supabase, months.map((month) => month.id)),
     recentHooks(supabase, job.workspace_id),
+    previousWordings(supabase, job.workspace_id, board.id, job.target_month),
   ]);
 
   const intentionColumnId = await ensureIntentionColumn(
@@ -1030,6 +1095,7 @@ async function runWording(
       intentionColumnId,
       context,
       hooks,
+      previous,
     });
   };
 
