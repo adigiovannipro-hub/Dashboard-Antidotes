@@ -469,6 +469,57 @@ export async function createSubject(
   }
 }
 
+const applySortInput = z.object({
+  lanes: z
+    .array(
+      z.object({
+        laneId: z.uuid(),
+        subjectIds: z.array(z.uuid()).max(500),
+      }),
+    )
+    .max(200),
+});
+
+/**
+ * Matérialise l'ordre trié : les positions du tableau sont réécrites pour
+ * suivre l'ordre affiché — le geste « Enregistrer » de Monday après un tri.
+ * L'ordre manuel redevient alors l'ordre trié, pour tout le monde.
+ *
+ * `lane_id` dans la condition : un sujet déplacé vers un autre couloir entre
+ * le tri et le clic n'est pas réécrit — sa position appartient à son nouveau
+ * couloir.
+ */
+export async function applySortOrder(
+  scope: Scope,
+  input: z.infer<typeof applySortInput>,
+): Promise<PlanningResult> {
+  const parsed = applySortInput.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Ordre invalide." };
+
+  try {
+    await guard(scope);
+    const supabase = await createClient();
+
+    for (const lane of parsed.data.lanes) {
+      const updates = lane.subjectIds.map((subjectId, index) =>
+        supabase
+          .from("planning_subjects")
+          .update({ position: index } as never)
+          .eq("id", subjectId)
+          .eq("lane_id", lane.laneId),
+      );
+      const results = await Promise.all(updates);
+      const failed = results.find((result) => result.error);
+      if (failed?.error) throw new Error(failed.error.message);
+    }
+
+    revalidate(scope);
+    return { ok: true, message: "Ordre enregistré." };
+  } catch (error) {
+    return fail(error);
+  }
+}
+
 /**
  * Champs modifiables d'une publication, et comment lire la valeur envoyée.
  *

@@ -6,6 +6,8 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import {
   Archive,
+  ArrowDown,
+  ArrowUp,
   CalendarDays,
   Plug,
   Plus,
@@ -17,6 +19,7 @@ import {
 
 import {
   addYearBoard,
+  applySortOrder,
   bulkMoveSubjects,
   createMonth,
   deleteBoard,
@@ -52,6 +55,7 @@ import type { ColumnDef } from "@/lib/planning/columns";
 import { applyWidths } from "@/lib/planning/columns";
 import { monthGroupLabel } from "@/lib/planning/monday-mapping";
 import { countSubjects, filterMonths } from "@/lib/planning/search";
+import { sortSubjects } from "@/lib/planning/sort";
 import type {
   InstagramProfile,
   SocialAccountRow,
@@ -74,6 +78,15 @@ import type {
   SubjectRow,
 } from "@/lib/planning/types";
 import { cn } from "@/lib/utils";
+
+/** Le nom des colonnes triables, pour le bandeau Enregistrer/Annuler. */
+const SORT_COLUMN_LABELS: Record<SortableColumnKey, string> = {
+  date: "Date",
+  status: "Statut",
+  format: "Type",
+  objective: "Objectif ads",
+  ad_status: "Statut ads",
+};
 
 /**
  * Le tableau d'une année.
@@ -184,6 +197,29 @@ export function PlanningBoardView({
     },
     [sort, setSort],
   );
+
+  /**
+   * « Enregistrer » après un tri — le geste Monday : l'ordre affiché est
+   * réécrit dans les positions du tableau, couloir par couloir, et devient
+   * l'ordre manuel de tout le monde. « Annuler » rend simplement l'ordre
+   * d'avant, rien n'a été écrit.
+   */
+  const applySort = () => {
+    if (sort === "position") return;
+    const lanes = months.flatMap((month) =>
+      month.lanes.map((lane) => ({
+        laneId: lane.id,
+        subjectIds: sortSubjects(lane.subjects, sort, effectiveColumns).map(
+          (subject) => subject.id,
+        ),
+      })),
+    );
+    run(async () => {
+      const result = await applySortOrder(scope, { lanes });
+      if (result.ok) setSort("position");
+      return result;
+    });
+  };
   // Largeurs en cours de drag : le tableau suit le pointeur sans attendre la
   // base, qui reçoit la valeur finale au relâchement.
   const [widthPreview, setWidthPreview] = useState<Record<string, number>>({});
@@ -523,6 +559,37 @@ export function PlanningBoardView({
         // 6 px : chaque mois se détache comme un groupe Monday, le rail
         // coloré continue de guider l'œil sur l'année.
         <div className="space-y-4">
+          {sort !== "position" ? (
+            // Collant : le tri se déclenche souvent au milieu de l'année,
+            // la sortie doit rester sous les yeux.
+            <div className="border-border bg-surface sticky top-16 z-30 flex items-center justify-between gap-3 rounded-md border px-3 py-2 shadow-card">
+              <span className="text-text-secondary flex items-center gap-1.5 text-xs">
+                {sort.direction === "asc" ? (
+                  <ArrowUp className="size-3.5" aria-hidden />
+                ) : (
+                  <ArrowDown className="size-3.5" aria-hidden />
+                )}
+                Tri par {SORT_COLUMN_LABELS[sort.column]}
+              </span>
+              <span className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setSort("position")}
+                  className="border-border text-text-secondary hover:text-text-primary hover:bg-muted/60 focus-visible:ring-ring h-8 rounded-md border px-3 text-xs transition-colors focus-visible:ring-2 focus-visible:outline-none"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="button"
+                  disabled={pending}
+                  onClick={applySort}
+                  className="bg-primary text-primary-foreground focus-visible:ring-ring h-8 rounded-md px-3 text-xs font-medium transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50"
+                >
+                  {pending ? "Enregistrement…" : "Enregistrer cet ordre"}
+                </button>
+              </span>
+            </div>
+          ) : null}
           {visibleMonths.map((month) => (
             <MonthGroup
               key={month.id}
