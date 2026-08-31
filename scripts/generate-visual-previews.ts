@@ -36,6 +36,13 @@ import {
 dotenv.config({ path: ".env.local", quiet: true });
 
 const DRY_RUN = process.argv.includes("--dry-run");
+/** Reprend aussi les en-têtes de cache des miniatures déjà en place :
+    stockées avant la convention, elles portent `no-cache` et le navigateur
+    les revalide à chaque affichage. */
+const REFRESH_HEADERS = process.argv.includes("--entetes");
+
+/** Un an : le chemin porte un horodatage, son contenu ne change jamais. */
+const CACHE_CONTROL_SECONDS = "31536000";
 
 /** Les mêmes bornes que le navigateur : un seul rendu de miniature. */
 const PREVIEW_MAX_EDGE = 1080;
@@ -97,7 +104,7 @@ async function main() {
     `${paths.length} visuels au bucket, ${missing.length} sans miniature.` +
       (hasFfmpeg ? "" : " (ffmpeg absent : les vidéos seront sautées)"),
   );
-  if (DRY_RUN || missing.length === 0) {
+  if (DRY_RUN || (missing.length === 0 && !REFRESH_HEADERS)) {
     if (DRY_RUN) for (const entry of missing) console.log(`  → ${entry}`);
     return;
   }
@@ -138,6 +145,7 @@ async function main() {
           .upload(previewPathFor(entry), preview, {
             contentType: "image/jpeg",
             upsert: true,
+            cacheControl: CACHE_CONTROL_SECONDS,
           });
         if (uploadError) throw new Error(uploadError.message);
 
@@ -155,6 +163,42 @@ async function main() {
   console.log(
     `Miniatures : ${made} fabriquées, ${skipped} sautées (PDF, ou vidéo sans ffmpeg), ${failed} en échec.`,
   );
+
+  if (REFRESH_HEADERS) {
+    // Re-dépose chaque miniature déjà en place avec l'en-tête de cache long :
+    // quelques centaines de Ko en tout, et le navigateur cesse de revalider.
+    let refreshed = 0;
+    let refreshFailed = 0;
+    for (const entry of paths) {
+      const preview = previewPathFor(entry);
+      if (!existing.has(preview)) continue;
+      try {
+        const { data: blob, error: downloadError } = await admin.storage
+          .from(VISUALS_BUCKET)
+          .download(preview);
+        if (downloadError || !blob) {
+          throw new Error(downloadError?.message ?? "téléchargement vide");
+        }
+        const { error: uploadError } = await admin.storage
+          .from(VISUALS_BUCKET)
+          .upload(preview, Buffer.from(await blob.arrayBuffer()), {
+            contentType: "image/jpeg",
+            upsert: true,
+            cacheControl: CACHE_CONTROL_SECONDS,
+          });
+        if (uploadError) throw new Error(uploadError.message);
+        refreshed += 1;
+      } catch (cause) {
+        refreshFailed += 1;
+        console.error(`  ✗ en-têtes ${preview} : ${(cause as Error).message}`);
+      }
+    }
+    console.log(
+      `En-têtes de cache repris sur ${refreshed} miniature${refreshed > 1 ? "s" : ""}, ${refreshFailed} en échec.`,
+    );
+    if (refreshFailed > 0) process.exit(1);
+  }
+
   if (failed > 0) process.exit(1);
 }
 

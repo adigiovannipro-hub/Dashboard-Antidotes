@@ -21,6 +21,14 @@ import { visualUploadError } from "./storage";
     vingt connexions — l'envoi séquentiel faisait attendre chaque vidéo. */
 const UPLOAD_CONCURRENCY = 3;
 
+/**
+ * Stocké par le bucket et resservi tel quel à chaque lecture. Sans lui,
+ * Supabase sert `no-cache` et le navigateur revalide chaque visuel à chaque
+ * affichage. `immutable` est exact : le chemin porte un horodatage, un même
+ * chemin ne change jamais de contenu.
+ */
+const LONG_LIVED_CACHE = "max-age=31536000, immutable";
+
 export async function uploadVisualsFromBrowser(
   scope: { workspace: string; board: string },
   subjectId: string,
@@ -54,6 +62,7 @@ export async function uploadVisualsFromBrowser(
         method: "PUT",
         headers: {
           "content-type": file.type || "application/octet-stream",
+          "cache-control": LONG_LIVED_CACHE,
         },
         body: file,
       });
@@ -74,7 +83,10 @@ export async function uploadVisualsFromBrowser(
       if (blob) {
         await fetch(upload.previewUrl, {
           method: "PUT",
-          headers: { "content-type": "image/jpeg" },
+          headers: {
+            "content-type": "image/jpeg",
+            "cache-control": LONG_LIVED_CACHE,
+          },
           body: blob,
         });
       }

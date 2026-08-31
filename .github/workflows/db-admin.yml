@@ -167,9 +167,11 @@ jobs:
       # sautées). Idempotent — une miniature en place n'est jamais refaite.
       - name: Miniatures des visuels du Planning
         if: ${{ inputs.previews_planning }}
+        # `--entetes` reprend aussi le Cache-Control des miniatures déjà en
+        # place : quelques centaines de Ko, idempotent.
         run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
-          pnpm previews:planning
+          pnpm previews:planning --entetes
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}

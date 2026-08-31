@@ -3,7 +3,7 @@ import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import type { ColumnDef, ColumnOverride } from "./columns";
 import { resolveColumns } from "./columns";
-import { VISUALS_BUCKET, previewPathFor } from "./storage";
+import { signedVisualUrls } from "./visual-urls";
 import type {
   BoardSettings,
   FaqEntry,
@@ -358,9 +358,12 @@ async function loadComments(
 /**
  * Transforme les chemins de stockage en URL affichables.
  *
- * Le bucket est privé : une URL signée d'une heure est générée à chaque rendu.
- * Les valeurs déjà en `http` — un visuel importé depuis Monday — passent telles
- * quelles.
+ * Le bucket est privé : les URL sont signées — mais **pas à chaque rendu**.
+ * Elles viennent de `signedVisualUrls`, qui les garde stables une semaine :
+ * une URL qui change à chaque affichage rendait le cache du navigateur
+ * inutilisable, et la page re-téléchargeait tous les visuels à chaque visite.
+ * Les valeurs déjà en `http` — un visuel importé depuis Monday — passent
+ * telles quelles.
  *
  * Exportée pour « Mon travail », qui réplique les lignes du jour sur la page
  * d'accueil et doit afficher les mêmes visuels sans dupliquer cette logique.
@@ -378,31 +381,25 @@ export async function resolveVisuals(
     ),
   ];
 
-  const signed = new Map<string, string>();
-  if (paths.length > 0) {
-    const supabase = await createClient();
-    // Un seul batch pour les originaux **et** leurs miniatures candidates :
-    // une miniature absente — visuel d'avant la convention — revient en
-    // erreur dans la même réponse, sans coûter un appel de plus, et
-    // l'affichage retombe sur l'original.
-    const { data } = await supabase.storage
-      .from(VISUALS_BUCKET)
-      .createSignedUrls([...paths, ...paths.map(previewPathFor)], 3600);
-
-    for (const entry of data ?? []) {
-      if (entry.signedUrl && entry.path) signed.set(entry.path, entry.signedUrl);
-    }
-  }
+  // Un appel par chemin et non un batch : c'est la clé du Data Cache. Après
+  // le premier rendu, tout vient du cache sans toucher au Storage.
+  const signed = new Map(
+    await Promise.all(
+      paths.map(
+        async (path) => [path, await signedVisualUrls(path)] as const,
+      ),
+    ),
+  );
 
   for (const subject of subjects) {
     resolved.set(
       subject.id,
       subject.visual_urls.map((path) => ({
         path,
-        url: path.startsWith("http") ? path : (signed.get(path) ?? ""),
+        url: path.startsWith("http") ? path : (signed.get(path)?.url ?? ""),
         previewUrl: path.startsWith("http")
           ? null
-          : (signed.get(previewPathFor(path)) ?? null),
+          : (signed.get(path)?.previewUrl ?? null),
         name: decodeURIComponent(path.split("/").pop() ?? path),
       })),
     );
