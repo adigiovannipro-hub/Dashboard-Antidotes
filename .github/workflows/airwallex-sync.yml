@@ -37,6 +37,16 @@
 # `GITHUB_SYNC_TOKEN`). Le passage programmé reste le filet de fond — c'est lui
 # qui relève les Reçus et publie le Planning quand personne n'ouvre l'écran.
 #
+# L'application déclenche avec `portee: finance` : seule la collecte Airwallex
+# tourne — soldes, dépenses, factures, et le rapprochement des Échéances, qui
+# est son étape `billing`. C'est tout ce que les deux écrans attendent, et la
+# chaîne complète était devenue trop longue pour une attente d'écran : 4 à
+# 6 min 30 relevées le 31/08 — le navigateur de rendu, la Modération et les
+# Reçus pesant l'essentiel — contre les 56 s d'origine. Le passage programmé
+# et le bouton « Run workflow » de GitHub (défaut `tout`) gardent la chaîne
+# entière ; Planning, Modération et Reçus restent donc horaires, ce qui est
+# leur cadence de fond, pas une attente humaine.
+#
 # Secrets requis (Settings → Secrets and variables → Actions) :
 #   NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY,
 #   SUPABASE_SERVICE_ROLE_KEY, AIRWALLEX_CLIENT_ID, AIRWALLEX_API_KEY —
@@ -52,6 +62,14 @@ on:
     # GitHub retarde le plus ses schedules.
     - cron: "17 * * * *"
   workflow_dispatch:
+    inputs:
+      portee:
+        description: "Ce que le passage exécute"
+        type: choice
+        default: tout
+        options:
+          - tout
+          - finance
 
 concurrency:
   group: finance-sync
@@ -86,7 +104,11 @@ jobs:
       # Sur 720 exécutions mensuelles, l'écart pèse plus que tout le reste du
       # job. `--with-deps` n'est posé qu'au premier passage, quand le cache est
       # vide ; ensuite les bibliothèques système sont déjà là.
+      #
+      # Seuls les Reçus s'en servent : un passage `portee: finance` s'en passe.
+      # Sur un schedule, `inputs.portee` est vide — la condition reste vraie.
       - name: Cache du navigateur
+        if: inputs.portee != 'finance'
         id: cache-navigateur
         uses: actions/cache@v4
         with:
@@ -94,6 +116,7 @@ jobs:
           key: playwright-chromium-${{ hashFiles('pnpm-lock.yaml') }}
 
       - name: Navigateur de rendu
+        if: inputs.portee != 'finance'
         run: pnpm exec playwright install ${{ steps.cache-navigateur.outputs.cache-hit == 'true' && 'chromium' || '--with-deps chromium' }}
 
       - name: Synchroniser Finance
@@ -122,7 +145,7 @@ jobs:
       # huit passages de 16h à minuit rattrapent, `planning_publications`
       # interdisant le doublon.
       - name: Publication automatique du Planning (à partir de 16h Paris)
-        if: always()
+        if: always() && inputs.portee != 'finance'
         run: pnpm publier:planning
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
@@ -135,7 +158,7 @@ jobs:
       # de Vercel étant pris. Meta accepte les IP GitHub ; le passage coûte
       # quelques secondes par compte branché.
       - name: Synchroniser la Modération (commentaires Meta)
-        if: always()
+        if: always() && inputs.portee != 'finance'
         run: pnpm sync:moderation
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
@@ -144,7 +167,7 @@ jobs:
           CREDENTIALS_ENCRYPTION_KEY: ${{ secrets.CREDENTIALS_ENCRYPTION_KEY }}
 
       - name: Synchroniser les Reçus
-        if: always()
+        if: always() && inputs.portee != 'finance'
         run: pnpm sync:recus
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}

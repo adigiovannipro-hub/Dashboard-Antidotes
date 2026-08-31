@@ -21,7 +21,11 @@ import { missingServerEnv, serverEnv } from "@/lib/env";
  * horaire le filet de sécurité.
  */
 
-/** Le workflow qui porte les trois étapes : Finance, Planning, Reçus. */
+/**
+ * Le workflow qui porte la chaîne horaire : Finance, Planning, Modération,
+ * Reçus. L'écran, lui, ne déclenche que la portée `finance` — voir
+ * `dispatchSyncWorkflow`.
+ */
 export const SYNC_WORKFLOW_FILE = "airwallex-sync.yml";
 
 /** Le dépôt, surchargeable — un fork ou un miroir n'a pas à toucher au code. */
@@ -114,12 +118,14 @@ export async function readWorkflowState(): Promise<WorkflowState> {
 
 /**
  * Lance une exécution. Rend la main dès que GitHub a accepté l'ordre — la
- * synchronisation, elle, dure une à deux minutes.
+ * synchronisation, elle, dure environ une minute.
  *
- * Le workflow enchaîne Finance, la publication du Planning et les Reçus. La
- * publication n'est pas un effet de bord subi : elle regarde l'heure de Paris
- * et ne travaille qu'à 16 h, où elle est précisément ce qu'on attend — et
- * `planning_publications` interdit de toute façon le doublon.
+ * `portee: finance` : l'écran n'attend que la collecte Airwallex — soldes,
+ * dépenses, factures, et le rapprochement des Échéances, qui en est l'étape
+ * `billing`. La chaîne complète (navigateur de rendu, Planning, Modération,
+ * Reçus) prenait 4 à 6 min 30, ce qui est une cadence de fond, pas une
+ * attente d'écran : elle reste au passage horaire et au déclenchement manuel
+ * depuis GitHub, dont le défaut est `tout`.
  */
 export async function dispatchSyncWorkflow(): Promise<void> {
   const response = await fetch(
@@ -127,7 +133,7 @@ export async function dispatchSyncWorkflow(): Promise<void> {
     {
       method: "POST",
       headers: { ...headers(), "Content-Type": "application/json" },
-      body: JSON.stringify({ ref: ref() }),
+      body: JSON.stringify({ ref: ref(), inputs: { portee: "finance" } }),
       cache: "no-store",
     },
   );

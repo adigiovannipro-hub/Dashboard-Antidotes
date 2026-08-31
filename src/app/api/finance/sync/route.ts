@@ -13,10 +13,13 @@ import { decideSync, type SyncDecision, type SyncSnapshot } from "@/lib/finance/
 /**
  * La synchronisation Airwallex à la demande — Finance et Échéances.
  *
- * Les deux écrans lisent la même chaîne : le workflow rafraîchit les soldes,
- * les dépenses, les factures, le grand livre, **puis** rapproche les
- * mensualités des Échéances et relève les Reçus. Une seule commande met donc
- * les deux pages à jour, d'où une seule route pour les deux.
+ * Les deux écrans lisent la même collecte : le workflow rafraîchit les
+ * soldes, les dépenses, les factures, le grand livre, **puis** rapproche les
+ * mensualités des Échéances — son étape `billing`. Une seule commande met
+ * donc les deux pages à jour, d'où une seule route pour les deux. Le
+ * déclenchement est borné à cette portée (`portee: finance`) : la chaîne
+ * complète — Planning, Modération, Reçus — reste au passage horaire, elle
+ * prenait plusieurs minutes que l'écran passait à afficher « en cours ».
  *
  * Le travail ne part pas d'ici : Airwallex refuse les adresses IP de
  * l'hébergeur. Cette route ne fait que donner l'ordre à GitHub, qui l'exécute
