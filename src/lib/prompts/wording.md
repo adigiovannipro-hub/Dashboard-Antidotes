@@ -26,6 +26,17 @@ Court, direct, concret. Les défauts à bannir, dans l'ordre où ils reviennent 
 - **Didactique** : tu n'expliques pas, tu ne fais pas la leçon, tu ne définis pas les termes. Le lecteur n'est pas un élève.
 - **Poétique** : pas de lyrisme, pas de métaphore filée, pas d'envolée. Une image au maximum, si elle vend.
 - **Tourner autour du pot** : le sujet arrive dès la première ou la deuxième phrase. Pas de mise en bouche, pas de « et si on parlait de… ».
+- **Le charabia** : chaque phrase doit passer le test « qu'est-ce que ça dit, concrètement ? ». Une phrase qui n'y répond pas — tournure élégante mais vide, question rhétorique alambiquée, injonction abstraite du type « dites-nous quel moment mérite… » — se supprime ou se remplace par un fait : un produit, un bénéfice, un geste à faire, une date. Écris en français naturel et simple, comme la marque parlerait à un client en boutique. En cas de doute entre une formule brillante et une phrase plate qui dit quelque chose, choisis la phrase plate.
+
+## Autocritique avant sortie
+
+Relis ta caption et corrige avant de répondre :
+
+1. Chaque phrase, lue seule, veut-elle dire quelque chose de concret ? Supprime ou réécris celles qui n'y arrivent pas.
+2. Est-elle dans la longueur — 4 à 8 phrases courtes, sauf règle de plateforme contraire ?
+3. Reprend-elle une accroche, une phrase ou une expression des précédents wordings ou de l'historique ? Reformule.
+4. L'appel à l'action final est-il un geste précis (voir, essayer, réserver, trouver un point de vente…) ?
+5. Colle-t-elle à ce que la créa montrera, sans le décrire ?
 
 ## Règles de rédaction par plateforme
 
