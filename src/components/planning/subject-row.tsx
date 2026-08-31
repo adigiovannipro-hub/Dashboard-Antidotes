@@ -260,10 +260,17 @@ function Cell({
   onEditLabels: () => void;
   canGenerateWording: boolean;
 }) {
-  const stop = (node: React.ReactNode) => (
+  // `flush` : la cellule ne met **aucune** marge autour de son contenu — c'est
+  // le mode des étiquettes, dont l'aplat coloré remplit le rectangle entier,
+  // du filet de gauche au filet de droite.
+  const stop = (node: React.ReactNode, flush = false) => (
     <span
       onClick={(event) => event.stopPropagation()}
-      className="flex min-w-0 items-center px-1 py-1.5"
+      className={
+        flush
+          ? "flex min-w-0 items-stretch"
+          : "flex min-w-0 items-center px-1 py-1.5"
+      }
     >
       {node}
     </span>
@@ -294,9 +301,11 @@ function Cell({
           options={toOptions(column.labels)}
           ariaLabel="Statut de la publication"
           allowClear
+          fill
           onSelect={(next) => edit("status", next ?? "idea")}
           onEditLabels={onEditLabels}
         />,
+        true,
       );
 
     case "format":
@@ -306,9 +315,11 @@ function Cell({
           options={toOptions(column.labels)}
           ariaLabel="Type de contenu"
           allowClear
+          fill
           onSelect={(next) => edit("format", next ?? "other")}
           onEditLabels={onEditLabels}
         />,
+        true,
       );
 
     case "date":
@@ -361,9 +372,11 @@ function Cell({
           options={toOptions(column.labels)}
           ariaLabel="Objectif de l'annonce"
           allowClear
+          fill
           onSelect={(next) => edit("ad_objective", next)}
           onEditLabels={onEditLabels}
         />,
+        true,
       );
 
     case "ad_status":
@@ -373,9 +386,11 @@ function Cell({
           options={toOptions(column.labels)}
           ariaLabel="Statut de l'annonce"
           allowClear
+          fill
           onSelect={(next) => edit("ad_status", next)}
           onEditLabels={onEditLabels}
         />,
+        true,
       );
 
     case "updated":
@@ -442,9 +457,11 @@ function Cell({
           options={toOptions(column.labels)}
           ariaLabel={column.label}
           allowClear
+          fill
           onSelect={commit}
           onEditLabels={onEditLabels}
         />,
+        true,
       );
 
     default:

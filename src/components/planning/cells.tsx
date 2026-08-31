@@ -1,6 +1,6 @@
 "use client";
 
-import { useOptimistic, useRef, useState, useTransition } from "react";
+import { useEffect, useOptimistic, useRef, useState, useTransition } from "react";
 import { CalendarDays, Check, Loader2, Paperclip, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -8,14 +8,6 @@ import type { PlanningResult } from "@/app/actions/planning";
 import { VisualLightbox } from "@/components/planning/lightbox";
 import { GenerateWordingButton } from "@/components/planning/wording-generation";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -210,6 +202,12 @@ export function NumberCell({
  * Cellule date : toute la surface ouvre le calendrier — l'icône comme les
  * chiffres. L'input natif reste dans le flux mais invisible ; le bouton
  * au-dessus porte l'affichage et déclenche `showPicker()`.
+ *
+ * Re-cliquer la cellule **referme** le calendrier. Le picker natif ne dit
+ * jamais qu'il se ferme ; mais il se ferme de lui-même sur le `pointerdown`
+ * qui précède notre `click` — sans garde, le `click` le rouvrait aussitôt et
+ * le calendrier semblait incollable. On note donc qu'il est ouvert, et un
+ * `pointerdown` sur la cellule pendant ce temps fait sauter la réouverture.
  */
 export function DateCell({
   value,
@@ -222,6 +220,26 @@ export function DateCell({
   late?: boolean;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const skipReopen = useRef(false);
+
+  useEffect(() => {
+    if (!pickerOpen) return;
+    const onPointerDown = (event: PointerEvent) => {
+      if (
+        event.target instanceof Node &&
+        wrapRef.current?.contains(event.target)
+      ) {
+        skipReopen.current = true;
+      }
+      setPickerOpen(false);
+    };
+    // En capture : le picker natif est déjà fermé quand ce geste atteint la
+    // page, l'état doit suivre quel que soit l'endroit cliqué.
+    document.addEventListener("pointerdown", onPointerDown, true);
+    return () => document.removeEventListener("pointerdown", onPointerDown, true);
+  }, [pickerOpen]);
 
   const display = value
     ? new Intl.DateTimeFormat("fr-FR", {
@@ -232,26 +250,34 @@ export function DateCell({
     : null;
 
   return (
-    <div className="relative w-full">
+    <div ref={wrapRef} className="relative w-full">
       <input
         ref={inputRef}
         type="date"
         value={value ?? ""}
         tabIndex={-1}
         aria-hidden
-        onChange={(event) => onCommit(event.target.value || null)}
+        onChange={(event) => {
+          onCommit(event.target.value || null);
+          setPickerOpen(false);
+        }}
         className="pointer-events-none absolute inset-0 opacity-0"
       />
       <button
         type="button"
         aria-label={display ? `Date : ${display}${late ? " (en retard)" : ""}` : "Choisir une date"}
         onClick={() => {
+          if (skipReopen.current) {
+            skipReopen.current = false;
+            return;
+          }
           const input = inputRef.current;
           if (!input) return;
           if ("showPicker" in input) input.showPicker();
           else (input as HTMLInputElement).click();
+          setPickerOpen(true);
         }}
-        className="hover:bg-muted/60 focus-visible:ring-brand flex h-7 w-full items-center justify-start gap-1.5 rounded-sm px-1.5 text-sm tabular-nums outline-none focus-visible:ring-2"
+        className="hover:bg-muted/60 focus-visible:ring-brand flex h-7 w-full items-center justify-center gap-1.5 rounded-sm px-1.5 text-sm tabular-nums outline-none focus-visible:ring-2"
       >
         <CalendarDays
           className={cn("size-3.5 shrink-0", late ? "text-danger-ink" : "text-muted-foreground")}
@@ -373,6 +399,7 @@ export function ChipSelect<T extends string>({
   placeholder,
   className,
   onEditLabels,
+  fill,
 }: {
   value: T | null;
   options: ChipOption<T>[];
@@ -392,6 +419,10 @@ export function ChipSelect<T extends string>({
   /** Ouvre l'éditeur d'étiquettes de la colonne — le « + Nouvelle étiquette »
       accessible depuis le sélecteur lui-même, comme sur Monday. */
   onEditLabels?: () => void;
+  /** Dans une cellule du tableau : l'aplat remplit **tout** le rectangle,
+      bord à bord et sans arrondi — la case entière est colorée, comme sur
+      Monday. Ailleurs (panneau, barre groupée), la pastille garde sa forme. */
+  fill?: boolean;
 }) {
   // Contrôlé : les options sont des boutons libres (la grille colorée), pas
   // des items de menu — sans ça, choisir une pastille laissait le menu ouvert.
@@ -439,7 +470,13 @@ export function ChipSelect<T extends string>({
           // sa nouvelle teinte au clic, et un aplat qui saute d'un vert à un
           // orange se lit comme un défaut d'affichage. Cent cinquante
           // millisecondes suffisent à en faire un changement d'état.
-          "focus-visible:ring-brand flex h-7 w-full items-center justify-center rounded-sm px-2 text-[11px] font-semibold tracking-wide uppercase outline-none transition-[background-color,color] duration-(--motion-duration) ease-standard focus-visible:ring-2 motion-reduce:transition-none",
+          "focus-visible:ring-brand flex w-full items-center justify-center px-2 text-[11px] font-semibold tracking-wide uppercase outline-none transition-[background-color,color] duration-(--motion-duration) ease-standard focus-visible:ring-2 motion-reduce:transition-none",
+          // L'anneau de focus passe à l'intérieur quand l'aplat touche les
+          // bords : dessiné dehors, il disparaîtrait sous les cellules
+          // voisines.
+          fill
+            ? "h-full min-h-9 rounded-none focus-visible:ring-inset"
+            : "h-7 rounded-sm",
           className,
         )}
         style={{
@@ -602,6 +639,36 @@ export function OwnerAvatar({ owner }: { owner: PlanningOwner | null }) {
 
 // --- Wording ---------------------------------------------------------------------
 
+/** Position d'un flottant ancré à la cellule : vers le bas, ou vers le haut
+    quand le bas de l'écran est trop proche. */
+type AnchoredBox = {
+  left: number;
+  width: number;
+  top?: number;
+  bottom?: number;
+};
+
+function anchorBox(rect: DOMRect, minWidth: number, reserve: number): AnchoredBox {
+  const up = rect.top > window.innerHeight - reserve;
+  return {
+    left: Math.max(8, Math.min(rect.left, window.innerWidth - minWidth - 8)),
+    width: Math.max(rect.width, minWidth),
+    ...(up
+      ? { bottom: window.innerHeight - rect.bottom }
+      : { top: rect.top }),
+  };
+}
+
+/**
+ * La cellule Wording, à la Monday : le texte tient sur une ligne au repos,
+ * le survol montre le texte entier en infobulle, et le clic **agrandit la
+ * cellule sur place** — un cadre d'édition posé par-dessus le tableau, pas
+ * une boîte de dialogue. Sortir du cadre enregistre, Échap annule.
+ *
+ * Le cadre et l'infobulle sont en `position: fixed` : la cellule vit dans un
+ * conteneur qui défile (`overflow-x-auto`), où un `absolute` serait rogné dès
+ * la dernière ligne du couloir.
+ */
 export function WordingCell({
   value,
   subjectName,
@@ -614,74 +681,121 @@ export function WordingCell({
   /** Posé par l'agence seulement : le stylo de génération apparaît au survol. */
   generateSubjectId?: string;
 }) {
-  const [open, setOpen] = useState(false);
-  const [draft, setDraft] = useState(value ?? "");
+  const anchorRef = useRef<HTMLButtonElement>(null);
+  const [editor, setEditor] = useState<AnchoredBox | null>(null);
+  const [draft, setDraft] = useState("");
+  const [tip, setTip] = useState<AnchoredBox | null>(null);
+  const tipTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  function save() {
+  const hideTip = () => {
+    if (tipTimer.current) clearTimeout(tipTimer.current);
+    setTip(null);
+  };
+
+  const showTip = () => {
+    if (!value || editor) return;
+    if (tipTimer.current) clearTimeout(tipTimer.current);
+    tipTimer.current = setTimeout(() => {
+      const rect = anchorRef.current?.getBoundingClientRect();
+      if (rect) setTip(anchorBox(rect, 280, 260));
+    }, 350);
+  };
+
+  const openEditor = () => {
+    hideTip();
+    const rect = anchorRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    setDraft(value ?? "");
+    setEditor(anchorBox(rect, 280, 280));
+  };
+
+  const save = () => {
     const next = draft.trim();
     if (next !== (value ?? "").trim()) onCommit(next || null);
-    setOpen(false);
-  }
+    setEditor(null);
+  };
+
+  // Un défilement pendant l'édition laisserait le cadre flotter à côté de sa
+  // cellule : on enregistre et on referme, comme un blur.
+  useEffect(() => {
+    if (!editor) return;
+    const close = () => save();
+    window.addEventListener("scroll", close, true);
+    window.addEventListener("resize", close);
+    return () => {
+      window.removeEventListener("scroll", close, true);
+      window.removeEventListener("resize", close);
+    };
+    // `save` change à chaque frappe ; réinscrire l'écouteur est sans coût.
+  });
 
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(next) => {
-        setOpen(next);
-        if (next) setDraft(value ?? "");
-      }}
-    >
-      <span className="group/wording relative block min-w-0 flex-1">
-        <DialogTrigger
-          aria-label={`Wording de ${subjectName || "la publication"}`}
-          className="hover:bg-muted/60 focus-visible:ring-brand block w-full truncate rounded-sm px-1.5 py-1 text-left text-sm outline-none focus-visible:ring-2"
+    <span className="group/wording relative block min-w-0 flex-1">
+      <button
+        ref={anchorRef}
+        type="button"
+        aria-label={`Wording de ${subjectName || "la publication"}`}
+        onClick={openEditor}
+        onMouseEnter={showTip}
+        onMouseLeave={hideTip}
+        onFocus={showTip}
+        onBlur={hideTip}
+        className="hover:bg-muted/60 focus-visible:ring-brand block w-full truncate rounded-sm px-1.5 py-1 text-center text-sm outline-none focus-visible:ring-2"
+      >
+        <span className={cn(!value && "text-muted-foreground")}>
+          {value ? value.replace(/\s+/g, " ") : "—"}
+        </span>
+      </button>
+
+      {generateSubjectId ? (
+        <span className="absolute top-1/2 right-1 -translate-y-1/2 opacity-0 transition-opacity duration-(--motion-duration) ease-standard group-hover/wording:opacity-100 has-focus-visible:opacity-100">
+          <GenerateWordingButton
+            subjectId={generateSubjectId}
+            subjectName={subjectName}
+          />
+        </span>
+      ) : null}
+
+      {tip && !editor ? (
+        <span
+          aria-hidden
+          style={tip}
+          className="border-border bg-surface text-foreground pointer-events-none fixed z-50 block max-h-80 max-w-[75vw] overflow-hidden rounded-md border p-3 text-sm whitespace-pre-wrap shadow-lg"
         >
-          <span className={cn(!value && "text-muted-foreground")}>
-            {value ? value.replace(/\s+/g, " ") : "—"}
-          </span>
-        </DialogTrigger>
-        {generateSubjectId ? (
-          <span className="absolute top-1/2 right-1 -translate-y-1/2 opacity-0 transition-opacity duration-(--motion-duration) ease-standard group-hover/wording:opacity-100 has-focus-visible:opacity-100">
-            <GenerateWordingButton
-              subjectId={generateSubjectId}
-              subjectName={subjectName}
-            />
-          </span>
-        ) : null}
-      </span>
+          {value}
+        </span>
+      ) : null}
 
-      <DialogContent className="sm:max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>{subjectName || "Wording"}</DialogTitle>
-        </DialogHeader>
-
-        <textarea
-          value={draft}
-          onChange={(event) => setDraft(event.target.value)}
-          rows={16}
-          aria-label="Wording"
-          placeholder="La caption publiable, ou l'intention en phase de planning."
-          className="border-input bg-background focus-visible:ring-brand w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:outline-none"
-        />
-
-        <div className="flex items-center gap-2">
-          <Button type="button" size="sm" onClick={save}>
-            Enregistrer
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant="ghost"
-            onClick={() => setOpen(false)}
+      {editor ? (
+        <span style={editor} className="fixed z-50 block max-w-[92vw]">
+          <textarea
+            autoFocus
+            value={draft}
+            onChange={(event) => setDraft(event.target.value)}
+            onFocus={(event) => {
+              const length = event.currentTarget.value.length;
+              event.currentTarget.setSelectionRange(length, length);
+            }}
+            onBlur={save}
+            onKeyDown={(event) => {
+              if (event.key === "Escape") {
+                event.stopPropagation();
+                setEditor(null);
+              }
+            }}
+            aria-label={`Wording de ${subjectName || "la publication"}`}
+            placeholder="La caption publiable, ou l'intention en phase de planning."
+            className="border-ring bg-background field-sizing-content max-h-[60vh] min-h-36 w-full resize rounded-md border-2 px-3 pt-2 pb-7 text-sm shadow-xl outline-none"
+          />
+          <span
+            aria-hidden
+            className="text-muted-foreground pointer-events-none absolute right-3 bottom-3 text-xs tabular-nums"
           >
-            Annuler
-          </Button>
-          <span className="text-muted-foreground ml-auto text-xs tabular-nums">
             {draft.length} caractères
           </span>
-        </div>
-      </DialogContent>
-    </Dialog>
+        </span>
+      ) : null}
+    </span>
   );
 }
 

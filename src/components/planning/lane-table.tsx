@@ -326,15 +326,9 @@ function headerAlign(column: ColumnDef): "start" | "center" | "end" {
   // centrées, un en-tête calé au bord flottait à côté de son contenu.
   if (column.builtin === "sponsoring" || column.builtin === "updated") return "center";
   if (column.type === "number") return "end";
-  if (
-    column.builtin === "name" ||
-    column.builtin === "wording" ||
-    column.builtin === "date" ||
-    column.type === "text" ||
-    column.type === "date"
-  ) {
-    return "start";
-  }
+  // Le sujet est l'ancre de la ligne : lui seul se cale à gauche. Wording et
+  // Date sont centrés dans leur colonne, cellule comme en-tête.
+  if (column.builtin === "name" || column.type === "text") return "start";
   return "center";
 }
 
