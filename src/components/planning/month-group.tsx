@@ -260,7 +260,9 @@ export function MonthGroup({
       </header>
 
       {effectiveOpen ? (
-        <div className="border-border-strong bg-canvas space-y-3 border-t p-3">
+        // `space-y-5` : deux réseaux empilés respirent — collés, leurs
+        // en-têtes se lisaient comme les lignes d'un même tableau.
+        <div className="border-border-strong bg-canvas space-y-5 border-t p-3">
           {month.lanes.length === 0 ? (
             <p className="type-caption rounded-md border border-dashed border-border px-3 py-4 text-center text-text-secondary">
               Aucun réseau pour ce mois. Ajoutez-en un pour commencer à poser des

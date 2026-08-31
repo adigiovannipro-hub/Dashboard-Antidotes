@@ -1,3 +1,4 @@
+import { useId } from "react";
 import { Share2 } from "lucide-react";
 
 import type { PlanningPlatform } from "@/lib/planning/types";
@@ -98,6 +99,30 @@ export function platformColor(platform: PlanningPlatform): string {
   return brand.startsWith("radial") ? "#d6249f" : brand;
 }
 
+/**
+ * Instagram est le seul à ne pas vivre en pastille pleine : son vrai logo est
+ * la caméra **elle-même en dégradé**, pas un carré dégradé au glyphe blanc —
+ * demande explicite. Le tracé est le même, c'est le remplissage qui change,
+ * et le glyphe grandit d'un cran pour peser autant que les pastilles à côté.
+ * `useId` : plusieurs occurrences par page, chaque dégradé garde son ancre.
+ */
+function InstagramGlyph({ className }: { className?: string }) {
+  const gradientId = useId();
+  return (
+    <svg viewBox="0 0 24 24" className={className} aria-hidden>
+      <defs>
+        <linearGradient id={gradientId} x1="0" y1="1" x2="1" y2="0">
+          <stop offset="0" stopColor="#FA7E1E" />
+          <stop offset="0.45" stopColor="#D62976" />
+          <stop offset="0.75" stopColor="#962FBF" />
+          <stop offset="1" stopColor="#4F5BD5" />
+        </linearGradient>
+      </defs>
+      <path d={BRANDS.instagram!.path} fill={`url(#${gradientId})`} />
+    </svg>
+  );
+}
+
 /** Une pastille : le glyphe blanc sur l'aplat de marque. */
 function Chip({
   platform,
@@ -111,6 +136,20 @@ function Chip({
 }) {
   const brand = BRANDS[platform];
   const ink = DARK_GLYPH.has(platform) ? "#0F0F0F" : "#FFFFFF";
+
+  if (platform === "instagram") {
+    return (
+      <span
+        aria-hidden={hidden}
+        className={cn(
+          "flex size-5 shrink-0 items-center justify-center",
+          className,
+        )}
+      >
+        <InstagramGlyph className="size-5" />
+      </span>
+    );
+  }
 
   if (!brand) {
     return (

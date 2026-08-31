@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useOptimistic, useState } from "react";
 import { ArrowDown, ArrowUp, ArrowUpDown, ChevronRight, Plus, Trash2 } from "lucide-react";
 
 import {
@@ -78,6 +78,9 @@ export function LaneTable({
     after: boolean;
   } | null>(null);
   const { run, pending } = useCellAction();
+  // Lignes en cours de création : affichées par avance, résorbées d'elles-
+  // mêmes quand la revalidation apporte les vraies (voir le rendu plus bas).
+  const [creatingCount, showCreating] = useOptimistic(0, (count: number) => count + 1);
 
   const toggle = (next: boolean) => {
     setOpen(next);
@@ -278,18 +281,36 @@ export function LaneTable({
               />
             ))}
 
+            {/* La ligne fantôme : le clic sur « Ajouter » répond tout de
+                suite, pendant que le serveur crée la vraie ligne — sans elle,
+                rien ne bougeait à l'écran le temps de l'aller-retour et on
+                recliquait. `useOptimistic` la retire de lui-même quand la
+                revalidation apporte la ligne réelle. */}
+            {Array.from({ length: creatingCount }).map((_, index) => (
+              <div
+                key={`fantome-${index}`}
+                aria-hidden
+                className="border-border-strong flex h-10 animate-pulse items-center gap-2 border-b px-9"
+              >
+                <span className="bg-muted h-3 w-44 rounded" />
+              </div>
+            ))}
+
             {/* Le pied du couloir : ajouter, ou déposer en fin de liste. */}
             <button
               type="button"
               disabled={pending}
               onClick={() =>
-                run(() =>
-                  createSubject(scope, {
+                run(async () => {
+                  // Avant tout `await` : un état optimiste ne se pose que
+                  // dans la partie synchrone d'une transition.
+                  showCreating(null);
+                  return createSubject(scope, {
                     laneId: lane.id,
                     monthId: lane.month_id,
                     boardId: lane.board_id,
-                  }),
-                )
+                  });
+                })
               }
               onDragOver={(event) => {
                 if (![...event.dataTransfer.types].includes(SUBJECT_DRAG_TYPE)) return;

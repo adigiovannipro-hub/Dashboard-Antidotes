@@ -269,20 +269,13 @@ export function PlanningBoardView({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
-  const openSubject = useCallback(
-    (subjectId: string, focusRetours?: boolean) => {
-      if (closeTimer.current) clearTimeout(closeTimer.current);
-      setPanelClosing(false);
-      setPanel({ id: subjectId, focus: !!focusRetours });
-      raise("subject");
-      const next = new URLSearchParams(searchParams.toString());
-      next.set("sujet", subjectId);
-      if (focusRetours) next.set("focus", "retour");
-      else next.delete("focus");
-      router.push(`${pathname}?${next}`, { scroll: false });
-    },
-    [pathname, router, searchParams, raise],
-  );
+  // La publication réellement affichée, lisible depuis un gestionnaire sans
+  // figer de dépendance : c'est ce qui permet à la bulle de retours de servir
+  // d'interrupteur.
+  const shownPanel = useRef<{ id: string | null; focus: boolean }>({
+    id: null,
+    focus: false,
+  });
 
   const closeDrawer = useCallback(() => {
     // La glissade d'abord, le démontage ensuite — et l'URL en dernier, pour
@@ -298,6 +291,31 @@ export function PlanningBoardView({
       router.push(`${pathname}?${next}`, { scroll: false });
     }, 180);
   }, [pathname, router, searchParams]);
+
+  const openSubject = useCallback(
+    (subjectId: string, focusRetours?: boolean) => {
+      // Re-cliquer la bulle de retours du panneau déjà ouvert le **referme** —
+      // le même bouton ouvre et ferme. Un clic de ligne, lui, rouvre toujours.
+      if (
+        focusRetours &&
+        shownPanel.current.id === subjectId &&
+        shownPanel.current.focus
+      ) {
+        closeDrawer();
+        return;
+      }
+      if (closeTimer.current) clearTimeout(closeTimer.current);
+      setPanelClosing(false);
+      setPanel({ id: subjectId, focus: !!focusRetours });
+      raise("subject");
+      const next = new URLSearchParams(searchParams.toString());
+      next.set("sujet", subjectId);
+      if (focusRetours) next.set("focus", "retour");
+      else next.delete("focus");
+      router.push(`${pathname}?${next}`, { scroll: false });
+    },
+    [pathname, router, searchParams, raise, closeDrawer],
+  );
 
   const toggleSelect = useCallback((subjectId: string) => {
     setSelectedIds((current) => {
@@ -344,6 +362,15 @@ export function PlanningBoardView({
   // clic, l'onglet Activités affiche son chargement.
   const activeActivity =
     activeId && drawer?.subject.id === activeId ? drawer.activity : null;
+
+  // La photo du panneau à l'écran, relue par `openSubject` pour l'interrupteur
+  // de la bulle retours. Volontairement à chaque rendu : c'est une copie, pas
+  // un état.
+  useEffect(() => {
+    shownPanel.current = activeSubject
+      ? { id: activeSubject.id, focus: activeFocus }
+      : { id: null, focus: false };
+  });
 
   // Échap ferme le panneau — sauf quand la visionneuse plein écran est
   // ouverte : elle se ferme elle-même, en premier.
@@ -492,10 +519,10 @@ export function PlanningBoardView({
           les wordings.
         </p>
       ) : (
-        // Douze mois espacés de 20 px se lisaient comme douze cartes
-        // flottantes, chacune du même poids — dont onze vides. Serrés, ils
-        // forment une pile qu'on parcourt, et le mois ouvert s'en détache.
-        <div className="space-y-1.5">
+        // Un cran d'air entre les mois — demandé après la pile serrée à
+        // 6 px : chaque mois se détache comme un groupe Monday, le rail
+        // coloré continue de guider l'œil sur l'année.
+        <div className="space-y-4">
           {visibleMonths.map((month) => (
             <MonthGroup
               key={month.id}

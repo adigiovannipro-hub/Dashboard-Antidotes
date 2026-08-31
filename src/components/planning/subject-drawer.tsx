@@ -510,10 +510,6 @@ function VisualCarousel({
             Ajouter des visuels
           </PendingLabel>
         </Button>
-        <span className="text-muted-foreground text-xs">
-          Plusieurs fichiers à la fois. Les flèches d&apos;une vignette changent
-          l&apos;ordre du carrousel.
-        </span>
       </div>
     </div>
   );
