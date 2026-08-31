@@ -7,7 +7,7 @@ import { createLane, deleteMonth, renameMonth } from "@/app/actions/planning";
 import { FeedPreviewButton } from "@/components/planning/feed-preview";
 import { PlatformIcon } from "@/components/planning/platform-icon";
 import { TextCell, useCellAction } from "@/components/planning/cells";
-import { LaneTable, type DateSort } from "@/components/planning/lane-table";
+import { LaneTable } from "@/components/planning/lane-table";
 import { MonthWordingMenu } from "@/components/planning/wording-generation";
 import type { Scope } from "@/components/planning/subject-row";
 import {
@@ -23,6 +23,7 @@ import {
   totalSponsoring,
 } from "@/lib/planning/types";
 import type { MonthWithLanes, PlanningOwner } from "@/lib/planning/types";
+import type { PlanningSort, SortableColumnKey } from "@/lib/ui-preferences";
 import { cn } from "@/lib/utils";
 
 /**
@@ -37,7 +38,7 @@ export function MonthGroup({
   columns,
   owners,
   sort,
-  onSortToggle,
+  onSort,
   selectedIds,
   onToggleSelect,
   onToggleLane,
@@ -57,8 +58,8 @@ export function MonthGroup({
   month: MonthWithLanes;
   columns: ColumnDef[];
   owners: PlanningOwner[];
-  sort: DateSort;
-  onSortToggle: () => void;
+  sort: PlanningSort;
+  onSort: (column: SortableColumnKey) => void;
   selectedIds: Set<string>;
   onToggleSelect: (subjectId: string) => void;
   onToggleLane: (subjectIds: string[], selected: boolean) => void;
@@ -274,7 +275,7 @@ export function MonthGroup({
                 columns={columns}
                 owners={owners}
                 sort={sort}
-                onSortToggle={onSortToggle}
+                onSort={onSort}
                 selectedIds={selectedIds}
                 onToggleSelect={onToggleSelect}
                 onToggleLane={onToggleLane}

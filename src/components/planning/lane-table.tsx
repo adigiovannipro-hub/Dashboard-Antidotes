@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronRight, Plus, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, ChevronRight, Plus, Trash2 } from "lucide-react";
 
 import {
   createSubject,
@@ -12,6 +12,7 @@ import {
 } from "@/app/actions/planning";
 import { TextCell, useCellAction } from "@/components/planning/cells";
 import { AddColumnMenu, ColumnHeaderMenu } from "@/components/planning/column-menus";
+import { sortSubjects, sortableKey } from "@/lib/planning/sort";
 import { PlatformIcon, platformColor } from "@/components/planning/platform-icon";
 import {
   SUBJECT_DRAG_TYPE,
@@ -20,15 +21,10 @@ import {
 } from "@/components/planning/subject-row";
 import type { ColumnDef } from "@/lib/planning/columns";
 import { gridTemplate } from "@/lib/planning/columns";
-import type {
-  LaneWithSubjects,
-  PlanningOwner,
-  SubjectRow,
-} from "@/lib/planning/types";
+import type { LaneWithSubjects, PlanningOwner } from "@/lib/planning/types";
 import { totalSponsoring } from "@/lib/planning/types";
+import type { PlanningSort, SortableColumnKey } from "@/lib/ui-preferences";
 import { cn } from "@/lib/utils";
-
-export type DateSort = "position" | "asc" | "desc";
 
 /**
  * Un couloir : le réseau social et ses publications, sous un en-tête de
@@ -45,7 +41,7 @@ export function LaneTable({
   columns,
   owners,
   sort,
-  onSortToggle,
+  onSort,
   selectedIds,
   onToggleSelect,
   onToggleLane,
@@ -60,8 +56,9 @@ export function LaneTable({
   lane: LaneWithSubjects;
   columns: ColumnDef[];
   owners: PlanningOwner[];
-  sort: DateSort;
-  onSortToggle: () => void;
+  sort: PlanningSort;
+  /** Un clic sur la flèche d'un en-tête : chrono, inverse, puis ordre manuel. */
+  onSort: (column: SortableColumnKey) => void;
   selectedIds: Set<string>;
   onToggleSelect: (subjectId: string) => void;
   onToggleLane: (subjectIds: string[], selected: boolean) => void;
@@ -88,7 +85,7 @@ export function LaneTable({
   };
 
   const template = gridTemplate(columns);
-  const subjects = sortSubjects(lane.subjects, sort);
+  const subjects = sortSubjects(lane.subjects, sort, columns);
   const live = subjects.filter((subject) => subject.status !== "dropped");
   const sponsoring = totalSponsoring(subjects);
 
@@ -234,7 +231,7 @@ export function LaneTable({
                   scope={scope}
                   column={column}
                   sort={sort}
-                  onSortToggle={onSortToggle}
+                  onSort={onSort}
                   onResizePreview={onResizePreview}
                 />
               ))}
@@ -336,27 +333,55 @@ function HeaderCell({
   scope,
   column,
   sort,
-  onSortToggle,
+  onSort,
   onResizePreview,
 }: {
   scope: Scope;
   column: ColumnDef;
-  sort: DateSort;
-  onSortToggle: () => void;
+  sort: PlanningSort;
+  onSort: (column: SortableColumnKey) => void;
   onResizePreview: (columnId: string, width: number | null) => void;
 }) {
   const { run } = useCellAction();
-  const isDate = column.builtin === "date";
+  const sortKey = sortableKey(column);
+  const sorted =
+    sort !== "position" && sortKey !== null && sort.column === sortKey
+      ? sort.direction
+      : null;
 
   const menu = (
-    <ColumnHeaderMenu
-      scope={scope}
-      column={column}
-      onSortToggle={isDate ? onSortToggle : undefined}
-      sorted={isDate && sort !== "position" ? sort : null}
-      align={headerAlign(column)}
-    />
+    <ColumnHeaderMenu scope={scope} column={column} align={headerAlign(column)} />
   );
+
+  /**
+   * La flèche de tri, au survol de l'en-tête — le geste Monday. Invisible au
+   * repos, visible dès que la souris entre dans la case, permanente quand le
+   * tri est actif. Le clic cycle : croissant, décroissant, puis retour à
+   * l'ordre manuel du tableau.
+   */
+  const sortButton = sortKey ? (
+    <button
+      type="button"
+      onClick={() => onSort(sortKey)}
+      aria-label={`Trier par ${column.label}`}
+      aria-pressed={sorted !== null}
+      title="Trier"
+      className={cn(
+        "focus-visible:ring-brand flex size-5 shrink-0 items-center justify-center rounded-full outline-none transition-opacity focus-visible:ring-2 focus-visible:opacity-100",
+        sorted
+          ? "bg-accent-ink text-white"
+          : "text-muted-foreground hover:bg-muted hover:text-foreground opacity-0 group-hover/head:opacity-100",
+      )}
+    >
+      {sorted === "asc" ? (
+        <ArrowUp className="size-3" aria-hidden />
+      ) : sorted === "desc" ? (
+        <ArrowDown className="size-3" aria-hidden />
+      ) : (
+        <ArrowUpDown className="size-3" aria-hidden />
+      )}
+    </button>
+  ) : null;
 
   /**
    * La poignée de redimensionnement, au bord droit de l'en-tête.
@@ -404,7 +429,7 @@ function HeaderCell({
       <>
         <span
           data-col
-          className="text-text-secondary relative flex min-w-0 items-center px-1 py-1.5"
+          className="text-text-secondary group/head relative flex min-w-0 items-center px-1 py-1.5"
         >
           {menu}
           {handle}
@@ -417,29 +442,11 @@ function HeaderCell({
   return (
     <span
       data-col
-      className="text-text-secondary relative flex min-w-0 items-center px-1 py-1.5"
+      className="text-text-secondary group/head relative flex min-w-0 items-center gap-0.5 px-1 py-1.5"
     >
       {menu}
+      {sortButton}
       {handle}
     </span>
   );
-}
-
-/**
- * Le tri de la colonne Date.
- *
- * `position` est l'ordre du tableau — celui dans lequel les lignes ont été
- * posées. Le tri par date range les publications datées et repousse les sans
- * date en fin, où on les retrouve au lieu de les perdre.
- */
-function sortSubjects(subjects: SubjectRow[], sort: DateSort): SubjectRow[] {
-  if (sort === "position") return subjects;
-
-  return [...subjects].sort((a, b) => {
-    if (a.scheduled_on === b.scheduled_on) return a.position - b.position;
-    if (a.scheduled_on === null) return 1;
-    if (b.scheduled_on === null) return -1;
-    const compare = a.scheduled_on.localeCompare(b.scheduled_on);
-    return sort === "asc" ? compare : -compare;
-  });
 }

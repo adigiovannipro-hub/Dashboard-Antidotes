@@ -41,7 +41,6 @@ import { CalendarView } from "@/components/planning/calendar-view";
 import { LabelsDialog } from "@/components/planning/column-menus";
 import { MonthGroup } from "@/components/planning/month-group";
 import { SubjectDrawer } from "@/components/planning/subject-drawer";
-import type { DateSort } from "@/components/planning/lane-table";
 import type { Scope } from "@/components/planning/subject-row";
 import {
   DropdownMenu,
@@ -62,7 +61,9 @@ import {
   PREFERENCE_MAX_AGE,
   planningViewCookie,
   serializePlanningView,
+  type PlanningSort,
   type PlanningView,
+  type SortableColumnKey,
 } from "@/lib/ui-preferences";
 import type {
   MonthWithLanes,
@@ -166,8 +167,22 @@ export function PlanningBoardView({
 
   const sort = savedView.sort;
   const setSort = useCallback(
-    (next: DateSort) => remember({ sort: next }),
+    (next: PlanningSort) => remember({ sort: next }),
     [remember],
+  );
+  // Le cycle d'un clic sur la flèche d'un en-tête : croissant, décroissant,
+  // retour à l'ordre manuel. Changer de colonne repart en croissant.
+  const toggleSort = useCallback(
+    (column: SortableColumnKey) => {
+      if (sort === "position" || sort.column !== column) {
+        setSort({ column, direction: "asc" });
+      } else if (sort.direction === "asc") {
+        setSort({ column, direction: "desc" });
+      } else {
+        setSort("position");
+      }
+    },
+    [sort, setSort],
   );
   // Largeurs en cours de drag : le tableau suit le pointeur sans attendre la
   // base, qui reçoit la valeur finale au relâchement.
@@ -491,7 +506,7 @@ export function PlanningBoardView({
               columns={effectiveColumns}
               owners={owners}
               sort={sort}
-              onSortToggle={() => setSort(sort === "asc" ? "desc" : "asc")}
+              onSort={toggleSort}
               selectedIds={selectedIds}
               onToggleSelect={toggleSelect}
               onToggleLane={toggleLane}

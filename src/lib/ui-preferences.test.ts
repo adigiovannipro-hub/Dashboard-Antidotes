@@ -18,7 +18,7 @@ describe("planningViewCookie", () => {
 
 describe("parsePlanningView", () => {
   const view: PlanningView = {
-    sort: "asc",
+    sort: { column: "format", direction: "asc" },
     mode: "calendrier",
     months: ["2026-08"],
     closedLanes: ["lane-1"],
@@ -26,6 +26,21 @@ describe("parsePlanningView", () => {
 
   it("relit ce qu'elle a écrit", () => {
     expect(parsePlanningView(serializePlanningView(view))).toEqual(view);
+  });
+
+  it("relit un cookie d'avant la généralisation du tri comme un tri de Date", () => {
+    const raw = encodeURIComponent(JSON.stringify({ sort: "desc" }));
+    expect(parsePlanningView(raw).sort).toEqual({
+      column: "date",
+      direction: "desc",
+    });
+  });
+
+  it("écarte un tri sur une colonne inconnue ou une direction invalide", () => {
+    const bad = (sort: unknown) =>
+      parsePlanningView(encodeURIComponent(JSON.stringify({ sort }))).sort;
+    expect(bad({ column: "visual", direction: "asc" })).toBe("position");
+    expect(bad({ column: "date", direction: "haut" })).toBe("position");
   });
 
   it("rend le tableau par défaut sans cookie", () => {

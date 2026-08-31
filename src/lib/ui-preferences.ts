@@ -40,9 +40,26 @@ export function planningViewCookie(workspace: string, board: string): string {
   return `antidotes_planning_${workspace}_${board}`.replace(/[^\w]/g, "_");
 }
 
+/** Les colonnes qui savent se trier depuis leur en-tête. La date se range en
+    chronologie ; une colonne à étiquettes suit l'ordre de ses étiquettes —
+    POST avant REELS avant CARROUSEL, si c'est leur ordre déclaré. */
+export const SORTABLE_COLUMN_KEYS = [
+  "date",
+  "status",
+  "format",
+  "objective",
+  "ad_status",
+] as const;
+
+export type SortableColumnKey = (typeof SORTABLE_COLUMN_KEYS)[number];
+
+export type PlanningSort =
+  | "position"
+  | { column: SortableColumnKey; direction: "asc" | "desc" };
+
 export type PlanningView = {
   /** `position` : l'ordre manuel du tableau. */
-  sort: "position" | "asc" | "desc";
+  sort: PlanningSort;
   /** Tableau par défaut ; le calendrier montre un mois en grille de jours. */
   mode: "tableau" | "calendrier";
   /**
@@ -85,10 +102,7 @@ export function parsePlanningView(raw: string | undefined): PlanningView {
         : [];
 
     return {
-      sort:
-        value.sort === "asc" || value.sort === "desc" || value.sort === "position"
-          ? value.sort
-          : "position",
+      sort: parseSort(value.sort),
       mode: value.mode === "calendrier" ? "calendrier" : "tableau",
       months: Array.isArray(value.months) ? strings(value.months) : null,
       closedLanes: strings(value.closedLanes),
@@ -96,6 +110,25 @@ export function parsePlanningView(raw: string | undefined): PlanningView {
   } catch {
     return DEFAULT_PLANNING_VIEW;
   }
+}
+
+function parseSort(raw: unknown): PlanningSort {
+  if (raw === "position") return "position";
+  // Les cookies d'avant la généralisation ne connaissaient que la Date.
+  if (raw === "asc" || raw === "desc") return { column: "date", direction: raw };
+  if (typeof raw === "object" && raw !== null) {
+    const candidate = raw as { column?: unknown; direction?: unknown };
+    if (
+      SORTABLE_COLUMN_KEYS.includes(candidate.column as SortableColumnKey) &&
+      (candidate.direction === "asc" || candidate.direction === "desc")
+    ) {
+      return {
+        column: candidate.column as SortableColumnKey,
+        direction: candidate.direction,
+      };
+    }
+  }
+  return "position";
 }
 
 export function serializePlanningView(view: PlanningView): string {

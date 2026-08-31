@@ -1,15 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import {
-  ArrowLeftRight,
-  Check,
-  EyeOff,
-  Pencil,
-  Plus,
-  Tags,
-  Trash2,
-} from "lucide-react";
+import { Check, EyeOff, Pencil, Plus, Tags, Trash2 } from "lucide-react";
 
 import {
   addColumn,
@@ -53,15 +45,10 @@ import { cn } from "@/lib/utils";
 export function ColumnHeaderMenu({
   scope,
   column,
-  onSortToggle,
-  sorted,
   align = "center",
 }: {
   scope: Scope;
   column: ColumnDef;
-  /** Présent uniquement sur la colonne Date : le tri chrono / inverse. */
-  onSortToggle?: () => void;
-  sorted?: "asc" | "desc" | null;
   /** Aligné sur le contenu de la colonne, pas sur le milieu de la case. */
   align?: "start" | "center" | "end";
 }) {
@@ -118,26 +105,11 @@ export function ColumnHeaderMenu({
           )}
         >
           <span className="min-w-0 truncate">{column.label}</span>
-          {sorted ? (
-            <span aria-hidden className="text-brand shrink-0">
-              {sorted === "asc" ? "↑" : "↓"}
-            </span>
-          ) : null}
         </DropdownMenuTrigger>
 
+        {/* Le tri n'est plus une entrée de menu : c'est la flèche qui apparaît
+            au survol de l'en-tête, comme sur Monday. */}
         <DropdownMenuContent className="w-52 min-w-52">
-          {onSortToggle ? (
-            <>
-              <DropdownMenuItem onClick={onSortToggle}>
-                <ArrowLeftRight className="size-3.5" aria-hidden />
-                {sorted === "asc"
-                  ? "Trier du plus récent au plus ancien"
-                  : "Trier du plus ancien au plus récent"}
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-            </>
-          ) : null}
-
           <DropdownMenuItem onClick={() => setRenaming(true)}>
             <Pencil className="size-3.5" aria-hidden />
             Renommer
