@@ -686,14 +686,30 @@ export function WordingCell({
   const [draft, setDraft] = useState("");
   const [tip, setTip] = useState<AnchoredBox | null>(null);
   const tipTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const tipCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const hideTip = () => {
     if (tipTimer.current) clearTimeout(tipTimer.current);
+    if (tipCloseTimer.current) clearTimeout(tipCloseTimer.current);
     setTip(null);
+  };
+
+  // La bulle survit au passage de la souris de la cellule vers elle : la
+  // fermeture est différée, et entrer dans la bulle l'annule — on peut y
+  // naviguer, la faire défiler, cliquer pour éditer.
+  const scheduleTipClose = () => {
+    if (tipTimer.current) clearTimeout(tipTimer.current);
+    if (tipCloseTimer.current) clearTimeout(tipCloseTimer.current);
+    tipCloseTimer.current = setTimeout(() => setTip(null), 160);
+  };
+
+  const keepTipOpen = () => {
+    if (tipCloseTimer.current) clearTimeout(tipCloseTimer.current);
   };
 
   const showTip = () => {
     if (!value || editor) return;
+    keepTipOpen();
     if (tipTimer.current) clearTimeout(tipTimer.current);
     tipTimer.current = setTimeout(() => {
       const rect = anchorRef.current?.getBoundingClientRect();
@@ -737,9 +753,9 @@ export function WordingCell({
         aria-label={`Wording de ${subjectName || "la publication"}`}
         onClick={openEditor}
         onMouseEnter={showTip}
-        onMouseLeave={hideTip}
+        onMouseLeave={scheduleTipClose}
         onFocus={showTip}
-        onBlur={hideTip}
+        onBlur={scheduleTipClose}
         className="hover:bg-muted/60 focus-visible:ring-brand block w-full truncate rounded-sm px-1.5 py-1 text-center text-sm outline-none focus-visible:ring-2"
       >
         <span className={cn(!value && "text-muted-foreground")}>
@@ -757,10 +773,17 @@ export function WordingCell({
       ) : null}
 
       {tip && !editor ? (
+        // La bulle duplique la cellule pour l'œil : cachée aux lecteurs
+        // d'écran, son clic n'est qu'un raccourci vers l'édition que la
+        // cellule offre déjà.
         <span
           aria-hidden
+          tabIndex={-1}
           style={tip}
-          className="border-border bg-surface text-foreground pointer-events-none fixed z-50 block max-h-80 max-w-[75vw] overflow-hidden rounded-md border p-3 text-sm whitespace-pre-wrap shadow-lg"
+          onMouseEnter={keepTipOpen}
+          onMouseLeave={scheduleTipClose}
+          onClick={openEditor}
+          className="border-border bg-surface text-foreground fixed z-50 block max-h-80 max-w-[75vw] cursor-text overflow-y-auto rounded-md border p-3 text-sm whitespace-pre-wrap shadow-lg"
         >
           {value}
         </span>

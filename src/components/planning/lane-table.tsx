@@ -388,9 +388,11 @@ function HeaderCell({
       aria-pressed={sorted !== null}
       title="Trier"
       className={cn(
-        "focus-visible:ring-brand flex size-5 shrink-0 items-center justify-center rounded-full outline-none transition-opacity focus-visible:ring-2 focus-visible:opacity-100",
+        "focus-visible:ring-brand absolute top-1/2 right-1 z-10 flex size-5 shrink-0 -translate-y-1/2 items-center justify-center rounded-full outline-none transition-opacity focus-visible:ring-2 focus-visible:opacity-100",
         sorted
-          ? "bg-accent-ink text-white"
+          ? // `primary`, jamais du blanc sur `accent-ink` : en sombre l'encre
+            // d'accent devient un vert clair et la flèche disparaissait.
+            "bg-primary text-primary-foreground"
           : "text-muted-foreground hover:bg-muted hover:text-foreground opacity-0 group-hover/head:opacity-100",
       )}
     >
@@ -463,7 +465,12 @@ function HeaderCell({
   return (
     <span
       data-col
-      className="text-text-secondary group/head relative flex min-w-0 items-center gap-0.5 px-1 py-1.5"
+      className={cn(
+        "text-text-secondary group/head relative flex min-w-0 items-center py-1.5",
+        // Padding symétrique quand la colonne se trie : la flèche vit dans le
+        // padding droit, le libellé reste centré sur la vraie largeur.
+        sortKey ? "px-6" : "px-1",
+      )}
     >
       {menu}
       {sortButton}

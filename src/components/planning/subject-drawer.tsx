@@ -23,6 +23,7 @@ import {
   TextCell,
   useCellAction,
 } from "@/components/planning/cells";
+import { BodyPortal } from "@/components/planning/body-portal";
 import {
   CarouselArrow,
   VisualLightbox,
@@ -92,6 +93,7 @@ export function SubjectDrawer({
     );
 
   return (
+    <BodyPortal>
     <aside
       aria-label={`Détail de ${subject.name || "la publication"}`}
       data-panel
@@ -271,6 +273,7 @@ export function SubjectDrawer({
         </div>
       </div>
     </aside>
+    </BodyPortal>
   );
 }
 
@@ -400,6 +403,11 @@ function VisualCarousel({
             <button
               type="button"
               onClick={() => {
+                // La croix est à un clic du carrousel : confirmation avant de
+                // retirer — le fichier part aussi du bucket.
+                if (!window.confirm("Supprimer ce visuel ? Il sera retiré de la publication.")) {
+                  return;
+                }
                 onRemove(current.path);
                 scrollTo(0, false);
               }}

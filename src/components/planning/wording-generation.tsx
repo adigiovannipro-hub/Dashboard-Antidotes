@@ -17,9 +17,10 @@ import { cn } from "@/lib/utils";
  * Les boutons de génération de wording — outil d'agence, invisibles du client
  * (l'appelant ne les rend qu'à l'owner, et les routes rendent 404 derrière).
  *
- * Le pictogramme est un stylo blanc sur l'encre d'accent : c'est le langage
- * de la création dans ce design system, et l'encre tient le contraste dans
- * les deux thèmes là où le vert vif ne le tient pas.
+ * Le pictogramme est un stylo sur l'aplat `primary` : en sombre, l'encre
+ * d'accent devient un vert clair et le stylo blanc s'y noyait — même piège
+ * que le sélecteur de conversions, même sortie : le couple `primary` /
+ * `primary-foreground` garantit le contraste dans les deux thèmes.
  */
 
 /** Le stylo d'une cellule : rédige (ou recrée) le wording de cette publication. */
@@ -66,7 +67,7 @@ export function GenerateWordingButton({
       aria-label={`Générer le wording de ${subjectName || "la publication"}`}
       title="Générer le wording depuis le contexte client"
       className={cn(
-        "bg-accent-ink focus-visible:ring-ring flex size-6 shrink-0 items-center justify-center rounded-md text-white transition-opacity duration-(--motion-duration) ease-standard hover:opacity-90 focus-visible:ring-2 focus-visible:outline-none",
+        "bg-primary text-primary-foreground focus-visible:ring-ring flex size-6 shrink-0 items-center justify-center rounded-md transition-opacity duration-(--motion-duration) ease-standard hover:opacity-90 focus-visible:ring-2 focus-visible:outline-none",
         className,
       )}
     >

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Grid3x3, ImageOff, Images, Play, X } from "lucide-react";
 
+import { BodyPortal } from "@/components/planning/body-portal";
 import { useDismissOnOutsideClick } from "@/components/planning/panel-layers";
 import { buildFeed, feedSummary, type FeedTile } from "@/lib/planning/feed";
 import { monthGroupLabel } from "@/lib/planning/monday-mapping";
@@ -63,6 +64,7 @@ export function FeedPreview({
   }, [onClose]);
 
   return (
+    <BodyPortal>
     <aside
       aria-label={`Prévisualisation du feed à fin ${monthGroupLabel(monthKey)}`}
       data-panel
@@ -132,6 +134,7 @@ export function FeedPreview({
         )}
       </div>
     </aside>
+    </BodyPortal>
   );
 }
 

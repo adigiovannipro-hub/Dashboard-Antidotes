@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowLeft, ArrowRight, Download, Plus, Trash2, X } from "lucide-react";
 
+import { BodyPortal } from "@/components/planning/body-portal";
 import { isImagePath } from "@/lib/planning/storage";
 import type { ResolvedVisual } from "@/lib/planning/types";
 import { visualThumbUrl } from "@/lib/planning/types";
@@ -232,6 +233,7 @@ export function VisualLightbox({
   }, [onClose, prev, next]);
 
   return (
+    <BodyPortal>
     <div
       role="dialog"
       aria-modal="true"
@@ -274,6 +276,11 @@ export function VisualLightbox({
           <LightboxAction
             label={`Retirer ${current.name}`}
             onClick={() => {
+              // Une croix à côté du plein écran s'attrape vite : on confirme
+              // avant de retirer — le fichier part aussi du bucket.
+              if (!window.confirm("Supprimer ce visuel ? Il sera retiré de la publication.")) {
+                return;
+              }
               onRemove(current.path);
               if (visuals.length <= 1) onClose();
               else scrollTo(0, false);
@@ -356,6 +363,7 @@ export function VisualLightbox({
         </div>
       ) : null}
     </div>
+    </BodyPortal>
   );
 }
 
