@@ -6,7 +6,7 @@ import { Grid3x3, ImageOff, Images, Play, X } from "lucide-react";
 import { useDismissOnOutsideClick } from "@/components/planning/panel-layers";
 import { buildFeed, feedSummary, type FeedTile } from "@/lib/planning/feed";
 import { monthGroupLabel } from "@/lib/planning/monday-mapping";
-import type { MonthWithLanes } from "@/lib/planning/types";
+import type { MonthWithLanes, ResolvedVisual } from "@/lib/planning/types";
 import type { InstagramProfile } from "@/lib/social/types";
 import { cn } from "@/lib/utils";
 
@@ -249,12 +249,58 @@ function Stat({ value, label }: { value: number | null; label: string }) {
 }
 
 /**
- * Une case de la grille.
- *
- * Pour une vidéo, `#t=0.1` demande au navigateur la première image sans lire
- * la vidéo : c'est la vignette d'Instagram, obtenue sans extraction ni
- * traitement côté serveur.
+ * Le média d'une case : la miniature quand elle existe — une image légère là
+ * où chaque reel de la grille téléchargeait son amorce vidéo — sinon
+ * l'original, et `#t=0.1` tire la première image d'une vidéo d'avant la
+ * convention, sans extraction serveur.
  */
+function CoverMedia({
+  cover,
+  isVideo,
+  alt,
+}: {
+  cover: ResolvedVisual;
+  isVideo: boolean;
+  alt: string;
+}) {
+  if (cover.previewUrl) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element -- URL signée
+      <img
+        src={cover.previewUrl}
+        alt={alt}
+        loading="lazy"
+        className="size-full object-cover"
+      />
+    );
+  }
+
+  if (isVideo) {
+    return (
+      <video
+        src={`${cover.url}#t=0.1`}
+        preload="metadata"
+        muted
+        playsInline
+        className="size-full object-cover"
+      >
+        <track kind="captions" />
+      </video>
+    );
+  }
+
+  return (
+    // eslint-disable-next-line @next/next/no-img-element -- URL signée
+    <img
+      src={cover.url}
+      alt={alt}
+      loading="lazy"
+      className="size-full object-cover"
+    />
+  );
+}
+
+/** Une case de la grille. */
 function FeedCell({
   tile,
   ratio,
@@ -285,20 +331,7 @@ function FeedCell({
           ratio === "4:5" ? "aspect-4/5" : "aspect-square",
         )}
       >
-        {isVideo && cover ? (
-          <video
-            src={`${cover.url}#t=0.1`}
-            preload="metadata"
-            muted
-            playsInline
-            className="size-full object-cover"
-          >
-            <track kind="captions" />
-          </video>
-        ) : cover ? (
-          // eslint-disable-next-line @next/next/no-img-element -- URL signée
-          <img src={cover.url} alt="" loading="lazy" className="size-full object-cover" />
-        ) : null}
+        {cover ? <CoverMedia cover={cover} isVideo={isVideo} alt="" /> : null}
       </div>
     );
   }
@@ -333,24 +366,8 @@ function FeedCell({
             {date}
           </span>
         </span>
-      ) : isVideo ? (
-        <video
-          src={`${cover.url}#t=0.1`}
-          preload="metadata"
-          muted
-          playsInline
-          className="size-full object-cover"
-        >
-          <track kind="captions" />
-        </video>
       ) : (
-        // eslint-disable-next-line @next/next/no-img-element -- URL signée
-        <img
-          src={cover.url}
-          alt={subject.name}
-          loading="lazy"
-          className="size-full object-cover"
-        />
+        <CoverMedia cover={cover} isVideo={isVideo} alt={subject.name} />
       )}
 
       {/* Les repères d'Instagram : l'icône Reel, l'icône carrousel. */}

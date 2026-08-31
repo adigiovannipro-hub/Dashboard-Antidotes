@@ -35,7 +35,7 @@ import { PlatformIcon } from "@/components/planning/platform-icon";
 import { PendingLabel } from "@/components/ds/pending-label";
 import { Button } from "@/components/ui/button";
 import type { ColumnDef, ColumnLabel } from "@/lib/planning/columns";
-import { isImagePath } from "@/lib/planning/storage";
+import { visualThumbUrl } from "@/lib/planning/types";
 import { uploadVisualsFromBrowser } from "@/lib/planning/upload-client";
 import type {
   PlanningActivity,
@@ -371,6 +371,9 @@ function VisualCarousel({
                 <VisualSlideMedia
                   visual={visual}
                   className="max-h-[76vh]"
+                  // La miniature suffit dans une colonne de 576 px ; l'original
+                  // HD attend le plein écran.
+                  preferPreview
                   onClick={() => {
                     scrollTo(i, false);
                     setExpanded(true);
@@ -442,10 +445,10 @@ function VisualCarousel({
                   i === safeIndex ? "border-brand" : "border-transparent",
                 )}
               >
-                {isImagePath(visual.path) && visual.url ? (
+                {visualThumbUrl(visual) ? (
                   // eslint-disable-next-line @next/next/no-img-element -- URL signée
                   <img
-                    src={visual.url}
+                    src={visualThumbUrl(visual)!}
                     alt=""
                     className="size-full object-cover"
                     loading="lazy"

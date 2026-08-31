@@ -46,6 +46,10 @@ on:
         description: "… en essai à blanc, sans rien écrire (--dry-run)"
         type: boolean
         default: false
+      previews_planning:
+        description: "Planning : fabriquer les miniatures manquantes des visuels"
+        type: boolean
+        default: false
       isolation_tests:
         description: "Lancer les tests d'isolation RLS contre la vraie base"
         type: boolean
@@ -156,6 +160,16 @@ jobs:
         run: pnpm diagnostic:schema
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+
+      # Les miniatures des visuels déjà en bucket : sharp pour les images,
+      # ffmpeg (présent sur le runner) pour la première image des vidéos.
+      # Idempotent — une miniature en place n'est jamais refaite.
+      - name: Miniatures des visuels du Planning
+        if: ${{ inputs.previews_planning }}
+        run: pnpm previews:planning
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
 
       # Les suites d'isolation ouvrent de vraies sessions et écrivent des
       # données préfixées (zz-fin-…, nettoyées en fin de suite). C'est ici

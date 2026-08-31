@@ -24,7 +24,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { formatPlainNumber } from "@/lib/format";
 import type { PlanningOwner, ResolvedVisual } from "@/lib/planning/types";
-import { isImagePath } from "@/lib/planning/storage";
+import { visualThumbUrl } from "@/lib/planning/types";
 import { cn } from "@/lib/utils";
 
 /**
@@ -717,6 +717,9 @@ export function VisualsCell({
   const [dropping, setDropping] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const first = visuals[0];
+  // La miniature d'abord — même pour une vidéo, dont le poster remplace le
+  // trombone. Sans miniature, une image retombe sur l'original signé.
+  const thumbUrl = first ? visualThumbUrl(first) : null;
 
   return (
     <>
@@ -763,10 +766,10 @@ export function VisualsCell({
           <Loader2 className="text-accent-ink size-4 animate-spin" aria-label="Envoi en cours" />
         ) : first ? (
           <>
-            {isImagePath(first.path) && first.url ? (
+            {thumbUrl ? (
               // eslint-disable-next-line @next/next/no-img-element -- URL signée
               <img
-                src={first.url}
+                src={thumbUrl}
                 alt=""
                 className="size-6 rounded object-cover"
                 loading="lazy"

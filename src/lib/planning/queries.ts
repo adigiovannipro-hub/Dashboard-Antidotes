@@ -3,7 +3,7 @@ import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import type { ColumnDef, ColumnOverride } from "./columns";
 import { resolveColumns } from "./columns";
-import { VISUALS_BUCKET } from "./storage";
+import { VISUALS_BUCKET, previewPathFor } from "./storage";
 import type {
   BoardSettings,
   FaqEntry,
@@ -381,9 +381,13 @@ export async function resolveVisuals(
   const signed = new Map<string, string>();
   if (paths.length > 0) {
     const supabase = await createClient();
+    // Un seul batch pour les originaux **et** leurs miniatures candidates :
+    // une miniature absente — visuel d'avant la convention — revient en
+    // erreur dans la même réponse, sans coûter un appel de plus, et
+    // l'affichage retombe sur l'original.
     const { data } = await supabase.storage
       .from(VISUALS_BUCKET)
-      .createSignedUrls(paths, 3600);
+      .createSignedUrls([...paths, ...paths.map(previewPathFor)], 3600);
 
     for (const entry of data ?? []) {
       if (entry.signedUrl && entry.path) signed.set(entry.path, entry.signedUrl);
@@ -396,6 +400,9 @@ export async function resolveVisuals(
       subject.visual_urls.map((path) => ({
         path,
         url: path.startsWith("http") ? path : (signed.get(path) ?? ""),
+        previewUrl: path.startsWith("http")
+          ? null
+          : (signed.get(previewPathFor(path)) ?? null),
         name: decodeURIComponent(path.split("/").pop() ?? path),
       })),
     );

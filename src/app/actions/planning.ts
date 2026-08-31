@@ -12,6 +12,7 @@ import {
   VISUALS_BUCKET,
   isAcceptedVisual,
   isOwnedVisualPath,
+  previewPathFor,
   visualPath,
 } from "@/lib/planning/storage";
 import { sendCommentEmails } from "@/lib/planning/notify";
@@ -1367,6 +1368,10 @@ export type PreparedUpload = {
   path: string;
   /** URL signée d'envoi — un PUT du fichier brut, et rien d'autre. */
   url: string;
+  /** L'emplacement de la miniature, signé d'avance : le navigateur la
+      fabrique (1080 px, JPEG) et la pousse à côté de l'original. */
+  previewPath: string;
+  previewUrl: string;
 };
 
 export type PrepareUploadsResult =
@@ -1402,19 +1407,31 @@ export async function prepareVisualUploads(
     const { workspace } = await guard(scope);
     const supabase = await createClient();
 
-    const uploads: PreparedUpload[] = [];
-    for (const file of input.files) {
-      const path = visualPath({
-        workspaceId: workspace.id,
-        subjectId: input.subjectId,
-        fileName: file.name,
-      });
-      const { data, error } = await supabase.storage
-        .from(VISUALS_BUCKET)
-        .createSignedUploadUrl(path);
-      if (error) throw new Error(error.message);
-      uploads.push({ path, url: data.signedUrl });
-    }
+    // Deux URL par fichier — l'original et sa miniature — signées en
+    // parallèle : la boucle séquentielle coûtait un aller-retour Supabase par
+    // fichier, sensible dès qu'un carrousel part en dix morceaux.
+    const uploads: PreparedUpload[] = await Promise.all(
+      input.files.map(async (file) => {
+        const path = visualPath({
+          workspaceId: workspace.id,
+          subjectId: input.subjectId,
+          fileName: file.name,
+        });
+        const previewPath = previewPathFor(path);
+        const [original, preview] = await Promise.all([
+          supabase.storage.from(VISUALS_BUCKET).createSignedUploadUrl(path),
+          supabase.storage.from(VISUALS_BUCKET).createSignedUploadUrl(previewPath),
+        ]);
+        if (original.error) throw new Error(original.error.message);
+        if (preview.error) throw new Error(preview.error.message);
+        return {
+          path,
+          url: original.data.signedUrl,
+          previewPath,
+          previewUrl: preview.data.signedUrl,
+        };
+      }),
+    );
 
     return { ok: true, uploads };
   } catch (error) {
@@ -1545,9 +1562,12 @@ export async function removeVisual(
       .eq("id", input.subjectId);
 
     // Le fichier ne part du bucket que s'il y avait bien été déposé : un visuel
-    // importé depuis Monday est une URL externe, pas un objet à nous.
+    // importé depuis Monday est une URL externe, pas un objet à nous. La
+    // miniature part avec lui — `remove` ignore un chemin absent.
     if (isOwnedVisualPath(input.path, workspace.id, input.subjectId)) {
-      await supabase.storage.from(VISUALS_BUCKET).remove([input.path]);
+      await supabase.storage
+        .from(VISUALS_BUCKET)
+        .remove([input.path, previewPathFor(input.path)]);
     }
 
     revalidate(scope);

@@ -72,6 +72,20 @@ export function visualPath(input: {
   return `${input.workspaceId}/${input.subjectId}/${Date.now()}-${safe || "visuel"}`;
 }
 
+/**
+ * Chemin de la miniature d'un visuel : l'original suivi de `.preview.jpg`.
+ *
+ * Une convention plutôt qu'une colonne : `visual_urls` continue de ne porter
+ * que les originaux, la miniature se déduit du chemin — aucune migration. Un
+ * visuel sans miniature (antérieur à la convention, ou dont la génération a
+ * échoué dans le navigateur) retombe simplement sur l'original à l'affichage.
+ */
+export const PREVIEW_SUFFIX = ".preview.jpg";
+
+export function previewPathFor(path: string): string {
+  return `${path}${PREVIEW_SUFFIX}`;
+}
+
 /** Un chemin appartient-il bien à cet espace et à cette publication ? */
 export function isOwnedVisualPath(
   path: string,

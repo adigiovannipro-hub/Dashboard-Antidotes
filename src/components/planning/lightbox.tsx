@@ -1,10 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ArrowLeft, ArrowRight, Plus, Trash2, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, Download, Plus, Trash2, X } from "lucide-react";
 
 import { isImagePath } from "@/lib/planning/storage";
 import type { ResolvedVisual } from "@/lib/planning/types";
+import { visualThumbUrl } from "@/lib/planning/types";
 import { cn } from "@/lib/utils";
 
 /**
@@ -76,13 +77,20 @@ export function VisualSlideMedia({
   visual,
   className,
   onClick,
+  preferPreview,
 }: {
   visual: ResolvedVisual;
   className?: string;
   onClick?: () => void;
+  /** Le carrousel du panneau montre la miniature (1080 px) — largement assez
+      pour juger une créa dans une colonne, dix fois plus léger. Le plein
+      écran, lui, garde l'original. */
+  preferPreview?: boolean;
 }) {
   const isVideo = /\.(mp4|mov|webm)(\?|$)/i.test(visual.path);
   const isImage = isImagePath(visual.path) && !!visual.url;
+  const displayUrl =
+    preferPreview && visual.previewUrl ? visual.previewUrl : visual.url;
 
   // La carte : coins arrondis, bord gris — le « type card » demandé. Pas de
   // dimension imposée : le média garde ses proportions et grandit jusqu'aux
@@ -94,9 +102,20 @@ export function VisualSlideMedia({
   );
 
   if (isVideo && visual.url) {
-    // Type reels : la vidéo se tient verticale, sans rien autour.
+    // Type reels : la vidéo se tient verticale, sans rien autour. Sans
+    // `preload="metadata"`, le navigateur téléchargeait la vidéo entière à
+    // l'ouverture du panneau — plusieurs minutes de carte noire sur un reel
+    // lourd. Le poster (la miniature) affiche la première image tout de
+    // suite ; les octets ne partent qu'à la lecture.
     return (
-      <video src={visual.url} controls playsInline className={card}>
+      <video
+        src={visual.url}
+        controls
+        playsInline
+        preload="metadata"
+        poster={visual.previewUrl ?? undefined}
+        className={card}
+      >
         <track kind="captions" />
       </video>
     );
@@ -105,7 +124,7 @@ export function VisualSlideMedia({
   if (isImage) {
     const img = (
       // eslint-disable-next-line @next/next/no-img-element -- URL signée
-      <img src={visual.url} alt={visual.name} className={card} />
+      <img src={displayUrl} alt={visual.name} className={card} />
     );
     if (!onClick) return img;
     return (
@@ -250,6 +269,7 @@ export function VisualLightbox({
         >
           <Plus className="size-4" aria-hidden />
         </LightboxAction>
+        {current ? <DownloadOriginal visual={current} /> : null}
         {current ? (
           <LightboxAction
             label={`Retirer ${current.name}`}
@@ -308,31 +328,66 @@ export function VisualLightbox({
       {/* --- Les vignettes, pour sauter directement à un visuel --- */}
       {visuals.length > 1 ? (
         <div className="relative z-10 flex justify-center gap-2 overflow-x-auto px-4 py-3">
-          {visuals.map((visual, i) => (
-            <button
-              key={visual.path}
-              type="button"
-              onClick={() => scrollTo(i)}
-              aria-label={`Visuel ${i + 1}`}
-              aria-current={i === index}
-              className={cn(
-                "size-12 shrink-0 overflow-hidden rounded-md transition-opacity",
-                i === index ? "opacity-100 ring-2 ring-white" : "opacity-50 hover:opacity-80",
-              )}
-            >
-              {isImagePath(visual.path) && visual.url ? (
-                // eslint-disable-next-line @next/next/no-img-element -- URL signée
-                <img src={visual.url} alt="" className="size-full object-cover" loading="lazy" />
-              ) : (
-                <span className="flex size-full items-center justify-center bg-neutral-800 p-1 text-center text-[8px] break-all text-neutral-300">
-                  {visual.name.slice(0, 14)}
-                </span>
-              )}
-            </button>
-          ))}
+          {visuals.map((visual, i) => {
+            const thumb = visualThumbUrl(visual);
+            return (
+              <button
+                key={visual.path}
+                type="button"
+                onClick={() => scrollTo(i)}
+                aria-label={`Visuel ${i + 1}`}
+                aria-current={i === index}
+                className={cn(
+                  "size-12 shrink-0 overflow-hidden rounded-md transition-opacity",
+                  i === index ? "opacity-100 ring-2 ring-white" : "opacity-50 hover:opacity-80",
+                )}
+              >
+                {thumb ? (
+                  // eslint-disable-next-line @next/next/no-img-element -- URL signée
+                  <img src={thumb} alt="" className="size-full object-cover" loading="lazy" />
+                ) : (
+                  <span className="flex size-full items-center justify-center bg-neutral-800 p-1 text-center text-[8px] break-all text-neutral-300">
+                    {visual.name.slice(0, 14)}
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </div>
       ) : null}
     </div>
+  );
+}
+
+/**
+ * Télécharger l'**original** — le fichier HD tel qu'il a été déposé, au format
+ * validé. Le planning tient lieu de dossier de livraison : on ne stocke pas
+ * les créas ailleurs pour pouvoir les récupérer.
+ *
+ * `download=` sur l'URL signée fait répondre le bucket en pièce jointe avec le
+ * vrai nom de fichier ; l'attribut `download` d'une ancre serait ignoré en
+ * cross-origin. Un visuel importé de Monday (URL externe) s'ouvre tel quel.
+ */
+function DownloadOriginal({ visual }: { visual: ResolvedVisual }) {
+  if (!visual.url) return null;
+
+  const external = visual.path.startsWith("http");
+  const fileName = visual.name.replace(/^\d+-/, "") || "visuel";
+  const href = external
+    ? visual.url
+    : `${visual.url}${visual.url.includes("?") ? "&" : "?"}download=${encodeURIComponent(fileName)}`;
+
+  return (
+    <a
+      href={href}
+      target={external ? "_blank" : undefined}
+      rel={external ? "noreferrer" : undefined}
+      aria-label={`Télécharger ${fileName} (original HD)`}
+      title="Télécharger l'original HD"
+      className="rounded-full bg-white/10 p-2 text-white transition-colors hover:bg-white/25 focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none"
+    >
+      <Download className="size-4" aria-hidden />
+    </a>
   );
 }
 

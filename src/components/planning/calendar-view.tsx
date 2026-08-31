@@ -4,11 +4,11 @@ import { useEffect, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 import { PlatformIcon } from "@/components/planning/platform-icon";
-import { isImagePath } from "@/lib/planning/storage";
 import {
   PLATFORM_LABELS,
   STATUS_COLORS,
   STATUS_LABELS,
+  visualThumbUrl,
   type MonthWithLanes,
   type PlanningPlatform,
   type PlanningStatus,
@@ -290,7 +290,10 @@ function CalendarSubjectChip({
   subject: CalendarSubject;
   onOpen: () => void;
 }) {
-  const visual = subject.visuals.find((entry) => isImagePath(entry.path));
+  // La miniature d'abord — elle couvre aussi les vidéos, qu'on ignorait avant.
+  const visual = subject.visuals
+    .map(visualThumbUrl)
+    .find((url): url is string => url !== null);
   const label = subject.name || subject.wording?.replace(/\s+/g, " ") || "Sans titre";
 
   return (
@@ -304,9 +307,10 @@ function CalendarSubjectChip({
       {visual ? (
         // eslint-disable-next-line @next/next/no-img-element -- URL signée
         <img
-          src={visual.url}
+          src={visual}
           alt=""
           aria-hidden
+          loading="lazy"
           className="size-4 shrink-0 rounded-sm object-cover"
         />
       ) : null}

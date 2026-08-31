@@ -1,4 +1,4 @@
-import type { MonthWithLanes, SubjectRow } from "./types";
+import type { MonthWithLanes, ResolvedVisual, SubjectRow } from "./types";
 
 /**
  * Le feed Instagram tel qu'il sera à la fin d'un mois donné.
@@ -23,7 +23,7 @@ const OUT_OF_GRID_FORMATS = ["story"];
 export type FeedTile = {
   subject: SubjectRow;
   /** La créa mise en avant : la première du carrousel, comme sur Instagram. */
-  cover: { path: string; url: string; name: string } | null;
+  cover: ResolvedVisual | null;
   /** Une vidéo affiche sa première image ; le rendu doit le savoir. */
   isVideo: boolean;
   /**

@@ -11,6 +11,8 @@
  * qu'une palette cohérente.
  */
 
+import { isImagePath } from "./storage";
+
 export type PlanningBoardKind = "editorial" | "faq";
 
 export type PlanningPlatform =
@@ -342,7 +344,26 @@ export type ResolvedVisual = {
   path: string;
   url: string;
   name: string;
+  /**
+   * URL signée de la miniature (`<path>.preview.jpg`), quand elle existe au
+   * bucket. Les vignettes et le feed la préfèrent à l'original — une créa de
+   * 40 Mo n'a rien à faire dans une case de 24 px — et le plein écran garde
+   * l'original. `null` ou absente : visuel d'avant la convention, on retombe
+   * sur l'original.
+   */
+  previewUrl?: string | null;
 };
+
+/**
+ * La meilleure URL pour une **vignette** : miniature d'abord — y compris le
+ * poster d'une vidéo — image originale sinon, `null` quand rien ne s'affiche
+ * (vidéo sans poster, PDF).
+ */
+export function visualThumbUrl(visual: ResolvedVisual): string | null {
+  if (visual.previewUrl) return visual.previewUrl;
+  if (isImagePath(visual.path) && visual.url) return visual.url;
+  return null;
+}
 
 /** Une publication telle que la lit l'interface. */
 export type SubjectRow = PlanningSubject & {
