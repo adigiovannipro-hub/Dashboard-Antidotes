@@ -1,0 +1,123 @@
+{
+  "slug": "negocier-cadrer",
+  "title": "Négocier et cadrer la mission",
+  "description": "Ce module couvre tout ce qui se joue entre le « oui » et le tournage : les douze questions d'un appel de cadrage qui évite 90 % des reprises, les cinq mouvements de négociation qui empêchent de brader, les huit clauses d'un contrat d'une page, la mécanique d'acompte et de relance qui supprime les impayés, et la manière de refuser sans fermer de porte.",
+  "position": 8,
+  "lessons": [
+    {
+      "position": 1,
+      "slug": "le-call-de-cadrage",
+      "title": "Le call de cadrage : douze questions à poser",
+      "summary": "Trente minutes au téléphone règlent 90 % des problèmes de livraison. Les douze questions groupées par thème, celles qui évitent les catastrophes, le compte rendu de dix lignes à envoyer dans l'heure et les cinq signaux d'alerte à traduire en clauses.",
+      "duration_min": 12,
+      "script_file": "01-le-call-de-cadrage.md",
+      "resources": [
+        {
+          "title": "Les douze questions du call de cadrage",
+          "description": "Les douze questions dans l'ordre, le modèle de compte rendu à envoyer dans l'heure, et le tableau des cinq signaux d'alerte avec la clause à ajouter pour chacun.",
+          "kind": "document",
+          "url": null,
+          "body": "## Les douze questions du call de cadrage\n\nTrente minutes, jamais plus. Au-delà, c'est du conseil gratuit.\n\n### Sur le produit\n1. Que fait le produit, et pour qui exactement ?\n2. Quelle est l'objection la plus fréquente avant l'achat ?\n3. Qu'est-ce qui vous différencie de [concurrent repéré] ?\n\n### Sur la campagne\n4. Où ces vidéos seront-elles diffusées, et pendant combien de temps ?\n5. Quel est l'objectif : notoriété, ventes, inscriptions ?\n6. **Qu'est-ce qui a déjà fonctionné ou raté dans vos créas précédentes ?**\n\n### Sur le livrable\n7. Combien de vidéos, quelle durée, quels formats de fichier ?\n8. Sous-titres incrustés, voix off, musique particulière ?\n9. **Mentions obligatoires, interdits, charte à respecter ?**\n\n### Sur le processus\n10. **Qui valide, et en combien de temps ?**\n11. Quelle est la date limite réelle, et pourquoi cette date ?\n12. **Combien d'allers-retours prévoyez-vous ?**\n\nLes questions **9, 10 et 12** évitent les catastrophes. La **6** révèle le\nniveau de maturité du client : « on ne sait pas » = il jugera à son goût\npersonnel, prévois plus de retours et fais valider un script avant de tourner.\n\n### Le compte rendu — dans l'heure qui suit\n\n> Merci pour l'échange. Pour cadrer :\n> — [n] vidéos, [durée], format [formats]\n> — Angle prioritaire : [angle]\n> — Interdits : [interdits] ; mention obligatoire : [mention]\n> — Validation par [qui], sous [délai]\n> — [n] allers-retours inclus\n> — Livraison le [date], diffusion [supports], [durée], [territoire]\n>\n> Si tout est exact, je lance la production dès réception de l'acompte.\n\nDix minutes d'écriture, la valeur d'un contrat léger.\n\n### Les cinq signaux d'alerte\n\n| Signal | Ce qu'il annonce | Clause à ajouter |\n|---|---|---|\n| « On verra à la livraison » | Retours subjectifs sans fin | Forfait de retours strict |\n| Quatre validateurs | Délai doublé, avis contradictoires | Délai allongé |\n| « On n'a pas encore le produit » | Le retard deviendra le tien | Condition suspensive |\n| « C'est pour demain » | L'urgence gratuite se répète | Majoration 30-50 % |\n| Aucune réponse sur le budget | Trois heures de proposition hors sujet | Fourchette avant devis |\n"
+        },
+        {
+          "title": "Checklist d'avant-appel",
+          "description": "Regarder leurs publicités, lire vingt avis clients, repérer un concurrent : quinze minutes de préparation qui changent la qualité des questions.",
+          "kind": "checklist",
+          "url": null
+        }
+      ]
+    },
+    {
+      "position": 2,
+      "slug": "negocier",
+      "title": "Négocier : ancrage, contreparties, silence",
+      "summary": "Une remise consentie devient le prix de référence de toute la relation. Cinq mouvements — ancrer, échanger, réduire le périmètre plutôt que le prix, se taire, tenir un plancher écrit — et les quatre phrases à savoir par cœur.",
+      "duration_min": 11,
+      "script_file": "02-negocier.md",
+      "resources": [
+        {
+          "title": "Les cinq mouvements de négociation",
+          "description": "Chaque mouvement avec sa mécanique, le tableau des contreparties, les phrases qui donnent une remise sans qu'on la demande, et les quatre répliques à apprendre.",
+          "kind": "document",
+          "url": null,
+          "body": "## Les cinq mouvements de négociation\n\n### 1. Ancrer\n**C'est toi qui donnes le premier chiffre**, et c'est celui de ta formule\nrecommandée — pas ton minimum.\n\nSi on te demande ta fourchette : commence-la à ton prix cible.\n> « Entre 250 et 400 € selon les droits et le volume. »\n\n### 2. Ne jamais céder sans contrepartie\n\n| Concession | Contrepartie exigée |\n|---|---|\n| −10 % | Volume (6 vidéos au lieu de 3) |\n| −20 % | Engagement (3 mois d'abonnement) |\n| Budget tenu | Périmètre réduit (droits, nombre) |\n\nUne concession gratuite enseigne que ton prix était faux. Le client testera\nà nouveau.\n\n### 3. Réduire le périmètre, pas le prix\n> « Avec 600 €, je peux faire trois vidéos avec droits six mois, ou quatre\n> vidéos avec droits un mois. Les deux tiennent. »\n\n**Le prix unitaire est ton actif de long terme.**\n\n### 4. Le silence\nDonne le chiffre. **Arrête-toi.** Le blanc dure trois secondes et paraît en\ndurer trente — c'est très souvent le client qui le remplit.\n\nPhrases qui donnent une remise avant qu'on la demande : « mais on peut\ndiscuter » · « c'est négociable » · « je sais que c'est un budget ».\n\n### 5. Le plancher écrit\nDécidé **à froid**, avant l'échange. Environ **−20 %** du prix affiché, et\natteignable **seulement** avec une contrepartie.\n\n**Mon plancher : ______ €**\n\n### Les quatre phrases à savoir par cœur\n\n> Mon tarif est de X. Je peux ajuster le périmètre si le budget est contraint.\n\n> Je comprends. Sur ce budget, voici ce que je peux faire : [option réduite].\n\n> Ce prix inclut les droits trois mois et deux allers-retours. Si un de ces\n> points ne vous sert pas, on peut le retirer.\n\n> Je préfère vous dire non plutôt que de livrer un travail bâclé à ce prix-là.\n\nLa dernière obtient très souvent « attendez, on peut trouver un budget ».\n\n### Ce qui n'est pas de la négociation\n\nUne demande de −40 % · une comparaison avec « quelqu'un à 80 € ».\n\n> Nos offres ne sont pas comparables, et à ce niveau de prix je ne suis pas la\n> bonne personne. Bonne continuation.\n"
+        },
+        {
+          "title": "Fiche de plancher tarifaire",
+          "description": "Le prix en dessous duquel tu ne descends pas, décidé à froid. Un plancher improvisé sous pression cède toujours.",
+          "kind": "template",
+          "url": null
+        }
+      ]
+    },
+    {
+      "position": 3,
+      "slug": "le-contrat",
+      "title": "Le contrat : les huit clauses non négociables",
+      "summary": "Un devis d'une page accepté par email fait preuve. Les huit clauses rédigées, dont la condition suspensive sur le produit et la propriété des rushes, plus les quatre clauses à ne jamais signer dans un contrat de grande marque.",
+      "duration_min": 12,
+      "script_file": "03-le-contrat.md",
+      "resources": [
+        {
+          "title": "Les huit clauses — contrat d'une page",
+          "description": "Chaque clause rédigée mot pour mot, les mentions de facture obligatoires, et le tableau de ce qu'il ne faut pas signer avec le coût de chaque clause.",
+          "kind": "document",
+          "url": null,
+          "body": "## Les huit clauses — contrat d'une page\n\nUn devis PDF d'une page + « merci de me confirmer votre accord par retour de\nmessage » **fait preuve**. Pas besoin de signature manuscrite.\n\n### 1. Objet\n> 4 vidéos verticales de 30 secondes maximum, format MP4, 9:16 et 1:1,\n> sous-titres incrustés.\n\n### 2. Prix et modalités\n> 1 240 € HT. Acompte de 40 % à la commande, solde à la livraison,\n> paiement à 15 jours.\n\n### 3. Droits d'usage\n> 3 mois, France, supports numériques, droit à l'image de la créatrice inclus\n> sur la même période. Extensions par avenant.\n\n**La clause la plus importante du document.**\n\n### 4. Délai et condition suspensive\n> Livraison le 24 avril, **sous réserve de réception du produit avant le\n> 12 avril**.\n\nSans cette condition, un produit envoyé en retard devient **ton** retard.\n\n### 5. Retours\n> 2 allers-retours inclus, portant sur le montage et **non sur le concept\n> validé**. Reprise supplémentaire : 40 €.\n\n### 6. Propriété des rushes\n> Les fichiers bruts non montés restent la propriété de la créatrice et ne\n> sont pas livrés.\n\nSans cette ligne, tes rushes peuvent être remontés par quelqu'un d'autre.\n\n### 7. Annulation\n> Annulation après tournage : l'acompte reste acquis.\n> Annulation avant tournage : acompte remboursé à 50 %.\n\n### 8. Exclusivité\n> Aucune exclusivité n'est accordée sauf mention expresse et facturation\n> séparée.\n\n**Cette phrase seule vaut plusieurs milliers d'euros sur une carrière.**\n\n### Mentions de facture obligatoires\n\nSIRET · « TVA non applicable, art. 293 B du CGI » (sous le seuil de\nfranchise) · conditions de paiement · pénalités de retard · numérotation\n**sans trou**.\n\n### Ce qu'il ne faut pas signer\n\n| Clause | Ce qu'elle coûte |\n|---|---|\n| Cession perpétuelle mondiale sans supplément | Dix ans de diffusion, un paiement |\n| Non-concurrence sans contrepartie | 80 % du marché fermé dans une niche étroite |\n| Paiement « après diffusion » ou « après validation du client final » | Ton paiement dépend d'un événement que tu ne pilotes pas |\n| Révisions illimitées | La mission n'a plus de fin |\n\nFace à un contrat de grande marque : **demande des modifications**. Ces clauses\nsont souvent là par habitude, et personne ne les avait négociées avant toi.\n"
+        },
+        {
+          "title": "Annuaire des entreprises",
+          "description": "Vérifier l'existence et la santé d'une société avant une grosse commande. Une entreprise en procédure collective ne paiera pas.",
+          "kind": "tool",
+          "url": "https://annuaire-entreprises.data.gouv.fr"
+        }
+      ]
+    },
+    {
+      "position": 4,
+      "slug": "acompte-et-impayes",
+      "title": "Se faire payer : acompte, délais, relances",
+      "summary": "Un impayé de 900 € efface un tiers d'un mois. Trois décisions prises avant la mission — acompte de 40 %, délai écrit, quatre relances datées — et la procédure qui se déroule sans avoir à décider si on ose.",
+      "duration_min": 11,
+      "script_file": "04-acompte-et-impayes.md",
+      "resources": [
+        {
+          "title": "Acompte, délais, impayés",
+          "description": "Les trois décisions préalables, les mentions obligatoires de facture, le tableau des quatre relances datées et les deux règles de gestion du portefeuille clients.",
+          "kind": "document",
+          "url": null,
+          "body": "## Acompte, délais, impayés\n\n### Les trois décisions à prendre AVANT la mission\n\n1. **Acompte de 40 %** à la commande, avant tout tournage\n2. **Paiement à 15 jours** à réception de facture, écrit\n3. **Quatre relances datées**, posées dans l'agenda dès l'émission\n\n### L'acompte\n\n> Je bloque le créneau de production à réception de l'acompte de 40 %.\n\nCe n'est pas qu'une sécurité : un client qui a payé 40 % annule rarement,\nvalide plus vite, et envoie le produit dans les temps.\n\n**Deux exceptions** : une agence ou un grand groupe dont la comptabilité ne\npermet pas d'acompte — demande un **bon de commande**, même valeur\nd'engagement ; et un client régulier de confiance, facturé en fin de mois.\n\n### Mentions obligatoires sur la facture\n\n> Pénalités de retard : trois fois le taux d'intérêt légal.\n> Indemnité forfaitaire de recouvrement : 40 €.\n\nLeur simple présence accélère les règlements.\n\n### La procédure de relance\n\n| Quand | Geste | Ton |\n|---|---|---|\n| J+1 après échéance | Message court : « facture n° X arrivée à échéance hier, merci de me confirmer la date de règlement » | Neutre |\n| J+8 | Relance + facture en pièce jointe + mention des pénalités | Neutre |\n| **J+15** | **Appel téléphonique** — l'étape qui débloque le plus, et la plus sautée | Neutre |\n| J+30 | Mise en demeure en recommandé, délai de 8 jours | Ferme |\n\nAu-delà : injonction de payer au tribunal de commerce — simple et peu\ncoûteuse, rarement nécessaire si les quatre étapes ont été suivies.\n\n### Ce qui prévient les impayés\n\n- [ ] Facturer **le jour de la livraison**, jamais en fin de mois\n- [ ] Demander l'**adresse de facturation dédiée** dès la commande\n- [ ] Mettre le **numéro de bon de commande** quand il existe\n- [ ] Vérifier l'existence de l'entreprise avant une grosse commande\n\n### Deux règles de gestion\n\n**Aucun client au-dessus de 40 % du chiffre d'affaires.** Au-delà, un retard\nde sa part devient une crise, et tu perds tout pouvoir de négociation.\n\n**Trois mois de charges fixes en trésorerie** avant de considérer ce métier\ncomme un revenu principal. Août et fin décembre sont creux, les budgets se\nrecalent en janvier.\n"
+        },
+        {
+          "title": "Checklist d'émission de facture",
+          "description": "Le jour de la livraison, adresse de facturation dédiée, numéro de bon de commande, mentions de pénalités, quatre dates de relance à l'agenda.",
+          "kind": "checklist",
+          "url": null
+        }
+      ]
+    },
+    {
+      "position": 5,
+      "slug": "dire-non",
+      "title": "Dire non, et dire non proprement",
+      "summary": "Chaque créneau occupé par une mauvaise mission est indisponible pour une bonne. Ce qu'il faut refuser et ce qu'il ne faut pas, les quatre messages de refus en trois lignes, et la méthode de réalignement d'un client historique devenu difficile.",
+      "duration_min": 11,
+      "script_file": "05-dire-non.md",
+      "resources": [
+        {
+          "title": "Dire non, et dire non proprement",
+          "description": "Le tableau de ce qui se refuse et pourquoi, les quatre messages types, la règle du créneau et la méthode pour réaligner un client devenu difficile sans rompre.",
+          "kind": "document",
+          "url": null,
+          "body": "## Dire non, et dire non proprement\n\n### Ce qu'il faut refuser\n\n| Situation | Pourquoi |\n|---|---|\n| Prix sous le plancher, sans contrepartie | Même créneau qu'une mission à plein tarif |\n| Révisions illimitées | La mission n'a pas de fin |\n| Droits perpétuels sans supplément | Dix ans de travail pour un paiement |\n| Exclusivité gratuite | Jusqu'à 80 % du marché fermé |\n| Produit qui met mal à l'aise | Gain ponctuel, association durable à ton visage |\n| Urgence gratuite | Elle se répète toujours |\n| Client irrespectueux | Ça ne s'améliore jamais |\n\n### Ce qu'il ne faut PAS refuser\n\nUn prix un peu bas **avec du volume réel** · une petite marque sérieuse ·\nun brief exigeant (signe d'un client qui sait ce qu'il veut) · un secteur\nnouveau, ponctuellement.\n\n### Les quatre messages de refus\n\n**Prix**\n> Bonjour [Prénom], merci pour la proposition. Ce budget est en dessous de mes\n> tarifs — je démarre à 250 € la vidéo. Si un budget se libère plus tard, je\n> serai ravie d'en reparler. Bonne journée.\n\n**Disponibilité**\n> Bonjour [Prénom], merci de penser à moi. Mon planning est complet jusqu'au\n> [date]. Si votre calendrier peut attendre, je peux vous réserver un créneau\n> à partir du [date]. Sinon, bonne continuation.\n\n**Produit**\n> Bonjour [Prénom], merci pour votre message. Je préfère décliner : je ne suis\n> pas la bonne personne pour ce produit, et une créatrice qui n'y croit pas se\n> voit à l'écran. Bonne recherche.\n\n**Conditions**\n> Bonjour [Prénom], merci pour l'envoi du contrat. Deux points bloquent de mon\n> côté : la cession perpétuelle sans supplément, et les révisions illimitées.\n> Si ces deux points peuvent évoluer, je suis partante ; sinon je préfère\n> décliner.\n\nLe dernier obtient très souvent une modification du contrat.\n\n### La règle du créneau\n\n> Si une mission à plein tarif arrive demain pour ce créneau, est-ce que je\n> regretterai ?\n\nOui + pipeline fourni → refuse.\nOui + pipeline vide → accepte, et prospecte.\n\n**Le refus se pratique quand on a le choix.**\n\n### Les trois gestes qui gardent la relation\n\nProposer une alternative réduite · recommander quelqu'un (elle te rendra la\npareille) · laisser une date, qui transforme un refus en report.\n\n### Le client historique devenu difficile\n\n**Ne pas rompre, réaligner.** Annonce une hausse et une réduction de périmètre\nà la prochaine échéance. Il accepte → la relation devient saine. Il refuse →\nil part de lui-même, et c'était le résultat recherché.\n"
+        },
+        {
+          "title": "Ma liste de refus",
+          "description": "Les cinq situations dans lesquelles je dirai non, quoi qu'il arrive. Écrite à froid, elle évite d'avoir à décider sous pression.",
+          "kind": "template",
+          "url": null
+        }
+      ]
+    }
+  ]
+}

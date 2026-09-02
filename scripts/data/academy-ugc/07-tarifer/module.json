@@ -1,0 +1,123 @@
+{
+  "slug": "tarifer-ugc",
+  "title": "Tarifer sans se brader",
+  "description": "Ce module sépare ce que tu vends en trois : la production, les droits d'usage et l'exclusivité — la distinction la plus rentable du métier, et celle que personne n'explique. Il construit ensuite une grille à quatre lignes, transforme les extensions de droits en revenu sans production, tranche la question du produit offert et donne la méthode d'augmentation qui ne fait perdre personne.",
+  "position": 7,
+  "lessons": [
+    {
+      "position": 1,
+      "slug": "ce-qu-on-facture",
+      "title": "Ce qu'on facture : la vidéo, les droits, l'exclusivité",
+      "summary": "Deux créatrices livrent la même vidéo, l'une facture 180 €, l'autre 330 €. La différence tient à une distinction conceptuelle : un objet fabriqué et un droit d'utiliser cet objet sont deux choses, et la seconde peut doubler la facture sans une minute de tournage de plus.",
+      "duration_min": 11,
+      "script_file": "01-ce-qu-on-facture.md",
+      "resources": [
+        {
+          "title": "Les trois composantes d'un prix",
+          "description": "Le tableau des quatre variables de droits, la grille des suppléments chiffrée, et la ligne exacte à mettre dans tous tes devis.",
+          "kind": "document",
+          "url": null,
+          "body": "## Les trois composantes d'un prix\n\n| Composante | Ce que c'est | Élastique ? |\n|---|---|---|\n| Production | Ton temps, ton matériel, ton savoir-faire | Peu |\n| **Droits d'usage** | Le droit d'exploiter le fichier | **Beaucoup** |\n| Exclusivité | La privation de travailler pour les concurrents | Négociée à part |\n\nUne facture qui ne montre que la première ligne **offre les deux autres**.\n\n### Les quatre variables de droits\n\n| Variable | Défaut recommandé | Ce qui dépasse |\n|---|---|---|\n| Durée | 3 mois | Se rachète |\n| Territoire | France | Se rachète |\n| Supports | Numérique (pub + organique) | Affichage, TV, print à part |\n| Droit à l'image | Même durée que les droits | À écrire explicitement |\n\n### Grille des suppléments\n\nBase = production + 3 mois + France + numérique.\n\n| Extension | Supplément |\n|---|---|\n| 6 mois | + 25 % |\n| 12 mois | + 50 % |\n| Perpétuel | + 100 % |\n| Europe | + 25 % |\n| Monde | + 40 % |\n| Affichage / TV / print | + 100 % minimum |\n| Whitelisting | + 30 à 50 % **par mois** |\n| Exclusivité sectorielle | négociée, jamais offerte |\n\n### La ligne à mettre dans tous tes devis\n\n> Droits d'usage : 3 mois à compter de la livraison, France, supports\n> numériques (publicité payante et publications organiques de la marque),\n> droit à l'image de la créatrice inclus sur la même période. Toute extension\n> de durée, de territoire ou de support fait l'objet d'un avenant.\n\n### La règle qui résume tout\n\n**Ce qui n'est pas limité est cédé.** Le silence vaut cession totale — et la\nmarque a raison de le supposer.\n"
+        },
+        {
+          "title": "Checklist des droits",
+          "description": "Durée, territoire, supports, droit à l'image : les quatre limites à écrire, faute de quoi tout est cédé.",
+          "kind": "checklist",
+          "url": null
+        }
+      ]
+    },
+    {
+      "position": 2,
+      "slug": "la-grille",
+      "title": "La grille : unitaire, pack, abonnement mensuel",
+      "summary": "Le prix unitaire n'est pas une offre, c'est une brique de calcul. Quatre lignes, des remises justifiées par une vraie contrepartie, un plancher à −25 %, et les cinq clauses qui font tenir un abonnement.",
+      "duration_min": 11,
+      "script_file": "02-la-grille.md",
+      "resources": [
+        {
+          "title": "La grille à trois étages",
+          "description": "La grille chiffrée sur une base de 250 €, le principe de la remise, les cinq clauses de l'abonnement et la liste de ce qui ne rentre jamais dans le prix unitaire.",
+          "kind": "document",
+          "url": null,
+          "body": "## La grille à trois étages\n\nExemple sur un prix unitaire de base de 250 €.\n\n| Formule | Contenu | Prix | Unitaire | Remise |\n|---|---|---|---|---|\n| Unité | 1 vidéo | 250 € | 250 € | — |\n| Pack Test | 3 vidéos | 675 € | 225 € | −10 % |\n| Pack Campagne | 6 vidéos + 3 hooks | 1 275 € | 212 € | −15 % |\n| **Abonnement** | 6 / mois, 3 mois | 1 200 € / mois | 200 € | −20 % |\n\n**Quatre lignes, pas huit** : au-delà, le client compare au lieu de choisir.\n\n### Le principe de la remise\n\n| Contrepartie valable | Contrepartie invalide |\n|---|---|\n| Le volume (réduit ton temps unitaire) | La promesse de travail futur |\n| L'engagement (supprime ta prospection) | La visibilité |\n| Le délai souple (permet de grouper) | La sympathie du client |\n\n**Plancher absolu : −25 %.** Au-delà, le gain d'efficacité ne compense plus et\nle prix ne remonte jamais.\n\n### L'abonnement — les cinq clauses\n\n1. **Volume mensuel fixe** et délai de livraison\n2. **Trois mois minimum** — en dessous, tu portes tout le risque\n3. **Facturation à échéance fixe**, consommé ou non : c'est une capacité\n   réservée. *À écrire, sinon l'abonnement devient une option gratuite.*\n4. **Report d'une vidéo** non commandée sur le mois suivant, **une seule fois**\n5. Un point de brief de trente minutes par mois\n\n### Ce qui ne rentre jamais dans le prix unitaire\n\n| Ligne | Prix |\n|---|---|\n| Déclinaison de format (1:1, 16:9) | 30 à 50 € |\n| Hook alternatif | 25 à 40 € |\n| Retour au-delà du forfait | 40 € |\n| Extension de droits | voir la grille des droits |\n| Déplacement | au réel, annoncé d'avance |\n\n**15 à 25 % du chiffre d'affaires d'une créatrice installée.** Les inclure\n« pour faire simple », c'est travailler un quart du temps gratuitement.\n\n### Deux détails gratuits\n\nChiffres ronds sur les packs · présentation **du plus cher au moins cher**\n(le premier chiffre lu devient la référence).\n"
+        },
+        {
+          "title": "Checklist de l'abonnement",
+          "description": "Volume, durée minimale, facturation à échéance fixe, report limité, point de brief : les cinq points à écrire avant de signer.",
+          "kind": "checklist",
+          "url": null
+        }
+      ]
+    },
+    {
+      "position": 3,
+      "slug": "les-droits-d-usage",
+      "title": "Les droits d'usage : le vrai levier de revenus",
+      "summary": "Ce qui n'est pas limité est cédé, et une vidéo à 160 € peut travailler deux ans et demi pour rien. La séquence d'extension à J+75, qui rapporte 10 à 20 % du chiffre d'affaires sans production, et les trois clauses à ne jamais signer.",
+      "duration_min": 12,
+      "script_file": "03-les-droits-d-usage.md",
+      "resources": [
+        {
+          "title": "Les droits d'usage : la deuxième source de revenus",
+          "description": "La séquence d'extension avec son message type, les trois règles du whitelisting, et le tableau des clauses à négocier.",
+          "kind": "document",
+          "url": null,
+          "body": "## Les droits d'usage : la deuxième source de revenus\n\n### La séquence d'extension — à mettre à l'agenda le jour de la livraison\n\n**J+75**, message court :\n\n> Bonjour [Prénom], vos droits sur les [n] vidéos arrivent à échéance le\n> [date]. Si l'une d'elles tourne encore, je peux prolonger de six mois pour\n> X €.\n\nDeux résultats, tous deux bons :\n- Elle prolonge → **revenu pur, zéro production**\n- Elle ne prolonge pas → tu sais que la vidéo ne tourne plus (info commerciale)\n\nUne créatrice installée tire **10 à 20 % de son chiffre d'affaires** des\nextensions.\n\n### Le whitelisting — trois règles\n\n1. Se facture **à part** : 30 à 50 % du prix du contenu, **par mois**\n2. Se **borne** dans le temps, toujours\n3. Se **retire** : clause d'arrêt sous sept jours à ta demande\n\nC'est ton identité qui porte la publicité, pas seulement un fichier.\n\n### Ce qu'il ne faut pas signer\n\n| Clause | Pourquoi | Comment négocier |\n|---|---|---|\n| « Cession totale et définitive, tous supports, tous territoires, toute durée » | La vidéo travaille dix ans pour un paiement | Proposer 3 ans + 100 % |\n| Cession de droit à l'image sans limite | Le point le moins réversible | Aligner sur la durée des droits |\n| « Ne pas produire pour des marques du même secteur » | C'est de l'exclusivité déguisée | La faire payer, ou la refuser |\n\n### Le rappel qui vaut de l'argent\n\nUne campagne de deux semaines peut être **relancée dix-huit mois plus tard**\navec la même vidéo. Durée de campagne ≠ durée de droits.\n"
+        },
+        {
+          "title": "Checklist d'échéance",
+          "description": "Le jour de la livraison, poser le rappel J+75 dans l'agenda. C'est le message le plus rentable du mois, et il ne demande aucun tournage.",
+          "kind": "checklist",
+          "url": null
+        }
+      ]
+    },
+    {
+      "position": 4,
+      "slug": "le-produit-offert",
+      "title": "Le produit offert n'est pas un paiement",
+      "summary": "Le calcul en trente secondes qui tranche chaque proposition, les deux seules exceptions rationnelles, le message de refus qui garde la porte ouverte et la contre-proposition hybride qui transforme une demande gratuite en client payant.",
+      "duration_min": 10,
+      "script_file": "04-le-produit-offert.md",
+      "resources": [
+        {
+          "title": "Le produit offert n'est pas un paiement",
+          "description": "Le calcul en trois questions avec ses exemples chiffrés, les deux exceptions, le message de refus et la contre-proposition qui convertit.",
+          "kind": "document",
+          "url": null,
+          "body": "## Le produit offert n'est pas un paiement\n\n### Le calcul, à faire en trente secondes\n\n1. **Combien d'heures ?** 2 h par vidéo, réception et échanges compris.\n2. **Combien vaut le produit pour moi ?** Le prix que j'aurais **réellement**\n   payé. Un produit que je n'aurais jamais acheté vaut **zéro**.\n3. **Le rapport dépasse-t-il 40 €/h ?** Sinon, refuse.\n\n| Proposition | Heures | Valeur réelle | €/h | Verdict |\n|---|---|---|---|---|\n| Crème 35 €, 3 vidéos | 6 | 0 (jamais achetée) | 0 | Non |\n| Produit 89 €, 2 vidéos | 4 | ~20 € | 5 | Non |\n| Robot 320 €, 1 vidéo, voulu depuis 6 mois | 2 | 320 | 160 | **Oui** |\n\n### Les deux seules exceptions\n\n1. **Les 2 ou 3 premières vidéos de portfolio**, au tout début. Le retour n'est\n   pas le produit, c'est la marque identifiable dans ton portfolio.\n2. **Un produit cher que tu comptais vraiment acheter.**\n\n**Trois échanges au total, sur toute ta carrière de débutante.** Au-delà, ce\nn'est plus un amorçage, c'est un modèle économique — et il ne fonctionne pas.\n\n### Le message de refus\n\n> Bonjour [Prénom], merci pour la proposition. Je ne travaille pas en échange\n> produit — mes tarifs commencent à 220 € la vidéo, droits 3 mois inclus.\n>\n> Si vous avez un budget créa ce trimestre, je peux vous proposer un pack de\n> trois à 675 €, livré en 5 jours. Sinon, gardez mon portfolio sous la main :\n> [lien]. Bonne journée.\n\nUn refus net · un prix · une porte ouverte.\n\n### La contre-proposition qui convertit\n\n> Je peux faire **une** vidéo en échange du produit, à condition que ce soit un\n> test : si elle performe, on passe sur un pack payant le mois suivant.\n> Et dans ce cas les droits sont limités à un mois.\n\nDeux protections : le test est borné à une vidéo, les droits courts empêchent\nd'exploiter longtemps une vidéo non payée.\n\n### Face à une marque connue\n\n« Ça va vous faire de la visibilité » n'est pas un paiement : le fichier ne\nsera même pas publié sous ton nom.\n\n> Le portfolio, je le construis avec des marques qui me paient.\n"
+        },
+        {
+          "title": "Checklist des trois questions",
+          "description": "Combien d'heures, combien vaut réellement le produit pour moi, le rapport dépasse-t-il 40 €/h. Trente secondes, une réponse.",
+          "kind": "checklist",
+          "url": null
+        }
+      ]
+    },
+    {
+      "position": 5,
+      "slug": "augmenter-ses-prix",
+      "title": "Augmenter ses prix sans perdre ses clients",
+      "summary": "Un taux d'acceptation de 92 % n'est pas un succès, c'est une alerte. Les trois signaux, le rythme de deux hausses par an, la méthode en trois étapes qui supprime le risque, et le message d'annonce avec le geste qui retient tout le monde.",
+      "duration_min": 11,
+      "script_file": "05-augmenter-ses-prix.md",
+      "resources": [
+        {
+          "title": "Augmenter ses prix sans perdre ses clients",
+          "description": "Le tableau des trois signaux avec leurs seuils, la méthode en trois étapes, le message d'annonce, et les leviers pour gagner plus sans toucher au prix.",
+          "kind": "document",
+          "url": null,
+          "body": "## Augmenter ses prix sans perdre ses clients\n\n### Les trois signaux\n\n| Signal | Seuil | Lecture |\n|---|---|---|\n| Taux d'acceptation | > 80 % | Trop bon marché — le plus fiable |\n| Missions refusées faute de temps | ≥ 2 / mois | La demande dépasse la capacité |\n| Temps unitaire en baisse | 2 h 20 → 1 h 15 | Tu peux monter sans changer ton tarif horaire perçu |\n\n**Bon niveau : 50 à 70 % d'acceptation.**\n\n### Le rythme\n\n**Deux augmentations par an, de 15 à 25 %.**\n150 € au départ → 310 € au bout de dix-huit mois. C'est la trajectoire normale.\n\n### La méthode sans risque — trois étapes\n\n1. **Nouveaux clients seulement**, pendant deux à trois mois. Change simplement\n   ton prix plancher et tes devis, sans prévenir personne.\n2. **Mesure** le taux d'acceptation au nouveau prix. Au-dessus de 50 %, il tient.\n3. **Annonce aux clients existants**, un mois de préavis, avec un geste.\n\n### Le message d'annonce\n\n> Bonjour [Prénom],\n>\n> Un mot pour vous informer que mes tarifs évoluent à partir du 1er [mois] :\n> la vidéo passe de X à Y €, droits inchangés.\n>\n> Vos commandes en cours restent au tarif actuel. Pour votre abonnement, je\n> maintiens le tarif actuel jusqu'à la fin de l'engagement en cours.\n>\n> Merci pour la confiance, et à très vite.\n\nUne date · aucune excuse · **un geste pour les réguliers** — c'est le geste qui\nfait que personne ne part.\n\n### Augmenter son revenu sans toucher au prix\n\n| Levier | Exemple |\n|---|---|\n| Réduire le périmètre inclus | 3 retours → 2 · 6 mois de droits → 3 |\n| Facturer ce qui était offert | Déclinaisons, hooks, urgences |\n| Monter en gamme de clients | Une agence paie 30 à 50 % de plus |\n\n### Si un client refuse\n\n| Cas | Réponse |\n|---|---|\n| Bon client, tu ne veux pas de risque | « Je maintiens votre tarif jusqu'en [mois], ensuite je m'aligne » |\n| Client difficile ou peu rentable | Laisse-le partir : sa marge se réduira à chaque trimestre |\n"
+        },
+        {
+          "title": "Checklist de révision trimestrielle",
+          "description": "Calculer le taux d'acceptation, comparer à la fourchette 50-70 %, décider, poser le rappel à trois mois.",
+          "kind": "checklist",
+          "url": null
+        }
+      ]
+    }
+  ]
+}
