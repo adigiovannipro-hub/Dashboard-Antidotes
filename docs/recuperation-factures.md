@@ -1,140 +1,138 @@
-# Récupération automatique des factures
+# Récupérer les factures des abonnements, sans y penser
 
-Un abonnement — Adobe, Google, OVH — laisse chaque mois sa facture derrière une
-session ouverte sur le site du fournisseur, là où ni le mail ni Airwallex ne
-vont la chercher. Ce module la fait arriver dans Airwallex sans y penser.
+Adobe, Google, OVH… chaque mois, la facture d'un abonnement attend derrière
+ton compte, sur le site du fournisseur. Ce module va la chercher **le
+lendemain du prélèvement** et l'envoie à Airwallex à ta place. Tu colles un
+lien une fois par fournisseur, dans le dashboard ; le reste tourne en fond sur
+ton Mac.
 
-## Qui fait quoi
+## Comment ça marche, en deux phrases
 
-| Côté | Rôle |
-|---|---|
-| Dashboard (`/entreprise/finance`, colonne **Récupération**) | Source de vérité : un lien par fournisseur, l'état du mois. Ne télécharge rien. |
-| Passage extérieur (ton Mac, ou un petit serveur) | Lit la liste, ouvre chaque lien dans un navigateur dont la session est déjà ouverte, télécharge la facture, l'envoie à `receipts@expenses.airwallex.com`, rend compte. |
+Le **dashboard** retient, pour chaque fournisseur, la page où se trouvent ses
+factures et si celle du mois est arrivée. Un **passage** sur ton Mac lui
+demande chaque matin s'il y a quelque chose à faire ; s'il y a eu un
+prélèvement la veille, il ouvre la page du fournisseur dans un navigateur déjà
+connecté, télécharge la facture et la dépose au dashboard, qui l'envoie à
+Airwallex depuis ta boîte Gmail.
 
-Le dashboard ne peut pas tenir ce rôle : une fonction Vercel n'a pas de profil
-de navigateur qui survive d'une exécution à l'autre, et c'est la session qui
-ouvre la porte du fournisseur.
+Le dashboard ne peut pas faire ça seul : il tourne sur Vercel, où rien ne
+garde une session ouverte d'une fois sur l'autre. Ton Mac, si.
 
-## Modèle
+## Installation, une seule fois
 
-Table `finance_retrieval_sources` — **une ligne par marchand** (même clé que
-les logos, calculée depuis le nom affiché). Le lien se colle une fois, sur
-n'importe quelle dépense du marchand, et sert tous les mois.
+Tout se passe dans le Terminal, dans le dossier du projet. Compte dix minutes.
 
-| Colonne | Rôle |
-|---|---|
-| `source_link` | La page où les factures se trouvent, derrière la session |
-| `retrieval_status` | `none` · `pending` · `done` · `failed` |
-| `auto_retrieved_at` | Dernière récupération réussie. « Du mois » se juge à l'affichage, en UTC |
-| `last_error` | La cause du dernier échec, affichée dans la cellule |
+### 1. Dire au passage où est le dashboard
 
-## La cellule
+Ouvre le fichier `.env.local` à la racine du projet et ajoute une ligne avec
+l'adresse de ton dashboard en ligne, celle que tu ouvres dans le navigateur :
 
-| Fiche | Bouton |
-|---|---|
-| Pas de lien | **Récupérer** — ouvre un champ pour coller le lien |
-| Lien posé, rien reçu ce mois-ci | **En attente** — cliquer modifie le lien ; un champ vidé retire la fiche |
-| Récupérée ce mois-ci | **Récupéré ✓**, vert, inerte, la date en infobulle |
-| Le mois a tourné | Redevient **En attente** tout seul, sans tâche dédiée |
-| Le passage a échoué | **Échec**, la cause en infobulle ; le passage suivant réessaie |
+```
+FACTURES_DASHBOARD_URL=https://ton-dashboard.vercel.app
+```
 
-Virements et frais bancaires n'ont pas de cellule : ils n'attendent aucune facture.
+Vérifie aussi que la ligne `CRON_SECRET=` contient **la même valeur que sur
+Vercel** (Vercel → ton projet → Settings → Environment Variables →
+`CRON_SECRET`). C'est ce mot de passe qui autorise le passage à parler au
+dashboard. S'il diffère, le passage s'arrête en le disant.
 
-## Les deux routes
+### 2. Connecter le navigateur du passage à chaque fournisseur
 
-Toutes deux s'authentifient par `Authorization: Bearer <CRON_SECRET>` — la même
-valeur que sur Vercel — et sont hors du proxy d'authentification, comme les
-crons. Un secret faux rend `401`.
-
-**Lister ce qu'il reste à faire ce mois-ci**
+Le passage a son propre navigateur, séparé du tien, qui garde ses sessions.
+Pour chaque fournisseur, lance :
 
 ```bash
-curl -s "$ANTIDOTES_URL/api/finance/invoices/pending-retrieval" \
-  -H "Authorization: Bearer $CRON_SECRET"
+pnpm factures:connexion "https://account.adobe.com/orders/billing-history"
 ```
 
-```json
-{
-  "ok": true,
-  "month": "2026-09",
-  "sources": [
-    {
-      "id": "…",
-      "merchant": "Adobe",
-      "merchant_key": "adobe",
-      "source_link": "https://account.adobe.com/orders/billing-history",
-      "retrieval_status": "pending",
-      "auto_retrieved_at": null,
-      "last_error": null
-    }
-  ]
-}
-```
+Une fenêtre s'ouvre sur la page du fournisseur. Connecte-toi, comme
+d'habitude, jusqu'à voir la liste des factures. Puis **ferme la fenêtre** :
+la session est gardée. À refaire seulement quand un fournisseur te
+déconnecte — le dashboard te le dira (bouton rouge, voir plus bas).
 
-Une fiche récupérée ce mois-ci n'y figure pas ; une fiche en échec y reste.
-
-**Rendre compte**
+### 3. Planifier le passage
 
 ```bash
-curl -s -X PATCH "$ANTIDOTES_URL/api/finance/invoices/<id>/retrieval-status" \
-  -H "Authorization: Bearer $CRON_SECRET" \
-  -H "Content-Type: application/json" \
-  -d '{"retrieval_status":"done"}'
+pnpm factures:installer
 ```
 
-Corps accepté : `retrieval_status` (`done` · `failed` · `pending`), `error`
-(texte, pour `failed`), `retrieved_at` (ISO 8601, sinon maintenant). `done`
-pose la date et efface l'erreur. Réponse : la fiche mise à jour.
+Dès lors, chaque matin à 9 h, le Mac lance le passage en fond, sans fenêtre,
+sans Terminal. Si le Mac dormait à 9 h, le passage part au réveil. Il n'a
+besoin d'aucune session ouverte — juste que le Mac soit allumé dans la
+journée.
 
-## Le passage extérieur
+Pour vérifier que c'est en place : `launchctl list | grep antidotes`.
+Pour retirer : `pnpm factures:desinstaller`.
 
-C'est une session Claude Code sur le Mac, avec le skill `/recuperer-factures`
-du dépôt, un navigateur au profil persistant, et le connecteur Gmail. Chaque
-site de fournisseur a sa propre page et son propre bouton de téléchargement :
-un script figé casserait au premier changement de maquette, une session qui
-lit la page s'adapte.
-
-**Installation, une fois.**
-
-1. Le navigateur persistant, via le MCP Playwright, sur un profil dédié aux
-   factures — un seul profil pour tous les fournisseurs :
-
-   ```bash
-   claude mcp add --scope user playwright -- npx @playwright/mcp@latest \
-     --user-data-dir "$HOME/.claude/browser-profiles/factures" \
-     --output-dir "$HOME/.claude/browser-profiles/factures-telechargements"
-   ```
-
-2. Les sessions : dans une session `claude` interactive, demander d'ouvrir la
-   page de facturation de chaque fournisseur, et se connecter dans la fenêtre.
-   Le profil retient la session ; à refaire quand un fournisseur la ferme.
-
-3. Les variables, lues de `.env.local` : `NEXT_PUBLIC_SITE_URL` (l'adresse de
-   production) et `CRON_SECRET` (**la valeur de Vercel**, pas une valeur locale).
-
-**À chaque passage.**
+### 4. Vérifier que tout parle bien ensemble
 
 ```bash
-cd "<dossier du dépôt>" && claude -p "/recuperer-factures"
+pnpm factures:passage
 ```
 
-À planifier une fois par mois, ou par semaine — le passage ne refait jamais un
-mois déjà fait. Exemple `launchd`, le 3 de chaque mois à 9 h, dans
-`~/Library/LaunchAgents/com.antidotes.recuperer-factures.plist` :
+Le passage affiche le calendrier de chaque fournisseur suivi et ce qu'il a
+fait. Le premier jour, il dira sans doute « Aucun prélèvement ce mois-ci pour
+l'instant » ou « Rien à récupérer aujourd'hui » : c'est normal, il attend le
+prochain prélèvement.
 
-```xml
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0"><dict>
-  <key>Label</key><string>com.antidotes.recuperer-factures</string>
-  <key>ProgramArguments</key><array>
-    <string>/bin/zsh</string><string>-lc</string>
-    <string>cd "<dossier du dépôt>" && claude -p "/recuperer-factures" >> ~/Library/Logs/recuperer-factures.log 2>&1</string>
-  </array>
-  <key>StartCalendarInterval</key><dict><key>Day</key><integer>3</integer><key>Hour</key><integer>9</integer></dict>
-</dict></plist>
-```
+## Au quotidien : le dashboard
 
-Puis `launchctl load ~/Library/LaunchAgents/com.antidotes.recuperer-factures.plist`.
-Le Mac doit être allumé à l'heure dite ; launchd rattrape un passage manqué au
-réveil suivant.
+Dans **Mon entreprise → Finance → Dépenses**, la colonne **Récupération**, à
+droite de Justificatif, porte un petit bouton carré sur chaque dépense carte.
+
+| Bouton | Ce que ça veut dire | Quoi faire |
+|---|---|---|
+| 🔗 gris | Aucun lien pour ce fournisseur | Cliquer, coller le lien de la page des factures, Enregistrer. Une seule fois : il vaut pour toutes les dépenses de ce fournisseur, tous les mois |
+| 🕒 gris | Lien enregistré, facture du mois pas encore récupérée | Rien. Le passage viendra le lendemain du prélèvement |
+| ✓ vert | Facture du mois récupérée et envoyée à Airwallex | Rien. La date est en infobulle. Le mois suivant, le bouton repasse 🕒 tout seul |
+| ⚠ rouge | Le dernier passage a échoué | Survoler pour lire la cause. Le plus souvent : session expirée → relancer `pnpm factures:connexion "<lien>"` et se reconnecter. Le passage réessaie trois jours plus tard, ou tout de suite avec `pnpm factures:passage` |
+
+Les virements et les frais bancaires n'ont pas de bouton : ils n'ont pas de
+facture à aller chercher.
+
+**Quel lien coller ?** Celui de la page où tu télécharges d'habitude la
+facture, une fois connecté. Adobe : `https://account.adobe.com/orders/billing-history`.
+Si le lien pointe directement sur un PDF, ça marche aussi.
+
+## Quand le passage a lieu
+
+Le passage regarde les prélèvements que la synchronisation Airwallex a vus.
+Pour un fournisseur suivi, il n'agit que si un prélèvement carte de ce
+fournisseur date **de la veille ou avant, dans le mois en cours**, et que la
+facture du mois n'a pas encore été récupérée. Adobe prélève le 26 : le passage
+vient le 27. Si la facture n'est pas encore en ligne le 27, il revient le 28,
+puis chaque jour jusqu'à l'avoir. Après un échec, il attend trois jours.
+
+Ce que le passage fait sur la page du fournisseur : il cherche le premier
+bouton ou lien qui parle de facture, d'invoice ou de téléchargement, le
+clique, et garde ce qui en sort si c'est un PDF. Quand ça échoue, il laisse
+une capture d'écran de la page et la liste de ce qu'il a repéré dans
+`~/.antidotes/factures/journal/` — c'est ce qu'il faut montrer pour ajuster.
+
+## Où sont les choses
+
+| Quoi | Où |
+|---|---|
+| Sessions du navigateur du passage | `~/.antidotes/factures/navigateur/` |
+| Journal des passages et captures d'échec | `~/.antidotes/factures/journal/passage.log` |
+| Planification | `~/Library/LaunchAgents/com.antidotes.recuperer-factures.plist` |
+| Fiches fournisseurs | table `finance_retrieval_sources`, une ligne par fournisseur |
+
+## Pour un développeur : les trois routes
+
+Toutes en `Authorization: Bearer <CRON_SECRET>`, hors du proxy
+d'authentification comme les crons. Un secret faux rend `401`.
+
+- `GET /api/finance/invoices/pending-retrieval` — `sources` : les fiches à
+  traiter aujourd'hui ; `schedule` : toutes les fiches suivies avec leur
+  raison (`due`, `no-charge-this-month`, `charge-too-recent`,
+  `done-this-month`, `failed-recently`) et `due_on`.
+- `POST /api/finance/invoices/<id>/document` — multipart, champ `file`, PDF
+  de 10 Mo au plus. Le dashboard l'envoie à Airwallex depuis la boîte Gmail
+  connectée aux Reçus, objet `Facture <Fournisseur> - <JJ/MM/AAAA>`, puis
+  marque la fiche récupérée. Réponse : `sent_to`, `subject`, `message_id`.
+- `PATCH /api/finance/invoices/<id>/retrieval-status` — `{"retrieval_status":
+  "failed","error":"…"}` (ou `done`, `pending`).
+
+La décision « à faire aujourd'hui » vit dans `src/lib/finance/retrieval.ts`,
+pur et testé — le même code que la cellule de l'écran.
