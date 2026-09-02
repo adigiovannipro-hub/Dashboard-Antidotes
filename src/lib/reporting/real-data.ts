@@ -211,6 +211,11 @@ export function sumPosts(posts: SocialPost[]): RawMetrics {
       // Mesurées à la collecte : Facebook compte les lectures à part des
       // impressions, les déduire du type de média donnerait un faux.
       videoViews: total.videoViews + Number(post.video_views ?? 0),
+      /* Les clics : LinkedIn les rend par publication, Meta jamais — la
+         colonne reste donc à zéro ailleurs, sans fausser la somme. Le CTR
+         se calcule sur les clics de lien, que LinkedIn ne distingue pas. */
+      clicks: total.clicks + Number(post.clicks ?? 0),
+      linkClicks: total.linkClicks + Number(post.clicks ?? 0),
     }),
     { ...EMPTY_RAW_METRICS },
   );

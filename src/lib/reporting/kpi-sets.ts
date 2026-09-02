@@ -88,10 +88,11 @@ export const KPI_SETS: Record<SocialReportingNetwork, MetricId[]> = {
      rien n'est mesuré (`UNMEASURED_AT_ZERO`), jamais un zéro qui accuserait
      le client. Si Meta les rend un jour, elles se remplissent sans code. */
   facebook: ["impressions", "videoViews", "likes", "comments", "saves", "shares"],
-  /* LinkedIn ne sert pas les publications une à une, mais il sert les
-     compteurs de la page : impressions, portée, clics, réactions. La grille
-     suit donc ce qui existe, sans enregistrements — LinkedIn n'en a pas. */
-  linkedin: ["impressions", "reach", "clicks", "likes", "comments", "shares"],
+  /* LinkedIn sert tout : impressions et portée de la page, clics,
+     réactions, commentaires, partages. Pas d'enregistrement — il n'en a
+     pas — et le CTR en plus, que ses clics rendent enfin calculable sur
+     un onglet organique. */
+  linkedin: ["impressions", "reach", "clicks", "ctr", "likes", "comments", "shares"],
   tiktok: ["likes", "comments", "saves", "shares"],
   youtube: ["likes", "comments", "shares"],
   x: ["likes", "comments", "shares"],

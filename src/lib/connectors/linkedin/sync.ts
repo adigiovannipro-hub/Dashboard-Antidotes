@@ -4,42 +4,34 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { SocialAccountRow } from "@/lib/social/types";
 import type { Database } from "@/lib/supabase/database.types";
-import {
-  findLinkedinConnectedAccount,
-  linkedinTransport,
-  NETWORK_SIZE,
-  ORG_ACLS,
-  SHARE_STATS,
-} from "./composio";
 import { explainLinkedinError } from "./errors";
 import {
+  dailyFromShareStats,
+  followerGains,
   followersFromNetworkSize,
-  lifetimeFromShareStats,
+  followersHistory,
   pagesFromOrganizations,
+  permalinkOf,
+  postsFromRest,
+  statsByPost,
 } from "./mapping";
-import type { LinkedinPage, LinkedinTransport } from "./types";
+import { findLinkedinAccount, linkedinRest, timeInterval } from "./rest";
+import type { LinkedinPage, LinkedinPost, LinkedinTransport } from "./types";
 
 /**
  * Collecte LinkedIn organique d'un espace.
  *
- * Le chemin est celui de tout le projet : service → base → lecture locale.
- * Ce que LinkedIn sert est plus maigre qu'ailleurs, et c'est dit ici une
- * fois pour toutes :
+ * Le chemin est celui de tout le projet : service → base → lecture locale,
+ * et LinkedIn se range dans les **mêmes tables** qu'Instagram et Facebook —
+ * `social_posts`, `social_page_daily`, `social_followers`. Quatre lectures,
+ * toutes sondées sur pièce le 2 septembre 2026 :
  *
- *   • **les abonnés du jour** — un instantané, comme Meta ;
- *   • **les compteurs cumulés de publications** — impressions, portée,
- *     clics, réactions, commentaires, partages, depuis la création de la
- *     page.
+ *   • les statistiques de la page au grain jour ;
+ *   • la liste des publications ;
+ *   • les statistiques par publication, par lots ;
+ *   • les gains d'abonnés mensuels, qui **reconstruisent** la courbe.
  *
- * Il n'y a **pas** de liste des publications d'une page : aucun outil de la
- * passerelle ne l'expose, et le tableau « Performance par publication » de
- * l'onglet reste donc vide, ce que l'écran dit. Il n'y a pas non plus de
- * découpage temporel : les trois formes d'intervalle documentées sont
- * refusées (sondées le 2 septembre 2026 sur ANMF, grains jour et mois).
- * D'où le stockage cumulé et la différence à la lecture — voir la migration
- * `20260902d`.
- *
- * Règle des crons appliquée partout : **chaque `error` Supabase est testé**.
+ * Règle des crons appliquée partout : chaque `error` Supabase est testé.
  */
 
 type Admin = SupabaseClient<Database>;
@@ -51,33 +43,51 @@ export type LinkedinSyncReport = {
   warning?: string | null;
 };
 
+/** Le rattrapage du premier passage : un an, ce que LinkedIn garde au jour. */
+const PREMIER_PASSAGE_JOURS = 365;
+
+/** Les passages suivants : de quoi rattraper une semaine de trous. */
+const PASSAGE_COURANT_JOURS = 35;
+
+/**
+ * Les publications lues par appel, et les statistiques demandées par lot.
+ *
+ * Vingt : au-delà, l'URL d'un `List(...)` de vingt URN dépasse ce que
+ * LinkedIn accepte sur une requête GET.
+ */
+const LOT_STATISTIQUES = 20;
+
 function fail(message: string): never {
   throw new Error(message);
 }
 
 /**
- * La date d'un relevé : **la veille du passage**.
+ * La date d'un relevé d'abonnés : **la veille du passage**.
  *
- * Même règle que Meta (`connectors/meta/sync.ts`) et pour la même raison :
- * ce qu'on lit le matin du 1er est le chiffre au sortir du 31. Daté du jour
- * du passage, il tomberait dans le mois suivant et chaque courbe prendrait
- * un mois d'avance.
+ * Même règle que Meta, et pour la même raison : ce qu'on lit le matin du
+ * 1er est le chiffre au sortir du 31. Daté du jour du passage, il tomberait
+ * dans le mois suivant et la courbe prendrait un mois d'avance.
  */
-function closingDate(now = new Date()): string {
+function closingDate(now: Date): string {
   return new Date(now.getTime() - 86_400_000).toISOString().slice(0, 10);
 }
+
+function daysBefore(now: Date, days: number): string {
+  return new Date(now.getTime() - days * 86_400_000).toISOString().slice(0, 10);
+}
+
+const entityUrn = (id: string) => `urn:li:organization:${id}`;
+const encoded = (id: string) => encodeURIComponent(entityUrn(id));
 
 /**
  * Les pages entreprise que le compte connecté administre.
  *
  * Rang par rang, et non `count: 100` : la passerelle **résout** une seule
  * organisation par appel et rend sa fiche, si bien qu'une demande de cent
- * pages en rendait une. Six pages sortaient comme une seule — ce qui se
- * lirait « ce compte n'administre qu'une page ». Plafond à 50 : au-delà,
- * c'est une boucle, pas un client.
+ * pages en rendait une. Six pages sortaient comme une seule.
  */
 export async function fetchLinkedinPages(
-  transport: LinkedinTransport,
+  rest: LinkedinTransport,
 ): Promise<LinkedinPage[]> {
   const pages: LinkedinPage[] = [];
   const seen = new Set<string>();
@@ -85,15 +95,11 @@ export async function fetchLinkedinPages(
   for (let start = 0; start < 50; start += 1) {
     let payload: unknown;
     try {
-      payload = await transport(ORG_ACLS, {
-        role: "ADMINISTRATOR",
-        state: "APPROVED",
-        count: 1,
-        start,
-      });
+      payload = await rest(
+        `/v2/organizationAcls?q=roleAssignee&role=ADMINISTRATOR&state=APPROVED&count=1&start=${start}&projection=(elements*(organization~(id,localizedName,vanityName)))`,
+        { version: null },
+      );
     } catch (error) {
-      // Un refus au premier rang est une vraie erreur ; aux suivants, c'est
-      // la fin de la liste — LinkedIn ne rend pas 200 sur un rang vide.
       if (start === 0) throw error;
       break;
     }
@@ -122,12 +128,12 @@ export async function importLinkedinInventory(options: {
   workspaceId: string;
   connectedBy: string | null;
 }): Promise<{ pages: number } | { error: string }> {
-  const account = await findLinkedinConnectedAccount(options.workspaceId);
+  const account = await findLinkedinAccount(options.workspaceId);
   if ("error" in account) return { error: account.error };
 
   let pages: LinkedinPage[];
   try {
-    pages = await fetchLinkedinPages(linkedinTransport(account));
+    pages = await fetchLinkedinPages(linkedinRest(account.id));
   } catch (error) {
     return { error: explainLinkedinError((error as Error).message) };
   }
@@ -147,7 +153,6 @@ export async function importLinkedinInventory(options: {
       external_id: page.id,
       username: page.vanityName,
       display_name: page.name,
-      avatar_url: page.logoUrl,
       status: "connected",
       last_error: null,
       connected_by: options.connectedBy,
@@ -160,13 +165,16 @@ export async function importLinkedinInventory(options: {
   return { pages: pages.length };
 }
 
-/** La collecte d'un espace : abonnés et compteurs cumulés de sa page. */
+/** La collecte d'un espace. `null` si aucune page LinkedIn n'y est affectée. */
 export async function syncWorkspaceLinkedin(options: {
   admin: Admin;
   workspaceId: string;
   now?: Date;
+  /** Borne basse demandée par l'écran — étend la fenêtre, jamais ne la réduit. */
+  atLeastSince?: string;
 }): Promise<LinkedinSyncReport | null> {
   const { admin, workspaceId } = options;
+  const now = options.now ?? new Date();
 
   const { data: link, error: linkError } = await admin
     .from("workspace_social_accounts")
@@ -192,9 +200,9 @@ export async function syncWorkspaceLinkedin(options: {
     const account = row as unknown as SocialAccountRow;
     report.account = account.display_name ?? account.external_id;
 
-    const connected = await findLinkedinConnectedAccount(workspaceId);
+    const connected = await findLinkedinAccount(workspaceId);
     if ("error" in connected) fail(connected.error);
-    const transport = linkedinTransport(connected);
+    const rest = linkedinRest(connected.id);
 
     const { data: source, error: sourceError } = await admin
       .from("data_sources")
@@ -208,20 +216,33 @@ export async function syncWorkspaceLinkedin(options: {
         } as never,
         { onConflict: "workspace_id,provider,external_account_id" },
       )
-      .select("id")
+      .select("id, last_sync_at")
       .single();
     if (sourceError) fail(`Source de données : ${sourceError.message}`);
-    const dataSourceId = (source as unknown as { id: string }).id;
+    const { id: dataSourceId, last_sync_at } = source as unknown as {
+      id: string;
+      last_sync_at: string | null;
+    };
 
-    const date = closingDate(options.now);
+    /* Un an au premier passage — c'est ce que LinkedIn garde au grain jour —
+       puis 35 jours glissants. Une borne demandée par l'écran étend la
+       fenêtre sans jamais la raccourcir. */
+    const since = [
+      daysBefore(now, last_sync_at ? PASSAGE_COURANT_JOURS : PREMIER_PASSAGE_JOURS),
+      options.atLeastSince,
+    ]
+      .filter((value): value is string => Boolean(value))
+      .sort()[0]!;
+    const until = closingDate(now);
+
     const { data: run, error: runError } = await admin
       .from("sync_runs")
       .insert({
         data_source_id: dataSourceId,
         workspace_id: workspaceId,
         status: "running",
-        date_from: date,
-        date_to: date,
+        date_from: since,
+        date_to: until,
       } as never)
       .select("id")
       .single();
@@ -231,21 +252,22 @@ export async function syncWorkspaceLinkedin(options: {
     try {
       const warning = await collect({
         admin,
-        transport,
+        rest,
         workspaceId,
         dataSourceId,
         account,
-        date,
+        since,
+        until,
         report,
       });
       report.warning = warning;
 
-      const now = new Date().toISOString();
+      const stamp = new Date().toISOString();
       const { error: doneError } = await admin
         .from("sync_runs")
         .update({
           status: "success",
-          finished_at: now,
+          finished_at: stamp,
           rows_ingested: report.rows,
           error: warning,
         } as never)
@@ -254,7 +276,7 @@ export async function syncWorkspaceLinkedin(options: {
 
       const { error: sourceDone } = await admin
         .from("data_sources")
-        .update({ status: "connected", last_sync_at: now, last_error: warning } as never)
+        .update({ status: "connected", last_sync_at: stamp, last_error: warning } as never)
         .eq("id", dataSourceId);
       if (sourceDone) fail(`Mise à jour de la source : ${sourceDone.message}`);
     } catch (error) {
@@ -283,72 +305,197 @@ export async function syncWorkspaceLinkedin(options: {
 
 async function collect(context: {
   admin: Admin;
-  transport: LinkedinTransport;
+  rest: LinkedinTransport;
   workspaceId: string;
   dataSourceId: string;
   account: SocialAccountRow;
-  date: string;
+  since: string;
+  until: string;
   report: LinkedinSyncReport;
 }): Promise<string | null> {
-  const { admin, transport, workspaceId, dataSourceId, account, date, report } = context;
-  const now = new Date().toISOString();
-  let warning: string | null = null;
+  const { admin, rest, workspaceId, dataSourceId, account, since, until, report } =
+    context;
+  const org = account.external_id;
+  const stamp = new Date().toISOString();
+  const warnings: string[] = [];
 
-  const followers = followersFromNetworkSize(
-    await transport(NETWORK_SIZE, { organization_id: account.external_id }),
+  // --- La page, jour par jour --------------------------------------------
+  /* `/v2` et non `/rest` : les deux servent la même chose, et la v2 n'a pas
+     d'en-tête de version — elle survit aux péremptions annuelles de
+     LinkedIn, qui tuent une route `/rest` sans prévenir. */
+  const daily = dailyFromShareStats(
+    await rest(
+      `/v2/organizationalEntityShareStatistics?q=organizationalEntity&organizationalEntity=${encoded(org)}&timeIntervals=${timeInterval(since, until, "DAY")}&count=400`,
+      { version: null },
+    ),
   );
 
-  if (followers !== null) {
-    const { error } = await admin.from("social_followers").upsert(
-      {
+  if (daily.length > 0) {
+    const { error } = await admin.from("social_page_daily").upsert(
+      daily.map((day) => ({
         data_source_id: dataSourceId,
         workspace_id: workspaceId,
         platform: "linkedin",
-        date,
-        followers_count: followers,
+        date: day.date,
+        impressions: day.impressions,
+        reach: day.reach,
+        clicks: day.clicks,
+        likes: day.likes,
+        comments: day.comments,
+        shares: day.shares,
+        // Ce que Meta appelle `page_post_engagements` : la somme des gestes.
+        engagements: day.likes + day.comments + day.shares + day.clicks,
+        updated_at: stamp,
+      })) as never,
+      { onConflict: "data_source_id,platform,date" },
+    );
+    if (error) fail(`Statistiques de page : ${error.message}`);
+    report.rows += daily.length;
+  }
+
+  // --- Les publications ---------------------------------------------------
+  try {
+    const posts = await fetchPosts({ rest, org, since });
+    if (posts.length > 0) {
+      const stats = await fetchPostStats({ rest, org, urns: posts.map((p) => p.urn) });
+      const rows = posts.map((post) => {
+        const measure = stats.get(post.urn);
+        return {
+          data_source_id: dataSourceId,
+          workspace_id: workspaceId,
+          platform: "linkedin",
+          external_id: post.urn,
+          published_at: post.publishedAt,
+          caption: post.commentary,
+          permalink: permalinkOf(post.urn),
+          media_kind: post.mediaKind,
+          impressions: measure?.impressions ?? 0,
+          reach: measure?.reach ?? 0,
+          clicks: measure?.clicks ?? 0,
+          likes: measure?.likes ?? 0,
+          comments: measure?.comments ?? 0,
+          shares: measure?.shares ?? 0,
+          // LinkedIn n'a pas d'enregistrement : la colonne reste à zéro.
+          saves: 0,
+          updated_at: stamp,
+        };
+      });
+
+      const { error } = await admin
+        .from("social_posts")
+        .upsert(rows as never, { onConflict: "data_source_id,external_id" });
+      if (error) fail(`Publications : ${error.message}`);
+      report.rows += rows.length;
+    }
+  } catch (error) {
+    /* Un refus sur les publications ne doit pas priver le client de ses
+       chiffres de page ni de sa courbe : il devient un avertissement. */
+    warnings.push(
+      `Publications non lues : ${explainLinkedinError((error as Error).message)}`,
+    );
+  }
+
+  // --- Les abonnés --------------------------------------------------------
+  const followers = followersFromNetworkSize(
+    await rest(
+      `/v2/networkSizes/${encoded(org)}?edgeType=COMPANY_FOLLOWED_BY_MEMBER`,
+      { version: null },
+    ),
+  );
+
+  if (followers !== null) {
+    const points = [{ date: until, followers }];
+
+    /* L'antériorité, reconstruite depuis les gains mensuels : treize mois de
+       courbe dès le premier passage, là où Meta repart de zéro. Un refus ici
+       ne coûte que l'historique — le point du jour est déjà acquis. */
+    try {
+      const gains = followerGains(
+        await rest(
+          `/v2/organizationalEntityFollowerStatistics?q=organizationalEntity&organizationalEntity=${encoded(org)}&timeIntervals=${timeInterval(since, until, "MONTH")}&count=50`,
+          { version: null },
+        ),
+      );
+      points.push(
+        ...followersHistory(gains, followers).map((point) => ({
+          date: point.date,
+          followers: point.followers,
+        })),
+      );
+    } catch (error) {
+      warnings.push(
+        `Antériorité des abonnés non lue : ${explainLinkedinError((error as Error).message)}`,
+      );
+    }
+
+    const { error } = await admin.from("social_followers").upsert(
+      points.map((point) => ({
+        data_source_id: dataSourceId,
+        workspace_id: workspaceId,
+        platform: "linkedin",
+        date: point.date,
+        followers_count: point.followers,
         source: "api",
-        updated_at: now,
-      } as never,
+        updated_at: stamp,
+      })) as never,
       { onConflict: "data_source_id,platform,date" },
     );
     if (error) fail(`Abonnés : ${error.message}`);
-    report.rows += 1;
+    report.rows += points.length;
 
     const { error: vitrineError } = await admin
       .from("social_accounts")
-      .update({ followers_count: followers, last_synced_at: now } as never)
+      .update({ followers_count: followers, last_synced_at: stamp } as never)
       .eq("id", account.id);
     if (vitrineError) fail(`Vitrine du compte : ${vitrineError.message}`);
   }
 
-  /* Les compteurs cumulés ne doivent pas faire tomber les abonnés : une page
-     qui n'a jamais rien publié n'a pas de statistiques, et c'est une absence
-     de matière, pas une panne. */
-  try {
-    const totals = lifetimeFromShareStats(
-      await transport(SHARE_STATS, {
-        organizational_entity: `urn:li:organization:${account.external_id}`,
-      }),
-    );
+  return warnings.length > 0 ? warnings.join(" — ") : null;
+}
 
-    if (totals) {
-      const { error } = await admin.from("social_lifetime_totals").upsert(
-        {
-          data_source_id: dataSourceId,
-          workspace_id: workspaceId,
-          platform: "linkedin",
-          date,
-          ...totals,
-          updated_at: now,
-        } as never,
-        { onConflict: "data_source_id,platform,date" },
-      );
-      if (error) fail(`Compteurs cumulés : ${error.message}`);
-      report.rows += 1;
-    }
-  } catch (error) {
-    warning = `Statistiques de publications non lues : ${explainLinkedinError((error as Error).message)}`;
+/** Les publications parues depuis `since`, page par page. */
+async function fetchPosts(options: {
+  rest: LinkedinTransport;
+  org: string;
+  since: string;
+}): Promise<LinkedinPost[]> {
+  const borne = `${options.since}T00:00:00.000Z`;
+  const posts: LinkedinPost[] = [];
+
+  /* `/rest/posts` est la seule route qui liste les publications d'une page,
+     et elle exige un en-tête de version. Elle est triée du plus récent au
+     plus ancien : on s'arrête dès qu'on passe sous la borne, plutôt que de
+     dérouler les 627 publications d'ANMF à chaque passage. */
+  for (let start = 0; start < 500; start += 50) {
+    const payload = await options.rest(
+      `/rest/posts?q=author&author=${encoded(options.org)}&count=50&start=${start}&sortBy=LAST_MODIFIED`,
+    );
+    const page = postsFromRest(payload);
+    if (page.length === 0) break;
+
+    posts.push(...page.filter((post) => post.publishedAt >= borne));
+    if (page.some((post) => post.publishedAt < borne)) break;
   }
 
-  return warning;
+  return posts;
+}
+
+/** Les statistiques de chaque publication, par lots. */
+async function fetchPostStats(options: {
+  rest: LinkedinTransport;
+  org: string;
+  urns: readonly string[];
+}) {
+  const byUrn = new Map<string, ReturnType<typeof statsByPost> extends Map<string, infer V> ? V : never>();
+
+  for (let index = 0; index < options.urns.length; index += LOT_STATISTIQUES) {
+    const lot = options.urns.slice(index, index + LOT_STATISTIQUES);
+    const liste = lot.map((urn) => encodeURIComponent(urn)).join(",");
+    const payload = await options.rest(
+      `/rest/organizationalEntityShareStatistics?q=organizationalEntity&organizationalEntity=${encoded(options.org)}&ugcPosts=List(${liste})`,
+    );
+    for (const [urn, stats] of statsByPost(payload)) byUrn.set(urn, stats);
+  }
+
+  return byUrn;
 }

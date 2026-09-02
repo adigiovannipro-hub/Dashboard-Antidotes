@@ -198,6 +198,7 @@ describe("sumPosts", () => {
     comments: 0,
     saves: 0,
     shares: 0,
+    clicks: 0,
     updated_at: "",
     ...over,
   });

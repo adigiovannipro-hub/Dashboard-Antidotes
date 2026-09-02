@@ -213,19 +213,8 @@ export type SocialPageDaily = {
   reach: number;
   engagements: number;
   video_views: number;
-  updated_at: string;
-}
-
-// 20260902d — les compteurs **cumulés** d'une page LinkedIn, relevés une
-// fois par jour. Cumulés parce que LinkedIn ne rend rien d'autre : la valeur
-// d'une période est la différence entre deux relevés.
-export type SocialLifetimeTotals = {
-  data_source_id: string;
-  workspace_id: string;
-  platform: SocialPlatform;
-  date: string;
-  impressions: number;
-  reach: number;
+  // 20260902f — les quatre grandeurs que LinkedIn rend au grain jour et que
+  // Meta ne rend pas. À zéro sur les lignes Meta.
   clicks: number;
   likes: number;
   comments: number;
@@ -253,6 +242,8 @@ export type SocialPost = {
   comments: number;
   saves: number;
   shares: number;
+  // 20260902f — les clics par publication, que LinkedIn rend et Meta non.
+  clicks: number;
   updated_at: string;
 }
 
@@ -858,7 +849,6 @@ export type Database = {
       ad_custom_events_daily: Table<AdCustomEventDaily>;
       social_followers: Table<SocialFollowers>;
       social_page_daily: Table<SocialPageDaily>;
-      social_lifetime_totals: Table<SocialLifetimeTotals>;
       social_posts: Table<SocialPost>;
       web_metrics_daily: Table<WebMetricsDaily>;
       web_metrics_monthly: Table<WebMetricsMonthly>;

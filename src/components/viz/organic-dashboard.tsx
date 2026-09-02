@@ -56,10 +56,10 @@ export function OrganicDashboard({
      absente affiche « — », jamais une valeur inventée. */
   const aucunePublication = posts.length === 0;
 
-  /* Sauf sur LinkedIn, où les chiffres **ne viennent pas des publications** :
-     l'API ne sert aucune liste de posts, seulement les compteurs de la page.
-     Un tableau vide y est normal, et les tuiles restent pleines — les lier à
-     `posts.length` afficherait « — » partout sur des mesures bien réelles. */
+  /* Sauf sur LinkedIn, où les chiffres des tuiles viennent de **la page**,
+     pas de la somme des publications : ses impressions couvrent aussi les
+     posts parus avant la période et encore vus pendant. Les lier à
+     `posts.length` afficherait « — » sur des mesures bien réelles. */
   const parPublication = network !== "linkedin";
   const aucuneMesure = parPublication && aucunePublication;
 
@@ -92,10 +92,9 @@ export function OrganicDashboard({
             aucuneMesure
               ? "Aucune publication lue sur la période"
               : !parPublication
-                ? /* LinkedIn compte la page, pas les publications : on dit ce
-                     qu'on mesure vraiment plutôt qu'un nombre de posts qu'on
-                     n'a pas. */
-                  `${formatMetric("impressions", total.impressions)} vues, ${formatMetric("reach", total.reach)} personnes atteintes`
+                ? /* LinkedIn : la page mesure les vues, le tableau compte les
+                     publications — la phrase dit les deux. */
+                  `${formatValue(posts.length, "integer")} publication${posts.length > 1 ? "s" : ""}, ${formatMetric("impressions", total.impressions)} vues, ${formatMetric("reach", total.reach)} personnes atteintes`
                 : /* Facebook : Meta ne rend plus les impressions par publication —
                    annoncer « 0 vues » accuserait le contenu, on compte ce qui
                    est mesuré. */
@@ -128,29 +127,30 @@ export function OrganicDashboard({
 
       <FollowersCard network={networkName} data={followers} />
 
-      {/* LinkedIn n'a pas de tableau : l'API ne rend pas les publications
-          d'une page. Un panneau vide avec un en-tête de colonnes se lirait
-          comme une panne — on n'affiche rien plutôt que de promettre une
-          liste qui n'arrivera pas. */}
-      {parPublication ? (
-        <Panel>
-          <PanelHeader
-            title={detailTitle(network)}
-            count={posts.length}
-            description={
-              aucunePublication && network === "facebook"
-                ? "Meta réserve la lecture des publications d'une Page aux applications passées par son App Review — l'application n'a pas même le droit de demander la permission. Les abonnés, eux, se lisent sans elle."
-                : "Publications parues sur la période. Cliquer un en-tête trie le tableau."
-            }
+      <Panel>
+        <PanelHeader
+          title={detailTitle(network)}
+          count={posts.length}
+          description={
+            aucunePublication && network === "facebook"
+              ? "Meta réserve la lecture des publications d'une Page aux applications passées par son App Review — l'application n'a pas même le droit de demander la permission. Les abonnés, eux, se lisent sans elle."
+              : "Publications parues sur la période. Cliquer un en-tête trie le tableau."
+          }
+        />
+        <PanelBody>
+          {/* Mêmes colonnes qu'Instagram : le client lit les deux tableaux
+              avec la même grille. Sur Facebook, impressions et
+              enregistrements restent à zéro tant que Meta ne les rend pas.
+              LinkedIn n'a pas d'enregistrement du tout, mais il compte les
+              clics — la seule colonne qui lui soit propre. */}
+          <PostsTable
+            posts={posts}
+            withSaves={parPublication}
+            withImpressions
+            withClicks={!parPublication}
           />
-          <PanelBody>
-            {/* Mêmes colonnes qu'Instagram : le client lit les deux tableaux
-                avec la même grille. Sur Facebook, impressions et
-                enregistrements restent à zéro tant que Meta ne les rend pas. */}
-            <PostsTable posts={posts} withSaves withImpressions />
-          </PanelBody>
-        </Panel>
-      ) : null}
+        </PanelBody>
+      </Panel>
     </div>
   );
 }

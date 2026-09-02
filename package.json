@@ -21,6 +21,7 @@
     "import:faq-moderation": "tsx scripts/import-faq-moderation.ts",
     "import:billing-monday": "tsx scripts/import-billing-monday.ts",
     "diagnostic:billing": "tsx scripts/diagnostic-billing.ts",
+    "sync:linkedin": "tsx --conditions=react-server scripts/sync-linkedin.ts",
     "sonde:linkedin": "tsx scripts/sonde-linkedin-rest.ts",
     "diagnostic:linkedin": "tsx scripts/diagnostic-linkedin.ts",
     "diagnostic:schema": "tsx scripts/diagnostic-schema.ts",

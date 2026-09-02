@@ -1,23 +1,26 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  deltaBetween,
+  dailyFromShareStats,
+  followerGains,
   followersFromNetworkSize,
-  lifetimeFromShareStats,
+  followersHistory,
   organizationId,
   pagesFromOrganizations,
+  permalinkOf,
+  postsFromRest,
+  statsByPost,
 } from "./mapping";
 
 /* Les charges utiles sont recopiées des réponses **réelles** relevées le
-   2 septembre 2026 contre le compte de l'agence — pages ANMF et Koré
-   Clinic. Inventer une forme aurait reconduit le défaut qu'on corrige : le
-   parseur d'origine cherchait des ACL là où la passerelle rend des fiches. */
+   2 septembre 2026 contre la page ANMF, par le passage HTTP brut. Inventer
+   une forme aurait reconduit le défaut qu'on corrige : le parseur d'origine
+   cherchait des ACL là où la passerelle rend des fiches. */
 
-const FICHE_ORGANISATION = {
+const FICHE = {
   id: 1988476,
   localizedName: "ANMF I La Meunerie Française",
   vanityName: "anmf",
-  logoV2: { original: "urn:li:digitalmediaAsset:D4E0BAQ" },
 };
 
 describe("organizationId", () => {
@@ -32,44 +35,29 @@ describe("organizationId", () => {
 
 describe("pagesFromOrganizations", () => {
   it("lit une fiche d'organisation seule — la forme que rend la passerelle", () => {
-    expect(pagesFromOrganizations(FICHE_ORGANISATION)).toEqual([
-      {
-        id: "1988476",
-        name: "ANMF I La Meunerie Française",
-        vanityName: "anmf",
-        logoUrl: "urn:li:digitalmediaAsset:D4E0BAQ",
-      },
+    expect(pagesFromOrganizations(FICHE)).toEqual([
+      { id: "1988476", name: "ANMF I La Meunerie Française", vanityName: "anmf", logoUrl: null },
     ]);
   });
 
   it("lit une liste de fiches", () => {
     const pages = pagesFromOrganizations({
-      elements: [FICHE_ORGANISATION, { id: 10088549, localizedName: "I-WAY" }],
+      elements: [FICHE, { id: 10088549, localizedName: "I-WAY" }],
     });
     expect(pages.map((page) => page.id)).toEqual(["1988476", "10088549"]);
   });
 
   it("lit une liste d'ACL portant l'URN, sans nom résolu", () => {
-    const pages = pagesFromOrganizations({
-      elements: [{ organization: "urn:li:organization:72408812", role: "ADMINISTRATOR" }],
-    });
-    expect(pages).toEqual([
-      { id: "72408812", name: "Page 72408812", vanityName: null, logoUrl: null },
-    ]);
-  });
-
-  it("prend le nom localisé quand le nom direct manque", () => {
-    const pages = pagesFromOrganizations({
-      id: 11077863,
-      name: { localized: { fr_FR: "OMA" } },
-    });
-    expect(pages[0]?.name).toBe("OMA");
+    expect(
+      pagesFromOrganizations({
+        elements: [{ organization: "urn:li:organization:72408812", role: "ADMINISTRATOR" }],
+      }),
+    ).toEqual([{ id: "72408812", name: "Page 72408812", vanityName: null, logoUrl: null }]);
   });
 
   it("rend une liste vide sur une forme inconnue, sans jeter", () => {
     expect(pagesFromOrganizations({ paging: { total: 0 } })).toEqual([]);
     expect(pagesFromOrganizations(null)).toEqual([]);
-    expect(pagesFromOrganizations("refusé")).toEqual([]);
   });
 });
 
@@ -83,71 +71,201 @@ describe("followersFromNetworkSize", () => {
   });
 });
 
-describe("lifetimeFromShareStats", () => {
-  it("lit les compteurs cumulés d'une page", () => {
-    const payload = {
-      elements: [
-        {
-          organizationalEntity: "urn:li:organization:1988476",
-          totalShareStatistics: {
-            clickCount: 59001,
-            commentCount: 123,
-            engagement: 0.13482008942396634,
-            impressionCount: 494051,
-            likeCount: 7436,
-            shareCount: 48,
-            uniqueImpressionsCount: 206950,
-          },
+describe("dailyFromShareStats", () => {
+  const payload = {
+    paging: { start: 0, count: 50, links: [], total: 2 },
+    elements: [
+      {
+        totalShareStatistics: {
+          uniqueImpressionsCount: 1316,
+          shareCount: 0,
+          engagement: 0.053983456682629515,
+          clickCount: 71,
+          likeCount: 53,
+          impressionCount: 2297,
+          commentCount: 0,
         },
-      ],
-      paging: { count: 10, links: [], start: 0, total: 1 },
-    };
-
-    expect(lifetimeFromShareStats(payload)).toEqual({
-      impressions: 494051,
-      reach: 206950,
-      clicks: 59001,
-      likes: 7436,
-      comments: 123,
-      shares: 48,
-    });
-  });
-
-  it("rend null sur une page sans statistiques, jamais six zéros", () => {
-    expect(lifetimeFromShareStats({ elements: [] })).toBeNull();
-    expect(lifetimeFromShareStats({})).toBeNull();
-  });
-});
-
-describe("deltaBetween", () => {
-  const veille = {
-    impressions: 494051,
-    reach: 206950,
-    clicks: 59001,
-    likes: 7436,
-    comments: 123,
-    shares: 48,
+        organizationalEntity: "urn:li:organization:1988476",
+        timeRange: { start: 1785715200000, end: 1785801600000 },
+      },
+      {
+        totalShareStatistics: {
+          uniqueImpressionsCount: 938,
+          shareCount: -1,
+          clickCount: 67,
+          likeCount: 26,
+          impressionCount: 1555,
+          commentCount: 1,
+        },
+        organizationalEntity: "urn:li:organization:1988476",
+        timeRange: { start: 1785801600000, end: 1785888000000 },
+      },
+    ],
   };
 
-  it("rend ce qui s'est passé entre deux relevés", () => {
-    expect(
-      deltaBetween(veille, { ...veille, impressions: 495000, likes: 7440 }),
-    ).toEqual({
-      impressions: 949,
-      reach: 0,
-      clicks: 0,
-      likes: 4,
+  it("date chaque jour depuis son intervalle, jamais depuis son rang", () => {
+    const days = dailyFromShareStats(payload);
+    expect(days.map((day) => day.date)).toEqual(["2026-08-03", "2026-08-04"]);
+  });
+
+  it("lit les six grandeurs additives", () => {
+    expect(dailyFromShareStats(payload)[0]).toEqual({
+      date: "2026-08-03",
+      impressions: 2297,
+      reach: 1316,
+      clicks: 71,
+      likes: 53,
       comments: 0,
       shares: 0,
     });
   });
 
-  it("borne à zéro : un compteur ne recule pas, LinkedIn corrige", () => {
-    expect(deltaBetween(veille, { ...veille, impressions: 490000 })?.impressions).toBe(0);
+  it("borne à zéro : LinkedIn rend −1 pour « je ne sais pas »", () => {
+    expect(dailyFromShareStats(payload)[1]?.shares).toBe(0);
+  });
+});
+
+describe("statsByPost", () => {
+  it("indexe les statistiques par URN de publication", () => {
+    const stats = statsByPost({
+      paging: { start: 0, count: 10, links: [], total: 1 },
+      elements: [
+        {
+          ugcPost: "urn:li:ugcPost:7498754246121615360",
+          totalShareStatistics: {
+            uniqueImpressionsCount: 505,
+            shareCount: 2,
+            clickCount: 101,
+            likeCount: 19,
+            impressionCount: 717,
+            commentCount: 0,
+          },
+          organizationalEntity: "urn:li:organization:1988476",
+        },
+      ],
+    });
+
+    expect(stats.get("urn:li:ugcPost:7498754246121615360")).toEqual({
+      impressions: 717,
+      reach: 505,
+      clicks: 101,
+      likes: 19,
+      comments: 0,
+      shares: 2,
+    });
+  });
+});
+
+describe("followerGains", () => {
+  it("additionne l'organique et le payant, mois par mois", () => {
+    const gains = followerGains({
+      elements: [
+        {
+          followerGains: { organicFollowerGain: 92, paidFollowerGain: 0 },
+          timeRange: { start: 1754092800000, end: 1756684800000 },
+        },
+        {
+          followerGains: { organicFollowerGain: 98, paidFollowerGain: 4 },
+          timeRange: { start: 1756684800000, end: 1759276800000 },
+        },
+      ],
+    });
+
+    // LinkedIn fait commencer le premier intervalle au lendemain de la borne
+    // demandée : le mois s'ancre sur le 1er, pas sur la date brute.
+    expect(gains).toEqual([
+      { month: "2025-08-01", gain: 92 },
+      { month: "2025-09-01", gain: 102 },
+    ]);
+  });
+});
+
+describe("followersHistory", () => {
+  it("remonte le temps depuis le compte du jour et les gains", () => {
+    const points = followersHistory(
+      [
+        { month: "2026-07-01", gain: 50 },
+        { month: "2026-08-01", gain: 92 },
+      ],
+      6711,
+    );
+
+    // Le point d'un mois est daté du dernier jour qu'il clôture, et vaut le
+    // compte d'aujourd'hui moins les gains survenus depuis.
+    expect(points).toEqual([
+      { date: "2026-07-31", followers: 6569 },
+      { date: "2026-08-31", followers: 6619 },
+    ]);
   });
 
-  it("rend null sans relevé antérieur — jamais le cumul pris pour un mois", () => {
-    expect(deltaBetween(null, veille)).toBeNull();
-    expect(deltaBetween(veille, null)).toBeNull();
+  it("s'arrête plutôt que de rendre un compte négatif", () => {
+    expect(followersHistory([{ month: "2026-08-01", gain: 999 }], 10)).toEqual([]);
+  });
+});
+
+describe("postsFromRest", () => {
+  const payload = {
+    paging: { start: 0, count: 3, links: [], total: 627 },
+    elements: [
+      {
+        lifecycleState: "PUBLISHED",
+        publishedAt: 1788162303984,
+        author: "urn:li:organization:1988476",
+        id: "urn:li:ugcPost:7498754246121615360",
+        content: { media: { title: "Charte RSE", id: "urn:li:document:D4E1FAQ" } },
+        commentary: "En 2024, 76 % des entreprises de la meunerie…",
+      },
+      {
+        lifecycleState: "DRAFT",
+        publishedAt: 1788162303984,
+        id: "urn:li:ugcPost:brouillon",
+      },
+      {
+        lifecycleState: "PUBLISHED",
+        publishedAt: 1788000000000,
+        id: "urn:li:ugcPost:video",
+        content: { media: { id: "urn:li:video:C4E10AQ" } },
+      },
+    ],
+  };
+
+  it("lit les publications parues", () => {
+    const posts = postsFromRest(payload);
+    expect(posts.map((post) => post.urn)).toEqual([
+      "urn:li:ugcPost:7498754246121615360",
+      "urn:li:ugcPost:video",
+    ]);
+  });
+
+  it("écarte les brouillons : ils n'ont pas de performance à montrer", () => {
+    expect(postsFromRest(payload).some((post) => post.urn.endsWith("brouillon"))).toBe(
+      false,
+    );
+  });
+
+  it("déduit le type de média du contenu, faute que LinkedIn le nomme", () => {
+    const posts = postsFromRest(payload);
+    expect(posts[0]?.mediaKind).toBe("image");
+    expect(posts[1]?.mediaKind).toBe("video");
+    expect(
+      postsFromRest({
+        elements: [
+          {
+            lifecycleState: "PUBLISHED",
+            publishedAt: 1788000000000,
+            id: "urn:li:ugcPost:carrousel",
+            content: { multiImage: { images: [{}, {}] } },
+          },
+        ],
+      })[0]?.mediaKind,
+    ).toBe("carousel");
+  });
+});
+
+describe("permalinkOf", () => {
+  it("fabrique le lien public depuis l'URN — LinkedIn n'en rend pas", () => {
+    expect(permalinkOf("urn:li:ugcPost:7498754246121615360")).toBe(
+      "https://www.linkedin.com/feed/update/urn:li:ugcPost:7498754246121615360/",
+    );
   });
 });

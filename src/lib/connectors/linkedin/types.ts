@@ -4,11 +4,13 @@
  * Alias de type et non `interface` : postgrest-js a besoin de l'index
  * signature implicite que TypeScript ne donne qu'aux premiers.
  *
- * Ce que LinkedIn sert vraiment, sondé sur pièce le 2 septembre 2026 :
- * la liste des pages administrées, le nombre d'abonnés du jour, et les
- * compteurs **cumulés** de publications. Il n'y a **pas** de liste des
- * publications d'une page — aucun outil de la passerelle ne l'expose — et
- * aucun découpage temporel n'est accepté sur les statistiques.
+ * Ce que LinkedIn sert, **sondé sur pièce** le 2 septembre 2026 contre la
+ * page ANMF, par le passage HTTP brut de Composio :
+ *
+ *   • les statistiques de la page au grain **jour** ou **mois** ;
+ *   • la liste des publications (627 sur ANMF) ;
+ *   • les statistiques **par publication** ;
+ *   • les **gains d'abonnés** mensuels, organiques et payants séparés.
  */
 
 /** Une page entreprise administrée par le compte connecté. */
@@ -20,14 +22,8 @@ export type LinkedinPage = {
   logoUrl: string | null;
 };
 
-/**
- * Les compteurs cumulés d'une page, tels que LinkedIn les rend.
- *
- * Cumulés depuis la création de la page : ce ne sont pas les chiffres d'une
- * période. La valeur d'une période se calcule par différence entre deux
- * relevés (`deltaBetween`).
- */
-export type LinkedinLifetimeTotals = {
+/** Les grandeurs qu'une réponse `shareStatistics` porte, toutes additives. */
+export type LinkedinShareStats = {
   impressions: number;
   /** `uniqueImpressionsCount` : les personnes atteintes, pas les affichages. */
   reach: number;
@@ -37,20 +33,23 @@ export type LinkedinLifetimeTotals = {
   shares: number;
 };
 
-export const EMPTY_LIFETIME_TOTALS: LinkedinLifetimeTotals = {
-  impressions: 0,
-  reach: 0,
-  clicks: 0,
-  likes: 0,
-  comments: 0,
-  shares: 0,
+/** Une journée de la page. */
+export type LinkedinDay = LinkedinShareStats & { date: string };
+
+/** Le gain d'abonnés d'un mois, au 1er du mois. */
+export type LinkedinFollowerGain = { month: string; gain: number };
+
+/** Une publication de la page, telle que `/rest/posts` la rend. */
+export type LinkedinPost = {
+  /** L'URN complet — c'est lui qui sert de clé et de lien. */
+  urn: string;
+  publishedAt: string;
+  commentary: string | null;
+  mediaKind: "image" | "carousel" | "video";
 };
 
-/** Les colonnes de `social_lifetime_totals` que le connecteur écrit. */
-export type LifetimeColumns = LinkedinLifetimeTotals & { date: string };
-
-/** L'exécution d'un outil LinkedIn par la passerelle. */
+/** Une requête GET sur l'API LinkedIn, déjà authentifiée. */
 export type LinkedinTransport = (
-  tool: string,
-  args: Record<string, unknown>,
+  endpoint: string,
+  options?: { version?: string | null },
 ) => Promise<unknown>;

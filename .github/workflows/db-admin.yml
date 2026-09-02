@@ -74,6 +74,14 @@ on:
         description: "… en sondant en plus les statistiques d'une page (identifiant d'organisation)"
         type: string
         default: ""
+      sync_linkedin:
+        description: "Collecter LinkedIn maintenant (slug d'espace, ou « tout »)"
+        type: string
+        default: ""
+      sync_linkedin_depuis:
+        description: "… depuis cette date (AAAA-MM-JJ), pour un rattrapage"
+        type: string
+        default: ""
       sonde_linkedin_rest:
         description: "Sonder l'API REST LinkedIn en direct (identifiant d'organisation)"
         type: string
@@ -187,6 +195,19 @@ jobs:
           pnpm diagnostic:linkedin
           ${{ inputs.diagnostic_linkedin_sonde != '' && format('--sonde "{0}"', inputs.diagnostic_linkedin_sonde) || '' }}
         env:
+          COMPOSIO_API_KEY: ${{ secrets.COMPOSIO_API_KEY }}
+
+      # La collecte LinkedIn à la main : le cron tourne à 5 h, et on ne veut
+      # pas attendre demain pour constater un branchement.
+      - name: Collecte LinkedIn
+        if: ${{ inputs.sync_linkedin != '' }}
+        run: >-
+          pnpm sync:linkedin
+          ${{ inputs.sync_linkedin != 'tout' && format('--espace "{0}"', inputs.sync_linkedin) || '' }}
+          ${{ inputs.sync_linkedin_depuis != '' && format('--depuis "{0}"', inputs.sync_linkedin_depuis) || '' }}
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           COMPOSIO_API_KEY: ${{ secrets.COMPOSIO_API_KEY }}
 
       # L'API REST de LinkedIn en direct, par le passage brut de Composio :

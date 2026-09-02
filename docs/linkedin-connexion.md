@@ -29,29 +29,38 @@ Dans le Planning, bouton **Connexions** (propriétaire seulement) :
 
 Le bouton n'apparaît que si LinkedIn est déclaré aux livrables du Contexte.
 
-## Ce que LinkedIn sert, et ce qu'il ne sert pas
+## Ce que LinkedIn sert
 
-Sondé sur pièce le 2 septembre 2026, contre le vrai service :
+Sondé sur pièce le 2 septembre 2026 contre la page ANMF, par le **passage
+HTTP brut** de Composio (`tools.proxyExecute`) et non par ses outils
+pré-emballés :
 
-| | |
+| | Route |
 |---|---|
-| Abonnés du jour | oui (`LINKEDIN_GET_NETWORK_SIZE`) |
-| Compteurs cumulés de publications | oui (`LINKEDIN_GET_SHARE_STATS`) — impressions, portée, clics, réactions, commentaires, partages |
-| Liste des publications d'une page | **non** — aucun outil de la passerelle ne l'expose |
-| Découpage par jour, semaine ou mois | **non** — les trois formes d'intervalle documentées répondent « Bad request … time intervals » |
-| Statistiques de page datées | **non** — la passerelle passe les paramètres d'une façon que LinkedIn refuse (`QUERY_PARAM_NOT_ALLOWED`) |
+| Statistiques de la page au grain **jour** | `/v2/organizationalEntityShareStatistics` + `timeIntervals` |
+| Liste des publications (627 sur ANMF) | `/rest/posts?q=author` |
+| Statistiques **par publication** | `/rest/organizationalEntityShareStatistics` + `ugcPosts=List(…)` |
+| **Gains d'abonnés** mensuels | `/v2/organizationalEntityFollowerStatistics` |
 
-Conséquences, toutes assumées :
+Grandeurs servies : impressions, portée (`uniqueImpressionsCount`), clics,
+réactions, commentaires, partages. Ni enregistrements ni vues vidéo —
+LinkedIn n'en a pas.
 
-- Le tableau « Performance par publication » **n'existe pas** sur l'onglet
-  LinkedIn. Un panneau vide se lirait comme une panne.
-- Les chiffres d'une période sont la **différence entre deux relevés
-  cumulés** (`social_lifetime_totals`, migration `20260902d`). C'est exact,
-  additif, et ça survit à un jour manqué — la différence couvre alors deux
-  jours.
-- Il n'y a **pas d'antériorité** : rien avant le premier relevé. Une période
-  qui n'a pas de borne basse affiche « — », jamais un zéro. La courbe se
-  construit à partir du branchement.
+**Les outils pré-emballés de Composio ne suffisent pas** : `GET_SHARE_STATS`
+refuse tout `timeIntervals`, quelle que soit la forme, et aucun outil
+n'expose les publications. Ce ne sont pas des limites de LinkedIn.
+
+Ce qui reste fermé : `/rest/socialActions/{urn}` (403, réservé aux
+partenaires LinkedIn) — sans conséquence, les réactions et commentaires
+arrivent déjà par les statistiques de publication.
+
+## La courbe d'abonnés se reconstruit
+
+LinkedIn ne rend pas l'historique du nombre d'abonnés, seulement le total du
+jour et les **gains** de chaque mois. Le connecteur remonte donc le temps :
+le compte à la fin d'un mois est celui d'aujourd'hui moins les gains de tous
+les mois qui ont suivi. Treize mois de courbe dès le premier passage, là où
+Meta repart de zéro.
 
 ## Pièges déjà payés
 
@@ -62,8 +71,13 @@ Conséquences, toutes assumées :
   Avec elle, toute lecture de page répond 403 `r_organization_admin`.
 - **Composio refuse `latest`** à l'exécution manuelle d'un outil, avec un
   message qui accuse la version (« Toolkit version not specified ») alors que
-  rien n'est en cause. `COMPOSIO_LINKEDIN_TOOL_VERSION` épingle une version
-  datée si besoin.
+  rien n'est en cause.
+- **Les routes `/rest/` périment.** LinkedIn ne garde qu'une année de
+  versions, et la fenêtre n'est pas un intervalle continu : au balayage du
+  2 septembre 2026, 202606, 202603, 202601 et 202510 répondaient, 202512 et
+  202508 non. `LINKEDIN_API_VERSION` la surcharge sans déploiement. Les
+  routes `/v2` n'ont pas d'en-tête de version et servent les mêmes
+  statistiques : le connecteur les préfère partout où elles suffisent.
 - **La passerelle résout une organisation par appel.** `count: 100` rend
   **une** fiche, pas cent : il faut parcourir les rangs un à un. Six pages
   sortaient comme une seule.

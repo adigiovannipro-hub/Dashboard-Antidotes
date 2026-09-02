@@ -2,15 +2,16 @@
  * La lecture des réponses LinkedIn — pur, sans réseau ni base.
  *
  * Toutes les formes reconnues ici l'ont été **sur pièce**, contre le vrai
- * service, le 2 septembre 2026 : la documentation de la passerelle décrit
- * des ACL d'organisation, le service rend des fiches d'organisation déjà
- * résolues. Deviner la forme d'une réponse a coûté un « ce compte
- * n'administre aucune page » sur un compte qui en administre six.
+ * service, le 2 septembre 2026. Deviner la forme d'une réponse a déjà coûté
+ * un « ce compte n'administre aucune page » sur un compte qui en administre
+ * six : rien n'est supposé.
  */
-import {
-  EMPTY_LIFETIME_TOTALS,
-  type LinkedinLifetimeTotals,
-  type LinkedinPage,
+import type {
+  LinkedinDay,
+  LinkedinFollowerGain,
+  LinkedinPage,
+  LinkedinPost,
+  LinkedinShareStats,
 } from "./types";
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -19,8 +20,52 @@ function asRecord(value: unknown): Record<string, unknown> | null {
     : null;
 }
 
-function asNumber(value: unknown): number {
-  return typeof value === "number" && Number.isFinite(value) ? value : 0;
+/**
+ * Un nombre, jamais négatif.
+ *
+ * LinkedIn rend **−1** pour « je ne sais pas » : vu sur `shareCount` en
+ * novembre 2025. Le laisser passer ferait un total qui recule.
+ */
+function count(value: unknown): number {
+  return typeof value === "number" && Number.isFinite(value) ? Math.max(0, value) : 0;
+}
+
+function text(value: unknown): string | null {
+  return typeof value === "string" && value.length > 0 ? value : null;
+}
+
+/** Le jour UTC d'un instant en millisecondes. */
+export function utcDay(ms: number): string {
+  return new Date(ms).toISOString().slice(0, 10);
+}
+
+/** Le 1er du mois UTC d'un instant en millisecondes. */
+export function utcMonth(ms: number): string {
+  return `${new Date(ms).toISOString().slice(0, 7)}-01`;
+}
+
+/** Les éléments d'une réponse RestLi, quelle que soit son enveloppe. */
+function elements(payload: unknown): Record<string, unknown>[] {
+  const list = asRecord(payload)?.elements;
+  if (!Array.isArray(list)) return [];
+  const found: Record<string, unknown>[] = [];
+  for (const item of list as unknown[]) {
+    const record = asRecord(item);
+    if (record) found.push(record);
+  }
+  return found;
+}
+
+/** Les grandeurs d'un bloc `totalShareStatistics`. */
+function shareStats(stats: Record<string, unknown> | null): LinkedinShareStats {
+  return {
+    impressions: count(stats?.impressionCount),
+    reach: count(stats?.uniqueImpressionsCount),
+    clicks: count(stats?.clickCount),
+    likes: count(stats?.likeCount),
+    comments: count(stats?.commentCount),
+    shares: count(stats?.shareCount),
+  };
 }
 
 /** L'identifiant numérique d'une organisation, depuis son URN. */
@@ -35,21 +80,17 @@ function organizationName(org: Record<string, unknown>): string {
   const values = asRecord(asRecord(org.name)?.localized);
   const first = values ? Object.values(values)[0] : null;
   if (typeof first === "string" && first) return first;
-  const vanity = org.vanityName;
-  return typeof vanity === "string" && vanity ? vanity : "Page LinkedIn";
-}
-
-function text(value: unknown): string | null {
-  return typeof value === "string" && value.length > 0 ? value : null;
+  return text(org.vanityName) ?? "Page LinkedIn";
 }
 
 /**
  * Les pages d'une réponse « organisations où j'ai un rôle ».
  *
- * Trois formes acceptées, parce que la passerelle en rend au moins deux : une
- * fiche d'organisation seule (le cas réel), une liste de fiches, une liste
- * d'ACL portant l'URN. Une forme inconnue rend une liste vide — jamais une
- * exception : l'appelant montre alors la réponse brute plutôt que de conclure.
+ * Trois formes acceptées, parce que la passerelle en rend au moins deux :
+ * une fiche d'organisation seule (le cas réel — elle **résout** déjà l'ACL),
+ * une liste de fiches, une liste d'ACL portant l'URN. Une forme inconnue
+ * rend une liste vide, jamais une exception : l'appelant montre alors la
+ * réponse brute plutôt que de conclure.
  */
 export function pagesFromOrganizations(payload: unknown): LinkedinPage[] {
   const root = asRecord(payload);
@@ -78,8 +119,8 @@ export function pagesFromOrganizations(payload: unknown): LinkedinPage[] {
     return [];
   };
 
-  const elements = root.elements;
-  if (Array.isArray(elements)) return elements.flatMap(collect);
+  const list = root.elements;
+  if (Array.isArray(list)) return list.flatMap(collect);
   return collect(root);
 }
 
@@ -90,48 +131,143 @@ export function followersFromNetworkSize(payload: unknown): number | null {
 }
 
 /**
- * Les compteurs cumulés d'une réponse de statistiques de publications.
+ * Les statistiques de la page, un élément par jour.
  *
- * `null` quand la réponse ne porte aucun élément : une page qui n'a jamais
- * rien publié n'a pas de statistiques, et écrire six zéros dirait « aucune
- * impression ce mois-ci » là où il n'y a rien à mesurer.
+ * Chaque élément porte son `timeRange` : c'est **le début** qui date la
+ * journée, jamais l'ordre dans la liste. Une réponse partielle — LinkedIn
+ * saute les jours sans activité — se lit alors sans décalage.
  */
-export function lifetimeFromShareStats(payload: unknown): LinkedinLifetimeTotals | null {
-  const elements = asRecord(payload)?.elements;
-  if (!Array.isArray(elements) || elements.length === 0) return null;
+export function dailyFromShareStats(payload: unknown): LinkedinDay[] {
+  return elements(payload).flatMap((element) => {
+    const start = asRecord(element.timeRange)?.start;
+    if (typeof start !== "number") return [];
+    return [
+      {
+        date: utcDay(start),
+        ...shareStats(asRecord(element.totalShareStatistics)),
+      },
+    ];
+  });
+}
 
-  const stats = asRecord(asRecord(elements[0])?.totalShareStatistics);
-  if (!stats) return null;
-
-  return {
-    impressions: asNumber(stats.impressionCount),
-    reach: asNumber(stats.uniqueImpressionsCount),
-    clicks: asNumber(stats.clickCount),
-    likes: asNumber(stats.likeCount),
-    comments: asNumber(stats.commentCount),
-    shares: asNumber(stats.shareCount),
-  };
+/** Les statistiques par publication, indexées par URN. */
+export function statsByPost(payload: unknown): Map<string, LinkedinShareStats> {
+  const byUrn = new Map<string, LinkedinShareStats>();
+  for (const element of elements(payload)) {
+    const urn = text(element.ugcPost) ?? text(element.share);
+    if (!urn) continue;
+    byUrn.set(urn, shareStats(asRecord(element.totalShareStatistics)));
+  }
+  return byUrn;
 }
 
 /**
- * Ce qui s'est passé entre deux relevés cumulés.
+ * Les gains d'abonnés d'une réponse mensuelle.
  *
- * Un compteur ne recule pas : une différence négative dit que LinkedIn a
- * corrigé son total, pas que le client a perdu des impressions. On la borne
- * à zéro plutôt que d'afficher un chiffre qui ne peut pas exister.
- *
- * Sans relevé antérieur, il n'y a **rien à dire** — et surtout pas le cumul
- * de toute l'histoire de la page présenté comme le mois écoulé.
+ * Organique **et** payant additionnés : le client compte ses abonnés, pas
+ * leur provenance. Le mois est celui du début de l'intervalle — LinkedIn
+ * fait commencer le premier au lendemain de la borne demandée, d'où un
+ * ancrage sur le 1er du mois plutôt que sur la date brute.
  */
-export function deltaBetween(
-  previous: LinkedinLifetimeTotals | null,
-  current: LinkedinLifetimeTotals | null,
-): LinkedinLifetimeTotals | null {
-  if (!current || !previous) return null;
-  const keys = Object.keys(EMPTY_LIFETIME_TOTALS) as (keyof LinkedinLifetimeTotals)[];
-  const delta = { ...EMPTY_LIFETIME_TOTALS };
-  for (const key of keys) {
-    delta[key] = Math.max(0, current[key] - previous[key]);
+export function followerGains(payload: unknown): LinkedinFollowerGain[] {
+  return elements(payload).flatMap((element) => {
+    const start = asRecord(element.timeRange)?.start;
+    if (typeof start !== "number") return [];
+    const gains = asRecord(element.followerGains);
+    return [
+      {
+        month: utcMonth(start),
+        gain: count(gains?.organicFollowerGain) + count(gains?.paidFollowerGain),
+      },
+    ];
+  });
+}
+
+/**
+ * Le type de média d'une publication.
+ *
+ * LinkedIn ne le nomme pas : il se déduit du contenu. Plusieurs médias =
+ * carrousel, une vidéo = vidéo, tout le reste = publication simple —
+ * document et article compris, qui se lisent comme une image dans un
+ * tableau de performance.
+ */
+function mediaKindOf(content: Record<string, unknown> | null): LinkedinPost["mediaKind"] {
+  if (!content) return "image";
+  if (Array.isArray(content.multiImage) || asRecord(content.multiImage)) return "carousel";
+  const media = asRecord(content.media);
+  const id = text(media?.id) ?? "";
+  if (id.startsWith("urn:li:video:")) return "video";
+  return "image";
+}
+
+/**
+ * Les publications d'une page.
+ *
+ * Seules les publiées : un brouillon ou une publication programmée n'a pas
+ * de performance à montrer, et la faire figurer au tableau ferait chercher
+ * des chiffres qui n'existent pas.
+ */
+export function postsFromRest(payload: unknown): LinkedinPost[] {
+  return elements(payload).flatMap((element) => {
+    const urn = text(element.id);
+    const publishedAt = element.publishedAt ?? element.createdAt;
+    if (!urn || typeof publishedAt !== "number") return [];
+    if (text(element.lifecycleState) !== "PUBLISHED") return [];
+
+    return [
+      {
+        urn,
+        publishedAt: new Date(publishedAt).toISOString(),
+        commentary: text(element.commentary),
+        mediaKind: mediaKindOf(asRecord(element.content)),
+      },
+    ];
+  });
+}
+
+/**
+ * Le lien public d'une publication.
+ *
+ * LinkedIn ne rend pas de permalien : il se fabrique depuis l'URN, et c'est
+ * la forme que l'interface de LinkedIn elle-même utilise.
+ */
+export function permalinkOf(urn: string): string {
+  return `https://www.linkedin.com/feed/update/${urn}/`;
+}
+
+/**
+ * La courbe d'abonnés reconstruite depuis les gains mensuels.
+ *
+ * LinkedIn ne rend pas l'historique du nombre d'abonnés, seulement le total
+ * du jour et les **gains** de chaque mois. On remonte donc le temps :
+ * le compte à la fin d'un mois est le compte d'aujourd'hui moins les gains
+ * de tous les mois qui ont suivi. C'est ce qui donne treize mois de courbe
+ * dès le premier passage, là où Meta repart de zéro.
+ *
+ * Le point est daté du **dernier jour du mois** : c'est le jour qu'il
+ * clôture, règle commune à tous les relevés d'abonnés du projet.
+ */
+export function followersHistory(
+  gains: readonly LinkedinFollowerGain[],
+  followersNow: number,
+): { date: string; followers: number }[] {
+  // Du plus récent au plus ancien : chaque mois retire son propre gain.
+  const ordered = [...gains].sort((a, b) => b.month.localeCompare(a.month));
+  const points: { date: string; followers: number }[] = [];
+  let running = followersNow;
+
+  for (const { month, gain } of ordered) {
+    running -= gain;
+    if (running < 0) break;
+    const end = new Date(`${month}T00:00:00Z`);
+    // Le dernier jour du mois : le 0 du mois suivant, en UTC.
+    const lastDay = new Date(Date.UTC(end.getUTCFullYear(), end.getUTCMonth() + 1, 0));
+    points.push({
+      date: lastDay.toISOString().slice(0, 10),
+      // Le compte **au début** du mois est celui de la fin du mois d'avant.
+      followers: running,
+    });
   }
-  return delta;
+
+  return points.reverse();
 }
