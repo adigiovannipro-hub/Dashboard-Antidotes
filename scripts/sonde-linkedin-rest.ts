@@ -25,18 +25,6 @@ function argValue(name: string): string | null {
   return index === -1 ? null : (process.argv[index + 1] ?? null);
 }
 
-/** Minuit UTC il y a `daysAgo` jours, en millisecondes. */
-function midnight(daysAgo: number): number {
-  const day = new Date(Date.now() - daysAgo * 86_400_000);
-  return Date.UTC(day.getUTCFullYear(), day.getUTCMonth(), day.getUTCDate());
-}
-
-/** Le 1er du mois, il y a `monthsAgo` mois, en millisecondes UTC. */
-function monthStart(monthsAgo: number): number {
-  const now = new Date();
-  return Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - monthsAgo, 1);
-}
-
 function short(value: unknown, max = 900): string {
   const text = typeof value === "string" ? value : JSON.stringify(value);
   return (text ?? "").slice(0, max);
@@ -50,7 +38,6 @@ async function main() {
   }
 
   const org = argValue("organisation") ?? "1988476";
-  const version = argValue("version-linkedin") ?? "202508";
   const composio = new Composio({ apiKey });
 
   const accounts = await composio.connectedAccounts.list({
@@ -62,13 +49,9 @@ async function main() {
     console.error("Aucun compte LinkedIn actif dans le projet Composio.");
     process.exit(1);
   }
-  console.log(`Compte : ${account.id} — organisation ${org} (version par défaut ${version})`);
+  console.log(`Compte : ${account.id} — organisation ${org}`);
 
   const entity = `urn%3Ali%3Aorganization%3A${org}`;
-  const debutMois = monthStart(13);
-  const finMois = monthStart(0);
-  const intervalleMois = `(timeRange:(start:${debutMois},end:${finMois}),timeGranularityType:MONTH)`;
-  const intervalleJours = `(timeRange:(start:${midnight(30)},end:${midnight(0)}),timeGranularityType:DAY)`;
 
   /* Chaque essai est une hypothèse à confirmer ou à écarter. On les joue
      toutes : un refus est une information autant qu'un succès, et c'est le
@@ -77,45 +60,60 @@ async function main() {
      LinkedIn n'en garde qu'une année, et 202512 était déjà morte quand
      202510 vivait encore — la fenêtre n'est pas un intervalle continu. */
   const VIVANTE = "202606";
-  const poste = argValue("publication") ?? "";
 
-  const essais: { titre: string; endpoint: string; version?: string | null }[] = [
-    {
-      titre: "v2 — publications par JOUR (30 jours)",
-      endpoint: `/v2/organizationalEntityShareStatistics?q=organizationalEntity&organizationalEntity=${entity}&timeIntervals=${intervalleJours}&count=50`,
-      version: null,
-    },
-    {
-      titre: "v2 — abonnés par MOIS (gains)",
-      endpoint: `/v2/organizationalEntityFollowerStatistics?q=organizationalEntity&organizationalEntity=${entity}&timeIntervals=${intervalleMois}&count=50`,
-      version: null,
-    },
-    {
-      titre: "rest — abonnés par MOIS (gains)",
-      endpoint: `/rest/organizationalEntityFollowerStatistics?q=organizationalEntity&organizationalEntity=${entity}&timeIntervals=${intervalleMois}&count=50`,
+  /* Les publications d'abord, pour lire leurs `content` : c'est là que
+     vivent les URN de média, et il faut les résoudre pour avoir une
+     vignette. Le tableau par publication n'en a aucune aujourd'hui. */
+  const listing = await composio.tools.proxyExecute({
+    endpoint: `/rest/posts?q=author&author=${entity}&count=8&sortBy=LAST_MODIFIED`,
+    method: "GET",
+    connectedAccountId: account.id,
+    parameters: [
+      { in: "header", name: "LinkedIn-Version", value: VIVANTE },
+      { in: "header", name: "X-Restli-Protocol-Version", value: "2.0.0" },
+    ],
+  });
+
+  const medias: string[] = [];
+  const elements = (listing.data as { elements?: unknown[] } | undefined)?.elements ?? [];
+  for (const element of elements) {
+    const content = (element as { content?: Record<string, unknown> }).content;
+    console.log(`   content : ${short(content, 300)}`);
+    const id = (content?.media as { id?: string } | undefined)?.id;
+    if (typeof id === "string") medias.push(id);
+    const multi = content?.multiImage as { images?: { id?: string }[] } | undefined;
+    for (const image of multi?.images ?? []) {
+      if (typeof image.id === "string") medias.push(image.id);
+    }
+  }
+  console.log("");
+  console.log(`Médias trouvés : ${medias.join(" ")}`);
+
+  const images = medias.filter((urn) => urn.startsWith("urn:li:image:"));
+  const videos = medias.filter((urn) => urn.startsWith("urn:li:video:"));
+  const documents = medias.filter((urn) => urn.startsWith("urn:li:document:"));
+
+  const essais: { titre: string; endpoint: string; version?: string | null }[] = [];
+  if (images.length > 0) {
+    essais.push({
+      titre: "Résolution d'images",
+      endpoint: `/rest/images?ids=List(${images.slice(0, 3).map(encodeURIComponent).join(",")})`,
       version: VIVANTE,
-    },
-  ];
-
-  if (poste) {
-    const urn = encodeURIComponent(poste);
-    essais.push(
-      {
-        titre: "rest — statistiques d'UNE publication (ugcPosts)",
-        endpoint: `/rest/organizationalEntityShareStatistics?q=organizationalEntity&organizationalEntity=${entity}&ugcPosts=List(${urn})`,
-        version: VIVANTE,
-      },
-      {
-        titre: "rest — statistiques d'UNE publication (shares)",
-        endpoint: `/rest/organizationalEntityShareStatistics?q=organizationalEntity&organizationalEntity=${entity}&shares=List(${urn})`,
-        version: VIVANTE,
-      },
-      {
-        titre: "rest — réactions et commentaires d'UNE publication",
-        endpoint: `/rest/socialActions/${urn}`,
-        version: VIVANTE,
-      },
-    );
+    });
+  }
+  if (videos.length > 0) {
+    essais.push({
+      titre: "Résolution de vidéos",
+      endpoint: `/rest/videos?ids=List(${videos.slice(0, 3).map(encodeURIComponent).join(",")})`,
+      version: VIVANTE,
+    });
+  }
+  if (documents.length > 0) {
+    essais.push({
+      titre: "Résolution de documents",
+      endpoint: `/rest/documents?ids=List(${documents.slice(0, 3).map(encodeURIComponent).join(",")})`,
+      version: VIVANTE,
+    });
   }
 
   for (const essai of essais) {
