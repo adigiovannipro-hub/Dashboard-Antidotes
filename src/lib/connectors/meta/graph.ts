@@ -169,21 +169,38 @@ export async function fetchPostInsights(options: {
 
   // Par paquets de dix : assez pour que ce soit rapide, assez peu pour ne pas
   // ouvrir cinquante connexions d'un coup vers Graph.
+  const ask = (id: string, metricList: string) =>
+    fetchGraph<MetaInsightsField>(
+      buildUrl(`/${id}/insights`, {
+        access_token: options.accessToken,
+        metric: metricList,
+      }),
+    );
+
   for (let start = 0; start < options.ids.length; start += 10) {
     const batch = options.ids.slice(start, start + 10);
     const results = await Promise.all(
       batch.map(async (id) => {
         try {
-          const payload = await fetchGraph<MetaInsightsField>(
-            buildUrl(`/${id}/insights`, {
-              access_token: options.accessToken,
-              metric,
-            }),
-          );
-          return [id, payload] as const;
+          return [id, await ask(id, metric)] as const;
         } catch {
-          // Un média qui ne connaît pas ces métriques n'est pas une panne.
-          return null;
+          /* Meta refuse la liste **en bloc** dès qu'une métrique ne
+             s'applique pas à ce média : on redemande chaque métrique seule
+             et on garde ce qui passe. Une photo sans vue vidéo, une Page
+             sans impressions : ce qui manque manque seul, le reste arrive.
+             Un média qui ne connaît aucune de ces métriques n'est pas une
+             panne — il rend simplement rien. */
+          if (options.metrics.length <= 1) return null;
+          const data: NonNullable<MetaInsightsField["data"]> = [];
+          for (const single of options.metrics) {
+            try {
+              const payload = await ask(id, single);
+              data.push(...(payload.data ?? []));
+            } catch {
+              // Cette métrique-là est refusée pour ce média : on passe.
+            }
+          }
+          return data.length > 0 ? ([id, { data }] as const) : null;
         }
       }),
     );
@@ -303,13 +320,14 @@ export async function fetchPagePosts(options: {
       }),
     );
 
-  /* Fin 2025, Meta a retiré `post_impressions` et `post_impressions_unique`
-     des publications de Page — « not a valid insights metric », vérifié en
-     v23 sur une Page vivante. Les demander faisait échouer l'expansion
-     entière, que le repli silencieux transformait en zéros partout. Ne reste
-     par publication que `post_video_views` (accepté même sur une photo, où
-     il vaut 0). */
-  const metrics = ["post_video_views"];
+  /* Impressions et portée **redemandées** (2 septembre 2026, à la demande du
+     client). Elles avaient été retirées de la liste parce qu'un refus de Meta
+     sur une seule métrique faisait tomber l'expansion entière — et donc les
+     vues vidéo avec. Le repli est désormais métrique par métrique
+     (`fetchPostInsights`) : ce que Meta refuse manque seul, ce qu'il rend
+     arrive. Une Page qui ne rend pas les impressions les laisse à 0, que
+     l'écran écrit « — ». */
+  const metrics = ["post_impressions", "post_impressions_unique", "post_video_views"];
 
   let rows: MetaPagePostRow[];
   try {

@@ -163,10 +163,18 @@ const FOLLOWERS_MONTHS_SHOWN = 12;
  */
 export function monthlyFollowersSeries(
   rows: SocialFollowers[],
+  now: Date = new Date(),
 ): { label: string; value: number }[] {
+  /* Le mois en cours n'a pas encore de point de clôture : l'afficher
+     donnerait « septembre » dès le 2 septembre, avec le relevé d'une nuit
+     présenté comme un mois. Le reporting est mensuel et regarde le mois
+     révolu ; la courbe s'arrête donc au dernier mois **fermé**, et le
+     chiffre du jour vit dans la phrase du héros, pas sur la courbe. */
+  const currentMonth = now.toISOString().slice(0, 7);
   const byMonth = new Map<string, { date: string; value: number }>();
   for (const row of rows) {
     const month = row.date.slice(0, 7);
+    if (month >= currentMonth) continue;
     const current = byMonth.get(month);
     if (!current || row.date > current.date) {
       byMonth.set(month, { date: row.date, value: row.followers_count });

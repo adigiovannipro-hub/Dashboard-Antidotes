@@ -143,15 +143,26 @@ describe("monthlyFollowersSeries", () => {
     // relevaient les rapports Looker, et ce que disent les relevés repris à
     // la main. Le dernier relevé du mois fait foi ; un mois révolu ne bouge
     // plus puisque le cron quotidien a couvert son dernier jour.
-    const series = monthlyFollowersSeries([
-      snapshot("2026-06-01", 2500),
-      snapshot("2026-06-28", 2700),
-      snapshot("2026-07-15", 2900),
-    ]);
+    const series = monthlyFollowersSeries(
+      [snapshot("2026-06-01", 2500), snapshot("2026-06-28", 2700), snapshot("2026-07-15", 2900)],
+      new Date("2026-08-10T00:00:00Z"),
+    );
     expect(series).toEqual([
       { label: "juin 2026", value: 2700 },
       { label: "juil. 2026", value: 2900 },
     ]);
+  });
+
+  it("s'arrête au dernier mois fermé — jamais le mois en cours", () => {
+    // Le 2 septembre, le relevé du 1er (clôture du 31 août) est sous août ;
+    // un relevé daté du 1er septembre ne s'affiche que quand septembre est
+    // fini. Vu chez tous les clients le 2 septembre 2026.
+    const series = monthlyFollowersSeries(
+      [snapshot("2026-07-31", 1000), snapshot("2026-08-31", 991), snapshot("2026-09-01", 991)],
+      new Date("2026-09-02T05:00:00Z"),
+    );
+    expect(series.map((point) => point.label)).toEqual(["juil. 2026", "août 2026"]);
+    expect(series.at(-1)).toEqual({ label: "août 2026", value: 991 });
   });
 
   it("ne montre que les douze derniers mois, l'historique restant en base", () => {
@@ -161,7 +172,7 @@ describe("monthlyFollowersSeries", () => {
       const month = String((index % 12) + 1).padStart(2, "0");
       return snapshot(`${year}-${month}-28`, 100 + index);
     });
-    const series = monthlyFollowersSeries(rows);
+    const series = monthlyFollowersSeries(rows, new Date("2026-04-10T00:00:00Z"));
     expect(series).toHaveLength(12);
     expect(series[0]).toEqual({ label: "avr. 2025", value: 103 });
     expect(series.at(-1)).toEqual({ label: "mars 2026", value: 114 });
