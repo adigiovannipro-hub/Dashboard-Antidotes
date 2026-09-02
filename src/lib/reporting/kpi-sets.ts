@@ -33,10 +33,13 @@ export const HERO_METRIC: Record<SocialReportingNetwork, MetricId> = {
      dénominateur, le taux d'engagement afficherait « — » à perpétuité : les
      interactions deviennent le chiffre héros, c'est ce que Meta mesure encore. */
   facebook: "interactions",
-  /* LinkedIn rend la portée (`uniqueImpressionsCount`) : le taux
-     d'engagement a son dénominateur, et c'est le chiffre qui dit si la page
-     intéresse — même lecture qu'Instagram. */
-  linkedin: "engagementRate",
+  /* LinkedIn a sa propre définition du taux d'engagement, et on la suit :
+     clics compris, rapportés aux impressions. Vérifiée sur pièce contre les
+     statistiques natives de LinkedIn (ANMF, août 2026 : 6,73 % calculé ici
+     contre 6,8 % affiché là-bas sur une fenêtre d'un jour plus courte).
+     Prendre la définition d'Instagram — interactions sur portée — aurait
+     donné 3,6 % et fait douter le client de son propre rapport. */
+  linkedin: "engagementRateWithClicks",
   // Réseaux sans connecteur encore : les vues portent la vidéo, les
   // interactions portent le reste. Ces choix se rejugeront au branchement.
   tiktok: "videoViews",
@@ -91,8 +94,25 @@ export const KPI_SETS: Record<SocialReportingNetwork, MetricId[]> = {
   /* LinkedIn sert tout : impressions et portée de la page, clics,
      réactions, commentaires, partages. Pas d'enregistrement — il n'en a
      pas — et le CTR en plus, que ses clics rendent enfin calculable sur
-     un onglet organique. */
-  linkedin: ["impressions", "reach", "clicks", "ctr", "likes", "comments", "shares"],
+     un onglet organique.
+
+     Les trois dernières viennent d'ailleurs et répondent à une autre
+     question : les engagements au sens de LinkedIn (clics compris), puis
+     les visites de la **page** — l'accueil, et l'onglet Emplois qu'un
+     client qui recrute regarde en premier. Personne n'y tombe en faisant
+     défiler son fil : il a fallu venir. */
+  linkedin: [
+    "impressions",
+    "reach",
+    "clicks",
+    "ctr",
+    "engagements",
+    "likes",
+    "comments",
+    "shares",
+    "pageViews",
+    "jobsPageViews",
+  ],
   tiktok: ["likes", "comments", "saves", "shares"],
   youtube: ["likes", "comments", "shares"],
   x: ["likes", "comments", "shares"],

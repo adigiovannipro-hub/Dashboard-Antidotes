@@ -344,10 +344,19 @@ function withPageFallback(total: RawMetrics, daily: SocialPageDaily[]): RawMetri
     likes: somme((row) => row.likes ?? 0),
     comments: somme((row) => row.comments ?? 0),
     shares: somme((row) => row.shares ?? 0),
+    /* Les vues de la page n'ont pas d'équivalent par publication : elles ne
+       se replient pas, elles s'additionnent. `unique_page_views` reste en
+       base et n'entre pas ici — la somme de trente uniques quotidiens
+       compterait deux fois le visiteur revenu, et c'est exactement la faute
+       qu'on s'interdit sur les visiteurs uniques du trafic web. */
+    pageViews: somme((row) => row.page_views ?? 0),
+    jobsPageViews: somme((row) => row.jobs_page_views ?? 0),
   };
 
   return {
     ...total,
+    pageViews: page.pageViews,
+    jobsPageViews: page.jobsPageViews,
     impressions: page.impressions || total.impressions,
     reach: page.reach || total.reach,
     clicks: page.clicks || total.clicks,

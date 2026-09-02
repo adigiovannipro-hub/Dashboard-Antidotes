@@ -179,6 +179,51 @@ export const METRIC_DEFINITIONS: Record<MetricId, MetricDefinition> = {
        chiffre agrégeable le plus honnête d'un onglet Facebook. */
     compute: (r) => r.likes + r.comments + r.saves + r.shares,
   },
+  /**
+   * Ce que LinkedIn appelle « engagements » : les clics comptent.
+   *
+   * Ailleurs, un clic n'est pas un engagement — sur Instagram il n'existe
+   * même pas. Sur LinkedIn c'est la définition de la maison, et elle se
+   * vérifie : sur ANMF en août 2026, (1 671 clics + 809 réactions +
+   * 5 commentaires) / 36 903 impressions = 6,73 %, quand les statistiques
+   * natives de LinkedIn affichent 6,8 % pour la même page sur une fenêtre
+   * d'un jour plus courte. Deux définitions du même mot coexistent donc dans
+   * le fichier, chacune servant les réseaux qui la pratiquent.
+   */
+  engagements: {
+    id: "engagements",
+    label: "Engagements",
+    format: "integer",
+    direction: "up-good",
+    compute: (r) => r.clicks + r.likes + r.comments + r.shares,
+  },
+  engagementRateWithClicks: {
+    id: "engagementRateWithClicks",
+    label: "Taux d'engagement",
+    format: "percent",
+    direction: "up-good",
+    /* Rapporté aux **impressions** et non à la portée : c'est le
+       dénominateur de LinkedIn, et le seul qui redonne son chiffre. */
+    compute: (r) => ratio(r.clicks + r.likes + r.comments + r.shares, r.impressions),
+  },
+  /* Les vues de la page ne sont pas des vues de contenu : personne n'y est
+     tombé en faisant défiler son fil, il a fallu venir. C'est la mesure
+     d'intérêt la plus directe qu'une page rende, et le rapport du client la
+     lit déjà. */
+  pageViews: {
+    id: "pageViews",
+    label: "Vues de la page",
+    format: "integer",
+    direction: "up-good",
+    compute: (r) => r.pageViews,
+  },
+  jobsPageViews: {
+    id: "jobsPageViews",
+    label: "Vues des offres",
+    format: "integer",
+    direction: "up-good",
+    compute: (r) => r.jobsPageViews,
+  },
   engagementRate: {
     id: "engagementRate",
     label: "Taux d'engagement",

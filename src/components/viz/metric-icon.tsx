@@ -1,9 +1,12 @@
 import {
   Banknote,
   Bookmark,
+  Briefcase,
+  Building2,
   CircleCheck,
   DollarSign,
   Eye,
+  Flame,
   Heart,
   MessageCircle,
   MonitorPlay,
@@ -59,6 +62,12 @@ const METRIC_ICONS: Record<MetricId, LucideIcon> = {
   videoViews: Play,
   videoCompletions: CircleCheck,
   interactions: Sparkles,
+  /* La page elle-même, pas son contenu : une porte, et l'onglet Emplois
+     qu'on vient y pousser. */
+  pageViews: Building2,
+  jobsPageViews: Briefcase,
+  engagements: Sparkles,
+  engagementRateWithClicks: Flame,
   engagementRate: Sparkles,
 };
 

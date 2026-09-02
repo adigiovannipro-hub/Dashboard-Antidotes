@@ -219,6 +219,11 @@ export type SocialPageDaily = {
   likes: number;
   comments: number;
   shares: number;
+  // 20260902g — les vues de la page elle-même. `unique_page_views` n'est pas
+  // additive : elle ne se somme jamais sur une période.
+  page_views: number;
+  unique_page_views: number;
+  jobs_page_views: number;
   updated_at: string;
 }
 

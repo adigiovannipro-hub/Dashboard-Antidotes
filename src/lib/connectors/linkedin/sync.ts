@@ -9,6 +9,8 @@ import {
   dailyFromShareStats,
   followerGains,
   followersHistory,
+  mediaThumbnails,
+  pageViewsFromStatistics,
   pagesFromOrganizations,
   permalinkOf,
   postsFromRest,
@@ -20,7 +22,12 @@ import {
   linkedinRest,
   timeInterval,
 } from "./rest";
-import type { LinkedinPage, LinkedinPost, LinkedinTransport } from "./types";
+import type {
+  LinkedinPage,
+  LinkedinPageViews,
+  LinkedinPost,
+  LinkedinTransport,
+} from "./types";
 
 /**
  * Collecte LinkedIn organique d'un espace.
@@ -60,6 +67,9 @@ const PASSAGE_COURANT_JOURS = 35;
  * LinkedIn accepte sur une requête GET.
  */
 const LOT_STATISTIQUES = 20;
+
+/** La largeur d'une demande de vues de page, en jours. */
+const TRANCHE_JOURS = 90;
 
 function fail(message: string): never {
   throw new Error(message);
@@ -336,27 +346,56 @@ async function collect(context: {
     ),
   );
 
-  if (daily.length > 0) {
+  /* Les visites de la page elle-même — une autre question que celle du
+     contenu, et une autre route. Un refus n'emporte pas le reste : les
+     chiffres de contenu sont déjà là. */
+  let visites: LinkedinPageViews[] = [];
+  try {
+    visites = await fetchPageViews({ rest, org, since, until });
+  } catch (error) {
+    warnings.push(
+      `Vues de la page non lues : ${explainLinkedinError((error as Error).message)}`,
+    );
+  }
+
+  const parJour = new Map<string, LinkedinPageViews>(
+    visites.map((jour) => [jour.date, jour]),
+  );
+  /* Un jour peut porter des visites sans une seule impression de contenu —
+     personne n'a publié, quelqu'un est venu quand même. Les deux listes se
+     réunissent sur l'union des dates, sinon ces jours-là disparaîtraient. */
+  const jours = [...new Set([...daily.map((day) => day.date), ...parJour.keys()])];
+
+  if (jours.length > 0) {
+    const contenu = new Map(daily.map((day) => [day.date, day]));
     const { error } = await admin.from("social_page_daily").upsert(
-      daily.map((day) => ({
-        data_source_id: dataSourceId,
-        workspace_id: workspaceId,
-        platform: "linkedin",
-        date: day.date,
-        impressions: day.impressions,
-        reach: day.reach,
-        clicks: day.clicks,
-        likes: day.likes,
-        comments: day.comments,
-        shares: day.shares,
-        // Ce que Meta appelle `page_post_engagements` : la somme des gestes.
-        engagements: day.likes + day.comments + day.shares + day.clicks,
-        updated_at: stamp,
-      })) as never,
+      jours.map((date) => {
+        const day = contenu.get(date);
+        const vue = parJour.get(date);
+        return {
+          data_source_id: dataSourceId,
+          workspace_id: workspaceId,
+          platform: "linkedin",
+          date,
+          impressions: day?.impressions ?? 0,
+          reach: day?.reach ?? 0,
+          clicks: day?.clicks ?? 0,
+          likes: day?.likes ?? 0,
+          comments: day?.comments ?? 0,
+          shares: day?.shares ?? 0,
+          // Ce que Meta appelle `page_post_engagements` : la somme des gestes.
+          engagements:
+            (day?.likes ?? 0) + (day?.comments ?? 0) + (day?.shares ?? 0) + (day?.clicks ?? 0),
+          page_views: vue?.pageViews ?? 0,
+          unique_page_views: vue?.uniquePageViews ?? 0,
+          jobs_page_views: vue?.jobsPageViews ?? 0,
+          updated_at: stamp,
+        };
+      }) as never,
       { onConflict: "data_source_id,platform,date" },
     );
     if (error) fail(`Statistiques de page : ${error.message}`);
-    report.rows += daily.length;
+    report.rows += jours.length;
   }
 
   // --- Les publications ---------------------------------------------------
@@ -364,6 +403,7 @@ async function collect(context: {
     const posts = await fetchPosts({ rest, org, since });
     if (posts.length > 0) {
       const stats = await fetchPostStats({ rest, org, urns: posts.map((p) => p.urn) });
+      const vignettes = await fetchThumbnails({ rest, posts });
       const rows = posts.map((post) => {
         const measure = stats.get(post.urn);
         return {
@@ -375,6 +415,7 @@ async function collect(context: {
           caption: post.commentary,
           permalink: permalinkOf(post.urn),
           media_kind: post.mediaKind,
+          thumbnail_url: post.mediaUrn ? (vignettes.get(post.mediaUrn) ?? null) : null,
           impressions: measure?.impressions ?? 0,
           reach: measure?.reach ?? 0,
           clicks: measure?.clicks ?? 0,
@@ -530,4 +571,82 @@ async function fetchPostStats(options: {
   }
 
   return stats;
+}
+
+/**
+ * Les visites de la page, jour par jour.
+ *
+ * Par tranches de quatre-vingt-dix jours : le rattrapage initial en demande
+ * trois cent soixante-cinq, et une réponse tronquée en silence ne se
+ * verrait que des semaines plus tard, sur un trou de courbe. Bornes
+ * inclusives des deux côtés, sinon un jour tombe entre deux tranches.
+ */
+async function fetchPageViews(options: {
+  rest: LinkedinTransport;
+  org: string;
+  since: string;
+  until: string;
+}): Promise<LinkedinPageViews[]> {
+  const jours: LinkedinPageViews[] = [];
+  const fin = Date.parse(`${options.until}T00:00:00Z`);
+
+  for (
+    let debut = Date.parse(`${options.since}T00:00:00Z`);
+    debut <= fin;
+    debut += TRANCHE_JOURS * 86_400_000
+  ) {
+    const borne = Math.min(debut + (TRANCHE_JOURS - 1) * 86_400_000, fin);
+    const payload = await options.rest(
+      `/rest/organizationPageStatistics?q=organization&organization=${encoded(options.org)}&timeIntervals=${timeInterval(
+        new Date(debut).toISOString().slice(0, 10),
+        new Date(borne).toISOString().slice(0, 10),
+        "DAY",
+      )}`,
+    );
+    jours.push(...pageViewsFromStatistics(payload));
+  }
+
+  return jours;
+}
+
+/**
+ * Les vignettes des publications d'un lot.
+ *
+ * Trois routes, une par famille d'URN — LinkedIn n'en a pas de commune. Un
+ * refus sur l'une ne prive que d'images : le tableau garde ses chiffres, et
+ * c'est pour ça que rien ne remonte ici.
+ */
+async function fetchThumbnails(options: {
+  rest: LinkedinTransport;
+  posts: readonly LinkedinPost[];
+}): Promise<Map<string, string>> {
+  const vignettes = new Map<string, string>();
+  const urns = [
+    ...new Set(
+      options.posts
+        .map((post) => post.mediaUrn)
+        .filter((urn): urn is string => Boolean(urn)),
+    ),
+  ];
+
+  const routes: [string, string][] = [
+    ["images", "urn:li:image:"],
+    ["videos", "urn:li:video:"],
+  ];
+
+  for (const [route, prefixe] of routes) {
+    const famille = urns.filter((urn) => urn.startsWith(prefixe));
+    for (let index = 0; index < famille.length; index += LOT_STATISTIQUES) {
+      const lot = famille.slice(index, index + LOT_STATISTIQUES);
+      const liste = lot.map((urn) => encodeURIComponent(urn)).join(",");
+      try {
+        const payload = await options.rest(`/rest/${route}?ids=List(${liste})`);
+        for (const [urn, url] of mediaThumbnails(payload)) vignettes.set(urn, url);
+      } catch {
+        /* Une image manquante n'est pas une panne de reporting. */
+      }
+    }
+  }
+
+  return vignettes;
 }

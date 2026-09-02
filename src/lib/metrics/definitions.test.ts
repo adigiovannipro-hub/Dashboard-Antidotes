@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { computeDelta, groupAndSum, sumRawMetrics } from "./aggregate";
 import { computeMetric } from "./definitions";
-import type { RawMetrics } from "./types";
+import { EMPTY_RAW_METRICS as EMPTY, type RawMetrics } from "./types";
 
 /**
  * Fixtures issues du rapport Looker Studio réel de Bondet, juin 2026.
@@ -21,6 +21,8 @@ const JUNE_2026_TOTAL: RawMetrics = {
   landingPageViews: 625,
   addToCart: 47,
   initiatedCheckout: 34,
+  pageViews: 0,
+  jobsPageViews: 0,
   comments: 13,
   saves: 41,
   shares: 96,
@@ -152,5 +154,45 @@ describe("variations et sens métier", () => {
       sentiment: "neutral",
     });
     expect(computeDelta("roas", 0.33, 0).ratio).toBeNull();
+  });
+});
+
+/**
+ * L'ancre LinkedIn : les chiffres relevés sur la page ANMF en août 2026,
+ * par le connecteur d'un côté et par les statistiques natives de LinkedIn
+ * de l'autre. Si un de ces tests casse, c'est notre définition qui a divergé
+ * de celle du réseau — pas l'inverse.
+ */
+describe("le taux d'engagement de LinkedIn", () => {
+  const ANMF_AOUT_2026: RawMetrics = {
+    ...EMPTY,
+    impressions: 36_903,
+    reach: 22_666,
+    clicks: 1_671,
+    linkClicks: 1_671,
+    likes: 809,
+    comments: 5,
+    shares: 0,
+    pageViews: 316,
+    jobsPageViews: 42,
+  };
+
+  it("compte les clics parmi les engagements — c'est la règle de LinkedIn", () => {
+    expect(computeMetric("engagements", ANMF_AOUT_2026)).toBe(2_485);
+  });
+
+  it("retrouve le 6,8 % affiché par LinkedIn lui-même", () => {
+    /* LinkedIn annonce 6,8 % sur le 2 → 31 août ; nous couvrons un jour de
+       plus, d'où l'écart au centième. Le rapport aux **impressions** est ce
+       qui compte : rapporté à la portée, on lirait 11 %. */
+    expect(computeMetric("engagementRateWithClicks", ANMF_AOUT_2026)).toBeCloseTo(
+      0.0673,
+      4,
+    );
+  });
+
+  it("distingue les vues de la page de celles des offres d'emploi", () => {
+    expect(computeMetric("pageViews", ANMF_AOUT_2026)).toBe(316);
+    expect(computeMetric("jobsPageViews", ANMF_AOUT_2026)).toBe(42);
   });
 });
