@@ -2,6 +2,7 @@
  * Ce que le projet Composio Platform voit de LinkedIn — lecture seule.
  *
  *   pnpm diagnostic:linkedin [--user <identifiant>] [--version 20250909_00]
+ *   pnpm diagnostic:linkedin --sonde 1988476
  *
  * Il répond à la seule question qui bloque le branchement : **quelles pages
  * entreprise le compte connecté administre-t-il ?** Les pages se lisent par
@@ -41,6 +42,8 @@ function argValue(name: string): string | null {
 const TOOLKIT = "linkedin";
 const ORG_ACLS = "LINKEDIN_GET_COMPANY_INFO";
 const FOLLOWERS = "LINKEDIN_GET_NETWORK_SIZE";
+const SHARE_STATS = "LINKEDIN_GET_SHARE_STATS";
+const PAGE_STATS = "LINKEDIN_GET_ORG_PAGE_STATS";
 
 /** L'identifiant numérique d'une organisation, depuis son URN. */
 function organizationId(urn: string): string | null {
@@ -111,6 +114,7 @@ async function main() {
 
   const userId = argValue("user") ?? process.env.COMPOSIO_DEFAULT_USER_ID ?? "agence";
   const version = argValue("version");
+  const probe = argValue("sonde");
   const versionOptions = version
     ? { version }
     : { version: "latest", dangerouslySkipVersionCheck: true };
@@ -227,6 +231,43 @@ async function main() {
            masquer la page trouvée, qui est la réponse cherchée. */
       }
       console.log(`    · ${page.name} — urn:li:organization:${page.id}${followers}`);
+    }
+
+    /* La sonde : ce que LinkedIn rend vraiment, avant d'écrire un
+       collecteur dessus. La forme d'une réponse ne se devine pas — la fiche
+       d'organisation avait déjà démenti la structure attendue. */
+    if (!probe) continue;
+
+    const end = Date.now();
+    const start = end - 14 * 86_400_000;
+    const probes: [string, string, Record<string, unknown>][] = [
+      ["Statistiques de publications — total", SHARE_STATS, {
+        organizational_entity: `urn:li:organization:${probe}`,
+      }],
+      ["Statistiques de publications — par jour", SHARE_STATS, {
+        organizational_entity: `urn:li:organization:${probe}`,
+        time_intervals: `(timeRange:(start:${start},end:${end}),timeGranularityType:DAY)`,
+      }],
+      ["Statistiques de page — par jour", PAGE_STATS, {
+        organization: `urn:li:organization:${probe}`,
+        timeRangeStart: start,
+        timeRangeEnd: end,
+        timeGranularityType: "DAY",
+      }],
+    ];
+
+    for (const [label, slug, args] of probes) {
+      console.log("");
+      console.log(`  ${label} :`);
+      const result = await composio.tools.execute(slug, {
+        userId,
+        connectedAccountId: account.id,
+        ...versionOptions,
+        arguments: args,
+      });
+      console.log(
+        `  ${result.successful ? JSON.stringify(result.data).slice(0, 3000) : String(result.error)}`,
+      );
     }
   }
 }

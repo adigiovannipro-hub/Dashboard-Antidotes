@@ -70,6 +70,10 @@ on:
         description: "Diagnostic LinkedIn (lecture seule) : pages entreprise vues par Composio"
         type: boolean
         default: false
+      diagnostic_linkedin_sonde:
+        description: "… en sondant en plus les statistiques d'une page (identifiant d'organisation)"
+        type: string
+        default: ""
 
 jobs:
   operer:
@@ -171,7 +175,9 @@ jobs:
       # question se pose. Lecture seule, rien n'est écrit.
       - name: Diagnostic LinkedIn
         if: ${{ inputs.diagnostic_linkedin }}
-        run: pnpm diagnostic:linkedin
+        run: >-
+          pnpm diagnostic:linkedin
+          ${{ inputs.diagnostic_linkedin_sonde != '' && format('--sonde "{0}"', inputs.diagnostic_linkedin_sonde) || '' }}
         env:
           COMPOSIO_API_KEY: ${{ secrets.COMPOSIO_API_KEY }}
 
