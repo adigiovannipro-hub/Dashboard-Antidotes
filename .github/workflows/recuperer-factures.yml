@@ -36,6 +36,11 @@ on:
     # pics de la pleine heure sont là où GitHub retarde le plus ses schedules.
     - cron: "23 7 * * *"
   workflow_dispatch:
+    inputs:
+      forcer:
+        description: "Forcer un fournisseur, hors calendrier (nom du marchand)"
+        type: string
+        required: false
 
 concurrency:
   group: recuperer-factures
@@ -74,8 +79,14 @@ jobs:
       - name: Navigateur
         run: pnpm exec playwright install ${{ steps.cache-navigateur.outputs.cache-hit == 'true' && 'chromium' || '--with-deps chromium' }}
 
+      # `xvfb-run` : le passage ouvre un navigateur **visible**, faute de quoi
+      # le portail Adobe ne rend rien — la page reste sur son rond de
+      # chargement. Le runner n'ayant pas d'écran, Xvfb lui en donne un faux.
+      - name: Écran virtuel
+        run: sudo apt-get install -y --no-install-recommends xvfb
+
       - name: Passage
-        run: pnpm factures:passage
+        run: xvfb-run --auto-servernum pnpm factures:passage ${{ inputs.forcer && format('--forcer "{0}"', inputs.forcer) || '' }}
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
