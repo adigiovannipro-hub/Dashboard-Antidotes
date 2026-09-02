@@ -1,0 +1,123 @@
+{
+  "slug": "trouver-des-clients",
+  "title": "Trouver des clients : les canaux qui marchent",
+  "description": "Ce module donne la carte des cinq canaux avec leurs rendements réels et l'ordre dans lequel les activer : les plateformes pour amorcer et en sortir au troisième mois, l'email direct pour vivre, LinkedIn et les agences — les deux gisements que presque personne ne travaille — pour installer du volume régulier.",
+  "position": 5,
+  "lessons": [
+    {
+      "position": 1,
+      "slug": "carte-des-canaux",
+      "title": "La carte des canaux : plateformes, direct, réseaux, agences, entrant",
+      "summary": "Cinq canaux, cinq rendements, un ordre. Le calendrier des six premiers mois, le calcul qui impose la bascule vers le direct avant le quatrième mois, et le rendement normal à connaître par cœur : cent contacts pour un à deux clients.",
+      "duration_min": 11,
+      "script_file": "01-carte-des-canaux.md",
+      "resources": [
+        {
+          "title": "La carte des canaux",
+          "description": "Le tableau comparatif des cinq canaux, le calendrier semaine par semaine des six premiers mois, le rendement normal et le calcul qui impose le direct.",
+          "kind": "document",
+          "url": null,
+          "body": "## La carte des canaux\n\n| Canal | Délai au 1er client | Rentabilité | Effort | Quand l'activer |\n|---|---|---|---|---|\n| Plateformes UGC | 2 à 4 semaines | Faible (commission 15-30 %) | Faible | Mois 1-2, puis en fond |\n| Email direct | 4 à 8 semaines | **Élevée** (aucun intermédiaire) | Moyen | Mois 2 et pour toujours |\n| Messages privés IG / TikTok | 4 à 10 semaines | Élevée | Faible | En complément, jamais seul |\n| LinkedIn | 4 à 8 semaines | **Élevée** | Moyen | Mois 3 |\n| Agences | 6 à 12 semaines | Élevée + **volume** | Faible | Mois 4 |\n| Entrant | 6 à 8 mois | Maximale | Nul | Se construit, ne s'active pas |\n\n### Le calendrier des six premiers mois\n\n| Période | Canal principal | Objectif hebdomadaire |\n|---|---|---|\n| Mois 1-2 | Plateformes | 15 candidatures |\n| Mois 2-4 | Email direct | 20 emails + 3 spec ads / mois |\n| Mois 3-6 | + LinkedIn | 1 post, 25 commentaires, 5 messages |\n| Mois 4-6 | + Agences | 5 agences démarchées / mois |\n| Mois 6+ | Fidélisation | 10 contacts / semaine seulement |\n\n### Le rendement normal, à connaître par cœur\n\n**100 contacts ciblés → 10 réponses → 4 conversations → 1 à 2 clients.**\n\nConséquence : deux clients ce mois-ci demandent cent contacts. La plupart en\nenvoient quinze, n'obtiennent rien, et concluent que ça ne marche pas.\n\n### Le calcul qui impose le direct\n\n| | Plateforme | Direct |\n|---|---|---|\n| Mission facturée | 600 € | 600 € |\n| Commission | −150 € | 0 € |\n| Prix | imposé | fixé par toi |\n| **Net** | **450 €** | **600 €** |\n\nSur trente missions par an : plus de 4 500 € d'écart.\n"
+        },
+        {
+          "title": "Tableur de suivi hebdomadaire",
+          "description": "Cinq colonnes, un objectif de contacts par canal et par semaine. Le seul chiffre qui décide du mois suivant.",
+          "kind": "template",
+          "url": null
+        }
+      ]
+    },
+    {
+      "position": 2,
+      "slug": "plateformes-ugc",
+      "title": "Les plateformes UGC : y entrer, en sortir au bon moment",
+      "summary": "Les plateformes ne sont pas un revenu, ce sont un billet d'entrée vers la crédibilité. Les quatre critères de choix, la candidature en trois phrases, les quatre pièges des conditions générales et la date de sortie à fixer dès le premier jour.",
+      "duration_min": 11,
+      "script_file": "02-plateformes-ugc.md",
+      "resources": [
+        {
+          "title": "Plateformes UGC : mode d'emploi et sortie",
+          "description": "Les quatre critères de choix, la candidature en trois phrases, le tableau des quatre pièges contractuels et la règle de la date de sortie.",
+          "kind": "document",
+          "url": null,
+          "body": "## Plateformes UGC : mode d'emploi et sortie\n\n### Les quatre critères de choix\n\nAvant de créer le moindre compte, regarde les campagnes ouvertes.\n\n- [ ] Y a-t-il des campagnes **dans ma niche** ?\n- [ ] Le paiement est-il **en argent**, pas en produit seul ?\n- [ ] Le délai de paiement est-il ≤ 30 jours ?\n- [ ] Peut-on **contre-proposer** un prix ?\n\n**Deux plateformes maximum.** Chacune demande une fiche à tenir.\n\n### La candidature en trois phrases\n\n1. **Une observation** : « J'ai vu que votre gamme cible les peaux réactives. »\n2. **Un angle** : « Je partirais sur l'objection \"encore un produit qui pique\". »\n3. **Une preuve** : un lien vers **une** vidéo pertinente, pas le portfolio entier.\n\nTrente secondes de plus, taux de sélection multiplié par trois ou quatre.\n\n### Les quatre pièges des conditions\n\n| Piège | Où il se cache | Ce qu'il coûte |\n|---|---|---|\n| Droits illimités / perpétuels | Conditions générales | Une vidéo à 120 € en vaut 250 |\n| Exclusivité 6-12 mois | Clause de non-contournement | Interdit de convertir en client direct |\n| Révisions illimitées | Brief de campagne | Trois fois le travail, même prix |\n| Paiement à la performance | Rémunération | Tu ne contrôles ni diffusion ni ciblage |\n\n### La date de sortie\n\n**Fin du troisième mois**, fixée dès le premier jour.\nTu ne fermes pas les comptes — tu arrêtes d'y candidater activement.\n\nÀ ce stade : portfolio avec de vraies marques, et le direct paie 30 à 40 % de\nplus pour le même travail.\n\n### Le vrai retour sur investissement\n\nCe que tu en tires n'est pas l'argent. C'est : des marques identifiables au\nportfolio · des témoignages · l'habitude de lire un brief, tenir un délai et\nlivrer au bon format.\n"
+        },
+        {
+          "title": "Checklist de lecture des conditions",
+          "description": "Droits, exclusivité, révisions, mode de paiement : les quatre clauses à lire avant d'accepter une campagne.",
+          "kind": "checklist",
+          "url": null
+        }
+      ]
+    },
+    {
+      "position": 3,
+      "slug": "demarchage-email",
+      "title": "Le démarchage direct par email : la séquence qui obtient des réponses",
+      "summary": "Un message ciblé obtient 8 à 15 % de réponses, un message générique 1 à 2 %. Les quatre éléments qui font l'écart, le message type mot pour mot, les objets qui font ouvrir et la cadence de vingt envois par semaine.",
+      "duration_min": 12,
+      "script_file": "03-demarchage-email.md",
+      "resources": [
+        {
+          "title": "Le démarchage par email — séquence complète",
+          "description": "Les quatre éléments, les objets qui marchent et ceux qui tuent, le message type de quatre-vingts mots, la cadence et les six erreurs à éviter.",
+          "kind": "document",
+          "url": null,
+          "body": "## Le démarchage par email — séquence complète\n\n### Les quatre éléments non négociables\n\n1. **La bonne adresse** — une personne nommée, jamais `contact@` (3 à 5 fois moins de réponses)\n2. **Une observation vérifiable** — une pub vue, une objection lue dans les avis\n3. **Une proposition concrète** — un angle, pas une disponibilité\n4. **Un lien qui montre** — une vidéo, jamais une pièce jointe au premier contact\n\n### Objets qui fonctionnent\n\n- « Vidéo UGC pour [Marque] — un angle sur [objection] »\n- « [Prénom], une idée de créa pour vos pubs Meta »\n- « 3 formats vidéo pour [Marque] »\n\n### Objets qui ne fonctionnent pas\n\n« Collaboration » · « Proposition de partenariat » · « Créatrice de contenu\ndisponible » — ils annoncent un envoi de masse.\n\n### Le message type\n\n> **Objet :** Vidéo UGC pour [Marque] — un angle sur [objection]\n>\n> Bonjour [Prénom],\n>\n> J'ai vu vos publicités Meta sur [produit] : elles montrent surtout\n> [observation]. Dans vos avis clients, l'objection qui revient le plus est\n> [objection] — et elle n'est traitée par aucune de vos créas actuelles.\n>\n> Je suis créatrice UGC spécialisée [niche]. Je produis des vidéos verticales\n> de 30 secondes, livrées en 5 jours, utilisables en publicité.\n>\n> Voici une vidéo du même type pour une autre marque : [lien direct]\n>\n> Si ça vous intéresse, je peux vous proposer trois angles sur [produit]\n> cette semaine.\n>\n> Bonne journée,\n> [Prénom] — [portfolio]\n\n**80 mots. Cinq paragraphes. Aucune pièce jointe.**\n\n### Cadence\n\n| Quoi | Combien |\n|---|---|\n| Messages par semaine | 20, en deux sessions d'une heure |\n| Temps par message | 5 à 7 min (3 de recherche) |\n| Jours d'envoi | mardi, mercredi, jeudi |\n| Créneaux | 8 h – 10 h ou 14 h – 16 h |\n\n### Les six choses qui tuent un message\n\nParler de soi en premier · demander une opportunité · dépasser 150 mots ·\njoindre un fichier · ne proposer aucun angle · arrêter après trente envois.\n"
+        },
+        {
+          "title": "Checklist d'avant-envoi",
+          "description": "Personne nommée, observation vérifiable, angle proposé, lien direct, moins de 150 mots, aucune pièce jointe.",
+          "kind": "checklist",
+          "url": null
+        }
+      ]
+    },
+    {
+      "position": 4,
+      "slug": "instagram-tiktok",
+      "title": "Instagram et TikTok : les utiliser dans le bon sens",
+      "summary": "Le message privé à froid rend 2 à 4 %. La séquence de chauffe en trois semaines — réponses aux stories, commentaires, puis message — multiplie ce taux par quatre, et le compte vitrine fait venir les marques sans rien demander.",
+      "duration_min": 11,
+      "script_file": "04-instagram-tiktok.md",
+      "resources": [
+        {
+          "title": "Instagram et TikTok dans le bon sens",
+          "description": "La séquence de chauffe semaine par semaine, le message privé de quarante mots, les trois formats qui attirent les marques et les hashtags qui servent réellement.",
+          "kind": "document",
+          "url": null,
+          "body": "## Instagram et TikTok : les utiliser dans le bon sens\n\n### Pourquoi le message privé à froid rend si peu\n\n| Cause | Effet |\n|---|---|\n| Onglet « demandes » | Le message n'arrive pas dans la boîte principale |\n| Volume | Des dizaines par semaine, beaucoup de spam |\n| Mauvaise personne | Le compte est tenu par un CM, pas par l'acheteur de créas |\n\n**Taux de réponse : 2 à 4 %**, contre 8 à 15 % pour un email nommé.\n\n### La séquence de chauffe — 5 min / semaine / marque\n\n| Semaine | Geste | Pourquoi |\n|---|---|---|\n| 1 | Suivre + répondre à 2-3 stories par une **phrase utile** | Une réponse à story arrive dans la **boîte principale** |\n| 2 | Commenter 2 publications avec du fond | Le pseudo devient familier |\n| 3 | Envoyer le message | Tu n'es plus une inconnue |\n\nTaux de réponse multiplié par trois à quatre.\n\n### Le message privé — 40 mots maximum\n\n> Bonjour ! Je suis créatrice UGC en [niche]. J'ai vu que vos pubs tournent\n> surtout autour de [observation]. J'ai une idée d'angle sur [objection].\n> Je vous envoie une vidéo exemple si ça vous intéresse ?\n\nToujours finir par une question : elle rend un « oui » possible.\n\n### Ce qui attire les marques sur ton compte\n\n| Format | Fréquence | Effet |\n|---|---|---|\n| Extrait de créa livrée | 1 / semaine | Preuve de travail |\n| Coulisses (coin, montage) | ponctuel | Rassure sur le professionnalisme |\n| **Analyse d'accroche** | 1 / semaine | Attire les responsables acquisition |\n\nN'attire personne : vie personnelle, citations, carrousels de conseils génériques.\n\n### Hashtags — 5 à 8, jamais 30\n\n**Métier** : #ugc #ugccreator #ugcfrance #creatriceugc\n**Niche** : #ugcbeaute #ugcfood #ugcfitness\n**Format** : #videoverticale #creapub\n\n### TikTok : la recherche est le canal\n\nLe mot « UGC » doit être dans : le nom de compte · la bio · les **légendes** ·\net **prononcé** dans les premières secondes de certaines vidéos — la\nplateforme indexe la parole.\n"
+        },
+        {
+          "title": "Checklist de la routine quotidienne",
+          "description": "Dix minutes : deux à trois réponses aux stories avec une phrase utile, deux commentaires de fond. Aucune demande avant la quatrième semaine.",
+          "kind": "checklist",
+          "url": null
+        }
+      ]
+    },
+    {
+      "position": 5,
+      "slug": "linkedin-et-agences",
+      "title": "LinkedIn et les agences : le canal que personne n'exploite",
+      "summary": "Les décideurs y sont nommés et joignables, les créatrices n'y sont pas. Le profil en quatre lignes, la routine de dix minutes par jour, et la manière de démarcher une agence — dont un seul contrat vaut cinq contrats de marque.",
+      "duration_min": 12,
+      "script_file": "05-linkedin-et-agences.md",
+      "resources": [
+        {
+          "title": "LinkedIn et les agences",
+          "description": "Le profil en quatre lignes, la routine quotidienne, le message de soixante mots, la méthode de démarchage d'agence et les intitulés de poste à chercher.",
+          "kind": "document",
+          "url": null,
+          "body": "## LinkedIn et les agences\n\n### Le profil en quatre lignes\n\n| Élément | Contenu |\n|---|---|\n| Titre | Créatrice UGC — [niche] \\| vidéos publicitaires pour marques e-commerce |\n| Photo | Un visage, net, neutre |\n| Bannière | Trois vignettes de vidéos, ou une phrase + email |\n| Infos | Ce que tu produis, pour qui, délai, prix de départ, contact |\n\nAjoute tes vidéos en **sélection** : LinkedIn les lit dans le flux.\n\n### La routine — dix minutes par jour\n\n- **5 commentaires** sous des publications de décideurs de ta niche (pas « super post »)\n- **1 publication par semaine** : une vidéo + trois lignes d'analyse\n- **5 messages par semaine**, après avoir commenté deux fois la personne\n\n### Le message LinkedIn — 60 mots\n\n> Bonjour [Prénom], je vois que vous pilotez l'acquisition chez [Marque].\n> Je suis créatrice UGC en [niche] — je produis les vidéos verticales que vous\n> diffusez en Meta et TikTok, livrées en 5 jours. J'ai regardé vos créas\n> actuelles : elles tournent surtout autour de [observation]. J'ai un angle\n> sur [objection] qui manque. Je vous envoie un exemple ?\n\n### Les agences : le meilleur rendement du métier\n\nUne agence gère 10 à 40 marques, a un besoin **permanent** de créas, un budget\nvoté, et un problème : trouver des créatrices fiables.\n\n| Question | Réponse |\n|---|---|\n| Où les trouver ? | LinkedIn : « agence acquisition », « agence social ads », « growth agency » + ville |\n| À qui écrire ? | Directeur de création, responsable de production, fondateur si < 20 personnes |\n| Ce qu'elles veulent entendre | 1. Capacité mensuelle 2. Délai 3. Régularité — la créativité vient après |\n| Remise acceptable | 10 à 15 % **contre un volume mensuel écrit**, jamais contre rien |\n| Rythme de démarchage | 5 par mois maximum — elles sont peu nombreuses et se parlent |\n\n**Deux agences clientes remplissent la moitié d'un planning.**\n\n### Les intitulés à chercher\n\nResponsable acquisition · growth manager · traffic manager ·\nhead of performance · social media manager · brand manager ·\ndirecteur de création · responsable de production.\n"
+        },
+        {
+          "title": "LinkedIn",
+          "description": "Le canal où se trouvent les responsables acquisition et les agences, et où la concurrence entre créatrices UGC est quasi nulle.",
+          "kind": "link",
+          "url": "https://www.linkedin.com"
+        }
+      ]
+    }
+  ]
+}

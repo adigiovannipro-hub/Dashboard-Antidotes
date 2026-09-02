@@ -1,0 +1,123 @@
+{
+  "slug": "prospection-ugc",
+  "title": "Prospection : écrire, relancer, suivre",
+  "description": "Ce module industrialise la recherche de clients : trouver la personne nommée en trois minutes, tenir une séquence de relance qui double le nombre de signatures, suivre soixante marques dans un tableur à sept colonnes, répondre aux huit objections réelles sans jamais baisser son prix, et transformer un « oui » en devis signé en quarante-huit heures.",
+  "position": 6,
+  "lessons": [
+    {
+      "position": 1,
+      "slug": "trouver-la-bonne-personne",
+      "title": "Trouver la bonne personne dans la marque",
+      "summary": "Un message à une adresse générique obtient trois fois moins de réponses. Qui chercher selon la taille de l'entreprise, l'ordre des cinq sources, les cinq formats d'adresse et la manière de deviner le bon en une minute.",
+      "duration_min": 10,
+      "script_file": "01-trouver-la-bonne-personne.md",
+      "resources": [
+        {
+          "title": "Trouver la bonne personne",
+          "description": "Le tableau des cibles par taille d'entreprise, l'ordre des sources, les cinq formats d'adresse et la méthode pour deviner le bon schéma.",
+          "kind": "document",
+          "url": null,
+          "body": "## Trouver la bonne personne\n\n### Qui chercher selon la taille\n\n| Taille | Cible | Pourquoi |\n|---|---|---|\n| < 10 personnes | Fondateur / fondatrice | Décide de tout, lit ses messages |\n| 10 – 50 | Responsable acquisition, growth, traffic manager, e-commerce | Budget + mandat, peu de validations |\n| > 50 | Brand manager, social media manager, responsable contenu | Cycles longs, budgets grands |\n| Sous-traitée | L'**agence** qui gère la publicité | Un contrat vaut plusieurs marques |\n\n### L'ordre des sources\n\n1. **LinkedIn** — nom de la marque → onglet Personnes → filtrer sur l'intitulé\n2. **Le site** — pages À propos, L'équipe, Presse, mentions légales\n3. **La presse** — une interview donne un nom, parfois une adresse\n4. **Instagram** — bio ou story épinglée pour les partenariats\n5. **Le formulaire**, en dernier recours : « pourriez-vous transmettre à la personne en charge de l'acquisition ? »\n\n### Les cinq formats d'adresse\n\n- `prenom@marque.fr`\n- `prenom.nom@marque.fr`\n- `p.nom@marque.fr`\n- `prenom.n@marque.fr`\n- `pnom@marque.fr`\n\n**Pour deviner** : trouve une adresse publique du domaine (presse, communiqué,\nservice client). Le schéma est le même pour toute l'entreprise.\n\nEn cas de doute : deux messages **séparés**, jamais en copie. Un rebond\nconfirme l'autre.\n\n### Ce qu'il ne faut jamais faire\n\nAcheter une base · utiliser un outil d'envoi en masse (spam durable) ·\nmettre plusieurs personnes en copie · écrire à `hello@`, `info@`, `bonjour@`.\n\n### Le bonus qui vaut le détour\n\nRegarde les **publications récentes** de la personne sur LinkedIn. « J'ai vu\nvotre publication sur… » est l'accroche la plus efficace du métier, et elle\nest gratuite.\n\n### Organisation\n\nTravaille en **lots** : une session de 30 min pour trouver dix noms, puis une\nsession d'écriture. Alterner recherche et rédaction double le temps.\n"
+        },
+        {
+          "title": "LinkedIn",
+          "description": "La source la plus fiable : nom de la marque, onglet Personnes, filtre sur l'intitulé de poste.",
+          "kind": "tool",
+          "url": "https://www.linkedin.com"
+        }
+      ]
+    },
+    {
+      "position": 2,
+      "slug": "la-relance",
+      "title": "La relance : trois messages, un calendrier",
+      "summary": "Six clients signés sur dix le sont après une relance. La séquence à J+4, J+11 et J+25, les trois messages mot pour mot, la règle de l'élément nouveau et les formules qui t'abaissent.",
+      "duration_min": 10,
+      "script_file": "02-la-relance.md",
+      "resources": [
+        {
+          "title": "La séquence de relance",
+          "description": "Le calendrier des trois relances, les trois messages types, la règle de l'élément nouveau et les formules bannies.",
+          "kind": "document",
+          "url": null,
+          "body": "## La séquence de relance\n\n**Six clients signés sur dix le sont après une relance.** Ne pas relancer,\nc'est jeter les deux tiers du travail de prospection déjà fait.\n\n| Relance | Quand | Contenu | Objectif |\n|---|---|---|---|\n| 1 | J+4 | Une vidéo nouvelle | Remonter sans peser |\n| 2 | J+11 | Une observation fraîche, un autre angle | Retomber au bon moment |\n| 3 | J+25 | Clôture polie | Libérer — et souvent obtenir une date |\n\nAprès la troisième : statut « en sommeil », rappel dans trois mois.\n\n### Relance 1\n\n> Bonjour [Prénom],\n>\n> Je remonte mon message — j'ai tourné entre-temps une vidéo sur un angle\n> proche du vôtre, la voici : [lien].\n>\n> Si le sujet n'est pas d'actualité, dites-le-moi simplement, je n'insisterai\n> pas.\n>\n> Bonne journée.\n\n### Relance 2\n\n> Bonjour [Prénom],\n>\n> J'ai vu que vous avez lancé [nouveauté observée]. Si vous cherchez des créas\n> vidéo dessus, j'ai trois angles en tête, dont un sur [objection].\n>\n> Toujours disponible sous 5 jours.\n\n### Relance 3 — la clôture\n\n> Bonjour [Prénom],\n>\n> Je clôture de mon côté pour ne pas encombrer votre boîte. Si le besoin\n> revient dans quelques mois, mon portfolio est ici : [lien].\n> Bonne continuation.\n\nC'est celle qui obtient le plus de réponses — souvent « ne partez pas, on\nrelance en septembre ». **Note la date : ce sont les meilleurs prospects du\ntrimestre suivant.**\n\n### La règle de l'élément nouveau\n\nUne relance qui n'apporte rien est une pression. Trois sources toujours\ndisponibles : une nouvelle vidéo · une observation sur ce qu'ils viennent de\npublier · un angle supplémentaire. Rien de neuf ? N'envoie pas encore.\n\n### Formules bannies\n\n« Je me permets de vous relancer » · « Désolée de vous déranger » ·\n« Je n'ai pas eu de retour de votre part » · « Sauf erreur de ma part ».\nElles t'abaissent et signalent que tu attends une faveur.\n"
+        },
+        {
+          "title": "Checklist d'avant-relance",
+          "description": "Ai-je un élément nouveau ? Est-ce que je m'excuse ? Est-ce la troisième ? Trois questions avant d'appuyer sur envoyer.",
+          "kind": "checklist",
+          "url": null
+        }
+      ]
+    },
+    {
+      "position": 3,
+      "slug": "le-pipeline",
+      "title": "Le pipeline : suivre soixante marques sans rien oublier",
+      "summary": "Ce qu'on oublie sans système, ce sont les marques les plus avancées, parce qu'elles ne réclament rien. Sept colonnes, sept statuts, une règle qui fait tout le travail, une revue de quinze minutes le lundi et trois chiffres qui transforment une intuition en diagnostic.",
+      "duration_min": 11,
+      "script_file": "03-le-pipeline.md",
+      "resources": [
+        {
+          "title": "Le pipeline en sept colonnes",
+          "description": "Le tableau à recopier, les sept statuts, la règle de la prochaine action datée, la revue du lundi, les trois indicateurs mensuels et la règle de volume.",
+          "kind": "document",
+          "url": null,
+          "body": "## Le pipeline en sept colonnes\n\nUn tableur suffit. Pas de CRM : un outil complexe s'abandonne en trois semaines.\n\n| Marque | Personne | Contact | Statut | Dernière action | **Prochaine action + date** | Notes |\n|---|---|---|---|---|---|---|\n|  |  |  |  |  |  |  |\n\n### Les sept statuts\n\n| # | Statut | Signification |\n|---|---|---|\n| 1 | À contacter | Identifiée, message pas écrit |\n| 2 | Contactée | Premier message parti |\n| 3 | Relancée | Au moins une relance |\n| 4 | En discussion | Elle a répondu, échange vivant |\n| 5 | Devis envoyé | La balle est chez elle |\n| 6 | Cliente | Mission en cours ou passée |\n| 7 | En sommeil | Refus poli, ou « revenez en [mois] » |\n\nLe statut 7 est une **réserve**, pas une poubelle : mieux converti qu'un\ncontact froid.\n\n### La règle qui fait tout le système\n\n**Aucune ligne sans prochaine action datée.** Une ligne sans date ne\nréapparaîtra jamais. Dix secondes de discipline après chaque geste.\n\n### La revue du lundi — 15 minutes\n\n1. Trier par « prochaine action » croissante\n2. Faire tout ce qui est daté d'aujourd'hui ou avant\n3. Repousser ou clôturer ce qui n'a plus de sens\n4. Compléter « à contacter » jusqu'à l'objectif hebdomadaire\n\n### Les trois chiffres du mois\n\n| Indicateur | Calcul | Seuil d'alerte | Ce qu'il faut corriger |\n|---|---|---|---|\n| Taux de réponse | réponses ÷ contacts | < 5 % | Le message ou le ciblage |\n| Taux de conversion | clients ÷ réponses | < 20 % | La proposition ou le prix |\n| Délai moyen | jours contact → signature | — | Ton avance de prospection |\n\nIls transforment « ça ne marche pas » en diagnostic précis.\n\n### La règle de volume\n\n**Lignes en statut 1 et 2 ≥ 3 × ton objectif mensuel de clients.**\nUn pipeline vide en mars donne un avril vide — et la cause est invisible sur\nle moment.\n"
+        },
+        {
+          "title": "Google Sheets",
+          "description": "Le tableur partagé entre téléphone et ordinateur, qui suffit largement là où un CRM s'abandonne en trois semaines.",
+          "kind": "tool",
+          "url": "https://sheets.google.com"
+        }
+      ]
+    },
+    {
+      "position": 4,
+      "slug": "traiter-les-objections",
+      "title": "Traiter les objections sans jamais baisser son prix",
+      "summary": "« On a déjà une équipe », « c'est trop cher », « envoyez votre book » : aucune de ces phrases n'est un refus. Les huit objections réelles, la réponse à chacune, et la règle qui traite le prix par le périmètre.",
+      "duration_min": 11,
+      "script_file": "04-traiter-les-objections.md",
+      "resources": [
+        {
+          "title": "Les huit objections et leurs réponses",
+          "description": "Chaque objection avec sa réponse mot pour mot, le principe accepter-reformuler-proposer, et la manière de reconnaître un vrai refus.",
+          "kind": "document",
+          "url": null,
+          "body": "## Les huit objections et leurs réponses\n\n**Principe** : accepter, reformuler, proposer autre chose. Jamais argumenter\nfrontalement, jamais deux fois sur le même terrain.\n\n### 1. « On a déjà une équipe interne »\n\n> Parfait, ça veut dire que la production tourne. Ce que j'apporte, c'est un\n> visage et un ton différents des vôtres — utile en test A/B contre vos créas\n> internes. Je peux vous en faire une seule pour comparer ?\n\n### 2. « C'est trop cher »\n\n> Je comprends. Mon prix couvre la production et trois mois de droits.\n> Si le budget est de X, je vous propose deux vidéos au lieu de trois — ou\n> trois vidéos avec des droits d'un mois. Les deux tiennent dans X.\n\n**Jamais le prix unitaire. Toujours le périmètre.**\n\n### 3. « Envoyez votre book, on revient vers vous »\n\n> Le voici : [lien]. Pour gagner du temps, dites-moi votre produit prioritaire\n> du trimestre et je vous envoie trois angles précis d'ici jeudi.\n\n### 4. « Pas de budget en ce moment »\n\n> Compris. Vos budgets se recalent à quel moment, en général ?\n> Je vous recontacte à ce moment-là.\n\n**Note la date. Meilleur prospect du trimestre suivant.**\n\n### 5. « On veut une créatrice avec une grosse audience »\n\n> Là vous parlez d'influence — autre métier, autre budget. Moi je vous livre\n> des fichiers que vous diffusez depuis votre compte : mon audience n'entre\n> pas dans l'équation, la performance de la créa oui.\n\n### 6. « On veut voir des résultats avant de s'engager »\n\n> Faisons un test : deux vidéos, deux angles différents. Vous les diffusez, et\n> si le coût par achat bouge dans le bon sens, on passe à un rythme mensuel.\n\n### 7. « Vous êtes plus chère que les autres »\n\n> C'est possible. Ce que j'inclus : deux allers-retours, la livraison en cinq\n> jours, les formats 9:16 et 1:1, trois hooks alternatifs sur demande.\n> Si l'un de ces points ne vous sert pas, on le retire et on ajuste.\n\n### 8. « On préfère travailler avec une agence »\n\n> Très bien. Quelle agence, si ce n'est pas indiscret ? Beaucoup me confient\n> directement la production vidéo, je peux les contacter de votre part.\n\n### Le vrai refus\n\n« Merci, ce n'est pas pour nous », sans question, sans détail.\n\n> Compris, merci de la réponse. Je reviendrai vers vous si mon offre évolue.\n\nStatut « en sommeil », rappel dans quatre mois. Insister coûte la porte.\n"
+        },
+        {
+          "title": "Checklist d'avant-appel",
+          "description": "Relire les huit réponses avant chaque échange téléphonique : une objection se répond en trois secondes si la phrase existe déjà.",
+          "kind": "checklist",
+          "url": null
+        }
+      ]
+    },
+    {
+      "position": 5,
+      "slug": "du-oui-au-devis",
+      "title": "Du « oui » au devis signé en quarante-huit heures",
+      "summary": "Un devis envoyé sous deux jours est accepté deux fois plus souvent que le même une semaine plus tard. Les trois questions, la structure en six blocs, la règle des trois options et le suivi qui récupère la moitié des devis.",
+      "duration_min": 11,
+      "script_file": "05-du-oui-au-devis.md",
+      "resources": [
+        {
+          "title": "Du « oui » au devis signé",
+          "description": "Les trois questions, la structure en six blocs avec le piège que chacun évite, la règle des trois options, le format d'envoi et le calendrier de suivi.",
+          "kind": "document",
+          "url": null,
+          "body": "## Du « oui » au devis signé en 48 heures\n\n### Les trois questions, avant tout chiffre\n\n1. **Combien de vidéos, et pour quels produits ?**\n2. **Diffusées où, pendant combien de temps, sur quel territoire ?**\n3. **Pour quelle date de livraison ?**\n\n> « Trois questions rapides et je vous envoie une proposition chiffrée dans\n> la journée. »\n\n### La structure en six blocs — une page\n\n| Bloc | Contenu | Piège évité |\n|---|---|---|\n| 1. Rappel du besoin | Deux lignes, **avec leurs mots** | Malentendu de périmètre |\n| 2. Livrables | Nombre, durée, formats, sous-titres, hooks | « On pensait que c'était compris » |\n| 3. Droits | Durée, territoire, supports | L'usage offert |\n| 4. Délai | **Une date**, pas une durée | Le flou qui traîne |\n| 5. Prix | Total + détail par ligne, trois options | Le prix qui paraît arbitraire |\n| 6. Conditions | Acompte, retours inclus, paiement, validité | Les impayés et les retours sans fin |\n\n### La règle des trois options\n\n| Option | Rôle |\n|---|---|\n| Essentiel | Le strict besoin exprimé |\n| **Recommandé** | Celle que tu veux vendre — marquée comme telle |\n| Complet | Droits étendus, déclinaisons, plus cher |\n\nTrois options déplacent la question de « oui ou non » vers « laquelle ».\nLa recommandée est choisie dans la majorité des cas.\n\n### L'envoi\n\nPDF nommé `Proposition-[Marque]-[TonNom]-[date].pdf`, une page.\n**Dans le corps de l'email : le résumé en trois lignes, prix compris.**\nBeaucoup décident sans ouvrir la pièce jointe.\n\nLigne à ajouter : « Proposition valable 15 jours. »\n\n### Le suivi\n\n| Quand | Message |\n|---|---|\n| J+3 | « Avez-vous eu le temps de regarder ? Je peux ajuster le périmètre. » |\n| J+8 | « Je maintiens le créneau de production jusqu'à vendredi. » |\n| J+15 | Clôture polie, retour en sommeil |\n\n**Un devis non relancé est perdu dans la moitié des cas.**\n\n### Ce qui fait perdre un devis\n\nLe délai de réponse · les fautes · un prix sans détail · pas de date de\nlivraison · pas de mention des droits · une option unique.\n"
+        },
+        {
+          "title": "Modèle de devis à trois options",
+          "description": "Un fichier d'une page avec les six blocs et les trois formules laissées en blanc, prêt à remplir en vingt minutes.",
+          "kind": "template",
+          "url": null
+        }
+      ]
+    }
+  ]
+}
