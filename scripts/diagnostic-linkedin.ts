@@ -1,7 +1,7 @@
 /**
  * Ce que le projet Composio Platform voit de LinkedIn — lecture seule.
  *
- *   pnpm diagnostic:linkedin
+ *   pnpm diagnostic:linkedin [--user <identifiant>]
  *
  * Il répond à la seule question qui bloque le branchement : **quelles pages
  * entreprise le compte connecté administre-t-il ?** Les pages se lisent par
@@ -14,12 +14,24 @@
  * « Base de données ») : l'API Composio n'est pas joignable depuis
  * l'environnement de développement distant.
  *
+ * L'identifiant d'utilisateur est celui sous lequel le compte a été rangé au
+ * branchement (« agence » par défaut, comme `pnpm composio:lien`). Composio
+ * l'exige à l'exécution manuelle d'un outil et ne le rend pas dans la liste
+ * des comptes — sans lui, l'appel échoue sur « Toolkit version not specified »,
+ * message trompeur qui n'a rien à voir avec la version.
+ *
  * Variable requise : COMPOSIO_API_KEY (clé de projet Platform, `ak_…`).
  */
 import dotenv from "dotenv";
 import { Composio } from "@composio/core";
 
 dotenv.config({ path: ".env.local", quiet: true });
+
+/** Un `--nom valeur` de la ligne de commande. */
+function argValue(name: string): string | null {
+  const index = process.argv.indexOf(`--${name}`);
+  return index === -1 ? null : (process.argv[index + 1] ?? null);
+}
 
 const TOOLKIT = "linkedin";
 const ORG_ACLS = "LINKEDIN_GET_COMPANY_INFO";
@@ -52,6 +64,7 @@ async function main() {
     process.exit(1);
   }
 
+  const userId = argValue("user") ?? process.env.COMPOSIO_DEFAULT_USER_ID ?? "agence";
   const composio = new Composio({ apiKey });
 
   const configs = await composio.authConfigs.list({ toolkit: TOOLKIT });
@@ -66,7 +79,7 @@ async function main() {
   });
   const active = accounts.items.filter((item) => !item.isDisabled);
   console.log("");
-  console.log(`Comptes LinkedIn actifs : ${active.length}`);
+  console.log(`Comptes LinkedIn actifs : ${active.length} (interrogés sous « ${userId} »)`);
   if (active.length === 0) {
     console.log("Aucun compte à interroger : brancher d'abord avec `pnpm composio:lien --toolkit linkedin`.");
     return;
@@ -79,6 +92,7 @@ async function main() {
     let response: { successful?: boolean; data?: unknown; error?: unknown };
     try {
       response = await composio.tools.execute(ORG_ACLS, {
+        userId,
         connectedAccountId: account.id,
         version: "latest",
         arguments: { role: "ADMINISTRATOR", state: "APPROVED", count: 100 },
@@ -109,6 +123,7 @@ async function main() {
       if (id) {
         try {
           const size = await composio.tools.execute(FOLLOWERS, {
+            userId,
             connectedAccountId: account.id,
             version: "latest",
             arguments: { organization_id: id },
