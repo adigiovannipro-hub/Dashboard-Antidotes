@@ -50,25 +50,31 @@ facture, une fois connecté. Pour Adobe :
 `https://account.adobe.com/orders/billing-history`. Un lien qui pointe droit
 sur un PDF marche aussi.
 
-## Ouvrir une session chez un fournisseur
+## Ouvrir les sessions, en une séance
 
-À faire une fois par fournisseur, et à refaire seulement quand le bouton passe
-au rouge en disant que la session a expiré. Dans le Terminal, à la racine du
-projet :
-
-```bash
-pnpm factures:connexion adobe
-```
-
-Une fenêtre de navigateur s'ouvre sur la page des factures. Tu te connectes
-comme d'habitude, jusqu'à voir la liste. Puis **tu fermes la fenêtre** : la
-session part chiffrée en base, et c'est elle que le cloud rejouera.
-
-Sans argument, la commande liste les fiches et l'âge de leur session :
+Colle d'abord tous tes liens dans le dashboard, fournisseur par fournisseur.
+Puis, une seule fois, dans le Terminal à la racine du projet :
 
 ```bash
 pnpm factures:connexion
 ```
+
+Une fenêtre s'ouvre sur le premier fournisseur à qui il manque une session. Tu
+te connectes comme d'habitude, jusqu'à voir la liste des factures, **tu fermes
+la fenêtre**, et la suivante s'ouvre aussitôt. La session part chiffrée en
+base : c'est elle que le cloud rejouera, tous les mois, sans écran.
+
+La commande ne rouvre que ce qui manque. Pour un fournisseur précis, ou pour
+tout refaire :
+
+```bash
+pnpm factures:connexion adobe     # un seul
+pnpm factures:connexion --tout    # tous, même ceux déjà connectés
+```
+
+**Le dashboard ne peut pas ouvrir cette fenêtre lui-même.** Il tourne sur
+Vercel : il n'a aucun moyen d'atteindre ta machine. C'est la seule raison pour
+laquelle cette étape est une commande et non un bouton de l'écran.
 
 ## Quand le passage a lieu
 

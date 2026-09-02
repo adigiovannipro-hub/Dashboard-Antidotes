@@ -425,13 +425,22 @@ async function passage(): Promise<void> {
 }
 
 /**
- * La connexion à un fournisseur : la seule étape qui demande un humain.
+ * Les connexions aux fournisseurs : la seule étape qui demande un humain.
  *
- * Elle ouvre un vrai navigateur, sur un vrai écran. Un mot de passe, une
- * double authentification, un captcha ne s'automatisent pas — et les
- * contourner ferait bloquer le compte. Ce qui en sort, cookies et stockage
- * local, est chiffré et rangé sur la fiche : c'est ce que le runner GitHub
- * rejouera, sans écran et sans personne, tous les mois suivants.
+ * Sans argument, elle enchaîne **toutes** les fiches à qui il manque une
+ * session : une fenêtre s'ouvre sur le premier fournisseur, tu te connectes,
+ * tu fermes ; la suivante s'ouvre aussitôt. C'est fait pour une seule séance,
+ * le jour où l'on colle une série de liens — un aller-retour par fournisseur
+ * serait le vrai coût de cette fonctionnalité.
+ *
+ * Le dashboard, lui, ne peut pas ouvrir cette fenêtre : il tourne sur Vercel,
+ * à l'autre bout du monde, et n'a aucun moyen d'atteindre ce Mac. C'est
+ * pourquoi la connexion est une commande d'ici, et non un bouton de l'écran.
+ *
+ * Un mot de passe, une double authentification, un captcha ne s'automatisent
+ * pas — et les contourner ferait bloquer le compte. Ce qui sort d'ici, cookies
+ * et stockage local, est chiffré et rangé sur la fiche : c'est ce que le
+ * runner GitHub rejouera, sans écran et sans personne, les mois suivants.
  */
 async function connexion(argument: string | undefined): Promise<void> {
   checkEnv();
@@ -445,70 +454,111 @@ async function connexion(argument: string | undefined): Promise<void> {
   const { data, error } = await admin
     .from("finance_retrieval_sources")
     .select("*")
+    .not("source_link", "is", null)
     .order("merchant_label", { ascending: true });
   if (error) throw new Error(`Lecture des fiches : ${error.message}`);
   const sources = (data ?? []) as unknown as Source[];
 
-  if (!argument) {
-    if (sources.length === 0) {
-      log("Aucune fiche : coller d'abord un lien dans la colonne Récupération de Finance.");
-      return;
-    }
-    log("Fiches connues — `pnpm factures:connexion <marchand>` pour ouvrir une session :");
-    for (const source of sources) {
-      const session = source.session_saved_at
-        ? `session du ${new Date(source.session_saved_at).toLocaleDateString("fr-FR")}`
-        : "aucune session";
-      log(`  · ${source.merchant_label} — ${session} — ${source.source_link ?? "sans lien"}`);
-    }
+  if (sources.length === 0) {
+    log("Aucun lien enregistré : commence par en coller depuis la colonne Récupération de Finance.");
     return;
   }
 
-  const needle = argument.trim().toLowerCase();
-  const source = sources.find(
-    (candidate) =>
-      candidate.merchant_key === needle ||
-      candidate.merchant_label.toLowerCase() === needle ||
-      candidate.merchant_label.toLowerCase().includes(needle),
-  );
-  if (!source) throw new Error(`Aucune fiche ne correspond à « ${argument} ».`);
-  if (!source.source_link) throw new Error(`La fiche ${source.merchant_label} n'a pas de lien.`);
+  const cible = argument?.trim().toLowerCase();
+  let aFaire: Source[];
 
+  if (cible && cible !== "--tout") {
+    const trouvee = sources.find(
+      (candidate) =>
+        candidate.merchant_key === cible ||
+        candidate.merchant_label.toLowerCase() === cible ||
+        candidate.merchant_label.toLowerCase().includes(cible),
+    );
+    if (!trouvee) {
+      throw new Error(
+        `Aucune fiche ne correspond à « ${argument} ». Connues : ` +
+          sources.map((source) => source.merchant_label).join(", "),
+      );
+    }
+    aFaire = [trouvee];
+  } else if (cible === "--tout") {
+    aFaire = sources;
+  } else {
+    /* Le défaut : seulement ce qui manque. Rouvrir une session déjà valide
+       ferait perdre du temps sans rien gagner. */
+    aFaire = sources.filter((source) => !source.session_saved_at);
+    if (aFaire.length === 0) {
+      log("Toutes les fiches ont déjà une session :");
+      for (const source of sources) {
+        log(
+          `  · ${source.merchant_label} — session du ` +
+            `${new Date(source.session_saved_at!).toLocaleDateString("fr-FR")}`,
+        );
+      }
+      log("Pour en rouvrir une : pnpm factures:connexion <marchand> — ou --tout pour toutes.");
+      return;
+    }
+  }
+
+  log(`${aFaire.length} session(s) à ouvrir. Une fenêtre par fournisseur, dans l'ordre.`);
+
+  for (const [index, source] of aFaire.entries()) {
+    log(`(${index + 1}/${aFaire.length}) ${source.merchant_label} — ${source.source_link}`);
+    const state = await capturerSession(source.merchant_label, source.source_link!);
+    if (!state) {
+      log("  Session non lue — fenêtre fermée trop tôt ? Fiche laissée en l'état.");
+      continue;
+    }
+    const { error: writeError } = await admin
+      .from("finance_retrieval_sources")
+      .update({
+        session_encrypted: encryptSecret(state, SESSION_KEY_ENV),
+        session_saved_at: new Date().toISOString(),
+        retrieval_status: "pending",
+        last_error: null,
+      } as never)
+      .eq("id", source.id);
+    if (writeError) {
+      log(`  ÉCHEC de l'enregistrement : ${writeError.message}`);
+      continue;
+    }
+    log("  Session enregistrée.");
+  }
+
+  log("Terminé. Le passage rejouera ces sessions sans écran, le lendemain de chaque prélèvement.");
+}
+
+/**
+ * Ouvre une fenêtre sur la page d'un fournisseur et rend l'état de session
+ * au moment où elle se ferme.
+ *
+ * Un contexte neuf par fournisseur : partager le même mélangerait les cookies
+ * d'Adobe et de Google dans les deux fiches. L'état se lit **avant** la
+ * fermeture du navigateur — un contexte fermé n'a plus rien à donner — d'où
+ * l'écoute sur la page plutôt que sur le navigateur.
+ */
+async function capturerSession(merchant: string, link: string): Promise<string | null> {
   const browser = await chromium.launch({ headless: false });
   const context = await browser.newContext({ acceptDownloads: true, locale: "fr-FR" });
   const page = await context.newPage();
-  await page.goto(source.source_link, { waitUntil: "domcontentloaded", timeout: 60_000 }).catch(() => undefined);
+  await page.goto(link, { waitUntil: "domcontentloaded", timeout: 60_000 }).catch(() => undefined);
 
-  log(`Connecte-toi à ${source.merchant_label} dans la fenêtre, jusqu'à voir la liste des factures.`);
-  log("Ferme ensuite la fenêtre : la session sera enregistrée.");
+  log(`  Connecte-toi à ${merchant} dans la fenêtre, jusqu'à voir la liste des factures.`);
+  log("  Ferme ensuite la fenêtre pour passer au suivant.");
 
-  /* La session se lit **avant** la fermeture — un contexte fermé n'a plus
-     d'état à donner. D'où l'écoute sur la page, pas sur le navigateur. */
-  let state: string | null = null;
   await new Promise<void>((resolve) => {
     page.on("close", () => resolve());
     browser.on("disconnected", () => resolve());
-    page
-      .waitForEvent("close", { timeout: 15 * 60_000 })
-      .catch(() => resolve());
+    // Un quart d'heure par fournisseur : au-delà, on n'attend plus.
+    setTimeout(resolve, 15 * 60_000);
   });
-  state = await context.storageState().then((value) => JSON.stringify(value)).catch(() => null);
+
+  const state = await context
+    .storageState()
+    .then((value) => JSON.stringify(value))
+    .catch(() => null);
   await browser.close().catch(() => undefined);
-
-  if (!state) throw new Error("La session n'a pas pu être lue — fenêtre fermée trop tôt ?");
-
-  const { error: writeError } = await admin
-    .from("finance_retrieval_sources")
-    .update({
-      session_encrypted: encryptSecret(state, SESSION_KEY_ENV),
-      session_saved_at: new Date().toISOString(),
-      retrieval_status: "pending",
-      last_error: null,
-    } as never)
-    .eq("id", source.id);
-  if (writeError) throw new Error(`Enregistrement de la session : ${writeError.message}`);
-
-  log(`Session ${source.merchant_label} enregistrée. Le passage la rejouera sans écran.`);
+  return state;
 }
 
 async function main(): Promise<void> {
@@ -519,7 +569,10 @@ async function main(): Promise<void> {
     case "connexion":
       return connexion(argument);
     default:
-      throw new Error("Commandes : passage · connexion [marchand]");
+      throw new Error(
+        "Commandes : passage · connexion [marchand|--tout] " +
+          "(sans argument : toutes les fiches sans session)",
+      );
   }
 }
 
