@@ -30,10 +30,14 @@ export function CourseCard({
       aria-label={`Ouvrir la formation ${course.title}`}
       className="group/course block overflow-hidden rounded-lg border border-border bg-surface shadow-card transition-[transform,box-shadow,border-color] duration-(--motion-duration) ease-standard hover:-translate-y-px hover:border-border-strong hover:shadow-card-hover focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:outline-none motion-reduce:transition-none"
     >
+      {/* Sans surimpression : le titre est juste en dessous, et le répéter en
+          capitales sur le dégradé donnait deux fois la même longue phrase. Le
+          dégradé identifie la formation par sa couleur, stable pour toujours. */}
       <CoverArt
         url={coverUrl}
         seed={course.slug}
         title={course.title}
+        overlayTitle={false}
         className="aspect-[16/7]"
       />
 

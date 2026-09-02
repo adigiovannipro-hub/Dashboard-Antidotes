@@ -1,11 +1,13 @@
 /**
  * Isolation de l'Academy.
  *
- * Trois postures à prouver **dans la base**, hors de toute interface :
+ * Quatre postures à prouver **dans la base**, hors de toute interface :
  * l'owner écrit le contenu et voit les brouillons ; un membre de
  * l'organisation lit le publié — et seulement le publié, la chaîne des
  * publications comprise — et écrit sa progression, jamais celle d'un autre ;
- * un client d'espace ne lit rien du tout, pas même un cours publié.
+ * une **élève** inscrite à une formation lit celle-là et pas la voisine, écrit
+ * bien sa progression, et perd tout au retrait de son accès ; un client
+ * d'espace ne lit rien du tout, pas même un cours publié.
  *
  * Comme `planning-isolation.test.ts`, la suite ouvre de vraies sessions
  * Supabase, attaque l'API REST directement, et vérifie les deux sens de
@@ -30,6 +32,7 @@ const emails = {
   owner: `${RUN}-owner@antidotes.test`,
   member: `${RUN}-membre@antidotes.test`,
   client: `${RUN}-client@antidotes.test`,
+  eleve: `${RUN}-eleve@antidotes.test`,
 };
 
 suite("isolation de l'Academy (RLS)", () => {
@@ -39,6 +42,10 @@ suite("isolation de l'Academy (RLS)", () => {
     org: "",
     workspace: "",
     course: "",
+    courseVoisin: "",
+    moduleVoisin: "",
+    lessonVoisine: "",
+    enrollment: "",
     modulePublished: "",
     moduleDraft: "",
     lessonPublished: "",
@@ -49,6 +56,7 @@ suite("isolation de l'Academy (RLS)", () => {
     owner: "",
     member: "",
     client: "",
+    eleve: "",
   };
   const clients: Record<keyof typeof emails, SupabaseClient> = {} as never;
 
@@ -192,6 +200,78 @@ suite("isolation de l'Academy (RLS)", () => {
     ids.lessonDraft = lessons!.find((l) => l.slug === "lecon-brouillon")!.id;
     ids.lessonInDraftModule = lessons!.find((l) => l.slug === "lecon-orpheline")!.id;
 
+    // La formation voisine : publiée, complète, et à laquelle l'élève n'est
+    // **pas** inscrite. C'est elle qui prouve que l'inscription borne la
+    // lecture au cours acheté, et pas à l'organisation entière.
+    const { data: voisin } = await admin
+      .from("academy_courses")
+      .insert({
+        org_id: ids.org,
+        slug: `${RUN}-voisin`,
+        title: "Formation voisine",
+        published: true,
+      })
+      .select("id")
+      .single();
+    ids.courseVoisin = voisin!.id;
+
+    const { data: moduleVoisin } = await admin
+      .from("academy_modules")
+      .insert({
+        course_id: ids.courseVoisin,
+        org_id: ids.org,
+        slug: "voisin",
+        title: "Module voisin",
+        order_index: 1,
+        published: true,
+      })
+      .select("id")
+      .single();
+    ids.moduleVoisin = moduleVoisin!.id;
+
+    const { data: lessonVoisine } = await admin
+      .from("academy_lessons")
+      .insert({
+        module_id: ids.moduleVoisin,
+        course_id: ids.courseVoisin,
+        org_id: ids.org,
+        slug: "lecon-voisine",
+        title: "Leçon de la formation voisine",
+        script_mdx: "## L'accroche\n\nContenu d'une autre formation.",
+        published: true,
+      })
+      .select("id")
+      .single();
+    ids.lessonVoisine = lessonVoisine!.id;
+
+    // L'élève : aucune ligne dans `organization_members`, aucune dans
+    // `memberships`. Une inscription active, et rien d'autre.
+    const { data: enrollment, error: enrollmentError } = await admin
+      .from("academy_enrollments")
+      .insert({
+        org_id: ids.org,
+        course_id: ids.course,
+        email: emails.eleve,
+        user_id: userIds.eleve,
+        status: "active",
+        activated_at: new Date().toISOString(),
+      })
+      .select("id")
+      .single();
+    if (enrollmentError) {
+      throw new Error(`Migration 20260902g appliquée ? ${enrollmentError.message}`);
+    }
+    ids.enrollment = enrollment.id;
+
+    // Une inscription à retirer en cours de suite, pour un autre compte, afin
+    // de prouver que le fichier des inscrites ne se lit pas d'à côté.
+    await admin.from("academy_enrollments").insert({
+      org_id: ids.org,
+      course_id: ids.courseVoisin,
+      email: `${RUN}-autre@antidotes.test`,
+      status: "invited",
+    });
+
     // Une progression de l'owner, que le membre ne doit jamais lire.
     await admin.from("academy_progress").insert({
       org_id: ids.org,
@@ -303,6 +383,95 @@ suite("isolation de l'Academy (RLS)", () => {
     });
   });
 
+  describe("une élève ne voit que la formation où elle est inscrite", () => {
+    it("lit sa formation, pas la voisine", async () => {
+      const { data } = await clients.eleve
+        .from("academy_courses")
+        .select("id")
+        .in("id", [ids.course, ids.courseVoisin]);
+      expect(data?.map((row) => row.id)).toEqual([ids.course]);
+    });
+
+    it("lit la leçon publiée de sa formation, aucune de la voisine", async () => {
+      const { data } = await clients.eleve
+        .from("academy_lessons")
+        .select("id")
+        .in("id", [
+          ids.lessonPublished,
+          ids.lessonDraft,
+          ids.lessonInDraftModule,
+          ids.lessonVoisine,
+        ]);
+      expect(data?.map((row) => row.id)).toEqual([ids.lessonPublished]);
+    });
+
+    it("écrit bien sa progression — la moitié qu'on oublie de tester", async () => {
+      const { error } = await clients.eleve.from("academy_progress").insert({
+        org_id: ids.org,
+        user_id: userIds.eleve,
+        lesson_id: ids.lessonPublished,
+        status: "completed",
+        watched_seconds: 120,
+      });
+      expect(error).toBeNull();
+    });
+
+    it("n'écrit pas la progression de quelqu'un d'autre", async () => {
+      const { error } = await clients.eleve.from("academy_progress").insert({
+        org_id: ids.org,
+        user_id: userIds.member,
+        lesson_id: ids.lessonPublished,
+        status: "completed",
+      });
+      expect(error).not.toBeNull();
+    });
+
+    it("ne modifie pas le contenu", async () => {
+      const { data } = await clients.eleve
+        .from("academy_lessons")
+        .update({ title: "Injection élève" })
+        .eq("id", ids.lessonPublished)
+        .select("id");
+      expect(data ?? []).toEqual([]);
+    });
+
+    it("ne lit que sa propre inscription, jamais le fichier des autres", async () => {
+      const { data } = await clients.eleve.from("academy_enrollments").select("id");
+      expect(data?.map((row) => row.id)).toEqual([ids.enrollment]);
+    });
+
+    it("ne s'inscrit pas elle-même à la formation voisine", async () => {
+      const { error } = await clients.eleve.from("academy_enrollments").insert({
+        org_id: ids.org,
+        course_id: ids.courseVoisin,
+        email: emails.eleve,
+        user_id: userIds.eleve,
+        status: "active",
+      });
+      expect(error).not.toBeNull();
+    });
+
+    it("perd tout accès quand l'inscription est retirée", async () => {
+      await admin
+        .from("academy_enrollments")
+        .update({ status: "revoked" })
+        .eq("id", ids.enrollment);
+
+      const [{ data: courses }, { data: lessons }] = await Promise.all([
+        clients.eleve.from("academy_courses").select("id"),
+        clients.eleve.from("academy_lessons").select("id"),
+      ]);
+      expect(courses ?? []).toEqual([]);
+      expect(lessons ?? []).toEqual([]);
+
+      // Remise en état : les cas suivants n'ont pas à hériter du retrait.
+      await admin
+        .from("academy_enrollments")
+        .update({ status: "active" })
+        .eq("id", ids.enrollment);
+    });
+  });
+
   describe("l'owner écrit et voit tout", () => {
     it("voit les brouillons, chaîne comprise", async () => {
       const { data } = await clients.owner
@@ -310,6 +479,11 @@ suite("isolation de l'Academy (RLS)", () => {
         .select("id")
         .in("id", [ids.lessonPublished, ids.lessonDraft, ids.lessonInDraftModule]);
       expect(data).toHaveLength(3);
+    });
+
+    it("lit le fichier complet des inscrites", async () => {
+      const { data } = await clients.owner.from("academy_enrollments").select("id");
+      expect((data ?? []).length).toBeGreaterThanOrEqual(2);
     });
 
     it("modifie une leçon", async () => {
