@@ -13,7 +13,12 @@ import { WorkSyncButton } from "@/components/mon-travail/work-sync-button";
 import { WorkspaceCard } from "@/components/mon-travail/workspace-card";
 import { buildCardModel } from "@/lib/production/card-model";
 import { getProductionSnapshots } from "@/lib/production/queries";
-import { requireViewer, roleLabel, type WorkspaceAccess } from "@/lib/auth";
+import {
+  redirectStudentToAcademy,
+  requireViewer,
+  roleLabel,
+  type WorkspaceAccess,
+} from "@/lib/auth";
 import { dayLabel, addDays, todayInParis } from "@/lib/mon-travail/dates";
 import { UPCOMING_DAYS, organizeTasks } from "@/lib/mon-travail/organize";
 import {
@@ -53,6 +58,10 @@ export default async function HubPage({
   searchParams: SearchParams;
 }) {
   const viewer = await requireViewer();
+
+  // Une élève de l'Academy n'a ni espace ni outil : le hub lui montrerait une
+  // page vide, qui se lit comme une panne. Elle rentre chez elle.
+  redirectStudentToAcademy(viewer);
 
   // Un client n'a qu'un seul espace et aucun outil interne : lui présenter un
   // hub d'un seul élément serait une étape pour rien.

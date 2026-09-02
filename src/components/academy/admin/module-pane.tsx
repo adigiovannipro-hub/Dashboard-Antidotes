@@ -20,6 +20,7 @@ import { StatusPill } from "@/components/ds/status-pill";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { AddLessonForm } from "@/components/academy/admin/add-forms";
+import { CoverUploader } from "@/components/academy/admin/cover-uploader";
 import type { AcademyLessonLite } from "@/lib/academy/queries";
 import type { AcademyModule } from "@/lib/academy/types";
 
@@ -76,10 +77,14 @@ function shifted(ids: string[], id: string, direction: -1 | 1): string[] | null 
 
 export function ModulePane({
   module,
+  courseSlug,
+  coverUrl,
   orderedModuleIds,
   lessons,
 }: {
   module: AcademyModule;
+  courseSlug: string;
+  coverUrl: string | null;
   orderedModuleIds: string[];
   lessons: AcademyLessonLite[];
 }) {
@@ -92,7 +97,7 @@ export function ModulePane({
     startTransition(async () => {
       const result = await deleteModule({ moduleId: module.id });
       report(result);
-      if (result.ok) router.replace("/academy/admin");
+      if (result.ok) router.replace(`/academy/admin?formation=${courseSlug}`);
     });
   });
 
@@ -170,6 +175,15 @@ export function ModulePane({
             </div>
           }
         />
+        <div className="border-b border-border p-5">
+          <CoverUploader
+            kind="module"
+            id={module.id}
+            coverUrl={coverUrl}
+            label={module.title}
+          />
+        </div>
+
         <form
           className="space-y-3 p-5"
           onSubmit={(event) => {
@@ -219,6 +233,7 @@ export function ModulePane({
             <LessonRow
               key={lesson.id}
               lesson={lesson}
+              courseSlug={courseSlug}
               moduleSlug={module.slug}
               orderedLessonIds={orderedLessonIds}
             />
@@ -234,10 +249,12 @@ export function ModulePane({
 
 function LessonRow({
   lesson,
+  courseSlug,
   moduleSlug,
   orderedLessonIds,
 }: {
   lesson: AcademyLessonLite;
+  courseSlug: string;
   moduleSlug: string;
   orderedLessonIds: string[];
 }) {
@@ -285,7 +302,7 @@ function LessonRow({
 
       <div className="min-w-0 flex-1">
         <Link
-          href={`/academy/admin?module=${moduleSlug}&lecon=${lesson.slug}`}
+          href={`/academy/admin?formation=${courseSlug}&module=${moduleSlug}&lecon=${lesson.slug}`}
           className="type-body block truncate font-medium text-text-primary hover:underline"
         >
           {lesson.title}
@@ -323,7 +340,7 @@ function LessonRow({
       </Button>
 
       <Button
-        render={<Link href={`/academy/admin?module=${moduleSlug}&lecon=${lesson.slug}`} />}
+        render={<Link href={`/academy/admin?formation=${courseSlug}&module=${moduleSlug}&lecon=${lesson.slug}`} />}
         variant="ghost"
         size="icon-sm"
         aria-label={`Éditer « ${lesson.title} »`}

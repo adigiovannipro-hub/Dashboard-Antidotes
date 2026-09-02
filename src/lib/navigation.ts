@@ -76,6 +76,21 @@ export const getAppNavigation = cache(async (): Promise<NavGroup[]> => {
   const viewer = await getViewer();
   if (!viewer) return [];
 
+  // Une élève de l'Academy n'a qu'une entrée, et c'est délibérément un
+  // cul-de-sac : ni « Mon travail », ni Modération, ni Finance, ni espace
+  // client. Le rail est la carte de ce à quoi on a droit — le sien tient en
+  // une ligne, et rien d'autre ne doit s'y glisser par une branche oubliée.
+  if (viewer.isStudent) {
+    return [
+      {
+        title: "Formation",
+        entries: [
+          { href: "/academy", label: "Mes formations", icon: "academy", match: "prefix" },
+        ],
+      },
+    ];
+  }
+
   const [moderation, badges, academy] = await Promise.all([
     getModerationContext(),
     getNavBadges(),

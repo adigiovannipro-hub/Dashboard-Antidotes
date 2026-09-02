@@ -126,6 +126,9 @@ export function ShellFrame({
                     {email}
                   </div>
                   <DropdownMenuSeparator />
+                  <DropdownMenuItem render={<Link href="/mon-profil" />}>
+                    Mon profil
+                  </DropdownMenuItem>
                   {isOwner ? (
                     <DropdownMenuItem render={<Link href="/admin/acces" />}>
                       Gestion des accès

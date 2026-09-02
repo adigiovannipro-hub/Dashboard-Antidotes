@@ -69,8 +69,35 @@ export const getViewer = cache(async () => {
     isOwner: ownedOrgs.size > 0,
     ownedOrgIds: [...ownedOrgs],
     workspaces: accessible,
+    // Ni membre d'une organisation, ni membre d'un espace : la seule raison
+    // d'avoir un compte est alors une formation achetée. La requête n'est
+    // posée que dans ce cas — elle ne coûte rien à l'équipe ni aux clients.
+    isStudent:
+      (orgMemberships ?? []).length === 0 &&
+      (memberships ?? []).length === 0 &&
+      (await hasEnrollment(supabase, user.id)),
   };
 });
+
+/**
+ * Cette personne suit-elle une formation de l'Academy ?
+ *
+ * Le filtre `user_id` est explicite : en accès ouvert le client de lecture est
+ * `service_role`, et sans lui l'existence d'une seule inscription en base
+ * ferait passer tout le monde pour élève.
+ */
+async function hasEnrollment(
+  supabase: SupabaseClient<Database>,
+  userId: string,
+): Promise<boolean> {
+  const { data } = await supabase
+    .from("academy_enrollments")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("status", "active")
+    .limit(1);
+  return (data ?? []).length > 0;
+}
 
 /**
  * Le visiteur en accès ouvert : l'owner de l'organisation, sans avoir eu à se
@@ -108,6 +135,8 @@ async function openAccessViewer(supabase: SupabaseClient<Database>) {
       ...workspace,
       role: "owner" as const,
     })),
+    // L'accès ouvert emprunte l'identité de l'owner : jamais une élève.
+    isStudent: false,
   };
 }
 
@@ -126,8 +155,22 @@ export async function requireViewer(): Promise<Viewer> {
 /** Exige le rôle owner — réservé à l'administration de la plateforme. */
 export async function requireOwner(): Promise<Viewer> {
   const viewer = await requireViewer();
-  if (!viewer.isOwner) redirect("/");
+  // Une élève renvoyée sur `/` y trouverait un hub vide, qui se lit comme une
+  // panne. Elle rentre chez elle : ses formations.
+  if (!viewer.isOwner) redirect(viewer.isStudent ? "/academy" : "/");
   return viewer;
+}
+
+/**
+ * Renvoie une élève vers ses formations.
+ *
+ * Elle n'a de place nulle part ailleurs : ni espace client, ni outil interne,
+ * ni hub. Les pages du reste de l'application appellent cette garde en tête,
+ * juste après `requireViewer` — la redirection vaut mieux qu'un écran vide,
+ * qui ne dit pas où aller.
+ */
+export function redirectStudentToAcademy(viewer: Viewer): void {
+  if (viewer.isStudent) redirect("/academy");
 }
 
 /**

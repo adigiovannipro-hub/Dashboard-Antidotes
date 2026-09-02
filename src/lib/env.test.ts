@@ -18,6 +18,7 @@ const KEYS = [
   "CRON_SECRET",
   "GITHUB_SYNC_TOKEN",
   "COMPOSIO_API_KEY",
+  "RESEND_API_KEY",
 ] as const;
 
 const saved: Record<string, string | undefined> = {};

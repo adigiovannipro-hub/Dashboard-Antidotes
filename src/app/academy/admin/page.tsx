@@ -1,20 +1,27 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { GraduationCap } from "lucide-react";
+import { GraduationCap, Users } from "lucide-react";
 
-import { CreateCourseForm } from "@/components/academy/admin/add-forms";
-import { AddModuleForm } from "@/components/academy/admin/add-forms";
-import { CoursePublishToggle } from "@/components/academy/admin/course-actions";
+import { AddModuleForm, CreateCourseForm } from "@/components/academy/admin/add-forms";
+import { CoursePane } from "@/components/academy/admin/course-pane";
+import { CourseSwitcher } from "@/components/academy/admin/course-switcher";
 import { LessonEditor } from "@/components/academy/admin/lesson-editor";
 import { ModulePane } from "@/components/academy/admin/module-pane";
 import { EmptyState } from "@/components/ds/empty-state";
-import { Panel, PanelBody, PanelHeader, PanelRows, SectionHeader } from "@/components/ds/surface";
+import {
+  Panel,
+  PanelBody,
+  PanelHeader,
+  PanelRows,
+  SectionHeader,
+} from "@/components/ds/surface";
 import { StatusPill } from "@/components/ds/status-pill";
 import { Button } from "@/components/ui/button";
 import { requireAcademyAdmin } from "@/lib/academy/access";
+import { resolveAssetUrl, signAcademyAssets } from "@/lib/academy/assets";
 import {
-  getCourse,
   getLessonBySlug,
+  listCourses,
   listLessons,
   listModules,
 } from "@/lib/academy/queries";
@@ -27,9 +34,9 @@ type Search = Promise<Record<string, string | undefined>>;
 /**
  * Le back-office de l'Academy — owner seul, 404 pour tout le monde d'autre.
  *
- * La sélection vit dans l'URL (`?module=`, `?lecon=`) : un lien de retour
- * arrière retombe exactement où on était, et le serveur ne charge le script
- * complet que de la leçon ouverte — jamais les cinquante-quatre d'un coup.
+ * La sélection vit dans l'URL (`?formation=`, `?module=`, `?lecon=`) : un
+ * retour arrière retombe exactement où on était, et le serveur ne charge le
+ * script complet que de la leçon ouverte — jamais les cent-vingt d'un coup.
  */
 export default async function AcademyAdminPage({
   searchParams,
@@ -39,15 +46,16 @@ export default async function AcademyAdminPage({
   const context = await requireAcademyAdmin();
   const params = await searchParams;
 
-  const course = await getCourse({ orgId: context.orgId, includeDrafts: true });
+  const courses = await listCourses({
+    orgId: context.orgId,
+    courseIds: null,
+    includeDrafts: true,
+  });
 
-  if (!course) {
+  if (courses.length === 0) {
     return (
       <div className="space-y-6">
-        <SectionHeader
-          title="Back-office"
-          description="Aucune formation en base — crée-la, ou applique la migration 0058 qui installe le contenu complet."
-        />
+        <SectionHeader title="Back-office" />
         <Panel>
           <PanelBody>
             <CreateCourseForm />
@@ -57,10 +65,18 @@ export default async function AcademyAdminPage({
     );
   }
 
-  const [modules, lessons] = await Promise.all([
+  // Sans `?formation=`, la première : le back-office s'ouvre sur quelque chose
+  // plutôt que sur un choix à faire.
+  const course =
+    courses.find((candidate) => candidate.slug === params.formation) ?? courses[0]!;
+
+  const [modules, lessons, covers] = await Promise.all([
     listModules({ courseId: course.id, includeDrafts: true }),
     listLessons({ courseId: course.id, includeDrafts: true }),
+    signAcademyAssets([course.cover_url]),
   ]);
+
+  const moduleCovers = await signAcademyAssets(modules.map((module) => module.cover_url));
 
   const selectedModule = params.module
     ? (modules.find((candidate) => candidate.slug === params.module) ?? null)
@@ -91,13 +107,38 @@ export default async function AcademyAdminPage({
         title="Back-office"
         description={`${course.title} — ${modules.length} modules, ${lessons.length} leçons.`}
         action={
-          <div className="flex items-center gap-2">
-            <Button render={<Link href="/academy" />} variant="ghost" size="sm">
-              Voir l&apos;Academy
+          <div className="flex flex-wrap items-center gap-2">
+            <CourseSwitcher
+              courses={courses.map((candidate) => ({
+                slug: candidate.slug,
+                title: candidate.title,
+                published: candidate.published,
+              }))}
+              current={course.slug}
+            />
+            <Button
+              render={<Link href={`/academy/admin/membres?formation=${course.slug}`} />}
+              variant="outline"
+              size="sm"
+            >
+              <Users data-icon="inline-start" aria-hidden strokeWidth={1.75} />
+              Élèves
             </Button>
-            <CoursePublishToggle courseId={course.id} published={course.published} />
+            <Button
+              render={<Link href={`/academy/${course.slug}`} />}
+              variant="ghost"
+              size="sm"
+            >
+              Voir la formation
+            </Button>
           </div>
         }
+      />
+
+      <CoursePane
+        course={course}
+        coverUrl={resolveAssetUrl(course.cover_url, covers)}
+        orderedCourseIds={courses.map((candidate) => candidate.id)}
       />
 
       <div className="grid items-start gap-5 lg:grid-cols-[300px_minmax(0,1fr)]">
@@ -109,7 +150,7 @@ export default async function AcademyAdminPage({
               return (
                 <Link
                   key={module.id}
-                  href={`/academy/admin?module=${module.slug}`}
+                  href={`/academy/admin?formation=${course.slug}&module=${module.slug}`}
                   aria-current={isSelected ? "page" : undefined}
                   className={cn(
                     "flex items-center gap-3 px-4 py-2.5 transition-[background-color] duration-(--motion-duration) ease-standard hover:bg-muted focus-visible:bg-muted focus-visible:outline-none",
@@ -153,10 +194,16 @@ export default async function AcademyAdminPage({
 
         <div className="min-w-0">
           {selectedLesson && selectedModule ? (
-            <LessonEditor lesson={selectedLesson} moduleSlug={selectedModule.slug} />
+            <LessonEditor
+              lesson={selectedLesson}
+              courseSlug={course.slug}
+              moduleSlug={selectedModule.slug}
+            />
           ) : selectedModule ? (
             <ModulePane
               module={selectedModule}
+              courseSlug={course.slug}
+              coverUrl={resolveAssetUrl(selectedModule.cover_url, moduleCovers)}
               orderedModuleIds={modules.map((module) => module.id)}
               lessons={moduleLessons}
             />

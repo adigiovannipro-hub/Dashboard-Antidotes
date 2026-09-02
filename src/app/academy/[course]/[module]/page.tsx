@@ -12,16 +12,16 @@ import { completionOf } from "@/lib/academy/progress";
 import type { AcademyProgressStatus } from "@/lib/academy/types";
 import { formatMinutes } from "@/lib/format";
 
-type Params = Promise<{ module: string }>;
+type Params = Promise<{ course: string; module: string }>;
 
 export async function generateMetadata({
   params,
 }: {
   params: Params;
 }): Promise<Metadata> {
-  const { module: moduleSlug } = await params;
+  const { course: courseSlug, module: moduleSlug } = await params;
   const context = await requireAcademyAccess();
-  const overview = await loadAcademyOverview(context);
+  const overview = await loadAcademyOverview(context, courseSlug);
   const title = overview?.modules.find((module) => module.slug === moduleSlug)?.title;
   return { title: title ? `${title} · Academy` : "Academy" };
 }
@@ -34,9 +34,9 @@ const ROW_TONES: Record<AcademyProgressStatus, { tone: StatusTone; label: string
 
 /** La liste des leçons d'un module, avec leur durée et leur statut. */
 export default async function AcademyModulePage({ params }: { params: Params }) {
-  const { module: moduleSlug } = await params;
+  const { course: courseSlug, module: moduleSlug } = await params;
   const context = await requireAcademyAccess();
-  const overview = await loadAcademyOverview(context);
+  const overview = await loadAcademyOverview(context, courseSlug);
   if (!overview) notFound();
 
   const moduleIndex = overview.modules.findIndex(
@@ -55,11 +55,11 @@ export default async function AcademyModulePage({ params }: { params: Params }) 
     <div className="space-y-6">
       <div>
         <Link
-          href="/academy"
+          href={`/academy/${overview.course.slug}`}
           className="type-caption inline-flex items-center gap-1 text-text-secondary hover:text-text-primary"
         >
           <ChevronLeft aria-hidden strokeWidth={1.75} className="size-3.5" />
-          Tous les modules
+          {overview.course.title}
         </Link>
         <SectionHeader
           className="mt-2"
@@ -88,7 +88,7 @@ export default async function AcademyModulePage({ params }: { params: Params }) 
             return (
               <Link
                 key={lesson.id}
-                href={`/academy/${currentModule.slug}/${lesson.slug}`}
+                href={`/academy/${overview.course.slug}/${currentModule.slug}/${lesson.slug}`}
                 className="flex items-center gap-4 px-5 py-3.5 transition-[background-color] duration-(--motion-duration) ease-standard hover:bg-muted focus-visible:bg-muted focus-visible:outline-none"
               >
                 <span className="type-caption w-9 shrink-0 text-text-secondary tabular-nums">

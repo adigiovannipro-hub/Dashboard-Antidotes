@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { getAcademyContext, type AcademyAccess } from "@/lib/academy/access";
+import { sendCourseOnboarding } from "@/lib/academy/onboarding";
 import { shouldComplete } from "@/lib/academy/progress";
 import { videoUploadError } from "@/lib/academy/upload";
 import { parseVideoUrl } from "@/lib/academy/video";
@@ -468,8 +469,12 @@ export async function createLesson(input: {
 const resourceSchema = z.object({
   title: z.string().trim().min(1).max(160),
   description: z.string().trim().max(400).nullable(),
-  kind: z.enum(["template", "checklist", "link", "tool"]),
+  kind: z.enum(["template", "checklist", "link", "tool", "document"]),
   url: z.url().nullable(),
+  /* Le document lui-même, quand la ressource en est un. 40 000 caractères :
+     un contrat type ou une grille tarifaire tient largement dedans, et le
+     plafond empêche qu'on range un cours entier dans une ressource. */
+  body: z.string().max(40_000).nullable().optional(),
 });
 
 const updateLessonInput = z.object({
@@ -706,6 +711,354 @@ export async function attachVideo(input: {
 
     revalidateAcademy();
     return { ok: true, message: "Vidéo en ligne." };
+  } catch (error) {
+    return fail(error);
+  }
+}
+
+// === Back-office : miniatures ==================================================
+
+/** Aligné sur `allowed_mime_types` du bucket `academy-assets` (0057). */
+const ASSET_MIME_TYPES = ["image/png", "image/jpeg", "image/webp"];
+
+/** 5 Mo, le plafond du bucket : une couverture, pas un master. */
+const MAX_ASSET_BYTES = 5 * 1024 * 1024;
+
+const assetTargetInput = z.object({
+  kind: z.enum(["course", "module"]),
+  id: z.uuid(),
+});
+
+const prepareAssetInput = assetTargetInput.extend({
+  file: z.object({
+    name: z.string().min(1).max(200),
+    type: z.string().max(100),
+    size: z.number().int().positive(),
+  }),
+});
+
+export type PreparedAssetUpload =
+  | { ok: true; path: string; url: string }
+  | { ok: false; error: string };
+
+/**
+ * Signe l'URL d'envoi d'une miniature — couverture de formation ou vignette
+ * d'introduction d'un module. Les octets vont du navigateur droit au bucket,
+ * comme les vidéos de leçon et les visuels du Planning.
+ */
+export async function prepareAssetUpload(input: {
+  kind: "course" | "module";
+  id: string;
+  file: { name: string; type: string; size: number };
+}): Promise<PreparedAssetUpload> {
+  const parsed = prepareAssetInput.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Requête invalide." };
+
+  const { file } = parsed.data;
+  if (!ASSET_MIME_TYPES.includes(file.type)) {
+    return { ok: false, error: "Format non accepté : PNG, JPG ou WebP." };
+  }
+  if (file.size > MAX_ASSET_BYTES) {
+    return { ok: false, error: "Trop lourde : 5 Mo maximum." };
+  }
+
+  try {
+    const context = await guardAdmin();
+    const supabase = await createClient();
+
+    const extension = file.type.split("/")[1]!;
+    // Un nom horodaté et non un nom stable : le navigateur garde en cache
+    // l'URL signée précédente, et remplacer l'image sous le même chemin
+    // afficherait l'ancienne pendant une heure.
+    const path = `${context.orgId}/${parsed.data.kind}/${parsed.data.id}/${Date.now()}.${extension}`;
+
+    const { data, error } = await supabase.storage
+      .from("academy-assets")
+      .createSignedUploadUrl(path);
+    if (error) throw new Error(error.message);
+
+    return { ok: true, path, url: data.signedUrl };
+  } catch (error) {
+    return { ok: false, error: (error as Error).message };
+  }
+}
+
+const attachAssetInput = assetTargetInput.extend({
+  /** `null` retire la miniature et rend la carte à son dégradé. */
+  path: z.string().min(1).max(400).nullable(),
+});
+
+/** Accroche le chemin que le navigateur vient de remplir, ou le retire. */
+export async function attachAsset(input: {
+  kind: "course" | "module";
+  id: string;
+  path: string | null;
+}): Promise<AcademyResult> {
+  const parsed = attachAssetInput.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Requête invalide." };
+
+  try {
+    const context = await guardAdmin();
+
+    // L'URL d'envoi a été signée pour ce préfixe et rien d'autre : un chemin
+    // hors de la cible est forcément forgé.
+    const prefix = `${context.orgId}/${parsed.data.kind}/${parsed.data.id}/`;
+    if (parsed.data.path !== null && !parsed.data.path.startsWith(prefix)) {
+      return { ok: false, error: "Chemin de fichier inattendu." };
+    }
+
+    const supabase = await createClient();
+    const table = parsed.data.kind === "course" ? "academy_courses" : "academy_modules";
+    const { error } = await supabase
+      .from(table)
+      .update({ cover_url: parsed.data.path } as never)
+      .eq("id", parsed.data.id);
+    if (error) throw new Error(error.message);
+
+    revalidateAcademy();
+    return {
+      ok: true,
+      message: parsed.data.path ? "Miniature en ligne." : "Miniature retirée.",
+    };
+  } catch (error) {
+    return fail(error);
+  }
+}
+
+// === Back-office : inscriptions =================================================
+
+const enrollInput = z.object({
+  courseId: z.uuid(),
+  email: z
+    .email("Adresse email invalide.")
+    .transform((value) => value.trim().toLowerCase()),
+  firstName: z.string().trim().max(80),
+  lastName: z.string().trim().max(80),
+});
+
+export type EnrollResult =
+  | { ok: true; message: string; sent: boolean; link: string }
+  | { ok: false; error: string };
+
+/**
+ * Inscrit une personne à une formation, et lui ouvre la porte.
+ *
+ * L'inscription porte l'adresse, pas le compte : elle vaut avant même que la
+ * personne se connecte, et `app.handle_new_user()` la raccroche à la première
+ * connexion. Réinscrire une adresse déjà présente ne crée pas de doublon —
+ * l'index unique `(course_id, lower(email))` le refuserait — mais **réactive**
+ * un accès retiré et renvoie un lien neuf : c'est le geste qu'on fait quand
+ * quelqu'un a perdu son courriel.
+ */
+export async function enrollStudent(input: {
+  courseId: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+}): Promise<EnrollResult> {
+  const parsed = enrollInput.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Saisie invalide." };
+  }
+
+  try {
+    const context = await guardAdmin();
+    const supabase = await createClient();
+
+    const { data: course } = await supabase
+      .from("academy_courses")
+      .select("id, slug, title, org_id")
+      .eq("id", parsed.data.courseId)
+      .maybeSingle();
+    if (!course) return { ok: false, error: "Formation introuvable." };
+
+    const { firstName, lastName, email } = parsed.data;
+
+    const { error } = await supabase.from("academy_enrollments").upsert(
+      {
+        org_id: course.org_id,
+        course_id: course.id,
+        email,
+        first_name: firstName || null,
+        last_name: lastName || null,
+        // Une réinscription repart d'« invitée » : le raccrochage remettra
+        // « active » à la connexion, et un accès retiré redevient ouvert.
+        status: "invited",
+        invited_by: context.userId,
+        invited_at: new Date().toISOString(),
+      },
+      { onConflict: "course_id,email" },
+    );
+    if (error) throw new Error(error.message);
+
+    const onboarding = await sendCourseOnboarding({
+      email,
+      firstName: firstName || null,
+      courseTitle: course.title,
+      courseSlug: course.slug,
+      senderName: SENDER_NAME,
+    });
+
+    revalidateAcademy();
+
+    if (!onboarding.ok) {
+      // L'inscription est écrite : la dire perdue serait faux. On rend la
+      // main sur le seul point qui a échoué, la fabrication du lien.
+      return {
+        ok: false,
+        error: `Inscription enregistrée, mais le lien d'accès n'a pas pu être fabriqué : ${onboarding.error}`,
+      };
+    }
+
+    return {
+      ok: true,
+      sent: onboarding.sent,
+      link: onboarding.link,
+      message: onboarding.sent
+        ? `Invitation envoyée à ${email}.`
+        : `${email} est inscrite. Envoie-lui le lien ci-dessous.`,
+    };
+  } catch (error) {
+    return { ok: false, error: (error as Error).message };
+  }
+}
+
+/** Le nom qui signe le courriel d'arrivée. */
+const SENDER_NAME = "Alessandro";
+
+const enrollmentStatusInput = z.object({
+  enrollmentId: z.uuid(),
+  status: z.enum(["invited", "active", "revoked"]),
+});
+
+/**
+ * Retire ou rend un accès. La ligne survit : on garde la trace de qui a acheté
+ * quoi, et une réactivation ne repart pas de zéro — la progression est
+ * intacte, elle n'était qu'invisible.
+ */
+export async function setEnrollmentStatus(input: {
+  enrollmentId: string;
+  status: "invited" | "active" | "revoked";
+}): Promise<AcademyResult> {
+  const parsed = enrollmentStatusInput.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Requête invalide." };
+
+  try {
+    await guardAdmin();
+    const supabase = await createClient();
+
+    const { error } = await supabase
+      .from("academy_enrollments")
+      .update({ status: parsed.data.status })
+      .eq("id", parsed.data.enrollmentId);
+    if (error) throw new Error(error.message);
+
+    revalidateAcademy();
+    return {
+      ok: true,
+      message: parsed.data.status === "revoked" ? "Accès retiré." : "Accès rendu.",
+    };
+  } catch (error) {
+    return fail(error);
+  }
+}
+
+export async function deleteEnrollment(input: {
+  enrollmentId: string;
+}): Promise<AcademyResult> {
+  const parsed = z.object({ enrollmentId: z.uuid() }).safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Requête invalide." };
+
+  try {
+    await guardAdmin();
+    const supabase = await createClient();
+
+    const { error } = await supabase
+      .from("academy_enrollments")
+      .delete()
+      .eq("id", parsed.data.enrollmentId);
+    if (error) throw new Error(error.message);
+
+    revalidateAcademy();
+    return { ok: true, message: "Inscription supprimée." };
+  } catch (error) {
+    return fail(error);
+  }
+}
+
+/** Renvoie un lien d'accès neuf — celui du courriel n'est valable qu'un jour. */
+export async function resendOnboarding(input: {
+  enrollmentId: string;
+}): Promise<EnrollResult> {
+  const parsed = z.object({ enrollmentId: z.uuid() }).safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Requête invalide." };
+
+  try {
+    await guardAdmin();
+    const supabase = await createClient();
+
+    const { data: enrollment } = await supabase
+      .from("academy_enrollments")
+      .select("email, first_name, course_id")
+      .eq("id", parsed.data.enrollmentId)
+      .maybeSingle();
+    if (!enrollment) return { ok: false, error: "Inscription introuvable." };
+
+    const { data: course } = await supabase
+      .from("academy_courses")
+      .select("slug, title")
+      .eq("id", enrollment.course_id)
+      .maybeSingle();
+    if (!course) return { ok: false, error: "Formation introuvable." };
+
+    const onboarding = await sendCourseOnboarding({
+      email: enrollment.email,
+      firstName: enrollment.first_name,
+      courseTitle: course.title,
+      courseSlug: course.slug,
+      senderName: SENDER_NAME,
+    });
+    if (!onboarding.ok) return { ok: false, error: onboarding.error };
+
+    return {
+      ok: true,
+      sent: onboarding.sent,
+      link: onboarding.link,
+      message: onboarding.sent
+        ? `Nouveau lien envoyé à ${enrollment.email}.`
+        : "Nouveau lien prêt, à envoyer à la main.",
+    };
+  } catch (error) {
+    return { ok: false, error: (error as Error).message };
+  }
+}
+
+const reorderCoursesInput = z.object({
+  orderedIds: z.array(z.uuid()).min(1).max(50),
+});
+
+/** L'ordre des formations dans le catalogue. */
+export async function reorderCourses(input: {
+  orderedIds: string[];
+}): Promise<AcademyResult> {
+  const parsed = reorderCoursesInput.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Requête invalide." };
+
+  try {
+    const context = await guardAdmin();
+    const supabase = await createClient();
+
+    for (const [index, id] of parsed.data.orderedIds.entries()) {
+      const { error } = await supabase
+        .from("academy_courses")
+        .update({ order_index: index + 1 })
+        .eq("id", id)
+        .eq("org_id", context.orgId);
+      if (error) throw new Error(error.message);
+    }
+
+    revalidateAcademy();
+    return OK;
   } catch (error) {
     return fail(error);
   }

@@ -28,7 +28,13 @@ import { RESOURCE_KIND_LABELS } from "@/lib/academy/types";
  * suit d'une respiration.
  */
 
-const KIND_OPTIONS: AcademyResourceKind[] = ["template", "checklist", "link", "tool"];
+const KIND_OPTIONS: AcademyResourceKind[] = [
+  "template",
+  "checklist",
+  "link",
+  "tool",
+  "document",
+];
 
 function report(result: AcademyResult, successMessage: string) {
   if (result.ok) toast.success(result.message ?? successMessage);
@@ -37,9 +43,11 @@ function report(result: AcademyResult, successMessage: string) {
 
 export function LessonEditor({
   lesson,
+  courseSlug,
   moduleSlug,
 }: {
   lesson: AcademyLesson;
+  courseSlug: string;
   moduleSlug: string;
 }) {
   const [title, setTitle] = useState(lesson.title);
@@ -75,6 +83,9 @@ export function LessonEditor({
               description:
                 resource.description?.trim() === "" ? null : (resource.description?.trim() ?? null),
               url: resource.url?.trim() === "" ? null : (resource.url?.trim() ?? null),
+              // Un corps vide ne se stocke pas : le prédicat `isDocumentResource`
+              // trancherait « document » sur une chaîne blanche.
+              body: resource.body?.trim() ? resource.body.trim() : null,
             })),
         },
       });
@@ -85,7 +96,7 @@ export function LessonEditor({
   return (
     <div className="space-y-5">
       <Link
-        href={`/academy/admin?module=${moduleSlug}`}
+        href={`/academy/admin?formation=${courseSlug}&module=${moduleSlug}`}
         className="type-caption inline-flex items-center gap-1 text-text-secondary hover:text-text-primary"
       >
         <ChevronLeft aria-hidden strokeWidth={1.75} className="size-3.5" />
@@ -101,7 +112,7 @@ export function LessonEditor({
           action={
             <div className="flex items-center gap-1.5">
               <Button
-                render={<Link href={`/academy/${moduleSlug}/${lesson.slug}`} />}
+                render={<Link href={`/academy/${courseSlug}/${moduleSlug}/${lesson.slug}`} />}
                 variant="ghost"
                 size="sm"
               >
@@ -308,6 +319,32 @@ export function LessonEditor({
               >
                 <Trash2 aria-hidden strokeWidth={1.75} />
               </Button>
+
+              {/* Un document porte son texte : c'est ce qui le distingue d'un
+                  simple lien. Le champ n'apparaît que pour cette nature —
+                  l'afficher partout donnerait cinq zones vides par leçon. */}
+              {resource.kind === "document" ? (
+                <label className="block md:col-span-5">
+                  <span className="type-caption mb-1 block text-text-secondary">
+                    Le document, en markdown
+                  </span>
+                  <textarea
+                    value={resource.body ?? ""}
+                    rows={10}
+                    placeholder="## Titre&#10;&#10;Le contenu du document, lu et copié depuis la leçon."
+                    className="type-caption w-full rounded-md border border-input bg-surface p-3 font-mono outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/20"
+                    onChange={(event) =>
+                      setResources((current) =>
+                        current.map((candidate, candidateIndex) =>
+                          candidateIndex === index
+                            ? { ...candidate, body: event.target.value }
+                            : candidate,
+                        ),
+                      )
+                    }
+                  />
+                </label>
+              ) : null}
             </div>
           ))}
         </PanelBody>

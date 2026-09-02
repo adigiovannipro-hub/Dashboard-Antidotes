@@ -7,12 +7,12 @@ import {
   Circle,
   CircleCheck,
   CirclePlay,
-  ExternalLink,
 } from "lucide-react";
 
 import { LessonTabs } from "@/components/academy/lesson-tabs";
 import { MarkDoneButton } from "@/components/academy/mark-done-button";
 import { NotesPanel } from "@/components/academy/notes-panel";
+import { ResourceList } from "@/components/academy/resource-list";
 import { ScriptView } from "@/components/academy/script-view";
 import { AcademyVideoPlayer } from "@/components/academy/video-player";
 import { Panel, PanelBody, PanelHeader, PanelRows } from "@/components/ds/surface";
@@ -21,20 +21,19 @@ import { buttonVariants } from "@/components/ui/button";
 import { requireAcademyAccess } from "@/lib/academy/access";
 import { lessonHref, loadAcademyOverview } from "@/lib/academy/overview";
 import { getLessonById, getMyNote } from "@/lib/academy/queries";
-import { RESOURCE_KIND_LABELS } from "@/lib/academy/types";
 import { formatMinutes } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
-type Params = Promise<{ module: string; lesson: string }>;
+type Params = Promise<{ course: string; module: string; lesson: string }>;
 
 export async function generateMetadata({
   params,
 }: {
   params: Params;
 }): Promise<Metadata> {
-  const { module: moduleSlug, lesson: lessonSlug } = await params;
+  const { course: courseSlug, module: moduleSlug, lesson: lessonSlug } = await params;
   const context = await requireAcademyAccess();
-  const overview = await loadAcademyOverview(context);
+  const overview = await loadAcademyOverview(context, courseSlug);
   const currentModule = overview?.modules.find(
     (candidate) => candidate.slug === moduleSlug,
   );
@@ -50,9 +49,9 @@ export async function generateMetadata({
  * notes — et, à droite, le sommaire du module pour se situer.
  */
 export default async function AcademyLessonPage({ params }: { params: Params }) {
-  const { module: moduleSlug, lesson: lessonSlug } = await params;
+  const { course: courseSlug, module: moduleSlug, lesson: lessonSlug } = await params;
   const context = await requireAcademyAccess();
-  const overview = await loadAcademyOverview(context);
+  const overview = await loadAcademyOverview(context, courseSlug);
   if (!overview) notFound();
 
   const moduleIndex = overview.modules.findIndex(
@@ -88,12 +87,12 @@ export default async function AcademyLessonPage({ params }: { params: Params }) 
     (candidate) => candidate.module_id === currentModule.id,
   );
 
-  const adminHref = `/academy/admin?module=${currentModule.slug}&lecon=${lesson.slug}`;
+  const adminHref = `/academy/admin?formation=${overview.course.slug}&module=${currentModule.slug}&lecon=${lesson.slug}`;
 
   return (
     <div className="space-y-5">
       <Link
-        href={`/academy/${currentModule.slug}`}
+        href={`/academy/${overview.course.slug}/${currentModule.slug}`}
         className="type-caption inline-flex items-center gap-1 text-text-secondary hover:text-text-primary"
       >
         <ChevronLeft aria-hidden strokeWidth={1.75} className="size-3.5" />
@@ -163,52 +162,7 @@ export default async function AcademyLessonPage({ params }: { params: Params }) 
               <LessonTabs
                 resourceCount={lesson.resources.length}
                 script={<ScriptView markdown={lesson.script_mdx} />}
-                resources={
-                  lesson.resources.length === 0 ? (
-                    <p className="type-body text-text-secondary">
-                      Aucune ressource pour cette leçon.
-                    </p>
-                  ) : (
-                    <ul className="max-w-[72ch] space-y-3">
-                      {lesson.resources.map((resource, index) => (
-                        <li
-                          key={index}
-                          className="rounded-md border border-border bg-surface px-4 py-3"
-                        >
-                          <div className="flex flex-wrap items-center gap-2">
-                            <StatusPill tone="neutral" dot={false}>
-                              {RESOURCE_KIND_LABELS[resource.kind] ?? "Ressource"}
-                            </StatusPill>
-                            {resource.url ? (
-                              <a
-                                href={resource.url}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="type-body inline-flex items-center gap-1.5 font-medium text-accent-ink underline-offset-2 hover:underline"
-                              >
-                                {resource.title}
-                                <ExternalLink
-                                  aria-hidden
-                                  strokeWidth={1.75}
-                                  className="size-3.5"
-                                />
-                              </a>
-                            ) : (
-                              <span className="type-body font-medium text-text-primary">
-                                {resource.title}
-                              </span>
-                            )}
-                          </div>
-                          {resource.description ? (
-                            <p className="type-caption mt-1 text-text-secondary">
-                              {resource.description}
-                            </p>
-                          ) : null}
-                        </li>
-                      ))}
-                    </ul>
-                  )
-                }
+                resources={<ResourceList resources={lesson.resources} />}
                 notes={
                   <NotesPanel lessonId={lesson.id} initialContent={note?.content ?? ""} />
                 }
