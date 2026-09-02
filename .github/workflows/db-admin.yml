@@ -78,6 +78,10 @@ on:
         description: "Sonder l'API REST LinkedIn en direct (identifiant d'organisation)"
         type: string
         default: ""
+      sonde_linkedin_publication:
+        description: "… en sondant en plus les statistiques d'une publication (URN)"
+        type: string
+        default: ""
 
 jobs:
   operer:
@@ -189,7 +193,9 @@ jobs:
       # ce que ses outils pré-emballés refusent de demander.
       - name: Sonde LinkedIn REST
         if: ${{ inputs.sonde_linkedin_rest != '' }}
-        run: pnpm sonde:linkedin --organisation "${{ inputs.sonde_linkedin_rest }}"
+        run: >-
+          pnpm sonde:linkedin --organisation "${{ inputs.sonde_linkedin_rest }}"
+          ${{ inputs.sonde_linkedin_publication != '' && format('--publication "{0}"', inputs.sonde_linkedin_publication) || '' }}
         env:
           COMPOSIO_API_KEY: ${{ secrets.COMPOSIO_API_KEY }}
 

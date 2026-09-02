@@ -37,7 +37,7 @@ function monthStart(monthsAgo: number): number {
   return Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - monthsAgo, 1);
 }
 
-function short(value: unknown, max = 2500): string {
+function short(value: unknown, max = 900): string {
   const text = typeof value === "string" ? value : JSON.stringify(value);
   return (text ?? "").slice(0, max);
 }
@@ -73,45 +73,49 @@ async function main() {
   /* Chaque essai est une hypothèse à confirmer ou à écarter. On les joue
      toutes : un refus est une information autant qu'un succès, et c'est le
      seul moyen de savoir quelle grandeur existe vraiment. */
+  /* Version d'API vivante, trouvée au balayage du 2 septembre 2026 :
+     LinkedIn n'en garde qu'une année, et 202512 était déjà morte quand
+     202510 vivait encore — la fenêtre n'est pas un intervalle continu. */
+  const VIVANTE = "202606";
+  const poste = argValue("publication") ?? "";
+
   const essais: { titre: string; endpoint: string; version?: string | null }[] = [
-    {
-      titre: "v2 — publications par MOIS (13 mois, count explicite)",
-      endpoint: `/v2/organizationalEntityShareStatistics?q=organizationalEntity&organizationalEntity=${entity}&timeIntervals=${intervalleMois}&count=50`,
-      version: null,
-    },
     {
       titre: "v2 — publications par JOUR (30 jours)",
       endpoint: `/v2/organizationalEntityShareStatistics?q=organizationalEntity&organizationalEntity=${entity}&timeIntervals=${intervalleJours}&count=50`,
       version: null,
     },
     {
-      titre: "v2 — abonnés par MOIS (gains, pas cumul)",
+      titre: "v2 — abonnés par MOIS (gains)",
       endpoint: `/v2/organizationalEntityFollowerStatistics?q=organizationalEntity&organizationalEntity=${entity}&timeIntervals=${intervalleMois}&count=50`,
       version: null,
     },
     {
-      titre: "v2 — publications de la page (ugcPosts)",
-      endpoint: `/v2/ugcPosts?q=authors&authors=List(${entity})&count=5&sortBy=LAST_MODIFIED`,
-      version: null,
-    },
-    {
-      titre: "v2 — partages de la page (shares)",
-      endpoint: `/v2/shares?q=owners&owners=${entity}&count=5&sortBy=LAST_MODIFIED`,
-      version: null,
+      titre: "rest — abonnés par MOIS (gains)",
+      endpoint: `/rest/organizationalEntityFollowerStatistics?q=organizationalEntity&organizationalEntity=${entity}&timeIntervals=${intervalleMois}&count=50`,
+      version: VIVANTE,
     },
   ];
 
-  /* Les `/rest/` refusent toutes sur « version 20250801 non active » :
-     Composio pose lui-même l'en-tête `LinkedIn-Version` à partir de ce
-     qu'on lui donne, et LinkedIn ne garde qu'une année de versions. On
-     balaie les mois plausibles jusqu'à en trouver une vivante — c'est elle
-     qui ouvre `/rest/posts`, la seule route qui liste les publications. */
-  for (const mois of ["202609", "202608", "202606", "202603", "202601", "202512", "202510"]) {
-    essais.push({
-      titre: `/rest/posts avec LinkedIn-Version ${mois}`,
-      endpoint: `/rest/posts?q=author&author=${entity}&count=3&sortBy=LAST_MODIFIED`,
-      version: mois,
-    });
+  if (poste) {
+    const urn = encodeURIComponent(poste);
+    essais.push(
+      {
+        titre: "rest — statistiques d'UNE publication (ugcPosts)",
+        endpoint: `/rest/organizationalEntityShareStatistics?q=organizationalEntity&organizationalEntity=${entity}&ugcPosts=List(${urn})`,
+        version: VIVANTE,
+      },
+      {
+        titre: "rest — statistiques d'UNE publication (shares)",
+        endpoint: `/rest/organizationalEntityShareStatistics?q=organizationalEntity&organizationalEntity=${entity}&shares=List(${urn})`,
+        version: VIVANTE,
+      },
+      {
+        titre: "rest — réactions et commentaires d'UNE publication",
+        endpoint: `/rest/socialActions/${urn}`,
+        version: VIVANTE,
+      },
+    );
   }
 
   for (const essai of essais) {
