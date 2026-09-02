@@ -32,6 +32,8 @@ export type MetaInsightRow = {
   frequency?: string;
   actions?: { action_type: string; value: string }[];
   action_values?: { action_type: string; value: string }[];
+  /** Démarrages de lecture — même forme que `actions`, un seul type `video_view`. */
+  video_play_actions?: { action_type: string; value: string }[];
   /** Lectures jusqu'au bout — même forme que `actions`, un seul type `video_view`. */
   video_p100_watched_actions?: { action_type: string; value: string }[];
   /** Présents seulement sur les requêtes ventilées. */
@@ -112,10 +114,16 @@ export function toRawMetrics(row: MetaInsightRow): RawMetrics {
     comments: actionValue(row.actions, "comment"),
     saves: actionValue(row.actions, "onsite_conversion.post_save"),
     shares: actionValue(row.actions, "post"),
-    /* `video_view` dans `actions` est la vue au sens de Meta : trois secondes
-       de lecture. La lecture complète arrive dans un tableau à part, de même
-       forme, sous le même `action_type` — c'est le champ qui porte le sens. */
-    videoViews: actionValue(row.actions, "video_view"),
+    /* Les vues vidéo ne sont **pas** dans `actions` : le catalogue Meta ne
+       connaît pas `video_view` comme action, et le premier sync a affiché 0
+       sur un compte à 255 000 impressions vidéo. Le champ canonique est
+       `video_play_actions` (« video plays »), la lecture complète
+       `video_p100_watched_actions` — même forme, même `action_type`, c'est
+       le champ qui porte le sens. `actions` reste en repli, jamais en
+       première intention. */
+    videoViews:
+      actionValue(row.video_play_actions, "video_view") ||
+      actionValue(row.actions, "video_view"),
     videoCompletions: actionValue(row.video_p100_watched_actions, "video_view"),
   };
 }

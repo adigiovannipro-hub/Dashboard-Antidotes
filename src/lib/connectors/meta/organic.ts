@@ -168,3 +168,63 @@ export function pagePostToPost(post: MetaPagePostRow): OrganicPostColumns | null
     shares: post.shares?.count ?? 0,
   };
 }
+
+/** `/{page}/insights?period=day` : une métrique, ses valeurs datées. */
+export type MetaPageInsightRow = {
+  name?: string;
+  period?: string;
+  values?: { value?: number | string; end_time?: string }[];
+};
+
+export type PageDailyColumns = {
+  date: string;
+  impressions: number;
+  reach: number;
+  engagements: number;
+  video_views: number;
+};
+
+/** Ce que chaque métrique de Page alimente dans `social_page_daily`. */
+const PAGE_METRIC_COLUMNS: Record<string, keyof Omit<PageDailyColumns, "date">> = {
+  page_impressions: "impressions",
+  page_impressions_unique: "reach",
+  page_post_engagements: "engagements",
+  page_video_views: "video_views",
+};
+
+export const PAGE_DAILY_METRICS = Object.keys(PAGE_METRIC_COLUMNS);
+
+/**
+ * Les Page Insights vers des lignes journalières.
+ *
+ * Meta rend une série par métrique, chaque valeur portant `end_time` — la
+ * **fin** de la journée mesurée, à 07:00 UTC le lendemain. La date du point
+ * est donc celle de la veille de `end_time` : un `2026-09-01T07:00:00+0000`
+ * décrit le 31 août. Même règle que les abonnés — un relevé porte la date du
+ * jour qu'il clôture.
+ */
+export function pageInsightsToDaily(rows: MetaPageInsightRow[]): PageDailyColumns[] {
+  const byDate = new Map<string, PageDailyColumns>();
+  for (const row of rows) {
+    const column = row.name ? PAGE_METRIC_COLUMNS[row.name] : undefined;
+    if (!column) continue;
+    for (const point of row.values ?? []) {
+      if (!point.end_time) continue;
+      const closed = new Date(Date.parse(point.end_time) - 86_400_000);
+      if (Number.isNaN(closed.getTime())) continue;
+      const date = closed.toISOString().slice(0, 10);
+      const line = byDate.get(date) ?? {
+        date,
+        impressions: 0,
+        reach: 0,
+        engagements: 0,
+        video_views: 0,
+      };
+      const value =
+        typeof point.value === "number" ? point.value : toNumber(point.value);
+      line[column] += Number.isFinite(value) ? value : 0;
+      byDate.set(date, line);
+    }
+  }
+  return [...byDate.values()].sort((a, b) => a.date.localeCompare(b.date));
+}

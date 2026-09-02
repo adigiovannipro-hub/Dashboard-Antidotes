@@ -5,6 +5,7 @@ import {
   mediaToPost,
   pagePostKind,
   pagePostToPost,
+  pageInsightsToDaily,
 } from "./organic";
 
 describe("insightValue", () => {
@@ -146,5 +147,40 @@ describe("pagePostKind", () => {
       "carousel",
     );
     expect(pagePostKind({ id: "1" })).toBe("image");
+  });
+});
+
+describe("pageInsightsToDaily", () => {
+  it("date chaque point du jour qu'il clôture, pas de son end_time", () => {
+    // `end_time` = 07:00 UTC le lendemain : 2026-09-01T07:00 décrit le 31 août.
+    const rows = pageInsightsToDaily([
+      {
+        name: "page_impressions",
+        period: "day",
+        values: [
+          { value: 120, end_time: "2026-08-31T07:00:00+0000" },
+          { value: 80, end_time: "2026-09-01T07:00:00+0000" },
+        ],
+      },
+      {
+        name: "page_impressions_unique",
+        period: "day",
+        values: [{ value: 100, end_time: "2026-09-01T07:00:00+0000" }],
+      },
+    ]);
+    expect(rows).toEqual([
+      { date: "2026-08-30", impressions: 120, reach: 0, engagements: 0, video_views: 0 },
+      { date: "2026-08-31", impressions: 80, reach: 100, engagements: 0, video_views: 0 },
+    ]);
+  });
+
+  it("ignore une métrique inconnue et une valeur illisible", () => {
+    const rows = pageInsightsToDaily([
+      { name: "page_fans", values: [{ value: 9, end_time: "2026-09-01T07:00:00+0000" }] },
+      { name: "page_video_views", values: [{ value: "n/a", end_time: "2026-09-01T07:00:00+0000" }] },
+    ]);
+    expect(rows).toEqual([
+      { date: "2026-08-31", impressions: 0, reach: 0, engagements: 0, video_views: 0 },
+    ]);
   });
 });

@@ -9,6 +9,7 @@ import type {
 } from "./comments";
 import type { MetaConversationRow } from "./messages";
 import type { MetaInsightRow } from "./mapping";
+import type { MetaPageInsightRow } from "./organic";
 import type {
   MetaInsightsField,
   MetaMediaRow,
@@ -111,7 +112,7 @@ export async function fetchAdInsights(options: {
       time_increment: "1",
       time_range: JSON.stringify({ since: options.since, until: options.until }),
       fields:
-        "adset_id,adset_name,campaign_id,campaign_name,spend,impressions,reach,clicks,inline_link_clicks,actions,action_values,video_p100_watched_actions",
+        "adset_id,adset_name,campaign_id,campaign_name,spend,impressions,reach,clicks,inline_link_clicks,actions,action_values,video_play_actions,video_p100_watched_actions",
       limit: "200",
     }),
   );
@@ -851,6 +852,60 @@ export async function replyToPageComment(options: {
  * Meta ne garde que ~30 jours d'historique, chaque passage quotidien ajoute
  * donc un point que plus personne ne pourra redemander plus tard.
  */
+/**
+ * Les statistiques **de Page** au grain jour.
+ *
+ * Meta borne une demande à 90 jours environ : la fenêtre se découpe en
+ * tranches, et une métrique refusée (retirée par Meta, ou absente sur ce
+ * type de Page) est redemandée seule — comme pour les publications, ce qui
+ * manque manque seul. Rend les séries brutes ; `pageInsightsToDaily` les
+ * traduit.
+ */
+export async function fetchPageInsights(options: {
+  pageId: string;
+  accessToken: string;
+  metrics: readonly string[];
+  /** `YYYY-MM-DD`, inclus. */
+  since: string;
+  until: string;
+}): Promise<MetaPageInsightRow[]> {
+  const rows: MetaPageInsightRow[] = [];
+  const day = 86_400_000;
+  const start = Date.parse(`${options.since}T00:00:00Z`);
+  const end = Date.parse(`${options.until}T00:00:00Z`);
+  const ask = (metric: string, from: number, to: number) =>
+    fetchGraph<{ data?: MetaPageInsightRow[] }>(
+      buildUrl(`/${options.pageId}/insights`, {
+        access_token: options.accessToken,
+        metric,
+        period: "day",
+        since: String(Math.floor(from / 1000)),
+        // `until` est exclusif chez Meta : un jour de plus pour couvrir la borne.
+        until: String(Math.floor((to + day) / 1000)),
+      }),
+    );
+
+  for (let from = start; from <= end; from += 90 * day) {
+    const to = Math.min(from + 89 * day, end);
+    try {
+      const payload = await ask(options.metrics.join(","), from, to);
+      rows.push(...(payload.data ?? []));
+    } catch (error) {
+      if (error instanceof MetaError && error.retryable) throw error;
+      for (const metric of options.metrics) {
+        try {
+          const payload = await ask(metric, from, to);
+          rows.push(...(payload.data ?? []));
+        } catch (single) {
+          if (single instanceof MetaError && single.retryable) throw single;
+          // Cette métrique-là n'existe pas ou plus pour cette Page : on passe.
+        }
+      }
+    }
+  }
+  return rows;
+}
+
 export async function fetchFollowersCount(options: {
   nodeId: string;
   accessToken: string;

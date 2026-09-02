@@ -10,6 +10,7 @@ import type {
   AdEntity,
   AdMetricsDaily,
   SocialFollowers,
+  SocialPageDaily,
   SocialPost,
 } from "@/lib/supabase/database.types";
 import { previousRange, type DateRange } from "./period";
@@ -201,7 +202,11 @@ export async function getAdsData(options: {
   );
 
   return {
-    hasData: currentAll.length > 0,
+    /* Un mois sans dépense après un mois qui en avait garde son écran :
+       « −100 % » et des « — » disent plus qu'un état vide — I-WAY n'a rien
+       diffusé en août 2026, et le reporting d'août doit le montrer, pas se
+       taire. L'état vide ne reste que quand rien n'a jamais été collecté. */
+    hasData: currentAll.length > 0 || before.length > 0,
     customEvents: aggregateCustomEvents(customs, total.spend),
     roles,
     adSets: buildAdSetRows(entities, currentAll, eventsByEntity, roles),
@@ -246,7 +251,7 @@ export async function getOrganicData(options: {
   const supabase = options.reader ?? (await createClient());
   const previous = previousRange(options.range);
 
-  const [postsQuery, followersQuery] = await Promise.all([
+  const [postsQuery, followersQuery, pageDailyQuery] = await Promise.all([
     supabase
       .from("social_posts")
       .select("*")
@@ -265,10 +270,21 @@ export async function getOrganicData(options: {
       .eq("platform", options.platform)
       .order("date")
       .limit(1000),
+    // Les statistiques de Page au grain jour — Facebook seulement en
+    // pratique, la table est vide ailleurs et la requête ne coûte rien.
+    supabase
+      .from("social_page_daily")
+      .select("*")
+      .eq("workspace_id", options.workspaceId)
+      .eq("platform", options.platform)
+      .gte("date", previous.from)
+      .lte("date", options.range.to)
+      .limit(1000),
   ]);
 
   const allPosts = (postsQuery.data ?? []) as unknown as SocialPost[];
   const followers = (followersQuery.data ?? []) as unknown as SocialFollowers[];
+  const pageDaily = (pageDailyQuery.data ?? []) as unknown as SocialPageDaily[];
 
   const posts = allPosts.filter(
     (post) => post.published_at >= `${options.range.from}T00:00:00Z`,
@@ -279,13 +295,39 @@ export async function getOrganicData(options: {
 
   const last = followers.at(-1);
 
+  /* Impressions et portée : par publication quand Meta les rend, sinon par
+     la Page. Meta a retiré les métriques par publication de Page fin 2025 ;
+     la somme des posts vaut alors 0 et c'est `social_page_daily` — servi
+     par l'API Page Insights, toujours vivante — qui porte le chiffre. Le
+     repli se fait à la lecture, sur la période et sur sa comparaison. */
+  const total = withPageFallback(
+    sumPosts(posts),
+    pageDaily.filter((row) => row.date >= options.range.from),
+  );
+  const previousTotal = withPageFallback(
+    sumPosts(before),
+    pageDaily.filter((row) => row.date < options.range.from),
+  );
+
   return {
-    hasData: posts.length > 0 || followers.length > 0,
+    hasData: posts.length > 0 || followers.length > 0 || pageDaily.length > 0,
     posts,
-    total: sumPosts(posts),
-    previousTotal: sumPosts(before),
+    total,
+    previousTotal,
     followers: monthlyFollowersSeries(followers),
     followersNow: last ? last.followers_count : null,
+  };
+}
+
+/** Les totaux d'une période, complétés par la Page quand les posts sont muets. */
+function withPageFallback(total: RawMetrics, daily: SocialPageDaily[]): RawMetrics {
+  if (daily.length === 0) return total;
+  const impressions = daily.reduce((sum, row) => sum + Number(row.impressions), 0);
+  const reach = daily.reduce((sum, row) => sum + Number(row.reach), 0);
+  return {
+    ...total,
+    impressions: total.impressions > 0 ? total.impressions : impressions,
+    reach: total.reach > 0 ? total.reach : reach,
   };
 }
 

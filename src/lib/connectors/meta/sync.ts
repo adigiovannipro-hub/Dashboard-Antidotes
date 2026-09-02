@@ -3,6 +3,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { decryptSecret } from "@/lib/moderation/crypto";
+import { MetaError } from "@/lib/social/meta";
 import type { SocialAccountKind, SocialAccountRow } from "@/lib/social/types";
 import type { Database } from "@/lib/supabase/database.types";
 import {
@@ -12,6 +13,7 @@ import {
   fetchInstagramMedia,
   fetchPageAccessToken,
   fetchPagePosts,
+  fetchPageInsights,
 } from "./graph";
 import { explainMetaError } from "./errors";
 import { customEvents } from "./mapping";
@@ -22,7 +24,13 @@ import {
   toDailyMetricsColumns,
   type MetaInsightRow,
 } from "./mapping";
-import { mediaToPost, pagePostToPost, type OrganicPostColumns } from "./organic";
+import {
+  mediaToPost,
+  PAGE_DAILY_METRICS,
+  pageInsightsToDaily,
+  pagePostToPost,
+  type OrganicPostColumns,
+} from "./organic";
 
 /**
  * Orchestration de la synchronisation Meta d'un espace.
@@ -572,6 +580,45 @@ async function syncOrganic(
         .join(" — ");
     }
     ingested += posts.length;
+  }
+
+  /* Les statistiques **de Page** au grain jour, pour Facebook seulement :
+     c'est le chemin qui rend encore impressions et portée quand Meta les
+     refuse par publication. Un refus ici ne fait pas tomber la source non
+     plus — il s'ajoute à l'avertissement. */
+  if (account.kind === "facebook_page") {
+    try {
+      const daily = pageInsightsToDaily(
+        await fetchPageInsights({
+          pageId: account.external_id,
+          accessToken,
+          metrics: PAGE_DAILY_METRICS,
+          since: window.since,
+          until: window.until,
+        }),
+      );
+      if (daily.length > 0) {
+        const now = new Date().toISOString();
+        const { error } = await admin.from("social_page_daily").upsert(
+          daily.map((line) => ({
+            data_source_id: dataSourceId,
+            workspace_id: workspaceId,
+            platform,
+            ...line,
+            updated_at: now,
+          })) as never,
+          { onConflict: "data_source_id,platform,date" },
+        );
+        if (error) fail(`Statistiques de Page : ${error.message}`);
+        ingested += daily.length;
+      }
+    } catch (error) {
+      if (error instanceof MetaError && error.retryable) throw error;
+      const cause = explainMetaError((error as Error).message).message;
+      warning = [warning, `Statistiques de Page non lues : ${cause}`]
+        .filter(Boolean)
+        .join(" — ");
+    }
   }
 
   const followers = await fetchFollowersCount({

@@ -46,10 +46,12 @@ export const HERO_METRIC: Record<SocialReportingNetwork, MetricId> = {
 };
 
 export const KPI_SETS: Record<SocialReportingNetwork, MetricId[]> = {
+  /* Plus de tuile Achats (2/09, demande client) : le chiffre vit dans le
+     CPA, l'entonnoir et le tableau. Onze tuiles + le ROAS sur une seule case
+     = trois rangées de quatre, sans case orpheline. */
   "meta-ads": [
     "spend",
     "earn",
-    "purchases",
     "cpa",
     "impressions",
     "clicks",

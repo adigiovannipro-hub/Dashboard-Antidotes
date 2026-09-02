@@ -200,6 +200,20 @@ export type SocialFollowers = {
   updated_at: string;
 }
 
+// 0069 — statistiques de Page au grain jour, là où Meta ne rend plus les
+// métriques par publication. Grandeurs additives seulement.
+export type SocialPageDaily = {
+  data_source_id: string;
+  workspace_id: string;
+  platform: SocialPlatform;
+  date: string;
+  impressions: number;
+  reach: number;
+  engagements: number;
+  video_views: number;
+  updated_at: string;
+}
+
 export type SocialPost = {
   id: string;
   data_source_id: string;
@@ -822,6 +836,7 @@ export type Database = {
       ad_breakdowns_daily: Table<AdBreakdownDaily>;
       ad_custom_events_daily: Table<AdCustomEventDaily>;
       social_followers: Table<SocialFollowers>;
+      social_page_daily: Table<SocialPageDaily>;
       social_posts: Table<SocialPost>;
       web_metrics_daily: Table<WebMetricsDaily>;
       web_metrics_monthly: Table<WebMetricsMonthly>;

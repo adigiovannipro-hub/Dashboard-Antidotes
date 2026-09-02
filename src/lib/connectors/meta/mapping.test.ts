@@ -88,11 +88,16 @@ describe("toRawMetrics", () => {
   it("lit la vue vidéo dans les actions et la lecture complète dans son champ à part", () => {
     // Même `action_type` des deux côtés : c'est le champ qui porte le sens.
     const raw = toRawMetrics({
-      actions: [{ action_type: "video_view", value: "1200" }],
+      video_play_actions: [{ action_type: "video_view", value: "1200" }],
       video_p100_watched_actions: [{ action_type: "video_view", value: "340" }],
     });
     expect(raw.videoViews).toBe(1200);
     expect(raw.videoCompletions).toBe(340);
+  });
+
+  it("retombe sur `actions` quand `video_play_actions` manque — jamais l'inverse", () => {
+    const raw = toRawMetrics({ actions: [{ action_type: "video_view", value: "80" }] });
+    expect(raw.videoViews).toBe(80);
   });
 
   it("rend zéro vue vidéo sur une campagne sans vidéo — absente vaut zéro", () => {
@@ -135,10 +140,8 @@ describe("toDailyMetricsColumns", () => {
       impressions: "1000",
       reach: "800",
       inline_link_clicks: "40",
-      actions: [
-        { action_type: "add_to_cart", value: "3" },
-        { action_type: "video_view", value: "50" },
-      ],
+      actions: [{ action_type: "add_to_cart", value: "3" }],
+      video_play_actions: [{ action_type: "video_view", value: "50" }],
       video_p100_watched_actions: [{ action_type: "video_view", value: "7" }],
     });
 

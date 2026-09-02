@@ -120,7 +120,8 @@ export function MetaDashboard({
           delta={delta("roas")}
           sentence={`${formatMetric("earn", total.purchaseValue)} générés pour ${formatMetric("spend", total.spend)} investis.`}
           period={`${period.label} · comparé à ${period.comparison}`}
-          className="sm:col-span-2"
+          /* Une seule case : le ROAS réduit fait entrer les deux tuiles
+             vidéo sans rangée orpheline (1 + 11 = 12 = 3 × 4). */
         />
 
         {KPI_SETS["meta-ads"].map((metric) => (
