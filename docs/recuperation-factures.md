@@ -72,6 +72,11 @@ pnpm factures:connexion adobe     # un seul
 pnpm factures:connexion --tout    # tous, même ceux déjà connectés
 ```
 
+La fenêtre s'ouvre dans **ton Chrome installé**, pas dans le Chromium de
+Playwright : Google refuse la connexion depuis Chromium (« Impossible de vous
+connecter : ce navigateur ou cette application ne sont peut-être pas
+sécurisés ») et aucun réglage n'y change rien, c'est la build qui est rejetée.
+
 **Le dashboard ne peut pas ouvrir cette fenêtre lui-même.** Il tourne sur
 Vercel : il n'a aucun moyen d'atteindre ta machine. C'est la seule raison pour
 laquelle cette étape est une commande et non un bouton de l'écran.

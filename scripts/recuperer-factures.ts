@@ -73,6 +73,45 @@ function checkEnv(): void {
 
 // --- Le navigateur ------------------------------------------------------------
 
+/* Ce qui distingue un navigateur piloté d'un navigateur ordinaire, et que
+   Google refuse : la barre « Chrome est contrôlé par un logiciel de test »
+   (`--enable-automation`) et le drapeau `navigator.webdriver`
+   (`AutomationControlled`). Les retirer ne déguise rien — c'est la même
+   personne, sur sa machine, avec son mot de passe. Cela évite seulement un
+   refus qui ne protège personne ici. */
+const SANS_BANDEAU_AUTOMATISATION = {
+  args: [
+    "--disable-blink-features=AutomationControlled",
+    "--no-first-run",
+    "--no-default-browser-check",
+  ],
+  ignoreDefaultArgs: ["--enable-automation"],
+};
+
+/**
+ * Ouvre un navigateur, en préférant le **Chrome installé** au Chromium fourni
+ * avec Playwright.
+ *
+ * Google bloque la connexion depuis Chromium — « Impossible de vous
+ * connecter : ce navigateur ou cette application ne sont peut-être pas
+ * sécurisés » — et aucun réglage n'y change rien : c'est la build qui est
+ * refusée. Avec le Chrome du système, la connexion passe. Sur un runner
+ * GitHub, Chrome n'existe pas : on retombe sur Chromium, ce qui suffit, le
+ * passage ne se connectant jamais — il rejoue une session déjà ouverte.
+ */
+async function lancerNavigateur(visible: boolean) {
+  const commun = { headless: !visible, ...SANS_BANDEAU_AUTOMATISATION };
+  try {
+    return await chromium.launch({ ...commun, channel: "chrome" });
+  } catch {
+    if (visible) {
+      log("  (Chrome introuvable — repli sur Chromium ; Google refusera peut-être la connexion.)");
+    }
+    return await chromium.launch(commun);
+  }
+}
+
+
 async function looksLikeLogin(page: Page): Promise<boolean> {
   if (LOGIN_URL.test(page.url())) return true;
   const password = page.locator('input[type="password"]');
@@ -357,7 +396,7 @@ async function passage(): Promise<void> {
     return;
   }
 
-  const browser = await chromium.launch({ headless: true });
+  const browser = await lancerNavigateur(false);
   let failures = 0;
   try {
     for (const { source } of due) {
@@ -538,7 +577,7 @@ async function connexion(argument: string | undefined): Promise<void> {
  * l'écoute sur la page plutôt que sur le navigateur.
  */
 async function capturerSession(merchant: string, link: string): Promise<string | null> {
-  const browser = await chromium.launch({ headless: false });
+  const browser = await lancerNavigateur(true);
   const context = await browser.newContext({ acceptDownloads: true, locale: "fr-FR" });
   const page = await context.newPage();
   await page.goto(link, { waitUntil: "domcontentloaded", timeout: 60_000 }).catch(() => undefined);
