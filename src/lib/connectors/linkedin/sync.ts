@@ -8,14 +8,18 @@ import { explainLinkedinError } from "./errors";
 import {
   dailyFromShareStats,
   followerGains,
-  followersFromNetworkSize,
   followersHistory,
   pagesFromOrganizations,
   permalinkOf,
   postsFromRest,
   statsByPost,
 } from "./mapping";
-import { findLinkedinAccount, linkedinRest, timeInterval } from "./rest";
+import {
+  fetchFollowersCount,
+  findLinkedinAccount,
+  linkedinRest,
+  timeInterval,
+} from "./rest";
 import type { LinkedinPage, LinkedinPost, LinkedinTransport } from "./types";
 
 /**
@@ -253,6 +257,7 @@ export async function syncWorkspaceLinkedin(options: {
       const warning = await collect({
         admin,
         rest,
+        connectedAccountId: connected.id,
         workspaceId,
         dataSourceId,
         account,
@@ -306,6 +311,7 @@ export async function syncWorkspaceLinkedin(options: {
 async function collect(context: {
   admin: Admin;
   rest: LinkedinTransport;
+  connectedAccountId: string;
   workspaceId: string;
   dataSourceId: string;
   account: SocialAccountRow;
@@ -396,12 +402,10 @@ async function collect(context: {
   }
 
   // --- Les abonnés --------------------------------------------------------
-  const followers = followersFromNetworkSize(
-    await rest(
-      `/v2/networkSizes/${encoded(org)}?edgeType=COMPANY_FOLLOWED_BY_MEMBER`,
-      { version: null },
-    ),
-  );
+  const followers = await fetchFollowersCount({
+    connectedAccountId: context.connectedAccountId,
+    organizationId: org,
+  });
 
   if (followers !== null) {
     const points = [{ date: until, followers }];

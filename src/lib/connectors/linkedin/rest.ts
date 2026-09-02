@@ -44,6 +44,41 @@ function client(): Composio {
   return cached;
 }
 
+/**
+ * Le nombre d'abonnés d'une page — par l'outil pré-emballé, et lui seul.
+ *
+ * C'est la seule lecture où l'emballage fait mieux que le passage brut :
+ * `/v2/networkSizes/{urn}?edgeType=…` répond « Data Processing Exception
+ * while processing fields [/edgeType] » à travers le proxy, qui réencode
+ * l'énumération, tandis que `LINKEDIN_GET_NETWORK_SIZE` rend le compte sans
+ * broncher (6 711 sur ANMF, vérifié deux fois). On ne répare pas ce qui
+ * marche : le brut sert là où l'emballage bride, pas ailleurs.
+ */
+export async function fetchFollowersCount(options: {
+  connectedAccountId: string;
+  organizationId: string;
+}): Promise<number | null> {
+  const version = process.env.COMPOSIO_LINKEDIN_TOOL_VERSION ?? "latest";
+  const result = await client().tools.execute("LINKEDIN_GET_NETWORK_SIZE", {
+    userId: process.env.COMPOSIO_DEFAULT_USER_ID ?? "agence",
+    connectedAccountId: options.connectedAccountId,
+    version,
+    dangerouslySkipVersionCheck: version === "latest",
+    arguments: { organization_id: options.organizationId },
+  });
+
+  if (!result.successful) {
+    throw new Error(
+      typeof result.error === "string" && result.error.length > 0
+        ? result.error
+        : "Réponse Composio sans détail d'erreur.",
+    );
+  }
+
+  const size = (result.data as { firstDegreeSize?: number } | undefined)?.firstDegreeSize;
+  return typeof size === "number" && Number.isFinite(size) ? size : null;
+}
+
 export type LinkedinRest = (
   endpoint: string,
   options?: { version?: string | null },
