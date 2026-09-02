@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  addUtcDays,
   currentUtcMonth,
-  isDueForRetrieval,
+  decideRetrieval,
   isRetrievedThisMonth,
   retrievalCellState,
   sameUtcMonth,
+  utcDay,
 } from "./retrieval";
 import type { FinanceRetrievalSource } from "./types";
 
@@ -36,14 +38,23 @@ describe("sameUtcMonth", () => {
     expect(sameUtcMonth("2025-09-15T10:00:00Z", NOW)).toBe(false);
   });
 
-  it("juge en UTC : le 31 août à 23 h à Paris est encore août", () => {
-    // 2026-08-31T23:30 Paris = 2026-08-31T21:30Z — août, pas septembre.
-    expect(sameUtcMonth("2026-08-31T21:30:00Z", NOW)).toBe(false);
-  });
-
   it("rend faux sans date, ou sur une date illisible", () => {
     expect(sameUtcMonth(null, NOW)).toBe(false);
     expect(sameUtcMonth("pas-une-date", NOW)).toBe(false);
+  });
+});
+
+describe("utcDay", () => {
+  it("garde le jour UTC, pas celui du fuseau de la machine", () => {
+    expect(utcDay(new Date("2026-08-31T23:30:00Z"))).toBe("2026-08-31");
+  });
+});
+
+describe("addUtcDays", () => {
+  it("passe le mois et l'année", () => {
+    expect(addUtcDays("2026-08-31", 1)).toBe("2026-09-01");
+    expect(addUtcDays("2026-12-31", 1)).toBe("2027-01-01");
+    expect(addUtcDays("2026-09-15", 3)).toBe("2026-09-18");
   });
 });
 
@@ -70,20 +81,73 @@ describe("isRetrievedThisMonth", () => {
   });
 });
 
-describe("isDueForRetrieval", () => {
+describe("decideRetrieval", () => {
   it("ignore une fiche sans lien", () => {
-    expect(isDueForRetrieval(source({ source_link: null }), NOW)).toBe(false);
+    expect(
+      decideRetrieval({ source: source({ source_link: null }), lastChargeAt: "2026-09-10T00:00:00Z", now: NOW }),
+    ).toEqual({ due: false, reason: "no-link", dueOn: null });
   });
 
-  it("retient une fiche en attente, et une fiche en échec", () => {
-    expect(isDueForRetrieval(source(), NOW)).toBe(true);
-    expect(isDueForRetrieval(source({ retrieval_status: "failed" }), NOW)).toBe(true);
+  it("écarte une fiche récupérée ce mois-ci", () => {
+    expect(
+      decideRetrieval({
+        source: source({ retrieval_status: "done", auto_retrieved_at: "2026-09-11T08:00:00Z" }),
+        lastChargeAt: "2026-09-10T00:00:00Z",
+        now: NOW,
+      }),
+    ).toEqual({ due: false, reason: "done-this-month", dueOn: null });
   });
 
-  it("écarte une fiche récupérée ce mois-ci, la reprend le mois suivant", () => {
-    const done = source({ retrieval_status: "done", auto_retrieved_at: "2026-09-03T08:00:00Z" });
-    expect(isDueForRetrieval(done, NOW)).toBe(false);
-    expect(isDueForRetrieval(done, new Date("2026-10-01T00:00:00Z"))).toBe(true);
+  it("attend le prélèvement du mois : rien à chercher avant", () => {
+    expect(decideRetrieval({ source: source(), lastChargeAt: null, now: NOW })).toEqual({
+      due: false,
+      reason: "no-charge-this-month",
+      dueOn: null,
+    });
+    expect(
+      decideRetrieval({ source: source(), lastChargeAt: "2026-08-26T09:00:00Z", now: NOW }),
+    ).toEqual({ due: false, reason: "no-charge-this-month", dueOn: null });
+  });
+
+  it("passe le lendemain du prélèvement, pas le jour même", () => {
+    const charged = "2026-09-15T02:00:00Z";
+    expect(decideRetrieval({ source: source(), lastChargeAt: charged, now: NOW })).toEqual({
+      due: false,
+      reason: "charge-too-recent",
+      dueOn: "2026-09-16",
+    });
+    expect(
+      decideRetrieval({ source: source(), lastChargeAt: charged, now: new Date("2026-09-16T09:00:00Z") }),
+    ).toEqual({ due: true, reason: "due", dueOn: "2026-09-16" });
+  });
+
+  it("reste à faire tant que la facture n'est pas arrivée, jours après le prélèvement", () => {
+    expect(
+      decideRetrieval({ source: source(), lastChargeAt: "2026-09-02T09:00:00Z", now: NOW }).due,
+    ).toBe(true);
+  });
+
+  it("une fiche récupérée le mois dernier se réarme avec le prélèvement du mois", () => {
+    const done = source({ retrieval_status: "done", auto_retrieved_at: "2026-08-27T08:00:00Z" });
+    expect(
+      decideRetrieval({ source: done, lastChargeAt: "2026-09-10T00:00:00Z", now: NOW }).due,
+    ).toBe(true);
+  });
+
+  it("après un échec, trois jours avant de réessayer", () => {
+    const failed = source({ retrieval_status: "failed", updated_at: "2026-09-14T09:00:00Z" });
+    expect(decideRetrieval({ source: failed, lastChargeAt: "2026-09-10T00:00:00Z", now: NOW })).toEqual({
+      due: false,
+      reason: "failed-recently",
+      dueOn: "2026-09-17",
+    });
+    expect(
+      decideRetrieval({
+        source: failed,
+        lastChargeAt: "2026-09-10T00:00:00Z",
+        now: new Date("2026-09-17T09:00:00Z"),
+      }).due,
+    ).toBe(true);
   });
 });
 
