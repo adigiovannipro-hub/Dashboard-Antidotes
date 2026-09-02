@@ -668,6 +668,7 @@ import type {
    Même principe : le détail vit dans `src/lib/finance/types.ts`. */
 export type {
   FinanceMerchantLogo as FinanceMerchantLogoRow,
+  FinanceRetrievalSource as FinanceRetrievalSourceRow,
   FinanceAccount as FinanceAccountRow,
   FinanceBalanceSnapshot as FinanceBalanceSnapshotRow,
   FinanceInvoice as FinanceInvoiceRow,
@@ -681,6 +682,7 @@ export type {
 
 import type {
   FinanceMerchantLogo,
+  FinanceRetrievalSource,
   FinanceAccount,
   FinanceBalanceSnapshot,
   FinanceCategory,
@@ -863,6 +865,7 @@ export type Database = {
       finance_receipts: Table<FinanceReceipt>;
       finance_sync_runs: Table<FinanceSyncRun>;
       finance_merchant_logos: Table<FinanceMerchantLogo>;
+      finance_retrieval_sources: Table<FinanceRetrievalSource>;
       billing_engagements: Table<BillingEngagement>;
       billing_installments: Table<BillingInstallment>;
       billing_client_aliases: Table<BillingClientAlias>;

@@ -4,7 +4,7 @@
  * Ce module porte la trésorerie, les factures clients et les dépenses carte
  * d'Antidotes. Comme les Reçus, il se cloisonne par `org_id` et lit
  * l'appartenance dans `organization_members` — mais il partage la lecture plus
- * largement : les neuf tables se lisent dès qu'on est membre de
+ * largement : les dix tables se lisent dès qu'on est membre de
  * l'organisation, alors que toute écriture reste réservée à l'owner.
  *
  * Ces tests ouvrent de vraies sessions et attaquent l'API REST directement,
@@ -57,6 +57,8 @@ suite("isolation du module Finance (RLS)", () => {
     transactionB: "",
     ledgerA: "",
     ledgerB: "",
+    retrievalA: "",
+    retrievalB: "",
   };
   const userIds: Record<keyof typeof emails, string> = {} as never;
   const clients: Record<keyof typeof emails, SupabaseClient> = {} as never;
@@ -149,8 +151,24 @@ suite("isolation du module Finance (RLS)", () => {
       .select("id")
       .single();
 
+    const { data: retrieval, error: retrievalError } = await admin
+      .from("finance_retrieval_sources")
+      .insert({
+        org_id: org.id,
+        merchant_key: `fournisseur-${slug}`,
+        merchant_label: `Fournisseur confidentiel de ${name}`,
+        source_link: `https://factures.example/${slug}`,
+        retrieval_status: "pending",
+      })
+      .select("id")
+      .single();
+    if (retrievalError) {
+      throw new Error(`Migration 20260902a non appliquée ? ${retrievalError.message}`);
+    }
+
     return {
       orgId: org.id,
+      retrievalId: retrieval.id,
       accountId: account.id,
       balanceId: balance!.id,
       invoiceId: invoice!.id,
@@ -175,6 +193,7 @@ suite("isolation du module Finance (RLS)", () => {
     ids.categoryA = a.categoryId;
     ids.transactionA = a.transactionId;
     ids.ledgerA = a.ledgerId;
+    ids.retrievalA = a.retrievalId;
     ids.orgB = b.orgId;
     ids.accountB = b.accountId;
     ids.balanceB = b.balanceId;
@@ -182,6 +201,7 @@ suite("isolation du module Finance (RLS)", () => {
     ids.categoryB = b.categoryId;
     ids.transactionB = b.transactionId;
     ids.ledgerB = b.ledgerId;
+    ids.retrievalB = b.retrievalId;
 
     // L'espace client sert uniquement à fabriquer un utilisateur qui a bien un
     // accès à la plateforme, mais aucune appartenance à l'organisation.
@@ -235,6 +255,28 @@ suite("isolation du module Finance (RLS)", () => {
   });
 
   describe("une organisation ne voit rien de la voisine", () => {
+    it("ne lit ni ne modifie les fiches de récupération de factures de l'autre organisation", async () => {
+      const { data } = await clients.ownerA
+        .from("finance_retrieval_sources")
+        .select("id")
+        .in("id", [ids.retrievalA, ids.retrievalB]);
+      expect(data?.map((row) => row.id)).toEqual([ids.retrievalA]);
+
+      const { data: updated } = await clients.ownerA
+        .from("finance_retrieval_sources")
+        .update({ source_link: "https://injection.example" })
+        .eq("id", ids.retrievalB)
+        .select("id");
+      expect(updated ?? []).toEqual([]);
+
+      const { data: after } = await admin
+        .from("finance_retrieval_sources")
+        .select("source_link")
+        .eq("id", ids.retrievalB)
+        .single();
+      expect(after?.source_link).not.toBe("https://injection.example");
+    });
+
     it("ne lit aucune dépense de l'autre organisation, même en ciblant son id", async () => {
       const { data } = await clients.ownerA
         .from("finance_transactions")
@@ -302,6 +344,22 @@ suite("isolation du module Finance (RLS)", () => {
   });
 
   describe("un membre simple lit, mais ne décide pas", () => {
+    it("lit les fiches de récupération de factures, sans pouvoir en poser une", async () => {
+      const { data } = await clients.memberA
+        .from("finance_retrieval_sources")
+        .select("id")
+        .eq("id", ids.retrievalA);
+      expect(data?.map((row) => row.id)).toEqual([ids.retrievalA]);
+
+      const { error } = await clients.memberA.from("finance_retrieval_sources").insert({
+        org_id: ids.orgA,
+        merchant_key: "par-un-membre",
+        merchant_label: "Par un membre",
+        source_link: "https://factures.example/membre",
+      });
+      expect(error).not.toBeNull();
+    });
+
     it("lit bien les dépenses et la trésorerie de son organisation", async () => {
       const [{ data: transactions }, { data: accounts }] = await Promise.all([
         clients.memberA.from("finance_transactions").select("id").eq("id", ids.transactionA),
@@ -396,6 +454,30 @@ suite("isolation du module Finance (RLS)", () => {
   });
 
   describe("un owner travaille bien chez lui", () => {
+    it("pose le lien de récupération d'un marchand, puis le remplace", async () => {
+      const fiche = {
+        org_id: ids.orgA,
+        merchant_key: "adobe",
+        merchant_label: "Adobe",
+        source_link: "https://account.adobe.com/orders/billing-history",
+        retrieval_status: "pending",
+      };
+      const { error } = await clients.ownerA
+        .from("finance_retrieval_sources")
+        .upsert(fiche, { onConflict: "org_id,merchant_key" });
+      expect(error).toBeNull();
+
+      const { data, error: again } = await clients.ownerA
+        .from("finance_retrieval_sources")
+        .upsert(
+          { ...fiche, source_link: "https://account.adobe.com/orders" },
+          { onConflict: "org_id,merchant_key" },
+        )
+        .select("source_link");
+      expect(again).toBeNull();
+      expect(data?.[0]?.source_link).toBe("https://account.adobe.com/orders");
+    });
+
     it("recatégorise une dépense de son organisation", async () => {
       const { data } = await clients.ownerA
         .from("finance_transactions")
@@ -432,8 +514,8 @@ suite("isolation du module Finance (RLS)", () => {
   });
 
   describe("qui n'est pas de l'organisation ne voit rien", () => {
-    it("un client d'espace ne lit aucune des neuf tables", async () => {
-      const [accounts, balances, invoices, categories, rules, transactions, receipts, runs, ledger] =
+    it("un client d'espace ne lit aucune des dix tables", async () => {
+      const [accounts, balances, invoices, categories, rules, transactions, receipts, runs, ledger, retrieval] =
         await Promise.all([
           clients.client.from("finance_accounts").select("id"),
           clients.client.from("finance_balances_history").select("id"),
@@ -444,6 +526,7 @@ suite("isolation du module Finance (RLS)", () => {
           clients.client.from("finance_receipts").select("id"),
           clients.client.from("finance_sync_runs").select("id"),
           clients.client.from("finance_ledger_entries").select("id"),
+          clients.client.from("finance_retrieval_sources").select("id"),
         ]);
       expect(accounts.data).toEqual([]);
       expect(balances.data).toEqual([]);
@@ -454,6 +537,7 @@ suite("isolation du module Finance (RLS)", () => {
       expect(receipts.data).toEqual([]);
       expect(runs.data).toEqual([]);
       expect(ledger.data).toEqual([]);
+      expect(retrieval.data).toEqual([]);
     });
 
     it("un visiteur anonyme n'obtient rien", async () => {
