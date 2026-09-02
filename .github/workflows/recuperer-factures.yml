@@ -1,0 +1,90 @@
+# La récupération des factures d'abonnement — Adobe, Google, OVH…
+#
+# Chaque mois, la facture d'un abonnement attend derrière un compte, sur le
+# site du fournisseur : ni le mail ni Airwallex ne vont la chercher. Ce passage
+# le fait, le lendemain du prélèvement, et l'envoie à Airwallex par la boîte
+# Gmail déjà connectée aux Reçus.
+#
+# Pourquoi ici et pas sur Vercel : une fonction serverless n'a pas de
+# navigateur, et rien n'y survit d'une exécution à l'autre — or une page de
+# factures est réservée aux clients connectés. Le runner n'a pas de mémoire non
+# plus, mais il **rejoue** une session capturée une fois depuis un vrai
+# navigateur (`pnpm factures:connexion <marchand>`), chiffrée sur la fiche du
+# fournisseur. Le passage ne se connecte jamais lui-même : un mot de passe,
+# une double authentification, un captcha ne s'automatisent pas.
+#
+# Son propre workflow et non une étape de `airwallex-sync.yml` : celui-ci tourne
+# toutes les heures, et ouvrir un navigateur vingt-quatre fois par jour pour un
+# travail mensuel serait absurde. Une fois par jour suffit — le script ne fait
+# rien tant que le prélèvement du mois n'a pas eu lieu, et rien non plus une
+# fois la facture récupérée.
+#
+# Coût : une exécution par jour, deux à trois minutes navigateur compris,
+# soit ~80 minutes par mois sur les 2 000 gratuites d'un dépôt privé.
+#
+# Secrets requis (Settings → Secrets and variables → Actions) :
+#   NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY,
+#   SUPABASE_SERVICE_ROLE_KEY, FACTURES_SESSION_KEY — plus, pour l'envoi :
+#   CREDENTIALS_ENCRYPTION_KEY, GOOGLE_OAUTH_CLIENT_ID,
+#   GOOGLE_OAUTH_CLIENT_SECRET.
+
+name: Récupération des factures
+
+on:
+  schedule:
+    # 7 h 23 UTC — 9 h 23 à Paris l'été, 8 h 23 l'hiver. Minute décalée : les
+    # pics de la pleine heure sont là où GitHub retarde le plus ses schedules.
+    - cron: "23 7 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: recuperer-factures
+  cancel-in-progress: false
+
+jobs:
+  recuperer:
+    name: Factures des abonnements
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.18.2
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Installation
+        run: pnpm install --frozen-lockfile
+
+      # Mis en cache : le téléchargement coûte ~40 s, sa restauration ~10 s.
+      # `--with-deps` n'est posé qu'au premier passage, cache vide.
+      - name: Cache du navigateur
+        id: cache-navigateur
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ hashFiles('pnpm-lock.yaml') }}
+
+      - name: Navigateur
+        run: pnpm exec playwright install ${{ steps.cache-navigateur.outputs.cache-hit == 'true' && 'chromium' || '--with-deps chromium' }}
+
+      - name: Passage
+        run: pnpm factures:passage
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          # Chiffre les sessions de navigateur. Volontairement distincte de la
+          # clé des jetons Gmail : elle voyage entre le Mac qui ouvre la
+          # session et ce runner, deux endroits qui n'ont pas la clé de prod.
+          FACTURES_SESSION_KEY: ${{ secrets.FACTURES_SESSION_KEY }}
+          # L'envoi passe par la boîte Gmail des Reçus.
+          CREDENTIALS_ENCRYPTION_KEY: ${{ secrets.CREDENTIALS_ENCRYPTION_KEY }}
+          GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
+          GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}

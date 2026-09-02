@@ -258,3 +258,33 @@ export type FinanceMerchantLogo = {
   fetched_at: string;
   created_at: string;
 };
+
+// --- Récupération automatique des factures ---------------------------------
+
+/** Aligné sur `20260902a_finance_retrieval_schema.sql`. */
+export type FinanceRetrievalStatus = "none" | "pending" | "done" | "failed";
+
+export const RETRIEVAL_STATUS_LABELS: Record<FinanceRetrievalStatus, string> = {
+  none: "Sans lien",
+  pending: "En attente",
+  done: "Récupérée",
+  failed: "Échec",
+};
+
+/** Une fiche par marchand : où ses factures se trouvent, et si celle du mois
+    est arrivée. « Du mois » se juge à la lecture — voir `retrieval.ts`. */
+export type FinanceRetrievalSource = {
+  id: string;
+  org_id: string;
+  merchant_key: string;
+  merchant_label: string;
+  source_link: string | null;
+  retrieval_status: FinanceRetrievalStatus;
+  auto_retrieved_at: string | null;
+  last_error: string | null;
+  /** Session de navigateur du fournisseur, chiffrée — jamais lue par l'écran. */
+  session_encrypted: string | null;
+  session_saved_at: string | null;
+  created_at: string;
+  updated_at: string;
+};

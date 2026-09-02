@@ -1083,3 +1083,63 @@ async function hasAttachmentLanded(
 export function candidatesOf(document: ReceiptDocument): MatchCandidate[] {
   return Array.isArray(document.match_candidates) ? document.match_candidates : [];
 }
+
+// --- Récupération automatique des factures -----------------------------------
+
+/**
+ * Envoie une pièce à Airwallex depuis la boîte connectée de l'organisation.
+ *
+ * Le chemin de la récupération automatique des factures (module Finance) :
+ * le passage extérieur télécharge la facture sur le site du fournisseur et la
+ * dépose ici ; c'est cette fonction qui la fait partir, par la même boîte et
+ * le même format que les justificatifs reçus par mail. Le corps se limite au
+ * nom du fournisseur — à l'autre bout, un OCR cherche un montant et une date,
+ * et chaque phrase de plus est une confusion possible.
+ */
+export async function sendFileToAirwallex(options: {
+  orgId: string;
+  subject: string;
+  merchant: string;
+  fileName: string;
+  content: Buffer;
+}): Promise<{ ok: true; to: string; messageId: string } | { ok: false; error: string }> {
+  const admin = createAdminClient();
+
+  const { data, error } = await admin
+    .from("receipt_sources")
+    .select("*")
+    .eq("org_id", options.orgId)
+    .eq("status", "connected")
+    .order("created_at", { ascending: true })
+    .limit(1);
+  if (error) return { ok: false, error: `Lecture de la boîte : ${error.message}` };
+
+  const source = ((data ?? []) as unknown as ReceiptSource[])[0];
+  if (!source) {
+    return {
+      ok: false,
+      error:
+        "Aucune boîte Gmail connectée dans les Reçus : c'est par elle que la facture part à Airwallex.",
+    };
+  }
+
+  try {
+    const accessToken = await accessTokenFor(admin, source);
+    const mime = buildForwardMime({
+      from: source.email_address,
+      to: source.forward_to,
+      subject: options.subject,
+      originalBody: "",
+      attachment: {
+        filename: options.fileName,
+        contentType: "application/pdf",
+        content: options.content,
+      },
+      summary: { merchant: options.merchant, amount: null, date: null, invoiceNumber: null },
+    });
+    const messageId = await sendMessage({ accessToken, mime });
+    return { ok: true, to: source.forward_to, messageId };
+  } catch (cause) {
+    return { ok: false, error: cause instanceof Error ? cause.message : String(cause) };
+  }
+}

@@ -31,6 +31,7 @@ import { invoiceKpis } from "@/lib/finance/invoices";
 import { formatMoney } from "@/lib/finance/money";
 import { parseExpenseParams } from "@/lib/finance/params";
 import { merchantKey } from "@/lib/finance/merchant-logo";
+import { retrievalCellState } from "@/lib/finance/retrieval";
 import {
   getDailyFlows,
   getExpenseSummary,
@@ -43,6 +44,7 @@ import {
   listExpenses,
   listExpensesForBreakdown,
   listInvoices,
+  listRetrievalSources,
 } from "@/lib/finance/queries";
 import { CASH_HIDDEN_COOKIE } from "@/lib/ui-preferences";
 
@@ -118,14 +120,21 @@ export default async function FinancePage({
 
   /* Les logos de la page courante seulement — vingt-cinq URL signées au plus,
      pas une par marchand de la base. */
-  const logoUrls = await getMerchantLogoUrls(
-    context.orgId,
-    [...new Set(
-      expenses.rows
-        .map((transaction) => merchantKey(transaction.merchant ?? transaction.merchant_raw))
-        .filter(Boolean),
-    )],
-  );
+  const [logoUrls, retrievalSources] = await Promise.all([
+    getMerchantLogoUrls(
+      context.orgId,
+      [...new Set(
+        expenses.rows
+          .map((transaction) => merchantKey(transaction.merchant ?? transaction.merchant_raw))
+          .filter(Boolean),
+      )],
+    ),
+    /* Les fiches de récupération de factures, une par marchand : chaque ligne
+       lit celle de son marchand, et le mois courant se juge ici, côté
+       serveur — pas au rendu client, où il pourrait différer d'une heure. */
+    listRetrievalSources(context.orgId),
+  ]);
+  const now = new Date();
 
   const rows: DisplayExpense[] = expenses.rows.map((transaction) => {
     const resolved = transaction.category_id
@@ -149,6 +158,11 @@ export default async function FinancePage({
       logo_url:
         logoUrls[merchantKey(transaction.merchant ?? transaction.merchant_raw)] ??
         null,
+      retrieval: retrievalCellState(
+        retrievalSources[merchantKey(transaction.merchant ?? transaction.merchant_raw)] ??
+          null,
+        now,
+      ),
     };
   });
 

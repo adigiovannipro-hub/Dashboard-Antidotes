@@ -39,7 +39,9 @@
     "connect:web": "tsx scripts/connect-web-analytics.ts",
     "composio:lien": "tsx scripts/composio-lien.ts",
     "sync:web": "node --conditions=react-server --import tsx scripts/sync-web-analytics.ts",
-    "generate:academy-seed": "tsx scripts/generate-academy-seed.ts"
+    "generate:academy-seed": "tsx scripts/generate-academy-seed.ts",
+    "factures:connexion": "node --conditions=react-server --import tsx scripts/recuperer-factures.ts connexion",
+    "factures:passage": "node --conditions=react-server --import tsx scripts/recuperer-factures.ts passage"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.115.0",
