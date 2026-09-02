@@ -75,7 +75,7 @@ export function ConnexionsDialog({
     linked: Object.keys(selection) as SocialAccountKind[],
   });
 
-  const consentHref = (connector: "meta" | "youtube") =>
+  const consentHref = (connector: "meta" | "youtube" | "linkedin") =>
     `/api/social/${connector}/connexion?espace=${encodeURIComponent(
       workspaceSlug,
     )}&retour=${encodeURIComponent(`/espace/${workspaceSlug}/planning`)}`;
@@ -85,6 +85,13 @@ export function ConnexionsDialog({
   // tout le monde encombrerait la boîte de ceux qui n'y publient pas.
   const wantsYouTube = rows.some((row) => row.kind === "youtube");
   const youtubeLinked = accounts.some((account) => account.kind === "youtube");
+
+  /* LinkedIn ne demande **aucun consentement ici** : l'autorisation vit chez
+     Composio, posée une fois pour toute l'agence. Le bouton ne fait
+     qu'importer les pages entreprise dans l'inventaire — d'où « Relever les
+     pages » plutôt que « Brancher ». */
+  const wantsLinkedin = rows.some((row) => row.kind === "linkedin");
+  const linkedinLinked = accounts.some((account) => account.kind === "linkedin");
 
   const inventory = accounts.length;
 
@@ -118,6 +125,30 @@ export function ConnexionsDialog({
         </div>
 
         <AddNetwork workspaceSlug={workspaceSlug} rows={rows} />
+
+        {/* LinkedIn est **hors** du branchement direct : son autorisation vit
+            chez Composio, pas dans un aller-retour OAuth d'ici. Le bouton
+            n'importe que les pages dans l'inventaire, et reste donc offert
+            quel que soit l'état des branchements directs. */}
+        {wantsLinkedin ? (
+          <Button
+            render={<a href={consentHref("linkedin")} />}
+            variant={linkedinLinked ? "outline" : "accent"}
+            size="sm"
+          >
+            {linkedinLinked ? (
+              <>
+                <RefreshCw className="size-3.5" strokeWidth={1.75} aria-hidden />
+                Relever les pages LinkedIn
+              </>
+            ) : (
+              <>
+                <Plug className="size-3.5" strokeWidth={1.75} aria-hidden />
+                Ajouter les pages LinkedIn
+              </>
+            )}
+          </Button>
+        ) : null}
 
         {isDirectConnectEnabled() ? (
           <>
@@ -170,9 +201,9 @@ export function ConnexionsDialog({
           {/* `--text-tertiary` est à 2,79:1 : réservé aux icônes, jamais au texte. */}
           <p className="type-caption text-text-secondary">
             Rebrancher met l&apos;inventaire à jour sans toucher aux affectations
-            déjà faites ici. Seul Meta a un connecteur aujourd&apos;hui : les
+            déjà faites ici. Meta, YouTube et LinkedIn ont un connecteur : les
             autres réseaux se déclarent, s&apos;affichent, et attendent le leur.
-            Pour LinkedIn et TikTok, les démarches à engager sont listées dans{" "}
+            Pour TikTok, les démarches à engager sont listées dans{" "}
             <code>docs/connecteurs-linkedin-tiktok.md</code> — ce sont les
             validations qui prennent des semaines, pas le code.
           </p>

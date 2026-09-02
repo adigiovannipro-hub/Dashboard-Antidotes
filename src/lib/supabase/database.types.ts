@@ -16,7 +16,9 @@ export type DataProvider =
   | "tiktok_ads"
   | "tiktok_organic"
   // 0060 — Google Analytics 4, lu à travers Composio.
-  | "google_analytics";
+  | "google_analytics"
+  // 20260902c — LinkedIn organique, lu à travers Composio.
+  | "linkedin_organic";
 export type DataSourceStatus = "pending" | "connected" | "error" | "disabled";
 export type SyncStatus = "running" | "success" | "error";
 export type AdLevel = "campaign" | "adset" | "ad";
@@ -211,6 +213,23 @@ export type SocialPageDaily = {
   reach: number;
   engagements: number;
   video_views: number;
+  updated_at: string;
+}
+
+// 20260902d — les compteurs **cumulés** d'une page LinkedIn, relevés une
+// fois par jour. Cumulés parce que LinkedIn ne rend rien d'autre : la valeur
+// d'une période est la différence entre deux relevés.
+export type SocialLifetimeTotals = {
+  data_source_id: string;
+  workspace_id: string;
+  platform: SocialPlatform;
+  date: string;
+  impressions: number;
+  reach: number;
+  clicks: number;
+  likes: number;
+  comments: number;
+  shares: number;
   updated_at: string;
 }
 
@@ -839,6 +858,7 @@ export type Database = {
       ad_custom_events_daily: Table<AdCustomEventDaily>;
       social_followers: Table<SocialFollowers>;
       social_page_daily: Table<SocialPageDaily>;
+      social_lifetime_totals: Table<SocialLifetimeTotals>;
       social_posts: Table<SocialPost>;
       web_metrics_daily: Table<WebMetricsDaily>;
       web_metrics_monthly: Table<WebMetricsMonthly>;

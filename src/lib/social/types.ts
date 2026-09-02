@@ -95,16 +95,26 @@ export const META_KINDS: SocialAccountKind[] = [
  * Les réseaux qu'on sait réellement brancher.
  *
  * Meta d'un côté — un login, trois comptes —, YouTube de l'autre, qui demande
- * son propre aller-retour Google : les deux n'ont ni la même app, ni le même
- * périmètre d'autorisation. Le reste s'affiche sans bouton plutôt que d'offrir
- * une liste vide qui se lirait comme une panne.
+ * son propre aller-retour Google, LinkedIn en troisième, dont l'autorisation
+ * vit chez Composio : les trois n'ont ni la même app, ni le même périmètre.
+ * Le reste s'affiche sans bouton plutôt que d'offrir une liste vide qui se
+ * lirait comme une panne.
  */
-export const CONNECTABLE_KINDS: SocialAccountKind[] = [...META_KINDS, "youtube"];
+export const CONNECTABLE_KINDS: SocialAccountKind[] = [
+  ...META_KINDS,
+  "youtube",
+  "linkedin",
+];
 
 /** Par quel branchement passe un réseau — chaque famille a sa route OAuth. */
-export function connectorOf(kind: SocialAccountKind): "meta" | "youtube" | null {
+export function connectorOf(
+  kind: SocialAccountKind,
+): "meta" | "youtube" | "linkedin" | null {
   if (META_KINDS.includes(kind)) return "meta";
   if (kind === "youtube") return "youtube";
+  /* LinkedIn n'a pas d'aller-retour OAuth **ici** : la passerelle Composio
+     porte l'autorisation. La route ne fait qu'importer l'inventaire. */
+  if (kind === "linkedin") return "linkedin";
   return null;
 }
 

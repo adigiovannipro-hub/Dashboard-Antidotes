@@ -10,6 +10,7 @@ import type {
   AdEntity,
   AdMetricsDaily,
   SocialFollowers,
+  SocialLifetimeTotals,
   SocialPageDaily,
   SocialPost,
 } from "@/lib/supabase/database.types";
@@ -26,6 +27,7 @@ import {
   type CustomEventTotal,
 } from "./real-data";
 import { sumRawMetrics } from "@/lib/metrics/aggregate";
+import { EMPTY_RAW_METRICS } from "@/lib/metrics/types";
 
 /**
  * Lectures du Reporting — tout vient de la base, remplie par le connecteur.
@@ -316,6 +318,97 @@ export async function getOrganicData(options: {
     previousTotal,
     followers: monthlyFollowersSeries(followers),
     followersNow: last ? last.followers_count : null,
+  };
+}
+
+/**
+ * L'onglet LinkedIn — abonnés et compteurs cumulés, rien d'autre.
+ *
+ * LinkedIn ne sert **ni la liste des publications d'une page, ni le moindre
+ * découpage temporel** (sondé sur pièce le 2 septembre 2026, grains jour et
+ * mois refusés). Ce qu'on a est un compteur cumulé depuis la création de la
+ * page, relevé une fois par jour : la valeur d'une période est donc la
+ * **différence entre deux relevés** — celui qui ferme la période et le
+ * dernier d'avant.
+ *
+ * Conséquence assumée, et dite à l'écran : il n'y a pas d'antériorité. Une
+ * période antérieure au premier relevé rend `null`, ce qui devient « — » —
+ * jamais un zéro, qui se lirait comme une contre-performance.
+ */
+export async function getLinkedinData(options: {
+  workspaceId: string;
+  range: DateRange;
+  reader?: Awaited<ReturnType<typeof createClient>>;
+}): Promise<OrganicData> {
+  const supabase = options.reader ?? (await createClient());
+  const previous = previousRange(options.range);
+
+  const [totalsQuery, followersQuery] = await Promise.all([
+    supabase
+      .from("social_lifetime_totals")
+      .select("*")
+      .eq("workspace_id", options.workspaceId)
+      .eq("platform", "linkedin")
+      .order("date")
+      .limit(2000),
+    supabase
+      .from("social_followers")
+      .select("*")
+      .eq("workspace_id", options.workspaceId)
+      .eq("platform", "linkedin")
+      .order("date")
+      .limit(1000),
+  ]);
+
+  const snapshots = (totalsQuery.data ?? []) as unknown as SocialLifetimeTotals[];
+  const followers = (followersQuery.data ?? []) as unknown as SocialFollowers[];
+
+  const total = periodFromSnapshots(snapshots, options.range);
+  const previousTotal = periodFromSnapshots(snapshots, previous);
+  const last = followers.at(-1);
+
+  return {
+    /* Un seul relevé ne fait pas une période, mais il fait une courbe
+       d'abonnés : l'onglet s'ouvre dès qu'il y a de quoi montrer. */
+    hasData: followers.length > 0 || snapshots.length > 0,
+    posts: [],
+    total: total ?? EMPTY_RAW_METRICS,
+    previousTotal: previousTotal ?? EMPTY_RAW_METRICS,
+    followers: monthlyFollowersSeries(followers),
+    followersNow: last ? last.followers_count : null,
+  };
+}
+
+/**
+ * Ce qui s'est passé pendant une période, depuis des compteurs cumulés.
+ *
+ * Le relevé qui **ferme** la période moins le dernier qui la **précède**.
+ * Sans borne basse, on ne sait rien : rendre le cumul tel quel présenterait
+ * toute l'histoire de la page comme le mois écoulé.
+ */
+function periodFromSnapshots(
+  snapshots: readonly SocialLifetimeTotals[],
+  range: DateRange,
+): RawMetrics | null {
+  const closing = snapshots.filter((row) => row.date <= range.to).at(-1);
+  const opening = snapshots.filter((row) => row.date < range.from).at(-1);
+  if (!closing || !opening) return null;
+  // Le relevé de clôture doit tomber **dans** la période, sinon il ferme une
+  // période plus ancienne et la différence couvrirait deux mois.
+  if (closing.date < range.from) return null;
+
+  const delta = (key: keyof SocialLifetimeTotals): number =>
+    Math.max(0, Number(closing[key]) - Number(opening[key]));
+
+  return {
+    ...EMPTY_RAW_METRICS,
+    impressions: delta("impressions"),
+    reach: delta("reach"),
+    clicks: delta("clicks"),
+    linkClicks: delta("clicks"),
+    likes: delta("likes"),
+    comments: delta("comments"),
+    shares: delta("shares"),
   };
 }
 

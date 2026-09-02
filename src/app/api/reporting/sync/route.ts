@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { getWorkspace } from "@/lib/auth";
 import { syncWorkspaceWebAnalytics } from "@/lib/connectors/google-analytics/sync";
+import { syncWorkspaceLinkedin } from "@/lib/connectors/linkedin/sync";
 import { syncWorkspaceReporting } from "@/lib/connectors/meta/sync";
 import { missingServerEnv } from "@/lib/env";
 import { createAdminClient } from "@/lib/supabase/server";
@@ -68,16 +69,25 @@ export async function POST(request: Request) {
     atLeastSince: parsed.data.du,
   });
 
+  /* Et LinkedIn, si une page est affectée. `null` quand il n'y en a pas :
+     le bouton couvre tous les onglets, personne ne synchronise par réseau. */
+  const linkedinReport = await syncWorkspaceLinkedin({
+    admin,
+    workspaceId: workspace.id,
+  });
+  const linkedinReports = linkedinReport ? [linkedinReport] : [];
+
   const errors = [
     ...reports.filter((report) => report.error),
     ...webReports.filter((report) => report.error),
+    ...linkedinReports.filter((report) => report.error),
   ];
   return NextResponse.json({
     ok: errors.length === 0,
-    reports: [...reports, ...webReports],
+    reports: [...reports, ...webReports, ...linkedinReports],
     note:
-      reports.length === 0 && webReports.length === 0
-        ? `Aucun compte Meta affecté à cet espace, aucune propriété GA rattachée. ${COMPOSIO_TRANSITION_NOTE}`
+      reports.length === 0 && webReports.length === 0 && linkedinReports.length === 0
+        ? `Aucun compte Meta ni LinkedIn affecté à cet espace, aucune propriété GA rattachée. ${COMPOSIO_TRANSITION_NOTE}`
         : undefined,
   });
 }

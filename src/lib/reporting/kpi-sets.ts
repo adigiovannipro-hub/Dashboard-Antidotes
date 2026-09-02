@@ -33,9 +33,12 @@ export const HERO_METRIC: Record<SocialReportingNetwork, MetricId> = {
      dénominateur, le taux d'engagement afficherait « — » à perpétuité : les
      interactions deviennent le chiffre héros, c'est ce que Meta mesure encore. */
   facebook: "interactions",
+  /* LinkedIn rend la portée (`uniqueImpressionsCount`) : le taux
+     d'engagement a son dénominateur, et c'est le chiffre qui dit si la page
+     intéresse — même lecture qu'Instagram. */
+  linkedin: "engagementRate",
   // Réseaux sans connecteur encore : les vues portent la vidéo, les
   // interactions portent le reste. Ces choix se rejugeront au branchement.
-  linkedin: "interactions",
   tiktok: "videoViews",
   youtube: "videoViews",
   x: "interactions",
@@ -85,7 +88,10 @@ export const KPI_SETS: Record<SocialReportingNetwork, MetricId[]> = {
      rien n'est mesuré (`UNMEASURED_AT_ZERO`), jamais un zéro qui accuserait
      le client. Si Meta les rend un jour, elles se remplissent sans code. */
   facebook: ["impressions", "videoViews", "likes", "comments", "saves", "shares"],
-  linkedin: ["likes", "comments", "shares"],
+  /* LinkedIn ne sert pas les publications une à une, mais il sert les
+     compteurs de la page : impressions, portée, clics, réactions. La grille
+     suit donc ce qui existe, sans enregistrements — LinkedIn n'en a pas. */
+  linkedin: ["impressions", "reach", "clicks", "likes", "comments", "shares"],
   tiktok: ["likes", "comments", "saves", "shares"],
   youtube: ["likes", "comments", "shares"],
   x: ["likes", "comments", "shares"],

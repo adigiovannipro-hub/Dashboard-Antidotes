@@ -38,7 +38,7 @@ export function OrganicDashboard({
   followersNow,
   period,
 }: {
-  network: "instagram" | "facebook" | "tiktok";
+  network: "instagram" | "facebook" | "linkedin" | "tiktok";
   posts: readonly SocialPost[];
   total: RawMetrics;
   previousTotal: RawMetrics;
@@ -55,12 +55,20 @@ export function OrganicDashboard({
      absente. La règle de la maison vaut ici comme ailleurs — une source
      absente affiche « — », jamais une valeur inventée. */
   const aucunePublication = posts.length === 0;
+
+  /* Sauf sur LinkedIn, où les chiffres **ne viennent pas des publications** :
+     l'API ne sert aucune liste de posts, seulement les compteurs de la page.
+     Un tableau vide y est normal, et les tuiles restent pleines — les lier à
+     `posts.length` afficherait « — » partout sur des mesures bien réelles. */
+  const parPublication = network !== "linkedin";
+  const aucuneMesure = parPublication && aucunePublication;
+
   const mesure = (metric: MetricId) =>
-    aucunePublication ? null : computeMetric(metric, total, mode);
+    aucuneMesure ? null : computeMetric(metric, total, mode);
 
   // Pas de comparaison sans mesure : un delta contre rien ne veut rien dire.
   const delta = (metric: MetricId) => {
-    if (aucunePublication) return undefined;
+    if (aucuneMesure) return undefined;
     return computeDelta(
       metric,
       computeMetric(metric, total, mode),
@@ -81,16 +89,21 @@ export function OrganicDashboard({
           /* Sans publication lue, « 0 vues » contredirait les tuiles à « — »
              juste à côté : on ne dit pas un chiffre qu'on n'a pas mesuré. */
           sentence={`${
-            aucunePublication
+            aucuneMesure
               ? "Aucune publication lue sur la période"
-              : /* Facebook : Meta ne rend plus les impressions par publication —
+              : !parPublication
+                ? /* LinkedIn compte la page, pas les publications : on dit ce
+                     qu'on mesure vraiment plutôt qu'un nombre de posts qu'on
+                     n'a pas. */
+                  `${formatMetric("impressions", total.impressions)} vues, ${formatMetric("reach", total.reach)} personnes atteintes`
+                : /* Facebook : Meta ne rend plus les impressions par publication —
                    annoncer « 0 vues » accuserait le contenu, on compte ce qui
                    est mesuré. */
-                `${formatValue(posts.length, "integer")} publication${posts.length > 1 ? "s" : ""}, ${
-                  network === "instagram"
-                    ? `${formatMetric("impressions", total.impressions)} vues`
-                    : `${formatMetric("interactions", total.likes + total.comments + total.saves + total.shares)} interactions`
-                }`
+                  `${formatValue(posts.length, "integer")} publication${posts.length > 1 ? "s" : ""}, ${
+                    network === "instagram"
+                      ? `${formatMetric("impressions", total.impressions)} vues`
+                      : `${formatMetric("interactions", total.likes + total.comments + total.saves + total.shares)} interactions`
+                  }`
           }${
             followersNow !== null
               ? ` — ${formatValue(followersNow, "integer")} abonnés aujourd'hui`
@@ -115,23 +128,29 @@ export function OrganicDashboard({
 
       <FollowersCard network={networkName} data={followers} />
 
-      <Panel>
-        <PanelHeader
-          title={detailTitle(network)}
-          count={posts.length}
-          description={
-            aucunePublication && network === "facebook"
-              ? "Meta réserve la lecture des publications d'une Page aux applications passées par son App Review — l'application n'a pas même le droit de demander la permission. Les abonnés, eux, se lisent sans elle."
-              : "Publications parues sur la période. Cliquer un en-tête trie le tableau."
-          }
-        />
-        <PanelBody>
-          {/* Mêmes colonnes qu'Instagram : le client lit les deux tableaux
-              avec la même grille. Sur Facebook, impressions et
-              enregistrements restent à zéro tant que Meta ne les rend pas. */}
-          <PostsTable posts={posts} withSaves withImpressions />
-        </PanelBody>
-      </Panel>
+      {/* LinkedIn n'a pas de tableau : l'API ne rend pas les publications
+          d'une page. Un panneau vide avec un en-tête de colonnes se lirait
+          comme une panne — on n'affiche rien plutôt que de promettre une
+          liste qui n'arrivera pas. */}
+      {parPublication ? (
+        <Panel>
+          <PanelHeader
+            title={detailTitle(network)}
+            count={posts.length}
+            description={
+              aucunePublication && network === "facebook"
+                ? "Meta réserve la lecture des publications d'une Page aux applications passées par son App Review — l'application n'a pas même le droit de demander la permission. Les abonnés, eux, se lisent sans elle."
+                : "Publications parues sur la période. Cliquer un en-tête trie le tableau."
+            }
+          />
+          <PanelBody>
+            {/* Mêmes colonnes qu'Instagram : le client lit les deux tableaux
+                avec la même grille. Sur Facebook, impressions et
+                enregistrements restent à zéro tant que Meta ne les rend pas. */}
+            <PostsTable posts={posts} withSaves withImpressions />
+          </PanelBody>
+        </Panel>
+      ) : null}
     </div>
   );
 }

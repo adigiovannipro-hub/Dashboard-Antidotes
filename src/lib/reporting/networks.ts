@@ -59,6 +59,7 @@ const WITH_CONNECTOR: readonly ReportingNetwork[] = [
   "meta-ads",
   "instagram",
   "facebook",
+  "linkedin",
   "site-web",
 ];
 
@@ -95,6 +96,7 @@ export function providersForNetwork(network: ReportingNetwork): string[] {
   if (network === "site-web") return ["google_analytics"];
   if (network === "meta-ads") return ["meta_ads"];
   if (network === "instagram" || network === "facebook") return ["meta_organic"];
+  if (network === "linkedin") return ["linkedin_organic"];
   // Le payant d'un réseau a son fournisseur à lui, comme `meta_ads`.
   if (network === "linkedin-ads") return ["linkedin_ads"];
   if (network === "tiktok-ads") return ["tiktok_ads"];

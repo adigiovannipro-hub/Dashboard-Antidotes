@@ -37,6 +37,7 @@ import {
 } from "@/lib/reporting/period";
 import {
   getAdsData,
+  getLinkedinData,
   getOrganicData,
   listReportingSources,
 } from "@/lib/reporting/queries";
@@ -135,7 +136,11 @@ export default async function DashboardPage({
   const organic =
     network === "instagram" || network === "facebook" || network === "tiktok"
       ? await getOrganicData({ workspaceId: workspace.id, platform: network, range })
-      : null;
+      : /* LinkedIn a la même vue mais pas la même source : compteurs cumulés
+           de la page, pas de publications — d'où sa lecture à lui. */
+        network === "linkedin"
+        ? await getLinkedinData({ workspaceId: workspace.id, range })
+        : null;
   const web =
     network === "site-web"
       ? await getWebData({ workspaceId: workspace.id, range })
@@ -298,7 +303,10 @@ export default async function DashboardPage({
           focus={ads.focus}
           drillable
         />
-      ) : (network === "instagram" || network === "facebook" || network === "tiktok") &&
+      ) : (network === "instagram" ||
+          network === "facebook" ||
+          network === "linkedin" ||
+          network === "tiktok") &&
         organic?.hasData ? (
         <OrganicDashboard
           network={network}
