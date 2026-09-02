@@ -178,21 +178,21 @@ describe("le taux d'engagement de LinkedIn", () => {
   };
 
   it("compte les clics parmi les engagements — c'est la règle de LinkedIn", () => {
-    expect(computeMetric("engagements", ANMF_AOUT_2026)).toBe(2_485);
+    expect(computeMetric("engagements", ANMF_AOUT_2026, "legacy")).toBe(2_485);
   });
 
   it("retrouve le 6,8 % affiché par LinkedIn lui-même", () => {
     /* LinkedIn annonce 6,8 % sur le 2 → 31 août ; nous couvrons un jour de
        plus, d'où l'écart au centième. Le rapport aux **impressions** est ce
        qui compte : rapporté à la portée, on lirait 11 %. */
-    expect(computeMetric("engagementRateWithClicks", ANMF_AOUT_2026)).toBeCloseTo(
+    expect(computeMetric("engagementRateWithClicks", ANMF_AOUT_2026, "legacy")).toBeCloseTo(
       0.0673,
       4,
     );
   });
 
   it("distingue les vues de la page de celles des offres d'emploi", () => {
-    expect(computeMetric("pageViews", ANMF_AOUT_2026)).toBe(316);
-    expect(computeMetric("jobsPageViews", ANMF_AOUT_2026)).toBe(42);
+    expect(computeMetric("pageViews", ANMF_AOUT_2026, "legacy")).toBe(316);
+    expect(computeMetric("jobsPageViews", ANMF_AOUT_2026, "legacy")).toBe(42);
   });
 });

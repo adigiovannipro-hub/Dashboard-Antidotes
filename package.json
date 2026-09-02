@@ -45,7 +45,8 @@
     "generate:academy-seed": "tsx scripts/generate-academy-seed.ts",
     "recus:confiance": "node --conditions=react-server --import tsx scripts/recus-confiance.ts",
     "factures:connexion": "node --conditions=react-server --import tsx scripts/recuperer-factures.ts connexion",
-    "factures:passage": "node --conditions=react-server --import tsx scripts/recuperer-factures.ts passage"
+    "factures:passage": "node --conditions=react-server --import tsx scripts/recuperer-factures.ts passage",
+    "diagnostic:tiktok": "tsx scripts/diagnostic-tiktok.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.115.0",
