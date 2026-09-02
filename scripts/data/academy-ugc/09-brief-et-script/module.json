@@ -1,0 +1,100 @@
+{
+  "slug": "brief-et-script",
+  "title": "Le brief et la préparation du tournage",
+  "description": "Ce module transforme un brief approximatif en plan de tournage exécutable : la grille de lecture qui repère les quatre pièges, la structure de script en quatre blocs avec ses proportions, la liste de plans qui divise le temps de tournage par deux, et la checklist de la veille qui fait commencer une session à l'heure.",
+  "position": 9,
+  "lessons": [
+    {
+      "position": 1,
+      "slug": "lire-un-brief",
+      "title": "Lire un brief de marque et repérer les pièges",
+      "summary": "Un brief conforme peut donner une vidéo inutilisable. Les cinq éléments qu'il doit contenir, les quatre pièges classiques avec leur remède, et les quatre questions qui le rendent exploitable — dont celle que personne ne pose.",
+      "duration_min": 11,
+      "script_file": "01-lire-un-brief.md",
+      "resources": [
+        {
+          "title": "Lire un brief et le rendre exploitable",
+          "description": "La grille des cinq éléments, le tableau des quatre pièges et de leurs remèdes, les quatre questions et le modèle de reformulation en cinq lignes.",
+          "kind": "document",
+          "url": null,
+          "body": "## Lire un brief et le rendre exploitable\n\n### Les cinq éléments d'un brief complet\n\n| Élément | Question | Présent ? |\n|---|---|---|\n| Quoi | Le produit et son bénéfice |  |\n| Pour qui | La cible réelle |  |\n| Où | La diffusion et sa durée |  |\n| Quel angle | L'argument unique |  |\n| Quelles contraintes | Mentions, interdits, charte |  |\n\nLa plupart des briefs en contiennent deux ou trois. **Ce qui manque se\ndemande, jamais ne se devine.**\n\n### Les quatre pièges classiques\n\n| Piège | Traduction réelle | Remède |\n|---|---|---|\n| « Soyez naturelle » | « Je le reconnaîtrai quand je le verrai » | Faire valider un **script écrit** avant de tourner |\n| Dix arguments listés | Le client n'a pas priorisé | « Une vidéo tient un argument — sinon il en faut plusieurs » |\n| Description d'un film de marque | Confusion de format | « Ce format se reconnaît comme une pub en une seconde » |\n| Aucune contrainte, secteur réglementé | Elles existent quand même | Demander explicitement les allégations interdites |\n\n### Les quatre questions qui comblent tout\n\n1. Si vous ne deviez garder qu'un seul argument, lequel ?\n2. Quelle est l'objection principale de vos clients avant l'achat ?\n3. Y a-t-il des mots, allégations ou visuels interdits ?\n4. **À quoi ressemblerait une vidéo ratée pour vous ?**\n\nLa quatrième est la plus utile, et personne ne la pose. Elle fait sortir les\ncritères implicites : « trop jeune », « pas dans une salle de bain ».\n\n### La reformulation en cinq lignes — avant tournage\n\n> Pour cadrer avant tournage :\n> — Argument principal : …\n> — Cible : …\n> — Interdits : … ; mention obligatoire : …\n> — Format : …\n> — Une vidéo ratée pour vous : …\n\n**C'est ton assurance** : une reprise demandée hors de ces cinq lignes est une\nmodification de périmètre, donc facturable.\n\n### Quand il n'y a aucun brief\n\n« On vous fait confiance » = tu écris le brief toi-même, en cinq lignes, et tu\nle fais valider. Tu passes pour une professionnelle et tu obtiens ta trace.\n"
+        },
+        {
+          "title": "Checklist du brief absent",
+          "description": "Quand une marque dit « on vous fait confiance » : écrire le brief soi-même en cinq lignes et le faire valider avant de tourner.",
+          "kind": "checklist",
+          "url": null
+        }
+      ]
+    },
+    {
+      "position": 2,
+      "slug": "le-script-ugc",
+      "title": "Le script UGC : hook, problème, preuve, appel",
+      "summary": "Soixante-dix mots pour retenir, expliquer, convaincre et faire cliquer. Les quatre blocs avec leurs proportions, six mécaniques de hook, les règles pour écrire à l'oreille et la règle de spécificité qui remplace dix adjectifs par un chiffre.",
+      "duration_min": 12,
+      "script_file": "02-le-script-ugc.md",
+      "resources": [
+        {
+          "title": "La structure d'un script UGC",
+          "description": "Les quatre blocs et leurs timings, les six mécaniques de hook avec exemples, les règles d'écriture orale, le compte de mots par durée et la règle de spécificité.",
+          "kind": "document",
+          "url": null,
+          "body": "## La structure d'un script UGC\n\n### Les quatre blocs et leurs proportions\n\n| Bloc | Timing | Rôle | Erreur fréquente |\n|---|---|---|---|\n| **Hook** | 0 – 3 s | Empêcher le pouce de glisser | Y mettre le produit ou le logo |\n| **Problème** | 3 – 10 s | Faire se reconnaître | **Le sauter** pour aller au produit |\n| **Preuve** | 10 – 25 s | Le produit comme réponse | Empiler les caractéristiques |\n| **Appel** | 25 – 30 s | Une seule action | Deux actions, ou « n'hésitez pas à » |\n\nLe bloc **problème** doit occuper au moins un quart de la vidéo. C'est celui\nqui fait rester, et le premier qu'on supprime.\n\n### Six mécaniques de hook\n\n| Mécanique | Exemple |\n|---|---|\n| Situation reconnaissable | « Si tu ranges tes câbles en te disant que tu trieras plus tard… » |\n| Chiffre | « J'ai dépensé 240 € en crèmes avant de comprendre un truc. » |\n| Objection assumée | « J'étais persuadée que c'était encore un gadget. » |\n| Question fermée | « Tu fais aussi cette erreur en te lavant les cheveux ? » |\n| Résultat d'abord | « Trois semaines et je ne me réveille plus la nuit. » |\n| Contre-pied | « Arrête d'acheter des protéines. Enfin — celles-là. » |\n\n**Jamais** : « Salut ! » · le logo · le nom du produit · une musique d'intro ·\nun plan d'ambiance.\n\n### Écrire pour l'oreille\n\n- Phrases de **15 mots maximum** — si tu manques de souffle, c'est trop long\n- Vocabulaire **parlé** : « du coup », « en fait », « genre »\n- **Une idée par phrase** : les subordonnées se perdent à l'oral\n- **Lecture debout à voix haute** : chaque hésitation est un endroit à réécrire\n\n### Compte de mots\n\n| Durée | Mots | À viser |\n|---|---|---|\n| 30 s | 70 – 80 | 70 |\n| 45 s | ~110 | 100 |\n| 60 s | ~150 | 135 |\n\nÉcris **10 % de moins** que le maximum : le débit ralentit à l'enregistrement.\n\n### La règle de spécificité\n\nUn détail précis vaut dix adjectifs. Trois sources toujours disponibles :\nun **chiffre** (durée, prix, quantité) · un **moment** (« le mardi soir, après\nle sport ») · une **sensation** (« ça ne colle pas »).\n\n« C'est super efficace » ne prouve rien.\n« Au bout de quatre jours, plus aucune plaque sur les coudes » prouve.\n"
+        },
+        {
+          "title": "Checklist de relecture d'un script",
+          "description": "Lire debout, à voix haute, chronomètre en main : chaque hésitation est un endroit à réécrire, et chaque dépassement une coupe à faire avant de tourner.",
+          "kind": "checklist",
+          "url": null
+        }
+      ]
+    },
+    {
+      "position": 3,
+      "slug": "la-liste-de-plans",
+      "title": "Le storyboard en une page et la liste de plans",
+      "summary": "Le script dit ce qu'on entend, pas ce qu'on voit — et c'est cette moitié manquante qui fait exploser les temps de tournage. Cinq valeurs de cadrage, un tableau de huit lignes, et l'ordre de tournage par famille qui divise la mise en place par trois.",
+      "duration_min": 11,
+      "script_file": "03-la-liste-de-plans.md",
+      "resources": [
+        {
+          "title": "La liste de plans",
+          "description": "Les cinq valeurs de cadrage, le tableau type de huit plans, l'ordre de tournage par famille et les cinq points de préparation du produit.",
+          "kind": "document",
+          "url": null,
+          "body": "## La liste de plans\n\nPas de dessin : une **liste de prises de vue**. Huit à douze lignes pour\ntrente secondes.\n\n### Les cinq valeurs de cadrage\n\n| Valeur | Ce qu'on voit | Usage |\n|---|---|---|\n| Buste | Taille à la tête | Le témoignage par défaut |\n| Gros plan visage | Menton au front | Une phrase forte |\n| Plan produit | Le produit seul, en main ou posé | Le montrer, net et lisible |\n| Macro | Texture, détail, mécanisme | La valeur perçue |\n| Plan d'action | Les mains qui font | Verser, ouvrir, appliquer |\n\n**Une coupe toutes les 2 à 3 secondes.** Exceptions : une transformation\n(5 s) et le hook, souvent meilleur en plan fixe continu.\n\n### Le tableau type\n\n| # | Ce qu'on voit | Cadrage | Durée | Texte |\n|---|---|---|---|---|\n| 1 | Moi, face caméra, produit hors champ | Buste | 3 s | Le hook |\n| 2 | Le tiroir en désordre | Plan d'action | 3 s | Le problème |\n| 3 | Détail du désordre | Macro | 2 s | (suite) |\n| 4 | Le produit posé | Plan produit | 2 s | Transition |\n| 5 | Mes mains qui l'utilisent | Plan d'action | 5 s | Démonstration |\n| 6 | Le résultat | Macro | 3 s | La preuve |\n| 7 | Moi, face caméra | Buste | 4 s | Le bénéfice |\n| 8 | Moi, gros plan | Gros plan | 3 s | L'appel à l'action |\n\n### Sous la liste — trois lignes de matériel\n\n**Accessoires** : … **Tenue** : … **Décor** : …\n\n### L'ordre de tournage — par famille, jamais par script\n\n1. Tous les plans **face caméra** (coiffée, en tenue)\n2. Tous les plans **produit** (sans souci d'apparence)\n3. Tous les **macros** (trépied rapproché)\n4. Tous les **plans d'action**\n\nChaque changement de cadrage demande un réglage. Grouper divise le temps de\nmise en place par trois.\n\n### Préparer le produit — cinq points\n\n- [ ] Nettoyé (les traces de doigts se voient en macro)\n- [ ] Étiquette face caméra, lisible, non décollée\n- [ ] Protections retirées (film, autocollant de prix, code-barres)\n- [ ] État de départ conforme (plein / fermé selon le plan)\n- [ ] Second exemplaire si le produit se consomme\n"
+        },
+        {
+          "title": "Modèle de liste de plans",
+          "description": "Un tableau à cinq colonnes — numéro, ce qu'on voit, cadrage, durée, texte — à remplir en dix minutes avant chaque tournage.",
+          "kind": "template",
+          "url": null
+        }
+      ]
+    },
+    {
+      "position": 4,
+      "slug": "preparer-le-tournage",
+      "title": "Préparer le décor, les accessoires, la tenue",
+      "summary": "Quarante minutes se perdent avant la première prise quand rien n'a été préparé la veille. Les quatre choses à traquer dans le champ, les trois catégories d'accessoires, les cinq règles de tenue et la checklist de dix points du soir.",
+      "duration_min": 10,
+      "script_file": "04-preparer-le-tournage.md",
+      "resources": [
+        {
+          "title": "La checklist de la veille",
+          "description": "Les dix points du soir, le tableau des quatre choses à traquer dans le champ avec leur conséquence, les catégories d'accessoires et les cinq règles de tenue.",
+          "kind": "document",
+          "url": null,
+          "body": "## La checklist de la veille\n\nDix minutes le soir. Ce n'est pas de la méticulosité : c'est ce qui permet de\ncommencer à l'heure et de finir avant d'être fatiguée.\n\n1. [ ] Scripts imprimés ou sur un second écran\n2. [ ] Listes de plans prêtes\n3. [ ] Produits nettoyés, alignés dans l'ordre de tournage\n4. [ ] Deux tenues sorties et repassées\n5. [ ] Décor vidé de ce qui ne doit pas y être\n6. [ ] Accessoires rassemblés\n7. [ ] Batteries téléphone et micro en charge\n8. [ ] Mémoire libérée\n9. [ ] Frigo repérable pour être coupé le matin\n10. [ ] Créneau bloqué, **aucun rendez-vous après**\n\n### Les quatre choses à traquer dans le champ\n\n| À traquer | Exemple | Conséquence |\n|---|---|---|\n| Personnel identifiable | Courrier, photo, prénom sur un mug | Refus de la marque |\n| Daté | Calendrier, décoration saisonnière | Vidéo inutilisable dans six mois |\n| **Concurrent** | Une bouteille, un logo au fond | **Vidéo entière à refaire** |\n| Désordre involontaire | Linge, câble qui pend, poubelle | Amateurisme perçu |\n\n**Hors du champ, rien n'a d'importance.** Tu n'as pas besoin d'un intérieur\nrangé, tu as besoin d'un cadre propre.\n\n### Les accessoires — trois catégories\n\n| Catégorie | Exemples | Combien |\n|---|---|---|\n| Indispensables | Le produit, un verre, une serviette, un miroir | Ce que le script exige |\n| Crédibilisants | Tasse à moitié bue, carnet ouvert, plante | 2 à 3, pas plus |\n| Interdits | Tout logo tiers reconnaissable | 0 — masquer au gaffer ou sortir du cadre |\n\n### La tenue — cinq règles\n\n1. **Uni**, sans motif fin (les rayures serrées créent un moiré à la compression)\n2. Dans ta **palette**\n3. **Sans logo** d'une autre marque\n4. **Contrastée** avec le fond\n5. **Différente d'une vidéo à l'autre** pour un même client\n\nDeux tenues par session, changement à mi-parcours : le geste le plus rentable\npour donner l'impression de plusieurs tournages.\n\n### Le jour même — deux vérifications lumière\n\nLe **ciel** (couvert = idéal, grand soleil = voilage) et les **lampes\néteintes**, toutes. Le mélange de températures est irrattrapable.\n"
+        },
+        {
+          "title": "Checklist du jour même",
+          "description": "Deux vérifications lumière avant de commencer : l'état du ciel, et toutes les lampes éteintes. Le mélange de températures est irrattrapable.",
+          "kind": "checklist",
+          "url": null
+        }
+      ]
+    }
+  ]
+}

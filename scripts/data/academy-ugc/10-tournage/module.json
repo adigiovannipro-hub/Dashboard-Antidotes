@@ -1,0 +1,146 @@
+{
+  "slug": "tournage-ugc",
+  "title": "Le tournage",
+  "description": "Ce module réduit le tournage à un vocabulaire de cinq plans et une méthode : les réglages exacts de chaque cadrage, la technique qui fait passer de douze prises à trois, les hooks alternatifs qui se tournent en six minutes et se facturent, les gestes du plan produit, le B-roll qui sauve un montage, et la journée en lot qui divise le temps unitaire par sept.",
+  "position": 10,
+  "lessons": [
+    {
+      "position": 1,
+      "slug": "les-cinq-plans",
+      "title": "Cadrer : les cinq plans qui reviennent toujours",
+      "summary": "Cinq plans couvrent 90 % des vidéos UGC. Leurs réglages exacts — distance, hauteur, mise au point —, les trois contraintes du format vertical, l'enchaînement qui tient l'attention et les trois défauts de cadrage les plus fréquents.",
+      "duration_min": 11,
+      "script_file": "01-les-cinq-plans.md",
+      "resources": [
+        {
+          "title": "Les cinq plans et leurs réglages",
+          "description": "Le tableau des cinq valeurs avec distance et hauteur d'objectif, l'enchaînement type, les contraintes du 9:16 et la fiche de tes propres réglages à noter.",
+          "kind": "document",
+          "url": null,
+          "body": "## Les cinq plans et leurs réglages\n\n| Plan | Ce qu'on voit | Distance | Hauteur d'objectif | Usage |\n|---|---|---|---|---|\n| Buste | Taille à la tête, un poing d'air au-dessus | ~1 m | Hauteur des yeux | Le témoignage |\n| Gros plan visage | Menton au front | ~50 cm | Hauteur des yeux | Une phrase forte |\n| Plan produit | Le produit, 1/3 du cadre | 40 – 60 cm | Selon le produit | Le montrer, net |\n| Macro | Texture, détail | 10 – 15 cm | Rasante | La valeur perçue |\n| Plan d'action | Mains + produit, pas le visage | 40 – 70 cm | Au-dessus du geste | Prouver l'usage |\n\n### L'enchaînement type — 30 secondes\n\nBuste (hook) → action/macro (le problème) → plan produit (l'entrée) →\naction (l'usage) → macro (le résultat) → buste (le bénéfice) → gros plan (l'appel)\n\n**Une coupe toutes les 2 à 3 secondes.** Jamais plus de 5 secondes sur la\nmême valeur.\n\n### Les trois contraintes du 9:16\n\n1. **Rien d'important dans les 15 % du haut ni du bas** — l'interface des\n   plateformes les recouvre\n2. **Un seul sujet par plan** — le format est trop étroit pour deux\n3. **Pas de plan large** — en vertical, il montre surtout du plafond et du sol\n\n### Les trois défauts les plus fréquents\n\n| Défaut | Cause | Correction |\n|---|---|---|\n| Tête coupée en haut | Cadrage trop serré | Un poing d'air au-dessus |\n| Contre-plongée | Téléphone posé sur une table | Objectif à hauteur d'yeux |\n| Produit en silhouette | Contre-jour | Le produit **entre** toi et la lumière |\n\n### Mes réglages notés\n\n| Plan | Hauteur trépied | Distance |\n|---|---|---|\n| Buste |  |  |\n| Gros plan |  |  |\n| Produit |  |  |\n| Macro |  |  |\n"
+        },
+        {
+          "title": "Checklist de cadrage",
+          "description": "Un poing d'air au-dessus de la tête, objectif à hauteur d'yeux, produit entre toi et la lumière, mise au point verrouillée.",
+          "kind": "checklist",
+          "url": null
+        }
+      ]
+    },
+    {
+      "position": 2,
+      "slug": "jouer-face-camera",
+      "title": "Jouer face caméra : voix, rythme, regard",
+      "summary": "Douze prises ratées ne viennent presque jamais du charisme mais de quatre défauts techniques. Ne jamais mémoriser mot à mot, l'échauffement de trois minutes, la règle des trois prises à variable changée, et la technique gratuite qui change tout.",
+      "duration_min": 11,
+      "script_file": "02-jouer-face-camera.md",
+      "resources": [
+        {
+          "title": "Parler face caméra",
+          "description": "Les quatre réglages du corps, l'échauffement de trois minutes, le rythme des prises, le tableau des cinq défauts de voix et la technique du « à qui je parle ».",
+          "kind": "document",
+          "url": null,
+          "body": "## Parler face caméra\n\n### La règle numéro un\n\n**Ne mémorise jamais mot à mot.** C'est la cause principale de l'effet\n« récité » : regard qui part vers le haut, débit plat, panique à l'hésitation.\n\nMémorise **les idées, dans l'ordre**. Trois ou quatre mots-clés suffisent.\n\n**Seule exception : la première phrase**, apprise par cœur. Elle décide de la\nrétention et arrive quand tu es la moins installée.\n\n### Les quatre réglages du corps\n\n| Réglage | Consigne | Aide |\n|---|---|---|\n| Regard | Sur l'**objectif**, pas l'écran | Gommette collée à côté |\n| Débit | ≈ +15 % de ta conversation | Au-delà de +20 %, ça sonne pressé |\n| Épaules | Basses | Une expiration complète avant chaque prise |\n| Menton | Parallèle au sol | Relevé = condescendant, baissé = excuse |\n\n### L'échauffement de trois minutes\n\n1. **Articulation** — lire le script exagérément articulé, puis normalement\n2. **Souffle** — trois respirations, expiration deux fois plus longue\n3. **Prise blanche** — une prise qu'on ne gardera pas, exprès\n\nIl paraît ridicule et divise le nombre de prises par deux.\n\n### Le rythme des prises\n\n**Trois maximum par plan, une variable changée à chaque fois.**\n\n| Prise | Variation |\n|---|---|\n| 1 | Comme prévu |\n| 2 | Plus rapide, plus d'énergie |\n| 3 | Plus posée, en appuyant sur un autre mot |\n\nSi aucune ne convient après trois, **le problème est dans le texte** — réécris\nla phrase.\n\n### Les cinq défauts de voix\n\n| Défaut | Effet | Remède |\n|---|---|---|\n| Fin de phrase qui monte | Affirmation → question | Baisser la voix sur les 3 derniers mots |\n| Débit qui ralentit | Mollesse | L'échauffement, pas la volonté |\n| Sourire permanent | Lu comme commercial | Sourire quand il y a une raison |\n| Hésitation d'attaque | Coupe impossible au montage | **Une seconde de silence** avant d'attaquer |\n| Ton présentateur | Désincarné | Parler comme à quelqu'un dans la pièce |\n\n### La technique la plus efficace, et gratuite\n\nAvant chaque prise, choisis **une personne réelle** à qui tu parles — une amie\nprécise, pas « les gens ». Le débit, le vocabulaire et le regard changent sans\naucun effort conscient.\n"
+        },
+        {
+          "title": "Checklist d'avant-prise",
+          "description": "Expirer, épaules basses, regard sur l'objectif, première phrase sue par cœur, une personne réelle choisie. Dix secondes.",
+          "kind": "checklist",
+          "url": null
+        }
+      ]
+    },
+    {
+      "position": 3,
+      "slug": "les-hooks",
+      "title": "Les hooks : filmer trois ouvertures pour la même vidéo",
+      "summary": "Changer les trois premières secondes coûte cent fois moins cher qu'une nouvelle vidéo et relance souvent les performances. Les six angles à décliner, la méthode de tournage en six minutes, les trois conditions de raccord et la façon de les facturer.",
+      "duration_min": 11,
+      "script_file": "03-les-hooks.md",
+      "resources": [
+        {
+          "title": "Les hooks alternatifs",
+          "description": "Les six angles avec exemples, la méthode de tournage à la suite, les trois conditions de raccord, les deux façons de les facturer et la commande de hooks seuls.",
+          "kind": "document",
+          "url": null,
+          "body": "## Les hooks alternatifs\n\nUne variante des 3 à 5 premières secondes, interchangeable au montage.\n**Six minutes de tournage, le meilleur rapport temps/valeur du métier.**\n\n### Pourquoi ça marche\n\nL'ouverture décide de la rétention à 3 secondes, qui décide du coût de\ndiffusion. Et la **fatigue créative touche d'abord l'accroche** : un public qui\na déjà vu le début n'ira pas plus loin.\n\n### Les six angles à décliner\n\n| Angle | Exemple |\n|---|---|\n| Problème | « Je me réveillais à trois heures toutes les nuits. » |\n| Résultat | « Trois semaines, et plus une seule nuit coupée. » |\n| Objection | « J'étais persuadée que c'était du marketing. » |\n| Chiffre | « J'ai testé quatre marques avant celle-là. » |\n| Question | « Tu dors mal depuis combien de temps, toi ? » |\n| Contre-pied | « N'achète pas ça si tu dors déjà bien. » |\n\n**Choisis trois angles éloignés.** Trois variantes du même problème testent la\nmême chose.\n\n### Comment les tourner\n\nÀ la suite, **sans rien bouger** : même cadre, même tenue, même lumière.\nHook 1 → pause 2 s → hook 2 → pause 2 s → hook 3.\n\n### Les trois conditions de raccord\n\n1. Même position (reste sur ta marque au sol)\n2. Même tenue et même coiffure\n3. **Même niveau d'énergie en fin de hook** que le début du corps\n\n### Comment les facturer\n\n| Formule | Montant |\n|---|---|\n| Inclus dans un pack, comme argument | Justifie un pack plus cher |\n| En supplément | 25 à 40 € par hook |\n\nSur 4 vidéos × 2 hooks : **200 à 320 € pour vingt minutes de tournage**.\n\n**Propose-les.** La plupart des marques ne savent pas qu'elles peuvent en\ndemander.\n\n### Le hook comme commande à part\n\n« On a une créa qui marche, on veut cinq nouvelles ouvertures » : pas de\nscript complet, pas de démonstration, pas de plan produit. Très rentable — et\ncette commande n'existe que si tu as expliqué le principe une fois.\n"
+        },
+        {
+          "title": "TikTok Creative Center",
+          "description": "Les publicités les plus performantes par secteur, avec leurs accroches. La meilleure source pour observer ce qui retient en trois secondes.",
+          "kind": "tool",
+          "url": "https://ads.tiktok.com/business/creativecenter"
+        }
+      ]
+    },
+    {
+      "position": 4,
+      "slug": "filmer-le-produit",
+      "title": "Filmer le produit : gestes, textures, macro",
+      "summary": "Le plan que les débutantes bâclent et que le client regarde image par image. Les quatre gestes, la règle de la transformation plutôt que de l'état, le réglage macro, les cinq erreurs qui font refuser un plan et les trois surfaces à moins de vingt euros.",
+      "duration_min": 11,
+      "script_file": "04-filmer-le-produit.md",
+      "resources": [
+        {
+          "title": "Filmer le produit",
+          "description": "Les quatre gestes, le tableau transformation contre état, le réglage macro, les cinq erreurs rédhibitoires et les trois surfaces qui valorisent tout.",
+          "kind": "document",
+          "url": null,
+          "body": "## Filmer le produit\n\n### Les quatre gestes\n\n| Geste | Règle |\n|---|---|\n| Tenir | **Trois doigts maximum**, sur la partie la moins informative |\n| Bouger | Deux fois plus lentement qu'en vrai |\n| Poser | Une seconde d'immobilité avant et après — points de coupe propres |\n| Orienter | Le produit **entre** toi et la lumière |\n\n### La texture : montrer une transformation, pas un état\n\n| Ce qui marche | Ce qui ne marche pas |\n|---|---|\n| Une crème qui s'étale | Une crème posée |\n| Une poudre qui tombe | Un tas de poudre |\n| Une vapeur qui monte | Une tasse pleine |\n| Un tissu qu'on froisse | Un tissu à plat |\n\nTrois à cinq secondes d'une matière qui bouge se regardent. Trois secondes\nd'un objet immobile font glisser le pouce.\n\n### Le réglage macro\n\n- **Distance** : approche jusqu'au flou, puis recule de 10 cm\n- **Mise au point verrouillée** : en macro, 1 cm de dérive rend le plan inutilisable\n- **Trépied obligatoire** : le tremblement est amplifié par la proximité\n- **Lumière rasante** : le seul plan où une source presque à ras vaut mieux que le frontal\n\n### Les cinq erreurs qui font refuser un plan\n\n| Erreur | Pourquoi c'est grave |\n|---|---|\n| Trace de doigt | Invisible au tournage, évidente en macro |\n| Étiquette de travers ou masquée | La marque veut son produit reconnaissable |\n| Reflet parasite | Ta fenêtre ou ton visage sur un flacon brillant |\n| Fond chargé | Le produit doit être l'élément le plus contrasté |\n| **Mauvaise référence** | Mauvais parfum, ancien packaging → **tout à refaire** |\n\n### Les trois surfaces qui marchent — moins de 20 €\n\n**Bois clair** (une planche à découper) · **lin ou coton froissé** (un torchon\nuni) · **fond uni mat** (papier épais blanc cassé, gris ou terracotta).\n\nÀ éviter : le **marbre** (vu partout, date la vidéo) et le **verre** (multiplie\nles reflets).\n\n### Le plan d'action\n\n**Filme le geste en entier** — un geste coupé paraît truqué.\n**Cadre les mains et le produit seulement** — le visage divise l'attention.\n"
+        },
+        {
+          "title": "Checklist du plan produit",
+          "description": "Nettoyé, étiquette face caméra, protections retirées, reflet vérifié, référence conforme au brief.",
+          "kind": "checklist",
+          "url": null
+        }
+      ]
+    },
+    {
+      "position": 5,
+      "slug": "le-b-roll",
+      "title": "Le B-roll qui sauve un montage",
+      "summary": "Sans B-roll, aucune marge : toute erreur impose un re-tournage. Les quatre fonctions techniques, la règle du double, les huit plans à filmer systématiquement — dont les deux qu'on oublie et qui sauvent le plus de montages.",
+      "duration_min": 10,
+      "script_file": "05-le-b-roll.md",
+      "resources": [
+        {
+          "title": "Le B-roll",
+          "description": "Les quatre fonctions, la règle du double, la liste des huit plans à cocher, les quatre règles de tournage et la convention de nommage.",
+          "kind": "document",
+          "url": null,
+          "body": "## Le B-roll\n\n### Les quatre fonctions\n\n1. **Masquer une coupe** entre deux phrases prises séparément\n2. **Accélérer un passage** en gardant la voix et en couvrant l'image\n3. **Illustrer sans re-tourner**\n4. **Sauver une prise** dont une seule phrase est ratée\n\n### La règle du double\n\n**Au moins autant de secondes de B-roll que de secondes de vidéo finale.**\n30 s de vidéo = 30 s de B-roll = 5 à 6 plans de 5 s = 4 à 6 minutes de tournage.\n\n### Les huit B-rolls à filmer systématiquement\n\n1. [ ] Le produit posé, dans son environnement d'usage\n2. [ ] La main qui le prend ou le repose\n3. [ ] Un détail macro de la texture\n4. [ ] L'ouverture — bouchon, couvercle, emballage\n5. [ ] Le geste d'usage, en entier\n6. [ ] Le résultat ou l'état après\n7. [ ] **Un plan d'ambiance serré** du lieu\n8. [ ] **Toi en train de faire autre chose**, sans parler\n\nLes **deux derniers** sont ceux qu'on oublie et ceux qui sauvent le plus de\nmontages : ils s'insèrent n'importe où.\n\n### Les quatre règles de tournage\n\n| Règle | Pourquoi |\n|---|---|\n| **Sans parler** | Sinon inutilisable sous une voix off |\n| **5 secondes minimum** par plan | Un plan trop court est inutilisable ; trop long ne coûte rien |\n| **Stable** (trépied ou appui) | Un B-roll tremblant attire l'attention sur lui-même |\n| **Même lumière** | Une autre heure ne se raccorde pas |\n\n### Le mouvement\n\nDeux fois plus lent que ce qui paraît naturel, à deux mains ou en faisant\nglisser le téléphone sur une surface. **Un mouvement saccadé est pire que pas\nde mouvement.**\n\n### L'organisation\n\nTourne-les **à la fin de la session** : plus besoin d'être coiffée ni en\ntenue, le trépied est déjà réglé.\n\n**Nomme-les au transfert** : `broll-01-produit-pose`, `broll-02-main-prend`.\nChercher un plan dans quarante `IMG_4831` est ce qui rend le montage\ndétestable.\n"
+        },
+        {
+          "title": "Checklist de nommage des fichiers",
+          "description": "Nommer au transfert, jamais plus tard : chercher un plan dans quarante fichiers IMG_4831 est ce qui rend le montage détestable.",
+          "kind": "checklist",
+          "url": null
+        }
+      ]
+    },
+    {
+      "position": 6,
+      "slug": "la-journee-de-tournage",
+      "title": "La journée de tournage : six vidéos en quatre heures",
+      "summary": "Le lot fait passer de 2 h 20 à 18 minutes par vidéo, parce que la mise en place et l'échauffement sont payés une fois au lieu de six. Le déroulé heure par heure, la règle des deux tenues, la fatigue vocale et le plafond de quatre heures.",
+      "duration_min": 12,
+      "script_file": "06-la-journee-de-tournage.md",
+      "resources": [
+        {
+          "title": "La journée de tournage",
+          "description": "Le calcul du gain, le déroulé heure par heure de la veille au transfert, la règle des deux tenues, les remèdes à la fatigue vocale et ce qu'on ne fait jamais pendant une session.",
+          "kind": "document",
+          "url": null,
+          "body": "## La journée de tournage : six vidéos en quatre heures\n\n### Pourquoi le lot change l'économie du métier\n\nTrois coûts fixes payés **une fois** au lieu de six :\nmise en place (25 min) · échauffement (10 min) · rangement et transfert (20 min).\n\n**≈ 55 minutes économisées cinq fois : près de cinq heures.**\n\n| | À l'unité | En lot de six |\n|---|---|---|\n| Temps par vidéo | 2 h 20 | **18 min** |\n\n### Le déroulé heure par heure\n\n| Heure | Étape | Durée |\n|---|---|---|\n| Veille, 21 h | Scripts, listes de plans, produits, tenues, batteries | 40 min |\n| 8 h 45 | Mise en place + checklist des huit points | 25 min |\n| 9 h 10 | Échauffement (articulation, souffle, prise blanche) | 10 min |\n| 9 h 20 | **Bloc 1** — plans parlés, vidéos 1 à 3, tenue A | 55 min |\n| 10 h 15 | **Pause obligatoire** | 15 min |\n| 10 h 30 | Changement de tenue | 10 min |\n| 10 h 40 | **Bloc 2** — plans parlés, vidéos 4 à 6, tenue B | 55 min |\n| 11 h 35 | **Bloc 3** — tous les plans produit et macros | 35 min |\n| 12 h 10 | **Bloc 4** — les huit B-rolls | 15 min |\n| 12 h 25 | Transfert et nommage | 15 min |\n\n### La règle des deux tenues\n\nSix vidéos dans la même tenue se lisent comme **une seule séance**, et le\nclient s'en aperçoit en les diffusant séparément.\n\nDeux tenues, changées à mi-parcours. Trois n'apportent presque rien.\nDeux marques dans la session ⇒ **une tenue par marque**.\n\n### La fatigue vocale\n\nRéelle, et elle s'entend. Trois remèdes : une pause de 15 minutes par heure ·\nde l'eau à température ambiante, **jamais glacée** · les vidéos les plus\nexigeantes en premier.\n\n**Plafond : quatre heures de tournage par jour.** Au-delà, la qualité baisse\nplus vite que le volume n'augmente.\n\n### L'ordre des vidéos\n\n1. Les plus difficiles d'abord (texte long, émotion, angle peu évident)\n2. Les plus proches ensemble (même décor, même produit)\n\n### Ce qu'on ne fait jamais dans une session\n\nRépondre aux messages (mode avion — c'est aussi l'appareil de tournage) ·\nregarder les prises entre chaque vidéo (casse le rythme, fait douter) ·\nenchaîner un rendez-vous après (la pression s'entend) · tourner pour plus de\ndeux marques.\n"
+        },
+        {
+          "title": "Checklist de fin de session",
+          "description": "Transfert, nommage, sauvegarde sur un second support, et seulement ensuite le visionnage. Jamais pendant.",
+          "kind": "checklist",
+          "url": null
+        }
+      ]
+    }
+  ]
+}
