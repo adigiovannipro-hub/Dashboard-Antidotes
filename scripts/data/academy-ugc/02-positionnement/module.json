@@ -1,0 +1,106 @@
+{
+  "slug": "positionnement-ugc",
+  "title": "Se positionner : niche, univers, personnage",
+  "description": "Ce module transforme « je fais du lifestyle » en un positionnement qui fait signer : une niche vérifiée dans la bibliothèque publicitaire, un univers visuel tenu en cinq variables, un personnage à l'écran qui rend le tournage reproductible, et une vitrine où les marques te trouvent sans que tu démarches.",
+  "position": 2,
+  "lessons": [
+    {
+      "position": 1,
+      "slug": "choisir-sa-niche",
+      "title": "Choisir sa niche (et pourquoi « lifestyle » n'en est pas une)",
+      "summary": "Une niche n'est pas un genre de contenu mais un problème de marque que tu sais résoudre. Cette leçon croise trois cercles — ce que tu utilises, ce qui dépense en publicité, ce que tu supportes de refaire trente fois — et valide le choix par un test factuel en trois questions.",
+      "duration_min": 11,
+      "script_file": "01-choisir-sa-niche.md",
+      "resources": [
+        {
+          "title": "Fiche de choix de niche",
+          "description": "Les trois cercles à remplir, le test des trois questions, la niche secondaire et les dix secteurs à budget publicitaire réel.",
+          "kind": "document",
+          "url": null,
+          "body": "## Fiche de choix de niche\n\n### Les trois cercles\n\n| Ce que j'utilise vraiment | Ce qui dépense en pub | Ce que je supporte de refaire 30 fois |\n|---|---|---|\n|  |  |  |\n|  |  |  |\n|  |  |  |\n|  |  |  |\n\n**Intersection = ma niche candidate : ______________________**\n\n### Le test des trois questions\n\n| Question | Réponse | Vérifié comment |\n|---|---|---|\n| Je cite 10 marques du secteur de tête ? | oui / non | à l'écrit, sans chercher |\n| Au moins 3 diffusent de la vidéo verticale ? | oui / non | bibliothèque publicitaire Meta |\n| J'écris 3 accroches sans effort ? | oui / non | chrono de 10 minutes |\n\n3 oui → valide. 2 oui → jouable. 1 oui → change.\n\n### Niche secondaire\n\nChoisie pour ne **pas** partager la saisonnalité de la principale.\n\nPrincipale : ______________  Secondaire : ______________\n\n### Secteurs à budget publicitaire réel\n\nCompléments et santé · beauté et soin · mode et accessoires · maison et déco ·\ncuisine et petit électroménager · sport et fitness · animaux · puériculture ·\napplications grand public · e-commerce alimentaire.\n\n### Date de réexamen\n\nÀ 3 mois : ______  À 6 mois : ______  Puis une fois par an.\n\nSignal de mauvais choix : 40 messages ciblés, moins de 2 réponses.\n"
+        },
+        {
+          "title": "Bibliothèque publicitaire Meta",
+          "description": "L'outil qui tranche la deuxième question : trois marques de ta niche diffusent-elles vraiment de la vidéo verticale aujourd'hui ?",
+          "kind": "tool",
+          "url": "https://www.facebook.com/ads/library"
+        },
+        {
+          "title": "Checklist du réexamen",
+          "description": "Quand reconsidérer sa niche, et le signal d'un mauvais choix : quarante messages ciblés, moins de deux réponses.",
+          "kind": "checklist",
+          "url": null
+        }
+      ]
+    },
+    {
+      "position": 2,
+      "slug": "univers-visuel",
+      "title": "Ton univers visuel : la signature qui fait revenir les marques",
+      "summary": "Cinq variables — lumière, fond, palette, cadrage, rythme — décidées une fois et tenues six mois. La cohérence vaut plus que la beauté : elle promet à la marque que la septième vidéo ressemblera aux six premières.",
+      "duration_min": 10,
+      "script_file": "02-univers-visuel.md",
+      "resources": [
+        {
+          "title": "Fiche d'univers visuel",
+          "description": "Les cinq décisions à écrire et à coller là où tu tournes, plus le test du produit le plus contrasté du cadre.",
+          "kind": "document",
+          "url": null,
+          "body": "## Fiche d'univers visuel\n\nÀ coller là où tu tournes. Cinq décisions, tenues six mois.\n\n| Variable | Ma décision |\n|---|---|\n| Lumière (source unique + heure) |  |\n| Fond n° 1 (neutre) |  |\n| Fond n° 2 (contextuel) |  |\n| Palette (3 couleurs) |  |\n| Cadrage (distance + hauteur d'objectif) |  |\n| Rythme (durée moyenne d'un plan) |  |\n\n### Mes cinq tenues de tournage\n\n1. ______________\n2. ______________\n3. ______________\n4. ______________\n5. ______________\n\n### Le test du produit\n\nMets la vidéo en pause à trois moments au hasard et plisse les yeux.\nLe produit doit être l'élément le plus contrasté du cadre.\nSinon : simplifie le fond, pas le produit.\n\n### Ce que je ne fais pas\n\n- Pas de filtre à la mode qui datera la vidéo dans trois mois.\n- Pas de nouveau décor sans raison payée.\n- Pas de tournage hors de la fenêtre horaire choisie.\n"
+        },
+        {
+          "title": "Checklist de l'après-midi de construction",
+          "description": "Les cinq étapes pour poser son univers en une demi-journée : lumière, fonds, tenues, tests, fiche.",
+          "kind": "checklist",
+          "url": null
+        }
+      ]
+    },
+    {
+      "position": 3,
+      "slug": "le-personnage-a-l-ecran",
+      "title": "Le personnage à l'écran : jouer soi-même, en mieux",
+      "summary": "À l'écran tu n'es pas toi-même, tu es une version cadrée de toi : un débit, un regard, une posture, un registre. Cette leçon les règle et donne l'entraînement de trois semaines qui fait passer de douze prises à trois.",
+      "duration_min": 10,
+      "script_file": "03-le-personnage-a-l-ecran.md",
+      "resources": [
+        {
+          "title": "Fiche personnage",
+          "description": "Les quatre réglages, la première phrase type, les formules bannies et le programme d'entraînement quotidien sur trois semaines.",
+          "kind": "document",
+          "url": null,
+          "body": "## Fiche personnage\n\n### Mes quatre réglages\n\n| Réglage | Ma décision |\n|---|---|\n| Débit (≈ +15 % de mon débit normal) |  |\n| Regard (objectif, repère collé si besoin) |  |\n| Posture (trois quarts, épaules basses) |  |\n| Registre (copine / experte / sceptique) |  |\n\n### Ma première phrase type\n\nElle s'écrit, se répète cinq fois à voix haute, et se sait par cœur.\nC'est la seule du script dans ce cas.\n\n« ____________________________________________ »\n\n### Formules bannies\n\n- « Coucou tout le monde »\n- « N'hésitez pas à »\n- « Je vous laisse découvrir »\n- « Je suis trop contente de vous présenter »\n- Tout sourire continu sans raison\n\n### L'entraînement des trois semaines\n\n| Semaine | Exercice quotidien (10 min) |\n|---|---|\n| 1 | 60 s face caméra sur un objet, sans regarder la vidéo |\n| 2 | Même chose, puis revoir **uniquement** les 3 premières secondes |\n| 3 | Première phrase écrite et répétée 5 fois, puis filmer |\n\nMesure du progrès : le nombre de prises nécessaires. De 12 à 3, c'est deux\nheures gagnées sur une commande de six vidéos.\n"
+        },
+        {
+          "title": "Checklist d'avant-prise",
+          "description": "Expirer une fois, épaules basses, regard sur l'objectif, première phrase sue par cœur. Quatre points, dix secondes.",
+          "kind": "checklist",
+          "url": null
+        }
+      ]
+    },
+    {
+      "position": 4,
+      "slug": "nommer-son-offre",
+      "title": "Nommer son offre et se rendre trouvable",
+      "summary": "Une marque qui cherche une créatrice tape trois mots dans trois barres de recherche et a sa liste en quarante minutes. Cette leçon règle la bio, le nom de compte, le titre LinkedIn et les huit endroits où l'on doit pouvoir tomber sur toi.",
+      "duration_min": 10,
+      "script_file": "04-nommer-son-offre.md",
+      "resources": [
+        {
+          "title": "Checklist de la vitrine",
+          "description": "Le modèle de bio, les six points à cocher, les huit points de présence et le titre LinkedIn — le canal le moins exploité du métier.",
+          "kind": "document",
+          "url": null,
+          "body": "## Checklist de la vitrine\n\n### Bio (Instagram et TikTok)\n\nModèle : **Créatrice UGC · [niche] · [preuve] · contact ↓**\n\n- [ ] Le sigle « UGC » apparaît\n- [ ] La niche est nommée, pas « lifestyle »\n- [ ] Une preuve chiffrée ou trois noms de marques\n- [ ] Un email en clair, pas un formulaire, pas « DM pour collab »\n- [ ] Un lien qui mène au portfolio en un clic\n- [ ] Le nom de compte contient « ugc » si possible\n\n### Les huit points de présence\n\n| # | Endroit | Fait | Note |\n|---|---|---|---|\n| 1 | Instagram vitrine |  |  |\n| 2 | TikTok vitrine |  |  |\n| 3 | Portfolio public (sans mot de passe) |  |  |\n| 4 | LinkedIn (titre + 1 post / semaine) |  |  |\n| 5 | Plateforme UGC n° 1 |  |  |\n| 6 | Plateforme UGC n° 2 |  |  |\n| 7 | Email professionnel |  |  |\n| 8 | Groupes sectoriels de la niche |  |  |\n\nDeux plateformes maximum : chacune demande une fiche à tenir.\n\n### Titre LinkedIn\n\n« Créatrice UGC — [niche] | vidéos publicitaires pour marques e-commerce »\n\nC'est le canal le moins exploité du métier : les décideurs y sont, les\ncréatrices n'y sont pas.\n"
+        },
+        {
+          "title": "LinkedIn",
+          "description": "Là où sont les responsables acquisition qui commandent les créas, et où presque aucune créatrice UGC n'est présente.",
+          "kind": "link",
+          "url": "https://www.linkedin.com"
+        }
+      ]
+    }
+  ]
+}

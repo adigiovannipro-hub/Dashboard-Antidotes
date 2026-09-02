@@ -1,0 +1,100 @@
+{
+  "slug": "materiel-studio",
+  "title": "Le matériel et le studio maison",
+  "description": "Ce module coupe court à la tentation d'acheter avant de tourner : six réglages de téléphone, moins de cent euros de matériel utile, et trois variables qui décident vraiment de la qualité perçue — la lumière, le son, et un coin de tournage prêt en quatre minutes.",
+  "position": 4,
+  "lessons": [
+    {
+      "position": 1,
+      "slug": "ton-telephone-suffit",
+      "title": "Ton téléphone suffit — les six réglages qui changent tout",
+      "summary": "Plus une image ressemble à une publicité, moins elle fonctionne comme publicité. Les six réglages que personne n'active par défaut, la liste des quatre achats rentables, et celle du matériel qui ne sert à rien au début.",
+      "duration_min": 10,
+      "script_file": "01-ton-telephone-suffit.md",
+      "resources": [
+        {
+          "title": "Les six réglages et le budget matériel",
+          "description": "Le tableau des réglages avec leur raison, les quatre achats rentables chiffrés, et ce qu'il ne faut surtout pas acheter les six premiers mois.",
+          "kind": "document",
+          "url": null,
+          "body": "## Les six réglages du téléphone\n\nÀ faire une fois, à vérifier avant chaque session.\n\n| Réglage | Valeur | Pourquoi |\n|---|---|---|\n| Résolution | **1080p**, pas 4K | Aucune plateforme ne diffuse plus en vertical ; la 4K sature la mémoire |\n| Cadence | **30 fps** | 60 fps donne un rendu « télé » qui casse le naturel |\n| Exposition / mise au point | **verrouillées** (appui long) | Sinon l'image respire en luminosité — le défaut le plus visible |\n| Caméra | **arrière**, jamais frontale | 2 à 3 fois meilleure |\n| HDR | **désactivé** | Vire au gris sur certains lecteurs, complique le montage |\n| Objectif | **nettoyé** | Un tiers des images voilées viennent de là |\n\n### Budget matériel des six premiers mois\n\n| Achat | Prix | Obligatoire ? |\n|---|---|---|\n| Micro-cravate filaire | 25 – 60 € | **Oui, le seul** |\n| Trépied + adaptateur téléphone | 25 – 40 € | Oui en pratique |\n| Réflecteur pliable blanc (ou carton) | 0 – 15 € | Très rentable |\n| Anneau lumineux | 40 – 80 € | Seulement si tu tournes le soir |\n\n**Total conseillé : 65 à 100 €.**\n\n### Ce qui ne sert à rien au début\n\nHybride ou reflex (rendu trop cinéma, mise au point capricieuse) · stabilisateur\n(tes plans sont fixes) · panneaux LED (la fenêtre fait mieux) · fond vert\n(jamais commandé en UGC) · deuxième téléphone pour le multicam.\n\n### Le rappel qui vaut tout le matériel\n\nRelis dix briefs : « authentique », « vrai intérieur », « pas trop produit »,\n« comme si c'était filmé par une cliente ». Aucun ne dit « qualité cinéma ».\n"
+        },
+        {
+          "title": "Checklist d'achat",
+          "description": "Micro-cravate d'abord, trépied ensuite, réflecteur enfin. Rien d'autre avant que les tarifs aient doublé.",
+          "kind": "checklist",
+          "url": null
+        }
+      ]
+    },
+    {
+      "position": 2,
+      "slug": "la-lumiere",
+      "title": "La lumière : la seule dépense qui se voit (et elle est gratuite)",
+      "summary": "Direction, douceur, température : trois qualités et quatre schémas suffisent. L'exercice d'un après-midi qui fixe ton créneau de tournage pour de bon, et le test des yeux qui règle 80 % des problèmes en deux secondes.",
+      "duration_min": 11,
+      "script_file": "02-la-lumiere.md",
+      "resources": [
+        {
+          "title": "Les quatre schémas de lumière",
+          "description": "Placement, usage et piège de chaque schéma, les quatre choses à fuir, le voilage à trois euros, la grille de repérage des fenêtres et le test des yeux.",
+          "kind": "document",
+          "url": null,
+          "body": "## Les quatre schémas de lumière\n\n| Schéma | Placement | Pour quoi | Piège |\n|---|---|---|---|\n| Fenêtre latérale 45° | Toi de trois quarts, fenêtre en avant sur le côté | Le défaut du métier : relief, yeux vivants | Ajouter un réflecteur du côté sombre |\n| Fenêtre frontale | Face à la fenêtre | Beauté, gros plans visage | Peu de relief |\n| Rasante | Source basse ou haute, presque de côté | Textures produit, crème, tissu, vapeur | Inutilisable sur un visage |\n| Anneau lumineux | Frontal | Dépannage du soir | Reflet circulaire = signature « créateur » |\n\n### Les quatre choses à fuir\n\n| À fuir | Effet | Rattrapable ? |\n|---|---|---|\n| Contre-jour | Visage en silhouette | **Non** |\n| Plafonnier | Cernes, nez ombré, teint gris | Non |\n| Soleil direct | Ombres dures, zones brûlées | Attendre un nuage ou voiler |\n| Mélange de températures | Visage moitié orange moitié bleu | Non — éteins les lampes de jour |\n\n### Le voilage à trois euros\n\nUn rideau blanc fin, un drap tendu ou du papier calque devant la fenêtre\ntransforme une lumière dure en lumière de studio. Meilleur rapport\nqualité/prix du métier, loin devant tout panneau LED.\n\n### Trouver son créneau — l'exercice d'un après-midi\n\nPhotographie ton visage devant **chaque fenêtre** du logement à 9 h, 11 h,\n14 h, 16 h et 18 h. Compare les vingt images.\n\n| Fenêtre | 9 h | 11 h | 14 h | 16 h | 18 h |\n|---|---|---|---|---|---|\n|  |  |  |  |  |  |\n|  |  |  |  |  |  |\n\n**Mon créneau : ______________ , fenêtre ______________**\n\n### Le test des yeux\n\nAvant chaque prise : regarde tes yeux dans l'image. Un petit reflet de la\nsource dedans = lumière bonne. Yeux éteints = source trop haute, trop loin,\nou derrière toi. Deux secondes, 80 % des problèmes réglés.\n"
+        },
+        {
+          "title": "Checklist du repérage lumière",
+          "description": "Photographier chaque fenêtre à cinq heures de la journée, comparer, noter le créneau. Une fois, pour toujours.",
+          "kind": "checklist",
+          "url": null
+        }
+      ]
+    },
+    {
+      "position": 3,
+      "slug": "le-son",
+      "title": "Le son : là où se trahissent 80 % des vidéos amateures",
+      "summary": "Un spectateur pardonne une image moyenne et ferme sur un son fatigant sans savoir pourquoi. Les trois ennemis, le contrôle au casque en dix secondes, et pourquoi une musique trouvée en ligne rend une vidéo inutilisable en publicité.",
+      "duration_min": 10,
+      "script_file": "03-le-son.md",
+      "resources": [
+        {
+          "title": "Le son : trois ennemis, quatre remèdes",
+          "description": "Le tableau des causes et des remèdes, le contrôle au casque, le placement du micro, la règle de la musique et le meilleur studio son improvisé.",
+          "kind": "document",
+          "url": null,
+          "body": "## Le son : trois ennemis, quatre remèdes\n\n| Ennemi | Cause | Remède |\n|---|---|---|\n| Écho | Surfaces dures et nues : carrelage, baies vitrées, murs vides | Pièce meublée, tissus, dressing ouvert |\n| Distance | Micro du téléphone à un mètre | Micro-cravate à 15-20 cm |\n| Bruit de fond | Frigo, ventilation, rue, notifications | Silence, mode avion, fenêtres fermées |\n\n**L'écho ne se retire pas après coup.** Aucun traitement grand public ne le\nsupprime proprement. Le son se règle avant, jamais après.\n\n### Le contrôle en dix secondes\n\nAvant de tourner : enregistre 10 secondes, mets un casque, écoute.\n\n- [ ] Aucun souffle constant\n- [ ] Aucune voix qui « rebondit »\n- [ ] Voix perçue comme proche\n\nTrois oui → tu peux tourner deux heures tranquille.\n\n### Placement du micro\n\n15 à 20 cm de la bouche · **décalé sur le côté** (évite les explosions de\n« p » et de « b ») · sous le col si tu veux le cacher · jamais sous un tissu\nqui frotte.\n\n### Musique\n\nRègle unique : si tu dois monter le volume pour comprendre un mot, la musique\nest trop forte. Elle passe **sous** la voix.\n\nUtilise la bibliothèque de ton outil de montage : libre de droits pour un\nusage commercial. Un titre populaire trouvé en ligne rend ta vidéo\n**inutilisable en publicité** — c'est un livrable défectueux.\n\n### Le meilleur studio son improvisé\n\nUn dressing, porte ouverte, vêtements derrière toi. Gratuit, et meilleur\nqu'une pièce traitée.\n"
+        },
+        {
+          "title": "Checklist de silence",
+          "description": "Frigo coupé, fenêtres fermées, mode avion, dix secondes d'essai au casque — et le rappel de rebrancher le frigo.",
+          "kind": "checklist",
+          "url": null
+        }
+      ]
+    },
+    {
+      "position": 4,
+      "slug": "coin-de-tournage",
+      "title": "Ton coin de tournage : deux mètres carrés bien pensés",
+      "summary": "Le vrai coût d'un tournage est la mise en place. Cinq éléments, trois marques de gaffer au sol et une boîte font tomber ce temps de vingt-cinq minutes à quatre — et rendent les vidéos cohérentes sans effort.",
+      "duration_min": 10,
+      "script_file": "04-coin-de-tournage.md",
+      "resources": [
+        {
+          "title": "Le coin de tournage en deux mètres carrés",
+          "description": "Les cinq éléments, la checklist d'avant-tournage en huit lignes à scotcher au mur, les trois vérifications dans le champ et le gain de temps mesuré.",
+          "kind": "document",
+          "url": null,
+          "body": "## Le coin de tournage : deux mètres carrés\n\n### Les cinq éléments\n\n| Élément | Détail |\n|---|---|\n| Fond | Mur clair ou rideau uni, **identique à chaque fois** |\n| Marques au sol | Gaffer : deux pour le trépied, une pour tes pieds |\n| Hauteur notée | Objectif à hauteur des yeux, écrite au marqueur sur la colonne |\n| La boîte | Micro, trépied, réflecteur, chiffon, lingettes, rallonge, élastiques |\n| Surface produit | Planche ou plateau 30 × 40 cm, rangé avec la boîte |\n\n### La checklist d'avant-tournage\n\nÀ imprimer et scotcher au mur. Trente secondes, et elle évite la quasi-totalité\ndes sessions à refaire.\n\n1. [ ] Objectif nettoyé\n2. [ ] Mode avion activé\n3. [ ] Batterie > 50 %, mémoire disponible\n4. [ ] Micro branché, testé 10 s au casque\n5. [ ] Fenêtre à 45°, lampes éteintes, réflecteur en place\n6. [ ] Exposition et mise au point verrouillées\n7. [ ] Champ vérifié : rien de personnel, daté ou **concurrent**\n8. [ ] Produit propre, étiquette face caméra, sans traces de doigts\n\n### Les trois vérifications dans le champ\n\n| À traquer | Exemple | Conséquence |\n|---|---|---|\n| Personnel identifiable | Courrier, photo, ordonnance | Reprise + gêne |\n| Daté | Calendrier, saison visible | Vidéo inutilisable dans 6 mois |\n| Concurrent | Bouteille rivale au fond | **Vidéo entière à refaire** |\n\n### Assise ou debout\n\n| | Assise | Debout |\n|---|---|---|\n| Stabilité | meilleure | correcte |\n| Fatigue sur 6 vidéos | faible | forte |\n| Formats | témoignage, avis | démonstration, dynamique |\n\nChoisis ton défaut, note la hauteur, ne change pas au milieu d'un lot.\n\n### Le gain mesuré\n\nMise en place : **25 min → 4 min**. Session de six vidéos : **4 h → 1 h 50**.\nSur cinquante sessions par an, plus de vingt heures récupérées.\n"
+        },
+        {
+          "title": "Checklist des décors secondaires",
+          "description": "Salle de bain, cuisine, extérieur : repérer l'heure de lumière, reprendre la marque au sol, garder le même micro. Trois décors maximum.",
+          "kind": "checklist",
+          "url": null
+        }
+      ]
+    }
+  ]
+}

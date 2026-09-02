@@ -79,3 +79,35 @@ describe("parseScript", () => {
     expect(parseScript("\n\n")).toEqual([]);
   });
 });
+
+describe("parseScript — tableaux", () => {
+  it("sépare l'en-tête du corps et ignore la ligne de tirets", () => {
+    const blocks = parseScript(
+      ["| Métier | Prix |", "|---|---|", "| UGC | 220 € |", "| Influence | 180 € |"].join(
+        "\n",
+      ),
+    );
+
+    expect(blocks).toHaveLength(1);
+    const table = blocks[0]!;
+    expect(table.kind).toBe("table");
+    if (table.kind !== "table") return;
+    expect(table.head).toHaveLength(2);
+    expect(table.rows).toHaveLength(2);
+    expect(table.rows[1]![0]![0]).toEqual({ kind: "text", value: "Influence" });
+  });
+
+  it("rend le gras et les liens dans une cellule", () => {
+    const blocks = parseScript(["| Nom |", "|---|", "| **Léa** |"].join("\n"));
+    const table = blocks[0]!;
+    if (table.kind !== "table") throw new Error("bloc inattendu");
+    expect(table.rows[0]![0]![0]).toEqual({ kind: "strong", value: "Léa" });
+  });
+
+  it("ferme le tableau à la ligne vide, sans avaler le paragraphe suivant", () => {
+    const blocks = parseScript(
+      ["| A |", "|---|", "| 1 |", "", "Un paragraphe après."].join("\n"),
+    );
+    expect(blocks.map((block) => block.kind)).toEqual(["table", "paragraph"]);
+  });
+});

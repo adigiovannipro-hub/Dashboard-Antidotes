@@ -23,6 +23,10 @@ export type ScriptBlock =
   | { kind: "paragraph"; content: InlineNode[] }
   | { kind: "list"; ordered: boolean; items: InlineNode[][] }
   | { kind: "quote"; content: InlineNode[] }
+  /* Un tableau : une ligne d'en-tête, puis les lignes de corps. Il est arrivé
+     avec les documents de travail des formations — une grille tarifaire ou une
+     comparaison de trois métiers ne se lit pas en liste à puces. */
+  | { kind: "table"; head: InlineNode[][]; rows: InlineNode[][][] }
   | { kind: "hr" };
 
 /* L'ordre compte : `**gras**` doit être reconnu avant `*italique*`, sans quoi
@@ -69,6 +73,7 @@ export function parseScript(markdown: string): ScriptBlock[] {
 
   let paragraph: string[] = [];
   let list: { ordered: boolean; items: string[] } | null = null;
+  let table: { head: string[]; rows: string[][] } | null = null;
 
   const flushParagraph = () => {
     if (paragraph.length === 0) return;
@@ -84,6 +89,15 @@ export function parseScript(markdown: string): ScriptBlock[] {
     });
     list = null;
   };
+  const flushTable = () => {
+    if (!table) return;
+    blocks.push({
+      kind: "table",
+      head: table.head.map(parseInline),
+      rows: table.rows.map((row) => row.map(parseInline)),
+    });
+    table = null;
+  };
 
   for (const rawLine of lines) {
     const line = rawLine.trimEnd();
@@ -92,6 +106,28 @@ export function parseScript(markdown: string): ScriptBlock[] {
     if (trimmed === "") {
       flushParagraph();
       flushList();
+      flushTable();
+      continue;
+    }
+
+    /* Une ligne de tableau : `| a | b |`. La ligne de séparation
+       (`|---|---|`) n'est pas une ligne de données — elle sépare l'en-tête du
+       corps, et la reconnaître évite d'afficher une rangée de tirets. */
+    if (trimmed.startsWith("|") && trimmed.endsWith("|") && trimmed.length > 2) {
+      flushParagraph();
+      flushList();
+      const cells = trimmed
+        .slice(1, -1)
+        .split("|")
+        .map((cell) => cell.trim());
+
+      if (cells.every((cell) => /^:?-{2,}:?$/.test(cell))) {
+        // Le séparateur : il confirme que la ligne précédente est l'en-tête.
+        continue;
+      }
+
+      if (!table) table = { head: cells, rows: [] };
+      else table.rows.push(cells);
       continue;
     }
 
@@ -99,6 +135,7 @@ export function parseScript(markdown: string): ScriptBlock[] {
     if (heading) {
       flushParagraph();
       flushList();
+      flushTable();
       // Un `#` dans un script est traité comme un `##` : le titre de la leçon
       // vit dans la base, le script n'a pas de h1 à lui.
       const level = heading[1]!.length <= 2 ? 2 : 3;
@@ -109,6 +146,7 @@ export function parseScript(markdown: string): ScriptBlock[] {
     if (/^(-{3,}|\*{3,})$/.test(trimmed)) {
       flushParagraph();
       flushList();
+      flushTable();
       blocks.push({ kind: "hr" });
       continue;
     }
@@ -117,6 +155,7 @@ export function parseScript(markdown: string): ScriptBlock[] {
     if (quote) {
       flushParagraph();
       flushList();
+      flushTable();
       const previous = blocks[blocks.length - 1];
       if (previous?.kind === "quote") {
         // Les lignes consécutives d'une citation se rejoignent.
@@ -156,5 +195,6 @@ export function parseScript(markdown: string): ScriptBlock[] {
 
   flushParagraph();
   flushList();
+  flushTable();
   return blocks;
 }

@@ -1,0 +1,116 @@
+{
+  "slug": "le-metier-ugc",
+  "title": "Le métier, sans filtre",
+  "description": "Ce module pose ce qu'est réellement l'UGC : un métier de production, payé au fichier et non à l'audience. Il sépare créatrice UGC, influenceuse et ambassadrice — trois prix, trois livrables, trois contrats — explique ce qu'une marque achète vraiment derrière son brief, et donne la trajectoire de revenus réelle des quatorze premiers mois.",
+  "position": 1,
+  "lessons": [
+    {
+      "position": 1,
+      "slug": "ce-qu-est-vraiment-l-ugc",
+      "title": "Ce qu'est vraiment l'UGC (et ce que ce n'est pas)",
+      "summary": "Tu vends un fichier vidéo à une marque qui le diffuse en publicité, pas une exposition auprès de ta communauté. Cette leçon explique pourquoi ce marché existe, ce qui le distingue de l'influence, et pourquoi quatre mille abonnés suffisent à en vivre.",
+      "duration_min": 11,
+      "script_file": "01-ce-qu-est-vraiment-l-ugc.md",
+      "resources": [
+        {
+          "title": "Fiche « Ce que je vends »",
+          "description": "Ta phrase de positionnement, tes cinq premières marques à démarcher, ce que tu refuses, et le nombre de vidéos à vendre chaque mois pour vivre du métier.",
+          "kind": "document",
+          "url": null,
+          "body": "## Fiche « Ce que je vends »\n\nÀ remplir en dix minutes, à relire tous les trois mois.\n\n### 1. La phrase\n\n« Je produis des vidéos verticales de ___ secondes pour des marques de\n______________, livrées en fichier, utilisables en publicité. »\n\n### 2. Mes cinq premières marques\n\nCinq marques que tu utilises vraiment et dont tu peux parler sans mentir.\nC'est ta première liste de prospection.\n\n| Marque | Produit utilisé | Depuis quand | Ce que je pourrais montrer |\n|---|---|---|---|\n|  |  |  |  |\n|  |  |  |  |\n|  |  |  |  |\n|  |  |  |  |\n|  |  |  |  |\n\n### 3. Ce que je ne fais pas\n\nÉcris-le : c'est ce qui te permettra de refuser vite.\n\n- Je ne poste pas sur mon compte sans facturation séparée.\n- Je n'accepte pas le produit seul comme paiement au-delà de ___ €.\n- Je ne signe aucune exclusivité sans supplément.\n- Je ne livre aucun fichier avant paiement de l'acompte.\n\n### 4. Mon seuil\n\nCharges fixes mensuelles : ______ €\nChiffre d'affaires nécessaire (charges ÷ 0,65) : ______ €\nPrix cible à la vidéo : ______ €\n**Vidéos à vendre par mois : ______**\n"
+        },
+        {
+          "title": "Bibliothèque publicitaire Meta",
+          "description": "Toutes les publicités actives de n'importe quelle marque, gratuitement. C'est là qu'on voit quelles créas UGC tournent chez tes futurs clients.",
+          "kind": "tool",
+          "url": "https://www.facebook.com/ads/library"
+        },
+        {
+          "title": "TikTok Creative Center",
+          "description": "Les publicités TikTok les plus performantes par pays et par secteur, avec leurs accroches. La meilleure source d'inspiration gratuite du métier.",
+          "kind": "tool",
+          "url": "https://ads.tiktok.com/business/creativecenter"
+        }
+      ]
+    },
+    {
+      "position": 2,
+      "slug": "ugc-influence-ambassadrice",
+      "title": "UGC, influence, ambassadrice : trois métiers, trois contrats",
+      "summary": "Les briefs mélangent production, publication et droits publicitaires sans le dire. Cette leçon apprend à décomposer une demande en lignes séparées et à chiffrer chacune — le seul moyen de ne pas offrir la moitié de sa facture.",
+      "duration_min": 10,
+      "script_file": "02-ugc-influence-ambassadrice.md",
+      "resources": [
+        {
+          "title": "Trame de décomposition d'un brief",
+          "description": "Le tableau à remplir devant toute demande mélangée : production, publication chez toi, droits, whitelisting, exclusivité — une ligne, un prix.",
+          "kind": "template",
+          "url": null
+        },
+        {
+          "title": "Checklist des signaux d'un brief flou",
+          "description": "Les six formulations qui annoncent un usage non payé : « on te reposte », « on va peut-être booster », « pour nos réseaux », « en illimité », « pour tester ».",
+          "kind": "checklist",
+          "url": null
+        },
+        {
+          "title": "Grille tarifaire de départ",
+          "description": "Les fourchettes du marché français par niveau, les suppléments de droits et de whitelisting, et les trois packs à proposer par défaut.",
+          "kind": "document",
+          "url": null,
+          "body": "## Grille tarifaire de départ\n\nLes fourchettes du marché français pour une vidéo verticale de 15 à 45\nsecondes, livrée montée, droits publicitaires 3 mois, un territoire.\n\n| Niveau | Prix unitaire | Quand y être |\n|---|---|---|\n| Sans portfolio | 80 – 150 € | Les deux premiers mois, pas plus |\n| Portfolio + 3 clients | 180 – 280 € | À partir du 3e mois |\n| Niche identifiée | 300 – 450 € | Vers le 8e mois |\n| Expertise rare | 450 – 800 € | Secteur technique, langue, diplôme |\n\n### Les suppléments qui font le revenu\n\n| Supplément | Montant usuel |\n|---|---|\n| Droits illimités / perpétuels | + 50 à 100 % |\n| Whitelisting (pub depuis ton compte) | + 30 à 50 % par mois |\n| Territoire supplémentaire | + 20 à 30 % |\n| Version courte / déclinaison de format | + 30 à 50 € |\n| Hook alternatif supplémentaire | + 25 à 40 € |\n| Exclusivité sectorielle | à négocier, jamais offerte |\n\n### Le pack, à proposer par défaut\n\n| Pack | Contenu | Prix | Remise |\n|---|---|---|---|\n| Découverte | 3 vidéos | 3 × prix − 10 % | 10 % |\n| Test complet | 6 vidéos + 3 hooks | 6 × prix − 15 % | 15 % |\n| Abonnement | 4 à 8 vidéos / mois, 3 mois | mensuel ferme | 20 % |\n\nRègle : la remise se donne **contre du volume ou de l'engagement**, jamais\ncontre rien.\n"
+        }
+      ]
+    },
+    {
+      "position": 3,
+      "slug": "ce-que-la-marque-achete",
+      "title": "Ce que la marque achète réellement",
+      "summary": "Derrière chaque brief, une personne regarde un coût par achat tous les matins. Cette leçon te met dans sa tête : les trois chiffres qui décident de ton contrat, les quatre facteurs qui font qu'une créa marche, et le vocabulaire qui prouve que tu parles sa langue.",
+      "duration_min": 11,
+      "script_file": "03-ce-que-la-marque-achete.md",
+      "resources": [
+        {
+          "title": "Les deux questions à poser avant tout devis",
+          "description": "« C'est pour de la publicité ou pour vos réseaux ? » et « quel est votre principal frein à l'achat ? » — pourquoi ces deux-là, et quoi faire de chaque réponse.",
+          "kind": "checklist",
+          "url": null
+        },
+        {
+          "title": "Lexique de l'acquisition",
+          "description": "Créa, angle, hook, fatigue créative, itération, coût par achat, rétention à 3 secondes : les mots que tes clients emploient entre eux.",
+          "kind": "template",
+          "url": null
+        }
+      ]
+    },
+    {
+      "position": 4,
+      "slug": "combien-on-gagne-vraiment",
+      "title": "Combien on gagne vraiment, et en combien de temps",
+      "summary": "Les prix de marché réels, le calcul horaire qui juge tout, la trajectoire mois par mois des quatorze premiers mois, et le seuil du récurrent — le moment où le métier cesse de dépendre de la prospection.",
+      "duration_min": 12,
+      "script_file": "04-combien-on-gagne-vraiment.md",
+      "resources": [
+        {
+          "title": "Calculateur de seuil",
+          "description": "Charges fixes ÷ 0,65 = chiffre d'affaires nécessaire, divisé par ton prix cible = vidéos à vendre chaque mois. Le seul chiffre à garder sous les yeux.",
+          "kind": "template",
+          "url": null
+        },
+        {
+          "title": "Checklist de sécurité financière",
+          "description": "Trois mois de charges en trésorerie avant de quitter un autre revenu, aucun client au-dessus de 40 % du chiffre d'affaires, provision de cotisations à chaque encaissement.",
+          "kind": "checklist",
+          "url": null
+        },
+        {
+          "title": "Simulateur de cotisations Urssaf",
+          "description": "Pour convertir un chiffre d'affaires en revenu réellement disponible, avant de décider quoi que ce soit.",
+          "kind": "link",
+          "url": "https://www.urssaf.fr/accueil/outils-documentation/simulateurs.html"
+        }
+      ]
+    }
+  ]
+}

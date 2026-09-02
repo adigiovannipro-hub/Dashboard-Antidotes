@@ -96,6 +96,42 @@ function Block({ block }: { block: ScriptBlock }) {
           <Inline nodes={block.content} />
         </blockquote>
       );
+    case "table":
+      return (
+        /* Le conteneur défile chez lui : une grille tarifaire à cinq colonnes
+           ne doit jamais faire défiler la page entière de côté. */
+        <div className="mt-4 overflow-x-auto rounded-md border border-border">
+          <table className="w-full border-collapse text-left">
+            <thead>
+              <tr className="border-b border-border bg-muted">
+                {block.head.map((cell, index) => (
+                  <th
+                    key={index}
+                    scope="col"
+                    className="type-caption px-3 py-2 font-medium text-text-primary"
+                  >
+                    <Inline nodes={cell} />
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {block.rows.map((row, rowIndex) => (
+                <tr key={rowIndex} className="border-b border-border last:border-b-0">
+                  {row.map((cell, cellIndex) => (
+                    <td
+                      key={cellIndex}
+                      className="type-caption px-3 py-2 align-top text-text-primary"
+                    >
+                      <Inline nodes={cell} />
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      );
     case "hr":
       return <hr className="mt-6 border-border" />;
   }

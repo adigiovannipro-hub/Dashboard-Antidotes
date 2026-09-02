@@ -1,0 +1,129 @@
+{
+  "slug": "portfolio-ugc",
+  "title": "Le portfolio qui fait signer",
+  "description": "Ce module produit, en une demi-journée et sans un euro, les six vidéos qui décrochent les trois premiers clients. Il enchaîne avec le spec ad — la vidéo non commandée qui multiplie par huit le taux de réponse —, le montage d'un portfolio qui s'ouvre du premier coup, le media kit en sept chiffres, et la règle du prix plancher.",
+  "position": 3,
+  "lessons": [
+    {
+      "position": 1,
+      "slug": "six-videos-de-depart",
+      "title": "Les six vidéos de départ, sans aucune marque",
+      "summary": "Personne ne demande des vidéos commandées, on demande des vidéos. Six formats, une demi-journée, des produits que tu possèdes déjà : le portfolio qui rompt le cercle « pas de client sans portfolio, pas de portfolio sans client ».",
+      "duration_min": 11,
+      "script_file": "01-six-videos-de-depart.md",
+      "resources": [
+        {
+          "title": "Plan de tournage des six vidéos",
+          "description": "Les six formats avec ce que chacun prouve, le déroulé horaire de la demi-journée, l'ordre de tournage et le seuil de qualité.",
+          "kind": "document",
+          "url": null,
+          "body": "## Plan de tournage : les six vidéos de portfolio\n\nUne demi-journée, zéro euro, avec ce que tu possèdes déjà.\n\n### Les six formats\n\n| # | Format | Ce qu'il prouve | Visage ? | Durée |\n|---|---|---|---|---|\n| 1 | Témoignage face caméra | Tu sais parler et convaincre | oui | 30 s |\n| 2 | Unboxing | Tu sais cadrer et rythmer | non | 20 s |\n| 3 | Démonstration | Tu sais montrer un usage | non | 25 s |\n| 4 | Problème / solution | Tu comprends la publicité | oui | 30 s |\n| 5 | « 3 raisons » | Tu sais structurer un argumentaire | oui | 35 s |\n| 6 | Avant / après | Tu sais construire une preuve | selon | 20 s |\n\n### Le déroulé de la demi-journée\n\n| Créneau | Étape | Durée |\n|---|---|---|\n| 9 h 00 | Six scripts de cinq lignes | 30 min |\n| 9 h 30 | Lumière, trépied, marquage au sol | 15 min |\n| 9 h 45 | Tournage, du plus facile au plus exposé | 2 h |\n| 14 h 00 | Montage mobile, 20 min par vidéo | 2 h |\n\n**Ordre de tournage** : unboxing → démonstration → avant/après → 3 raisons →\nproblème/solution → témoignage. Tu es chauffée quand arrive le plus difficile.\n\n### Choix des produits\n\n- [ ] Je l'utilise vraiment (les gestes trahissent)\n- [ ] Il appartient à ma niche\n- [ ] La marque diffuse de la publicité vidéo (vérifié en bibliothèque)\n\n### Seuil de qualité\n\nImage nette · visage éclairé · **son propre** · sous-titres lisibles.\nLe son est le seul critère éliminatoire. Une image moyenne passe, un écho non.\n\n### Ce qui ne rentre pas dans un portfolio\n\nVie personnelle · vidéo sans produit · format horizontal · plus de 60 secondes ·\nmauvais son · toute vidéo dont tu ne serais pas fière si c'était la seule vue.\n"
+        },
+        {
+          "title": "CapCut",
+          "description": "Le montage mobile utilisé par la quasi-totalité du métier : sous-titres automatiques, formats verticaux, export sans filigrane.",
+          "kind": "tool",
+          "url": "https://www.capcut.com"
+        },
+        {
+          "title": "Checklist d'avant-publication",
+          "description": "Image nette, visage éclairé, son propre, sous-titres relus, format 9:16, moins de 60 secondes.",
+          "kind": "checklist",
+          "url": null
+        }
+      ]
+    },
+    {
+      "position": 2,
+      "slug": "le-spec-ad",
+      "title": "Le spec ad : filmer pour une marque qui ne t'a rien demandé",
+      "summary": "Une vidéo tournée sans commande et offerte fait passer le taux de réponse de 5 % à 40 %. Les cinq règles pour qu'elle travaille, le message qui l'accompagne, et le cadre juridique en clair.",
+      "duration_min": 12,
+      "script_file": "02-le-spec-ad.md",
+      "resources": [
+        {
+          "title": "Méthode et message du spec ad",
+          "description": "Les cinq règles, le message type mot pour mot, le tableau de ce qui est autorisé et interdit, et le rythme de trois par mois.",
+          "kind": "document",
+          "url": null,
+          "body": "## Le spec ad : méthode et message\n\n### Les cinq règles\n\n1. La marque diffuse **déjà** de la publicité vidéo (vérifié en bibliothèque publicitaire).\n2. Tu fais **autre chose** que ce qui tourne chez elle — tu combles un manque.\n3. Tu attaques une **objection réelle**, lue dans ses avis clients.\n4. **Une seule** vidéo. Trois ressemblent à du désespoir.\n5. **Moins de 30 secondes.** Elle sera vue sur un téléphone entre deux réunions.\n\n### Le message d'accompagnement\n\n> Bonjour [prénom],\n>\n> J'ai vu que vos publicités actuelles tournent surtout autour de\n> [observation précise]. J'ai tourné une vidéo sur un autre angle —\n> [objection choisie] — que vos avis clients mentionnent souvent.\n>\n> Elle est à vous, sans contrepartie : [lien].\n>\n> Si le format vous intéresse, je livre ce type de vidéo en 5 jours.\n> Bonne journée.\n\nTrois principes : tu prouves que tu as regardé, tu donnes sans condition,\ntu proposes une suite en une phrase sans insister.\n\n### Le cadre juridique en clair\n\n| Autorisé | Interdit |\n|---|---|\n| Filmer un produit que tu as acheté | Utiliser le logo et les visuels de marque |\n| Montrer la marque à l'écran | Laisser croire à un partenariat existant |\n| Envoyer la vidéo à la marque | La diffuser toi-même comme campagne officielle |\n| La mettre au portfolio en la signalant | La présenter comme une commande |\n\nMention à porter au portfolio : « créa spéculative, non commandée ».\n\n### Rythme\n\n**Trois par mois**, pas plus. C'est un amorceur, pas une activité.\nNeuf spec ads sur un trimestre rapportent en général deux à quatre clients.\n"
+        },
+        {
+          "title": "Checklist du choix de marque",
+          "description": "Publicité vidéo active, angle libre, objection lue dans les avis clients : les trois vérifications avant de tourner quoi que ce soit.",
+          "kind": "checklist",
+          "url": null
+        }
+      ]
+    },
+    {
+      "position": 3,
+      "slug": "monter-son-portfolio",
+      "title": "Monter son portfolio : Notion, site ou PDF",
+      "summary": "Un portfolio se juge en huit secondes, et la moitié se perd sur des détails techniques invisibles. La structure en six sections, les six vérifications, et la règle d'entretien par substitution.",
+      "duration_min": 10,
+      "script_file": "03-monter-son-portfolio.md",
+      "resources": [
+        {
+          "title": "Structure du portfolio",
+          "description": "L'ordre des six sections, le modèle de la section « ce que je livre » qui convertit, et les six vérifications techniques dont le test en navigation privée.",
+          "kind": "document",
+          "url": null,
+          "body": "## Structure du portfolio\n\n### L'ordre des sections\n\n1. **Ta phrase** — métier, niche, preuve. Une ligne.\n2. **Six vidéos** en 9:16, les trois meilleures d'abord, lecture directe.\n3. **Les formats produits** — témoignage, unboxing, démonstration, problème/solution, avant/après, voix off.\n4. **Ce que je livre** — la section la plus ennuyeuse, et celle qui convertit.\n5. **Les marques**, s'il y en a. Sinon on saute : une section vide fait du mal.\n6. **Le contact** — email en clair, en gros.\n\n### Modèle de la section « Ce que je livre »\n\n> Fichiers MP4 · formats 9:16 et 1:1 · sous-titres incrustés\n> Délai : 5 jours ouvrés après réception du produit\n> 2 allers-retours inclus\n> Droits publicitaires 3 mois, France, tous supports numériques\n> Extensions de droits et de territoire sur devis\n\n### Les six vérifications techniques\n\n- [ ] Lien testé **en navigation privée** (la première cause de portfolio jamais vu)\n- [ ] Page chargée en moins de 3 secondes\n- [ ] Vidéos lues sur téléphone (70 % des ouvertures)\n- [ ] Aucun format horizontal\n- [ ] Aucun mot de passe, aucune demande d'accès\n- [ ] Fichiers chargés directement, pas d'intégration YouTube\n\n### Entretien\n\nToutes les six semaines : remplacer la vidéo la plus faible par la meilleure\ndes dernières livrées. Le portfolio grossit **par substitution**, jamais par\naccumulation. Six vidéos, toujours.\n"
+        },
+        {
+          "title": "Notion",
+          "description": "La page publique gratuite qui sert de portfolio par défaut. Attention au réglage : publiée en accès public, pas partagée par lien restreint.",
+          "kind": "tool",
+          "url": "https://www.notion.so"
+        }
+      ]
+    },
+    {
+      "position": 4,
+      "slug": "le-media-kit",
+      "title": "Le media kit : une page, sept chiffres",
+      "summary": "Le media kit d'une créatrice UGC ne parle pas d'audience mais de production. Les sept chiffres qu'une marque veut, ce qu'on n'y met jamais, et le moment exact où l'envoyer — au deuxième échange, jamais au premier.",
+      "duration_min": 10,
+      "script_file": "04-le-media-kit.md",
+      "resources": [
+        {
+          "title": "Media kit — les sept chiffres",
+          "description": "Le tableau à remplir, la page des packs et suppléments, les conditions à écrire, ce qu'on n'y met jamais et le rythme de mise à jour.",
+          "kind": "document",
+          "url": null,
+          "body": "## Media kit — les sept chiffres\n\nUne à deux pages, PDF sous 5 Mo, nommé `MediaKit-Prenom-Nom-UGC.pdf`.\nS'envoie au **deuxième** échange, jamais en premier contact.\n\n| # | Ligne | Ma valeur |\n|---|---|---|\n| 1 | Volume livré |  |\n| 2 | Délai (jours ouvrés) |  |\n| 3 | Formats produits |  |\n| 4 | Prix de départ |  |\n| 5 | Droits inclus (durée, territoire, supports) |  |\n| 6 | Capacité mensuelle |  |\n| 7 | Retours inclus, et prix au-delà |  |\n\n### Page 2 : packs et suppléments\n\n| Pack | Contenu | Prix |\n|---|---|---|\n| Découverte | 3 vidéos |  |\n| Test complet | 6 vidéos |  |\n| Abonnement | 8 vidéos / mois, 3 mois |  |\n\n| Supplément | Montant |\n|---|---|\n| Droits illimités | + 50 à 100 % |\n| Whitelisting | + 30 à 50 % / mois |\n| Format supplémentaire | 30 à 50 € |\n| Hook alternatif | 25 à 40 € |\n\n### Conditions à écrire\n\nAcompte 40 % à la commande · solde à la livraison · 2 retours inclus ·\nSIRET · email.\n\n### Ce qu'on n'y met pas\n\nStatistiques d'audience · moodboard · « ma philosophie » · photo pleine page ·\nvidéos intégrées (des vignettes cliquables, toujours).\n\n### Mise à jour\n\nTrimestrielle. Trois lignes bougent : volume livré, prix de départ, marques\nservies. Dix minutes.\n"
+        },
+        {
+          "title": "Canva",
+          "description": "Pour mettre en page le media kit en une heure et l'exporter en PDF léger, sans logiciel de PAO.",
+          "kind": "tool",
+          "url": "https://www.canva.com"
+        }
+      ]
+    },
+    {
+      "position": 5,
+      "slug": "afficher-ses-tarifs",
+      "title": "Afficher ses tarifs ou non : ce que ça change",
+      "summary": "Afficher filtre et ancre, cacher ouvre et expose au bradage. La solution du prix plancher prend les avantages des deux, et les trois questions à poser avant tout chiffre évitent la perte d'argent la plus courante du métier.",
+      "duration_min": 10,
+      "script_file": "05-afficher-ses-tarifs.md",
+      "resources": [
+        {
+          "title": "La règle du prix plancher",
+          "description": "Le comparatif des trois stratégies, les trois questions à poser avant tout prix, la réponse à un budget annoncé et le thermomètre du taux d'acceptation.",
+          "kind": "document",
+          "url": null,
+          "body": "## Afficher ses tarifs : la règle du prix plancher\n\n### Ce que produit chaque stratégie\n\n| | Prix affiché | Aucun prix | **Prix plancher** |\n|---|---|---|---|\n| Filtre les hors-budget | oui | non | **oui** |\n| Ancre la négociation haut | oui | non | **oui** |\n| Laisse monter selon les droits | non | oui | **oui** |\n| Coûte du temps en échanges | non | beaucoup | **peu** |\n\n**Formule à écrire au portfolio : « À partir de X € la vidéo. »**\n\nX = ton prix normal pour une vidéo simple, droits 3 mois.\nNi le prix bradé, ni le prix de rêve.\n\n### Les trois questions avant tout prix\n\nÀ épingler dans ton téléphone. Ne jamais donner un chiffre avant de les avoir\nposées — elles font varier le prix du simple au triple.\n\n1. **Combien de vidéos ?**\n2. **Diffusées où, et pendant combien de temps ?**\n3. **Pour quelle date ?**\n\nFormulation : « Ça dépend du volume et des droits — trois questions rapides et\nje vous envoie un chiffre ferme aujourd'hui. »\n\n### Face à un budget annoncé\n\nUn budget annoncé est un **plafond**, pas un prix.\nNe baisse jamais le prix unitaire : réduis le **périmètre**.\n\n> « Avec 600 €, je vous propose 3 vidéos avec droits 6 mois, ou 4 vidéos avec\n> droits 3 mois. Les deux tiennent dans votre budget. »\n\n### Le thermomètre du taux d'acceptation\n\n| Taux d'acceptation | Lecture | Action |\n|---|---|---|\n| > 85 % | Trop bon marché | Monter de 20 % |\n| 50 – 70 % | Bon niveau | Ne rien changer |\n| < 40 % | Trop cher pour le positionnement | Baisser ou monter en gamme |\n\nRéexamen tous les trois à quatre mois.\n"
+        },
+        {
+          "title": "Checklist de révision tarifaire",
+          "description": "Tous les trois à quatre mois : relever le taux d'acceptation, comparer à la fourchette 50-70 %, ajuster de 20 % le cas échéant.",
+          "kind": "checklist",
+          "url": null
+        }
+      ]
+    }
+  ]
+}

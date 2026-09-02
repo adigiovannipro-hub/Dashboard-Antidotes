@@ -20,23 +20,46 @@ import { createHash } from "node:crypto";
 import { readdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 
-const CONTENT_DIR = path.join(process.cwd(), "scripts", "data", "academy");
-const OUTPUT = path.join(
-  process.cwd(),
-  "supabase",
-  "migrations",
-  "0058_academy_seed.sql",
-);
+/**
+ * Les formations. Chacune a son dossier de contenu et sa migration de sortie.
+ *
+ * **Ne jamais changer la sortie d'une formation déjà appliquée** : le runner
+ * trace par nom et par empreinte, un fichier modifié affiche « ⚠ modifiée
+ * depuis » et ne se rejoue pas. `0058` est appliquée à la vraie base depuis
+ * le 22/08 ; la régénérer doit produire exactement les mêmes octets, ce que
+ * garantit le fait de n'ajouter `body` à une ressource que lorsqu'elle en
+ * porte un.
+ */
+const COURSES = [
+  {
+    directory: "academy",
+    output: "0058_academy_seed.sql",
+    orderIndex: 1,
+    expectedModules: 13,
+    slug: "devenir-freelance-social-media-manager",
+    title: "Antidotes Academy — Devenir freelance social media manager",
+    description:
+      "La méthodologie Antidotes de bout en bout : positionnement, acquisition, production, publicité, mesure et gestion d'activité. Treize modules, un script complet par leçon, à suivre dans l'ordre ou à la carte.",
+  },
+  {
+    directory: "academy-ugc",
+    output: "20260903a_academy_ugc_seed.sql",
+    orderIndex: 2,
+    expectedModules: 14,
+    slug: "devenir-libre-grace-a-l-ugc",
+    title: "Devenir libre grâce à l'UGC",
+    description:
+      "Le métier de créatrice UGC de bout en bout : se positionner, monter un portfolio qui fait signer, trouver des marques, tarifer, négocier, tourner, monter, livrer dans les temps et fidéliser. Quatorze modules, un script complet par leçon, et les documents de travail fournis avec.",
+  },
+] as const;
 
-const COURSE = {
-  slug: "devenir-freelance-social-media-manager",
-  title: "Antidotes Academy — Devenir freelance social media manager",
-  description:
-    "La méthodologie Antidotes de bout en bout : positionnement, acquisition, production, publicité, mesure et gestion d'activité. Treize modules, un script complet par leçon, à suivre dans l'ordre ou à la carte.",
-};
-
-const EXPECTED_MODULES = 13;
-const RESOURCE_KINDS = new Set(["template", "checklist", "link", "tool"]);
+const RESOURCE_KINDS = new Set([
+  "template",
+  "checklist",
+  "link",
+  "tool",
+  "document",
+]);
 const FORBIDDEN = [/lorem/i, /\bTODO\b/i, /placeholder/i, /à compléter/i, /\bXXX\b/];
 
 /** UUID stable dérivé d'une clé : régénérer ne change aucun identifiant. */
@@ -67,6 +90,8 @@ type ResourceJson = {
   description: string | null;
   kind: string;
   url: string | null;
+  /** Le document lui-même, quand la ressource en est un. */
+  body?: string | null;
 };
 
 type LessonJson = {
@@ -96,6 +121,19 @@ function wordCount(text: string): number {
 }
 
 async function main() {
+  for (const course of COURSES) {
+    await generate(course);
+  }
+}
+
+type CourseSpec = (typeof COURSES)[number];
+
+async function generate(course: CourseSpec) {
+  const CONTENT_DIR = path.join(process.cwd(), "scripts", "data", course.directory);
+  const OUTPUT = path.join(process.cwd(), "supabase", "migrations", course.output);
+  const COURSE = course;
+  const EXPECTED_MODULES = course.expectedModules;
+
   const directories = (await readdir(CONTENT_DIR, { withFileTypes: true }))
     .filter((entry) => entry.isDirectory())
     .map((entry) => entry.name)
@@ -111,7 +149,7 @@ async function main() {
 
   statements.push(
     `insert into academy_courses (id, org_id, slug, title, description, order_index, published)
-select '${courseId}'::uuid, o.id, '${COURSE.slug}', ${quote(COURSE.title)}, ${quote(COURSE.description)}, 1, true
+select '${courseId}'::uuid, o.id, '${COURSE.slug}', ${quote(COURSE.title)}, ${quote(COURSE.description)}, ${COURSE.orderIndex}, true
 from organizations o
 order by o.created_at
 limit 1
@@ -168,8 +206,8 @@ on conflict (id) do nothing;`,
       check(
         Array.isArray(lesson.resources) &&
           lesson.resources.length >= 2 &&
-          lesson.resources.length <= 4,
-        `${where} : ${lesson.resources?.length ?? 0} ressources, 2 à 4 attendues.`,
+          lesson.resources.length <= 5,
+        `${where} : ${lesson.resources?.length ?? 0} ressources, 2 à 5 attendues.`,
       );
       for (const resource of lesson.resources) {
         check(resource.title, `${where} : ressource sans titre.`);
@@ -180,6 +218,12 @@ on conflict (id) do nothing;`,
         check(
           resource.url === null || /^https?:\/\//.test(resource.url),
           `${where} : URL de ressource invalide (${resource.url}).`,
+        );
+        // Un document sans texte n'est pas un document : la leçon afficherait
+        // « Ouvrir le document » sur du vide.
+        check(
+          resource.kind !== "document" || (resource.body ?? "").trim().length > 200,
+          `${where} : le document « ${resource.title} » est vide ou trop court.`,
         );
       }
 
@@ -211,6 +255,9 @@ on conflict (id) do nothing;`,
         description: resource.description ?? null,
         kind: resource.kind,
         url: resource.url ?? null,
+        // `body` n'est écrit que s'il existe : l'ajouter partout, fût-ce à
+        // `null`, changerait les octets de `0058`, déjà appliquée.
+        ...(resource.body ? { body: resource.body } : {}),
       }));
 
       const lessonId = stableId(`academy:lesson:${parsed.slug}/${lesson.slug}`);
