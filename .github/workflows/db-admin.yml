@@ -74,6 +74,10 @@ on:
         description: "… en sondant en plus les statistiques d'une page (identifiant d'organisation)"
         type: string
         default: ""
+      sonde_linkedin_rest:
+        description: "Sonder l'API REST LinkedIn en direct (identifiant d'organisation)"
+        type: string
+        default: ""
 
 jobs:
   operer:
@@ -178,6 +182,14 @@ jobs:
         run: >-
           pnpm diagnostic:linkedin
           ${{ inputs.diagnostic_linkedin_sonde != '' && format('--sonde "{0}"', inputs.diagnostic_linkedin_sonde) || '' }}
+        env:
+          COMPOSIO_API_KEY: ${{ secrets.COMPOSIO_API_KEY }}
+
+      # L'API REST de LinkedIn en direct, par le passage brut de Composio :
+      # ce que ses outils pré-emballés refusent de demander.
+      - name: Sonde LinkedIn REST
+        if: ${{ inputs.sonde_linkedin_rest != '' }}
+        run: pnpm sonde:linkedin --organisation "${{ inputs.sonde_linkedin_rest }}"
         env:
           COMPOSIO_API_KEY: ${{ secrets.COMPOSIO_API_KEY }}
 
