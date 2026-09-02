@@ -207,6 +207,9 @@ jobs:
           ${{ inputs.sync_linkedin_depuis != '' && format('--depuis "{0}"', inputs.sync_linkedin_depuis) || '' }}
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          # `publicEnv` se valide au chargement du module : sans la clé anon,
+          # le script meurt à l'import, avant la moindre ligne utile.
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           COMPOSIO_API_KEY: ${{ secrets.COMPOSIO_API_KEY }}
 
