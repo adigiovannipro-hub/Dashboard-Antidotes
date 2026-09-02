@@ -138,35 +138,62 @@ async function main() {
     console.log("");
     console.log(`── ${account.id} — configuration ${account.authConfig?.id ?? "?"}`);
 
-    let response: { successful?: boolean; data?: unknown; error?: unknown };
-    try {
-      response = await composio.tools.execute(ORG_ACLS, {
-        userId,
-        connectedAccountId: account.id,
-        ...versionOptions,
-        arguments: { role: "ADMINISTRATOR", state: "APPROVED", count: 100 },
-      });
-    } catch (error) {
-      console.log(`  Appel impossible : ${error instanceof Error ? error.message : String(error)}`);
-      continue;
+    /* Composio ne rend pas la liste des ACL : il **résout** l'organisation et
+       renvoie une fiche unique. Une seule page sortait donc, quel que soit
+       `count` — ce qui se lirait « ce compte n'administre qu'une page » alors
+       qu'il en administre peut-être dix. On avance donc par `start`, un rang à
+       la fois, jusqu'à ce que LinkedIn ne rende plus rien ou rende un doublon.
+       Plafond à 50 : au-delà, c'est une boucle, pas un client. */
+    const pages: Page[] = [];
+    const seen = new Set<string>();
+    let refusal: string | null = null;
+    let raw: unknown = null;
+
+    for (let start = 0; start < 50; start += 1) {
+      let response: { successful?: boolean; data?: unknown; error?: unknown };
+      try {
+        response = await composio.tools.execute(ORG_ACLS, {
+          userId,
+          connectedAccountId: account.id,
+          ...versionOptions,
+          arguments: { role: "ADMINISTRATOR", state: "APPROVED", count: 1, start },
+        });
+      } catch (error) {
+        if (start === 0) refusal = error instanceof Error ? error.message : String(error);
+        break;
+      }
+
+      if (!response.successful) {
+        /* Un refus au premier rang est une vraie erreur ; aux suivants, c'est
+           la fin de la liste — LinkedIn ne rend pas 200 sur un rang vide. */
+        if (start === 0) refusal = String(response.error ?? "sans message");
+        break;
+      }
+
+      if (start === 0) raw = response.data;
+      const fresh = pagesOf(response.data).filter((page) => !seen.has(page.id));
+      if (fresh.length === 0) break;
+      for (const page of fresh) {
+        seen.add(page.id);
+        pages.push(page);
+      }
     }
 
-    if (!response.successful) {
-      console.log(`  Refus LinkedIn : ${String(response.error ?? "sans message")}`);
+    if (refusal) {
+      console.log(`  Refus LinkedIn : ${refusal}`);
       console.log("  → si le message cite r_organization_admin, la portée n'a pas été accordée :");
       console.log("    la configuration utilisée n'est pas « linkedin-pages », ou l'application");
       console.log("    OAuth n'est pas approuvée pour la Community Management API.");
       continue;
     }
 
-    const pages = pagesOf(response.data);
     if (pages.length === 0) {
       /* Une liste vide se lit de deux façons : le compte n'administre
          vraiment rien, ou la réponse n'a pas la forme attendue. La montrer
          telle quelle tranche — c'est le seul moyen de ne pas conclure à tort
          que le client n'a pas de page. */
       console.log("  Aucune page lue. Réponse brute de LinkedIn :");
-      console.log(`  ${JSON.stringify(response.data).slice(0, 4000)}`);
+      console.log(`  ${JSON.stringify(raw).slice(0, 4000)}`);
 
       /* Second essai avec l'autre rôle que LinkedIn expose : un compte qui
          ne « gère » pas la page peut quand même y publier du sponsorisé. */
