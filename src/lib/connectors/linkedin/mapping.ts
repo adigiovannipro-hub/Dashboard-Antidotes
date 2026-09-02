@@ -218,11 +218,38 @@ export function postsFromRest(payload: unknown): LinkedinPost[] {
       {
         urn,
         publishedAt: new Date(publishedAt).toISOString(),
-        commentary: text(element.commentary),
+        commentary: decodeCommentary(text(element.commentary)),
         mediaKind: mediaKindOf(asRecord(element.content)),
       },
     ];
   });
+}
+
+/**
+ * Le texte d'une publication, rendu lisible.
+ *
+ * LinkedIn ne rend pas du texte brut mais son format « Little Text » : les
+ * caractères réservés sont échappés par une barre oblique inverse, les
+ * hashtags sont des macros et les mentions portent l'URN de la personne ou
+ * de l'organisation citée. Recopié tel quel dans un tableau, ça donne
+ * « \#ChasseursDeGraines.fr » et « {hashtag|\#|Métiers} \| 🔬 » — illisible,
+ * et vu à l'écran au premier passage réel.
+ *
+ * Trois passes, dans cet ordre : les macros et les mentions d'abord — elles
+ * contiennent elles-mêmes des échappements —, le déséchappement ensuite.
+ * L'inverse transformerait `{hashtag\|…}` en macro et casserait la suivante.
+ */
+export function decodeCommentary(text: string | null): string | null {
+  if (!text) return null;
+  return (
+    text
+      // `{hashtag|\#|Métiers}` → `#Métiers`
+      .replace(/\{hashtag\|\\?#\|([^}]*)\}/g, "#$1")
+      // `@[INTERCEREALES](urn:li:organization:45571640)` → `@INTERCEREALES`
+      .replace(/@\[([^\]]*)\]\(urn:li:[^)]*\)/g, "@$1")
+      // `\|`, `\(`, `\#`… → le caractère lui-même.
+      .replace(/\\(.)/g, "$1")
+  );
 }
 
 /**

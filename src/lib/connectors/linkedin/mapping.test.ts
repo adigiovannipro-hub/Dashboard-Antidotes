@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   dailyFromShareStats,
+  decodeCommentary,
   followerGains,
   followersFromNetworkSize,
   followersHistory,
@@ -274,6 +275,41 @@ describe("postsFromRest", () => {
         ],
       })[0]?.mediaKind,
     ).toBe("carousel");
+  });
+});
+
+describe("decodeCommentary", () => {
+  /* Le texte est recopié d'une publication réelle d'ANMF : LinkedIn ne rend
+     pas du texte brut mais son format « Little Text ». Vu à l'écran au
+     premier passage — « \\#ChasseursDeGraines.fr » dans le tableau. */
+  it("déplie les macros de hashtag", () => {
+    expect(decodeCommentary("{hashtag|\\#|RSE} \\| En 2024")).toBe("#RSE | En 2024");
+  });
+
+  it("garde le nom d'une mention, jette son URN", () => {
+    expect(
+      decodeCommentary("Merci @[INTERCEREALES](urn:li:organization:45571640) !"),
+    ).toBe("Merci @INTERCEREALES !");
+  });
+
+  it("déséchappe les caractères réservés", () => {
+    expect(decodeCommentary("outils \\(guides, autodiagnostic\\)")).toBe(
+      "outils (guides, autodiagnostic)",
+    );
+    expect(decodeCommentary("\\#ChasseursDeGraines.fr")).toBe("#ChasseursDeGraines.fr");
+  });
+
+  it("traite une mention dont le nom porte lui-même des échappements", () => {
+    expect(
+      decodeCommentary(
+        "@[Confédération \\(CNBPF\\)](urn:li:organization:80301270) et la suite",
+      ),
+    ).toBe("@Confédération (CNBPF) et la suite");
+  });
+
+  it("laisse un texte sans macro intact, et un texte vide à null", () => {
+    expect(decodeCommentary("Une phrase normale.")).toBe("Une phrase normale.");
+    expect(decodeCommentary(null)).toBeNull();
   });
 });
 

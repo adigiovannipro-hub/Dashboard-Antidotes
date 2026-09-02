@@ -87,7 +87,7 @@ on:
         type: string
         default: ""
       sonde_linkedin_publication:
-        description: "… en sondant en plus les statistiques d'une publication (URN)"
+        description: "… sur ce mois (AAAA-MM)"
         type: string
         default: ""
 
@@ -219,7 +219,7 @@ jobs:
         if: ${{ inputs.sonde_linkedin_rest != '' }}
         run: >-
           pnpm sonde:linkedin --organisation "${{ inputs.sonde_linkedin_rest }}"
-          ${{ inputs.sonde_linkedin_publication != '' && format('--publication "{0}"', inputs.sonde_linkedin_publication) || '' }}
+          ${{ inputs.sonde_linkedin_publication != '' && format('--mois "{0}"', inputs.sonde_linkedin_publication) || '' }}
         env:
           COMPOSIO_API_KEY: ${{ secrets.COMPOSIO_API_KEY }}
 
