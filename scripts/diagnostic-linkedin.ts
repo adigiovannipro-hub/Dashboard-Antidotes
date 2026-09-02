@@ -238,22 +238,27 @@ async function main() {
        d'organisation avait déjà démenti la structure attendue. */
     if (!probe) continue;
 
-    const end = Date.now();
-    const start = end - 14 * 86_400_000;
+    /* Bornes **alignées sur minuit UTC** : LinkedIn refuse un intervalle
+       posé sur un instant quelconque (« Bad request … time intervals »),
+       ce qu'un `Date.now()` brut produit à tous les coups. */
+    const midnight = (daysAgo: number) => {
+      const day = new Date(Date.now() - daysAgo * 86_400_000);
+      return Date.UTC(day.getUTCFullYear(), day.getUTCMonth(), day.getUTCDate());
+    };
+    const end = midnight(0);
+    const start = midnight(14);
+    const entity = `urn:li:organization:${probe}`;
     const probes: [string, string, Record<string, unknown>][] = [
-      ["Statistiques de publications — total", SHARE_STATS, {
-        organizational_entity: `urn:li:organization:${probe}`,
-      }],
-      ["Statistiques de publications — par jour", SHARE_STATS, {
-        organizational_entity: `urn:li:organization:${probe}`,
+      ["Publications — total", SHARE_STATS, { organizational_entity: entity }],
+      ["Publications — par jour (bornes à minuit)", SHARE_STATS, {
+        organizational_entity: entity,
         time_intervals: `(timeRange:(start:${start},end:${end}),timeGranularityType:DAY)`,
       }],
-      ["Statistiques de page — par jour", PAGE_STATS, {
-        organization: `urn:li:organization:${probe}`,
-        timeRangeStart: start,
-        timeRangeEnd: end,
-        timeGranularityType: "DAY",
+      ["Publications — par mois", SHARE_STATS, {
+        organizational_entity: entity,
+        time_intervals: `(timeRange:(start:${midnight(365)},end:${end}),timeGranularityType:MONTH)`,
       }],
+      ["Page — total", PAGE_STATS, { organization: entity }],
     ];
 
     for (const [label, slug, args] of probes) {
