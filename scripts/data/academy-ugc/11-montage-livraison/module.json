@@ -1,0 +1,123 @@
+{
+  "slug": "montage-livraison",
+  "title": "Montage, son et livraison",
+  "description": "Ce module ramène le montage à un squelette de sept étapes et vingt-cinq minutes, règle la question de la musique — le piège qui rend une vidéo inutilisable en publicité —, donne les réglages d'export exacts, transforme une commande en trente variantes facturées, et construit le message de livraison qui prépare la commande suivante.",
+  "position": 11,
+  "lessons": [
+    {
+      "position": 1,
+      "slug": "monter-sur-mobile",
+      "title": "Monter sur mobile : le squelette d'une UGC",
+      "summary": "Le montage n'a qu'un travail : ne rien gâcher. Sept étapes dans un ordre fixe, les trois leviers du rythme, les cinq fonctions de CapCut qui servent vraiment, et le seuil au-delà duquel le problème vient du tournage.",
+      "duration_min": 11,
+      "script_file": "01-monter-sur-mobile.md",
+      "resources": [
+        {
+          "title": "Le squelette de montage en sept étapes",
+          "description": "Le tableau des sept étapes avec durée et piège, les trois leviers du rythme, les fonctions utiles et inutiles, et les quatre règles de sous-titres.",
+          "kind": "document",
+          "url": null,
+          "body": "## Le squelette de montage en sept étapes\n\n**Toujours dans cet ordre.** Changer l'ordre est la cause principale des\nmontages qui s'éternisent.\n\n| # | Étape | Durée | Piège |\n|---|---|---|---|\n| 1 | **Trier avant d'importer** | 3 min | Importer 40 fichiers pour en garder 9 |\n| 2 | Poser la structure | 2 min | Peaufiner avant de voir l'ensemble |\n| 3 | **Serrer les coupes** | 6 min | C'est l'étape qui fait le rythme |\n| 4 | Couvrir avec le B-roll | 4 min | Ne pas en avoir tourné |\n| 5 | Sous-titres + **relecture** | 5 min | Ne pas relire |\n| 6 | Musique | 2 min | Trop fort |\n| 7 | Vérification et export | 3 min | Sauter la checklist |\n\n**Cible : 25 minutes par vidéo.** Au-delà de 45 minutes régulièrement, le\nproblème vient du **tournage**, pas du montage.\n\n### Les trois leviers du rythme\n\n1. **Coupes serrées** — retirer 0,5 s de silence sur 12 plans = 6 s gagnées\n2. **Alternance des valeurs** — jamais deux plans identiques à la suite\n3. **Vitesse à 1,2× ou 1,5×** sur une démonstration — **jamais sur un plan parlé**\n\n### Les cinq fonctions de CapCut qui servent\n\nDécouper (la lame) · sous-titres automatiques · vitesse · volume par piste ·\nexport.\n\n**Ce qui ne sert à rien** : transitions animées, effets, filtres poussés,\nmodèles préfabriqués, stickers, compte à rebours.\n\n### Les sous-titres — quatre règles\n\n| Règle | Détail |\n|---|---|\n| Longueur | 3 à 5 mots par ligne, 2 lignes maximum |\n| Police | Simple, sans empattement, blanche, contour ou ombre noire |\n| Position | **Au quart inférieur**, jamais dans les 15 % du bas |\n| Relecture | **Intégrale** — noms de marque, chiffres et mots techniques sont systématiquement faux |\n\n### La colorimétrie — 30 secondes maximum\n\nLuminosité si l'image est sombre · un léger contraste · un léger\nréchauffement si la lumière était froide.\n\n**Jamais de correction de teinte poussée** : elle fausse la couleur du\nproduit, motif de refus fréquent.\n"
+        },
+        {
+          "title": "CapCut",
+          "description": "L'outil de montage mobile du métier. Cinq fonctions suffisent : découper, sous-titrer, accélérer, régler le volume, exporter.",
+          "kind": "tool",
+          "url": "https://www.capcut.com"
+        }
+      ]
+    },
+    {
+      "position": 2,
+      "slug": "sous-titres-musique",
+      "title": "Sous-titres, musique, sound design : les règles des plateformes",
+      "summary": "Une musique du catalogue applicatif rend une vidéo inutilisable en publicité — le piège le plus fréquent du métier. La règle de licence, le mixage en une phrase, les trois sons du sound design et les sept motifs réels de rejet.",
+      "duration_min": 11,
+      "script_file": "02-sous-titres-musique.md",
+      "resources": [
+        {
+          "title": "Musique, sound design, sous-titres",
+          "description": "La règle de licence organique contre publicitaire, le tableau de mixage, les trois sons discrets, et la liste des sept motifs de rejet — tous évitables.",
+          "kind": "document",
+          "url": null,
+          "body": "## Musique, sound design, sous-titres\n\n### La règle qui rend une vidéo utilisable ou non\n\nLes catalogues musicaux des applications (TikTok, Instagram, CapCut) sont\nlicenciés pour un usage **organique**, **pas pour la publicité payante**.\n\nUne marque qui pousse ta vidéo en pub avec un titre du catalogue verra le son\nbloqué ou la diffusion refusée. **Tu auras livré un fichier inutilisable.**\n\n| À utiliser | Pourquoi |\n|---|---|\n| La bibliothèque **commerciale** de la plateforme | Licenciée pour la publicité |\n| Une bibliothèque libre de droits commerciale | Garder la licence dans un dossier |\n| **Aucune musique** | Parfaitement acceptable, souvent meilleur en témoignage |\n\n### Le mixage en une phrase\n\n**Si tu dois monter le volume pour comprendre un mot, la musique est trop\nforte.**\n\n| Format | Voix | Musique |\n|---|---|---|\n| Parlé | 100 % | 10 – 20 % |\n| Sans parole | — | 40 – 60 % |\n\nBaisse d'un cran supplémentaire sur l'appel à l'action.\n\n### Le sound design — trois sons, discrets\n\n1. **Le son réel du geste** (clic, froissement, cuillère) — c'est pourquoi il\n   ne faut **pas** couper le son des B-rolls\n2. Une transition discrète sur une coupe franche\n3. Une accentuation sur un moment clé — **une seule par vidéo**\n\nÀ proscrire : effets comiques, « ding » de notification, sons de tendance.\nIls datent la vidéo en trois mois.\n\n### Sous-titres incrustés ou version propre ?\n\n**Demande-le au cadrage.** En cas de doute, **livre les deux** : un export de\nplus, une reprise en moins.\n\n### Les sept motifs réels de rejet — tous évitables\n\n1. Musique non licenciée pour la publicité\n2. Logo ou marque tierce visible\n3. Allégation interdite (secteur réglementé)\n4. Nom du produit mal orthographié dans les sous-titres\n5. Format horizontal\n6. Fichier trop lourd pour l'outil du client\n7. Durée au-dessus du maximum demandé\n\nAucun n'est une question de talent. Tous sont des points de contrôle.\n"
+        },
+        {
+          "title": "Checklist musique",
+          "description": "Bibliothèque commerciale ou libre de droits, licence conservée, volume sous la voix, aucun son de tendance.",
+          "kind": "checklist",
+          "url": null
+        }
+      ]
+    },
+    {
+      "position": 3,
+      "slug": "formats-et-exports",
+      "title": "Les formats et exports demandés par les marques",
+      "summary": "Un fichier inadapté à sa destination bloque une campagne sans que personne ait mal travaillé. Les réglages exacts, les quatre formats et leurs usages, le recadrage qui se prévoit au tournage, et la méthode de livraison sans friction.",
+      "duration_min": 10,
+      "script_file": "03-formats-et-exports.md",
+      "resources": [
+        {
+          "title": "Formats, exports, livraison",
+          "description": "Le tableau des réglages d'export avec leur raison, les quatre formats et leurs usages, la convention de nommage et la checklist de livraison.",
+          "kind": "document",
+          "url": null,
+          "body": "## Formats, exports, livraison\n\n### Les réglages d'export\n\n| Paramètre | Valeur | Pourquoi |\n|---|---|---|\n| Résolution | **1080 × 1920** | Les plateformes ne diffusent pas au-delà en vertical |\n| Cadence | **30 fps** | Sauf tournage 60 fps destiné au ralenti |\n| Codec | **H.264 / MP4** | Le seul universellement accepté (le HEVC ne l'est pas) |\n| Débit | 8 à 12 Mb/s | Au-dessus : plus lourd sans gain |\n| Audio | AAC 128 – 192 kb/s | — |\n\nUn fichier de 30 s bien réglé pèse **25 à 45 Mo**. Au-delà de 100 Mo, un\nréglage est mauvais.\n\n### Les formats à livrer\n\n| Format | Dimensions | Usage |\n|---|---|---|\n| **9:16** | 1080 × 1920 | Stories, reels, TikTok, pub verticale — toujours demandé |\n| 1:1 | 1080 × 1080 | Fil Facebook et Instagram |\n| **4:5** | 1080 × 1350 | Le plus performant du fil Instagram — peu de créatrices le proposent |\n| 16:9 | 1920 × 1080 | YouTube et web, uniquement sur demande |\n\n### Le recadrage se prévoit au tournage\n\n**Garde le sujet dans le carré central.** Filme en te disant que les bords\ndisparaîtront. Un cadrage au plus juste en 9:16 rend les déclinaisons\nimpossibles.\n\n### Le nommage\n\n`Marque-Produit-01-9x16.mp4`\n`Marque-Produit-01-4x5.mp4`\n`Marque-Produit-02-9x16-hookB.mp4`\n\nJamais `export_final_2.mp4` ni `IMG_4831.mov`.\n\n### La livraison\n\n- [ ] Dossier partagé **sans expiration** (un lien WeTransfer gratuit expire en 7 jours)\n- [ ] Droits en **lecture pour toute personne ayant le lien**\n- [ ] **Testé en navigation privée** avant envoi\n- [ ] Un sous-dossier par vidéo si plusieurs formats\n\n### Ce qu'on ne livre jamais\n\nLes **rushes** (ta propriété, écrite au contrat) · le projet de montage ·\nles prises non retenues · un fichier > 200 Mo sans prévenir.\n"
+        },
+        {
+          "title": "Checklist d'export",
+          "description": "1080 × 1920, 30 fps, H.264, 10 Mb/s, AAC 160, fichier sous 45 Mo, nommé selon la convention.",
+          "kind": "checklist",
+          "url": null
+        }
+      ]
+    },
+    {
+      "position": 4,
+      "slug": "les-declinaisons",
+      "title": "Les déclinaisons : trente variantes pour une session",
+      "summary": "Une marque qui reçoit quatre vidéos a quatre créas ; avec les déclinaisons, elle en a trente-deux. Les six types, leurs prix, ce qui les rend possibles — et tout se décide au tournage, pas au montage.",
+      "duration_min": 11,
+      "script_file": "04-les-declinaisons.md",
+      "resources": [
+        {
+          "title": "Les six déclinaisons",
+          "description": "Le tableau des six types avec temps de travail et prix, le calcul qui vend, la préparation à faire au tournage et le tableau récapitulatif à livrer.",
+          "kind": "document",
+          "url": null,
+          "body": "## Les six déclinaisons\n\nUne déclinaison = la même vidéo avec **un** élément changé.\n5 à 15 minutes de travail, et ça se facture.\n\n| Type | Travail | Prix indicatif |\n|---|---|---|\n| Hook alternatif | 8 min de tournage + 2 min de montage | 25 – 40 € |\n| Format supplémentaire | 2 min d'export | 30 – 50 € |\n| Version courte (15 s) | 10 min | 40 – 60 € |\n| Fin alternative | 5 min | 25 – 40 € |\n| Version sans sous-titres | 1 export | inclus ou 20 € |\n| **Montage alternatif** | 15 min | 60 – 90 € |\n\nLe montage alternatif produit les écarts de performance les plus intéressants.\n\n### Le calcul qui vend\n\n4 vidéos × 4 hooks × 2 formats = **32 variantes**.\nUne marque qui reçoit 4 vidéos a 4 créas. Avec les déclinaisons, elle en a 32.\n\n### Pourquoi les marques en veulent\n\n1. **Tester** — on ne sait pas quelle ouverture convertit\n2. **Répartir** — le fil, les stories et TikTok n'ont pas les mêmes formats\n3. **Retarder la fatigue** — 15 variantes tiennent plus longtemps que 3 vidéos\n\n### Tout se décide au tournage\n\n- [ ] **Cadrer large** → les formats\n- [ ] **Trois hooks** → les ouvertures\n- [ ] **Du B-roll en quantité** → les montages alternatifs\n- [ ] **Deux fins** si l'offre n'est pas figée\n\nSans cette préparation, tu ne peux décliner que les formats et les sous-titres.\n\n### Le nommage devient indispensable\n\n`Marque-01-9x16-hookA.mp4` · `Marque-01-4x5-hookB.mp4` · `Marque-01-15s-hookA.mp4`\n\nLe client doit identifier chaque fichier **sans l'ouvrir**. Un dossier confus\nfinit ignoré au profit des deux fichiers évidents.\n\n### Le tableau récapitulatif\n\nUne page, une ligne par fichier : hook, format, durée. **Cinq minutes**, et ça\ntransforme une livraison en outil de travail.\n\n### La règle qui évite le gâchis\n\n**Ne décline jamais une vidéo faible.** Trente variantes d'une mauvaise vidéo\nrestent mauvaises.\n"
+        },
+        {
+          "title": "Modèle de tableau récapitulatif",
+          "description": "Une ligne par fichier : hook, format, durée. Cinq minutes qui transforment une livraison en outil de travail.",
+          "kind": "template",
+          "url": null
+        }
+      ]
+    },
+    {
+      "position": 5,
+      "slug": "la-livraison",
+      "title": "La livraison : nommage, dossier, message d'accompagnement",
+      "summary": "Un lien nu laisse la marque seule devant douze fichiers. Le message en six lignes, dont celle qui recommande quelle vidéo tester en premier — la phrase qui fait passer de prestataire à partenaire — et le suivi à J+7 et J+21.",
+      "duration_min": 11,
+      "script_file": "05-la-livraison.md",
+      "resources": [
+        {
+          "title": "Le message de livraison",
+          "description": "Le message type mot pour mot, le rôle de chacune de ses six lignes, le bon moment pour livrer et les trois messages de suivi qui produisent la majorité des recommandes.",
+          "kind": "document",
+          "url": null,
+          "body": "## Le message de livraison\n\n### Le dossier — quatre éléments\n\nLes fichiers nommés · un **tableau récapitulatif** d'une page · **la facture** ·\net rien d'autre.\n\n### Le message type\n\n> Bonjour [Prénom],\n>\n> Voici les 4 vidéos, avec 3 hooks chacune et les formats 9:16 et 4:5 —\n> 26 fichiers, plus un récapitulatif d'une page dans le dossier : [lien]\n>\n> **Si vous ne testez qu'une chose : la vidéo 2 avec le hook C.** C'est l'angle\n> qui attaque l'objection prix, celle qui revient le plus dans vos avis\n> clients.\n>\n> Tout est en 1080p H.264, sous 40 Mo, prêt à importer.\n>\n> Deux allers-retours sont inclus : si quelque chose ne va pas, dites-le-moi\n> **d'ici vendredi** et je reprends sous 48 h.\n>\n> Facture jointe, réglable à 15 jours.\n>\n> Dites-moi ce qui performe quand vous aurez du recul — ça m'aidera à orienter\n> les prochaines.\n>\n> Bonne diffusion,\n> [Prénom]\n\n### Les six lignes et ce qu'elles font\n\n| Ligne | Rôle |\n|---|---|\n| 1. La livraison, factuelle | Situer le volume |\n| 2. **Ce que tu recommandes** | Te fait passer de prestataire à **partenaire** |\n| 3. La précision technique | Désamorce les questions d'import |\n| 4. Les retours **avec une date** | Évite le retour surprise à trois semaines |\n| 5. La facture | Chaque jour d'émission = un jour de paiement |\n| 6. L'ouverture sur la suite | Demande une info utile, installe l'idée d'une suite |\n\n### Le moment\n\n**En début de journée**, jamais le soir : une livraison reçue à 22 h est lue\nle lendemain dans le flot.\n\n**Un jour avant la date promise** quand c'est possible — le geste qui produit\nle plus de commentaires positifs pour le moins d'effort.\n\n### Le suivi — trois minutes en tout\n\n| Quand | Message |\n|---|---|\n| J+7 | « Les vidéos tournent ? Rien à ajuster ? » |\n| J+21 | « Vous avez du recul sur les performances ? Quel hook a le mieux marché ? » |\n| J+75 | Le message d'échéance des droits |\n\n**C'est l'essentiel du travail de fidélisation.**\n\n### Ce qu'il ne faut pas faire\n\nS'excuser · demander un avis **esthétique** (demande les performances) ·\nlivrer sans tableau · oublier de fixer une date de retour.\n"
+        },
+        {
+          "title": "Checklist d'avant-envoi",
+          "description": "Lien testé en navigation privée, fichiers nommés, tableau récapitulatif, facture jointe, date de retour fixée.",
+          "kind": "checklist",
+          "url": null
+        }
+      ]
+    }
+  ]
+}

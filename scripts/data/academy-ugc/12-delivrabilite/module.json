@@ -1,0 +1,100 @@
+{
+  "slug": "delivrabilite",
+  "title": "Délivrabilité : tenir ses engagements",
+  "description": "Ce module traite la compétence qui décide de la fidélisation, très loin devant l'esthétique : le rétroplanning et la marge de deux jours, le forfait d'allers-retours qui protège la rentabilité, la conduite à tenir dans les six situations qui dérapent, et la checklist en douze points qui rend la qualité constante.",
+  "position": 12,
+  "lessons": [
+    {
+      "position": 1,
+      "slug": "le-delai",
+      "title": "Le délai : rétroplanning d'une commande type",
+      "summary": "Cinq jours ouvrés contiennent cinq à neuf heures de travail et une journée d'attente qu'on ne contrôle pas. La règle de la marge, le rétroplanning à l'envers, les cinq causes réelles de retard et le calendrier de capacité qui empêche d'accepter trop.",
+      "duration_min": 11,
+      "script_file": "01-le-delai.md",
+      "resources": [
+        {
+          "title": "Le rétroplanning et la marge",
+          "description": "La décomposition réelle d'un délai de cinq jours, la méthode de rétroplanning, le tableau des cinq causes de retard avec leur remède, et le message d'annonce à 48 heures.",
+          "kind": "document",
+          "url": null,
+          "body": "## Le rétroplanning et la marge\n\n### La décomposition d'un délai de cinq jours\n\n| Jour | Étape | Durée réelle |\n|---|---|---|\n| J0 | Réception produit, lecture du brief, scripts | 1 h |\n| J1 | **Validation des scripts par le client** | attente |\n| J2 | Tournage | 2 à 4 h |\n| J3 | Montage | 1 à 3 h |\n| J4 | Vérification, export, livraison | 1 h |\n\n**5 à 9 heures de travail réel** — et une journée entière d'attente que tu ne\ncontrôles pas.\n\n### La règle de la marge\n\n**Annonce deux jours de plus que ton besoin réel.**\n\n| Raison | Fréquence |\n|---|---|\n| Le produit arrive en retard | 1 cas sur 3 |\n| La validation prend 2 jours au lieu d'1 | courant |\n| Livrer en avance produit un effet disproportionné | toujours |\n\n### Le rétroplanning — partir de la diffusion et remonter\n\nDiffusion le 20 → livraison le 17 → export le 17 matin → montage les 15-16 →\ntournage le 14 → validation les 12-13 → scripts envoyés le 11 →\n**produit reçu au plus tard le 10**.\n\nCette dernière date se communique **par écrit** : sans elle, le retard du\nproduit devient ton retard.\n\n### Les cinq causes de retard et leur remède\n\n| Cause | Remède |\n|---|---|\n| Produit en retard | Condition suspensive écrite au devis |\n| Validation qui traîne | Date limite dans le message d'envoi du script |\n| Surcharge | Calendrier de capacité |\n| Imprévu personnel | La marge de deux jours |\n| Perfectionnisme | Le temps cible de 25 min par montage |\n\n### Le calendrier de capacité\n\n| Rythme | Vidéos par semaine |\n|---|---|\n| Temps plein | 8 à 12 |\n| Mi-temps | 4 à 6 |\n\nAvant d'accepter : regarder la semaine. Si elle est pleine, **proposer la\nsuivante** — presque toujours accepté, alors qu'un retard ne l'est jamais.\n\n### Prévenir un retard — 48 h minimum\n\n> Bonjour [Prénom], je dois décaler la livraison de deux jours : au 19 au lieu\n> du 17. La raison est [raison factuelle]. Les vidéos seront complètes, je ne\n> réduis rien. Est-ce que ça reste compatible avec votre planning de diffusion ?\n\nUne date ferme · une raison factuelle · une question.\n**Un retard annoncé 48 h avant est un contretemps. Le jour J, c'est une faute.**\n"
+        },
+        {
+          "title": "Calendrier de capacité",
+          "description": "Un tableau par mois avec le nombre maximum de vidéos par semaine. Le seul outil qui empêche d'accepter trop et de livrer mal à tout le monde.",
+          "kind": "template",
+          "url": null
+        }
+      ]
+    },
+    {
+      "position": 2,
+      "slug": "les-retours-client",
+      "title": "Les retours client : combien d'allers-retours, et lesquels",
+      "summary": "Une vidéo à 250 € reprise quatre fois devient une perte. Le forfait écrit à trois endroits, la distinction entre correction et refonte, la question à poser devant un retour flou, et les quatre retours qu'il faut accepter gratuitement.",
+      "duration_min": 11,
+      "script_file": "02-les-retours-client.md",
+      "resources": [
+        {
+          "title": "Les allers-retours",
+          "description": "La formule à écrire, le tableau correction contre refonte, la question de précision mot pour mot, les quatre retours gratuits et les trois à refuser poliment.",
+          "kind": "document",
+          "url": null,
+          "body": "## Les allers-retours\n\n### Le forfait, écrit à trois endroits\n\nDevis · compte rendu de cadrage · message de livraison.\n\n> 2 allers-retours inclus, portant sur le montage et **non sur le concept\n> validé**. Reprise supplémentaire : 40 €.\n\n### La distinction qui change tout\n\n| Correction (dans le forfait) | Refonte (hors forfait) |\n|---|---|\n| Une coupe à resserrer | Un autre angle |\n| Un sous-titre à corriger | Un autre décor |\n| Un plan remplacé par un autre déjà tourné | Un autre produit |\n| Un volume à ajuster | Un autre script |\n\n### Devant un retour flou — ne jamais commencer à travailler\n\n> Bonjour [Prénom], pour être sûre de bien reprendre : est-ce que vous pouvez\n> me dire, **avec le temps précis**, ce qui ne va pas ? Par exemple « à 0:12,\n> le plan produit est trop rapide ». Ça m'évitera de reprendre ce qui vous\n> convient déjà.\n\nDeux effets : la demande se précise, et **elle se réduit souvent d'elle-même**.\n\n### Regrouper\n\n> Envoyez-moi l'ensemble de vos remarques d'un coup, je reprends tout en une\n> fois. Ça compte pour un aller-retour.\n\nSans cette règle, cinq messages coûtent cinq fois le temps de mise en route.\n\n### Les quatre retours à accepter gratuitement, même hors forfait\n\nCe sont des **défauts de livraison**, pas des retours :\n\n1. Erreur factuelle (prix faux, caractéristique inexacte)\n2. Sous-titre faux sur le nom de la marque\n3. Problème technique (fichier corrompu, mauvais format, son coupé)\n4. Élément interdit signalé au brief et non vu\n\n### Les trois retours à refuser poliment\n\n- « Refais-la avec un autre angle » → nouvelle vidéo\n- « Notre boss préfère autre chose » → le concept était validé\n- « On voudrait tester une autre version » → c'est une déclinaison, ça se facture\n\n> Je peux tout à fait le faire — c'est une reprise hors forfait, à 40 €, ou une\n> nouvelle vidéo à [prix] selon l'ampleur. Dites-moi ce que vous préférez.\n\n### Quand c'est ta faute\n\n> Vous avez raison, je reprends, vous avez la nouvelle version demain matin.\n\nSans discuter, sans s'excuser longuement, sans compter l'aller-retour.\n"
+        },
+        {
+          "title": "Checklist de traitement d'un retour",
+          "description": "Une seule liste, avec des temps précis, dans le forfait ou hors forfait, reprise sous 48 heures ouvrées.",
+          "kind": "checklist",
+          "url": null
+        }
+      ]
+    },
+    {
+      "position": 3,
+      "slug": "quand-ca-derape",
+      "title": "Quand ça dérape : retard, produit non reçu, brief qui change",
+      "summary": "Six situations arrivent à tout le monde plusieurs fois par an. Ce qui distingue une créatrice fiable n'est pas de les éviter mais d'avoir décidé à l'avance quoi écrire — les six messages, rédigés à froid.",
+      "duration_min": 11,
+      "script_file": "03-quand-ca-derape.md",
+      "resources": [
+        {
+          "title": "Les six situations dégradées",
+          "description": "Le message à envoyer pour chacune des six situations, la procédure de relance en trois temps face à un client silencieux, et le principe commun aux six cas.",
+          "kind": "document",
+          "url": null,
+          "body": "## Les six situations dégradées\n\n**Le principe commun** : écrire tôt · proposer une solution **datée** ·\nne pas s'excuser longuement.\n\n### 1. Le produit n'arrive pas — 1 commande sur 3\n\n> Bonjour [Prénom], je n'ai pas encore reçu le produit — la date convenue\n> était le 10. Pour tenir la livraison du 17, il me le faudrait avant le 12.\n> Au-delà, je décale la livraison d'autant. Avez-vous un numéro de suivi ?\n\n**Ne décale jamais ton planning en silence** : le retard deviendrait le tien.\n\n### 2. Le brief change\n\n| Moment | Statut |\n|---|---|\n| **Avant** tournage | Gratuit et normal — mets à jour le compte rendu |\n| **Après** tournage | Nouvelle commande |\n\n> Le changement d'angle demande un nouveau tournage. C'est une nouvelle vidéo\n> à [prix], livrable le [date]. Je peux aussi livrer la version prévue **et**\n> faire la nouvelle en complément, si le calendrier presse.\n\nLa seconde option est souvent choisie — et elle double la commande.\n\n### 3. Le client ne répond plus\n\n| Quand | Message |\n|---|---|\n| J+2 | Rappel simple avec la date limite |\n| J+4 | « Sans retour aujourd'hui, je décale au [date]. » |\n| **J+8** | **Mise en pause écrite** : « je libère le créneau, l'acompte reste acquis » |\n\nUn projet dormant qui occupe un créneau est un créneau perdu deux fois.\n\n### 4. Empêchement personnel\n\n> Je suis malade et je ne pourrai pas tourner cette semaine. Je décale la\n> livraison au [date ferme]. Si ce délai ne convient pas à votre planning,\n> dites-le-moi et je vous rembourse l'acompte, sans difficulté.\n\n**La proposition de remboursement** transforme un problème subi en choix\noffert. Elle est presque toujours refusée.\n\n### 5. Produit cassé, périmé ou non conforme\n\n> Je préfère ne pas tourner avec : ça se verrait en macro. Pouvez-vous m'en\n> renvoyer un ? Je décale la livraison de [n] jours en conséquence.\n\nTourner avec un produit non conforme fait perdre le temps **deux fois**.\n\n### 6. Fichier perdu\n\n**Prévention** : sauvegarde sur un **second support le soir même du tournage**.\n\nSi un fichier indispensable est perdu : prévenir, proposer une date de\nre-tournage, et **ne pas le facturer**. C'est ta responsabilité.\n"
+        },
+        {
+          "title": "Checklist de sauvegarde",
+          "description": "Le soir de chaque tournage, une copie sur un second support avant de se coucher. Un support unique est une panne en attente.",
+          "kind": "checklist",
+          "url": null
+        }
+      ]
+    },
+    {
+      "position": 4,
+      "slug": "la-qualite-constante",
+      "title": "La qualité constante : ta checklist de contrôle avant envoi",
+      "summary": "Un doute chez un client régulier coûte plus cher qu'un défaut chez un client nouveau. Douze points à lire à l'écran, le visionnage complet sur téléphone — le contrôle le plus rentable du métier — et le carnet des défauts qui empêche de se répéter.",
+      "duration_min": 11,
+      "script_file": "04-la-qualite-constante.md",
+      "resources": [
+        {
+          "title": "La checklist de contrôle en douze points",
+          "description": "Les douze points groupés par catégorie, le contrôle du visionnage sur téléphone, le contrôle croisé, les trois régularités que le client mesure et le carnet des défauts.",
+          "kind": "document",
+          "url": null,
+          "body": "## La checklist de contrôle en douze points\n\nÀ lire **à l'écran**, ligne par ligne, jamais de mémoire — et **surtout quand\non est pressée**, parce que c'est là que les défauts passent.\n\n### Sur le fichier\n1. [ ] Format et dimensions conformes au brief\n2. [ ] **Durée ≤ maximum demandé** (34 s pour un max de 30 = reprise)\n3. [ ] Poids sous 50 Mo pour 30 s\n4. [ ] Nommage conforme à la convention\n\n### Sur l'image\n5. [ ] **Aucun plan flou ou tremblant** — vidéo regardée en entier, sur téléphone\n6. [ ] Aucun élément interdit : logo concurrent, personnel, daté\n7. [ ] Produit conforme : bonne référence, étiquette lisible, propre\n\n### Sur le son\n8. [ ] Volume constant d'un plan à l'autre\n9. [ ] Musique licenciée pour la publicité, sous la voix\n\n### Sur le texte\n10. [ ] Sous-titres relus **intégralement** (nom de marque, chiffres)\n11. [ ] Mentions obligatoires présentes, allégations interdites absentes\n\n### Sur la livraison\n12. [ ] Lien testé en navigation privée, tableau récapitulatif, facture jointe\n\n### Le contrôle le plus rentable du métier\n\n**Point 5 : regarde chaque vidéo en entier, sur un téléphone, avant d'envoyer.**\n\nLe rendu diffère de la fenêtre de montage · les défauts ne se voient qu'à\ntaille réelle · c'est le seul moyen de percevoir le rythme comme le\nspectateur. **Deux minutes par vidéo.**\n\n### Le contrôle croisé\n\nSur une commande importante, fais regarder une vidéo par quelqu'un d'autre,\nsans consigne. Une seule question : « il y a un truc qui te gêne ? »\n\nUn regard neuf repère en dix secondes ce que tu ne vois plus après trois\nheures de montage.\n\n### Les trois régularités que le client mesure sans le dire\n\nLe **délai** tenu à chaque fois · le **même niveau** de la première à la\nvingtième vidéo · le **même mode de livraison** (structure, message,\nnommage) — un client qui n'a plus rien à réapprendre a une raison de rester.\n\n### Le carnet des défauts\n\nTrois lignes suffisent. À relire avant chaque livraison importante.\n\n> Oublié de vérifier la durée — vidéo à 34 s refusée, janvier.\n> Sous-titre « Nutrimax » au lieu de « NutriMax » — reprise, mars.\n> Musique du catalogue sur une pub — quatre remontages, avril.\n\n**Une erreur qu'on a écrite ne se répète presque jamais.**\n"
+        },
+        {
+          "title": "Carnet des défauts",
+          "description": "Trois lignes par erreur réellement commise, relues avant chaque livraison importante. Une erreur écrite ne se répète presque jamais.",
+          "kind": "template",
+          "url": null
+        }
+      ]
+    }
+  ]
+}

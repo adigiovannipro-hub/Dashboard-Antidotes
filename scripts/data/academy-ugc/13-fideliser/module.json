@@ -1,0 +1,100 @@
+{
+  "slug": "fideliser",
+  "title": "Fidéliser et faire grandir le compte",
+  "description": "Ce module travaille du côté où le rendement est cent fois meilleur : les trois messages de la fenêtre de dix jours après livraison, le passage à l'abonnement qui change la nature du métier, la lecture des performances qui permet de vendre un résultat plutôt qu'une vidéo, et la recommandation rendue systématique.",
+  "position": 13,
+  "lessons": [
+    {
+      "position": 1,
+      "slug": "le-message-d-apres-livraison",
+      "title": "Le message d'après-livraison qui déclenche la commande suivante",
+      "summary": "Un nouveau client coûte cent contacts ; un client existant coûte un message de six lignes. Les trois messages de la fenêtre des dix jours, dont celui de J+10 — le plus important du métier — qui obtient une information introuvable ailleurs.",
+      "duration_min": 11,
+      "script_file": "01-le-message-d-apres-livraison.md",
+      "resources": [
+        {
+          "title": "Les trois messages d'après-livraison",
+          "description": "Les trois messages mot pour mot avec leur rôle, le calendrier du suivi long, ce qu'il ne faut pas faire et le tableau de suivi client à cinq colonnes.",
+          "kind": "document",
+          "url": null,
+          "body": "## Les trois messages d'après-livraison\n\n**La fenêtre est de dix jours.** Attention très haute pendant 3 jours, moyenne\njusqu'à 10, quasi nulle ensuite. Trois messages, trois minutes en tout.\n\n### J+3 — le contrôle\n\n> Bonjour [Prénom], tout s'est bien passé à l'import ? Si vous avez besoin\n> d'un format ou d'une version différente, dites-le-moi, c'est rapide.\n\nAttrape un problème technique avant qu'il ne devienne une contrariété\nsilencieuse, et rappelle l'existence des déclinaisons.\n\n### J+10 — la performance · **le message le plus important du métier**\n\n> Bonjour [Prénom], vous avez du recul sur les créas ? Je suis curieuse de\n> savoir laquelle a le mieux tourné — ça m'aide à orienter les prochaines.\n\n| Ce qu'il fait | Pourquoi ça compte |\n|---|---|\n| Obtient une info introuvable ailleurs | Améliore toutes tes vidéos suivantes |\n| Présuppose une suite (« les prochaines ») | Sans rien demander |\n| Te place du côté de la performance | Prestataire → **partenaire** |\n\n**Dans un cas sur trois, la réponse contient une nouvelle commande.**\n\n### J+18 — la proposition\n\n*Uniquement si les deux premiers ont obtenu une réponse.*\n\n> Bonjour [Prénom], puisque [angle] a bien tourné, je vous propose trois\n> nouvelles vidéos sur cette piste : [angle 1], [angle 2], [angle 3].\n> Livrables sous 5 jours, [prix]. Je bloque un créneau la semaine prochaine si\n> ça vous intéresse.\n\nPart de **leurs** résultats · **trois angles nommés**, pas « d'autres vidéos » ·\nune contrainte de créneau qui accélère la décision.\n\n### Le suivi long\n\n| Quand | Quoi |\n|---|---|\n| J+75 | Message d'échéance des droits |\n| Tous les 2 mois | Message court **avec un élément nouveau** |\n| À chaque lancement produit repéré | Le meilleur moment pour recontacter |\n\n### Ce qu'il ne faut pas faire\n\nAttendre que le client revienne · demander « avez-vous d'autres projets ? »\n(question fermée qui ferme la porte 3 mois) · relancer sans élément nouveau.\n\n### Le tableau de suivi client\n\n| Client | Dernière livraison | Résultat connu | Prochaine action | Date |\n|---|---|---|---|---|\n|  |  |  |  |  |\n"
+        },
+        {
+          "title": "Tableau de suivi client",
+          "description": "Le pipeline appliqué à ceux qui ont déjà payé — celui qui rapporte le plus, puisqu'il travaille sur des relations qui existent.",
+          "kind": "template",
+          "url": null
+        }
+      ]
+    },
+    {
+      "position": 2,
+      "slug": "passer-a-l-abonnement",
+      "title": "Passer d'une commande à un abonnement mensuel",
+      "summary": "Dix clients ponctuels et trois clients en abonnement peuvent rapporter autant, mais ce n'est pas le même métier. Le bon moment, la proposition mot pour mot avec son option de repli, les cinq clauses à écrire et les quatre objections classiques.",
+      "duration_min": 12,
+      "script_file": "02-passer-a-l-abonnement.md",
+      "resources": [
+        {
+          "title": "Passer à l'abonnement",
+          "description": "Le moment de la proposition, le tableau des bénéfices client et créatrice, la proposition rédigée, les cinq clauses et les réponses aux quatre objections.",
+          "kind": "document",
+          "url": null,
+          "body": "## Passer à l'abonnement\n\n### Le bon moment\n\n**Après la deuxième commande réussie.** Avant : aucune preuve de part et\nd'autre. Après trois ou quatre commandes ponctuelles : une routine s'installe\net il devient difficile de changer la forme de la relation.\n\n### Ce qu'il apporte — au client d'abord\n\n| Pour lui | Pour toi |\n|---|---|\n| Prix unitaire −15 à −20 % | Revenu prévisible |\n| Créneau réservé | Zéro prospection sur ce client |\n| Délai raccourci | Tournage en lots, temps unitaire divisé |\n| Cohérence visuelle du trimestre | Capacité de planifier sa vie |\n| Un devis, une facture, un brief par mois | — |\n\n### La proposition\n\n> Bonjour [Prénom],\n>\n> Puisqu'on est sur la deuxième série et que le rythme fonctionne, je vous\n> propose de passer sur un format mensuel : **6 vidéos par mois, 1 200 €,\n> engagement de 3 mois.**\n>\n> Concrètement, ça vous donne : un prix unitaire à 200 € au lieu de 250, un\n> créneau de production réservé chaque mois, une livraison en 3 jours au lieu\n> de 5, et un seul point de brief de trente minutes en début de mois.\n>\n> De mon côté, ça me permet de bloquer le temps et d'aller plus vite parce que\n> je connais vos produits.\n>\n> Si le volume vous semble élevé, on peut démarrer à 4 vidéos par mois à 880 €.\n> Dites-moi ce qui vous arrange.\n\nChiffre précis · bénéfices **pour eux** en premier · honnêteté sur ton gain ·\n**option de repli** qui évite le non sec.\n\n### Les cinq clauses à écrire\n\n1. **Volume mensuel** et durée d'engagement (3 mois minimum)\n2. **Facturation à échéance fixe, consommée ou non** — c'est une capacité\n   réservée. *Sans cette clause, l'abonnement est une option gratuite.*\n3. **Report d'une vidéo** sur le mois suivant, **une seule fois**\n4. **Délai de brief** : les briefs arrivent avant une date, sinon le rythme glisse\n5. **Révision tarifaire** à chaque renouvellement\n\n### Les quatre objections\n\n| Objection | Réponse |\n|---|---|\n| « On préfère voir au fil de l'eau » | « Un premier engagement de deux mois, pour tester le rythme » |\n| « Six par mois c'est trop » | « Partons sur quatre. L'intérêt est le rythme, pas le volume » |\n| « Et si on n'a rien à mettre en avant ? » | « On reporte une vidéo, une fois par trimestre » |\n| « On doit faire valider » | « Je vous envoie une proposition d'une page pour votre validation interne » |\n\n### Le renouvellement — trois semaines avant la fin\n\n> Notre engagement se termine fin [mois]. Je vous propose de repartir sur trois\n> mois. À cette occasion, mes tarifs évoluent : le mensuel passe de 1 200 à\n> 1 320 €. Le volume et le délai restent identiques.\n\n**C'est le moment naturel de la hausse** : elle est attendue et ne surprend\npersonne.\n"
+        },
+        {
+          "title": "Checklist de renouvellement",
+          "description": "Trois semaines avant la fin de l'engagement : proposer trois mois de plus et annoncer la hausse. C'est le moment naturel, et il ne surprend personne.",
+          "kind": "checklist",
+          "url": null
+        }
+      ]
+    },
+    {
+      "position": 3,
+      "slug": "lire-les-performances",
+      "title": "Lire les performances de tes vidéos et t'en servir pour vendre",
+      "summary": "Une créatrice qui documente ses résultats n'est plus comparable à une créatrice qui documente son délai. Les trois indicateurs et à qui chacun appartient, les formulations qui les obtiennent, et le carnet de performance qui devient l'outil commercial le plus fort.",
+      "duration_min": 11,
+      "script_file": "03-lire-les-performances.md",
+      "resources": [
+        {
+          "title": "Lire les performances de ses vidéos",
+          "description": "Le tableau des trois indicateurs, les trois formulations pour les obtenir dont celle qui débloque les marques réticentes, les quatre usages et le carnet de performance.",
+          "kind": "document",
+          "url": null,
+          "body": "## Lire les performances de ses vidéos\n\n### Les trois indicateurs\n\n| Indicateur | Ce qu'il mesure | À qui il appartient |\n|---|---|---|\n| **Rétention à 3 s** | L'accroche, et rien d'autre | **Toi** — assume-la |\n| Taux de clic sortant | L'envie donnée | Toi + l'offre — revendique-le |\n| Coût par achat | La rentabilité de la campagne | Le client — **ne le promets jamais** |\n\nBon niveau de rétention à 3 s : **25 à 40 %**. Sous 20 %, le hook est à revoir.\n\n### Les trois formulations pour les obtenir\n\n> Vous avez du recul sur les créas ? Je suis curieuse de savoir laquelle a le\n> mieux tourné.\n\n> Est-ce que vous avez la rétention à 3 secondes sur les trois hooks ?\n\n> Sans chiffres précis si c'est confidentiel : est-ce qu'il y en a une qui se\n> détache ?\n\n**La troisième débloque les marques réticentes** : elle demande un classement,\npas des données.\n\n### Les quatre usages\n\n1. **Améliorer** — le hook qui gagne partout devient ton défaut\n2. **Vendre au même client** — le message J+18, adossé à leurs chiffres\n3. **Vendre à d'autres** — « sur une marque de compléments, mes vidéos ont\n   accompagné une baisse de 38 % du coût par achat »\n4. **Justifier un prix** — documenter des résultats, pas un délai\n\n### Le carnet de performance\n\n| Client | Angle | Hook | Résultat connu |\n|---|---|---|---|\n| Marque thé | dosage | question | meilleure des 6, CPA −38 % |\n| Marque sport | objection prix | contre-pied | rétention 3 s la plus haute |\n| Marque soin | usage quotidien | situation | pas de retour |\n\nAu bout de six mois : **ton meilleur outil commercial et créatif**, parce qu'il\nmontre ce qui marche avec **ton** visage et **ton** ton.\n\n### Les quatre choses à ne jamais faire\n\nPromettre un résultat chiffré · citer un client nommément (anonymise par\nsecteur) · s'attribuer tout un résultat (« mes créas ont accompagné », pas\n« j'ai fait ») · se décourager d'un mauvais chiffre — c'est la tendance sur\ndix vidéos qui compte.\n\n### Quand le client ne donne rien\n\nLes **indicateurs publics** en organique (vues, partages, commentaires) · et\nsurtout **la commande suivante** : une marque qui repasse commande a obtenu ce\nqu'elle voulait, même sans le dire.\n"
+        },
+        {
+          "title": "Carnet de performance",
+          "description": "Une ligne par vidéo livrée : client, angle, hook, résultat connu. Au bout de six mois, il vaut plus que ton portfolio.",
+          "kind": "template",
+          "url": null
+        }
+      ]
+    },
+    {
+      "position": 4,
+      "slug": "les-recommandations",
+      "title": "Les recommandations : faire venir les marques par les marques",
+      "summary": "Une recommandation convertit à 50-70 % contre 1 à 2 % en démarchage froid, et elle se provoque. Les trois sources dont le réseau de créatrices, le message prêt à transférer qui multiplie les recommandations effectives, et ce qui les empêche.",
+      "duration_min": 11,
+      "script_file": "04-les-recommandations.md",
+      "resources": [
+        {
+          "title": "Faire venir les marques par les marques",
+          "description": "Le tableau des trois sources, la demande explicite, le message prêt à transférer mot pour mot, la demande de témoignage et les trois gestes du réseau de créatrices.",
+          "kind": "document",
+          "url": null,
+          "body": "## Faire venir les marques par les marques\n\n**Taux de conversion d'une recommandation : 50 à 70 %**, contre 1 à 2 % en\ndémarchage froid.\n\n### Les trois sources\n\n| Source | Productivité | Comment l'activer |\n|---|---|---|\n| Clients satisfaits | Bonne | Demander **explicitement**, juste après un retour positif |\n| **Agences** | La meilleure | Bien livrer : elles proposent à leurs autres clients |\n| **Autres créatrices** | Sous-exploitée | Se faire connaître, et recommander en premier |\n\n### Demander — juste après un retour positif\n\n> Merci beaucoup, ça me touche. Si vous connaissez d'autres marques qui\n> cherchent des créas vidéo, je serais ravie que vous leur passiez mon nom —\n> c'est comme ça que je trouve mes meilleurs clients.\n\nExplicite (beaucoup de clients n'y pensent pas) et **expliquée** (légitime,\npas quémandeuse).\n\n### Faciliter — le message prêt à transférer\n\n> Si ça peut aider, voici un message que vous pouvez transférer tel quel :\n>\n> « Bonjour, je te recommande [Prénom], créatrice UGC en [niche]. Elle a\n> produit nos dernières créas vidéo, livrées en 5 jours, très bon rapport\n> qualité/prix. Son portfolio : [lien]. Son email : [email]. »\n\n**C'est ce qui multiplie les recommandations effectives** : le seul obstacle\nréel est d'avoir à écrire quelque chose.\n\n### Le témoignage — préciser le format\n\n> Est-ce que je peux vous demander deux ou trois phrases sur notre\n> collaboration ? Le plus utile pour moi, ce serait ce qui vous a décidée à\n> travailler avec moi, et ce qui a bien marché.\n\n« Deux ou trois phrases » se donne en deux minutes ; « un témoignage » paraît\nêtre un devoir.\n\n### Le réseau de créatrices — trois gestes\n\n1. Connais **cinq créatrices** dans des niches différentes de la tienne\n2. Dis-leur explicitement ce que tu fais **et ce que tu ne fais pas**\n3. **Recommande-les en premier** — la réciprocité est presque automatique\n\nC'est aussi ce qui rend un refus utile : quand tu refuses une mission, tu\nrecommandes quelqu'un, et cette personne s'en souviendra.\n\n### Rester présente — deux gestes trimestriels\n\nUn message aux anciens clients **avec un élément nouveau** · un suivi des\n**changements de poste** sur LinkedIn : un ancien client dans une nouvelle\nentreprise est le meilleur prospect qui existe.\n\n### Ce qui empêche les recommandations\n\nUn délai raté · une relation purement transactionnelle · un portfolio périmé ·\n**le silence** — une créatrice dont on n'a plus de nouvelles depuis huit mois\nne vient plus à l'esprit.\n"
+        },
+        {
+          "title": "Checklist trimestrielle de présence",
+          "description": "Un message aux anciens clients avec un élément nouveau, et un tour des changements de poste sur LinkedIn. Vingt minutes par trimestre.",
+          "kind": "checklist",
+          "url": null
+        }
+      ]
+    }
+  ]
+}

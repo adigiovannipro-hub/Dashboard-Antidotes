@@ -1,0 +1,129 @@
+{
+  "slug": "gerer-son-activite",
+  "title": "Gérer son activité et durer",
+  "description": "Ce module ferme la boucle : le cadre administratif minimal pour facturer légalement, le pilotage d'une trésorerie que trois décalages structurels rendent tendue, la semaine en blocs qui fait produire plus en travaillant moins, les quatre causes du burn-out créatif — premier motif d'abandon du métier — et les trois voies pour dépasser le plafond du temps.",
+  "position": 14,
+  "lessons": [
+    {
+      "position": 1,
+      "slug": "statut-et-facturation",
+      "title": "Statut, factures, TVA : le minimum légal en France",
+      "summary": "Trente minutes en ligne, gratuit, et le cadre tient sur une page. La micro-entreprise en cinq points, les sept mentions obligatoires d'une facture, la règle de provision qui supprime la seule vraie catastrophe du métier, et ce qui n'est pas nécessaire.",
+      "duration_min": 11,
+      "script_file": "01-statut-et-facturation.md",
+      "resources": [
+        {
+          "title": "Le cadre administratif minimal",
+          "description": "La micro-entreprise en cinq points, les sept mentions de facture à cocher, la règle des 30 %, ce qu'il faut conserver et le tableau de ce qui n'est pas nécessaire.",
+          "kind": "document",
+          "url": null,
+          "body": "## Le cadre administratif minimal\n\n### La micro-entreprise en cinq points\n\n| Point | Détail |\n|---|---|\n| Création | **Gratuite, en ligne**, guichet unique des entreprises — 30 min |\n| Activité | Prestation de services — création de contenu audiovisuel |\n| Cotisations | ≈ **24,6 %** du CA encaissé, déclaré mensuel ou trimestriel |\n| Impôt | Versement libératoire si éligible, sinon déclaré avec les revenus |\n| TVA | Non applicable sous le seuil de franchise |\n\nLe SIRET arrive sous **une à quatre semaines** : se déclarer avant d'avoir des\nclients, pas après.\n\n### Les sept mentions obligatoires d'une facture\n\n1. [ ] Ton identité : prénom, nom, adresse, **SIRET**\n2. [ ] Identité du client : raison sociale, adresse, TVA intracommunautaire\n3. [ ] Numéro de facture unique, **sans trou dans la séquence**\n4. [ ] Date d'émission **et** date de prestation\n5. [ ] Détail : nature, quantité, prix unitaire, total\n6. [ ] « **TVA non applicable, article 293 B du CGI** » si franchise\n7. [ ] Conditions de règlement : délai, pénalités, indemnité de 40 €\n\nLa **numérotation continue** est le point le plus négligé et le premier qu'un\ncontrôle regarde.\n\n### La règle qui sauve\n\n**À chaque encaissement, vire 30 % sur un compte séparé, le jour même.**\n\n24,6 % de cotisations + la marge d'impôt. Ce compte n'est pas de l'épargne :\nc'est de l'argent qui ne t'appartient pas.\n\n### Ce qu'il faut conserver\n\nToutes les factures émises (10 ans) · les justificatifs d'achat professionnel ·\nles devis acceptés et les emails valant accord. Un dossier par année, un\nsous-dossier par client, dix minutes par mois.\n\n### Ce qui n'est PAS nécessaire\n\n| Idée reçue | Réalité |\n|---|---|\n| Un expert-comptable | La micro n'a qu'un **livre des recettes** à tenir |\n| Un compte professionnel | Un compte courant **dédié** suffit |\n| Une société | Inutile seule et sous les seuils |\n| Un logiciel de facturation payant | Un modèle de document suffit |\n| Une RC pro | Utile, non obligatoire, peu coûteuse |\n\n### La routine mensuelle — quinze minutes\n\nReporter les encaissements au livre des recettes · vérifier la numérotation ·\ndéclarer le CA · vérifier que la provision de 30 % est faite.\n"
+        },
+        {
+          "title": "Guichet unique des entreprises",
+          "description": "Le site officiel de création d'entreprise. Trente minutes, gratuit, SIRET sous une à quatre semaines.",
+          "kind": "link",
+          "url": "https://formalites.entreprises.gouv.fr"
+        },
+        {
+          "title": "Urssaf — simulateurs",
+          "description": "Pour convertir un chiffre d'affaires en revenu réellement disponible et vérifier l'éligibilité au versement libératoire.",
+          "kind": "tool",
+          "url": "https://www.urssaf.fr/accueil/outils-documentation/simulateurs.html"
+        }
+      ]
+    },
+    {
+      "position": 2,
+      "slug": "tresorerie",
+      "title": "Se faire payer : trésorerie, décalages, mois creux",
+      "summary": "La trésorerie est ce qui tue les activités rentables. Les trois décalages structurels du métier, les trois habitudes qui les absorbent, le tableau qui fait voir un trou un mois à l'avance et les six leviers quand ça se tend.",
+      "duration_min": 11,
+      "script_file": "02-tresorerie.md",
+      "resources": [
+        {
+          "title": "Piloter sa trésorerie",
+          "description": "Les trois décalages, les trois habitudes, le tableau à six colonnes, les six leviers classés par coût, les charges réelles du métier et les trois conditions du seuil de sécurité.",
+          "kind": "document",
+          "url": null,
+          "body": "## Piloter sa trésorerie\n\n### Les trois décalages du métier\n\n| Décalage | Effet |\n|---|---|\n| Facturation | Le travail de mars devient de l'argent en avril ou mai |\n| Cotisations | Un bon trimestre produit une charge au trimestre suivant |\n| Saison | Août et fin décembre creux, janvier lent |\n\n### Les trois habitudes\n\n1. **Acompte de 40 %** à la commande — l'argent arrive avant le travail\n2. **30 % viré le jour même** de chaque encaissement, compte séparé\n3. **Trois mois de charges fixes** en matelas avant d'en faire un revenu principal\n\n### Le tableau de trésorerie — mis à jour une fois par semaine\n\n| Mois | Encaissements prévus | Réels | Charges fixes | Cotisations | Solde fin de mois |\n|---|---|---|---|---|---|\n|  |  |  |  |  |  |\n\nRegarde **trois mois devant**. Un solde qui passe sous ton matelas dans deux\nmois est un signal d'action, pas une fatalité.\n\n### Les six leviers quand ça se tend — du moins au plus coûteux\n\n1. **Relancer les impayés** (souvent le seul nécessaire)\n2. **Facturer ce qui est livré** et ne l'est pas encore\n3. Proposer une **extension de droits** — revenu sans production\n4. Proposer un **abonnement** avec premier mois d'avance\n5. Réduire les délais de paiement : 15 jours au lieu de 30\n6. Monter l'acompte à 50 % sur les grosses commandes\n\n### Les charges réelles du métier\n\n| Poste | Coût annuel |\n|---|---|\n| Matériel (amorti sur 3 ans) | 50 – 150 € |\n| Abonnements logiciels | 0 – 120 € |\n| Hébergement portfolio | 0 – 100 € |\n| Frais bancaires | 0 – 120 € |\n\n**Moins de 500 € par an.** La trésorerie se pilote par les **encaissements**,\npas par les dépenses.\n\n### Les mois creux, anticipés\n\nFacturer plus tôt en juin-juillet et novembre · proposer des packs de rentrée\ndès juin · utiliser août et décembre pour le portfolio, la prospection et\nl'administratif.\n\n### Le seuil de sécurité — les trois conditions **ensemble**\n\n- [ ] Trois mois consécutifs au-dessus du seuil de charges\n- [ ] Trois mois de charges fixes en trésorerie\n- [ ] Au moins **deux clients récurrents**\n"
+        },
+        {
+          "title": "Tableau de trésorerie",
+          "description": "Six colonnes, trois mois devant, mis à jour une fois par semaine. L'outil qui fait voir un problème avant qu'il se produise.",
+          "kind": "template",
+          "url": null
+        }
+      ]
+    },
+    {
+      "position": 3,
+      "slug": "organiser-sa-semaine",
+      "title": "Organiser sa semaine : blocs de tournage et jours d'administratif",
+      "summary": "Une créatrice à temps plein travaille quarante-cinq heures et en facture douze. Le problème n'est pas la charge, c'est la fragmentation. Les quatre activités et leur poids, la semaine en cinq blocs, la règle des lots et les quatre rendez-vous mensuels.",
+      "duration_min": 11,
+      "script_file": "03-organiser-sa-semaine.md",
+      "resources": [
+        {
+          "title": "La semaine type",
+          "description": "Le tableau des quatre activités et de leur poids, la semaine en cinq blocs, la règle des lots, ce qui doit disparaître et les quatre rendez-vous mensuels dont le bilan.",
+          "kind": "document",
+          "url": null,
+          "body": "## La semaine type\n\n### Les quatre activités et leur poids\n\n| Activité | Part du temps | Ce qui arrive si on la sacrifie |\n|---|---|---|\n| **Produire** | 50 – 60 % | — la seule qui se facture |\n| **Prospecter** | 20 % | Le mois suivant est vide |\n| **Gérer** | 15 % | Impayés et administratif en retard |\n| **Apprendre et créer** | 10 % | Le niveau de prix stagne |\n\n**Production > 70 % = le cycle de l'accordéon**, cause principale des abandons\nau sixième mois.\n\n### La semaine\n\n| Quand | Bloc | Durée |\n|---|---|---|\n| Lundi matin | **Gestion** — pipeline, devis, factures, relances | 2 h |\n| Lundi ap.-midi + mardi | **Prospection** — 20 messages, LinkedIn, relances | 3 h |\n| **Mercredi** | **Tournage** — une session, toujours le même jour | 3 – 4 h |\n| Jeudi + vendredi matin | **Montage** — 2 sessions de 2 h | 4 h |\n| Vendredi ap.-midi | **Apprentissage** — veille, tests, portfolio | 2 h |\n\n≈ 25 h structurées. Le reste absorbe les imprévus, qui existeront de toute façon.\n\n### La règle des lots — pour les quatre activités\n\nChaque activité demande **10 à 20 minutes** pour s'y remettre.\nCinq démarrages évités par semaine = plus d'une heure gagnée.\n\nTourner 6 vidéos en une session · monter 2-3 par session · prospecter 20\nmessages d'affilée · facturer tout le lundi matin.\n\n### Ce qui doit disparaître\n\n| À supprimer | Remplacé par |\n|---|---|\n| Les notifications pendant les blocs | Mode concentration |\n| Les emails en continu | **Deux relèves par jour** |\n| Les appels non planifiés | Proposer un créneau |\n| Les décisions reprises | Grille, plancher, univers **écrits une fois** |\n\n### Le rythme mensuel — quatre rendez-vous d'une heure\n\n| Lundi | Objet |\n|---|---|\n| 1er | Déclaration Urssaf, livre des recettes, provision |\n| 2e | Revue clients : relances, abonnements, échéances de droits |\n| 3e | Portfolio : remplacer la vidéo la plus faible |\n| 4e | **Bilan** : CA, taux de réponse, taux d'acceptation, temps par vidéo |\n\nLe quatrième manque à presque tout le monde, et c'est celui qui permet de\ncorriger **avant** que ça se voie.\n\n### À temps partiel — 12 à 15 h par semaine\n\nTournage le samedi matin · deux montages en soirée · prospection le mardi\nsoir · gestion le dimanche matin. **6 à 8 vidéos par mois.**\n"
+        },
+        {
+          "title": "Checklist du bilan mensuel",
+          "description": "Chiffre d'affaires, taux de réponse, taux d'acceptation, temps par vidéo. Le rendez-vous qui manque à presque tout le monde.",
+          "kind": "checklist",
+          "url": null
+        }
+      ]
+    },
+    {
+      "position": 4,
+      "slug": "tenir-dans-la-duree",
+      "title": "Le burn-out créatif : rythme tenable, stock d'idées",
+      "summary": "Le premier motif d'abandon après le sixième mois n'est pas le manque de clients. Les quatre causes de l'épuisement, le stock d'idées qui supprime définitivement la page blanche, les trois règles de rythme et les quatre signaux à reconnaître.",
+      "duration_min": 11,
+      "script_file": "04-tenir-dans-la-duree.md",
+      "resources": [
+        {
+          "title": "Tenir dans la durée",
+          "description": "Le tableau des quatre causes et de leurs remèdes, le stock d'idées, la banque de plans, les trois règles de rythme chiffrées et les quatre signaux dans leur ordre d'apparition.",
+          "kind": "document",
+          "url": null,
+          "body": "## Tenir dans la durée\n\nLe burn-out créatif est le **premier motif d'abandon après le sixième mois**,\ndevant le manque de clients.\n\n### Les quatre causes et leurs remèdes\n\n| Cause | Remède |\n|---|---|\n| Le vide d'idées | **Le stock d'idées** — une note, trois lignes par semaine |\n| L'exposition permanente | Rythme régulé, jour sans écran |\n| L'isolement | Cinq créatrices, un groupe, un retour non client |\n| L'absence de frontière | Plage horaire annoncée, coin rangé, appareil dédié |\n\n### Le stock d'idées — l'habitude la plus rentable du module\n\nUne note unique dans le téléphone. **Une ligne suffit** :\n\n> hook — le tiroir des câbles\n> angle — les gens n'osent pas demander le prix\n> format — comparer trois produits en 20 s\n\nTrois entrées par semaine, dix secondes chacune. Au bout de deux mois :\nvingt-cinq idées, et **la page blanche disparaît définitivement**.\n\n### La banque de plans\n\nFilme systématiquement quelques plans **sans destination** : une texture, une\nlumière, une ambiance, un geste. Le jour où un montage manque de matière — ou\noù tu n'as pas l'énergie de tourner — tu piocheras dedans.\n\n### Le rythme tenable — trois règles chiffrées\n\n1. **Quatre heures de tournage par jour maximum**\n2. **Un jour sans écran par semaine** — complet\n3. **Deux semaines de coupure par an**, dont une en août, annoncées un mois avant\n\nElles ne réduisent pas la production annuelle : elles la **maintiennent**, là\noù un rythme non régulé produit trois mois pleins puis un mois vide.\n\n### La frontière — trois gestes\n\nUne **plage horaire dans la signature** (« je réponds du lundi au vendredi,\n9 h – 18 h ») · le **coin rangé** après chaque session · un **appareil ou un\nmode dédié** au tournage.\n\n### Les quatre signaux, dans l'ordre d'apparition\n\n1. Repousser le tournage sans raison identifiable\n2. Multiplier les prises sans jamais être satisfaite\n3. **Éviter d'ouvrir les messages clients** ← le plus dangereux : il casse la délivrabilité\n4. Ne plus supporter de se voir à l'image\n\n**Devant deux signaux** : réduire le volume d'un tiers pendant deux semaines,\ndeux jours sans écran, et écrire à une autre créatrice.\nCe n'est pas un abandon, c'est de l'entretien.\n"
+        },
+        {
+          "title": "Checklist des signaux",
+          "description": "Repousser le tournage, multiplier les prises, éviter les messages clients, ne plus supporter de se voir. Deux signaux ensemble demandent une action, pas de la volonté.",
+          "kind": "checklist",
+          "url": null
+        }
+      ]
+    },
+    {
+      "position": 5,
+      "slug": "de-creatrice-a-studio",
+      "title": "De créatrice à studio : déléguer, recruter, ou monter en gamme",
+      "summary": "Au bout de dix-huit mois vient un plafond arithmétique : le temps. Trois voies pour le dépasser, avec leurs chiffres et leurs contreparties, les trois questions honnêtes qui tranchent, et les cinq compétences qui font monter les prix.",
+      "duration_min": 12,
+      "script_file": "05-de-creatrice-a-studio.md",
+      "resources": [
+        {
+          "title": "Les trois voies après le plafond",
+          "description": "Les trois voies détaillées avec leurs chiffres, prérequis et pièges, les trois questions qui tranchent, les cinq compétences qui font monter les prix et le calendrier réaliste sur deux ans.",
+          "kind": "document",
+          "url": null,
+          "body": "## Les trois voies après le plafond\n\n### Voie 1 — Monter en gamme (rester seule, facturer plus)\n\n| | |\n|---|---|\n| Comment | Spécialisation, résultats documentés, agences et marques structurées |\n| Chiffres | 250 € → **450-600 €** la vidéo en deux ans |\n| À 6 vidéos/semaine | 10 000 à 14 000 € / mois, rythme tenable |\n| Demande | Patience, constance, **beaucoup de refus** |\n| Préserve | Simplicité, zéro gestion humaine, liberté totale |\n\n**La voie la plus sûre, et celle que la majorité devrait choisir.**\n\n### Voie 2 — Déléguer le montage\n\n| | |\n|---|---|\n| Comment | Un monteur + **un modèle écrit** (squelette, charte sous-titres, nommage) |\n| Coût | 25 à 60 € par montage |\n| Libère | ≈ 40 % du temps de production |\n| Demande | Un rodage de 4 à 6 vidéos, un **contrôle qualité systématique** |\n| Piège | Déléguer **sans modèle** — tu corrigeras plus que tu ne montais |\n\n**La plus rentable à court terme, la moins engageante.**\n\n### Voie 3 — Devenir un studio\n\n| | |\n|---|---|\n| Comment | 2 à 5 créatrices de profils complémentaires ; tu prends, briefes, contrôles, livres |\n| Marge | 30 à 40 % du travail des créatrices |\n| Exemple | 5 créatrices × 8 vidéos, 250 € facturés / 160 € reversés ≈ **3 600 € de marge** |\n| Prérequis | **Deux abonnements + une agence avant de recruter qui que ce soit** |\n| Change | Tu ne tournes presque plus. Métier commercial et managérial |\n| Piège | Recruter avant d'avoir le volume |\n\n### Les trois questions honnêtes\n\n1. **Est-ce que j'aime tourner ?** Si oui, la voie 3 te rendra malheureuse.\n2. **Est-ce que j'aime vendre et coordonner ?** Si non, voie 3 disqualifiée.\n3. **Mon problème est le temps ou le prix ?** Le prix → monte en gamme.\n   Le temps, avec de bons prix → délègue.\n\nLa combinaison la plus fréquente chez celles qui durent : **monter en gamme,\npuis déléguer le montage**.\n\n### Les cinq compétences qui font monter les prix\n\n1. **Un secteur technique** — santé, finance, B2B, logiciel\n2. **Une langue** — l'anglais ouvre les marques internationales\n3. **Le scénario et la stratégie** — proposer des angles, pas exécuter un brief\n4. **La lecture des performances** — vendre un résultat documenté\n5. **La régularité prouvée** — cinquante livraisons sans retard\n\n### Le calendrier réaliste\n\n| Période | Objectif |\n|---|---|\n| Mois 0 – 6 | Construire : portfolio, premiers clients, tarifs de départ |\n| Mois 6 – 12 | Stabiliser : abonnements, tarifs +50 %, capacité maîtrisée |\n| Mois 12 – 24 | Monter en gamme : spécialisation, tarifs doublés, agences |\n| Au-delà | Choisir : déléguer, ou rester seule à tarif élevé |\n\n**Rien n'y demande de la chance. Tout demande de tenir les six premiers mois.**\n"
+        },
+        {
+          "title": "Checklist avant de déléguer",
+          "description": "Un modèle de montage écrit, deux monteurs testés sur une vidéo, un rodage de cinq vidéos, un contrôle qualité systématique — c'est toi qui livres.",
+          "kind": "checklist",
+          "url": null
+        }
+      ]
+    }
+  ]
+}
