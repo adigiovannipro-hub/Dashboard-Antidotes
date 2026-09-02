@@ -250,6 +250,8 @@ export function permalinkOf(urn: string): string {
 export function followersHistory(
   gains: readonly LinkedinFollowerGain[],
   followersNow: number,
+  /** Le jour que le relevé du jour clôture : rien ne se date au-delà. */
+  until: string,
 ): { date: string; followers: number }[] {
   // Du plus récent au plus ancien : chaque mois retire son propre gain.
   const ordered = [...gains].sort((a, b) => b.month.localeCompare(a.month));
@@ -262,8 +264,13 @@ export function followersHistory(
     const end = new Date(`${month}T00:00:00Z`);
     // Le dernier jour du mois : le 0 du mois suivant, en UTC.
     const lastDay = new Date(Date.UTC(end.getUTCFullYear(), end.getUTCMonth() + 1, 0));
+    const date = lastDay.toISOString().slice(0, 10);
+    /* Le mois en cours n'a pas de dernier jour révolu : son « 30 septembre »
+       tomberait dans le futur, et un relevé daté d'un jour qui n'existe pas
+       encore est un mensonge — même quand le chiffre, lui, est juste. */
+    if (date > until) continue;
     points.push({
-      date: lastDay.toISOString().slice(0, 10),
+      date,
       // Le compte **au début** du mois est celui de la fin du mois d'avant.
       followers: running,
     });

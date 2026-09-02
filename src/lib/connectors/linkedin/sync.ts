@@ -421,7 +421,7 @@ async function collect(context: {
         ),
       );
       points.push(
-        ...followersHistory(gains, followers).map((point) => ({
+        ...followersHistory(gains, followers, until).map((point) => ({
           date: point.date,
           followers: point.followers,
         })),
@@ -446,6 +446,18 @@ async function collect(context: {
     );
     if (error) fail(`Abonnés : ${error.message}`);
     report.rows += points.length;
+
+    /* Et rien au-delà du jour clôturé : un passage antérieur a pu dater un
+       relevé du dernier jour du mois **en cours**, donc dans le futur. Un
+       upsert ne le retire pas — il faut l'effacer, sinon la courbe garde un
+       point à une date qui n'existe pas encore. */
+    const { error: futurError } = await admin
+      .from("social_followers")
+      .delete()
+      .eq("data_source_id", dataSourceId)
+      .eq("platform", "linkedin")
+      .gt("date", until);
+    if (futurError) fail(`Nettoyage des relevés futurs : ${futurError.message}`);
 
     const { error: vitrineError } = await admin
       .from("social_accounts")

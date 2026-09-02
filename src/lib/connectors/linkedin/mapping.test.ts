@@ -188,6 +188,7 @@ describe("followersHistory", () => {
         { month: "2026-08-01", gain: 92 },
       ],
       6711,
+      "2026-09-01",
     );
 
     // Le point d'un mois est daté du dernier jour qu'il clôture, et vaut le
@@ -198,8 +199,22 @@ describe("followersHistory", () => {
     ]);
   });
 
+  it("ne date rien au-delà du jour clôturé : le mois en cours n'a pas de fin", () => {
+    const points = followersHistory(
+      [
+        { month: "2026-08-01", gain: 92 },
+        { month: "2026-09-01", gain: 12 },
+      ],
+      6711,
+      "2026-09-01",
+    );
+    expect(points.map((point) => point.date)).toEqual(["2026-08-31"]);
+  });
+
   it("s'arrête plutôt que de rendre un compte négatif", () => {
-    expect(followersHistory([{ month: "2026-08-01", gain: 999 }], 10)).toEqual([]);
+    expect(followersHistory([{ month: "2026-08-01", gain: 999 }], 10, "2026-09-01")).toEqual(
+      [],
+    );
   });
 });
 
