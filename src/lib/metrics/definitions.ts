@@ -213,6 +213,13 @@ export const DEFAULT_KPI_ORDER: MetricId[] = [
 export const TOP_POSTS_COLUMNS: MetricId[] = [
   "spend",
   "impressions",
+  /* Les deux grandeurs vidéo juste après les impressions : ce sont des
+     mesures de diffusion, pas de conversion, et le rapport entre les deux
+     est le taux de complétion — qu'on lit en les voyant côte à côte plutôt
+     qu'en stockant un ratio de plus. Une ligne sans vidéo affiche 0, ce qui
+     est une mesure et non une absence : l'ad set a bien diffusé, sans vidéo. */
+  "videoViews",
+  "videoCompletions",
   "purchases",
   "earn",
   "cpa",
