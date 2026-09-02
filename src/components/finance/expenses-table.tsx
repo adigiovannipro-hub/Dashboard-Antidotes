@@ -625,16 +625,19 @@ function NewCategoryDialog({
 }
 
 /**
- * La cellule Récupération : où les factures du marchand se trouvent, et si
- * celle du mois est déjà arrivée.
+ * La cellule Récupération : un bouton carré, et un dialogue par-dessus.
  *
- * Le dashboard ne télécharge rien — un passage extérieur, depuis une machine
- * dont le navigateur garde ses sessions, lit la liste des fiches, ouvre le
- * lien, envoie la facture à Airwallex, et rend compte. La fiche est celle du
- * **marchand** : le lien se colle une fois, sur n'importe laquelle de ses
- * dépenses, et sert tous les mois. L'état arrive du serveur, calculé par le
- * même code que la liste du passage : la cellule et lui ne peuvent pas se
- * contredire.
+ * Le dashboard ne télécharge rien — un passage sur le Mac, dont le
+ * navigateur garde ses sessions, demande chaque matin ce qu'il y a à faire,
+ * va chercher la facture le lendemain du prélèvement, et la dépose ici pour
+ * qu'elle parte à Airwallex. La fiche est celle du **marchand** : le lien se
+ * colle une fois, sur n'importe laquelle de ses dépenses, et sert tous les
+ * mois. L'état arrive du serveur, calculé par le même code que la liste du
+ * passage : la cellule et lui ne peuvent pas se contredire.
+ *
+ * Carré et sans texte : la colonne ne doit pas s'élargir pour un bouton, et
+ * c'est l'en-tête qui dit ce qu'il fait. Le libellé vit dans `aria-label`
+ * et l'infobulle.
  */
 function RetrievalCell({
   row,
@@ -643,7 +646,7 @@ function RetrievalCell({
   row: DisplayExpense;
   canDecide: boolean;
 }) {
-  const [editing, setEditing] = useState(false);
+  const [open, setOpen] = useState(false);
   const merchant = row.merchant ?? row.merchant_raw;
 
   /* Un virement ou des frais bancaires n'ont aucune facture à aller chercher. */
@@ -653,35 +656,21 @@ function RetrievalCell({
 
   const state = row.retrieval;
 
-  if (editing) {
-    return (
-      <RetrievalEditor
-        row={row}
-        merchant={merchant}
-        initialLink={state.kind === "none" ? "" : state.link}
-        onClose={setEditing}
-      />
-    );
-  }
-
   if (state.kind === "done") {
     /* `title` sur un `span` et non sur le bouton : un bouton inerte ne
        reçoit plus le survol (`pointer-events-none`), l'infobulle datée
        n'apparaîtrait jamais. */
     return (
-      <span
-        title={`Récupérée le ${formatDateTime(state.retrievedAt)}`}
-        className="inline-flex"
-      >
+      <span title={`Récupérée le ${formatDateTime(state.retrievedAt)}`} className="inline-flex">
         <Button
           type="button"
-          size="xs"
+          size="icon-xs"
           variant="outline"
           disabled
-          className="border-accent-subtle bg-accent-subtle text-accent-ink disabled:opacity-70"
+          aria-label={`Facture ${merchant} récupérée ce mois-ci`}
+          className="border-accent-subtle bg-accent-subtle text-accent-ink disabled:opacity-80"
         >
           <Check aria-hidden />
-          Récupéré
         </Button>
       </span>
     );
@@ -696,113 +685,156 @@ function RetrievalCell({
     );
   }
 
-  if (state.kind === "failed") {
-    return (
-      <Button
-        type="button"
-        size="xs"
-        variant="outline"
-        className="border-danger-subtle text-danger-ink"
-        title={`${state.error ?? "Échec sans détail"}\n${state.link}`}
-        onClick={() => setEditing(true)}
-      >
-        <TriangleAlert aria-hidden />
-        Échec
-      </Button>
-    );
-  }
-
-  if (state.kind === "pending") {
-    return (
-      <Button
-        type="button"
-        size="xs"
-        variant="outline"
-        title={`Lien enregistré, en attente du prochain passage.\n${state.link}`}
-        onClick={() => setEditing(true)}
-      >
-        <Clock aria-hidden />
-        En attente
-      </Button>
-    );
-  }
+  const trigger =
+    state.kind === "failed"
+      ? {
+          icon: <TriangleAlert aria-hidden />,
+          label: `Échec de la récupération ${merchant} — modifier le lien`,
+          title: `${state.error ?? "Échec sans détail"}\n${state.link}`,
+          className: "border-danger-subtle bg-danger-subtle text-danger-ink",
+        }
+      : state.kind === "pending"
+        ? {
+            icon: <Clock aria-hidden />,
+            label: `Facture ${merchant} en attente — modifier le lien`,
+            title: `Lien enregistré — passage le lendemain du prochain prélèvement.\n${state.link}`,
+            className: undefined,
+          }
+        : {
+            icon: <Link2 aria-hidden />,
+            label: `Récupérer les factures ${merchant}`,
+            title: `Coller le lien où les factures ${merchant} se téléchargent`,
+            className: undefined,
+          };
 
   return (
-    <Button
-      type="button"
-      size="xs"
-      variant="outline"
-      title={`Coller le lien où les factures ${merchant} se téléchargent`}
-      onClick={() => setEditing(true)}
-    >
-      <Link2 aria-hidden />
-      Récupérer
-    </Button>
+    <>
+      <Button
+        type="button"
+        size="icon-xs"
+        variant="outline"
+        aria-label={trigger.label}
+        title={trigger.title}
+        className={trigger.className}
+        onClick={() => setOpen(true)}
+      >
+        {trigger.icon}
+      </Button>
+      {open ? (
+        <RetrievalDialog
+          row={row}
+          merchant={merchant}
+          state={state}
+          open={open}
+          onOpenChange={setOpen}
+        />
+      ) : null}
+    </>
   );
 }
 
 /**
- * Le champ du lien, dans la cellule même — pas de dialogue : coller un lien
- * est un geste d'une seconde. Vider le champ retire la fiche. Échap referme.
+ * Le lien d'un fournisseur, dans un dialogue par-dessus le tableau — la
+ * colonne ne bouge pas d'un pixel. Un champ, trois gestes : enregistrer,
+ * retirer, annuler.
  */
-function RetrievalEditor({
+function RetrievalDialog({
   row,
   merchant,
-  initialLink,
-  onClose,
+  state,
+  open,
+  onOpenChange,
 }: {
   row: DisplayExpense;
   merchant: string;
-  initialLink: string;
-  onClose: (editing: boolean) => void;
+  state: Exclude<RetrievalCellState, { kind: "done" }>;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
 }) {
-  const [state, submit, pending] = useActionState<FinanceActionResult | null, FormData>(
+  const [result, submit, pending] = useActionState<FinanceActionResult | null, FormData>(
     setRetrievalSource,
     null,
   );
 
   useEffect(() => {
-    if (!state) return;
-    if (state.ok) {
-      toast.success(state.message);
-      onClose(false);
+    if (!result) return;
+    if (result.ok) {
+      toast.success(result.message);
+      onOpenChange(false);
     } else {
-      toast.error(state.error);
+      toast.error(result.error);
     }
-  }, [state, onClose]);
+  }, [result, onOpenChange]);
+
+  const link = state.kind === "none" ? "" : state.link;
 
   return (
-    <form action={submit} className="flex items-center gap-1.5">
-      <input type="hidden" name="transactionId" value={row.id} />
-      <input
-        name="sourceLink"
-        type="url"
-        inputMode="url"
-        defaultValue={initialLink}
-        placeholder="https://…"
-        aria-label={`Lien des factures de ${merchant}`}
-        className="border-border-line bg-surface text-text-primary focus-visible:ring-ring hover:border-border h-7 w-56 rounded-sm border px-1.5 text-xs focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50"
-        autoFocus
-        disabled={pending}
-        onKeyDown={(event) => {
-          if (event.key === "Escape") onClose(false);
-        }}
-      />
-      <Button type="submit" size="xs" variant="accent" disabled={pending}>
-        <PendingLabel pending={pending} busy="…">
-          OK
-        </PendingLabel>
-      </Button>
-      <Button
-        type="button"
-        size="xs"
-        variant="ghost"
-        onClick={() => onClose(false)}
-        disabled={pending}
-      >
-        Annuler
-      </Button>
-    </form>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Factures {merchant}</DialogTitle>
+          <DialogDescription>
+            Le lien de la page où les factures {merchant} se téléchargent, une fois
+            connecté. Collé une fois, il vaut pour toutes ses dépenses : le passage y
+            retourne chaque mois, le lendemain du prélèvement.
+          </DialogDescription>
+        </DialogHeader>
+        <form action={submit} className="space-y-4">
+          <input type="hidden" name="transactionId" value={row.id} />
+          <Input
+            name="sourceLink"
+            type="url"
+            inputMode="url"
+            defaultValue={link}
+            placeholder="https://…"
+            aria-label={`Lien des factures ${merchant}`}
+            autoFocus
+            required
+            disabled={pending}
+          />
+          {state.kind === "failed" ? (
+            <p className="type-caption text-danger-ink">
+              Dernier passage : {state.error ?? "échec sans détail"}
+            </p>
+          ) : null}
+          {state.kind === "pending" ? (
+            <p className="type-caption text-text-secondary">
+              Lien enregistré. Le passage viendra le lendemain du prochain prélèvement.
+            </p>
+          ) : null}
+          <div className="flex flex-wrap justify-end gap-2">
+            {link ? (
+              <Button
+                type="submit"
+                name="remove"
+                value="1"
+                variant="ghost"
+                size="sm"
+                className="mr-auto text-danger-ink"
+                disabled={pending}
+                formNoValidate
+              >
+                Retirer le lien
+              </Button>
+            ) : null}
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => onOpenChange(false)}
+              disabled={pending}
+            >
+              Annuler
+            </Button>
+            <Button type="submit" variant="accent" size="sm" disabled={pending}>
+              <PendingLabel pending={pending} busy="Enregistrement…">
+                Enregistrer
+              </PendingLabel>
+            </Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
 

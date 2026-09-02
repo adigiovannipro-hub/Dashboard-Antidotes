@@ -262,9 +262,12 @@ export async function setRetrievalSource(
   _previous: FinanceActionResult | null,
   formData: FormData,
 ): Promise<FinanceActionResult> {
+  /* « Retirer » est un second bouton du même formulaire : le champ garde
+     son lien, c'est le bouton qui dit qu'on l'efface. */
+  const removing = formData.get("remove") === "1";
   const parsed = retrievalAction.safeParse({
     transactionId: formData.get("transactionId"),
-    sourceLink: formData.get("sourceLink"),
+    sourceLink: removing ? "" : formData.get("sourceLink"),
   });
   if (!parsed.success) {
     return {
