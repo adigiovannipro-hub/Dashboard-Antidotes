@@ -4,20 +4,25 @@ import { cache } from "react";
 
 import type { AcademyAccess } from "./access";
 import {
-  getCourse,
+  getCourseBySlug,
+  listCourses,
   listLessons,
   listModules,
+  listMyProgress,
   type AcademyLessonLite,
 } from "./queries";
-import { listMyProgress } from "./queries";
-import { progressByLesson, type ProgressLite } from "./progress";
+import { completionOf, progressByLesson, type ProgressLite } from "./progress";
 import type { AcademyCourse, AcademyModule } from "./types";
 
 /**
- * L'assemblage que les trois pages de lecture partagent : le cours, ses
- * modules, toutes ses leçons dans l'ordre de la formation, et la progression
- * de la personne. Une seule vague de requêtes en parallèle — chaque page
- * réclamait la même chose, chacune à sa façon.
+ * Les deux assemblages que partagent les écrans de l'Academy : le **catalogue**
+ * — toutes les formations accessibles, avec leur avancement — et la **vue
+ * d'une formation** : ses modules, ses leçons dans l'ordre, la progression de
+ * la personne.
+ *
+ * Une seule vague de requêtes en parallèle dans chaque cas, et `React.cache`
+ * par-dessus : `generateMetadata` et la page demandent le même assemblage dans
+ * la même requête ; sans le cache, chaque écran doublerait ses lectures.
  */
 
 export type AcademyOverview = {
@@ -30,13 +35,67 @@ export type AcademyOverview = {
   moduleSlugById: Map<string, string>;
 };
 
-/* `React.cache` : `generateMetadata` et la page demandent le même assemblage
-   dans la même requête — sans le cache, chaque écran doublerait ses lectures. */
+/** Une carte de formation sur l'écran d'accueil. */
+export type AcademyCourseCard = {
+  course: AcademyCourse;
+  moduleCount: number;
+  lessonCount: number;
+  totalMinutes: number;
+  percent: number;
+  completed: number;
+};
+
+export const loadAcademyCatalogue = cache(async (
+  context: AcademyAccess,
+): Promise<AcademyCourseCard[]> => {
+  const courses = await listCourses({
+    orgId: context.orgId,
+    courseIds: context.courseIds,
+  });
+  if (courses.length === 0) return [];
+
+  const courseIds = courses.map((course) => course.id);
+  const [modules, lessons, progressRows] = await Promise.all([
+    listModules({ courseIds }),
+    listLessons({ courseIds }),
+    listMyProgress({ userId: context.userId }),
+  ]);
+
+  const progress = progressByLesson(progressRows);
+  const publishedModuleIds = new Set(modules.map((module) => module.id));
+
+  return courses.map((course) => {
+    // Une leçon d'un module non publié ne compte nulle part : elle n'est pas
+    // lisible, elle ne doit pas peser dans le dénominateur d'une progression.
+    const courseLessons = lessons.filter(
+      (lesson) =>
+        lesson.course_id === course.id && publishedModuleIds.has(lesson.module_id),
+    );
+    const completion = completionOf(courseLessons, progress);
+
+    return {
+      course,
+      moduleCount: modules.filter((module) => module.course_id === course.id).length,
+      lessonCount: courseLessons.length,
+      totalMinutes: courseLessons.reduce(
+        (sum, lesson) => sum + (lesson.duration_min ?? 0),
+        0,
+      ),
+      percent: completion.percent,
+      completed: completion.completed,
+    };
+  });
+});
+
 export const loadAcademyOverview = cache(async (
   context: AcademyAccess,
+  courseSlug: string,
 ): Promise<AcademyOverview | null> => {
-  const course = await getCourse({ orgId: context.orgId });
+  const course = await getCourseBySlug({ orgId: context.orgId, slug: courseSlug });
+  // Une formation à laquelle on n'est pas inscrite se comporte comme une
+  // formation qui n'existe pas : la page appelante en fera un 404.
   if (!course) return null;
+  if (context.courseIds && !context.courseIds.includes(course.id)) return null;
 
   const [modules, lessons, progressRows] = await Promise.all([
     listModules({ courseId: course.id }),
@@ -67,8 +126,8 @@ export const loadAcademyOverview = cache(async (
 
 /** Le chemin d'une leçon dans l'application. */
 export function lessonHref(
-  overview: Pick<AcademyOverview, "moduleSlugById">,
+  overview: Pick<AcademyOverview, "course" | "moduleSlugById">,
   lesson: Pick<AcademyLessonLite, "module_id" | "slug">,
 ): string {
-  return `/academy/${overview.moduleSlugById.get(lesson.module_id)}/${lesson.slug}`;
+  return `/academy/${overview.course.slug}/${overview.moduleSlugById.get(lesson.module_id)}/${lesson.slug}`;
 }

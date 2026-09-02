@@ -9,22 +9,36 @@ import { createClient } from "@/lib/supabase/server";
 /**
  * Résolution de l'accès à l'Academy.
  *
- * Contrairement à Finance — owner seul — l'Academy s'ouvre à tout **membre de
- * l'organisation** : c'est une formation d'équipe, pas la comptabilité. Un
- * client d'espace n'a aucune ligne dans `organization_members` : pour lui le
- * module n'existe pas, et les routes répondent 404, jamais 403.
+ * Trois profils, et non plus deux :
  *
- * Deux niveaux : suivre la formation (lire le publié, écrire sa progression
- * et ses notes), et administrer (écrire le contenu) — réservé à l'owner. La
- * RLS de la migration 0057 applique la même frontière côté base ; ceci ne
- * fait que l'exprimer côté écran.
+ * - **L'owner** administre : il crée, édite, publie, téléverse, inscrit. Il
+ *   voit tout, brouillons compris.
+ * - **Un membre de l'organisation** suit les formations publiées : c'est
+ *   l'équipe, l'Academy lui est ouverte en entier.
+ * - **Une élève** — quelqu'un qui a acheté une formation — ne voit que **les
+ *   formations où elle est inscrite**, et rien d'autre dans Antidotes. Elle
+ *   n'a aucune ligne dans `organization_members` : la Finance, les Reçus, les
+ *   espaces clients n'existent pas pour elle.
+ *
+ * Un client d'espace n'est ni l'un ni l'autre : pour lui le module n'existe
+ * pas, et les routes répondent 404, jamais 403.
+ *
+ * La RLS des migrations 0057 et 20260902h applique les mêmes frontières côté
+ * base ; ceci ne fait que les exprimer côté écran.
  */
 
 export type AcademyAccess = {
   orgId: string;
   userId: string;
-  /** Peut créer, éditer, publier, téléverser — le back-office. */
+  /** Peut créer, éditer, publier, téléverser, inscrire — le back-office. */
   isAdmin: boolean;
+  /**
+   * Les formations lisibles, ou `null` pour « toutes celles de
+   * l'organisation » — le cas de l'owner et des membres de l'équipe.
+   */
+  courseIds: string[] | null;
+  /** Élève : inscrite à une formation, membre d'aucune organisation. */
+  isStudent: boolean;
 };
 
 export const getAcademyContext = cache(
@@ -33,21 +47,53 @@ export const getAcademyContext = cache(
     if (!viewer) return null;
 
     if (viewer.isOwner && viewer.ownedOrgIds.length > 0) {
-      return { orgId: viewer.ownedOrgIds[0]!, userId: viewer.user.id, isAdmin: true };
+      return {
+        orgId: viewer.ownedOrgIds[0]!,
+        userId: viewer.user.id,
+        isAdmin: true,
+        courseIds: null,
+        isStudent: false,
+      };
     }
 
-    // Membre non-owner : la RLS ne rend que ses propres lignes, mais le filtre
-    // explicite garde la requête juste même en accès ouvert (client service).
+    // Les filtres `user_id` sont explicites et non délégués à la RLS : en
+    // accès ouvert le client de lecture est `service_role`, et sans eux la
+    // requête rendrait les lignes de tout le monde.
     const supabase = await createClient();
-    const { data } = await supabase
+    const { data: membership } = await supabase
       .from("organization_members")
       .select("org_id")
       .eq("user_id", viewer.user.id)
       .limit(1)
       .maybeSingle();
 
-    if (!data) return null;
-    return { orgId: data.org_id, userId: viewer.user.id, isAdmin: false };
+    if (membership) {
+      return {
+        orgId: membership.org_id,
+        userId: viewer.user.id,
+        isAdmin: false,
+        courseIds: null,
+        isStudent: false,
+      };
+    }
+
+    const { data: enrollments } = await supabase
+      .from("academy_enrollments")
+      .select("org_id, course_id")
+      .eq("user_id", viewer.user.id)
+      .eq("status", "active")
+      .limit(50);
+
+    const rows = enrollments ?? [];
+    if (rows.length === 0) return null;
+
+    return {
+      orgId: rows[0]!.org_id,
+      userId: viewer.user.id,
+      isAdmin: false,
+      courseIds: rows.map((row) => row.course_id),
+      isStudent: true,
+    };
   },
 );
 
@@ -58,9 +104,20 @@ export async function requireAcademyAccess(): Promise<AcademyAccess> {
   return context;
 }
 
-/** Exige le back-office. 404 pour un membre comme pour un client. */
+/** Exige le back-office. 404 pour un membre, une élève comme un client. */
 export async function requireAcademyAdmin(): Promise<AcademyAccess> {
   const context = await requireAcademyAccess();
   if (!context.isAdmin) notFound();
   return context;
+}
+
+/**
+ * Cette formation est-elle lisible par cette personne ?
+ *
+ * `courseIds === null` vaut « toutes » — l'owner et l'équipe. Sinon la liste
+ * est celle des inscriptions actives, et une formation absente de la liste
+ * doit se comporter comme une formation qui n'existe pas.
+ */
+export function canReadCourse(context: AcademyAccess, courseId: string): boolean {
+  return context.courseIds === null || context.courseIds.includes(courseId);
 }

@@ -3,6 +3,7 @@ import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import type {
   AcademyCourse,
+  AcademyEnrollment,
   AcademyLesson,
   AcademyModule,
   AcademyNote,
@@ -38,9 +39,37 @@ export type AcademyLessonLite = Pick<
   | "published"
 >;
 
-/** La formation de l'organisation — la première par rang, il n'y en a qu'une. */
-export async function getCourse(options: {
+/**
+ * Les formations de l'organisation, dans l'ordre d'affichage.
+ *
+ * `courseIds` restreint à des identifiants précis — les inscriptions d'une
+ * élève. Le filtre est explicite et non délégué à la RLS pour la même raison
+ * que `listMyProgress` : en accès ouvert, le client de lecture est
+ * `service_role` et ne filtre plus rien.
+ */
+export async function listCourses(options: {
   orgId: string;
+  courseIds?: string[] | null;
+  includeDrafts?: boolean;
+}): Promise<AcademyCourse[]> {
+  if (options.courseIds !== null && options.courseIds?.length === 0) return [];
+
+  const supabase = await createClient();
+
+  let query = supabase
+    .from("academy_courses")
+    .select("*")
+    .eq("org_id", options.orgId);
+  if (options.courseIds) query = query.in("id", options.courseIds);
+  if (!options.includeDrafts) query = query.eq("published", true);
+
+  const { data } = await query.order("order_index").limit(50);
+  return (data ?? []) as unknown as AcademyCourse[];
+}
+
+export async function getCourseBySlug(options: {
+  orgId: string;
+  slug: string;
   includeDrafts?: boolean;
 }): Promise<AcademyCourse | null> {
   const supabase = await createClient();
@@ -48,26 +77,29 @@ export async function getCourse(options: {
   let query = supabase
     .from("academy_courses")
     .select("*")
-    .eq("org_id", options.orgId);
+    .eq("org_id", options.orgId)
+    .eq("slug", options.slug);
   if (!options.includeDrafts) query = query.eq("published", true);
 
-  const { data } = await query.order("order_index").limit(1).maybeSingle();
+  const { data } = await query.maybeSingle();
   return (data as unknown as AcademyCourse) ?? null;
 }
 
 export async function listModules(options: {
-  courseId: string;
+  courseId?: string;
+  courseIds?: string[];
   includeDrafts?: boolean;
 }): Promise<AcademyModule[]> {
+  if (options.courseIds?.length === 0) return [];
+
   const supabase = await createClient();
 
-  let query = supabase
-    .from("academy_modules")
-    .select("*")
-    .eq("course_id", options.courseId);
+  let query = supabase.from("academy_modules").select("*");
+  if (options.courseId) query = query.eq("course_id", options.courseId);
+  if (options.courseIds) query = query.in("course_id", options.courseIds);
   if (!options.includeDrafts) query = query.eq("published", true);
 
-  const { data } = await query.order("order_index").limit(100);
+  const { data } = await query.order("order_index").limit(400);
   return (data ?? []) as unknown as AcademyModule[];
 }
 
@@ -92,18 +124,22 @@ export async function getModuleBySlug(options: {
 /** Les leçons d'un module ou du cours entier, sans leur script. */
 export async function listLessons(options: {
   courseId?: string;
+  courseIds?: string[];
   moduleId?: string;
   includeDrafts?: boolean;
   limit?: number;
 }): Promise<AcademyLessonLite[]> {
+  if (options.courseIds?.length === 0) return [];
+
   const supabase = await createClient();
 
   let query = supabase.from("academy_lessons").select(LESSON_LITE_COLUMNS);
   if (options.courseId) query = query.eq("course_id", options.courseId);
+  if (options.courseIds) query = query.in("course_id", options.courseIds);
   if (options.moduleId) query = query.eq("module_id", options.moduleId);
   if (!options.includeDrafts) query = query.eq("published", true);
 
-  const { data } = await query.order("order_index").limit(options.limit ?? 500);
+  const { data } = await query.order("order_index").limit(options.limit ?? 1000);
   return (data ?? []) as unknown as AcademyLessonLite[];
 }
 
@@ -154,6 +190,44 @@ export async function listMyProgress(options: {
     .eq("user_id", options.userId)
     .limit(1000);
   return (data ?? []) as unknown as AcademyProgress[];
+}
+
+/**
+ * Les inscriptions de l'organisation — le fichier des élèves, back-office
+ * uniquement. `courseId` restreint à une formation.
+ */
+export async function listEnrollments(options: {
+  orgId: string;
+  courseId?: string;
+  limit?: number;
+}): Promise<AcademyEnrollment[]> {
+  const supabase = await createClient();
+
+  let query = supabase
+    .from("academy_enrollments")
+    .select("*")
+    .eq("org_id", options.orgId);
+  if (options.courseId) query = query.eq("course_id", options.courseId);
+
+  const { data } = await query
+    .order("invited_at", { ascending: false })
+    .limit(options.limit ?? 500);
+  return (data ?? []) as unknown as AcademyEnrollment[];
+}
+
+/** Les inscriptions actives d'une personne — ce que voit son propre écran. */
+export async function listMyEnrollments(options: {
+  userId: string;
+}): Promise<AcademyEnrollment[]> {
+  const supabase = await createClient();
+
+  const { data } = await supabase
+    .from("academy_enrollments")
+    .select("*")
+    .eq("user_id", options.userId)
+    .eq("status", "active")
+    .limit(50);
+  return (data ?? []) as unknown as AcademyEnrollment[];
 }
 
 export async function getMyNote(options: {
