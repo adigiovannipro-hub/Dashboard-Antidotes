@@ -162,6 +162,13 @@ export const METRIC_DEFINITIONS: Record<MetricId, MetricDefinition> = {
     direction: "up-good",
     compute: (r) => r.videoViews,
   },
+  videoCompletions: {
+    id: "videoCompletions",
+    label: "Vues à 100 %",
+    format: "integer",
+    direction: "up-good",
+    compute: (r) => r.videoCompletions,
+  },
   interactions: {
     id: "interactions",
     label: "Interactions",

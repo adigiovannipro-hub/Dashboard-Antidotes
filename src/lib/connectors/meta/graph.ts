@@ -111,7 +111,7 @@ export async function fetchAdInsights(options: {
       time_increment: "1",
       time_range: JSON.stringify({ since: options.since, until: options.until }),
       fields:
-        "adset_id,adset_name,campaign_id,campaign_name,spend,impressions,reach,clicks,inline_link_clicks,actions,action_values",
+        "adset_id,adset_name,campaign_id,campaign_name,spend,impressions,reach,clicks,inline_link_clicks,actions,action_values,video_p100_watched_actions",
       limit: "200",
     }),
   );

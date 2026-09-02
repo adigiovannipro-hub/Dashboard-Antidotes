@@ -40,8 +40,11 @@ const KINDS_BY_NETWORK: Record<string, SocialAccountKind[]> = {
   instagram: ["instagram"],
   facebook: ["facebook_page"],
   linkedin: ["linkedin"],
+  "linkedin-ads": ["linkedin_ad_account"],
   tiktok: ["tiktok"],
   "tik-tok": ["tiktok"],
+  "tiktok-ads": ["tiktok_ad_account"],
+  "tik-tok-ads": ["tiktok_ad_account"],
   youtube: ["youtube"],
   pinterest: ["pinterest"],
   x: ["x"],
@@ -80,6 +83,16 @@ export function kindsForNetwork(name: string): SocialAccountKind[] {
  */
 export function platformForNetwork(name: string): PlanningPlatform {
   return PLATFORM_BY_NETWORK[networkKey(name)] ?? "other";
+}
+
+/**
+ * Un réseau payant — « LinkedIn Ads », « TikTok Ads », « Meta Ads » — n'est
+ * pas un couloir de planning : on n'y publie pas, on y lit des campagnes.
+ * Le déclarer aux livrables ouvre un onglet de Reporting et une ligne dans
+ * les Connexions, jamais douze couloirs vides dans le tableau.
+ */
+export function isPaidNetworkName(name: string): boolean {
+  return /(^|-)ads$/.test(networkKey(name)) || networkKey(name).includes("publicit");
 }
 
 /** Une ligne de l'écran des connexions. */

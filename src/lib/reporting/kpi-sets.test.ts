@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { METRIC_DEFINITIONS } from "@/lib/metrics/definitions";
-import { detailTitle, hasPersona, HERO_METRIC, KPI_SETS } from "./kpi-sets";
+import { detailTitle, hasPersona, HERO_METRIC, isUnmeasuredZero, KPI_SETS } from "./kpi-sets";
 import type { SocialReportingNetwork } from "./networks";
 
 // Les onglets sociaux seulement : le Site Web a ses propres mesures, hors du
@@ -52,12 +52,14 @@ describe("KPI_SETS", () => {
     expect(KPI_SETS.instagram).toContain("likes");
   });
 
-  it("compte les interactions en tête de Facebook, sans impressions", () => {
+  it("compte les interactions en tête de Facebook, et porte la grille d'Instagram", () => {
     // Fin 2025, Meta a retiré impressions et portée des publications de
     // Page : sans dénominateur, le taux d'engagement afficherait « — » à
-    // perpétuité, et une tuile Impressions resterait à zéro pour toujours.
+    // perpétuité — les interactions restent le héros. Les tuiles, elles,
+    // suivent la grille d'Instagram à la demande du client ; ce que Meta ne
+    // mesure pas s'écrit « — » (isUnmeasuredZero), jamais un zéro.
     expect(HERO_METRIC.facebook).toBe("interactions");
-    expect(KPI_SETS.facebook).not.toContain("impressions");
+    expect(KPI_SETS.facebook).toEqual(KPI_SETS.instagram);
     expect(KPI_SETS.facebook).toContain("videoViews");
   });
 });
@@ -74,5 +76,19 @@ describe("detailTitle", () => {
   it("nomme le détail selon ce qu'il liste", () => {
     expect(detailTitle("meta-ads")).toBe("Performance par ad set");
     expect(detailTitle("instagram")).toBe("Performance par publication");
+  });
+});
+
+describe("isUnmeasuredZero", () => {
+  it("écrit « — » à la place d'un zéro que Facebook ne mesure pas", () => {
+    expect(isUnmeasuredZero("facebook", "impressions", 0)).toBe(true);
+    expect(isUnmeasuredZero("facebook", "saves", 0)).toBe(true);
+  });
+
+  it("laisse passer une valeur mesurée, et les zéros des autres réseaux", () => {
+    // Le jour où Meta rend les impressions de Page, la tuile vit sans code.
+    expect(isUnmeasuredZero("facebook", "impressions", 1200)).toBe(false);
+    expect(isUnmeasuredZero("facebook", "likes", 0)).toBe(false);
+    expect(isUnmeasuredZero("instagram", "impressions", 0)).toBe(false);
   });
 });

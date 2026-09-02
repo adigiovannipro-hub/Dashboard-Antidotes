@@ -35,9 +35,10 @@ export function metricsRowToRaw(row: AdMetricsDaily): RawMetrics {
     comments: Number(row.comments),
     saves: Number(row.saves),
     shares: Number(row.shares),
-    // Grandeurs organiques : la table publicitaire ne les porte pas.
+    videoViews: Number(row.video_views ?? 0),
+    videoCompletions: Number(row.video_completions ?? 0),
+    // Grandeur organique : la table publicitaire ne la porte pas.
     likes: 0,
-    videoViews: 0,
   };
 }
 
@@ -148,9 +149,12 @@ const FOLLOWERS_MONTHS_SHOWN = 12;
  * C'est la convention des rapports historiques (Looker relevait au 31), et
  * celle des relevés repris de ces rapports : « juillet » veut dire « où on
  * en était au 31 juillet ». Le passage quotidien de 5h pose un relevé chaque
- * jour : le dernier du mois est donc couvert automatiquement, et un mois
- * révolu ne bouge plus. Seul le mois en cours avance avec les passages —
- * c'est le comportement attendu : il converge vers sa valeur du 31.
+ * jour, **daté de la veille** — ce qu'il lit à 5h est le compte au sortir du
+ * jour précédent (`closingDate`, connecteur Meta ; migration 0067 pour
+ * l'existant). Le relevé du 1er septembre est donc le point du 31 août, et
+ * août porte son propre chiffre. Daté du jour du passage, il tombait sous
+ * septembre et chaque courbe avait un mois d'avance. Un mois révolu ne bouge
+ * plus ; seul le mois en cours avance avec les passages.
  *
  * Les mois plus vieux que la fenêtre sont coupés : l'historique reste entier
  * en base, la courbe n'en montre que les douze derniers.

@@ -8,7 +8,7 @@
  *
  * Pur, sans base : ce module dit **quoi** écrire, l'action dit où.
  */
-import { platformForNetwork } from "@/lib/social/networks";
+import { isPaidNetworkName, platformForNetwork } from "@/lib/social/networks";
 import type { PlanningPlatform } from "@/lib/planning/types";
 
 /** Les libellés des mois, tels que le planning les affiche : en capitales. */
@@ -77,7 +77,8 @@ export function planYearLanes(options: {
 }): PlannedLane[] {
   const names = options.networks
     .map((name) => name.trim())
-    .filter((name) => name.length > 0);
+    // Un réseau payant n'a pas de couloir : on n'y publie rien.
+    .filter((name) => name.length > 0 && !isPaidNetworkName(name));
 
   const lanes: PlannedLane[] = [];
   for (const month of options.months) {

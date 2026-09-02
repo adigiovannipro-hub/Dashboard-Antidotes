@@ -1,5 +1,5 @@
 import type { MetricId } from "@/lib/metrics/types";
-import type { SocialReportingNetwork } from "./networks";
+import { isPaidNetwork, type SocialReportingNetwork } from "./networks";
 
 /**
  * Quelles mesures chaque onglet du Reporting affiche.
@@ -39,6 +39,10 @@ export const HERO_METRIC: Record<SocialReportingNetwork, MetricId> = {
   tiktok: "videoViews",
   youtube: "videoViews",
   x: "interactions",
+  /* Payant hors Meta : pas de pixel d'achat à espérer par défaut, le coût du
+     clic est le chiffre qui se compare d'un mois à l'autre. */
+  "linkedin-ads": "cpc",
+  "tiktok-ads": "cpc",
 };
 
 export const KPI_SETS: Record<SocialReportingNetwork, MetricId[]> = {
@@ -53,6 +57,11 @@ export const KPI_SETS: Record<SocialReportingNetwork, MetricId[]> = {
     "cpm",
     "ctr",
     "landingPageViews",
+    /* La vidéo porte l'essentiel des campagnes : la vue (3 s, définition
+       Meta) et la lecture complète. Le taux de complétion se lit en
+       rapprochant les deux — deux grandeurs additives, comme le reste. */
+    "videoViews",
+    "videoCompletions",
   ],
   /* Organique : rien de monétaire, pas de répétition — elle ne dit rien d'un
      feed. L'ordre suit la lecture d'un rapport social : combien de monde,
@@ -67,14 +76,38 @@ export const KPI_SETS: Record<SocialReportingNetwork, MetricId[]> = {
      invariablement à zéro se lit comme une contre-performance plutôt que
      comme une absence de mesure. */
   instagram: ["impressions", "videoViews", "likes", "comments", "saves", "shares"],
-  /* Pas d'impressions : Meta ne les rend plus par publication de Page (voir
-     HERO_METRIC) — une tuile éternellement à zéro accuserait le client. */
-  facebook: ["videoViews", "likes", "comments", "shares"],
+  /* Même série qu'Instagram, à la demande du client — un rapport se lit
+     d'un réseau à l'autre sans changer de grille. Meta ne rend plus les
+     impressions par publication de Page (voir HERO_METRIC) et n'a jamais
+     rendu les enregistrements : ces deux tuiles affichent « — » tant que
+     rien n'est mesuré (`UNMEASURED_AT_ZERO`), jamais un zéro qui accuserait
+     le client. Si Meta les rend un jour, elles se remplissent sans code. */
+  facebook: ["impressions", "videoViews", "likes", "comments", "saves", "shares"],
   linkedin: ["likes", "comments", "shares"],
   tiktok: ["likes", "comments", "saves", "shares"],
   youtube: ["likes", "comments", "shares"],
   x: ["likes", "comments", "shares"],
+  "linkedin-ads": ["spend", "impressions", "clicks", "cpm", "ctr", "videoViews", "videoCompletions"],
+  "tiktok-ads": ["spend", "impressions", "clicks", "cpm", "ctr", "videoViews", "videoCompletions"],
 };
+
+/**
+ * Les mesures qu'un réseau ne sait pas rendre aujourd'hui : un zéro y est
+ * une absence de mesure, pas une contre-performance, et s'affiche « — ».
+ * Une valeur non nulle, elle, passe telle quelle — le jour où la source la
+ * rend, la tuile vit.
+ */
+export const UNMEASURED_AT_ZERO: Partial<Record<SocialReportingNetwork, readonly MetricId[]>> = {
+  facebook: ["impressions", "saves"],
+};
+
+export function isUnmeasuredZero(
+  network: SocialReportingNetwork,
+  metric: MetricId,
+  value: number | null,
+): boolean {
+  return value === 0 && (UNMEASURED_AT_ZERO[network] ?? []).includes(metric);
+}
 
 /** Les découpages d'audience ont-ils un sens sur cet onglet ? */
 export function hasPersona(network: SocialReportingNetwork): boolean {
@@ -85,9 +118,11 @@ export function hasPersona(network: SocialReportingNetwork): boolean {
   return network === "meta-ads";
 }
 
+
+
 /** Le tableau de détail : par ad set en payant, par publication en organique. */
 export function detailTitle(network: SocialReportingNetwork): string {
-  return network === "meta-ads"
+  return isPaidNetwork(network)
     ? "Performance par ad set"
     : "Performance par publication";
 }

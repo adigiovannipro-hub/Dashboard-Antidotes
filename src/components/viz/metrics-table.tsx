@@ -25,9 +25,13 @@ export interface MetricsTableRow {
  * longueur justifie l'écart avec `METRIC_DEFINITIONS`.
  */
 const COLUMN_LABEL_OVERRIDES: Partial<Record<MetricId, string>> = {
-  impressions: "Vues",
+  /* Pas « Vues » : la colonne compte des impressions — un même écran qui en
+     affiche plusieurs — et « vues » se lit comme des personnes. Le rapport
+     Looker disait « View », c'était déjà un raccourci. */
   spend: "Budget",
   landingPageViews: "Vues page",
+  videoViews: "Vues vidéo",
+  videoCompletions: "Vues 100 %",
 };
 
 function columnLabel(metric: MetricId): string {

@@ -32,6 +32,12 @@ describe("planYearLanes", () => {
     expect(lanes).toHaveLength(24);
   });
 
+  it("n'ouvre aucun couloir pour un réseau payant — on n'y publie rien", () => {
+    const lanes = planYearLanes({ months, networks: ["Instagram", "LinkedIn Ads"] });
+    expect(lanes).toHaveLength(12);
+    expect(lanes.every((lane) => lane.name === "Instagram")).toBe(true);
+  });
+
   it("garde le nom déclaré, pas le libellé de l'enum", () => {
     // Le client qui a écrit « Insta » doit retrouver « Insta » dans son tableau.
     const lanes = planYearLanes({ months, networks: ["Insta"] });

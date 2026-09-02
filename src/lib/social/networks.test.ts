@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { kindsForNetwork, planConnexionRows, platformForNetwork } from "./networks";
+import {
+  isPaidNetworkName,
+  kindsForNetwork,
+  planConnexionRows,
+  platformForNetwork,
+} from "./networks";
 
 describe("kindsForNetwork", () => {
   it("rapproche « Facebook » d'une Page", () => {
@@ -138,5 +143,21 @@ describe("planConnexionRows", () => {
   it("ignore les noms vides", () => {
     const rows = planConnexionRows({ networks: ["", "   "], linked: [] });
     expect(rows.every((row) => row.kind !== null)).toBe(true);
+  });
+});
+
+describe("isPaidNetworkName", () => {
+  it("reconnaît un réseau payant à son « Ads »", () => {
+    expect(isPaidNetworkName("LinkedIn Ads")).toBe(true);
+    expect(isPaidNetworkName("TikTok Ads")).toBe(true);
+    expect(isPaidNetworkName("Meta Ads")).toBe(true);
+    expect(isPaidNetworkName("LinkedIn")).toBe(false);
+    // « Threads » contient a-d-s sans être payant.
+    expect(isPaidNetworkName("Threads")).toBe(false);
+  });
+
+  it("réclame un compte publicitaire pour « LinkedIn Ads »", () => {
+    expect(kindsForNetwork("LinkedIn Ads")).toEqual(["linkedin_ad_account"]);
+    expect(kindsForNetwork("TikTok Ads")).toEqual(["tiktok_ad_account"]);
   });
 });

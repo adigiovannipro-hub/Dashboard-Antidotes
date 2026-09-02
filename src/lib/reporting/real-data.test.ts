@@ -53,6 +53,8 @@ const daily = (over: Partial<AdMetricsDaily>): AdMetricsDaily => ({
   comments: 0,
   saves: 0,
   shares: 0,
+  video_views: 0,
+  video_completions: 0,
   updated_at: "",
   ...over,
 });

@@ -12,7 +12,12 @@ import {
   type MetricId,
   type RawMetrics,
 } from "@/lib/metrics/types";
-import { detailTitle, HERO_METRIC, KPI_SETS } from "@/lib/reporting/kpi-sets";
+import {
+  detailTitle,
+  HERO_METRIC,
+  isUnmeasuredZero,
+  KPI_SETS,
+} from "@/lib/reporting/kpi-sets";
 import { REPORTING_NETWORK_LABELS } from "@/lib/reporting/networks";
 import type { SocialPost } from "@/lib/supabase/database.types";
 
@@ -99,8 +104,11 @@ export function OrganicDashboard({
           <StatTile
             key={metric}
             metric={metric}
-            value={mesure(metric)}
-            delta={delta(metric)}
+            /* Un zéro que la source ne mesure pas s'écrit « — », sans
+               variation : Meta ne rend ni impressions ni enregistrements
+               sur une Page. */
+            value={isUnmeasuredZero(network, metric, mesure(metric)) ? null : mesure(metric)}
+            delta={isUnmeasuredZero(network, metric, mesure(metric)) ? undefined : delta(metric)}
           />
         ))}
       </div>
@@ -118,11 +126,10 @@ export function OrganicDashboard({
           }
         />
         <PanelBody>
-          <PostsTable
-            posts={posts}
-            withSaves={network !== "facebook"}
-            withImpressions={network === "instagram"}
-          />
+          {/* Mêmes colonnes qu'Instagram : le client lit les deux tableaux
+              avec la même grille. Sur Facebook, impressions et
+              enregistrements restent à zéro tant que Meta ne les rend pas. */}
+          <PostsTable posts={posts} withSaves withImpressions />
         </PanelBody>
       </Panel>
     </div>

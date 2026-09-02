@@ -33,8 +33,10 @@ export interface RawMetrics {
   shares: number;
   /** J'aime — organique. Réactions côté Facebook. */
   likes: number;
-  /** Vues des vidéos et reels — organique. */
+  /** Vues des vidéos et reels — organique, et `video_view` (3 s) en payant. */
   videoViews: number;
+  /** Lectures jusqu'au bout — `video_p100_watched_actions`, payant seulement. */
+  videoCompletions: number;
 }
 
 export const EMPTY_RAW_METRICS: Readonly<RawMetrics> = Object.freeze({
@@ -53,6 +55,7 @@ export const EMPTY_RAW_METRICS: Readonly<RawMetrics> = Object.freeze({
   shares: 0,
   likes: 0,
   videoViews: 0,
+  videoCompletions: 0,
 });
 
 export const RAW_METRIC_KEYS = Object.keys(EMPTY_RAW_METRICS) as (keyof RawMetrics)[];
@@ -115,5 +118,6 @@ export type MetricId =
   | "shares"
   | "likes"
   | "videoViews"
+  | "videoCompletions"
   | "interactions"
   | "engagementRate";

@@ -62,8 +62,17 @@ function fail(message: string): never {
 }
 
 /** Aujourd'hui en UTC — le grain de tous les instantanés d'abonnés. */
-function today(): string {
-  return new Date().toISOString().slice(0, 10);
+/**
+ * La date d'un relevé d'abonnés : **la veille du passage**.
+ *
+ * Le cron lit le compte à 5 h UTC. Ce qu'il lit, c'est le nombre d'abonnés
+ * tel qu'il est au sortir de la veille — le relevé du 1er septembre est le
+ * point de clôture du 31 août. Daté du jour du passage, il tombait sous
+ * « septembre » et chaque courbe avait un mois d'avance : le reporting
+ * d'août ne portait pas son propre chiffre. Migration 0067 pour l'existant.
+ */
+function closingDate(): string {
+  return new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
 }
 
 /** `since` au format que Graph accepte partout : secondes Unix. */
@@ -576,7 +585,7 @@ async function syncOrganic(
         data_source_id: dataSourceId,
         workspace_id: workspaceId,
         platform,
-        date: today(),
+        date: closingDate(),
         followers_count: followers,
         source: "api",
         updated_at: new Date().toISOString(),

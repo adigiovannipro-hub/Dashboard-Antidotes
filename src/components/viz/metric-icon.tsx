@@ -1,6 +1,7 @@
 import {
   Banknote,
   Bookmark,
+  CircleCheck,
   DollarSign,
   Eye,
   Heart,
@@ -56,6 +57,7 @@ const METRIC_ICONS: Record<MetricId, LucideIcon> = {
   shares: Send,
   likes: Heart,
   videoViews: Play,
+  videoCompletions: CircleCheck,
   interactions: Sparkles,
   engagementRate: Sparkles,
 };

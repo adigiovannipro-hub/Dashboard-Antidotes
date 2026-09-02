@@ -172,6 +172,9 @@ export type AdMetricsDaily = {
   comments: number;
   saves: number;
   shares: number;
+  // 0066 — vues (3 s) et lectures complètes des vidéos publicitaires.
+  video_views: number;
+  video_completions: number;
   updated_at: string;
 }
 

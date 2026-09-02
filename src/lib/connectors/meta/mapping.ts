@@ -32,6 +32,8 @@ export type MetaInsightRow = {
   frequency?: string;
   actions?: { action_type: string; value: string }[];
   action_values?: { action_type: string; value: string }[];
+  /** Lectures jusqu'au bout — même forme que `actions`, un seul type `video_view`. */
+  video_p100_watched_actions?: { action_type: string; value: string }[];
   /** Présents seulement sur les requêtes ventilées. */
   age?: string;
   gender?: string;
@@ -110,6 +112,11 @@ export function toRawMetrics(row: MetaInsightRow): RawMetrics {
     comments: actionValue(row.actions, "comment"),
     saves: actionValue(row.actions, "onsite_conversion.post_save"),
     shares: actionValue(row.actions, "post"),
+    /* `video_view` dans `actions` est la vue au sens de Meta : trois secondes
+       de lecture. La lecture complète arrive dans un tableau à part, de même
+       forme, sous le même `action_type` — c'est le champ qui porte le sens. */
+    videoViews: actionValue(row.actions, "video_view"),
+    videoCompletions: actionValue(row.video_p100_watched_actions, "video_view"),
   };
 }
 
@@ -149,6 +156,8 @@ export function toDailyMetricsColumns(row: MetaInsightRow): {
   comments: number;
   saves: number;
   shares: number;
+  video_views: number;
+  video_completions: number;
 } {
   const raw = toRawMetrics(row);
   return {
@@ -166,6 +175,8 @@ export function toDailyMetricsColumns(row: MetaInsightRow): {
     comments: raw.comments,
     saves: raw.saves,
     shares: raw.shares,
+    video_views: raw.videoViews,
+    video_completions: raw.videoCompletions,
   };
 }
 

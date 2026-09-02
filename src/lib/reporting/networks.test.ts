@@ -38,6 +38,17 @@ describe("networksFromContextName", () => {
     expect(networksFromContextName("Meta Ads")).toEqual(["meta-ads"]);
   });
 
+  it("distingue le payant de l'organique sur LinkedIn et TikTok", () => {
+    // « LinkedIn Ads » ouvrait l'onglet LinkedIn : le compte publicitaire
+    // n'avait nulle part où aller.
+    expect(networksFromContextName("LinkedIn Ads")).toEqual(["linkedin-ads"]);
+    expect(networksFromContextName("LinkedIn")).toEqual(["linkedin"]);
+    expect(networksFromContextName("TikTok Ads")).toEqual(["tiktok-ads"]);
+    expect(networksFromContextName("Tik Tok")).toEqual(["tiktok"]);
+    // Et « Meta Ads » reste Meta Ads, pas LinkedIn.
+    expect(networksFromContextName("Meta Ads")).toEqual(["meta-ads"]);
+  });
+
   it("reconnaît le site web du client", () => {
     expect(networksFromContextName("Site Web")).toEqual(["site-web"]);
     expect(networksFromContextName("Site internet")).toEqual(["site-web"]);
@@ -197,5 +208,13 @@ describe("providersForNetwork", () => {
     expect(providersForNetwork("meta-ads")).toEqual(["meta_ads"]);
     expect(providersForNetwork("instagram")).toEqual(["meta_organic"]);
     expect(providersForNetwork("facebook")).toEqual(["meta_organic"]);
+  });
+});
+
+describe("providersForNetwork — payant hors Meta", () => {
+  it("donne au payant LinkedIn et TikTok un fournisseur à lui", () => {
+    expect(providersForNetwork("linkedin-ads")).toEqual(["linkedin_ads"]);
+    expect(providersForNetwork("tiktok-ads")).toEqual(["tiktok_ads"]);
+    expect(providersForNetwork("linkedin")).toEqual(["linkedin_organic"]);
   });
 });

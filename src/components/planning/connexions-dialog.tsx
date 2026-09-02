@@ -282,10 +282,17 @@ function ConnexionLine({
             <option value="">
               {accounts.length === 0 ? "Aucun compte branché" : "Aucun"}
             </option>
+            {/* Nom, pseudo, abonnés, identifiant : trois Pages peuvent porter
+                le même nom (vécu — trois « I-WAY »), et c'est l'identifiant
+                qui les distingue, jamais le nom. */}
             {accounts.map((account) => (
               <option key={account.id} value={account.id}>
                 {socialAccountName(account)}
                 {account.username ? ` · ${account.username}` : ""}
+                {account.followers_count !== null
+                  ? ` · ${account.followers_count} abonnés`
+                  : ""}
+                {` · ${account.external_id}`}
               </option>
             ))}
           </select>

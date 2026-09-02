@@ -85,6 +85,22 @@ describe("toRawMetrics", () => {
     expect(raw.initiatedCheckout).toBe(34);
   });
 
+  it("lit la vue vidéo dans les actions et la lecture complète dans son champ à part", () => {
+    // Même `action_type` des deux côtés : c'est le champ qui porte le sens.
+    const raw = toRawMetrics({
+      actions: [{ action_type: "video_view", value: "1200" }],
+      video_p100_watched_actions: [{ action_type: "video_view", value: "340" }],
+    });
+    expect(raw.videoViews).toBe(1200);
+    expect(raw.videoCompletions).toBe(340);
+  });
+
+  it("rend zéro vue vidéo sur une campagne sans vidéo — absente vaut zéro", () => {
+    const raw = toRawMetrics({ actions: [{ action_type: "link_click", value: "3" }] });
+    expect(raw.videoViews).toBe(0);
+    expect(raw.videoCompletions).toBe(0);
+  });
+
   it("rend un modèle complet même sur une ligne vide", () => {
     // Une campagne sans dépense du jour renvoie une ligne quasi vide : elle
     // doit valoir zéro partout, pas laisser des champs indéfinis derrière.
@@ -119,10 +135,16 @@ describe("toDailyMetricsColumns", () => {
       impressions: "1000",
       reach: "800",
       inline_link_clicks: "40",
-      actions: [{ action_type: "add_to_cart", value: "3" }],
+      actions: [
+        { action_type: "add_to_cart", value: "3" },
+        { action_type: "video_view", value: "50" },
+      ],
+      video_p100_watched_actions: [{ action_type: "video_view", value: "7" }],
     });
 
     expect(columns.date).toBe("2026-08-01");
+    expect(columns.video_views).toBe(50);
+    expect(columns.video_completions).toBe(7);
     expect(columns.spend).toBe(12.5);
     expect(columns.link_clicks).toBe(40);
     expect(columns.add_to_cart).toBe(3);

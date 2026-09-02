@@ -26,6 +26,7 @@ const JUNE_2026_TOTAL: RawMetrics = {
   shares: 96,
   likes: 0,
   videoViews: 0,
+  videoCompletions: 0,
 };
 
 describe("dictionnaire des métriques — totaux de juin 2026", () => {

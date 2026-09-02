@@ -23,10 +23,23 @@ export type ReportingNetwork =
   | "instagram"
   | "facebook"
   | "linkedin"
+  | "linkedin-ads"
   | "tiktok"
+  | "tiktok-ads"
   | "youtube"
   | "x"
   | "site-web";
+
+/** Les onglets payants : un compte publicitaire, des campagnes, un budget. */
+export const PAID_NETWORKS: readonly ReportingNetwork[] = [
+  "meta-ads",
+  "linkedin-ads",
+  "tiktok-ads",
+];
+
+export function isPaidNetwork(network: ReportingNetwork): boolean {
+  return PAID_NETWORKS.includes(network);
+}
 
 /**
  * Les onglets sociaux — ceux dont la donnée vient d'un compte affecté dans
@@ -58,7 +71,9 @@ export const REPORTING_NETWORK_LABELS: Record<ReportingNetwork, string> = {
   instagram: "Instagram",
   facebook: "Facebook",
   linkedin: "LinkedIn",
+  "linkedin-ads": "LinkedIn Ads",
   tiktok: "TikTok",
+  "tiktok-ads": "TikTok Ads",
   youtube: "YouTube",
   x: "X",
   "site-web": "Site Web",
@@ -80,6 +95,9 @@ export function providersForNetwork(network: ReportingNetwork): string[] {
   if (network === "site-web") return ["google_analytics"];
   if (network === "meta-ads") return ["meta_ads"];
   if (network === "instagram" || network === "facebook") return ["meta_organic"];
+  // Le payant d'un réseau a son fournisseur à lui, comme `meta_ads`.
+  if (network === "linkedin-ads") return ["linkedin_ads"];
+  if (network === "tiktok-ads") return ["tiktok_ads"];
   // Un fournisseur par réseau, même sans connecteur : la reprise Looker range
   // déjà ses relevés sous ces slugs (`tiktok_organic` vit en base).
   return [`${network}_organic`];
@@ -91,7 +109,9 @@ const REQUIRED_KIND: Record<SocialReportingNetwork, SocialAccountKind> = {
   instagram: "instagram",
   facebook: "facebook_page",
   linkedin: "linkedin",
+  "linkedin-ads": "linkedin_ad_account",
   tiktok: "tiktok",
+  "tiktok-ads": "tiktok_ad_account",
   youtube: "youtube",
   x: "x",
 };
@@ -112,13 +132,18 @@ export function networksFromContextName(name: string): ReportingNetwork[] {
     .trim();
 
   if (folded.includes("insta")) return ["instagram"];
+  /* Le payant d'un réseau se dit « <réseau> Ads » : il se reconnaît **avant**
+     l'organique du même nom, sinon « LinkedIn Ads » ouvrirait l'onglet
+     LinkedIn et le compte publicitaire n'aurait nulle part où aller. `ads`
+     en **mot entier** : « Threads » contient la suite a-d-s. */
+  const paid = /\bads\b/.test(folded) || folded.includes("publicit");
+  if (folded.includes("linkedin")) return [paid ? "linkedin-ads" : "linkedin"];
+  if (folded.includes("tiktok") || folded.includes("tik tok")) {
+    return [paid ? "tiktok-ads" : "tiktok"];
+  }
   // « Meta Ads » avant « Facebook » : les deux contiennent souvent « meta ».
-  // `ads` en **mot entier** : « Threads » contient la suite a-d-s, et un
-  // client qui déclare Threads se retrouvait avec un onglet Meta Ads.
-  if (/\bads\b/.test(folded) || folded.includes("publicit")) return ["meta-ads"];
+  if (paid) return ["meta-ads"];
   if (folded.includes("facebook") || folded === "fb") return ["facebook"];
-  if (folded.includes("linkedin")) return ["linkedin"];
-  if (folded.includes("tiktok") || folded.includes("tik tok")) return ["tiktok"];
   if (folded.includes("youtube") || folded === "yt") return ["youtube"];
   // « X » seul ou « Twitter » — jamais un simple `includes("x")`, qui
   // attraperait n'importe quel mot.
@@ -196,7 +221,9 @@ export function resolveReportingNetworks(input: {
       "instagram",
       "facebook",
       "linkedin",
+      "linkedin-ads",
       "tiktok",
+      "tiktok-ads",
       "youtube",
       "x",
       "site-web",

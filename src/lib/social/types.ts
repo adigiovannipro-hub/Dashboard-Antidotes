@@ -26,7 +26,9 @@ export type SocialAccountKind =
   | "facebook_page"
   | "meta_ad_account"
   | "linkedin"
+  | "linkedin_ad_account"
   | "tiktok"
+  | "tiktok_ad_account"
   | "youtube"
   | "pinterest"
   | "x"
@@ -38,7 +40,9 @@ export const SOCIAL_ACCOUNT_LABELS: Record<SocialAccountKind, string> = {
   facebook_page: "Page Facebook",
   meta_ad_account: "Compte publicitaire Meta",
   linkedin: "LinkedIn",
+  linkedin_ad_account: "Compte publicitaire LinkedIn",
   tiktok: "TikTok",
+  tiktok_ad_account: "Compte publicitaire TikTok",
   youtube: "YouTube",
   pinterest: "Pinterest",
   x: "X",
@@ -52,7 +56,9 @@ export const SOCIAL_ACCOUNT_PURPOSE: Record<SocialAccountKind, string> = {
   facebook_page: "Publication sur la Page",
   meta_ad_account: "Chiffres de campagnes du Reporting",
   linkedin: "Publication sur la page entreprise",
+  linkedin_ad_account: "Chiffres de campagnes du Reporting",
   tiktok: "Publication sur le compte",
+  tiktok_ad_account: "Chiffres de campagnes du Reporting",
   youtube: "Publication sur la chaîne",
   pinterest: "Épingles du compte",
   x: "Publication sur le compte",
