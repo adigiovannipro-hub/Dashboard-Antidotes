@@ -5,7 +5,8 @@ import { z } from "zod";
 
 import { getFinanceContext } from "@/lib/finance/access";
 import { slugifyCategoryName } from "@/lib/finance/categories";
-import type { FinanceCategory } from "@/lib/finance/types";
+import { merchantKey } from "@/lib/finance/merchant-logo";
+import type { FinanceCategory, FinanceRetrievalSource } from "@/lib/finance/types";
 import { createClient } from "@/lib/supabase/server";
 
 /**
@@ -229,5 +230,108 @@ export async function createCategoryAndAssign(
     message: created
       ? `Catégorie « ${category.name} » créée — ${outcome.message.charAt(0).toLowerCase()}${outcome.message.slice(1)}`
       : `« ${category.name} » existait déjà — ${outcome.message.charAt(0).toLowerCase()}${outcome.message.slice(1)}`,
+  };
+}
+
+const retrievalAction = z.object({
+  transactionId: z.uuid(),
+  // Champ vide : retirer le lien — la fiche du marchand disparaît.
+  sourceLink: z
+    .string()
+    .trim()
+    .max(2000, "Lien trop long.")
+    .refine(
+      (value) => value === "" || /^https?:\/\/\S+$/i.test(value),
+      "Le lien doit commencer par http:// ou https://.",
+    )
+    .transform((value) => (value === "" ? null : value)),
+});
+
+/**
+ * Pose — ou retire — le lien où les factures d'un marchand se récupèrent.
+ *
+ * Le marchand se lit depuis la dépense, jamais depuis le formulaire : la fiche
+ * est celle du marchand de la ligne, et une clé fabriquée côté navigateur ne
+ * doit pas pouvoir viser une autre fiche. Un lien **nouveau** remet la fiche
+ * en attente, même si le mois avait déjà sa facture — la page a changé, le
+ * passage repasse ; le même lien recollé ne touche à rien.
+ *
+ * Client de session : la RLS réserve précisément ce geste à l'owner.
+ */
+export async function setRetrievalSource(
+  _previous: FinanceActionResult | null,
+  formData: FormData,
+): Promise<FinanceActionResult> {
+  const parsed = retrievalAction.safeParse({
+    transactionId: formData.get("transactionId"),
+    sourceLink: formData.get("sourceLink"),
+  });
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "Requête incomplète.",
+    };
+  }
+
+  const context = await getFinanceContext();
+  if (!context?.canDecide) return { ok: false, error: "Action indisponible." };
+
+  const supabase = await createClient();
+
+  const { data: transaction, error: readError } = await supabase
+    .from("finance_transactions")
+    .select("merchant, merchant_raw")
+    .eq("id", parsed.data.transactionId)
+    .eq("org_id", context.orgId)
+    .maybeSingle();
+  if (readError || !transaction) return { ok: false, error: "Dépense introuvable." };
+
+  const merchant = transaction as { merchant: string | null; merchant_raw: string | null };
+  const label = (merchant.merchant ?? merchant.merchant_raw)?.trim() ?? "";
+  const key = merchantKey(label);
+  if (key === "") return { ok: false, error: "Cette dépense n'a pas de marchand identifiable." };
+
+  const link = parsed.data.sourceLink;
+
+  if (link === null) {
+    const { error } = await supabase
+      .from("finance_retrieval_sources")
+      .delete()
+      .eq("org_id", context.orgId)
+      .eq("merchant_key", key);
+    if (error) return { ok: false, error: `Retrait refusé : ${error.message}` };
+
+    revalidatePath(FINANCE_PATH);
+    return { ok: true, message: `Lien retiré — « ${label} » ne sera plus récupéré.` };
+  }
+
+  const { data: existing } = await supabase
+    .from("finance_retrieval_sources")
+    .select("source_link")
+    .eq("org_id", context.orgId)
+    .eq("merchant_key", key)
+    .maybeSingle();
+  if ((existing as Pick<FinanceRetrievalSource, "source_link"> | null)?.source_link === link) {
+    return { ok: true, message: "Lien inchangé." };
+  }
+
+  const { error } = await supabase.from("finance_retrieval_sources").upsert(
+    {
+      org_id: context.orgId,
+      merchant_key: key,
+      merchant_label: label,
+      source_link: link,
+      retrieval_status: "pending",
+      auto_retrieved_at: null,
+      last_error: null,
+    } as never,
+    { onConflict: "org_id,merchant_key" },
+  );
+  if (error) return { ok: false, error: `Enregistrement refusé : ${error.message}` };
+
+  revalidatePath(FINANCE_PATH);
+  return {
+    ok: true,
+    message: `Lien enregistré — les factures « ${label} » seront récupérées chaque mois.`,
   };
 }

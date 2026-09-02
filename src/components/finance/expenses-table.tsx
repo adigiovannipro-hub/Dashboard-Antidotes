@@ -2,12 +2,22 @@
 
 import { useActionState, useEffect, useId, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { ArrowDown, ArrowUp, Download, Store } from "lucide-react";
+import {
+  ArrowDown,
+  ArrowUp,
+  Check,
+  Clock,
+  Download,
+  Link2,
+  Store,
+  TriangleAlert,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import {
   createCategoryAndAssign,
   recategorizeTransaction,
+  setRetrievalSource,
   type FinanceActionResult,
 } from "@/app/actions/finance";
 import {
@@ -34,6 +44,7 @@ import {
 } from "@/components/ui/table";
 import { merchantInitials } from "@/lib/finance/merchant-logo";
 import { formatDualAmount } from "@/lib/finance/money";
+import type { RetrievalCellState } from "@/lib/finance/retrieval";
 import {
   transactionStatusLabel,
   type BadgeTone,
@@ -62,6 +73,9 @@ export type DisplayExpense = FinanceTransaction & {
   category_effective_id: string | null;
   /** URL signée du logo du marchand, quand la synchronisation l'a trouvé. */
   logo_url: string | null;
+  /** La récupération automatique des factures du marchand, jugée côté
+      serveur pour ce mois-ci — voir `retrieval.ts`. */
+  retrieval: RetrievalCellState;
 };
 
 export function ExpensesTable({
@@ -221,6 +235,7 @@ export function ExpensesTable({
                   <TableHead>Catégorie</TableHead>
                   <TableHead>Statut</TableHead>
                   <TableHead>Justificatif</TableHead>
+                  <TableHead>Récupération</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -248,6 +263,9 @@ export function ExpensesTable({
                     <TableCell>
                       <ReceiptBadge row={row} />
                     </TableCell>
+                    <TableCell>
+                      <RetrievalCell row={row} canDecide={canDecide} />
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -272,6 +290,7 @@ export function ExpensesTable({
                   ) : null}
                   <StatusBadge status={row.status} />
                   <ReceiptBadge row={row} />
+                  <RetrievalCell row={row} canDecide={canDecide} />
                 </div>
               </li>
             ))}
@@ -603,6 +622,204 @@ function NewCategoryDialog({
       </DialogContent>
     </Dialog>
   );
+}
+
+/**
+ * La cellule Récupération : où les factures du marchand se trouvent, et si
+ * celle du mois est déjà arrivée.
+ *
+ * Le dashboard ne télécharge rien — un passage extérieur, depuis une machine
+ * dont le navigateur garde ses sessions, lit la liste des fiches, ouvre le
+ * lien, envoie la facture à Airwallex, et rend compte. La fiche est celle du
+ * **marchand** : le lien se colle une fois, sur n'importe laquelle de ses
+ * dépenses, et sert tous les mois. L'état arrive du serveur, calculé par le
+ * même code que la liste du passage : la cellule et lui ne peuvent pas se
+ * contredire.
+ */
+function RetrievalCell({
+  row,
+  canDecide,
+}: {
+  row: DisplayExpense;
+  canDecide: boolean;
+}) {
+  const [editing, setEditing] = useState(false);
+  const merchant = row.merchant ?? row.merchant_raw;
+
+  /* Un virement ou des frais bancaires n'ont aucune facture à aller chercher. */
+  if (row.source === "ledger" || !merchant) {
+    return <span className="text-muted-foreground">—</span>;
+  }
+
+  const state = row.retrieval;
+
+  if (editing) {
+    return (
+      <RetrievalEditor
+        row={row}
+        merchant={merchant}
+        initialLink={state.kind === "none" ? "" : state.link}
+        onClose={setEditing}
+      />
+    );
+  }
+
+  if (state.kind === "done") {
+    /* `title` sur un `span` et non sur le bouton : un bouton inerte ne
+       reçoit plus le survol (`pointer-events-none`), l'infobulle datée
+       n'apparaîtrait jamais. */
+    return (
+      <span
+        title={`Récupérée le ${formatDateTime(state.retrievedAt)}`}
+        className="inline-flex"
+      >
+        <Button
+          type="button"
+          size="xs"
+          variant="outline"
+          disabled
+          className="border-accent-subtle bg-accent-subtle text-accent-ink disabled:opacity-70"
+        >
+          <Check aria-hidden />
+          Récupéré
+        </Button>
+      </span>
+    );
+  }
+
+  if (!canDecide) {
+    if (state.kind === "none") return <span className="text-muted-foreground">—</span>;
+    return (
+      <StatusPill tone={state.kind === "failed" ? "danger" : "neutral"}>
+        {state.kind === "failed" ? "Échec" : "En attente"}
+      </StatusPill>
+    );
+  }
+
+  if (state.kind === "failed") {
+    return (
+      <Button
+        type="button"
+        size="xs"
+        variant="outline"
+        className="border-danger-subtle text-danger-ink"
+        title={`${state.error ?? "Échec sans détail"}\n${state.link}`}
+        onClick={() => setEditing(true)}
+      >
+        <TriangleAlert aria-hidden />
+        Échec
+      </Button>
+    );
+  }
+
+  if (state.kind === "pending") {
+    return (
+      <Button
+        type="button"
+        size="xs"
+        variant="outline"
+        title={`Lien enregistré, en attente du prochain passage.\n${state.link}`}
+        onClick={() => setEditing(true)}
+      >
+        <Clock aria-hidden />
+        En attente
+      </Button>
+    );
+  }
+
+  return (
+    <Button
+      type="button"
+      size="xs"
+      variant="outline"
+      title={`Coller le lien où les factures ${merchant} se téléchargent`}
+      onClick={() => setEditing(true)}
+    >
+      <Link2 aria-hidden />
+      Récupérer
+    </Button>
+  );
+}
+
+/**
+ * Le champ du lien, dans la cellule même — pas de dialogue : coller un lien
+ * est un geste d'une seconde. Vider le champ retire la fiche. Échap referme.
+ */
+function RetrievalEditor({
+  row,
+  merchant,
+  initialLink,
+  onClose,
+}: {
+  row: DisplayExpense;
+  merchant: string;
+  initialLink: string;
+  onClose: (editing: boolean) => void;
+}) {
+  const [state, submit, pending] = useActionState<FinanceActionResult | null, FormData>(
+    setRetrievalSource,
+    null,
+  );
+
+  useEffect(() => {
+    if (!state) return;
+    if (state.ok) {
+      toast.success(state.message);
+      onClose(false);
+    } else {
+      toast.error(state.error);
+    }
+  }, [state, onClose]);
+
+  return (
+    <form action={submit} className="flex items-center gap-1.5">
+      <input type="hidden" name="transactionId" value={row.id} />
+      <input
+        name="sourceLink"
+        type="url"
+        inputMode="url"
+        defaultValue={initialLink}
+        placeholder="https://…"
+        aria-label={`Lien des factures de ${merchant}`}
+        className="border-border-line bg-surface text-text-primary focus-visible:ring-ring hover:border-border h-7 w-56 rounded-sm border px-1.5 text-xs focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50"
+        autoFocus
+        disabled={pending}
+        onKeyDown={(event) => {
+          if (event.key === "Escape") onClose(false);
+        }}
+      />
+      <Button type="submit" size="xs" variant="accent" disabled={pending}>
+        <PendingLabel pending={pending} busy="…">
+          OK
+        </PendingLabel>
+      </Button>
+      <Button
+        type="button"
+        size="xs"
+        variant="ghost"
+        onClick={() => onClose(false)}
+        disabled={pending}
+      >
+        Annuler
+      </Button>
+    </form>
+  );
+}
+
+/* L'instant d'une récupération, à l'heure de Paris : un horodatage qu'on lit
+   pour vérifier un envoi, pas une date de calcul — celles-là restent en UTC. */
+const DATE_TIME = new Intl.DateTimeFormat("fr-FR", {
+  day: "numeric",
+  month: "long",
+  hour: "2-digit",
+  minute: "2-digit",
+  timeZone: "Europe/Paris",
+});
+
+function formatDateTime(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return iso;
+  return DATE_TIME.format(date);
 }
 
 function formatDate(iso: string): string {

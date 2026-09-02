@@ -8,6 +8,7 @@ import type {
   FinanceCategory,
   FinanceCategoryRule,
   FinanceInvoice,
+  FinanceRetrievalSource,
   FinanceSyncRun,
   FinanceTransaction,
 } from "./types";
@@ -613,4 +614,29 @@ export async function getMerchantLogoUrls(
     if (url) urls[row.merchant_key] = url;
   }
   return urls;
+}
+
+// --- Récupération automatique des factures ---------------------------------
+
+/**
+ * Les fiches de récupération de l'organisation, indexées par clé de marchand.
+ *
+ * L'erreur est volontairement ignorée, comme dans toute lecture d'écran : la
+ * RLS est l'autorité, et une liste vide est la bonne réponse — y compris tant
+ * que la migration n'est pas passée, où la page doit rester debout et
+ * montrer « Récupérer » partout plutôt que tomber.
+ */
+export async function listRetrievalSources(
+  orgId: string,
+): Promise<Record<string, FinanceRetrievalSource>> {
+  const supabase = await createClient();
+
+  const { data } = await supabase
+    .from("finance_retrieval_sources")
+    .select("*")
+    .eq("org_id", orgId)
+    .limit(500);
+
+  const rows = (data ?? []) as unknown as FinanceRetrievalSource[];
+  return Object.fromEntries(rows.map((row) => [row.merchant_key, row]));
 }
