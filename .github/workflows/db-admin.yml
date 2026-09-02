@@ -66,6 +66,10 @@ on:
         description: "Diagnostic schéma (lecture seule) : colonnes réelles et privilèges d'API"
         type: boolean
         default: false
+      diagnostic_linkedin:
+        description: "Diagnostic LinkedIn (lecture seule) : pages entreprise vues par Composio"
+        type: boolean
+        default: false
 
 jobs:
   operer:
@@ -160,6 +164,16 @@ jobs:
         run: pnpm diagnostic:schema
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+
+      # Les pages entreprise que le compte LinkedIn connecté administre.
+      # L'API Composio n'est pas joignable depuis l'environnement de
+      # développement distant : ce runner est le seul endroit d'où la
+      # question se pose. Lecture seule, rien n'est écrit.
+      - name: Diagnostic LinkedIn
+        if: ${{ inputs.diagnostic_linkedin }}
+        run: pnpm diagnostic:linkedin
+        env:
+          COMPOSIO_API_KEY: ${{ secrets.COMPOSIO_API_KEY }}
 
       # Les miniatures des visuels déjà en bucket : sharp pour les images,
       # ffmpeg pour la première image des vidéos — plus préinstallé sur
