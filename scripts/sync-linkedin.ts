@@ -87,6 +87,66 @@ async function main() {
     }
   }
 
+  /* La preuve, pas la promesse : ce que la base porte vraiment, mois par
+     mois, tel que l'écran le lira. Un « ✓ 54 lignes » ne dit pas si août
+     est là. */
+  for (const workspaceId of ids) {
+    const [{ data: jours }, { data: posts }, { data: abonnes }] = await Promise.all([
+      admin
+        .from("social_page_daily")
+        .select("date, impressions, reach, clicks, likes, comments, shares")
+        .eq("workspace_id", workspaceId)
+        .eq("platform", "linkedin")
+        .order("date"),
+      admin
+        .from("social_posts")
+        .select("published_at, impressions, likes")
+        .eq("workspace_id", workspaceId)
+        .eq("platform", "linkedin"),
+      admin
+        .from("social_followers")
+        .select("date, followers_count")
+        .eq("workspace_id", workspaceId)
+        .eq("platform", "linkedin")
+        .order("date"),
+    ]);
+
+    const parMois = new Map<
+      string,
+      { impressions: number; reach: number; clics: number; gestes: number; posts: number }
+    >();
+    for (const jour of jours ?? []) {
+      const mois = String(jour.date).slice(0, 7);
+      const bloc = parMois.get(mois) ?? {
+        impressions: 0,
+        reach: 0,
+        clics: 0,
+        gestes: 0,
+        posts: 0,
+      };
+      bloc.impressions += Number(jour.impressions);
+      bloc.reach += Number(jour.reach);
+      bloc.clics += Number(jour.clicks);
+      bloc.gestes += Number(jour.likes) + Number(jour.comments) + Number(jour.shares);
+      parMois.set(mois, bloc);
+    }
+    for (const post of posts ?? []) {
+      const mois = String(post.published_at).slice(0, 7);
+      const bloc = parMois.get(mois);
+      if (bloc) bloc.posts += 1;
+    }
+
+    console.log("");
+    console.log("  Ce que la base porte, mois par mois :");
+    for (const [mois, bloc] of [...parMois].sort()) {
+      console.log(
+        `    ${mois} — ${bloc.impressions} impressions, ${bloc.reach} portée, ${bloc.clics} clics, ${bloc.gestes} interactions, ${bloc.posts} publication(s)`,
+      );
+    }
+    const courbe = (abonnes ?? []).map((point) => `${point.date}=${point.followers_count}`);
+    console.log(`  Abonnés (${courbe.length} points) : ${courbe.join(" ")}`);
+  }
+
   /* Un échec doit faire rougir le job : un passage qui n'a rien collecté et
      finit vert, c'est une perte silencieuse — la leçon de l'import des
      abonnés, qui avait jeté les trois quarts des données sans broncher. */
