@@ -282,6 +282,9 @@ export type FinanceRetrievalSource = {
   retrieval_status: FinanceRetrievalStatus;
   auto_retrieved_at: string | null;
   last_error: string | null;
+  /** Session de navigateur du fournisseur, chiffrée — jamais lue par l'écran. */
+  session_encrypted: string | null;
+  session_saved_at: string | null;
   created_at: string;
   updated_at: string;
 };

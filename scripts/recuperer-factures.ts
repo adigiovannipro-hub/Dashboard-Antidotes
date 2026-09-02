@@ -1,134 +1,77 @@
 /**
- * Le passage de récupération des factures — sur le Mac, jamais sur Vercel.
+ * La récupération des factures d'abonnement — sur un runner GitHub, pas sur
+ * Vercel, et plus sur le Mac.
  *
- *   pnpm factures:connexion <lien>   ouvre le navigateur du passage sur le
- *                                    site d'un fournisseur, pour s'y connecter
- *                                    une fois ; la session reste dans le profil
- *   pnpm factures:passage            le passage du jour : demande au dashboard
- *                                    quelles factures chercher, les télécharge,
- *                                    les dépose au dashboard qui les envoie à
- *                                    Airwallex
- *   pnpm factures:installer          planifie le passage chaque matin à 9 h,
- *                                    en fond, par launchd — à faire une fois
- *   pnpm factures:desinstaller       retire cette planification
+ *   pnpm factures:passage             le passage quotidien, sans écran
+ *                                     (workflow `recuperer-factures.yml`)
+ *   pnpm factures:connexion <marchand> ouvre un vrai navigateur pour se
+ *                                     connecter une fois chez un fournisseur,
+ *                                     et range la session chiffrée en base
+ *   pnpm factures:connexion           liste les fiches et l'état de leur session
  *
- * Pourquoi ici et pas dans le dashboard : une fonction Vercel n'a pas de
- * navigateur qui garde ses sessions d'une exécution à l'autre, et c'est la
- * session ouverte chez le fournisseur qui donne accès aux factures. Le profil
- * de navigateur vit dans `~/.antidotes/factures/navigateur`, le journal à
- * côté. Le dashboard reste la source de vérité : liens, dates de prélèvement,
- * état du mois. Ce script ne décide rien, il exécute.
+ * Pourquoi ça ne peut pas vivre sur Vercel : une fonction serverless n'a pas de
+ * navigateur, et surtout rien n'y survit d'une exécution à l'autre — or une
+ * page de factures est réservée aux clients connectés. Le runner GitHub n'a pas
+ * de mémoire non plus, mais il peut **rejouer** une session : cookies et
+ * stockage local sont capturés une fois depuis un vrai navigateur, chiffrés
+ * (`FACTURES_SESSION_KEY`), rangés sur la fiche du fournisseur, et restaurés à
+ * chaque passage. C'est le même compromis que les Reçus, dont le jeton Gmail
+ * est capturé une fois puis rafraîchi sans personne.
  *
- * Le passage ne fait qu'une requête au dashboard par jour ; le navigateur ne
- * s'ouvre que pour un fournisseur dont le prélèvement du mois date de la
- * veille ou avant — c'est le dashboard qui le dit.
+ * Ce que le passage ne fait jamais : se connecter. Un mot de passe, une
+ * double authentification, un captcha ne s'automatisent pas — et essayer ferait
+ * bloquer le compte. Quand la session est refusée, la fiche passe en échec avec
+ * la marche à suivre, et l'écran l'affiche en rouge.
  *
- * Aucun secret de messagerie ici : le PDF est déposé au dashboard, qui l'envoie
- * depuis la boîte Gmail déjà connectée aux Reçus. Seul `CRON_SECRET` — celui
- * de Vercel — est nécessaire, avec l'adresse du dashboard.
+ * Le passage ne parle qu'à Supabase et aux sites des fournisseurs : pas de
+ * route HTTP, pas de secret d'application. L'envoi à Airwallex réutilise la
+ * boîte Gmail déjà connectée aux Reçus — une seule chaîne d'envoi pour tout le
+ * projet.
  */
-import { execFile } from "node:child_process";
-import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
-import { homedir } from "node:os";
-import path from "node:path";
-import { promisify } from "node:util";
-
 import { chromium, type BrowserContext, type Locator, type Page } from "@playwright/test";
 import dotenv from "dotenv";
 
+// Next lit `.env.local` nativement, pas les scripts Node lancés à la main.
 dotenv.config({ path: ".env.local", quiet: true });
 
-const HOME = process.env.FACTURES_HOME ?? path.join(homedir(), ".antidotes", "factures");
-const PROFILE_DIR = path.join(HOME, "navigateur");
-const JOURNAL_DIR = path.join(HOME, "journal");
-const LABEL = "com.antidotes.recuperer-factures";
-const PLIST = path.join(homedir(), "Library", "LaunchAgents", `${LABEL}.plist`);
-const PASSAGE_HOUR = 9;
+/** La clé qui chiffre les sessions — distincte de celle des jetons Gmail. */
+const SESSION_KEY_ENV = "FACTURES_SESSION_KEY";
+
+const REQUIRED = [
+  "NEXT_PUBLIC_SUPABASE_URL",
+  "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+  "SUPABASE_SERVICE_ROLE_KEY",
+  SESSION_KEY_ENV,
+] as const;
 
 const PDF_MAGIC = "%PDF-";
 const MIN_PDF_BYTES = 1024;
-/* Ce qui, sur une page de fournisseur, désigne une facture ou son
+/* Ce qui, sur la page d'un fournisseur, désigne une facture ou son
    téléchargement — en français et en anglais, les deux langues des sites
    qu'on rencontre. */
 const INVOICE_WORDS = /facture|invoice|receipt|re[cç]u|t[ée]l[ée]charger|download|\.pdf/i;
-const LOGIN_URL = /login|signin|sign-in|log-in|auth|sso|connexion|password|passwd|ims\/|account\.adobe\.com\/[^?]*\/(login|signin)/i;
-
-const run = promisify(execFile);
+const LOGIN_URL = /login|signin|sign-in|log-in|auth|sso|connexion|password|passwd|ims\//i;
+/* Deux mois de prélèvements : on ne cherche que celui du mois courant. */
+const CHARGE_WINDOW_DAYS = 62;
 
 type PdfFile = { fileName: string; content: Buffer };
-
-export type Source = {
-  id: string;
-  merchant: string;
-  source_link: string;
-  reason_label: string;
-  due_on: string | null;
-};
-
-type ScheduleEntry = Source & { due: boolean };
 
 function log(line: string): void {
   const stamp = new Date().toLocaleString("fr-FR", { timeZone: "Europe/Paris" });
   console.log(`[${stamp}] ${line}`);
 }
 
-function config(): { url: string; secret: string } {
-  const url = (process.env.FACTURES_DASHBOARD_URL ?? process.env.NEXT_PUBLIC_SITE_URL ?? "")
-    .trim()
-    .replace(/\/+$/, "");
-  const secret = process.env.CRON_SECRET?.trim() ?? "";
-  const missing = [
-    !url && "FACTURES_DASHBOARD_URL (l'adresse de ton dashboard en ligne)",
-    !secret && "CRON_SECRET (le même que sur Vercel)",
-  ].filter(Boolean);
+function checkEnv(): void {
+  const missing = REQUIRED.filter((key) => !process.env[key]);
   if (missing.length > 0) {
-    throw new Error(`Il manque dans .env.local : ${missing.join(", ")}.`);
+    throw new Error(
+      `Variables absentes : ${missing.join(", ")}. ` +
+        "En local elles se lisent dans .env.local, sur GitHub dans les secrets Actions.",
+    );
   }
-  return { url, secret };
 }
 
-async function api<T>(
-  method: "GET" | "POST" | "PATCH",
-  route: string,
-  body?: BodyInit,
-  contentType?: string,
-): Promise<T> {
-  const { url, secret } = config();
-  const headers: Record<string, string> = { Authorization: `Bearer ${secret}` };
-  if (contentType) headers["Content-Type"] = contentType;
-  const response = await fetch(`${url}${route}`, { method, headers, body });
-  const text = await response.text();
-  let payload: unknown = null;
-  try {
-    payload = JSON.parse(text);
-  } catch {
-    payload = null;
-  }
-  if (response.status === 401) {
-    throw new Error("Le dashboard refuse le secret : CRON_SECRET de .env.local n'est pas celui de Vercel.");
-  }
-  if (!response.ok) {
-    const detail =
-      payload && typeof payload === "object" && "error" in payload
-        ? String((payload as { error: unknown }).error)
-        : text.slice(0, 200);
-    throw new Error(`${method} ${route} → ${response.status} : ${detail}`);
-  }
-  return payload as T;
-}
-
-// --- Le navigateur -----------------------------------------------------------
-
-export async function openBrowser(headless: boolean): Promise<BrowserContext> {
-  await mkdir(PROFILE_DIR, { recursive: true });
-  await mkdir(JOURNAL_DIR, { recursive: true });
-  return chromium.launchPersistentContext(PROFILE_DIR, {
-    headless,
-    acceptDownloads: true,
-    viewport: headless ? { width: 1440, height: 1000 } : null,
-    locale: "fr-FR",
-  });
-}
+// --- Le navigateur ------------------------------------------------------------
 
 async function looksLikeLogin(page: Page): Promise<boolean> {
   if (LOGIN_URL.test(page.url())) return true;
@@ -137,21 +80,24 @@ async function looksLikeLogin(page: Page): Promise<boolean> {
 }
 
 function isPdf(content: Buffer): boolean {
-  return content.length >= MIN_PDF_BYTES && content.subarray(0, PDF_MAGIC.length).toString() === PDF_MAGIC;
+  return (
+    content.length >= MIN_PDF_BYTES &&
+    content.subarray(0, PDF_MAGIC.length).toString() === PDF_MAGIC
+  );
 }
 
-function fileNameFor(source: Source, suggested: string | null | undefined): string {
+function fileNameFor(merchant: string, suggested: string | null | undefined): string {
   const safe = (suggested ?? "").replace(/[^A-Za-z0-9._-]+/g, "_").replace(/^[._-]+/, "");
   if (safe.toLowerCase().endsWith(".pdf") && safe.length > 4) return safe;
-  const key = source.merchant.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+  const key = merchant.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
   return `facture-${key || "fournisseur"}-${new Date().toISOString().slice(0, 10)}.pdf`;
 }
 
 /**
- * Les éléments de la page qui parlent de facture ou de téléchargement, du
- * plus prometteur au moins : un lien vers un `.pdf` d'abord, puis ce qui dit
- * « facture », puis ce qui dit « télécharger ». À rang égal, le premier dans
- * la page — les listes de factures commencent par la plus récente.
+ * Les éléments de la page qui parlent de facture ou de téléchargement, du plus
+ * prometteur au moins : un lien vers un `.pdf` d'abord, puis ce qui dit
+ * « facture », puis ce qui dit « télécharger ». À rang égal, le premier dans la
+ * page — une liste de factures commence par la plus récente.
  */
 async function findCandidates(page: Page): Promise<{ locator: Locator; text: string }[]> {
   const all = page.locator('a[href], button, [role="button"], [role="link"]');
@@ -200,17 +146,18 @@ async function tryDownload(
   context: BrowserContext,
   page: Page,
   candidate: Locator,
-  source: Source,
+  merchant: string,
 ): Promise<PdfFile | null> {
   const wait = 15_000;
+  const { readFile } = await import("node:fs/promises");
+  const path = await import("node:path");
 
   const download = page
     .waitForEvent("download", { timeout: wait })
-    .then(async (item) => {
-      const filePath = await item.path();
-      const content = await readFile(filePath);
-      return { fileName: fileNameFor(source, item.suggestedFilename()), content };
-    })
+    .then(async (item) => ({
+      fileName: fileNameFor(merchant, item.suggestedFilename()),
+      content: await readFile(await item.path()),
+    }))
     .catch(() => null);
 
   const inPage = page
@@ -219,7 +166,7 @@ async function tryDownload(
       { timeout: wait },
     )
     .then(async (response) => ({
-      fileName: fileNameFor(source, path.basename(new URL(response.url()).pathname)),
+      fileName: fileNameFor(merchant, path.basename(new URL(response.url()).pathname)),
       content: await response.body(),
     }))
     .catch(() => null);
@@ -230,7 +177,7 @@ async function tryDownload(
       const tabDownload = tab
         .waitForEvent("download", { timeout: 10_000 })
         .then(async (item) => ({
-          fileName: fileNameFor(source, item.suggestedFilename()),
+          fileName: fileNameFor(merchant, item.suggestedFilename()),
           content: await readFile(await item.path()),
         }))
         .catch(() => null);
@@ -240,7 +187,10 @@ async function tryDownload(
           const response = await context.request.get(tab.url(), { timeout: 20_000 });
           const content = await response.body();
           return isPdf(content)
-            ? { fileName: fileNameFor(source, path.basename(new URL(tab.url()).pathname)), content }
+            ? {
+                fileName: fileNameFor(merchant, path.basename(new URL(tab.url()).pathname)),
+                content,
+              }
             : null;
         })
         .catch(() => null);
@@ -255,38 +205,32 @@ async function tryDownload(
   return result && isPdf(result.content) ? result : null;
 }
 
-async function snapshot(page: Page, source: Source, tag: string, candidates: string[]): Promise<string> {
-  const stamp = new Date().toISOString().replace(/[:.]/g, "-");
-  const base = path.join(JOURNAL_DIR, `${stamp}-${source.merchant.replace(/[^A-Za-z0-9]+/g, "_")}-${tag}`);
-  await page.screenshot({ path: `${base}.png`, fullPage: true }).catch(() => undefined);
-  await writeFile(
-    `${base}.txt`,
-    [`URL : ${page.url()}`, "", "Éléments repérés :", ...candidates.map((text) => `  - ${text}`)].join("\n"),
-  ).catch(() => undefined);
-  return `${base}.png`;
-}
-
 /** Va chercher la facture la plus récente derrière le lien d'une fiche. */
-export async function fetchInvoice(context: BrowserContext, source: Source): Promise<PdfFile> {
+async function fetchInvoice(
+  context: BrowserContext,
+  merchant: string,
+  link: string,
+): Promise<PdfFile> {
+  const { readFile } = await import("node:fs/promises");
   const page = await context.newPage();
   try {
     const direct = page
       .waitForEvent("download", { timeout: 20_000 })
       .then(async (item) => ({
-        fileName: fileNameFor(source, item.suggestedFilename()),
+        fileName: fileNameFor(merchant, item.suggestedFilename()),
         content: await readFile(await item.path()),
       }))
       .catch(() => null);
 
     const response = await page
-      .goto(source.source_link, { waitUntil: "domcontentloaded", timeout: 60_000 })
+      .goto(link, { waitUntil: "domcontentloaded", timeout: 60_000 })
       .catch(() => null);
 
-    /* Le lien pointe directement sur le PDF : il arrive en réponse, ou en
+    /* Le lien pointe droit sur le PDF : il arrive en réponse, ou en
        téléchargement quand le navigateur n'a pas de visionneuse. */
     if (response && (response.headers()["content-type"] ?? "").includes("application/pdf")) {
       const content = await response.body();
-      if (isPdf(content)) return { fileName: fileNameFor(source, null), content };
+      if (isPdf(content)) return { fileName: fileNameFor(merchant, null), content };
     }
     const downloaded = await firstResult([direct], 3_000);
     if (downloaded) return downloaded;
@@ -295,164 +239,291 @@ export async function fetchInvoice(context: BrowserContext, source: Source): Pro
 
     if (await looksLikeLogin(page)) {
       throw new Error(
-        `Session ${source.merchant} expirée — lance \`pnpm factures:connexion "${source.source_link}"\` et reconnecte-toi.`,
+        `Session ${merchant} expirée ou refusée — rouvrir une session avec ` +
+          `\`pnpm factures:connexion ${merchant}\`.`,
       );
     }
 
     const candidates = await findCandidates(page);
-    const texts = candidates.map((candidate) => candidate.text);
     if (candidates.length === 0) {
-      const shot = await snapshot(page, source, "aucun-bouton", texts);
-      throw new Error(`Aucun bouton ni lien de facture sur la page (capture : ${shot}).`);
+      throw new Error(
+        `Aucun lien ni bouton de facture sur ${page.url()} — vérifier que le lien ` +
+          "pointe bien sur la page où la facture se télécharge.",
+      );
     }
 
     for (const candidate of candidates.slice(0, 6)) {
       log(`  · essai : « ${candidate.text} »`);
-      const pdf = await tryDownload(context, page, candidate.locator, source);
+      const pdf = await tryDownload(context, page, candidate.locator, merchant);
       if (pdf) return pdf;
-      /* Un clic a pu changer de page : revenir au point de départ avant le
-         candidat suivant, sans quoi les suivants ne sont plus là. */
-      if (page.url() !== source.source_link) {
-        await page.goto(source.source_link, { waitUntil: "domcontentloaded", timeout: 60_000 }).catch(() => undefined);
+      /* Un clic a pu changer de page : revenir au point de départ, sans quoi
+         les candidats suivants ne sont plus là. */
+      if (page.url() !== link) {
+        await page.goto(link, { waitUntil: "domcontentloaded", timeout: 60_000 }).catch(() => undefined);
         await page.waitForLoadState("networkidle", { timeout: 20_000 }).catch(() => undefined);
       }
     }
 
-    const shot = await snapshot(page, source, "aucun-pdf", texts);
-    throw new Error(`Des liens de facture existent, aucun n'a donné un PDF (capture : ${shot}).`);
+    throw new Error(
+      `Des liens de facture existent (${candidates
+        .slice(0, 3)
+        .map((candidate) => `« ${candidate.text} »`)
+        .join(", ")}) mais aucun n'a donné un PDF.`,
+    );
   } finally {
     await page.close().catch(() => undefined);
   }
 }
 
-// --- Les commandes ------------------------------------------------------------
+// --- Les commandes -------------------------------------------------------------
 
-async function connexion(link: string | undefined): Promise<void> {
-  if (!link) throw new Error("Usage : pnpm factures:connexion <lien de la page des factures>");
-  const context = await openBrowser(false);
-  const page = context.pages()[0] ?? (await context.newPage());
-  await page.goto(link, { waitUntil: "domcontentloaded", timeout: 60_000 }).catch(() => undefined);
-  log("Connecte-toi dans la fenêtre qui vient de s'ouvrir, jusqu'à voir la page des factures.");
-  log("Ensuite, ferme simplement la fenêtre : la session est gardée dans le profil.");
-  await new Promise<void>((resolve) => context.on("close", () => resolve()));
-  log(`Session enregistrée dans ${PROFILE_DIR}.`);
-}
-
+/**
+ * Le passage : ce qui est à récupérer aujourd'hui, et rien d'autre.
+ *
+ * Le navigateur ne s'ouvre que si une fiche est due — le lendemain du
+ * prélèvement du mois, jamais avant. Une journée sans rien à faire coûte une
+ * requête à Supabase.
+ */
 async function passage(): Promise<void> {
-  const list = await api<{ ok: boolean; month: string; sources: Source[]; schedule: ScheduleEntry[] }>(
-    "GET",
-    "/api/finance/invoices/pending-retrieval",
-  );
+  checkEnv();
+  const [{ createAdminClient }, { decryptSecret, encryptSecret }, retrieval, { merchantKey }, { sendFileToAirwallex }] =
+    await Promise.all([
+      import("@/lib/supabase/server"),
+      import("@/lib/moderation/crypto"),
+      import("@/lib/finance/retrieval"),
+      import("@/lib/finance/merchant-logo"),
+      import("@/lib/recus/pipeline"),
+    ]);
+  type Source = import("@/lib/finance/types").FinanceRetrievalSource;
 
-  log(`Calendrier ${list.month} — ${list.schedule.length} fournisseur(s) suivi(s) :`);
-  for (const entry of list.schedule) {
-    log(`  ${entry.due ? "→" : "·"} ${entry.merchant} : ${entry.reason_label}${entry.due_on ? ` (${entry.due_on})` : ""}`);
+  const admin = createAdminClient();
+  const now = new Date();
+
+  const { data, error } = await admin
+    .from("finance_retrieval_sources")
+    .select("*")
+    .not("source_link", "is", null)
+    .order("merchant_label", { ascending: true });
+  /* L'erreur se teste, pas seulement la donnée : une table absente rendrait
+     une liste vide, donc un « rien à faire » parfaitement rassurant. */
+  if (error) throw new Error(`Lecture des fiches : ${error.message}`);
+
+  const sources = (data ?? []) as unknown as Source[];
+  if (sources.length === 0) {
+    log("Aucun fournisseur suivi — coller un lien depuis la colonne Récupération de Finance.");
+    return;
   }
-  if (list.sources.length === 0) {
+
+  // Le dernier prélèvement carte de chaque marchand : c'est lui qui date le
+  // passage. Un virement n'est pas un prélèvement, la source `ledger` sort.
+  const since = new Date(now.getTime() - CHARGE_WINDOW_DAYS * 86_400_000).toISOString();
+  const { data: charges, error: chargesError } = await admin
+    .from("finance_transactions")
+    .select("org_id, merchant, merchant_raw, occurred_at")
+    .in("org_id", [...new Set(sources.map((source) => source.org_id))])
+    .neq("source", "ledger")
+    .gte("occurred_at", since)
+    .order("occurred_at", { ascending: false })
+    .limit(2000);
+  if (chargesError) throw new Error(`Lecture des prélèvements : ${chargesError.message}`);
+
+  const lastCharge: Record<string, string> = {};
+  for (const row of (charges ?? []) as unknown as {
+    org_id: string;
+    merchant: string | null;
+    merchant_raw: string | null;
+    occurred_at: string;
+  }[]) {
+    const key = `${row.org_id}:${merchantKey(row.merchant ?? row.merchant_raw)}`;
+    // Trié du plus récent au plus ancien : la première occurrence gagne.
+    if (!(key in lastCharge)) lastCharge[key] = row.occurred_at;
+  }
+
+  const due: { source: Source; label: string }[] = [];
+  log(`Calendrier ${retrieval.currentUtcMonth(now)} — ${sources.length} fournisseur(s) suivi(s) :`);
+  for (const source of sources) {
+    const decision = retrieval.decideRetrieval({
+      source,
+      lastChargeAt: lastCharge[`${source.org_id}:${source.merchant_key}`] ?? null,
+      now,
+    });
+    const label = retrieval.RETRIEVAL_REASON_LABELS[decision.reason];
+    log(`  ${decision.due ? "→" : "·"} ${source.merchant_label} : ${label}${decision.dueOn ? ` (${decision.dueOn})` : ""}`);
+    if (decision.due) due.push({ source, label });
+  }
+
+  if (due.length === 0) {
     log("Rien à récupérer aujourd'hui.");
     return;
   }
 
-  const context = await openBrowser(true);
+  const browser = await chromium.launch({ headless: true });
   let failures = 0;
   try {
-    for (const source of list.sources) {
-      log(`${source.merchant} — ${source.source_link}`);
+    for (const { source } of due) {
+      log(`${source.merchant_label} — ${source.source_link}`);
+      /* Sans session, on tente quand même : un lien qui pointe droit sur un
+         PDF public n'a besoin de personne. C'est la page de connexion, plus
+         loin, qui tranchera. */
+      const storageState = source.session_encrypted
+        ? (JSON.parse(
+            decryptSecret(source.session_encrypted, SESSION_KEY_ENV),
+          ) as Awaited<ReturnType<BrowserContext["storageState"]>>)
+        : undefined;
+      const context = await browser.newContext({ storageState, acceptDownloads: true, locale: "fr-FR" });
+
       try {
-        const pdf = await fetchInvoice(context, source);
+        const pdf = await fetchInvoice(context, source.merchant_label, source.source_link!);
         log(`  PDF : ${pdf.fileName} (${Math.round(pdf.content.length / 1024)} Ko)`);
 
-        const form = new FormData();
-        form.append("file", new Blob([new Uint8Array(pdf.content)], { type: "application/pdf" }), pdf.fileName);
-        const sent = await api<{ ok: boolean; sent_to: string; subject: string }>(
-          "POST",
-          `/api/finance/invoices/${source.id}/document`,
-          form,
+        const sent = await sendFileToAirwallex({
+          orgId: source.org_id,
+          subject: `Facture ${source.merchant_label} - ${now.toLocaleDateString("fr-FR", { timeZone: "Europe/Paris" })}`,
+          merchant: source.merchant_label,
+          fileName: pdf.fileName,
+          content: pdf.content,
+        });
+        if (!sent.ok) throw new Error(`Envoi : ${sent.error}`);
+        log(`  Envoyée à ${sent.to}.`);
+
+        /* La session se réécrit rafraîchie : un site qui prolonge son cookie à
+           chaque visite garde ainsi la porte ouverte, mois après mois. */
+        const refreshed = encryptSecret(
+          JSON.stringify(await context.storageState()),
+          SESSION_KEY_ENV,
         );
-        log(`  Envoyée à ${sent.sent_to} — « ${sent.subject} ». Fiche marquée récupérée.`);
+        const { error: writeError } = await admin
+          .from("finance_retrieval_sources")
+          .update({
+            retrieval_status: "done",
+            auto_retrieved_at: now.toISOString(),
+            last_error: null,
+            session_encrypted: refreshed,
+            session_saved_at: now.toISOString(),
+          } as never)
+          .eq("id", source.id);
+        if (writeError) {
+          log(`  ATTENTION : facture envoyée mais fiche non marquée — ${writeError.message}`);
+        }
       } catch (cause) {
         failures += 1;
         const message = cause instanceof Error ? cause.message : String(cause);
         log(`  ÉCHEC : ${message}`);
-        await api(
-          "PATCH",
-          `/api/finance/invoices/${source.id}/retrieval-status`,
-          JSON.stringify({ retrieval_status: "failed", error: message.slice(0, 500) }),
-          "application/json",
-        ).catch((patchError: unknown) => {
-          log(`  (et le dashboard n'a pas pu être prévenu : ${String(patchError)})`);
-        });
+        await admin
+          .from("finance_retrieval_sources")
+          .update({ retrieval_status: "failed", last_error: message.slice(0, 500) } as never)
+          .eq("id", source.id);
+      } finally {
+        await context.close().catch(() => undefined);
       }
     }
   } finally {
-    await context.close().catch(() => undefined);
+    await browser.close().catch(() => undefined);
   }
+
   log(failures === 0 ? "Passage terminé." : `Passage terminé, ${failures} échec(s) — voir ci-dessus.`);
 }
 
-async function installer(): Promise<void> {
-  config();
-  await mkdir(JOURNAL_DIR, { recursive: true });
-  const repo = process.cwd();
-  const logFile = path.join(JOURNAL_DIR, "passage.log");
-  const plist = `<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-  <key>Label</key><string>${LABEL}</string>
-  <key>ProgramArguments</key>
-  <array>
-    <string>/bin/zsh</string>
-    <string>-lc</string>
-    <string>cd ${shellQuote(repo)} &amp;&amp; pnpm factures:passage</string>
-  </array>
-  <key>StartCalendarInterval</key>
-  <dict><key>Hour</key><integer>${PASSAGE_HOUR}</integer><key>Minute</key><integer>0</integer></dict>
-  <key>StandardOutPath</key><string>${logFile}</string>
-  <key>StandardErrorPath</key><string>${logFile}</string>
-</dict>
-</plist>
-`;
-  await mkdir(path.dirname(PLIST), { recursive: true });
-  await run("launchctl", ["unload", PLIST]).catch(() => undefined);
-  await writeFile(PLIST, plist);
-  await run("launchctl", ["load", PLIST]);
-  log(`Passage planifié chaque jour à ${PASSAGE_HOUR} h (${PLIST}).`);
-  log(`Journal : ${logFile}`);
-  log("Pour vérifier : launchctl list | grep antidotes — pour lancer tout de suite : pnpm factures:passage");
-}
+/**
+ * La connexion à un fournisseur : la seule étape qui demande un humain.
+ *
+ * Elle ouvre un vrai navigateur, sur un vrai écran. Un mot de passe, une
+ * double authentification, un captcha ne s'automatisent pas — et les
+ * contourner ferait bloquer le compte. Ce qui en sort, cookies et stockage
+ * local, est chiffré et rangé sur la fiche : c'est ce que le runner GitHub
+ * rejouera, sans écran et sans personne, tous les mois suivants.
+ */
+async function connexion(argument: string | undefined): Promise<void> {
+  checkEnv();
+  const [{ createAdminClient }, { encryptSecret }] = await Promise.all([
+    import("@/lib/supabase/server"),
+    import("@/lib/moderation/crypto"),
+  ]);
+  type Source = import("@/lib/finance/types").FinanceRetrievalSource;
 
-async function desinstaller(): Promise<void> {
-  await run("launchctl", ["unload", PLIST]).catch(() => undefined);
-  await rm(PLIST, { force: true });
-  log("Passage retiré de la planification.");
-}
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("finance_retrieval_sources")
+    .select("*")
+    .order("merchant_label", { ascending: true });
+  if (error) throw new Error(`Lecture des fiches : ${error.message}`);
+  const sources = (data ?? []) as unknown as Source[];
 
-function shellQuote(value: string): string {
-  return `'${value.replace(/'/g, `'\\''`)}'`;
+  if (!argument) {
+    if (sources.length === 0) {
+      log("Aucune fiche : coller d'abord un lien dans la colonne Récupération de Finance.");
+      return;
+    }
+    log("Fiches connues — `pnpm factures:connexion <marchand>` pour ouvrir une session :");
+    for (const source of sources) {
+      const session = source.session_saved_at
+        ? `session du ${new Date(source.session_saved_at).toLocaleDateString("fr-FR")}`
+        : "aucune session";
+      log(`  · ${source.merchant_label} — ${session} — ${source.source_link ?? "sans lien"}`);
+    }
+    return;
+  }
+
+  const needle = argument.trim().toLowerCase();
+  const source = sources.find(
+    (candidate) =>
+      candidate.merchant_key === needle ||
+      candidate.merchant_label.toLowerCase() === needle ||
+      candidate.merchant_label.toLowerCase().includes(needle),
+  );
+  if (!source) throw new Error(`Aucune fiche ne correspond à « ${argument} ».`);
+  if (!source.source_link) throw new Error(`La fiche ${source.merchant_label} n'a pas de lien.`);
+
+  const browser = await chromium.launch({ headless: false });
+  const context = await browser.newContext({ acceptDownloads: true, locale: "fr-FR" });
+  const page = await context.newPage();
+  await page.goto(source.source_link, { waitUntil: "domcontentloaded", timeout: 60_000 }).catch(() => undefined);
+
+  log(`Connecte-toi à ${source.merchant_label} dans la fenêtre, jusqu'à voir la liste des factures.`);
+  log("Ferme ensuite la fenêtre : la session sera enregistrée.");
+
+  /* La session se lit **avant** la fermeture — un contexte fermé n'a plus
+     d'état à donner. D'où l'écoute sur la page, pas sur le navigateur. */
+  let state: string | null = null;
+  await new Promise<void>((resolve) => {
+    page.on("close", () => resolve());
+    browser.on("disconnected", () => resolve());
+    page
+      .waitForEvent("close", { timeout: 15 * 60_000 })
+      .catch(() => resolve());
+  });
+  state = await context.storageState().then((value) => JSON.stringify(value)).catch(() => null);
+  await browser.close().catch(() => undefined);
+
+  if (!state) throw new Error("La session n'a pas pu être lue — fenêtre fermée trop tôt ?");
+
+  const { error: writeError } = await admin
+    .from("finance_retrieval_sources")
+    .update({
+      session_encrypted: encryptSecret(state, SESSION_KEY_ENV),
+      session_saved_at: new Date().toISOString(),
+      retrieval_status: "pending",
+      last_error: null,
+    } as never)
+    .eq("id", source.id);
+  if (writeError) throw new Error(`Enregistrement de la session : ${writeError.message}`);
+
+  log(`Session ${source.merchant_label} enregistrée. Le passage la rejouera sans écran.`);
 }
 
 async function main(): Promise<void> {
   const [command, argument] = process.argv.slice(2);
   switch (command) {
-    case "connexion":
-      return connexion(argument);
     case "passage":
       return passage();
-    case "installer":
-      return installer();
-    case "desinstaller":
-      return desinstaller();
+    case "connexion":
+      return connexion(argument);
     default:
-      throw new Error("Commandes : connexion <lien> · passage · installer · desinstaller");
+      throw new Error("Commandes : passage · connexion [marchand]");
   }
 }
 
-/* Lancé en ligne de commande seulement : le harnais de test importe les
-   fonctions sans déclencher de passage. */
-if (process.argv[1]?.endsWith("recuperer-factures.ts")) {
-  main().catch((error: unknown) => {
-    log(`ERREUR : ${error instanceof Error ? error.message : String(error)}`);
-    process.exit(1);
-  });
-}
+main().catch((error: unknown) => {
+  log(`ERREUR : ${error instanceof Error ? error.message : String(error)}`);
+  process.exit(1);
+});

@@ -41,6 +41,16 @@ create table finance_retrieval_sources (
   auto_retrieved_at timestamptz,
   last_error text,
 
+  /* La session de navigateur du fournisseur, chiffrée (AES-256-GCM, clé
+     `FACTURES_SESSION_KEY`) : cookies et stockage local capturés une fois
+     depuis un vrai navigateur. C'est elle, et elle seule, qui permet au
+     passage de s'exécuter sans écran sur un runner GitHub — une page de
+     factures est réservée aux clients connectés, et personne ne sera là pour
+     taper un mot de passe. Rejouée à chaque passage, réécrite rafraîchie
+     après chaque succès. */
+  session_encrypted text,
+  session_saved_at timestamptz,
+
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   unique (org_id, merchant_key)

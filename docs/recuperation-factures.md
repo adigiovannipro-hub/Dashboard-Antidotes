@@ -1,138 +1,137 @@
 # Récupérer les factures des abonnements, sans y penser
 
-Adobe, Google, OVH… chaque mois, la facture d'un abonnement attend derrière
-ton compte, sur le site du fournisseur. Ce module va la chercher **le
-lendemain du prélèvement** et l'envoie à Airwallex à ta place. Tu colles un
-lien une fois par fournisseur, dans le dashboard ; le reste tourne en fond sur
-ton Mac.
+Adobe, Google, OVH… chaque mois, la facture d'un abonnement attend derrière ton
+compte, sur le site du fournisseur : ni le mail ni Airwallex ne vont la
+chercher. Ce module va la prendre **le lendemain du prélèvement** et l'envoie à
+Airwallex à ta place.
 
-## Comment ça marche, en deux phrases
+Tu colles un lien, une fois par fournisseur, dans la colonne **Récupération**
+de Finance. Tu ouvres une session, une fois par fournisseur. Ensuite, plus
+rien : tout tourne dans le cloud.
 
-Le **dashboard** retient, pour chaque fournisseur, la page où se trouvent ses
-factures et si celle du mois est arrivée. Un **passage** sur ton Mac lui
-demande chaque matin s'il y a quelque chose à faire ; s'il y a eu un
-prélèvement la veille, il ouvre la page du fournisseur dans un navigateur déjà
-connecté, télécharge la facture et la dépose au dashboard, qui l'envoie à
-Airwallex depuis ta boîte Gmail.
+## Où ça tourne
 
-Le dashboard ne peut pas faire ça seul : il tourne sur Vercel, où rien ne
-garde une session ouverte d'une fois sur l'autre. Ton Mac, si.
+| Étape | Où | Quand |
+|---|---|---|
+| Le lien du fournisseur | Dashboard, colonne Récupération | Une fois, à la main |
+| La connexion au fournisseur | Un vrai navigateur, sur un écran | Une fois, puis quand la session expire |
+| Le passage : chercher, envoyer, marquer | **GitHub Actions**, workflow « Récupération des factures » | Chaque jour à 9 h 23 (Paris) |
 
-## Installation, une seule fois
+Rien ne tourne sur ton Mac en régime établi, et rien ne peut tourner sur
+Vercel : une fonction serverless n'a pas de navigateur, et rien n'y survit
+d'une exécution à l'autre — or une page de factures est réservée aux clients
+connectés. Le runner GitHub n'a pas de mémoire non plus, mais il **rejoue** une
+session : les cookies capturés une fois sont chiffrés et rangés sur la fiche du
+fournisseur, puis restaurés à chaque passage, et réécrits rafraîchis après
+chaque succès.
 
-Tout se passe dans le Terminal, dans le dossier du projet. Compte dix minutes.
-
-### 1. Dire au passage où est le dashboard
-
-Ouvre le fichier `.env.local` à la racine du projet et ajoute une ligne avec
-l'adresse de ton dashboard en ligne, celle que tu ouvres dans le navigateur :
-
-```
-FACTURES_DASHBOARD_URL=https://ton-dashboard.vercel.app
-```
-
-Vérifie aussi que la ligne `CRON_SECRET=` contient **la même valeur que sur
-Vercel** (Vercel → ton projet → Settings → Environment Variables →
-`CRON_SECRET`). C'est ce mot de passe qui autorise le passage à parler au
-dashboard. S'il diffère, le passage s'arrête en le disant.
-
-### 2. Connecter le navigateur du passage à chaque fournisseur
-
-Le passage a son propre navigateur, séparé du tien, qui garde ses sessions.
-Pour chaque fournisseur, lance :
-
-```bash
-pnpm factures:connexion "https://account.adobe.com/orders/billing-history"
-```
-
-Une fenêtre s'ouvre sur la page du fournisseur. Connecte-toi, comme
-d'habitude, jusqu'à voir la liste des factures. Puis **ferme la fenêtre** :
-la session est gardée. À refaire seulement quand un fournisseur te
-déconnecte — le dashboard te le dira (bouton rouge, voir plus bas).
-
-### 3. Planifier le passage
-
-```bash
-pnpm factures:installer
-```
-
-Dès lors, chaque matin à 9 h, le Mac lance le passage en fond, sans fenêtre,
-sans Terminal. Si le Mac dormait à 9 h, le passage part au réveil. Il n'a
-besoin d'aucune session ouverte — juste que le Mac soit allumé dans la
-journée.
-
-Pour vérifier que c'est en place : `launchctl list | grep antidotes`.
-Pour retirer : `pnpm factures:desinstaller`.
-
-### 4. Vérifier que tout parle bien ensemble
-
-```bash
-pnpm factures:passage
-```
-
-Le passage affiche le calendrier de chaque fournisseur suivi et ce qu'il a
-fait. Le premier jour, il dira sans doute « Aucun prélèvement ce mois-ci pour
-l'instant » ou « Rien à récupérer aujourd'hui » : c'est normal, il attend le
-prochain prélèvement.
+**Le passage ne se connecte jamais lui-même.** Un mot de passe, une double
+authentification, un captcha ne s'automatisent pas, et les contourner ferait
+bloquer le compte. C'est la seule étape qui demande un humain, et elle se fait
+une fois par fournisseur.
 
 ## Au quotidien : le dashboard
 
-Dans **Mon entreprise → Finance → Dépenses**, la colonne **Récupération**, à
-droite de Justificatif, porte un petit bouton carré sur chaque dépense carte.
+**Mon entreprise → Finance → Dépenses.** Dernière colonne, un bouton carré sur
+chaque dépense carte.
 
 | Bouton | Ce que ça veut dire | Quoi faire |
 |---|---|---|
-| 🔗 gris | Aucun lien pour ce fournisseur | Cliquer, coller le lien de la page des factures, Enregistrer. Une seule fois : il vaut pour toutes les dépenses de ce fournisseur, tous les mois |
-| 🕒 gris | Lien enregistré, facture du mois pas encore récupérée | Rien. Le passage viendra le lendemain du prélèvement |
+| 🔗 gris | Aucun lien pour ce fournisseur | Cliquer, coller le lien de sa page de factures, Enregistrer. Une seule fois : il vaut pour toutes ses dépenses, tous les mois |
+| 🕒 gris | Lien enregistré, facture du mois pas encore prise | Rien. Le passage viendra le lendemain du prélèvement |
 | ✓ vert | Facture du mois récupérée et envoyée à Airwallex | Rien. La date est en infobulle. Le mois suivant, le bouton repasse 🕒 tout seul |
-| ⚠ rouge | Le dernier passage a échoué | Survoler pour lire la cause. Le plus souvent : session expirée → relancer `pnpm factures:connexion "<lien>"` et se reconnecter. Le passage réessaie trois jours plus tard, ou tout de suite avec `pnpm factures:passage` |
+| ⚠ rouge | Le dernier passage a échoué | Survoler pour lire la cause. Le plus souvent : session expirée → rouvrir une session (voir plus bas) |
 
-Les virements et les frais bancaires n'ont pas de bouton : ils n'ont pas de
+Les virements et les frais bancaires n'ont pas de bouton : ils n'ont aucune
 facture à aller chercher.
 
 **Quel lien coller ?** Celui de la page où tu télécharges d'habitude la
-facture, une fois connecté. Adobe : `https://account.adobe.com/orders/billing-history`.
-Si le lien pointe directement sur un PDF, ça marche aussi.
+facture, une fois connecté. Pour Adobe :
+`https://account.adobe.com/orders/billing-history`. Un lien qui pointe droit
+sur un PDF marche aussi.
+
+## Ouvrir une session chez un fournisseur
+
+À faire une fois par fournisseur, et à refaire seulement quand le bouton passe
+au rouge en disant que la session a expiré. Dans le Terminal, à la racine du
+projet :
+
+```bash
+pnpm factures:connexion adobe
+```
+
+Une fenêtre de navigateur s'ouvre sur la page des factures. Tu te connectes
+comme d'habitude, jusqu'à voir la liste. Puis **tu fermes la fenêtre** : la
+session part chiffrée en base, et c'est elle que le cloud rejouera.
+
+Sans argument, la commande liste les fiches et l'âge de leur session :
+
+```bash
+pnpm factures:connexion
+```
 
 ## Quand le passage a lieu
 
-Le passage regarde les prélèvements que la synchronisation Airwallex a vus.
+Le passage lit les prélèvements que la synchronisation Airwallex a déjà vus.
 Pour un fournisseur suivi, il n'agit que si un prélèvement carte de ce
 fournisseur date **de la veille ou avant, dans le mois en cours**, et que la
-facture du mois n'a pas encore été récupérée. Adobe prélève le 26 : le passage
-vient le 27. Si la facture n'est pas encore en ligne le 27, il revient le 28,
-puis chaque jour jusqu'à l'avoir. Après un échec, il attend trois jours.
+facture du mois n'a pas encore été prise. Adobe prélève le 26, le passage vient
+le 27. Si la facture n'est pas encore en ligne, il revient le lendemain, et
+ainsi de suite. Après un échec, il attend trois jours.
 
-Ce que le passage fait sur la page du fournisseur : il cherche le premier
-bouton ou lien qui parle de facture, d'invoice ou de téléchargement, le
-clique, et garde ce qui en sort si c'est un PDF. Quand ça échoue, il laisse
-une capture d'écran de la page et la liste de ce qu'il a repéré dans
-`~/.antidotes/factures/journal/` — c'est ce qu'il faut montrer pour ajuster.
+Le navigateur ne s'ouvre que s'il y a quelque chose à faire : une journée vide
+coûte une requête à Supabase et quelques secondes de runner.
 
-## Où sont les choses
+Pour le lancer à la main sans attendre 9 h 23 : onglet **Actions** du dépôt →
+« Récupération des factures » → **Run workflow**. Le journal d'exécution dit,
+fournisseur par fournisseur, ce qui a été fait et pourquoi.
 
-| Quoi | Où |
+## Ce que le passage fait sur la page
+
+Il cherche le premier lien ou bouton qui parle de facture, d'*invoice*, de
+téléchargement ou de `.pdf`, le clique, et garde ce qui en sort si c'est bien un
+PDF — téléchargement, réponse PDF, ou nouvel onglet. Il essaie les six
+meilleurs candidats. C'est une heuristique : elle attrape les portails
+classiques, et quand elle échoue, elle écrit dans la fiche ce qu'elle a vu, ce
+qui suffit à l'ajuster.
+
+## Coût et limites
+
+Une exécution par jour, deux à trois minutes navigateur compris, soit environ
+80 minutes par mois sur les 2 000 gratuites du dépôt privé. Aucun appel payant.
+
+**La limite à connaître** : la session est ouverte depuis chez toi et rejouée
+depuis un centre de données GitHub. Certains fournisseurs lient une session à
+son adresse IP et la refusent depuis ailleurs — c'est exactement ce que fait
+Airwallex avec Vercel. Si Adobe se comporte ainsi, le bouton passera au rouge
+avec « session refusée », et il faudra alors soit un fournisseur plus tolérant,
+soit une machine à toi qui tourne en permanence. On le saura au premier passage
+réel, pas avant.
+
+## Secrets à poser
+
+Dans **Settings → Secrets and variables → Actions** du dépôt. Tous sont déjà
+en place :
+
+| Secret | Rôle |
 |---|---|
-| Sessions du navigateur du passage | `~/.antidotes/factures/navigateur/` |
-| Journal des passages et captures d'échec | `~/.antidotes/factures/journal/passage.log` |
-| Planification | `~/Library/LaunchAgents/com.antidotes.recuperer-factures.plist` |
-| Fiches fournisseurs | table `finance_retrieval_sources`, une ligne par fournisseur |
+| `FACTURES_SESSION_KEY` | Chiffre les sessions de navigateur. Volontairement distincte de `CREDENTIALS_ENCRYPTION_KEY` : elle voyage entre le Mac qui ouvre la session et le runner qui la rejoue, deux endroits qui n'ont pas la clé de production. La même valeur doit figurer dans `.env.local` |
+| `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` | Lecture et écriture des fiches |
+| `CREDENTIALS_ENCRYPTION_KEY`, `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET` | L'envoi passe par la boîte Gmail déjà connectée aux Reçus |
 
-## Pour un développeur : les trois routes
+## Le modèle
 
-Toutes en `Authorization: Bearer <CRON_SECRET>`, hors du proxy
-d'authentification comme les crons. Un secret faux rend `401`.
+Table `finance_retrieval_sources` — **une ligne par marchand**, clé
+`merchant_key` calculée depuis le nom affiché, la même que les logos.
 
-- `GET /api/finance/invoices/pending-retrieval` — `sources` : les fiches à
-  traiter aujourd'hui ; `schedule` : toutes les fiches suivies avec leur
-  raison (`due`, `no-charge-this-month`, `charge-too-recent`,
-  `done-this-month`, `failed-recently`) et `due_on`.
-- `POST /api/finance/invoices/<id>/document` — multipart, champ `file`, PDF
-  de 10 Mo au plus. Le dashboard l'envoie à Airwallex depuis la boîte Gmail
-  connectée aux Reçus, objet `Facture <Fournisseur> - <JJ/MM/AAAA>`, puis
-  marque la fiche récupérée. Réponse : `sent_to`, `subject`, `message_id`.
-- `PATCH /api/finance/invoices/<id>/retrieval-status` — `{"retrieval_status":
-  "failed","error":"…"}` (ou `done`, `pending`).
+| Colonne | Rôle |
+|---|---|
+| `source_link` | La page où les factures se trouvent |
+| `retrieval_status` | `none` · `pending` · `done` · `failed` |
+| `auto_retrieved_at` | Dernière récupération réussie. « Du mois » se juge à l'affichage, en UTC |
+| `last_error` | La cause du dernier échec, affichée dans la cellule |
+| `session_encrypted`, `session_saved_at` | La session de navigateur, chiffrée. Jamais lue par l'écran |
 
 La décision « à faire aujourd'hui » vit dans `src/lib/finance/retrieval.ts`,
-pur et testé — le même code que la cellule de l'écran.
+pure et testée — le même code que la cellule de l'écran, pour qu'ils ne
+puissent pas se contredire.

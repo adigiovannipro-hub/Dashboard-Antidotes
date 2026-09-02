@@ -22,6 +22,8 @@ const source = (overrides: Partial<FinanceRetrievalSource> = {}): FinanceRetriev
   retrieval_status: "pending",
   auto_retrieved_at: null,
   last_error: null,
+  session_encrypted: null,
+  session_saved_at: null,
   created_at: "2026-09-01T00:00:00Z",
   updated_at: "2026-09-01T00:00:00Z",
   ...overrides,

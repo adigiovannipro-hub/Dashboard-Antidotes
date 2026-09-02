@@ -18,9 +18,6 @@ const PUBLIC_PATHS = [
   "/auth/erreur",
   "/partage",
   "/api/cron",
-  // Le passage extérieur de récupération des factures : pas de session, un
-  // `Bearer CRON_SECRET` vérifié dans la route — comme un cron.
-  "/api/finance/invoices",
 ];
 
 function isPublic(pathname: string) {

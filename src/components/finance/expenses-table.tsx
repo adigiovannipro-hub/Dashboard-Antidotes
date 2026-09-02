@@ -8,6 +8,7 @@ import {
   Check,
   Clock,
   Download,
+  FileDown,
   Link2,
   Store,
   TriangleAlert,
@@ -235,7 +236,15 @@ export function ExpensesTable({
                   <TableHead>Catégorie</TableHead>
                   <TableHead>Statut</TableHead>
                   <TableHead>Justificatif</TableHead>
-                  <TableHead>Récupération</TableHead>
+                  {/* Une icône et non « Récupération » : le mot était trois
+                      fois plus large que le bouton carré qu'il coiffe, et
+                      poussait la colonne Justificatif hors de vue. */}
+                  <TableHead className="w-10">
+                    <span title="Récupération automatique de la facture">
+                      <FileDown className="size-4" aria-hidden />
+                      <span className="sr-only">Récupération de facture</span>
+                    </span>
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
