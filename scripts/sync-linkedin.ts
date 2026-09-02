@@ -94,13 +94,13 @@ async function main() {
     const [{ data: jours }, { data: posts }, { data: abonnes }] = await Promise.all([
       admin
         .from("social_page_daily")
-        .select("date, impressions, reach, clicks, likes, comments, shares")
+        .select("date, impressions, reach, clicks, likes, comments, shares, page_views, jobs_page_views")
         .eq("workspace_id", workspaceId)
         .eq("platform", "linkedin")
         .order("date"),
       admin
         .from("social_posts")
-        .select("published_at, impressions, likes")
+        .select("published_at, impressions, likes, thumbnail_url")
         .eq("workspace_id", workspaceId)
         .eq("platform", "linkedin"),
       admin
@@ -122,25 +122,33 @@ async function main() {
         reach: 0,
         clics: 0,
         gestes: 0,
+        vues: 0,
+        emplois: 0,
         posts: 0,
+        vignettes: 0,
       };
       bloc.impressions += Number(jour.impressions);
       bloc.reach += Number(jour.reach);
       bloc.clics += Number(jour.clicks);
       bloc.gestes += Number(jour.likes) + Number(jour.comments) + Number(jour.shares);
+      bloc.vues += Number(jour.page_views ?? 0);
+      bloc.emplois += Number(jour.jobs_page_views ?? 0);
       parMois.set(mois, bloc);
     }
     for (const post of posts ?? []) {
       const mois = String(post.published_at).slice(0, 7);
       const bloc = parMois.get(mois);
-      if (bloc) bloc.posts += 1;
+      if (bloc) {
+        bloc.posts += 1;
+        if (post.thumbnail_url) bloc.vignettes += 1;
+      }
     }
 
     console.log("");
     console.log("  Ce que la base porte, mois par mois :");
     for (const [mois, bloc] of [...parMois].sort()) {
       console.log(
-        `    ${mois} — ${bloc.impressions} impressions, ${bloc.reach} portée, ${bloc.clics} clics, ${bloc.gestes} interactions, ${bloc.posts} publication(s)`,
+        `    ${mois} — ${bloc.impressions} impressions, ${bloc.reach} portée, ${bloc.clics} clics, ${bloc.gestes} interactions, ${bloc.vues} vues de page (dont ${bloc.emplois} emplois), ${bloc.posts} publication(s) dont ${bloc.vignettes} avec vignette`,
       );
     }
     const courbe = (abonnes ?? []).map((point) => `${point.date}=${point.followers_count}`);
