@@ -484,22 +484,38 @@ async function fetchPosts(options: {
   return posts;
 }
 
-/** Les statistiques de chaque publication, par lots. */
+/**
+ * Les statistiques de chaque publication, par lots.
+ *
+ * **Deux paramètres, pas un.** LinkedIn mêle deux types d'URN dans le même
+ * fil : `urn:li:ugcPost:` pour ce qui est publié par l'API, `urn:li:share:`
+ * pour ce qui l'est autrement — et chacun a son paramètre. Passer un
+ * `share` dans `ugcPosts` fait échouer **le lot entier** en 400, ce qui
+ * privait de statistiques des publications parfaitement lisibles (vécu au
+ * premier passage réel sur ANMF). On trie donc avant d'appeler.
+ */
 async function fetchPostStats(options: {
   rest: LinkedinTransport;
   org: string;
   urns: readonly string[];
 }) {
-  const byUrn = new Map<string, ReturnType<typeof statsByPost> extends Map<string, infer V> ? V : never>();
+  const stats = new Map<string, ReturnType<typeof statsByPost> extends Map<string, infer V> ? V : never>();
 
-  for (let index = 0; index < options.urns.length; index += LOT_STATISTIQUES) {
-    const lot = options.urns.slice(index, index + LOT_STATISTIQUES);
-    const liste = lot.map((urn) => encodeURIComponent(urn)).join(",");
-    const payload = await options.rest(
-      `/rest/organizationalEntityShareStatistics?q=organizationalEntity&organizationalEntity=${encoded(options.org)}&ugcPosts=List(${liste})`,
-    );
-    for (const [urn, stats] of statsByPost(payload)) byUrn.set(urn, stats);
+  const familles: [string, string[]][] = [
+    ["ugcPosts", options.urns.filter((urn) => urn.startsWith("urn:li:ugcPost:"))],
+    ["shares", options.urns.filter((urn) => urn.startsWith("urn:li:share:"))],
+  ];
+
+  for (const [parametre, urns] of familles) {
+    for (let index = 0; index < urns.length; index += LOT_STATISTIQUES) {
+      const lot = urns.slice(index, index + LOT_STATISTIQUES);
+      const liste = lot.map((urn) => encodeURIComponent(urn)).join(",");
+      const payload = await options.rest(
+        `/rest/organizationalEntityShareStatistics?q=organizationalEntity&organizationalEntity=${encoded(options.org)}&${parametre}=List(${liste})`,
+      );
+      for (const [urn, mesure] of statsByPost(payload)) stats.set(urn, mesure);
+    }
   }
 
-  return byUrn;
+  return stats;
 }
