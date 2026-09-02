@@ -2,7 +2,7 @@
  * Génère le lien de connexion d'un réseau dans le **projet Composio
  * Platform** — celui que la clé `ak_` de l'application interroge.
  *
- *   pnpm composio:lien --toolkit linkedin [--user <identifiant>]
+ *   pnpm composio:lien --toolkit linkedin [--user <identifiant>] [--config <nom>] [--portees "a b c"]
  *
  * Toolkits servis : google_analytics, linkedin, youtube, tiktok. TikTok n'a
  * pas d'OAuth géré par Composio à ce jour — le lien échouera tant qu'une
@@ -25,6 +25,15 @@
  * seul compte du toolkit vit dans le projet, le connecteur le prend même
  * sans identifiant exact, donc un libellé lisible suffit pour démarrer.
  *
+ * **LinkedIn exige ses portées d'organisation.** La configuration gérée par
+ * défaut ne demande que le profil et la publication personnelle : avec elle,
+ * toute lecture d'une page entreprise répond 403 « r_organization_admin »
+ * — vécu le 2 septembre 2026 sur les deux comptes connectés. Le script crée
+ * donc, pour LinkedIn, une configuration **nommée** portant les portées de
+ * la Community Management API, et c'est contre elle que le lien se demande.
+ * Le nom et les portées se surchargent (`--config`, `--portees`) pour le
+ * jour où LinkedIn en change.
+ *
  * Variable requise : COMPOSIO_API_KEY (clé de projet, `ak_…`).
  */
 import dotenv from "dotenv";
@@ -33,6 +42,30 @@ import { Composio } from "@composio/core";
 dotenv.config({ path: ".env.local", quiet: true });
 
 const TOOLKITS = ["google_analytics", "linkedin", "youtube", "tiktok"] as const;
+
+/**
+ * Les configurations à portées explicites, par toolkit. Absent = la
+ * configuration gérée par défaut de Composio suffit.
+ *
+ * LinkedIn : lire les pages entreprise (abonnés, statistiques de page, de
+ * publications) passe par la Community Management API et ses trois portées
+ * `*_organization_*`. `w_member_social` reste pour publier ; `openid`,
+ * `profile`, `email` identifient le compte qui autorise.
+ */
+const SCOPED_CONFIGS: Partial<Record<(typeof TOOLKITS)[number], { name: string; scopes: string[] }>> = {
+  linkedin: {
+    name: "linkedin-pages",
+    scopes: [
+      "openid",
+      "profile",
+      "email",
+      "w_member_social",
+      "r_organization_social",
+      "r_organization_admin",
+      "rw_organization_admin",
+    ],
+  },
+};
 
 function argValue(name: string): string | null {
   const index = process.argv.indexOf(`--${name}`);
@@ -81,12 +114,33 @@ async function main() {
      demande à `connected_accounts/link`. `toolkits.authorize` ne reste que
      pour un toolkit jamais configuré, où il crée la configuration. */
   const configs = await composio.authConfigs.list({ toolkit });
-  const config =
-    configs.items.find((item) => item.status === "ENABLED") ?? configs.items[0];
+
+  /* Une configuration à portées explicites se cherche **par son nom**, et se
+     crée si elle manque : la configuration par défaut du même toolkit ne
+     porte pas les bonnes portées, la réutiliser referait le 403. */
+  const scoped = SCOPED_CONFIGS[toolkit as (typeof TOOLKITS)[number]];
+  const configName = argValue("config") ?? scoped?.name ?? null;
+  const scopes = argValue("portees")?.split(/[\s,]+/).filter(Boolean) ?? scoped?.scopes ?? null;
+
+  let config = configName
+    ? configs.items.find((item) => item.name === configName)
+    : (configs.items.find((item) => item.status === "ENABLED") ?? configs.items[0]);
+
+  if (!config && configName && scopes) {
+    const created = await composio.authConfigs.create(toolkit, {
+      type: "use_composio_managed_auth",
+      name: configName,
+      credentials: { scopes },
+    });
+    console.log(`Configuration « ${configName} » créée avec les portées : ${scopes.join(" ")}.`);
+    config = { id: created.id, name: configName, status: "ENABLED" } as (typeof configs.items)[number];
+  }
 
   const request = config
     ? await composio.connectedAccounts.link(userId, config.id)
     : await composio.toolkits.authorize(userId, toolkit);
+
+  if (config) console.log(`Configuration utilisée : ${config.name ?? config.id}.`);
 
   console.log("");
   console.log(`Ouvrir ce lien dans un navigateur et autoriser le compte ${toolkit}`);
