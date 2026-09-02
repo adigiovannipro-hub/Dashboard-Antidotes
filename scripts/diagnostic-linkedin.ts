@@ -121,7 +121,25 @@ async function main() {
 
     const urns = organizationUrns(response.data);
     if (urns.length === 0) {
-      console.log("  Aucune page administrée par ce compte (réponse acceptée, liste vide).");
+      /* Une liste vide se lit de deux façons : le compte n'administre
+         vraiment rien, ou la réponse n'a pas la forme attendue. La montrer
+         telle quelle tranche — c'est le seul moyen de ne pas conclure à tort
+         que le client n'a pas de page. */
+      console.log("  Aucune page lue. Réponse brute de LinkedIn :");
+      console.log(`  ${JSON.stringify(response.data).slice(0, 1500)}`);
+
+      /* Second essai avec l'autre rôle que LinkedIn expose : un compte qui
+         ne « gère » pas la page peut quand même y publier du sponsorisé. */
+      const alternate = await composio.tools.execute(ORG_ACLS, {
+        userId,
+        connectedAccountId: account.id,
+        ...versionOptions,
+        arguments: { role: "DIRECT_SPONSORED_CONTENT_POSTER", state: "APPROVED", count: 100 },
+      });
+      console.log("  Rôle DIRECT_SPONSORED_CONTENT_POSTER :");
+      console.log(
+        `  ${alternate.successful ? JSON.stringify(alternate.data).slice(0, 1500) : String(alternate.error)}`,
+      );
       continue;
     }
 
