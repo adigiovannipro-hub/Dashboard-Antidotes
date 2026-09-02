@@ -62,7 +62,7 @@ async function main() {
     console.error("Aucun compte LinkedIn actif dans le projet Composio.");
     process.exit(1);
   }
-  console.log(`Compte : ${account.id} — organisation ${org} — version ${version}`);
+  console.log(`Compte : ${account.id} — organisation ${org} (version par défaut ${version})`);
 
   const entity = `urn%3Ali%3Aorganization%3A${org}`;
   const debutMois = monthStart(13);
@@ -73,33 +73,46 @@ async function main() {
   /* Chaque essai est une hypothèse à confirmer ou à écarter. On les joue
      toutes : un refus est une information autant qu'un succès, et c'est le
      seul moyen de savoir quelle grandeur existe vraiment. */
-  const essais: { titre: string; endpoint: string; entetes?: boolean }[] = [
+  const essais: { titre: string; endpoint: string; version?: string | null }[] = [
     {
-      titre: "Statistiques de publications par MOIS (13 mois)",
-      endpoint: `/rest/organizationalEntityShareStatistics?q=organizationalEntity&organizationalEntity=${entity}&timeIntervals=${intervalleMois}`,
+      titre: "v2 — publications par MOIS (13 mois, count explicite)",
+      endpoint: `/v2/organizationalEntityShareStatistics?q=organizationalEntity&organizationalEntity=${entity}&timeIntervals=${intervalleMois}&count=50`,
+      version: null,
     },
     {
-      titre: "Statistiques de publications par JOUR (30 jours)",
-      endpoint: `/rest/organizationalEntityShareStatistics?q=organizationalEntity&organizationalEntity=${entity}&timeIntervals=${intervalleJours}`,
+      titre: "v2 — publications par JOUR (30 jours)",
+      endpoint: `/v2/organizationalEntityShareStatistics?q=organizationalEntity&organizationalEntity=${entity}&timeIntervals=${intervalleJours}&count=50`,
+      version: null,
     },
     {
-      titre: "Gains d'abonnés par MOIS",
-      endpoint: `/rest/organizationalEntityFollowerStatistics?q=organizationalEntity&organizationalEntity=${entity}&timeIntervals=${intervalleMois}`,
+      titre: "v2 — abonnés par MOIS (gains, pas cumul)",
+      endpoint: `/v2/organizationalEntityFollowerStatistics?q=organizationalEntity&organizationalEntity=${entity}&timeIntervals=${intervalleMois}&count=50`,
+      version: null,
     },
     {
-      titre: "Publications de la page (10 dernières)",
-      endpoint: `/rest/posts?q=author&author=${entity}&count=10&sortBy=LAST_MODIFIED`,
+      titre: "v2 — publications de la page (ugcPosts)",
+      endpoint: `/v2/ugcPosts?q=authors&authors=List(${entity})&count=5&sortBy=LAST_MODIFIED`,
+      version: null,
     },
     {
-      titre: "Statistiques par publication (sans intervalle)",
-      endpoint: `/rest/organizationalEntityShareStatistics?q=organizationalEntity&organizationalEntity=${entity}&shares=List()`,
-    },
-    {
-      titre: "Ancienne API v2 — statistiques par mois",
-      endpoint: `/v2/organizationalEntityShareStatistics?q=organizationalEntity&organizationalEntity=${entity}&timeIntervals=${intervalleMois}`,
-      entetes: false,
+      titre: "v2 — partages de la page (shares)",
+      endpoint: `/v2/shares?q=owners&owners=${entity}&count=5&sortBy=LAST_MODIFIED`,
+      version: null,
     },
   ];
+
+  /* Les `/rest/` refusent toutes sur « version 20250801 non active » :
+     Composio pose lui-même l'en-tête `LinkedIn-Version` à partir de ce
+     qu'on lui donne, et LinkedIn ne garde qu'une année de versions. On
+     balaie les mois plausibles jusqu'à en trouver une vivante — c'est elle
+     qui ouvre `/rest/posts`, la seule route qui liste les publications. */
+  for (const mois of ["202609", "202608", "202606", "202603", "202601", "202512", "202510"]) {
+    essais.push({
+      titre: `/rest/posts avec LinkedIn-Version ${mois}`,
+      endpoint: `/rest/posts?q=author&author=${entity}&count=3&sortBy=LAST_MODIFIED`,
+      version: mois,
+    });
+  }
 
   for (const essai of essais) {
     console.log("");
@@ -110,13 +123,12 @@ async function main() {
         endpoint: essai.endpoint,
         method: "GET",
         connectedAccountId: account.id,
-        parameters:
-          essai.entetes === false
-            ? [{ in: "header", name: "X-Restli-Protocol-Version", value: "2.0.0" }]
-            : [
-                { in: "header", name: "LinkedIn-Version", value: version },
-                { in: "header", name: "X-Restli-Protocol-Version", value: "2.0.0" },
-              ],
+        parameters: essai.version
+          ? [
+              { in: "header", name: "LinkedIn-Version", value: essai.version },
+              { in: "header", name: "X-Restli-Protocol-Version", value: "2.0.0" },
+            ]
+          : [{ in: "header", name: "X-Restli-Protocol-Version", value: "2.0.0" }],
       });
       console.log(`   status ${response.status}`);
       console.log(`   ${short(response.data)}`);
