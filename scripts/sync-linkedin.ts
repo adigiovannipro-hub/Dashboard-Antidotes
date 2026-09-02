@@ -113,7 +113,16 @@ async function main() {
 
     const parMois = new Map<
       string,
-      { impressions: number; reach: number; clics: number; gestes: number; posts: number }
+      {
+        impressions: number;
+        reach: number;
+        clics: number;
+        gestes: number;
+        vues: number;
+        emplois: number;
+        posts: number;
+        vignettes: number;
+      }
     >();
     for (const jour of jours ?? []) {
       const mois = String(jour.date).slice(0, 7);
