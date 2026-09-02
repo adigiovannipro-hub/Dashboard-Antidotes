@@ -1,7 +1,7 @@
 /**
  * Ce que le projet Composio Platform voit de LinkedIn — lecture seule.
  *
- *   pnpm diagnostic:linkedin [--user <identifiant>]
+ *   pnpm diagnostic:linkedin [--user <identifiant>] [--version 20250909_00]
  *
  * Il répond à la seule question qui bloque le branchement : **quelles pages
  * entreprise le compte connecté administre-t-il ?** Les pages se lisent par
@@ -19,6 +19,11 @@
  * l'exige à l'exécution manuelle d'un outil et ne le rend pas dans la liste
  * des comptes — sans lui, l'appel échoue sur « Toolkit version not specified »,
  * message trompeur qui n'a rien à voir avec la version.
+ *
+ * Composio refuse « latest » à l'exécution manuelle d'un outil (« Toolkit
+ * version not specified »), et n'accepte qu'une version datée. Le diagnostic
+ * étant en lecture seule, il lève le garde-fou plutôt que d'épingler une
+ * version qui périmera : `--version` reste là pour figer si besoin.
  *
  * Variable requise : COMPOSIO_API_KEY (clé de projet Platform, `ak_…`).
  */
@@ -65,6 +70,10 @@ async function main() {
   }
 
   const userId = argValue("user") ?? process.env.COMPOSIO_DEFAULT_USER_ID ?? "agence";
+  const version = argValue("version");
+  const versionOptions = version
+    ? { version }
+    : { version: "latest", dangerouslySkipVersionCheck: true };
   const composio = new Composio({ apiKey });
 
   const configs = await composio.authConfigs.list({ toolkit: TOOLKIT });
@@ -94,7 +103,7 @@ async function main() {
       response = await composio.tools.execute(ORG_ACLS, {
         userId,
         connectedAccountId: account.id,
-        version: "latest",
+        ...versionOptions,
         arguments: { role: "ADMINISTRATOR", state: "APPROVED", count: 100 },
       });
     } catch (error) {
@@ -125,7 +134,7 @@ async function main() {
           const size = await composio.tools.execute(FOLLOWERS, {
             userId,
             connectedAccountId: account.id,
-            version: "latest",
+            ...versionOptions,
             arguments: { organization_id: id },
           });
           const count = (size.data as { firstDegreeSize?: number } | undefined)?.firstDegreeSize;
