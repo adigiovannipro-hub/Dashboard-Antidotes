@@ -323,7 +323,7 @@ async function fetchInvoice(
  * prélèvement du mois, jamais avant. Une journée sans rien à faire coûte une
  * requête à Supabase.
  */
-async function passage(): Promise<void> {
+async function passage(forcer: string | undefined): Promise<void> {
   checkEnv();
   const [{ createAdminClient }, { decryptSecret, encryptSecret }, retrieval, { merchantKey }, { sendFileToAirwallex }] =
     await Promise.all([
@@ -379,16 +379,38 @@ async function passage(): Promise<void> {
   }
 
   const due: { source: Source; label: string }[] = [];
-  log(`Calendrier ${retrieval.currentUtcMonth(now)} — ${sources.length} fournisseur(s) suivi(s) :`);
-  for (const source of sources) {
-    const decision = retrieval.decideRetrieval({
-      source,
-      lastChargeAt: lastCharge[`${source.org_id}:${source.merchant_key}`] ?? null,
-      now,
-    });
-    const label = retrieval.RETRIEVAL_REASON_LABELS[decision.reason];
-    log(`  ${decision.due ? "→" : "·"} ${source.merchant_label} : ${label}${decision.dueOn ? ` (${decision.dueOn})` : ""}`);
-    if (decision.due) due.push({ source, label });
+
+  /* `--forcer` court-circuite le calendrier pour une fiche nommée : c'est le
+     geste de mise en route, quand on veut voir la chaîne marcher sans
+     attendre le prélèvement du mois. Le calendrier reste la règle. */
+  if (forcer) {
+    const cible = forcer.trim().toLowerCase();
+    const source = sources.find(
+      (candidate) =>
+        candidate.merchant_key === cible ||
+        candidate.merchant_label.toLowerCase() === cible ||
+        candidate.merchant_label.toLowerCase().includes(cible),
+    );
+    if (!source) {
+      throw new Error(
+        `Aucune fiche ne correspond à « ${forcer} ». Connues : ` +
+          sources.map((candidate) => candidate.merchant_label).join(", "),
+      );
+    }
+    log(`Passage forcé sur ${source.merchant_label}, hors calendrier.`);
+    due.push({ source, label: "forcé" });
+  } else {
+    log(`Calendrier ${retrieval.currentUtcMonth(now)} — ${sources.length} fournisseur(s) suivi(s) :`);
+    for (const source of sources) {
+      const decision = retrieval.decideRetrieval({
+        source,
+        lastChargeAt: lastCharge[`${source.org_id}:${source.merchant_key}`] ?? null,
+        now,
+      });
+      const label = retrieval.RETRIEVAL_REASON_LABELS[decision.reason];
+      log(`  ${decision.due ? "→" : "·"} ${source.merchant_label} : ${label}${decision.dueOn ? ` (${decision.dueOn})` : ""}`);
+      if (decision.due) due.push({ source, label });
+    }
   }
 
   if (due.length === 0) {
@@ -396,7 +418,12 @@ async function passage(): Promise<void> {
     return;
   }
 
-  const browser = await lancerNavigateur(false);
+  /* **Visible, et non invisible.** Le portail Adobe ne rend rien du tout en
+     mode sans écran : la page reste sur son rond de chargement, sans un
+     caractère de texte, pendant que la même session affiche tout en mode
+     visible. Mesuré le 02/09/2026 — 0 caractère contre 1 868. Sur le runner
+     GitHub, qui n'a pas d'écran, c'est `xvfb-run` qui en fournit un faux. */
+  const browser = await lancerNavigateur(true);
   let failures = 0;
   try {
     for (const { source } of due) {
@@ -603,13 +630,24 @@ async function capturerSession(merchant: string, link: string): Promise<string |
 async function main(): Promise<void> {
   const [command, argument] = process.argv.slice(2);
   switch (command) {
-    case "passage":
-      return passage();
+    case "passage": {
+      /* `--forcer <marchand>` ou `--forcer=<marchand>`. */
+      const args = process.argv.slice(3);
+      const index = args.findIndex((value) => value.startsWith("--forcer"));
+      const forcer =
+        index < 0
+          ? undefined
+          : args[index]!.includes("=")
+            ? args[index]!.split("=").slice(1).join("=")
+            : args[index + 1];
+      if (index >= 0 && !forcer) throw new Error("--forcer attend un nom de marchand.");
+      return passage(forcer);
+    }
     case "connexion":
       return connexion(argument);
     default:
       throw new Error(
-        "Commandes : passage · connexion [marchand|--tout] " +
+        "Commandes : passage [--forcer <marchand>] · connexion [marchand|--tout] " +
           "(sans argument : toutes les fiches sans session)",
       );
   }
