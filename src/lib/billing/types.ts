@@ -85,8 +85,12 @@ export type BillingEngagement = {
   /** Pour `[prénom]` : Airwallex ne connaît que la raison sociale, et
       « Bonjour SARL DUPONT » n'est pas une formule de politesse. */
   contact_first_name: string | null;
-  /** `null` : le template commun s'applique — voir `templates.ts`. */
+  /** `null` : le modèle commun s'applique — voir `templates.ts`. L'objet est
+      un champ à part du corps : la première ligne d'un texte ne se distingue
+      pas à l'œil de son premier paragraphe. */
+  send_subject: string | null;
   send_template: string | null;
+  reminder_subject: string | null;
   reminder_template: string | null;
   /** Le client de facturation Airwallex (`bcus_…`) et le produit facturé
       (`prd_…`), tous deux appris de la facture modèle. Le produit et non le

@@ -29,7 +29,9 @@ import { PendingLabel } from "@/components/ds/pending-label";
 import { formatMoney } from "@/lib/finance/money";
 import { monthsBetween, splitTotal, ttcCentsOf } from "@/lib/billing/schedule";
 import {
+  DEFAULT_REMINDER_SUBJECT,
   DEFAULT_REMINDER_TEMPLATE,
+  DEFAULT_SEND_SUBJECT,
   DEFAULT_SEND_TEMPLATE,
   TEMPLATE_VARIABLES,
 } from "@/lib/billing/templates";
@@ -266,31 +268,48 @@ function NewEngagementForm({
           </div>
 
           <div className="grid gap-1 sm:col-span-2">
-            <Label htmlFor="devis-modele-envoi">Modèle du mail d&apos;envoi</Label>
+            <Label htmlFor="devis-objet-envoi">Objet du mail d&apos;envoi</Label>
+            <Input
+              id="devis-objet-envoi"
+              name="sendSubject"
+              defaultValue={DEFAULT_SEND_SUBJECT}
+            />
+          </div>
+          <div className="grid gap-1 sm:col-span-2">
+            <Label htmlFor="devis-modele-envoi">Message d&apos;envoi</Label>
             <textarea
               id="devis-modele-envoi"
               name="sendTemplate"
-              rows={7}
+              rows={8}
               className={TEMPLATE_FIELD}
               defaultValue={DEFAULT_SEND_TEMPLATE}
             />
           </div>
+
           <div className="grid gap-1 sm:col-span-2">
-            <Label htmlFor="devis-modele-relance">Modèle du mail de relance</Label>
+            <Label htmlFor="devis-objet-relance">Objet du mail de relance</Label>
+            <Input
+              id="devis-objet-relance"
+              name="reminderSubject"
+              defaultValue={DEFAULT_REMINDER_SUBJECT}
+            />
+          </div>
+          <div className="grid gap-1 sm:col-span-2">
+            <Label htmlFor="devis-modele-relance">Message de relance</Label>
             <textarea
               id="devis-modele-relance"
               name="reminderTemplate"
-              rows={7}
+              rows={8}
               className={TEMPLATE_FIELD}
               defaultValue={DEFAULT_REMINDER_TEMPLATE}
             />
           </div>
 
           <p className="type-caption text-text-secondary sm:col-span-2">
-            La première ligne est l&apos;objet du mail. Variables :{" "}
-            {Object.keys(TEMPLATE_VARIABLES).join(", ")}. Copie cachée
-            systématique vers a.digiovanni.pro@gmail.com. Relances à J+31, J+46
-            et J+61 tant que la facture n&apos;est pas payée.
+            Variables : {Object.keys(TEMPLATE_VARIABLES).join(", ")}. Copie
+            cachée systématique vers a.digiovanni.pro@gmail.com. Relances à
+            J+31, J+46 et J+61 tant que la facture n&apos;est pas payée. Tout se
+            retouche ensuite depuis la fiche du devis.
           </p>
         </div>
       </details>

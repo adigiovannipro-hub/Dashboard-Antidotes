@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  DEFAULT_REMINDER_SUBJECT,
   DEFAULT_REMINDER_TEMPLATE,
+  DEFAULT_SEND_SUBJECT,
   DEFAULT_SEND_TEMPLATE,
   renderEmail,
   unknownVariablesIn,
@@ -12,6 +14,7 @@ const faits = (overrides: Partial<TemplateFacts> = {}): TemplateFacts => ({
   firstName: "Jean",
   clientName: "Bondet",
   projectLabel: "Accompagnement social media",
+  month: "août",
   period: "août 2026",
   amount: "2 522,50 €",
   invoiceNumber: "INV-A9DFDGZ3-0005",
@@ -33,59 +36,78 @@ describe("unknownVariablesIn", () => {
   });
 
   it("ignore un crochet qui n'entoure rien de plausible", () => {
-    // Un crochet sur plusieurs lignes n'est pas une variable oubliée.
     expect(unknownVariablesIn("un [\ntexte]")).toEqual([]);
   });
 });
 
 describe("renderEmail", () => {
-  it("prend la première ligne pour objet et le reste pour corps", () => {
-    const rendu = renderEmail("Facture [numéro]\n\nBonjour [prénom],", faits());
+  it("remplit l'objet et le corps séparément", () => {
+    const rendu = renderEmail("Facture [numéro]", "Hello [prénom],", faits());
     expect(rendu).toEqual({
       ok: true,
       subject: "Facture INV-A9DFDGZ3-0005",
-      body: "Bonjour Jean,",
+      body: "Hello Jean,",
     });
+  });
+
+  it("aplatit un objet qu'on aurait tapé sur deux lignes", () => {
+    // Un en-tête de mail tient sur une ligne : un saut collé dedans
+    // deviendrait une injection d'en-tête si on le laissait passer.
+    const rendu = renderEmail("Facture\n  [mois]", "corps", faits());
+    expect(rendu.ok && rendu.subject).toBe("Facture août");
   });
 
   it("remplace toutes les occurrences d'une même variable", () => {
-    const rendu = renderEmail("Objet\n\n[montant] puis [montant]", faits());
-    expect(rendu).toEqual({
-      ok: true,
-      subject: "Objet",
-      body: "2 522,50 € puis 2 522,50 €",
-    });
+    const rendu = renderEmail("Objet", "[montant] puis [montant]", faits());
+    expect(rendu.ok && rendu.body).toBe("2 522,50 € puis 2 522,50 €");
   });
 
   it("recoud la formule quand le prénom manque", () => {
-    // « Bonjour , » chez un client est une faute que personne ne pardonne.
-    const rendu = renderEmail("Objet\n\nBonjour [prénom],", faits({ firstName: null }));
-    expect(rendu).toEqual({ ok: true, subject: "Objet", body: "Bonjour," });
+    // « Hello , » chez un client est une faute que personne ne pardonne.
+    const rendu = renderEmail("Objet", "Hello [prénom],", faits({ firstName: null }));
+    expect(rendu.ok && rendu.body).toBe("Hello,");
   });
 
-  it("refuse d'envoyer un modèle qui porte une variable inconnue", () => {
-    const rendu = renderEmail("Objet\n\nLe [periode] est là", faits());
+  it("refuse d'envoyer si l'objet porte une variable inconnue", () => {
+    const rendu = renderEmail("Facture [periode]", "corps", faits());
     expect(rendu).toEqual({ ok: false, unknownVariables: ["[periode]"] });
   });
 
-  it("remplit le modèle d'envoi par défaut de bout en bout", () => {
-    const rendu = renderEmail(DEFAULT_SEND_TEMPLATE, faits());
+  it("refuse d'envoyer si le corps porte une variable inconnue", () => {
+    const rendu = renderEmail("Objet", "Le [machin] est là", faits());
+    expect(rendu).toEqual({ ok: false, unknownVariables: ["[machin]"] });
+  });
+
+  it("remplit les modèles d'envoi par défaut de bout en bout", () => {
+    const rendu = renderEmail(DEFAULT_SEND_SUBJECT, DEFAULT_SEND_TEMPLATE, faits());
     expect(rendu.ok).toBe(true);
     if (!rendu.ok) return;
-    expect(rendu.subject).toBe(
-      "Facture INV-A9DFDGZ3-0005 — Accompagnement social media — août 2026",
-    );
-    expect(rendu.body).toContain("Bonjour Jean,");
+    expect(rendu.subject).toBe("Facture août — Bondet");
+    expect(rendu.body).toContain("Hello Jean,");
+    expect(rendu.body).toContain("la facture du mois de août");
     expect(rendu.body).toContain("2 522,50 €");
     expect(rendu.body).toContain("5 septembre 2026");
     expect(rendu.body).not.toMatch(/\[[^\]]+\]/);
   });
 
-  it("remplit le modèle de relance par défaut de bout en bout", () => {
-    const rendu = renderEmail(DEFAULT_REMINDER_TEMPLATE, faits());
+  it("ne relance aucun mois précédent dans le mail d'envoi", () => {
+    // Le mail qui accompagne une facture ne fait qu'une chose : réclamer un
+    // impayé dans le même souffle affaiblirait les deux.
+    const rendu = renderEmail(DEFAULT_SEND_SUBJECT, DEFAULT_SEND_TEMPLATE, faits());
+    expect(rendu.ok && rendu.body.toLowerCase()).not.toContain("en attente du règlement");
+    expect(rendu.ok && rendu.body.toLowerCase()).not.toContain("relance");
+  });
+
+  it("remplit les modèles de relance par défaut de bout en bout", () => {
+    const rendu = renderEmail(
+      DEFAULT_REMINDER_SUBJECT,
+      DEFAULT_REMINDER_TEMPLATE,
+      faits(),
+    );
     expect(rendu.ok).toBe(true);
     if (!rendu.ok) return;
-    expect(rendu.subject).toBe("Relance — facture INV-A9DFDGZ3-0005 — août 2026");
+    expect(rendu.subject).toBe("Relance — facture août — Bondet");
+    expect(rendu.body).toContain("règlement du mois de août");
     expect(rendu.body).not.toMatch(/\[[^\]]+\]/);
   });
 });

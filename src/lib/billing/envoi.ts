@@ -12,11 +12,13 @@ import {
   type EmittedInvoice,
 } from "@/lib/finance/airwallex-emission";
 import { formatMoney } from "@/lib/finance/money";
-import { dayLabel, monthLabel } from "./format";
+import { dayLabel, monthLabel, monthOnlyLabel } from "./format";
 import { buildInvoiceMime } from "./mime";
 import { decideEnvoi, REFUSAL_LABELS, type SentEmail } from "./relances";
 import {
+  DEFAULT_REMINDER_SUBJECT,
   DEFAULT_REMINDER_TEMPLATE,
+  DEFAULT_SEND_SUBJECT,
   DEFAULT_SEND_TEMPLATE,
   renderEmail,
 } from "./templates";
@@ -86,7 +88,9 @@ type EngagementRow = {
   recipient_email: string | null;
   cc_emails: string[] | null;
   contact_first_name: string | null;
+  send_subject: string | null;
   send_template: string | null;
+  reminder_subject: string | null;
   reminder_template: string | null;
   airwallex_customer_id: string | null;
   airwallex_product_id: string | null;
@@ -185,7 +189,7 @@ export async function runInvoiceDispatch(options: {
   const { data: engagementData, error: engagementError } = await admin
     .from("billing_engagements")
     .select(
-      "id, client_name, label, recipient_email, cc_emails, contact_first_name, send_template, reminder_template, airwallex_customer_id, airwallex_product_id, template_invoice_external_id",
+      "id, client_name, label, recipient_email, cc_emails, contact_first_name, send_subject, send_template, reminder_subject, reminder_template, airwallex_customer_id, airwallex_product_id, template_invoice_external_id",
     )
     .eq("org_id", options.orgId)
     .not("recipient_email", "is", null)
@@ -455,15 +459,22 @@ async function sendInvoiceEmail(options: {
 }): Promise<void> {
   const { engagement, invoice, line } = options;
 
-  const template =
+  const [subjectTemplate, bodyTemplate] =
     options.kind === "invoice"
-      ? (engagement.send_template ?? DEFAULT_SEND_TEMPLATE)
-      : (engagement.reminder_template ?? DEFAULT_REMINDER_TEMPLATE);
+      ? [
+          engagement.send_subject ?? DEFAULT_SEND_SUBJECT,
+          engagement.send_template ?? DEFAULT_SEND_TEMPLATE,
+        ]
+      : [
+          engagement.reminder_subject ?? DEFAULT_REMINDER_SUBJECT,
+          engagement.reminder_template ?? DEFAULT_REMINDER_TEMPLATE,
+        ];
 
-  const rendered = renderEmail(template, {
+  const rendered = renderEmail(subjectTemplate, bodyTemplate, {
     firstName: engagement.contact_first_name,
     clientName: engagement.client_name,
     projectLabel: engagement.label,
+    month: monthOnlyLabel(line.service_month),
     period: monthLabel(line.service_month),
     /* Le montant de la facture émise, et non celui de la mensualité : c'est
        le document qui fait foi, TVA comprise s'il y en a une. */

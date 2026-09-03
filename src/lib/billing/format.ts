@@ -31,6 +31,20 @@ export function monthLabel(isoMonth: string): string {
   return Number.isNaN(date.getTime()) ? isoMonth : MONTH_LONG.format(date);
 }
 
+const MONTH_ONLY = new Intl.DateTimeFormat("fr-FR", {
+  month: "long",
+  timeZone: "UTC",
+});
+
+/**
+ * « 2026-07-01 » → « juillet ». Sans l'année, pour les phrases où elle
+ * alourdit : « la facture du mois de juillet » se dit comme ça.
+ */
+export function monthOnlyLabel(isoMonth: string): string {
+  const date = new Date(`${isoMonth}T00:00:00.000Z`);
+  return Number.isNaN(date.getTime()) ? isoMonth : MONTH_ONLY.format(date);
+}
+
 /** « 2026-08-05 » → « 5 août 2026 ». */
 export function dayLabel(isoDay: string): string {
   const date = new Date(`${isoDay}T00:00:00.000Z`);

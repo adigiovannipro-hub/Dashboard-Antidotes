@@ -104,7 +104,9 @@ const createEngagementInput = z
     ccEmails: emailList.optional(),
     contactFirstName: z.string().trim().max(100).optional(),
     templateInvoiceId: z.string().trim().max(100).optional(),
+    sendSubject: z.string().trim().max(300).optional(),
     sendTemplate: z.string().trim().max(5000).optional(),
+    reminderSubject: z.string().trim().max(300).optional(),
     reminderTemplate: z.string().trim().max(5000).optional(),
   })
   .refine((data) => data.totalAmount || data.monthlyAmount, {
@@ -131,7 +133,9 @@ export async function createEngagement(
     ccEmails: formData.get("ccEmails") ?? "",
     contactFirstName: formData.get("contactFirstName") ?? "",
     templateInvoiceId: formData.get("templateInvoiceId") ?? "",
+    sendSubject: formData.get("sendSubject") ?? "",
     sendTemplate: formData.get("sendTemplate") ?? "",
+    reminderSubject: formData.get("reminderSubject") ?? "",
     reminderTemplate: formData.get("reminderTemplate") ?? "",
   });
   if (!parsed.success) {
@@ -143,7 +147,9 @@ export async function createEngagement(
   }
 
   for (const template of [
+    parsed.data.sendSubject ?? "",
     parsed.data.sendTemplate ?? "",
+    parsed.data.reminderSubject ?? "",
     parsed.data.reminderTemplate ?? "",
   ]) {
     const unknown = unknownVariablesIn(template);
@@ -190,7 +196,9 @@ export async function createEngagement(
         cc_emails: parsed.data.ccEmails ?? [],
         contact_first_name: parsed.data.contactFirstName || null,
         template_invoice_external_id: parsed.data.templateInvoiceId || null,
+        send_subject: parsed.data.sendSubject || null,
         send_template: parsed.data.sendTemplate || null,
+        reminder_subject: parsed.data.reminderSubject || null,
         reminder_template: parsed.data.reminderTemplate || null,
       } as never)
       .select("id")
@@ -589,7 +597,9 @@ const deliveryInput = z.object({
   ccEmails: emailList,
   contactFirstName: z.string().trim().max(100),
   templateInvoiceId: z.string().trim().max(100),
+  sendSubject: z.string().trim().max(300),
   sendTemplate: z.string().trim().max(5000),
+  reminderSubject: z.string().trim().max(300),
   reminderTemplate: z.string().trim().max(5000),
 });
 
@@ -612,7 +622,9 @@ export async function updateEngagementDelivery(
     ccEmails: formData.get("ccEmails") ?? "",
     contactFirstName: formData.get("contactFirstName") ?? "",
     templateInvoiceId: formData.get("templateInvoiceId") ?? "",
+    sendSubject: formData.get("sendSubject") ?? "",
     sendTemplate: formData.get("sendTemplate") ?? "",
+    reminderSubject: formData.get("reminderSubject") ?? "",
     reminderTemplate: formData.get("reminderTemplate") ?? "",
   });
   if (!parsed.success) {
@@ -622,7 +634,12 @@ export async function updateEngagementDelivery(
     };
   }
 
-  for (const template of [parsed.data.sendTemplate, parsed.data.reminderTemplate]) {
+  for (const template of [
+    parsed.data.sendSubject,
+    parsed.data.sendTemplate,
+    parsed.data.reminderSubject,
+    parsed.data.reminderTemplate,
+  ]) {
     const unknown = unknownVariablesIn(template);
     if (unknown.length > 0) {
       return {
@@ -645,7 +662,9 @@ export async function updateEngagementDelivery(
       template_invoice_external_id: parsed.data.templateInvoiceId || null,
       /* Vide = le modèle commun s'applique. On n'enregistre pas une copie du
          texte par défaut : le jour où il change, tous les devis en profitent. */
+      send_subject: parsed.data.sendSubject || null,
       send_template: parsed.data.sendTemplate || null,
+      reminder_subject: parsed.data.reminderSubject || null,
       reminder_template: parsed.data.reminderTemplate || null,
     } as never)
     .eq("id", parsed.data.engagementId)
