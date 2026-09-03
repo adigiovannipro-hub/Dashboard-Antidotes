@@ -12,7 +12,7 @@ import {
   type EmittedInvoice,
 } from "@/lib/finance/airwallex-emission";
 import { formatMoney } from "@/lib/finance/money";
-import { dayLabel, longDayLabel, monthLabel, monthOnlyLabel } from "./format";
+import { longDayLabel, monthLabel, monthOnlyLabel } from "./format";
 import { buildInvoiceMime } from "./mime";
 import { decideEnvoi, REFUSAL_LABELS, type SentEmail } from "./relances";
 import {
