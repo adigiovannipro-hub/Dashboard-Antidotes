@@ -46,7 +46,10 @@
     "recus:confiance": "node --conditions=react-server --import tsx scripts/recus-confiance.ts",
     "factures:connexion": "node --conditions=react-server --import tsx scripts/recuperer-factures.ts connexion",
     "factures:passage": "node --conditions=react-server --import tsx scripts/recuperer-factures.ts passage",
-    "diagnostic:tiktok": "tsx scripts/diagnostic-tiktok.ts"
+    "diagnostic:tiktok": "tsx scripts/diagnostic-tiktok.ts",
+    "factures:envoi": "node --conditions=react-server --import tsx scripts/factures-envoi.ts",
+    "factures:fiches": "node --conditions=react-server --import tsx scripts/factures-fiches.ts",
+    "factures:menage": "node --conditions=react-server --import tsx scripts/factures-menage.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.115.0",

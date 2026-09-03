@@ -1,6 +1,19 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  /* « Échéances » est devenue « Factures » le 03/09/2026, l'écran ne se
+     contentant plus d'afficher un calendrier : il émet et il relance. Le
+     lien reste valable — un signet, un mail, un onglet ouvert depuis des
+     semaines n'ont pas à tomber sur un 404. */
+  async redirects() {
+    return [
+      {
+        source: "/entreprise/echeances",
+        destination: "/entreprise/factures",
+        permanent: true,
+      },
+    ];
+  },
   // Les prompts de génération sont des fichiers markdown lus au runtime
   // (`src/lib/production/prompts.ts`) : sans cette déclaration, le tracing de
   // Vercel ne les embarquerait pas et les routes échoueraient en production.

@@ -36,7 +36,7 @@ export type InstallmentStage =
   | "skipped"; // annulée : mois offert, avoir, résiliation
 
 export const STAGE_LABELS: Record<InstallmentStage, string> = {
-  confirmed: "Devis confirmé",
+  confirmed: "Facture confirmée",
   to_invoice: "À facturer",
   invoiced: "Facturée",
   paid: "Payée",
@@ -45,6 +45,25 @@ export const STAGE_LABELS: Record<InstallmentStage, string> = {
 
 /** Libellé du retard, dérivé et jamais stocké — voir `isLate`. */
 export const LATE_LABEL = "En retard";
+
+/**
+ * Les quatre mails de la vie d'une facture. L'ordre est la cadence : l'envoi
+ * part à l'émission, puis J+31, J+46, J+61 tant que le règlement n'arrive
+ * pas. Après la troisième relance, plus rien ne part tout seul — un impayé
+ * qui a résisté à trois mails ne se règle pas par un quatrième.
+ */
+export type BillingEmailKind =
+  | "invoice"
+  | "reminder_1"
+  | "reminder_2"
+  | "reminder_3";
+
+export const EMAIL_KIND_LABELS: Record<BillingEmailKind, string> = {
+  invoice: "Facture envoyée",
+  reminder_1: "1re relance",
+  reminder_2: "2e relance",
+  reminder_3: "3e relance",
+};
 
 export type BillingEngagement = {
   id: string;
@@ -59,6 +78,48 @@ export type BillingEngagement = {
   months_count: number;
   status: BillingEngagementStatus;
   notes: string | null;
+  /** Sans destinataire, rien ne part : la mensualité reste à facturer à la
+      main. C'est la porte de sortie volontaire de l'automatisme. */
+  recipient_email: string | null;
+  cc_emails: string[];
+  /** Pour `[prénom]` : Airwallex ne connaît que la raison sociale, et
+      « Bonjour SARL DUPONT » n'est pas une formule de politesse. Plusieurs
+      prénoms sont admis — « Christelle, Anthony ». */
+  contact_first_name: string | null;
+  /** L'entreprise telle qu'elle figure sur la facture. Vide : le nom du
+      client fait office. C'est avec ces champs que le dashboard crée la
+      fiche client chez Airwallex, à la première émission. */
+  billing_name: string | null;
+  billing_email: string | null;
+  billing_street: string | null;
+  billing_city: string | null;
+  billing_postcode: string | null;
+  billing_country: string;
+  billing_tax_id: string | null;
+  /** Le libellé de la prestation sur la facture — « ACCOMPAGNEMENT SOCIAL
+      MEDIA ». Distinct de `label`, qui nomme le devis en interne. */
+  product_name: string | null;
+  /** `null` : le modèle commun s'applique — voir `templates.ts`. L'objet est
+      un champ à part du corps : la première ligne d'un texte ne se distingue
+      pas à l'œil de son premier paragraphe. */
+  send_subject: string | null;
+  send_template: string | null;
+  reminder_1_subject: string | null;
+  reminder_2_subject: string | null;
+  reminder_3_subject: string | null;
+  /** Trois textes distincts : une relance qui répète mot pour mot la
+      précédente se lit comme un automate, et le client le voit. */
+  reminder_1_template: string | null;
+  reminder_2_template: string | null;
+  reminder_3_template: string | null;
+  /** Le client de facturation Airwallex (`bcus_…`) et le produit facturé
+      (`prd_…`), tous deux appris de la facture modèle. Le produit et non le
+      prix : le montant d'une mensualité varie au centime, un prix Airwallex
+      est fixe — il s'en crée un par facture. */
+  airwallex_customer_id: string | null;
+  airwallex_product_id: string | null;
+  /** La facture créée à la main dont les suivantes reprennent la forme. */
+  template_invoice_external_id: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -93,6 +154,12 @@ export type BillingInstallment = {
   paid_at: string | null;
   /** La facture Airwallex rapprochée — la preuve que l'automate a avancé. */
   matched_invoice_id: string | null;
+  /** La facture Airwallex émise pour cette mensualité (`inv_…`). Posée dès
+      la création, avant même que la synchronisation ne la rapatrie : c'est
+      elle qui empêche le passage suivant d'en créer une seconde. */
+  airwallex_invoice_id: string | null;
+  /** Ce qui a empêché l'émission ou l'envoi, en clair. Effacé au succès. */
+  last_send_error: string | null;
   /** Vestige de l'archivage, retiré en 0028 : plus rien ne le pose ni ne le
       lit. La colonne reste pour ne pas réécrire l'histoire des lignes. */
   archived_at: string | null;
@@ -103,4 +170,27 @@ export type BillingInstallment = {
       la mensualité, jointe à la lecture. Absente tant qu'aucun lien n'est
       posé. */
   invoice_due_on?: string | null;
+};
+
+/**
+ * Un mail parti, tel qu'il est parti.
+ *
+ * Les adresses et le texte sont copiés et non référencés : un client qui
+ * change d'adresse, un template qu'on retouche, ne réécrivent pas l'histoire
+ * de ce qui a été reçu. C'est un journal, pas une vue.
+ */
+export type BillingInvoiceEmail = {
+  id: string;
+  org_id: string;
+  installment_id: string;
+  kind: BillingEmailKind;
+  to_email: string;
+  cc_emails: string[];
+  bcc_email: string | null;
+  subject: string;
+  body: string;
+  invoice_external_id: string | null;
+  gmail_message_id: string | null;
+  sent_at: string;
+  created_at: string;
 };

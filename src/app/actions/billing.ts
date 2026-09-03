@@ -10,6 +10,7 @@ import {
   lastMonthOf,
   monthsBetween,
 } from "@/lib/billing/schedule";
+import { TEMPLATE_VARIABLES, unknownVariablesIn } from "@/lib/billing/templates";
 import { createClient } from "@/lib/supabase/server";
 
 /**
@@ -32,7 +33,7 @@ export type BillingActionResult =
   | { ok: true; message: string }
   | { ok: false; error: string };
 
-const BILLING_PATH = "/entreprise/echeances";
+const BILLING_PATH = "/entreprise/factures";
 const FINANCE_PATH = "/entreprise/finance";
 
 function refresh() {
@@ -56,6 +57,23 @@ const isoMonth = z
   .regex(/^\d{4}-\d{2}$/)
   .transform((value) => `${value}-01`);
 
+/* Une liste d'adresses saisie à la main : virgules, points-virgules, sauts de
+   ligne, espaces — tout ce qu'un copier-coller depuis un client de messagerie
+   peut produire. */
+const emailList = z
+  .string()
+  .trim()
+  .transform((value) =>
+    value
+      .split(/[,;\n]/)
+      .map((address) => address.trim())
+      .filter(Boolean),
+  )
+  .refine(
+    (addresses) => addresses.every((address) => /^[^@\s]+@[^@\s]+$/.test(address)),
+    { message: "adresse invalide" },
+  );
+
 // --- Créer un devis ----------------------------------------------------------
 
 const createEngagementInput = z
@@ -73,6 +91,25 @@ const createEngagementInput = z
       .transform((value) => Number(value.replace(",", ".")))
       .pipe(z.number().min(0).max(100)),
     notes: z.string().trim().max(2000).optional(),
+    /* L'envoi automatique se règle dès la saisie du devis — et se retouche
+       ensuite par `updateEngagementDelivery`. Tout est facultatif : un devis
+       sans adresse se facture à la main, comme avant. */
+    recipientEmail: z
+      .string()
+      .trim()
+      .refine((value) => value === "" || /^[^@\s]+@[^@\s]+$/.test(value), {
+        message: "adresse invalide",
+      })
+      .optional(),
+    ccEmails: emailList.optional(),
+    contactFirstName: z.string().trim().max(100).optional(),
+    templateInvoiceId: z.string().trim().max(100).optional(),
+    sendSubject: z.string().trim().max(300).optional(),
+    sendTemplate: z.string().trim().max(5000).optional(),
+    reminderSubject: z.string().trim().max(300).optional(),
+    reminder1Template: z.string().trim().max(5000).optional(),
+    reminder2Template: z.string().trim().max(5000).optional(),
+    reminder3Template: z.string().trim().max(5000).optional(),
   })
   .refine((data) => data.totalAmount || data.monthlyAmount, {
     message: "montant absent",
@@ -94,6 +131,16 @@ export async function createEngagement(
     monthlyAmount: formData.get("monthlyAmount") || undefined,
     vatRate: formData.get("vatRate") || "0",
     notes: formData.get("notes") || undefined,
+    recipientEmail: formData.get("recipientEmail") ?? "",
+    ccEmails: formData.get("ccEmails") ?? "",
+    contactFirstName: formData.get("contactFirstName") ?? "",
+    templateInvoiceId: formData.get("templateInvoiceId") ?? "",
+    sendSubject: formData.get("sendSubject") ?? "",
+    sendTemplate: formData.get("sendTemplate") ?? "",
+    reminderSubject: formData.get("reminderSubject") ?? "",
+    reminder1Template: formData.get("reminder1Template") ?? "",
+    reminder2Template: formData.get("reminder2Template") ?? "",
+    reminder3Template: formData.get("reminder3Template") ?? "",
   });
   if (!parsed.success) {
     return {
@@ -101,6 +148,23 @@ export async function createEngagement(
       error:
         "Formulaire incomplet : il faut un client, une prestation, une période dans le bon sens et au moins un montant.",
     };
+  }
+
+  for (const template of [
+    parsed.data.sendSubject ?? "",
+    parsed.data.sendTemplate ?? "",
+    parsed.data.reminderSubject ?? "",
+    parsed.data.reminder1Template ?? "",
+    parsed.data.reminder2Template ?? "",
+    parsed.data.reminder3Template ?? "",
+  ]) {
+    const unknown = unknownVariablesIn(template);
+    if (unknown.length > 0) {
+      return {
+        ok: false,
+        error: `Variables inconnues dans un modèle : ${unknown.join(", ")}. Les variables disponibles sont ${Object.keys(TEMPLATE_VARIABLES).join(", ")}.`,
+      };
+    }
   }
 
   const monthsCount = monthsBetween(parsed.data.firstMonth, parsed.data.lastMonth);
@@ -132,6 +196,18 @@ export async function createEngagement(
         first_month: parsed.data.firstMonth,
         months_count: monthsCount,
         notes: parsed.data.notes ?? null,
+        /* L'envoi automatique, tel qu'il a été réglé à la saisie. Vide
+           partout : le devis se facture à la main, ce qui reste le défaut. */
+        recipient_email: parsed.data.recipientEmail || null,
+        cc_emails: parsed.data.ccEmails ?? [],
+        contact_first_name: parsed.data.contactFirstName || null,
+        template_invoice_external_id: parsed.data.templateInvoiceId || null,
+        send_subject: parsed.data.sendSubject || null,
+        send_template: parsed.data.sendTemplate || null,
+        reminder_subject: parsed.data.reminderSubject || null,
+        reminder_1_template: parsed.data.reminder1Template || null,
+        reminder_2_template: parsed.data.reminder2Template || null,
+        reminder_3_template: parsed.data.reminder3Template || null,
       } as never)
       .select("id")
       .single();
@@ -353,7 +429,7 @@ const addInstallmentInput = z.object({
 
 /**
  * Une mensualité de plus sur un devis en cours — la prolongation d'un mois,
- * la rallonge exceptionnelle. Elle naît « Devis confirmé » et avance ensuite
+ * la rallonge exceptionnelle. Elle naît « Facture confirmée » et avance ensuite
  * comme les autres : bascule « à facturer » dérivée de la date, rapprochement
  * Airwallex. Un seul endroit de vérité, donc elle apparaît partout d'un coup
  * — groupes du board, prévisionnel, cartes.
@@ -512,4 +588,108 @@ export async function deleteEngagement(
 
   refresh();
   return { ok: true, message: "Devis supprimé avec ses échéances." };
+}
+
+// --- Régler l'envoi automatique ----------------------------------------------
+
+const deliveryInput = z.object({
+  engagementId: z.uuid(),
+  /* Vide = automatisme désactivé pour ce client. C'est le seul interrupteur,
+     et c'est délibéré : il se lit d'un coup d'œil sur la fiche du devis. */
+  recipientEmail: z
+    .string()
+    .trim()
+    .refine((value) => value === "" || /^[^@\s]+@[^@\s]+$/.test(value), {
+      message: "adresse invalide",
+    }),
+  ccEmails: emailList,
+  contactFirstName: z.string().trim().max(100),
+  templateInvoiceId: z.string().trim().max(100),
+  sendSubject: z.string().trim().max(300),
+  sendTemplate: z.string().trim().max(5000),
+  reminderSubject: z.string().trim().max(300),
+  reminder1Template: z.string().trim().max(5000),
+  reminder2Template: z.string().trim().max(5000),
+  reminder3Template: z.string().trim().max(5000),
+});
+
+/**
+ * Ce qu'il faut pour qu'une facture parte toute seule : à qui, avec quel
+ * texte, et à partir de quelle facture modèle.
+ *
+ * Les modèles sont validés ici et pas seulement à l'envoi : une variable mal
+ * orthographiée — `[periode]` sans accent — se corrige à la saisie, quand
+ * quelqu'un regarde. Découverte au moment où le mail aurait dû partir, elle
+ * coûte une facture non envoyée.
+ */
+export async function updateEngagementDelivery(
+  _previous: BillingActionResult | null,
+  formData: FormData,
+): Promise<BillingActionResult> {
+  const parsed = deliveryInput.safeParse({
+    engagementId: formData.get("engagementId"),
+    recipientEmail: formData.get("recipientEmail") ?? "",
+    ccEmails: formData.get("ccEmails") ?? "",
+    contactFirstName: formData.get("contactFirstName") ?? "",
+    templateInvoiceId: formData.get("templateInvoiceId") ?? "",
+    sendSubject: formData.get("sendSubject") ?? "",
+    sendTemplate: formData.get("sendTemplate") ?? "",
+    reminderSubject: formData.get("reminderSubject") ?? "",
+    reminderTemplate: formData.get("reminderTemplate") ?? "",
+  });
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: "Adresse invalide : vérifier le destinataire et les copies.",
+    };
+  }
+
+  for (const template of [
+    parsed.data.sendSubject,
+    parsed.data.sendTemplate,
+    parsed.data.reminderSubject,
+    parsed.data.reminder1Template,
+    parsed.data.reminder2Template,
+    parsed.data.reminder3Template,
+  ]) {
+    const unknown = unknownVariablesIn(template);
+    if (unknown.length > 0) {
+      return {
+        ok: false,
+        error: `Variables inconnues dans un modèle : ${unknown.join(", ")}. Les variables disponibles sont ${Object.keys(TEMPLATE_VARIABLES).join(", ")}.`,
+      };
+    }
+  }
+
+  const context = await requireFinanceAccess();
+  if (!context.canDecide) return { ok: false, error: "Action indisponible." };
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("billing_engagements")
+    .update({
+      recipient_email: parsed.data.recipientEmail || null,
+      cc_emails: parsed.data.ccEmails,
+      contact_first_name: parsed.data.contactFirstName || null,
+      template_invoice_external_id: parsed.data.templateInvoiceId || null,
+      /* Vide = le modèle commun s'applique. On n'enregistre pas une copie du
+         texte par défaut : le jour où il change, tous les devis en profitent. */
+      send_subject: parsed.data.sendSubject || null,
+      send_template: parsed.data.sendTemplate || null,
+      reminder_subject: parsed.data.reminderSubject || null,
+      reminder_1_template: parsed.data.reminder1Template || null,
+      reminder_2_template: parsed.data.reminder2Template || null,
+      reminder_3_template: parsed.data.reminder3Template || null,
+    } as never)
+    .eq("id", parsed.data.engagementId)
+    .eq("org_id", context.orgId);
+  if (error) return { ok: false, error: `Enregistrement refusé : ${error.message}` };
+
+  refresh();
+  return {
+    ok: true,
+    message: parsed.data.recipientEmail
+      ? `Envoi automatique activé vers ${parsed.data.recipientEmail}.`
+      : "Envoi automatique désactivé : ce devis se facture à la main.",
+  };
 }

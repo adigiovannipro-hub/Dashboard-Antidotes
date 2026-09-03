@@ -54,7 +54,7 @@ const ICONS: Record<NavIcon, LucideIcon> = {
   perso: Lock,
   moderation: MessagesSquare,
   finance: Wallet,
-  echeances: CalendarClock,
+  factures: CalendarClock,
   recus: Receipt,
   acces: KeyRound,
   academy: GraduationCap,

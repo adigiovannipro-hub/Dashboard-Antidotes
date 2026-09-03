@@ -6,7 +6,7 @@ import { Panel, PanelBody, PanelHeader, SectionHeader } from "@/components/ds/su
 import { EngagementList } from "@/components/billing/engagement-list";
 import { ForecastChart } from "@/components/billing/forecast-chart";
 import type { BoardRow, InstallmentLine } from "@/components/billing/installment-row";
-import { NewEngagementDialog } from "@/components/billing/new-engagement-dialog";
+import { NewEngagementTrigger } from "@/components/billing/engagement-panel-triggers";
 import { StageGroup } from "@/components/billing/stage-group";
 import { SyncBadge } from "@/components/finance/sync-badge";
 import { requireFinanceAccess } from "@/lib/finance/access";
@@ -29,37 +29,48 @@ import {
 import {
   listEngagements,
   listInstallments,
+  listInvoiceEmails,
   listKnownClients,
   listUnmatchedInvoices,
 } from "@/lib/billing/queries";
 import { getLastSyncRun } from "@/lib/finance/queries";
 import type { BillingInstallment } from "@/lib/billing/types";
 
-export const metadata: Metadata = { title: "Échéances de facturation · Mon entreprise" };
+export const metadata: Metadata = { title: "Factures · Mon entreprise" };
 
 /**
- * L'écran Échéances — le remplaçant du board Monday, groupes compris.
+ * L'écran Factures — le remplaçant du board Monday, groupes compris.
  *
  * Deux sources se rejoignent dans les mêmes groupes : les mensualités des
  * devis saisis à la main, et les factures Airwallex que le module Finance
  * synchronise déjà — même sans devis correspondant, elles s'affichent, parce
  * que l'écran doit montrer la facturation réelle. Un devis signé se saisit
  * une fois ; ses mensualités traversent ensuite les groupes toutes seules :
- * « Devis confirmé » tant que le mois de prestation court, « À facturer »
+ * « Facture confirmée » tant que le mois de prestation court, « À facturer »
  * dès le 1er du mois suivant (dérivé de la date, pas d'un traitement),
  * « Facturée » puis « Payée » au rythme du rapprochement Airwallex — que le
  * chargement de cette page relance quand il traîne, le passage programmé
  * étant un cron GitHub qui en laisse tomber près d'un sur deux.
  * Les boutons des lignes ne sont que le filet manuel.
+ *
+ * Depuis le 03/09/2026, l'écran n'observe plus : dès qu'un devis porte une
+ * adresse de destinataire, sa facture se crée chez Airwallex au passage du
+ * 1er, part au client avec son PDF, et se relance à J+31, J+46 et J+61 tant
+ * qu'elle n'est pas payée (`src/lib/billing/envoi.ts`). Ce qui est parti se
+ * lit sous le nom du client, sur la ligne.
  */
-export default async function EcheancesPage() {
+export default async function FacturesPage() {
   const context = await requireFinanceAccess();
 
-  const [engagements, living, orphanInvoices, knownClients, sync] = await Promise.all([
+  const [engagements, living, orphanInvoices, knownClients, emailsByInstallment, sync] =
+    await Promise.all([
     listEngagements({ orgId: context.orgId }),
     listInstallments({ orgId: context.orgId }),
     listUnmatchedInvoices({ orgId: context.orgId }),
     listKnownClients({ orgId: context.orgId }),
+    /* Ce qui est déjà parti chez les clients : la ligne le dit, sinon un
+       client relancé trois fois et un client jamais contacté se ressemblent. */
+    listInvoiceEmails({ orgId: context.orgId }),
     /* Le même journal que Finance, et c'est le point : les deux écrans lisent
        la même chaîne Airwallex — les factures rapprochées ici sortent de
        l'étape `invoices` de là-bas. Synchroniser d'un côté met les deux à
@@ -74,6 +85,7 @@ export default async function EcheancesPage() {
     ...installment,
     client: engagementById.get(installment.engagement_id)?.client_name ?? "—",
     project: engagementById.get(installment.engagement_id)?.label ?? "",
+    emails: emailsByInstallment[installment.id] ?? [],
   });
   const lines = living.map(toLine);
 
@@ -152,8 +164,7 @@ export default async function EcheancesPage() {
   return (
     <div className="space-y-6">
       <SectionHeader
-        title="Échéances de facturation"
-        description="Chaque devis signé engendre ses mensualités — et les factures émises hors devis s'affichent aussi : l'écran montre la facturation réelle."
+        title="Factures"
         action={
           <div className="flex items-center gap-3">
             <SyncBadge
@@ -162,7 +173,7 @@ export default async function EcheancesPage() {
               canTrigger={context.canDecide}
             />
             {context.canDecide ? (
-              <NewEngagementDialog knownClients={knownClients} />
+              <NewEngagementTrigger knownClients={knownClients} />
             ) : null}
           </div>
         }
@@ -252,7 +263,7 @@ export default async function EcheancesPage() {
       />
 
       <StageGroup
-        title="Devis confirmé"
+        title="Facture confirmée"
         description="Les mensualités à venir : chacune passera « À facturer » le 1er du mois suivant sa prestation."
         stage="confirmed"
         rows={groups.confirmed}

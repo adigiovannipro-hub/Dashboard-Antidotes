@@ -229,13 +229,31 @@ déploiement demandant mieux qu'un cron quotidien. Ses clés se posent dans
 workflow.
 
 Elle a **deux déclencheurs**. Un passage programmé toutes les heures, qui fait
-le fond ; et **l'ouverture de Finance ou d'Échéances**, qui la relance quand
+le fond ; et **l'ouverture de Finance ou de Factures**, qui la relance quand
 la dernière remonte à plus de dix minutes. Le second n'est pas un confort : un
 `cron` GitHub est une intention, pas une garantie — près d'une exécution
 horaire sur deux n'a jamais lieu, avec des trous de plusieurs heures, et rien
 ne le signale. L'en-tête des deux écrans dit l'âge des chiffres en clair,
 passe en ambre au-delà de quatre-vingt-dix minutes, et porte un bouton
 « Synchroniser » pour ne pas attendre les dix minutes.
+
+Le passage horaire porte aussi **l'émission des factures et leurs relances**
+(`pnpm factures:envoi`, `src/lib/billing/envoi.ts`). Quand un mois de
+prestation est terminé, la facture se crée chez Airwallex à l'image de la
+précédente, part au client par la boîte Gmail déjà connectée aux Reçus — PDF
+joint, copie cachée systématique — puis se relance à J+31, J+46 et J+61 tant
+qu'elle n'est pas payée. Trois précisions qui comptent :
+
+- **L'interrupteur est l'adresse du destinataire** sur le devis. Sans elle,
+  rien ne part : la facture se fait à la main comme avant.
+- **Cette étape ne tourne jamais sur le déclenchement depuis l'écran**
+  (`portee: finance`) — ouvrir une page ne doit pas envoyer un mail à un
+  client.
+- Elle exige une clé API Airwallex **avec droit d'écriture sur la
+  facturation** — posée le 03/09/2026, et vérifiée par sonde : création,
+  ligne et suppression d'un brouillon aboutissent. Une clé en lecture seule
+  répondrait `401 Insufficient permissions`, et l'erreur s'afficherait sur la
+  ligne concernée.
 
 Ce déclenchement demande un jeton GitHub à portée fine — `GITHUB_SYNC_TOKEN`,
 droit *Actions : read and write* sur ce seul dépôt — posé sur Vercel. Sans

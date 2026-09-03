@@ -12,6 +12,7 @@ import type { UnmatchedInvoice } from "@/lib/billing/queries";
 import {
   LATE_LABEL,
   STAGE_LABELS,
+  type BillingEmailKind,
   type BillingInstallment,
   type InstallmentStage,
 } from "@/lib/billing/types";
@@ -34,7 +35,30 @@ import { formatMoney } from "@/lib/finance/money";
 export type InstallmentLine = BillingInstallment & {
   client: string;
   project: string;
+  /** Ce qui est parti chez le client pour cette mensualité, dans l'ordre. */
+  emails?: { kind: BillingEmailKind; sent_at: string }[];
 };
+
+/**
+ * Ce que le mail dit de cette ligne, en une phrase.
+ *
+ * L'envoi automatique ne se voit nulle part ailleurs : sans cette mention, un
+ * client relancé trois fois et un client jamais contacté auraient exactement
+ * la même ligne à l'écran. `null` quand rien n'est parti — la plupart des
+ * lignes, tant que l'envoi n'est pas réglé sur leur devis.
+ */
+function deliveryNote(line: InstallmentLine): string | null {
+  if (line.last_send_error) return `envoi bloqué — ${line.last_send_error}`;
+
+  const emails = line.emails ?? [];
+  const initial = emails.find((mail) => mail.kind === "invoice");
+  if (!initial) return null;
+
+  const reminders = emails.filter((mail) => mail.kind !== "invoice").length;
+  const sent = `envoyée le ${dayLabel(initial.sent_at.slice(0, 10))}`;
+  if (reminders === 0) return sent;
+  return `${sent} · ${reminders} relance${reminders > 1 ? "s" : ""}`;
+}
 
 /**
  * Une rangée du board : une mensualité de devis, ou une facture Airwallex
@@ -103,6 +127,7 @@ export function InstallmentRow({
   const late = stage === "to_invoice" && isLate(line);
   const overdue = isPaymentOverdue(line);
   const enRetard = late || overdue;
+  const delivery = deliveryNote(line);
 
   return (
     <div
@@ -123,6 +148,16 @@ export function InstallmentRow({
             : ""}
           {line.notes ? ` · ${line.notes}` : ""}
         </p>
+        {delivery ? (
+          <p
+            className={cn(
+              "type-caption truncate",
+              line.last_send_error ? "text-danger-ink" : "text-text-tertiary",
+            )}
+          >
+            {delivery}
+          </p>
+        ) : null}
       </div>
 
       <InstallmentCells
