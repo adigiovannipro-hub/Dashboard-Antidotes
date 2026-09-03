@@ -139,6 +139,34 @@ async function main() {
     }
   }
 
+  /* Les fiches qu'aucun devis n'a réclamées : c'est là que se lisent les
+     écarts de nom — « L'ORIGINEL » chez nous, autre chose chez Airwallex. Sans
+     cette liste, un client non rapproché reste une énigme. */
+  const reclamees = new Set(
+    ((data ?? []) as unknown as { client_name: string; billing_name: string | null }[])
+      .flatMap((devis) => [normalize(devis.client_name), normalize(devis.billing_name ?? "")])
+      .filter(Boolean),
+  );
+
+  const orphelines = customers.filter(
+    (customer) => customer.name && !reclamees.has(normalize(customer.name)),
+  );
+  if (orphelines.length > 0) {
+    console.log("\n— Fiches Airwallex sans devis correspondant —");
+    for (const customer of orphelines) {
+      const adresse = [
+        customer.address?.street,
+        customer.address?.postcode,
+        customer.address?.city,
+      ]
+        .filter(Boolean)
+        .join(" ");
+      console.log(
+        `  ${customer.name} · ${customer.id}${customer.email ? ` · ${customer.email}` : ""}${adresse ? ` · ${adresse}` : ""}${customer.tax_identification_number ? ` · ${customer.tax_identification_number}` : ""}`,
+      );
+    }
+  }
+
   if (!ecrire) console.log("\n— Aperçu seul : relancer avec --ecrire —");
 }
 
