@@ -15,6 +15,12 @@ on:
   push:
     branches:
       - sonde-factures
+  workflow_dispatch:
+    inputs:
+      ecriture:
+        description: "Tenter la chaîne d'émission en brouillon (créé puis supprimé)"
+        type: boolean
+        default: false
 
 concurrency:
   group: sonde-factures
@@ -42,7 +48,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Sonder
-        run: pnpm sonde:factures
+        run: pnpm sonde:factures ${{ inputs.ecriture && '--ecriture' || '' }}
         env:
           AIRWALLEX_CLIENT_ID: ${{ secrets.AIRWALLEX_CLIENT_ID }}
           AIRWALLEX_API_KEY: ${{ secrets.AIRWALLEX_API_KEY }}

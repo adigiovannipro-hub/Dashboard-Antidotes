@@ -191,7 +191,74 @@ async function main() {
     console.log(short(result.body, 600));
   }
 
-  titre("Fin de la sonde — rien n'a été créé");
+  // --- 6. La chaîne complète, en brouillon puis effacée ---------------------
+  // `--ecriture` : à jouer une fois, le jour où la clé API reçoit le droit
+  // d'écrire. Elle crée un brouillon, lui pose une ligne, puis le supprime —
+  // un brouillon n'a ni numéro, ni PDF, ni existence pour le client, et se
+  // supprime pour de bon. Ce qui n'est **pas** joué : `finalize`, seul point
+  // de non-retour de la chaîne.
+  if (process.argv.includes("--ecriture")) {
+    titre("6. La chaîne d'émission, en brouillon (créé puis supprimé)");
+    if (!customerId) {
+      console.log("Aucun client de facturation témoin : rien à tenter.");
+    } else {
+      const stamp = `sonde-${Date.now()}`;
+      const prices = await get(token, "/api/v1/prices?page_size=1");
+      const productId = (prices.body as { items?: { product_id?: string }[] })
+        ?.items?.[0]?.product_id;
+      console.log(`Produit témoin : ${productId ?? "aucun"}`);
+
+      const price = productId
+        ? await post(token, "/api/v1/prices/create", {
+            request_id: `${stamp}-prix`,
+            product_id: productId,
+            currency: "EUR",
+            unit_amount: 1,
+            type: "ONE_OFF",
+            pricing_model: "PER_UNIT",
+            active: true,
+          })
+        : null;
+      if (price) console.log(`POST /api/v1/prices/create → ${price.status}`);
+      const priceId = (price?.body as { id?: string })?.id;
+
+      const draft = await post(token, "/api/v1/invoices/create", {
+        request_id: stamp,
+        billing_customer_id: customerId,
+        currency: "EUR",
+        collection_method: "OUT_OF_BAND",
+        days_until_due: 30,
+      });
+      console.log(`POST /api/v1/invoices/create → ${draft.status}`);
+      console.log(short(draft.body, 600));
+
+      const draftId = (draft.body as { id?: string })?.id;
+      if (draftId && priceId) {
+        const lines = await post(token, `/api/v1/invoices/${draftId}/add_line_items`, {
+          request_id: `${stamp}-lignes`,
+          line_items: [{ price_id: priceId, quantity: 1 }],
+        });
+        console.log(`POST /api/v1/invoices/${draftId}/add_line_items → ${lines.status}`);
+        console.log(short(lines.body, 600));
+      }
+
+      if (draftId) {
+        const removed = await post(token, `/api/v1/invoices/${draftId}/delete`, {});
+        console.log(`POST /api/v1/invoices/${draftId}/delete → ${removed.status}`);
+        if (removed.status !== 200) {
+          console.log(
+            `⚠ Brouillon ${draftId} non supprimé — à retirer à la main dans Airwallex.`,
+          );
+        }
+      }
+    }
+  }
+
+  titre(
+    process.argv.includes("--ecriture")
+      ? "Fin de la sonde — seul un brouillon a été créé, puis supprimé"
+      : "Fin de la sonde — rien n'a été créé",
+  );
 }
 
 main().catch((error) => {
