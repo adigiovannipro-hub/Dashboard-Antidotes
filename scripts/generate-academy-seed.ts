@@ -43,7 +43,7 @@ const COURSES = [
   },
   {
     directory: "academy-ugc",
-    output: "20260903a_academy_ugc_seed.sql",
+    output: "20260903c_academy_ugc_seed.sql",
     orderIndex: 2,
     expectedModules: 14,
     slug: "devenir-libre-grace-a-l-ugc",

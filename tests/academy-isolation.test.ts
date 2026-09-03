@@ -259,7 +259,7 @@ suite("isolation de l'Academy (RLS)", () => {
       .select("id")
       .single();
     if (enrollmentError) {
-      throw new Error(`Migration 20260902g appliquée ? ${enrollmentError.message}`);
+      throw new Error(`Migration 20260903a appliquée ? ${enrollmentError.message}`);
     }
     ids.enrollment = enrollment.id;
 

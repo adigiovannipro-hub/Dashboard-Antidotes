@@ -23,7 +23,7 @@ import { createClient } from "@/lib/supabase/server";
  * Un client d'espace n'est ni l'un ni l'autre : pour lui le module n'existe
  * pas, et les routes répondent 404, jamais 403.
  *
- * La RLS des migrations 0057 et 20260902h applique les mêmes frontières côté
+ * La RLS des migrations 0057 et 20260903b applique les mêmes frontières côté
  * base ; ceci ne fait que les exprimer côté écran.
  */
 

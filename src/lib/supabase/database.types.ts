@@ -809,7 +809,7 @@ export type SocialAccountSecret = {
 
 /* --- Module Academy ---------------------------------------------------------
    Même principe : le détail vit dans `src/lib/academy/types.ts`, aligné sur
-   les migrations 0056, 0057 et 20260902g-h. */
+   les migrations 0056, 0057 et 20260903a-c. */
 export type {
   AcademyCourse as AcademyCourseRow,
   AcademyModule as AcademyModuleRow,
@@ -1122,7 +1122,7 @@ export type Database = {
       // Academy (20260830a)
       academy_video_provider: AcademyVideoProvider;
       academy_progress_status: AcademyProgressStatus;
-      // Academy — inscriptions (20260902g)
+      // Academy — inscriptions (20260903a)
       academy_enrollment_status: AcademyEnrollmentStatus;
     };
     CompositeTypes: Record<never, never>;

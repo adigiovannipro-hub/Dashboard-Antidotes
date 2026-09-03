@@ -18,12 +18,12 @@ Trois profils, et c'est la nouveauté structurante :
 
 Un client d'espace ne voit rien : le module répond 404, pas 403.
 
-## Schéma des tables (migrations 0056-0058, puis 20260902g-h)
+## Schéma des tables (migrations 0056-0058, puis 20260903a-c)
 
 | Table | Rôle | Colonnes notables |
 |---|---|---|
 | `academy_courses` | Une formation. | `slug`, `title`, `description`, `cover_url` (chemin `academy-assets` ou URL http), `order_index`, `published` |
-| `academy_modules` | Les chapitres, ordonnés. | `course_id`, `org_id` dénormalisé, `slug`, `cover_url` (**la miniature d'introduction**, 20260902g), `order_index`, `published` |
+| `academy_modules` | Les chapitres, ordonnés. | `course_id`, `org_id` dénormalisé, `slug`, `cover_url` (**la miniature d'introduction**, 20260903a), `order_index`, `published` |
 | `academy_lessons` | Les leçons. Le script vit **en base**. | `script_mdx`, `duration_min`, `video_provider`, `video_url`, `video_storage_path`, `resources` (jsonb), `published` |
 | `academy_progress` | Une ligne par personne et par leçon. | `status`, `watched_seconds`, `completed_at`, unique `(user_id, lesson_id)` |
 | `academy_notes` | Le bloc-notes personnel. | `content`, unique `(user_id, lesson_id)` |
@@ -38,7 +38,7 @@ client).
 ### RLS
 
 `0057` posait « membre de l'organisation ⇒ lit le publié ».
-`20260902h` réécrit la règle : « membre **ou inscrite à cette formation** ⇒ lit
+`20260903b` réécrit la règle : « membre **ou inscrite à cette formation** ⇒ lit
 le publié **de cette formation** ». La chaîne du publié — leçon **et** module
 **et** cours — ne bouge pas ; l'owner voit tout, brouillons compris.
 
@@ -56,7 +56,7 @@ de chaque règle, dont : l'élève lit sa formation **et pas la voisine**, écri
 
 ### Le raccrochage à la première connexion
 
-`app.handle_new_user()` (réécrite par `20260902g`) gagne une étape : les
+`app.handle_new_user()` (réécrite par `20260903a`) gagne une étape : les
 inscriptions `invited` portant l'adresse du compte qui vient de naître passent
 en `active` et reçoivent son `user_id`. Elle ne pose **aucune** ligne dans
 `organization_members` ni `memberships` — c'est exactement le point : l'élève
@@ -136,7 +136,7 @@ ne doit jamais changer. C'est pourquoi `body` n'est ajouté au jsonb d'une
 ressource que lorsqu'elle en porte un — l'ajouter partout, fût-ce à `null`,
 aurait changé son empreinte et affiché « ⚠ modifiée depuis ».
 
-`20260903a_academy_ugc_seed.sql` porte la formation UGC. Identifiants stables
+`20260903c_academy_ugc_seed.sql` porte la formation UGC. Identifiants stables
 (SHA-256 du chemin), `on conflict do nothing` : rejouer n'écrase jamais une
 retouche faite depuis le back-office.
 
