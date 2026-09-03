@@ -1,0 +1,72 @@
+# L'émission des factures et leurs relances, à la demande.
+#
+# Le passage horaire (`airwallex-sync.yml`) fait le fond. Celui-ci sert à
+# deux choses que le passage horaire ne permet pas :
+#
+#   • **lancer maintenant**, sans attendre l'heure — le jour où on active
+#     l'envoi sur un devis et qu'on veut voir le mail partir ;
+#   • **rejouer à une autre date** (`--le`), pour éprouver la cadence des
+#     relances sans attendre deux mois.
+#
+# Il vit ici et non sur Vercel pour la raison habituelle : Airwallex refuse
+# les adresses IP de l'hébergeur.
+#
+# La branche `lancer-factures` le déclenche aussi par simple poussée : un
+# `workflow_dispatch` n'apparaît dans l'onglet Actions que lorsque le fichier
+# est déjà sur la branche par défaut, ce qui n'est pas le cas tant que le
+# chantier n'est pas fusionné.
+
+name: Factures — émettre et relancer
+
+on:
+  workflow_dispatch:
+    inputs:
+      simulation:
+        description: "Décider sans rien envoyer ni créer"
+        type: boolean
+        default: true
+      le:
+        description: "Jouer le passage à cette date (AAAA-MM-JJ) — vide = aujourd'hui"
+        type: string
+        default: ""
+  push:
+    branches:
+      - lancer-factures
+
+concurrency:
+  group: factures-envoi
+  cancel-in-progress: false
+
+jobs:
+  envoyer:
+    name: Émettre et relancer
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.18.2
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Installation
+        run: pnpm install --frozen-lockfile
+
+      - name: Passage
+        run: pnpm factures:envoi ${{ inputs.simulation && '--simulation' || '' }} ${{ inputs.le && format('--le {0}', inputs.le) || '' }}
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          AIRWALLEX_CLIENT_ID: ${{ secrets.AIRWALLEX_CLIENT_ID }}
+          AIRWALLEX_API_KEY: ${{ secrets.AIRWALLEX_API_KEY }}
+          AIRWALLEX_ENV: production
+          CREDENTIALS_ENCRYPTION_KEY: ${{ secrets.CREDENTIALS_ENCRYPTION_KEY }}
+          GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
+          GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}

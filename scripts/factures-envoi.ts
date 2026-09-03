@@ -45,8 +45,30 @@ const REQUIRED_TO_SEND = [
   "GOOGLE_OAUTH_CLIENT_SECRET",
 ] as const;
 
+/**
+ * La date à laquelle le passage se croit — `--le 2026-10-04`.
+ *
+ * Sans elle, vérifier qu'une relance part à J+31 demanderait d'attendre un
+ * mois. Elle ne fabrique rien : la décision est la même, prise à une autre
+ * date, et le journal empêche toujours qu'un mail parte deux fois. À n'utiliser
+ * que pour éprouver la chaîne — un passage ordinaire n'en a pas besoin.
+ */
+function referenceDate(): Date | undefined {
+  const index = process.argv.indexOf("--le");
+  if (index === -1) return undefined;
+
+  const raw = process.argv[index + 1];
+  const parsed = raw ? new Date(`${raw}T12:00:00.000Z`) : new Date(Number.NaN);
+  if (Number.isNaN(parsed.getTime())) {
+    console.error("--le attend une date au format AAAA-MM-JJ.");
+    process.exit(1);
+  }
+  return parsed;
+}
+
 async function main() {
   const simulation = process.argv.includes("--simulation");
+  const now = referenceDate();
 
   const required = simulation
     ? REQUIRED_ALWAYS
@@ -87,6 +109,7 @@ async function main() {
   }
 
   if (simulation) console.log("— Simulation : rien ne partira —");
+  if (now) console.log(`— Passage joué au ${now.toISOString().slice(0, 10)} —`);
 
   /* Le journal du module Finance porte aussi cette étape : l'écran des
      Factures lit le même bandeau de fraîcheur, et un passage muet doit se
@@ -121,7 +144,7 @@ async function main() {
   };
 
   try {
-    const report = await runInvoiceDispatch({ orgId, simulation });
+    const report = await runInvoiceDispatch({ orgId, simulation, now });
 
     for (const outcome of report.outcomes) {
       if (outcome.kind === "sent") {
