@@ -25,6 +25,12 @@ function argValue(name: string): string | null {
   return index === -1 ? null : (process.argv[index + 1] ?? null);
 }
 
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
 function short(value: unknown, max = 900): string {
   const text = typeof value === "string" ? value : JSON.stringify(value);
   return (text ?? "").slice(0, max);
@@ -171,11 +177,101 @@ async function main() {
   // --- D. Les vues de page ------------------------------------------------
   console.log("");
   console.log("D. Vues de la page (organic / jobs)");
+  //
+  // Le grain compte autant que le chiffre : si la page rend le JOUR, les vues
+  // se rangent dans `social_page_daily` comme le reste et se somment sur
+  // n'importe quelle plage. Si elle ne rend que le MOIS, il faudra une
+  // exception, et mieux vaut le savoir avant d'écrire la migration.
+  for (const grain of ["DAY", "MONTH"] as const) {
+    try {
+      const pages = await appel(
+        `/rest/organizationPageStatistics?q=organization&organization=${entity}&timeIntervals=${intervalle(grain)}`,
+      );
+      const elements = pages.elements ?? [];
+      console.log(`  ${grain} : ${elements.length} élément(s)`);
+      for (const element of elements.slice(0, 3)) {
+        const range = asRecord(element.timeRange);
+        const views = asRecord(asRecord(element.totalPageStatistics)?.views);
+        const compte = (clef: string) => {
+          const bloc = asRecord(views?.[clef]);
+          return `${bloc?.pageViews ?? "—"}/${bloc?.uniquePageViews ?? "—"}`;
+        };
+        const debutRange = range?.start;
+        const jour =
+          typeof debutRange === "number"
+            ? new Date(debutRange).toISOString().slice(0, 10)
+            : "(sans intervalle)";
+        console.log(
+          `    ${jour} → toutes ${compte("allPageViews")}, accueil ${compte("overviewPageViews")}, emplois ${compte("jobsPageViews")}, carrières ${compte("careersPageViews")}`,
+        );
+      }
+      if (elements.length === 0) console.log(`    ${short(pages, 400)}`);
+    } catch (error) {
+      console.log(`  ${grain} : échec ${short(error instanceof Error ? error.message : error, 300)}`);
+    }
+  }
+
+  // --- E. Les autres pages du compte, sur le même mois --------------------
+  //
+  // Le rapport du client peut tout simplement porter sur une AUTRE page :
+  // le compte connecté en administre six. Une seule des six rendra les
+  // chiffres du Looker — et si aucune ne les rend, c'est que la grandeur
+  // affichée là-bas n'est pas celle-ci.
+  console.log("");
+  console.log("E. Toutes les pages administrées, sur le même mois");
   try {
-    const pages = await appel(
-      `/rest/organizationPageStatistics?q=organization&organization=${entity}&timeIntervals=${intervalle("MONTH")}`,
+    const acls = await appel(
+      "/v2/organizationAcls?q=roleAssignee&role=ADMINISTRATOR&state=APPROVED&count=50",
+      null,
     );
-    console.log(`  ${short(pages, 1200)}`);
+    const ids = new Set<string>();
+    for (const element of acls.elements ?? []) {
+      const urn = element.organization ?? element.organizationalTarget;
+      const match = typeof urn === "string" ? /(\d+)$/.exec(urn) : null;
+      if (match) ids.add(match[1]);
+    }
+    if (ids.size === 0) console.log(`  aucune ACL lisible : ${short(acls, 400)}`);
+    for (const id of ids) {
+      const cible = `urn%3Ali%3Aorganization%3A${id}`;
+      let nom = id;
+      try {
+        const fiche = await appel(`/v2/organizations/${id}`, null);
+        const localized = (fiche as Record<string, unknown>).localizedName;
+        if (typeof localized === "string" && localized) nom = `${localized} (${id})`;
+      } catch {
+        /* le nom n'est pas l'objet de la sonde */
+      }
+      try {
+        const stats = await appel(
+          `/v2/organizationalEntityShareStatistics?q=organizationalEntity&organizationalEntity=${cible}&timeIntervals=${intervalle("MONTH")}&count=50`,
+          null,
+        );
+        const premier = (stats.elements ?? [])[0];
+        ligne(nom, premier?.totalShareStatistics as Stats);
+      } catch (error) {
+        console.log(`  ${nom} : échec ${short(error instanceof Error ? error.message : error, 200)}`);
+      }
+    }
+  } catch (error) {
+    console.log(`  échec : ${short(error instanceof Error ? error.message : error, 400)}`);
+  }
+
+  // --- F. Le même mois, un an plus tôt ------------------------------------
+  //
+  // Un rapport ouvert sur « 1 - 31 août » peut viser l'année précédente.
+  console.log("");
+  console.log("F. Le même mois de l'année précédente");
+  try {
+    const annee = Number(mois.slice(0, 4)) - 1;
+    const debutPrecedent = Date.UTC(annee, Number(mois.slice(5, 7)) - 1, 1);
+    const finPrecedent = Date.UTC(annee, Number(mois.slice(5, 7)), 1);
+    const stats = await appel(
+      `/v2/organizationalEntityShareStatistics?q=organizationalEntity&organizationalEntity=${entity}&timeIntervals=(timeRange:(start:${debutPrecedent},end:${finPrecedent}),timeGranularityType:MONTH)&count=50`,
+      null,
+    );
+    for (const element of stats.elements ?? []) {
+      ligne(`${annee}-${mois.slice(5, 7)}`, element.totalShareStatistics as Stats);
+    }
   } catch (error) {
     console.log(`  échec : ${short(error instanceof Error ? error.message : error, 400)}`);
   }

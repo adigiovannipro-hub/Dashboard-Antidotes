@@ -37,6 +37,14 @@ export interface RawMetrics {
   videoViews: number;
   /** Lectures jusqu'au bout — `video_p100_watched_actions`, payant seulement. */
   videoCompletions: number;
+  /**
+   * Vues de la page elle-même — LinkedIn seulement (accueil, à propos,
+   * carrières…). Ce n'est pas une vue de contenu : c'est du monde venu
+   * frapper à la porte.
+   */
+  pageViews: number;
+  /** Vues de l'onglet Emplois de la page. Sous-ensemble de `pageViews`. */
+  jobsPageViews: number;
 }
 
 export const EMPTY_RAW_METRICS: Readonly<RawMetrics> = Object.freeze({
@@ -56,6 +64,8 @@ export const EMPTY_RAW_METRICS: Readonly<RawMetrics> = Object.freeze({
   likes: 0,
   videoViews: 0,
   videoCompletions: 0,
+  pageViews: 0,
+  jobsPageViews: 0,
 });
 
 export const RAW_METRIC_KEYS = Object.keys(EMPTY_RAW_METRICS) as (keyof RawMetrics)[];
@@ -120,4 +130,8 @@ export type MetricId =
   | "videoViews"
   | "videoCompletions"
   | "interactions"
-  | "engagementRate";
+  | "engagementRate"
+  | "engagements"
+  | "engagementRateWithClicks"
+  | "pageViews"
+  | "jobsPageViews";

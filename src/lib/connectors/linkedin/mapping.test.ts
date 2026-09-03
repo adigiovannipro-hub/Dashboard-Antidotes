@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import {
   dailyFromShareStats,
   decodeCommentary,
+  mediaThumbnails,
+  pageViewsFromStatistics,
   followerGains,
   followersFromNetworkSize,
   followersHistory,
@@ -259,6 +261,41 @@ describe("postsFromRest", () => {
     );
   });
 
+  it("extrait l'URN du média, sans quoi il n'y a pas de vignette à résoudre", () => {
+    const posts = postsFromRest(payload);
+    expect(posts[0]?.mediaUrn).toBe("urn:li:document:D4E1FAQ");
+    expect(posts[1]?.mediaUrn).toBe("urn:li:video:C4E10AQ");
+  });
+
+  it("prend la première image d'un carrousel comme couverture", () => {
+    const posts = postsFromRest({
+      elements: [
+        {
+          lifecycleState: "PUBLISHED",
+          publishedAt: 1788000000000,
+          id: "urn:li:ugcPost:carrousel",
+          content: {
+            multiImage: {
+              images: [{ id: "urn:li:image:une" }, { id: "urn:li:image:deux" }],
+            },
+          },
+        },
+      ],
+    });
+    expect(posts[0]?.mediaUrn).toBe("urn:li:image:une");
+    expect(posts[0]?.mediaKind).toBe("carousel");
+  });
+
+  it("laisse l'URN nul sur une publication sans média", () => {
+    expect(
+      postsFromRest({
+        elements: [
+          { lifecycleState: "PUBLISHED", publishedAt: 1788000000000, id: "urn:li:share:1" },
+        ],
+      })[0]?.mediaUrn,
+    ).toBeNull();
+  });
+
   it("déduit le type de média du contenu, faute que LinkedIn le nomme", () => {
     const posts = postsFromRest(payload);
     expect(posts[0]?.mediaKind).toBe("image");
@@ -275,6 +312,99 @@ describe("postsFromRest", () => {
         ],
       })[0]?.mediaKind,
     ).toBe("carousel");
+  });
+});
+
+describe("pageViewsFromStatistics", () => {
+  /* Charge utile réduite de la réponse réelle du 2 septembre 2026 sur ANMF,
+     grain jour. Les blocs inutilisés sont conservés : c'est leur présence
+     qui rend le test représentatif. */
+  const payload = {
+    paging: { start: 0, count: 10 },
+    elements: [
+      {
+        timeRange: { start: Date.UTC(2026, 7, 1), end: Date.UTC(2026, 7, 2) },
+        organization: "urn:li:organization:1988476",
+        totalPageStatistics: {
+          clicks: { mobileCustomButtonClickCounts: [{ clicks: 0 }] },
+          views: {
+            allPageViews: { pageViews: 8, uniquePageViews: 3 },
+            overviewPageViews: { pageViews: 3, uniquePageViews: 2 },
+            jobsPageViews: { pageViews: 4, uniquePageViews: 2 },
+            productsPageViews: { pageViews: 0 },
+          },
+        },
+      },
+      {
+        timeRange: { start: Date.UTC(2026, 7, 2), end: Date.UTC(2026, 7, 3) },
+        totalPageStatistics: {
+          views: { allPageViews: { pageViews: 1, uniquePageViews: 1 } },
+        },
+      },
+    ],
+  };
+
+  it("date chaque relevé du jour que son intervalle ouvre", () => {
+    expect(pageViewsFromStatistics(payload).map((jour) => jour.date)).toEqual([
+      "2026-08-01",
+      "2026-08-02",
+    ]);
+  });
+
+  it("sépare les vues de la page et celles des offres d'emploi", () => {
+    const [premier] = pageViewsFromStatistics(payload);
+    expect(premier).toEqual({
+      date: "2026-08-01",
+      pageViews: 8,
+      uniquePageViews: 3,
+      jobsPageViews: 4,
+    });
+  });
+
+  it("rend zéro plutôt qu'une absence quand un bloc manque", () => {
+    const [, second] = pageViewsFromStatistics(payload);
+    expect(second?.jobsPageViews).toBe(0);
+  });
+
+  it("ignore un élément sans intervalle plutôt que de le dater d'aujourd'hui", () => {
+    expect(pageViewsFromStatistics({ elements: [{ totalPageStatistics: {} }] })).toEqual([]);
+  });
+});
+
+describe("mediaThumbnails", () => {
+  it("prend la vignette d'une vidéo, pas le fichier mp4", () => {
+    const payload = {
+      results: {
+        "urn:li:video:D4E05AQHxilMyExCZSA": {
+          thumbnail: "https://media.licdn.com/dms/image/videocover-high",
+          downloadUrl: "https://dms.licdn.com/playlist/vid/mp4-720p",
+          status: "AVAILABLE",
+        },
+      },
+    };
+    expect(mediaThumbnails(payload).get("urn:li:video:D4E05AQHxilMyExCZSA")).toBe(
+      "https://media.licdn.com/dms/image/videocover-high",
+    );
+  });
+
+  it("prend le téléchargement d'une image, qui est l'image", () => {
+    const payload = {
+      results: {
+        "urn:li:image:D4E22AQ": { downloadUrl: "https://media.licdn.com/image.jpg" },
+      },
+    };
+    expect(mediaThumbnails(payload).get("urn:li:image:D4E22AQ")).toBe(
+      "https://media.licdn.com/image.jpg",
+    );
+  });
+
+  it("ne rend rien pour un document : son téléchargement est un PDF", () => {
+    const payload = {
+      results: {
+        "urn:li:document:D4E1FAQ": { downloadUrl: "https://media.licdn.com/doc.pdf" },
+      },
+    };
+    expect(mediaThumbnails(payload).size).toBe(0);
   });
 });
 

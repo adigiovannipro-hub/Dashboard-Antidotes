@@ -10,6 +10,7 @@ import type {
   LinkedinDay,
   LinkedinFollowerGain,
   LinkedinPage,
+  LinkedinPageViews,
   LinkedinPost,
   LinkedinShareStats,
 } from "./types";
@@ -150,6 +151,59 @@ export function dailyFromShareStats(payload: unknown): LinkedinDay[] {
   });
 }
 
+/**
+ * Les visites de la page, un élément par jour.
+ *
+ * Sondé sur pièce (ANMF, août 2026) : trente et un éléments au grain jour,
+ * 316 vues et 128 uniques au total du mois dont 42 sur l'onglet Emplois.
+ * Le `timeRange` date l'élément, comme pour les statistiques de contenu —
+ * ce sont des mesures d'intervalle et non des instantanés : aucune veille à
+ * appliquer, le jour mesuré est celui qui commence l'intervalle.
+ */
+export function pageViewsFromStatistics(payload: unknown): LinkedinPageViews[] {
+  return elements(payload).flatMap((element) => {
+    const start = asRecord(element.timeRange)?.start;
+    if (typeof start !== "number") return [];
+    const views = asRecord(asRecord(element.totalPageStatistics)?.views);
+    const bloc = (key: string) => asRecord(views?.[key]);
+    const all = bloc("allPageViews");
+    const jobs = bloc("jobsPageViews");
+    return [
+      {
+        date: utcDay(start),
+        pageViews: count(all?.pageViews),
+        uniquePageViews: count(all?.uniquePageViews),
+        jobsPageViews: count(jobs?.pageViews),
+      },
+    ];
+  });
+}
+
+/**
+ * Les vignettes d'un lot de médias.
+ *
+ * Trois familles, trois réponses différentes, toutes sondées : une **vidéo**
+ * porte un champ `thumbnail` (une image) à côté de son `downloadUrl` (le
+ * mp4) — c'est la vignette qu'on veut, pas la vidéo ; une **image** n'a que
+ * son `downloadUrl`, qui est l'image ; un **document** n'a qu'un PDF, dont
+ * on ne peut rien tirer sans le rendre, donc rien.
+ *
+ * Ces URL **périment** (`downloadUrlExpiresAt`, une semaine environ) : elles
+ * se réécrivent à chaque passage, ce que la fenêtre glissante du connecteur
+ * fait naturellement.
+ */
+export function mediaThumbnails(payload: unknown): Map<string, string> {
+  const byUrn = new Map<string, string>();
+  const results = asRecord(asRecord(payload)?.results);
+  for (const [urn, value] of Object.entries(results ?? {})) {
+    const media = asRecord(value);
+    if (!media) continue;
+    const url = text(media.thumbnail) ?? (urn.startsWith("urn:li:document:") ? null : text(media.downloadUrl));
+    if (url) byUrn.set(urn, url);
+  }
+  return byUrn;
+}
+
 /** Les statistiques par publication, indexées par URN. */
 export function statsByPost(payload: unknown): Map<string, LinkedinShareStats> {
   const byUrn = new Map<string, LinkedinShareStats>();
@@ -191,6 +245,22 @@ export function followerGains(payload: unknown): LinkedinFollowerGain[] {
  * document et article compris, qui se lisent comme une image dans un
  * tableau de performance.
  */
+function mediaUrnOf(content: Record<string, unknown> | null): string | null {
+  if (!content) return null;
+  const media = asRecord(content.media);
+  const single = text(media?.id);
+  if (single) return single;
+  /* Un carrousel porte ses images dans `multiImage.images[]` : on prend la
+     première, celle qui sert de couverture dans le fil comme chez nous. */
+  const multi = asRecord(content.multiImage);
+  const images = Array.isArray(multi?.images) ? multi.images : [];
+  for (const image of images) {
+    const id = text(asRecord(image)?.id);
+    if (id) return id;
+  }
+  return null;
+}
+
 function mediaKindOf(content: Record<string, unknown> | null): LinkedinPost["mediaKind"] {
   if (!content) return "image";
   if (Array.isArray(content.multiImage) || asRecord(content.multiImage)) return "carousel";
@@ -220,6 +290,7 @@ export function postsFromRest(payload: unknown): LinkedinPost[] {
         publishedAt: new Date(publishedAt).toISOString(),
         commentary: decodeCommentary(text(element.commentary)),
         mediaKind: mediaKindOf(asRecord(element.content)),
+        mediaUrn: mediaUrnOf(asRecord(element.content)),
       },
     ];
   });

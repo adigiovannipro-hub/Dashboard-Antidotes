@@ -32,6 +32,10 @@ export function metricsRowToRaw(row: AdMetricsDaily): RawMetrics {
     landingPageViews: Number(row.landing_page_views),
     addToCart: Number(row.add_to_cart),
     initiatedCheckout: Number(row.initiated_checkout),
+    /* Le payant n'a pas de page à visiter : ces deux grandeurs viennent de
+       `social_page_daily`, jamais d'une ligne d'ad set. */
+    pageViews: 0,
+    jobsPageViews: 0,
     comments: Number(row.comments),
     saves: Number(row.saves),
     shares: Number(row.shares),

@@ -82,6 +82,10 @@ on:
         description: "… depuis cette date (AAAA-MM-JJ), pour un rattrapage"
         type: string
         default: ""
+      diagnostic_tiktok:
+        description: "Ce que Composio voit de TikTok (« oui » pour lancer)"
+        type: string
+        default: ""
       sonde_linkedin_rest:
         description: "Sonder l'API REST LinkedIn en direct (identifiant d'organisation)"
         type: string
@@ -211,6 +215,17 @@ jobs:
           # le script meurt à l'import, avant la moindre ligne utile.
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          COMPOSIO_API_KEY: ${{ secrets.COMPOSIO_API_KEY }}
+
+      # TikTok, avant d'écrire la moindre ligne de connecteur : quelle
+      # configuration d'authentification existe, quel compte est branché dans
+      # CE projet, ce que rendent les deux outils emballés, et jusqu'où porte
+      # le passage brut — la Display API et la Business API ne sont pas sur
+      # le même hôte, et c'est ce qui décide de la forme du connecteur.
+      - name: Diagnostic TikTok
+        if: ${{ inputs.diagnostic_tiktok != '' }}
+        run: pnpm diagnostic:tiktok
+        env:
           COMPOSIO_API_KEY: ${{ secrets.COMPOSIO_API_KEY }}
 
       # L'API REST de LinkedIn en direct, par le passage brut de Composio :
