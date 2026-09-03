@@ -36,6 +36,10 @@ const COURSES = [
     output: "0058_academy_seed.sql",
     orderIndex: 1,
     expectedModules: 13,
+    /* Ses identifiants sont dérivés sans le slug du cours — c'était la seule
+       formation quand `0058` a été écrite, et cette migration est appliquée :
+       elle doit se régénérer à l'octet près. Voir `COLLISIONS_FIGEES`. */
+    legacyIdKeys: true,
     slug: "devenir-freelance-social-media-manager",
     title: "Antidotes Academy — Devenir freelance social media manager",
     description:
@@ -46,6 +50,11 @@ const COURSES = [
     output: "20260903c_academy_ugc_seed.sql",
     orderIndex: 2,
     expectedModules: 14,
+    /* Même contrainte : `20260903c` est appliquée. Le module « Gérer son
+       activité » y est perdu par collision de slug avec la formation
+       précédente ; `20260903d` le répare avec un identifiant nommé par
+       formation, et ce fichier-ci ne doit plus bouger. */
+    legacyIdKeys: true,
     slug: "devenir-libre-grace-a-l-ugc",
     title: "Devenir libre grâce à l'UGC",
     description:
@@ -61,6 +70,58 @@ const RESOURCE_KINDS = new Set([
   "document",
 ]);
 const FORBIDDEN = [/lorem/i, /\bTODO\b/i, /placeholder/i, /à compléter/i, /\bXXX\b/];
+
+/**
+ * Les collisions déjà figées par une migration appliquée.
+ *
+ * `gerer-son-activite` et sa leçon `organiser-sa-semaine` existent dans les
+ * deux formations. Les clés historiques ne portant pas le cours, elles tombent
+ * sur le même SHA-256 — ce qui a fait perdre en silence le quatorzième module
+ * de l'UGC au premier passage. `20260903d` répare la base ; ces deux clés
+ * restent en double dans les fichiers générés, qu'on ne peut plus toucher.
+ *
+ * Toute **nouvelle** collision fait échouer la génération : une formation
+ * ajoutée après celles-ci porte son slug dans la clé, et ne peut donc plus
+ * collisionner avec une autre — mais elle le peut avec elle-même si deux
+ * modules partagent un slug, et c'est ce que la garde attrape.
+ */
+const COLLISIONS_FIGEES = new Set([
+  "academy:module:gerer-son-activite",
+  "academy:lesson:gerer-son-activite/organiser-sa-semaine",
+]);
+
+/** Les clés déjà consommées : deux fois la même est une collision. */
+const clesVues = new Set<string>();
+
+/**
+ * La clé d'un objet du seed.
+ *
+ * Une formation ajoutée après septembre 2026 porte **son slug dans la clé** :
+ * sans ça, deux formations qui partagent un slug de module se volent leurs
+ * lignes, et `on conflict do nothing` le fait sans un mot.
+ */
+function idKey(course: CourseSpec, kind: string, path: string): string {
+  return course.legacyIdKeys
+    ? `academy:${kind}:${path}`
+    : `academy:${kind}:${course.slug}/${path}`;
+}
+
+/**
+ * `stableId`, plus le refus d'une clé déjà consommée.
+ *
+ * Le contrôle porte sur la **clé** et non sur l'UUID : une collision naît
+ * toujours de deux objets qui produisent la même clé — deux modules de
+ * formations différentes portant le même slug, par exemple. Comparer les UUID
+ * reviendrait au même, avec un message moins clair.
+ */
+function uniqueId(key: string): string {
+  check(
+    !clesVues.has(key) || COLLISIONS_FIGEES.has(key),
+    `collision d'identifiant : la clé « ${key} » est produite deux fois, et \`on conflict do nothing\` jetterait le second objet en silence. Renomme un slug — les identifiants d'une formation historique ne portent pas le cours.`,
+  );
+  clesVues.add(key);
+  return stableId(key);
+}
 
 /** UUID stable dérivé d'une clé : régénérer ne change aucun identifiant. */
 function stableId(key: string): string {
@@ -145,7 +206,7 @@ async function generate(course: CourseSpec) {
   );
 
   const statements: string[] = [];
-  const courseId = stableId(`academy:course:${COURSE.slug}`);
+  const courseId = uniqueId(`academy:course:${COURSE.slug}`);
 
   statements.push(
     `insert into academy_courses (id, org_id, slug, title, description, order_index, published)
@@ -182,7 +243,7 @@ on conflict (id) do nothing;`,
       `${directory} : aucune leçon.`,
     );
 
-    const moduleId = stableId(`academy:module:${parsed.slug}`);
+    const moduleId = uniqueId(idKey(COURSE, "module", parsed.slug));
     statements.push(
       `insert into academy_modules (id, course_id, org_id, slug, title, description, order_index, published)
 select '${moduleId}'::uuid, c.id, c.org_id, '${parsed.slug}', ${quote(parsed.title)}, ${quote(parsed.description)}, ${parsed.position}, true
@@ -260,7 +321,7 @@ on conflict (id) do nothing;`,
         ...(resource.body ? { body: resource.body } : {}),
       }));
 
-      const lessonId = stableId(`academy:lesson:${parsed.slug}/${lesson.slug}`);
+      const lessonId = uniqueId(idKey(COURSE, "lesson", `${parsed.slug}/${lesson.slug}`));
       statements.push(
         `insert into academy_lessons (id, module_id, course_id, org_id, slug, title, summary, script_mdx, duration_min, video_provider, resources, order_index, published)
 select '${lessonId}'::uuid, m.id, m.course_id, m.org_id, '${lesson.slug}', ${quote(lesson.title)}, ${quote(lesson.summary)}, ${quote(script.trim())}, ${lesson.duration_min}, 'none'::academy_video_provider, ${quote(JSON.stringify(normalizedResources))}::jsonb, ${lesson.position}, true

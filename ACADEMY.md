@@ -142,7 +142,27 @@ retouche faite depuis le back-office.
 
 Le générateur refuse tout écart : module manquant, JSON invalide, script hors
 gabarit (600-2000 mots), reste de placeholder, ressource sans titre, URL
-malformée, **document de moins de 200 caractères**.
+malformée, **document de moins de 200 caractères**, et **toute clé
+d'identifiant produite deux fois**.
+
+### La collision qui a coûté un module
+
+Les identifiants du seed sont un SHA-256 de `academy:module:<slug>` et
+`academy:lesson:<module>/<leçon>` — **sans le cours**. Une seule formation, une
+clé unique. À la seconde, `gerer-son-activite` existait des deux côtés : le
+module de l'UGC est tombé sur l'identifiant de celui du SMM, `on conflict (id)
+do nothing` l'a jeté **sans un mot**, et quatre de ses cinq leçons se sont
+accrochées à la mauvaise formation. Constaté en production après le merge, sur
+un simple décompte : 26 modules au lieu de 27.
+
+`20260903d_academy_ugc_gestion.sql` répare — suppressions bornées à la
+formation SMM et aux quatre identifiants connus, réinsertion du module et de
+ses cinq leçons sous des clés **nommées par formation**.
+
+Deux gardes en sortent : toute formation ajoutée après celles-ci porte son slug
+dans la clé (`legacyIdKeys: false`, le défaut), et le générateur **échoue** dès
+qu'une clé est produite deux fois. Les deux collisions déjà figées par une
+migration appliquée sont listées dans `COLLISIONS_FIGEES`, avec leur raison.
 
 ## Le markdown des scripts
 

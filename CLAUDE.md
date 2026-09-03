@@ -426,6 +426,19 @@ Le dépôt embarque des skills dans `.claude/skills/`, certains en lien symboliq
 
 **À vérifier, non tranché :** le cron des Reçus déclare `maxDuration = 300`, alors que le plan Hobby plafonne les fonctions bien plus bas. Rien ne l'a encore prouvé en conditions réelles — au premier vrai passage, regarder si la fonction est coupée en cours de route.
 
+**Un identifiant stable qui ne porte pas son parent collisionne au premier
+voisin.** Le seed de l'Academy dérive ses UUID d'un SHA-256 de
+`academy:module:<slug>` — sans le cours. Une seule formation : clé unique. À la
+seconde, `gerer-son-activite` existait des deux côtés, le module de l'UGC est
+tombé sur l'identifiant de celui du SMM, et `on conflict (id) do nothing` l'a
+**jeté en silence** ; quatre de ses leçons se sont accrochées à la mauvaise
+formation. Rien ne l'a signalé — ni la génération, ni la migration, ni le
+déploiement. Ce qui l'a attrapé est un **décompte après coup** : 26 modules là
+où on en attendait 27. Corollaire : après un seed, compter les lignes plutôt
+que lire « ✓ appliquée ». `20260903d` répare, le générateur refuse désormais
+toute clé produite deux fois, et une formation ajoutée après septembre 2026
+porte son slug dans la clé.
+
 **Régénérer un seed déjà appliqué doit produire les mêmes octets.** Le
 générateur de l'Academy sert deux formations ; ajouter un champ au jsonb des
 ressources — même à `null` — aurait changé l'empreinte de `0058`, appliquée
