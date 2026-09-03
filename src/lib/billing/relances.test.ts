@@ -54,6 +54,15 @@ describe("decideEnvoi", () => {
     ).toEqual({ action: "envoyer", kind: "invoice" });
   });
 
+  it("ne crée rien pour une mensualité déjà facturée hors du dispositif", () => {
+    // Les mensualités reprises du board Monday portent « issued » sans aucune
+    // facture Airwallex rattachée. En créer une serait facturer deux fois la
+    // même prestation — le défaut que la première simulation a révélé.
+    expect(
+      decideEnvoi(contexte({ status: "issued", airwallex_invoice_id: null })),
+    ).toEqual({ action: "rien", reason: "facturee_hors_dispositif" });
+  });
+
   it("ne touche pas à un mois de prestation encore en cours", () => {
     expect(decideEnvoi(contexte({ issue_on: "2026-11-01" }))).toEqual({
       action: "rien",

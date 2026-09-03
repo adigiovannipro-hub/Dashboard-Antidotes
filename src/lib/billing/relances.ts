@@ -39,6 +39,7 @@ export type EnvoiRefusal =
   | "deja_payee"
   | "pas_encore_echue"
   | "sans_destinataire"
+  | "facturee_hors_dispositif"
   | "envoyee_relance_a_venir"
   | "relances_epuisees"
   | "pas_encore_l_heure";
@@ -48,6 +49,8 @@ export const REFUSAL_LABELS: Record<EnvoiRefusal, string> = {
   deja_payee: "Facture réglée : plus aucune relance.",
   pas_encore_echue: "Le mois de prestation n'est pas terminé.",
   sans_destinataire: "Aucune adresse de destinataire sur le devis.",
+  facturee_hors_dispositif:
+    "Facturée avant la mise en service de l'envoi automatique : rien ne part.",
   envoyee_relance_a_venir: "La facture est partie, la première relance viendra.",
   relances_epuisees: "Trois relances envoyées : la suite se règle à la main.",
   pas_encore_l_heure: "La prochaine relance n'est pas encore due.",
@@ -58,8 +61,8 @@ export const REFUSAL_LABELS: Record<EnvoiRefusal, string> = {
  *
  * `emettre` et `envoyer` diffèrent par un point qui compte : la première crée
  * la facture chez Airwallex avant de l'envoyer, la seconde se contente
- * d'envoyer une facture qui existe déjà — celle qu'on a créée à la main, ou
- * celle d'un passage précédent qui avait planté après la création.
+ * d'envoyer une facture que ce dispositif a déjà créée — le cas du passage
+ * précédent qui a planté entre la création et l'envoi.
  */
 export type EnvoiDecision =
   | { action: "emettre"; kind: "invoice" }
@@ -74,7 +77,14 @@ export type EnvoiContext = {
   status: "pending" | "issued" | "paid" | "skipped";
   /** Le jour où la facture doit partir — le 1er du mois suivant. */
   issue_on: string;
-  /** La facture Airwallex déjà créée pour cette mensualité, si elle existe. */
+  /**
+   * La facture créée **par ce dispositif** pour cette mensualité.
+   *
+   * Volontairement pas celle qu'un rapprochement aurait reliée : une facture
+   * émise à la main a déjà été envoyée à la main, et la réexpédier le jour où
+   * l'automatisme s'active serait un doublon chez le client. Ce que le
+   * dispositif n'a pas émis, il ne l'envoie pas et ne le relance pas.
+   */
   airwallex_invoice_id: string | null;
   /** L'adresse du client. Absente : l'automatisme ne s'applique pas. */
   recipient_email: string | null;
@@ -124,12 +134,25 @@ export function decideEnvoi(context: EnvoiContext): EnvoiDecision {
   const sentByKind = new Map(context.sent.map((mail) => [mail.kind, mail]));
   const initial = sentByKind.get("invoice");
 
-  /* Rien n'est encore parti : la facture doit être créée si elle n'existe pas,
-     puis envoyée. Les deux cas partagent la suite du chemin. */
+  /* Rien n'est encore parti. Trois situations, et la troisième est celle qui
+     coûte cher si on se trompe :
+
+       • ce dispositif a déjà créé la facture, et s'est arrêté avant de
+         l'envoyer : on l'envoie, sans en créer une deuxième ;
+       • la mensualité est encore à émettre : on la crée ;
+       • elle est **déjà facturée, mais pas par nous**. On ne touche à rien :
+         elle a été émise à la main, donc envoyée à la main, et la réexpédier
+         le jour où l'automatisme s'active ferait un doublon chez le client.
+         Le cas est massif, pas théorique : toutes les mensualités reprises du
+         board Monday sont dans cet état. */
   if (!initial) {
-    return context.airwallex_invoice_id
-      ? { action: "envoyer", kind: "invoice" }
-      : { action: "emettre", kind: "invoice" };
+    if (context.airwallex_invoice_id) {
+      return { action: "envoyer", kind: "invoice" };
+    }
+    if (context.status === "issued") {
+      return { action: "rien", reason: "facturee_hors_dispositif" };
+    }
+    return { action: "emettre", kind: "invoice" };
   }
 
   const elapsed = daysSince(initial.sent_at, context.now);
