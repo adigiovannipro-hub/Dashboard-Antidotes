@@ -27,10 +27,17 @@ import dotenv from "dotenv";
 
 dotenv.config({ path: ".env.local", quiet: true });
 
-const REQUIRED = [
+/* La base seule : c'est tout ce qu'une simulation lit, puisqu'elle décide sans
+   appeler personne. Elle doit pouvoir tourner depuis une machine qui n'a pas
+   les clés — la mienne, par exemple. */
+const REQUIRED_ALWAYS = [
   "NEXT_PUBLIC_SUPABASE_URL",
   "NEXT_PUBLIC_SUPABASE_ANON_KEY",
   "SUPABASE_SERVICE_ROLE_KEY",
+] as const;
+
+/** Ce qu'exige un passage qui crée des factures et envoie des mails. */
+const REQUIRED_TO_SEND = [
   "AIRWALLEX_CLIENT_ID",
   "AIRWALLEX_API_KEY",
   "CREDENTIALS_ENCRYPTION_KEY",
@@ -41,13 +48,16 @@ const REQUIRED = [
 async function main() {
   const simulation = process.argv.includes("--simulation");
 
-  const missing = REQUIRED.filter((key) => !process.env[key]?.trim());
+  const required = simulation
+    ? REQUIRED_ALWAYS
+    : [...REQUIRED_ALWAYS, ...REQUIRED_TO_SEND];
+  const missing = required.filter((key) => !process.env[key]?.trim());
   if (missing.length > 0) {
     console.error(`Variables absentes : ${missing.join(", ")}.`);
     process.exit(1);
   }
 
-  if (process.env.AIRWALLEX_ENV !== "production") {
+  if (!simulation && process.env.AIRWALLEX_ENV !== "production") {
     console.warn(
       "⚠ AIRWALLEX_ENV n'est pas « production » : le passage vise le bac à sable.",
     );

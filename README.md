@@ -250,8 +250,10 @@ qu'elle n'est pas payée. Trois précisions qui comptent :
   (`portee: finance`) — ouvrir une page ne doit pas envoyer un mail à un
   client.
 - Elle exige une clé API Airwallex **avec droit d'écriture sur la
-  facturation**. Une clé en lecture seule répond `401 Insufficient
-  permissions` sur la création, et l'erreur s'affiche sur la ligne concernée.
+  facturation** — posée le 03/09/2026, et vérifiée par sonde : création,
+  ligne et suppression d'un brouillon aboutissent. Une clé en lecture seule
+  répondrait `401 Insufficient permissions`, et l'erreur s'afficherait sur la
+  ligne concernée.
 
 Ce déclenchement demande un jeton GitHub à portée fine — `GITHUB_SYNC_TOKEN`,
 droit *Actions : read and write* sur ce seul dépôt — posé sur Vercel. Sans
