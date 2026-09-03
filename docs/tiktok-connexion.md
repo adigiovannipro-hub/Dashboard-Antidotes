@@ -42,13 +42,18 @@ Google : il faut une app à soi.
 
 1. <https://developers.tiktok.com> → **Manage apps** → créer une app.
 2. Renseigner les deux URL que TikTok exige, et qui sont **servies par
-   l'application elle-même** : <https://antidotes.app/confidentialite> et
-   <https://antidotes.app/cgu> (remplacer par le domaine réel du
-   déploiement). Elles sont publiques — le chemin est dans `PUBLIC_PATHS`,
-   sans quoi l'examinateur tomberait sur l'écran de connexion. La section
-   « Les données venant de TikTok » de la politique nomme les trois portées
-   demandées et l'usage qui en est fait : c'est ce que l'examinateur y
-   cherche.
+   l'application elle-même** : `/confidentialite` et `/cgu`. Elles sont
+   publiques — les chemins sont dans `PUBLIC_PATHS`, sans quoi l'examinateur
+   tomberait sur l'écran de connexion. La section « Les données venant de
+   TikTok » de la politique nomme les trois portées demandées et l'usage qui
+   en est fait : c'est ce que l'examinateur y cherche.
+
+   **Prendre l'URL de production Vercel, jamais celle d'un déploiement.**
+   Vercel donne trois formes d'adresse : celle d'un déploiement
+   (`…-a1b2c3d4-….vercel.app`), qui **change à chaque push** et sera morte
+   quand TikTok reviendra vérifier ; l'alias de production
+   (`<projet>.vercel.app`), stable ; et le domaine propre, le jour où il
+   existera. Seules les deux dernières conviennent.
 3. Ajouter le produit **Login Kit**, puis les portées `user.info.basic`,
    `user.info.stats` et `video.list`. Rien de plus : une portée superflue
    allonge la revue.
