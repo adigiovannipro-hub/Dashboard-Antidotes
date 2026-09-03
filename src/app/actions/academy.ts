@@ -874,21 +874,41 @@ export async function enrollStudent(input: {
 
     const { firstName, lastName, email } = parsed.data;
 
-    const { error } = await supabase.from("academy_enrollments").upsert(
-      {
-        org_id: course.org_id,
-        course_id: course.id,
-        email,
-        first_name: firstName || null,
-        last_name: lastName || null,
-        // Une réinscription repart d'« invitée » : le raccrochage remettra
-        // « active » à la connexion, et un accès retiré redevient ouvert.
-        status: "invited",
-        invited_by: context.userId,
-        invited_at: new Date().toISOString(),
-      },
-      { onConflict: "course_id,email" },
-    );
+    /* Pas d'`upsert` ici : l'unicité est portée par un index **fonctionnel**,
+       `(course_id, lower(email))`, et Postgres refuse d'y accrocher un
+       `on conflict (course_id, email)` — « there is no unique or exclusion
+       constraint matching the ON CONFLICT specification ». On relit donc, puis
+       on met à jour ou on insère. L'adresse est déjà minusculée par le schéma
+       d'entrée, si bien que l'égalité simple retrouve la ligne que l'index
+       protège. */
+    const patch = {
+      first_name: firstName || null,
+      last_name: lastName || null,
+      // Une réinscription repart d'« invitée » : le raccrochage remettra
+      // « active » à la connexion, et un accès retiré redevient ouvert.
+      status: "invited" as const,
+      invited_by: context.userId,
+      invited_at: new Date().toISOString(),
+    };
+
+    const { data: existing } = await supabase
+      .from("academy_enrollments")
+      .select("id")
+      .eq("course_id", course.id)
+      .eq("email", email)
+      .maybeSingle();
+
+    const { error } = existing
+      ? await supabase
+          .from("academy_enrollments")
+          .update(patch)
+          .eq("id", existing.id)
+      : await supabase.from("academy_enrollments").insert({
+          org_id: course.org_id,
+          course_id: course.id,
+          email,
+          ...patch,
+        });
     if (error) throw new Error(error.message);
 
     const onboarding = await sendCourseOnboarding({
