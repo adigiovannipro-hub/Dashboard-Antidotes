@@ -20,6 +20,8 @@
  * qu'aucun automatisme ne rattrape.
  */
 
+import { SIGNATURE_TEXT } from "./signature";
+
 /** Les variables qu'un modèle peut porter, et ce qu'elles disent. */
 export const TEMPLATE_VARIABLES = {
   "[prénom]": "Le prénom du contact — « Jean ». Vide, la formule se replie.",
@@ -39,18 +41,17 @@ export type TemplateVariable = keyof typeof TEMPLATE_VARIABLES;
 const VARIABLE_NAMES = Object.keys(TEMPLATE_VARIABLES) as TemplateVariable[];
 
 /**
- * La signature, commune aux deux modèles.
+ * L'objet des mails.
  *
- * En texte et non en HTML : le mail porte une pièce jointe qui est un
- * document comptable, et un message texte traverse tous les clients de
- * messagerie sans se déformer. La signature riche des mails écrits à la main —
- * photo, liens, mise en page — n'est pas reproduite ici, c'est un choix.
+ * Le même pour l'envoi et pour les trois relances, et c'est délibéré : un
+ * objet identique garde les relances dans le fil de la facture d'origine —
+ * le client retrouve la pièce jointe juste au-dessus, sans la chercher.
+ *
+ * « Alessandro x CLIENT » est la forme employée depuis toujours dans les
+ * échanges : le « x » de collaboration, en minuscule, entre deux noms.
  */
-const SIGNATURE = `À dispo,
-
-Alessandro Di Giovanni
-Social Media Consultant & Creator Agent
-+33 6 79 77 92 35 — a.digiovanni.pro@gmail.com`;
+export const DEFAULT_SEND_SUBJECT = "Alessandro x [client] : Facture du mois [de mois]";
+export const DEFAULT_REMINDER_SUBJECT = DEFAULT_SEND_SUBJECT;
 
 /**
  * L'envoi initial — repris des mails écrits à la main, à une chose près :
@@ -58,8 +59,6 @@ Social Media Consultant & Creator Agent
  * ne fait qu'une chose, et réclamer un impayé dans le même souffle affaiblit
  * les deux. Les relances ont leurs propres mails, à leur propre rythme.
  */
-export const DEFAULT_SEND_SUBJECT = "Facture [mois] — [client]";
-
 export const DEFAULT_SEND_TEMPLATE = `Hello [prénom],
 
 J'espère que vous allez bien,
@@ -68,18 +67,18 @@ Vous trouverez en PJ la facture [de mois], d'un montant de [montant].
 
 Le règlement est attendu pour le [échéance].
 
-${SIGNATURE}`;
+${SIGNATURE_TEXT}`;
 
 /**
- * La relance — courte, et volontairement la même les trois fois : c'est la
- * répétition qui fait effet, pas la montée en agressivité.
+ * Les trois relances, et leur gradation.
  *
- * Vouvoiement, comme les mails d'envoi. Le modèle se retouche client par
- * client pour ceux qu'on tutoie.
+ * Elle va vers **plus** de chaleur et non vers plus de fermeté : à six
+ * semaines, celui qui n'a pas payé est bien plus souvent débordé que de
+ * mauvaise foi, et le ton comminatoire d'un automate abîme une relation que
+ * deux lignes aimables préservent. La fermeté, s'il en faut, se dit au
+ * téléphone — c'est d'ailleurs pour cela qu'il n'y a pas de quatrième mail.
  */
-export const DEFAULT_REMINDER_SUBJECT = "Relance — facture [mois] — [client]";
-
-export const DEFAULT_REMINDER_TEMPLATE = `Hello [prénom],
+export const DEFAULT_REMINDER_1_TEMPLATE = `Hello [prénom],
 
 Est-ce que vous pouvez regarder pour le règlement [de mois] svp 🙏
 
@@ -87,9 +86,27 @@ La facture [numéro], d'un montant de [montant], était échue le [échéance]. 
 
 Si le règlement est déjà parti, merci d'ignorer ce message.
 
-Merci beaucoup,
+${SIGNATURE_TEXT}`;
 
-${SIGNATURE}`;
+export const DEFAULT_REMINDER_2_TEMPLATE = `Hello [prénom],
+
+Je me permets de revenir vers vous au sujet de la facture [numéro] [de mois], d'un montant de [montant] — je la remets en pièce jointe pour vous éviter de la chercher.
+
+Si quelque chose bloque de votre côté, dites-le moi, on trouvera une solution.
+
+Merci beaucoup et à très vite,
+
+${SIGNATURE_TEXT}`;
+
+export const DEFAULT_REMINDER_3_TEMPLATE = `Hello [prénom],
+
+Toujours au sujet de la facture [numéro] [de mois], d'un montant de [montant], échue depuis le [échéance]. Elle est de nouveau en pièce jointe.
+
+Un mot suffit si vous préférez qu'on en parle de vive voix, je vous appelle quand vous voulez.
+
+Merci beaucoup et à très vite,
+
+${SIGNATURE_TEXT}`;
 
 /** Les faits d'une facture, tels qu'un modèle peut les nommer. */
 export type TemplateFacts = {

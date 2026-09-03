@@ -107,7 +107,9 @@ const createEngagementInput = z
     sendSubject: z.string().trim().max(300).optional(),
     sendTemplate: z.string().trim().max(5000).optional(),
     reminderSubject: z.string().trim().max(300).optional(),
-    reminderTemplate: z.string().trim().max(5000).optional(),
+    reminder1Template: z.string().trim().max(5000).optional(),
+    reminder2Template: z.string().trim().max(5000).optional(),
+    reminder3Template: z.string().trim().max(5000).optional(),
   })
   .refine((data) => data.totalAmount || data.monthlyAmount, {
     message: "montant absent",
@@ -136,7 +138,9 @@ export async function createEngagement(
     sendSubject: formData.get("sendSubject") ?? "",
     sendTemplate: formData.get("sendTemplate") ?? "",
     reminderSubject: formData.get("reminderSubject") ?? "",
-    reminderTemplate: formData.get("reminderTemplate") ?? "",
+    reminder1Template: formData.get("reminder1Template") ?? "",
+    reminder2Template: formData.get("reminder2Template") ?? "",
+    reminder3Template: formData.get("reminder3Template") ?? "",
   });
   if (!parsed.success) {
     return {
@@ -150,7 +154,9 @@ export async function createEngagement(
     parsed.data.sendSubject ?? "",
     parsed.data.sendTemplate ?? "",
     parsed.data.reminderSubject ?? "",
-    parsed.data.reminderTemplate ?? "",
+    parsed.data.reminder1Template ?? "",
+    parsed.data.reminder2Template ?? "",
+    parsed.data.reminder3Template ?? "",
   ]) {
     const unknown = unknownVariablesIn(template);
     if (unknown.length > 0) {
@@ -199,7 +205,9 @@ export async function createEngagement(
         send_subject: parsed.data.sendSubject || null,
         send_template: parsed.data.sendTemplate || null,
         reminder_subject: parsed.data.reminderSubject || null,
-        reminder_template: parsed.data.reminderTemplate || null,
+        reminder_1_template: parsed.data.reminder1Template || null,
+        reminder_2_template: parsed.data.reminder2Template || null,
+        reminder_3_template: parsed.data.reminder3Template || null,
       } as never)
       .select("id")
       .single();
@@ -600,7 +608,9 @@ const deliveryInput = z.object({
   sendSubject: z.string().trim().max(300),
   sendTemplate: z.string().trim().max(5000),
   reminderSubject: z.string().trim().max(300),
-  reminderTemplate: z.string().trim().max(5000),
+  reminder1Template: z.string().trim().max(5000),
+  reminder2Template: z.string().trim().max(5000),
+  reminder3Template: z.string().trim().max(5000),
 });
 
 /**
@@ -638,7 +648,9 @@ export async function updateEngagementDelivery(
     parsed.data.sendSubject,
     parsed.data.sendTemplate,
     parsed.data.reminderSubject,
-    parsed.data.reminderTemplate,
+    parsed.data.reminder1Template,
+    parsed.data.reminder2Template,
+    parsed.data.reminder3Template,
   ]) {
     const unknown = unknownVariablesIn(template);
     if (unknown.length > 0) {
@@ -665,7 +677,9 @@ export async function updateEngagementDelivery(
       send_subject: parsed.data.sendSubject || null,
       send_template: parsed.data.sendTemplate || null,
       reminder_subject: parsed.data.reminderSubject || null,
-      reminder_template: parsed.data.reminderTemplate || null,
+      reminder_1_template: parsed.data.reminder1Template || null,
+      reminder_2_template: parsed.data.reminder2Template || null,
+      reminder_3_template: parsed.data.reminder3Template || null,
     } as never)
     .eq("id", parsed.data.engagementId)
     .eq("org_id", context.orgId);

@@ -90,8 +90,14 @@ export type BillingEngagement = {
       pas à l'œil de son premier paragraphe. */
   send_subject: string | null;
   send_template: string | null;
+  /** L'objet des relances — commun aux trois, et identique à celui de
+      l'envoi : c'est ce qui les garde dans le fil de la facture d'origine. */
   reminder_subject: string | null;
-  reminder_template: string | null;
+  /** Trois textes distincts : une relance qui répète mot pour mot la
+      précédente se lit comme un automate, et le client le voit. */
+  reminder_1_template: string | null;
+  reminder_2_template: string | null;
+  reminder_3_template: string | null;
   /** Le client de facturation Airwallex (`bcus_…`) et le produit facturé
       (`prd_…`), tous deux appris de la facture modèle. Le produit et non le
       prix : le montant d'une mensualité varie au centime, un prix Airwallex

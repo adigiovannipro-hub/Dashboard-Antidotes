@@ -14,10 +14,13 @@ import {
 import { formatMoney } from "@/lib/finance/money";
 import { longDayLabel, monthLabel, monthOnlyLabel } from "./format";
 import { buildInvoiceMime } from "./mime";
+import { bodyAsHtml } from "./signature";
 import { decideEnvoi, REFUSAL_LABELS, type SentEmail } from "./relances";
 import {
+  DEFAULT_REMINDER_1_TEMPLATE,
+  DEFAULT_REMINDER_2_TEMPLATE,
+  DEFAULT_REMINDER_3_TEMPLATE,
   DEFAULT_REMINDER_SUBJECT,
-  DEFAULT_REMINDER_TEMPLATE,
   DEFAULT_SEND_SUBJECT,
   DEFAULT_SEND_TEMPLATE,
   renderEmail,
@@ -91,7 +94,9 @@ type EngagementRow = {
   send_subject: string | null;
   send_template: string | null;
   reminder_subject: string | null;
-  reminder_template: string | null;
+  reminder_1_template: string | null;
+  reminder_2_template: string | null;
+  reminder_3_template: string | null;
   airwallex_customer_id: string | null;
   airwallex_product_id: string | null;
   template_invoice_external_id: string | null;
@@ -189,7 +194,7 @@ export async function runInvoiceDispatch(options: {
   const { data: engagementData, error: engagementError } = await admin
     .from("billing_engagements")
     .select(
-      "id, client_name, label, recipient_email, cc_emails, contact_first_name, send_subject, send_template, reminder_subject, reminder_template, airwallex_customer_id, airwallex_product_id, template_invoice_external_id",
+      "id, client_name, label, recipient_email, cc_emails, contact_first_name, send_subject, send_template, reminder_subject, reminder_1_template, reminder_2_template, reminder_3_template, airwallex_customer_id, airwallex_product_id, template_invoice_external_id",
     )
     .eq("org_id", options.orgId)
     .not("recipient_email", "is", null)
@@ -459,16 +464,21 @@ async function sendInvoiceEmail(options: {
 }): Promise<void> {
   const { engagement, invoice, line } = options;
 
-  const [subjectTemplate, bodyTemplate] =
+  /* Chaque relance a son texte : la deuxième n'est pas la première répétée.
+     L'objet, lui, ne change pas — c'est ce qui garde les relances dans le fil
+     de la facture d'origine chez le client. */
+  const bodyByKind: Record<BillingEmailKind, string> = {
+    invoice: engagement.send_template ?? DEFAULT_SEND_TEMPLATE,
+    reminder_1: engagement.reminder_1_template ?? DEFAULT_REMINDER_1_TEMPLATE,
+    reminder_2: engagement.reminder_2_template ?? DEFAULT_REMINDER_2_TEMPLATE,
+    reminder_3: engagement.reminder_3_template ?? DEFAULT_REMINDER_3_TEMPLATE,
+  };
+
+  const subjectTemplate =
     options.kind === "invoice"
-      ? [
-          engagement.send_subject ?? DEFAULT_SEND_SUBJECT,
-          engagement.send_template ?? DEFAULT_SEND_TEMPLATE,
-        ]
-      : [
-          engagement.reminder_subject ?? DEFAULT_REMINDER_SUBJECT,
-          engagement.reminder_template ?? DEFAULT_REMINDER_TEMPLATE,
-        ];
+      ? (engagement.send_subject ?? DEFAULT_SEND_SUBJECT)
+      : (engagement.reminder_subject ?? DEFAULT_REMINDER_SUBJECT);
+  const bodyTemplate = bodyByKind[options.kind];
 
   const rendered = renderEmail(subjectTemplate, bodyTemplate, {
     firstName: engagement.contact_first_name,
@@ -508,6 +518,7 @@ async function sendInvoiceEmail(options: {
       bcc: ARCHIVE_BCC,
       subject: rendered.subject,
       body: rendered.body,
+      bodyHtml: bodyAsHtml(rendered.body),
       attachment: {
         filename: `${invoice.number || "facture"}.pdf`,
         content: pdf,

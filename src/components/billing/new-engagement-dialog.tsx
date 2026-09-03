@@ -29,8 +29,10 @@ import { PendingLabel } from "@/components/ds/pending-label";
 import { formatMoney } from "@/lib/finance/money";
 import { monthsBetween, splitTotal, ttcCentsOf } from "@/lib/billing/schedule";
 import {
+  DEFAULT_REMINDER_1_TEMPLATE,
+  DEFAULT_REMINDER_2_TEMPLATE,
+  DEFAULT_REMINDER_3_TEMPLATE,
   DEFAULT_REMINDER_SUBJECT,
-  DEFAULT_REMINDER_TEMPLATE,
   DEFAULT_SEND_SUBJECT,
   DEFAULT_SEND_TEMPLATE,
   TEMPLATE_VARIABLES,
@@ -287,21 +289,43 @@ function NewEngagementForm({
           </div>
 
           <div className="grid gap-1 sm:col-span-2">
-            <Label htmlFor="devis-objet-relance">Objet du mail de relance</Label>
+            <Label htmlFor="devis-objet-relance">Objet des relances</Label>
             <Input
               id="devis-objet-relance"
               name="reminderSubject"
               defaultValue={DEFAULT_REMINDER_SUBJECT}
             />
           </div>
+          {/* Trois textes : une relance qui répète la précédente mot pour mot
+              se lit comme un automate. */}
           <div className="grid gap-1 sm:col-span-2">
-            <Label htmlFor="devis-modele-relance">Message de relance</Label>
+            <Label htmlFor="devis-relance-1">1re relance — J+31</Label>
             <textarea
-              id="devis-modele-relance"
-              name="reminderTemplate"
-              rows={8}
+              id="devis-relance-1"
+              name="reminder1Template"
+              rows={7}
               className={TEMPLATE_FIELD}
-              defaultValue={DEFAULT_REMINDER_TEMPLATE}
+              defaultValue={DEFAULT_REMINDER_1_TEMPLATE}
+            />
+          </div>
+          <div className="grid gap-1 sm:col-span-2">
+            <Label htmlFor="devis-relance-2">2e relance — J+46</Label>
+            <textarea
+              id="devis-relance-2"
+              name="reminder2Template"
+              rows={7}
+              className={TEMPLATE_FIELD}
+              defaultValue={DEFAULT_REMINDER_2_TEMPLATE}
+            />
+          </div>
+          <div className="grid gap-1 sm:col-span-2">
+            <Label htmlFor="devis-relance-3">3e relance — J+61</Label>
+            <textarea
+              id="devis-relance-3"
+              name="reminder3Template"
+              rows={7}
+              className={TEMPLATE_FIELD}
+              defaultValue={DEFAULT_REMINDER_3_TEMPLATE}
             />
           </div>
 

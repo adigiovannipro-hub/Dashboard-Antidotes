@@ -16,8 +16,10 @@ import { PendingLabel } from "@/components/ds/pending-label";
 import { StatusPill } from "@/components/ds/status-pill";
 import { cn } from "@/lib/utils";
 import {
+  DEFAULT_REMINDER_1_TEMPLATE,
+  DEFAULT_REMINDER_2_TEMPLATE,
+  DEFAULT_REMINDER_3_TEMPLATE,
   DEFAULT_REMINDER_SUBJECT,
-  DEFAULT_REMINDER_TEMPLATE,
   DEFAULT_SEND_SUBJECT,
   DEFAULT_SEND_TEMPLATE,
   TEMPLATE_VARIABLES,
@@ -217,22 +219,49 @@ function DeliveryPanel({
             </Section>
 
             <Section
-              title="Mail de relance"
-              hint="Le même texte les trois fois : c'est la répétition qui fait effet, pas la montée en agressivité."
+              title="Relances"
+              hint="Trois textes distincts, et la gradation va vers plus de chaleur : à six semaines, un client qui n'a pas payé est bien plus souvent débordé que de mauvaise foi. L'objet reste celui de l'envoi, ce qui garde les relances dans le même fil de discussion."
             >
-              <Field label="Objet" wide>
+              <Field label="Objet des relances" wide>
                 <Input
                   name="reminderSubject"
                   defaultValue={engagement.reminder_subject ?? DEFAULT_REMINDER_SUBJECT}
                 />
               </Field>
-              <Field label="Message" wide>
+
+              <Field label="1re relance — J+31" wide>
                 <textarea
-                  name="reminderTemplate"
-                  rows={13}
+                  name="reminder1Template"
+                  rows={11}
                   className={BODY_FIELD}
                   defaultValue={
-                    engagement.reminder_template ?? DEFAULT_REMINDER_TEMPLATE
+                    engagement.reminder_1_template ?? DEFAULT_REMINDER_1_TEMPLATE
+                  }
+                />
+              </Field>
+
+              <Field label="2e relance — J+46" wide>
+                <textarea
+                  name="reminder2Template"
+                  rows={11}
+                  className={BODY_FIELD}
+                  defaultValue={
+                    engagement.reminder_2_template ?? DEFAULT_REMINDER_2_TEMPLATE
+                  }
+                />
+              </Field>
+
+              <Field
+                label="3e relance — J+61"
+                hint="La dernière : après elle, plus rien ne part tout seul."
+                wide
+              >
+                <textarea
+                  name="reminder3Template"
+                  rows={11}
+                  className={BODY_FIELD}
+                  defaultValue={
+                    engagement.reminder_3_template ?? DEFAULT_REMINDER_3_TEMPLATE
                   }
                 />
               </Field>

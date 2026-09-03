@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  DEFAULT_REMINDER_1_TEMPLATE,
+  DEFAULT_REMINDER_2_TEMPLATE,
+  DEFAULT_REMINDER_3_TEMPLATE,
   DEFAULT_REMINDER_SUBJECT,
-  DEFAULT_REMINDER_TEMPLATE,
   DEFAULT_SEND_SUBJECT,
   DEFAULT_SEND_TEMPLATE,
   renderEmail,
@@ -82,7 +84,7 @@ describe("renderEmail", () => {
     const rendu = renderEmail(DEFAULT_SEND_SUBJECT, DEFAULT_SEND_TEMPLATE, faits());
     expect(rendu.ok).toBe(true);
     if (!rendu.ok) return;
-    expect(rendu.subject).toBe("Facture août — Bondet");
+    expect(rendu.subject).toBe("Alessandro x Bondet : Facture du mois d'août");
     expect(rendu.body).toContain("Hello Jean,");
     expect(rendu.body).toContain("la facture d'août");
     expect(rendu.body).toContain("2 522,50 €");
@@ -98,17 +100,38 @@ describe("renderEmail", () => {
     expect(rendu.ok && rendu.body.toLowerCase()).not.toContain("relance");
   });
 
-  it("remplit les modèles de relance par défaut de bout en bout", () => {
-    const rendu = renderEmail(
-      DEFAULT_REMINDER_SUBJECT,
-      DEFAULT_REMINDER_TEMPLATE,
-      faits(),
-    );
-    expect(rendu.ok).toBe(true);
-    if (!rendu.ok) return;
-    expect(rendu.subject).toBe("Relance — facture août — Bondet");
-    expect(rendu.body).toContain("règlement d'août");
-    expect(rendu.body).not.toMatch(/\[[^\]]+\]/);
+  it("remplit les trois relances par défaut de bout en bout", () => {
+    for (const modele of [
+      DEFAULT_REMINDER_1_TEMPLATE,
+      DEFAULT_REMINDER_2_TEMPLATE,
+      DEFAULT_REMINDER_3_TEMPLATE,
+    ]) {
+      const rendu = renderEmail(DEFAULT_REMINDER_SUBJECT, modele, faits());
+      expect(rendu.ok).toBe(true);
+      if (!rendu.ok) return;
+      expect(rendu.subject).toBe("Alessandro x Bondet : Facture du mois d'août");
+      expect(rendu.body).toContain("Hello Jean,");
+      expect(rendu.body).not.toMatch(/\[[^\]]+\]/);
+    }
+  });
+
+  it("ne répète pas une relance dans la suivante", () => {
+    // Une relance identique à la précédente se lit comme un automate, et le
+    // client le voit avant même de lire le montant.
+    expect(DEFAULT_REMINDER_2_TEMPLATE).not.toBe(DEFAULT_REMINDER_1_TEMPLATE);
+    expect(DEFAULT_REMINDER_3_TEMPLATE).not.toBe(DEFAULT_REMINDER_2_TEMPLATE);
+  });
+
+  it("finit les deux dernières relances sur une note chaleureuse", () => {
+    for (const modele of [DEFAULT_REMINDER_2_TEMPLATE, DEFAULT_REMINDER_3_TEMPLATE]) {
+      expect(modele).toContain("Merci beaucoup et à très vite");
+      expect(modele).toContain("À dispo,");
+    }
+  });
+
+  it("garde le même objet pour l'envoi et les relances", () => {
+    // C'est ce qui garde les relances dans le fil de la facture d'origine.
+    expect(DEFAULT_REMINDER_SUBJECT).toBe(DEFAULT_SEND_SUBJECT);
   });
 });
 

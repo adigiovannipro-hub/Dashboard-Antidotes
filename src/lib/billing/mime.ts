@@ -22,6 +22,13 @@ export type InvoiceMessage = {
   bcc: string | null;
   subject: string;
   body: string;
+  /**
+   * La même chose en HTML, quand une signature riche est posée. Les deux
+   * partent ensemble (`multipart/alternative`) et le client de messagerie
+   * choisit : le texte n'est pas un pis-aller, c'est la version qui arrive
+   * intacte partout.
+   */
+  bodyHtml?: string | null;
   attachment: {
     filename: string;
     content: Buffer;
@@ -77,15 +84,37 @@ export function buildInvoiceMime(message: InvoiceMessage): string {
   headers.push(`Subject: ${encodeHeader(sanitizeHeaderValue(message.subject))}`);
   headers.push("MIME-Version: 1.0");
 
+  const textPart = [
+    'Content-Type: text/plain; charset="UTF-8"',
+    "Content-Transfer-Encoding: base64",
+    "",
+    foldBase64(Buffer.from(message.body, "utf8")),
+    "",
+  ];
+
+  /* Avec une version HTML, les deux partent dans un `alternative` — et le
+     HTML en second, parce qu'un client de messagerie retient la dernière
+     version qu'il sait afficher. */
+  const inner = `${boundary}-alt`;
+  const bodyLines = message.bodyHtml
+    ? [
+        `Content-Type: multipart/alternative; boundary="${inner}"`,
+        "",
+        `--${inner}`,
+        ...textPart,
+        `--${inner}`,
+        'Content-Type: text/html; charset="UTF-8"',
+        "Content-Transfer-Encoding: base64",
+        "",
+        foldBase64(Buffer.from(message.bodyHtml, "utf8")),
+        "",
+        `--${inner}--`,
+        "",
+      ]
+    : textPart;
+
   if (!message.attachment) {
-    return [
-      ...headers,
-      'Content-Type: text/plain; charset="UTF-8"',
-      "Content-Transfer-Encoding: base64",
-      "",
-      foldBase64(Buffer.from(message.body, "utf8")),
-      "",
-    ].join("\r\n");
+    return [...headers, ...bodyLines].join("\r\n");
   }
 
   const filename = sanitizeFilename(message.attachment.filename);
@@ -95,11 +124,7 @@ export function buildInvoiceMime(message: InvoiceMessage): string {
     `Content-Type: multipart/mixed; boundary="${boundary}"`,
     "",
     `--${boundary}`,
-    'Content-Type: text/plain; charset="UTF-8"',
-    "Content-Transfer-Encoding: base64",
-    "",
-    foldBase64(Buffer.from(message.body, "utf8")),
-    "",
+    ...bodyLines,
     `--${boundary}`,
     `Content-Type: application/pdf; name="${filename}"`,
     "Content-Transfer-Encoding: base64",
