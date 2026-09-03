@@ -251,6 +251,22 @@ async function main() {
           );
         }
       }
+
+      /* Le prix, lui, ne se supprime pas : on le désactive. Un prix ponctuel
+         d'un euro laissé actif traînerait dans les listes de l'interface sans
+         jamais servir. */
+      if (priceId) {
+        const disabled = await post(token, `/api/v1/prices/${priceId}/update`, {
+          request_id: `${stamp}-desactivation`,
+          active: false,
+        });
+        console.log(`POST /api/v1/prices/${priceId}/update → ${disabled.status}`);
+        if (disabled.status !== 200) {
+          console.log(
+            `⚠ Prix ${priceId} laissé actif — à désactiver à la main dans Airwallex.`,
+          );
+        }
+      }
     }
   }
 

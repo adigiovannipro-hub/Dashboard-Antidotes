@@ -14,7 +14,12 @@ name: Sonde des factures Airwallex
 on:
   push:
     branches:
+      # Lecture seule.
       - sonde-factures
+      # Idem, plus la chaîne d'émission en brouillon : deux branches plutôt
+      # qu'une case à cocher, parce que `workflow_dispatch` n'apparaît que
+      # lorsque le fichier est déjà sur la branche par défaut.
+      - sonde-factures-ecriture
   workflow_dispatch:
     inputs:
       ecriture:
@@ -48,7 +53,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Sonder
-        run: pnpm sonde:factures ${{ inputs.ecriture && '--ecriture' || '' }}
+        run: pnpm sonde:factures ${{ (inputs.ecriture || github.ref_name == 'sonde-factures-ecriture') && '--ecriture' || '' }}
         env:
           AIRWALLEX_CLIENT_ID: ${{ secrets.AIRWALLEX_CLIENT_ID }}
           AIRWALLEX_API_KEY: ${{ secrets.AIRWALLEX_API_KEY }}
