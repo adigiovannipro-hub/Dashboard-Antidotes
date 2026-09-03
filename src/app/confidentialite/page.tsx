@@ -6,7 +6,12 @@ import {
   LegalSection,
   LegalTerms,
 } from "@/components/legal/legal-page";
-import { HEBERGEURS, LEGAL_ENTITY, identityLines } from "@/lib/legal/entity";
+import {
+  HEBERGEURS,
+  LEGAL_ENTITY,
+  hasEuRepresentative,
+  identityLines,
+} from "@/lib/legal/entity";
 
 /**
  * La politique de confidentialité — page **publique**.
@@ -182,11 +187,26 @@ export default function ConfidentialitePage() {
         />
 
         <p>
-          Certains de ces prestataires sont établis hors de l&apos;Union européenne.
-          Les transferts correspondants sont encadrés par les clauses
-          contractuelles types de la Commission européenne.
+          {LEGAL_ENTITY.nom} est établi à {LEGAL_ENTITY.juridiction}, et
+          certains de ces prestataires le sont également hors de l&apos;Union
+          européenne. Les transferts correspondants sont encadrés par les
+          clauses contractuelles types de la Commission européenne.
         </p>
       </LegalSection>
+
+      {hasEuRepresentative() ? (
+        <LegalSection title="Représentant dans l'Union européenne">
+          <p>
+            Conformément à l&apos;article 27 du RGPD,{" "}
+            {LEGAL_ENTITY.representantUE.nom} représente {LEGAL_ENTITY.nom} dans
+            l&apos;Union européenne pour toute question relative au traitement
+            des données. {LEGAL_ENTITY.representantUE.adresse}
+            {LEGAL_ENTITY.representantUE.email
+              ? ` — ${LEGAL_ENTITY.representantUE.email}`
+              : ""}
+          </p>
+        </LegalSection>
+      ) : null}
 
       <LegalSection title="Combien de temps">
         <LegalList
@@ -233,7 +253,8 @@ export default function ConfidentialitePage() {
             {LEGAL_ENTITY.email}
           </a>{" "}
           : la réponse intervient sous un mois. En cas de désaccord, vous
-          pouvez saisir la CNIL.
+          pouvez saisir l&apos;autorité de protection des données de votre pays
+          de résidence — en France, la CNIL.
         </p>
       </LegalSection>
 
