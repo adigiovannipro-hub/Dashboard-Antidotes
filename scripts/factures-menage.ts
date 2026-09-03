@@ -68,6 +68,40 @@ async function main() {
     }
   }
 
+  /* Les essais dont on a perdu l'identifiant — le journal a été effacé avec le
+     devis. On les reconnaît à leur montant : une facture d'un euro n'est
+     jamais une vraie. Le seuil est bas exprès, et rien au-dessus n'est
+     touché. */
+  console.log("\n— Autres factures d'un euro encore vivantes —");
+  let pageAfter: string | undefined;
+  do {
+    const params = new URLSearchParams({ page_size: "100" });
+    if (pageAfter) params.set("page_after", pageAfter);
+    const page = await call<{
+      items?: { id?: string; number?: string; status?: string; total_amount?: number }[];
+      has_more?: boolean;
+      page_after?: string;
+    }>(`/api/v1/invoices?${params.toString()}`);
+
+    for (const item of page.items ?? []) {
+      const montant = item.total_amount ?? 0;
+      if (!item.id || montant > 1 || item.status === "VOIDED") continue;
+      if (FACTURES_D_ESSAI.includes(item.id)) continue;
+
+      if (ecrire) {
+        const result = await post<{ status?: string }>(
+          `/api/v1/invoices/${item.id}/void`,
+          { request_id: `menage-${item.id}` },
+        );
+        console.log(`→ ${item.id} — ${item.number} · ${montant} EUR → ${result.status ?? "annulée"}`);
+      } else {
+        console.log(`≈ ${item.id} — ${item.number} · ${montant} EUR → serait annulée`);
+      }
+    }
+
+    pageAfter = page.has_more ? page.page_after : undefined;
+  } while (pageAfter);
+
   console.log("\n— Devis d'essai —");
   const { data, error } = await admin
     .from("billing_engagements")
