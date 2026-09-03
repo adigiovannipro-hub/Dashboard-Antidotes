@@ -506,7 +506,7 @@
     {
       "workspace": "i-way",
       "platform": "facebook",
-      "libelle": "I-WAY — Facebook (Looker, relevés de fin de mois — page aux 18 700 fans, pas celle branchée)",
+      "libelle": "I-WAY — Facebook (Page iwayofficiel / 32777858829 ; Looker jusqu'au 31/07/2026, Meta Page Insights ensuite)",
       "points": [
         [
           "2022-09-30",
@@ -695,6 +695,10 @@
         [
           "2026-07-31",
           18732
+        ],
+        [
+          "2026-08-31",
+          18709
         ]
       ]
     },

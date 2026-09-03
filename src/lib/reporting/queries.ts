@@ -13,6 +13,7 @@ import type {
   SocialPageDaily,
   SocialPost,
 } from "@/lib/supabase/database.types";
+import type { SocialAccountKind } from "@/lib/social/types";
 import { previousRange, type DateRange } from "./period";
 import {
   aggregateCustomEvents,
@@ -89,13 +90,21 @@ export async function getAdsData(options: {
         .gte("date", options.range.from)
         .lte("date", options.range.to)
         .limit(10000),
-      supabase
-        .from("social_followers")
-        .select("*")
-        .eq("workspace_id", options.workspaceId)
-        .eq("platform", "instagram")
-        .order("date")
-        .limit(1000),
+      /* La courbe d'abonnés de l'onglet payant lit la même table que
+         l'organique, et se borne donc au **compte affecté** comme elle :
+         l'inventaire de l'agence tient plusieurs comptes du même client. */
+      assignedSourceIds(supabase, options.workspaceId, "instagram").then(
+        (sourceIds) => {
+          const query = supabase
+            .from("social_followers")
+            .select("*")
+            .eq("workspace_id", options.workspaceId)
+            .eq("platform", "instagram");
+          return (sourceIds ? query.in("data_source_id", sourceIds) : query)
+            .order("date")
+            .limit(1000);
+        },
+      ),
       /* Les événements pixel personnalisés — 0051. L'erreur est ignorée comme
          partout ici : la RLS est l'autorité, et une liste vide est la bonne
          réponse tant que la migration n'est pas passée. La fenêtre couvre la
@@ -231,6 +240,9 @@ export async function getAdsData(options: {
   };
 }
 
+/** Les quatre plateformes dont un onglet organique lit les relevés. */
+export type OrganicPlatform = "instagram" | "facebook" | "linkedin" | "tiktok";
+
 export type OrganicData = {
   hasData: boolean;
   posts: SocialPost[];
@@ -240,46 +252,122 @@ export type OrganicData = {
   followersNow: number | null;
 };
 
+/**
+ * Le compte **affecté** pour cette plateforme, traduit en sources de données.
+ *
+ * L'inventaire de l'agence tient les comptes de tous les clients derrière un
+ * seul login Meta — et un même client peut y avoir plusieurs Pages du même
+ * nom : I-WAY en a trois (officielle 18 700 abonnés, Lyon 991, Paris 295).
+ * La lecture, elle, ne filtrait que sur l'espace et la plateforme : tout ce
+ * qu'un passage avait un jour collecté sur une Page voisine entrait dans la
+ * même courbe, et le relevé le plus récent gagnait. C'est ce qui a mis 295
+ * abonnés en août sur une courbe qui en portait 18 732 en juillet.
+ *
+ * `workspace_social_accounts` dit **la** réponse à « où publie-t-on ? »
+ * (clé primaire `(workspace_id, kind)`) : c'est aussi la réponse à « que
+ * lit-on ? ». On rend les sources de ce compte-là, et elles seules.
+ *
+ * Rien n'est filtré quand le rapprochement ne donne rien : aucun compte
+ * affecté (TikTok, dont la reprise Looker vit en base sans connecteur), ou
+ * un identifiant de source qui ne suit pas celui du compte. Filtrer sur un
+ * ensemble vide effacerait des courbes qui existent — un cloisonnement raté
+ * casse le produit aussi sûrement qu'une fuite le rend faux.
+ */
+const ACCOUNT_KIND_BY_PLATFORM = {
+  instagram: "instagram",
+  facebook: "facebook_page",
+  linkedin: "linkedin",
+  tiktok: "tiktok",
+} as const satisfies Record<OrganicPlatform, SocialAccountKind>;
+
+async function assignedSourceIds(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  workspaceId: string,
+  platform: OrganicPlatform,
+): Promise<string[] | null> {
+  const { data: link } = await supabase
+    .from("workspace_social_accounts")
+    .select("account_id")
+    .eq("workspace_id", workspaceId)
+    .eq("kind", ACCOUNT_KIND_BY_PLATFORM[platform])
+    .maybeSingle();
+
+  const accountId = (link as { account_id?: string } | null)?.account_id;
+  if (!accountId) return null;
+
+  const { data: account } = await supabase
+    .from("social_accounts")
+    .select("external_id")
+    .eq("id", accountId)
+    .maybeSingle();
+
+  const externalId = (account as { external_id?: string } | null)?.external_id;
+  if (!externalId) return null;
+
+  const { data: sources } = await supabase
+    .from("data_sources")
+    .select("id")
+    .eq("workspace_id", workspaceId)
+    .eq("external_account_id", externalId);
+
+  const ids = ((sources ?? []) as { id: string }[]).map((source) => source.id);
+  return ids.length > 0 ? ids : null;
+}
+
 export async function getOrganicData(options: {
   workspaceId: string;
   // TikTok n'a pas de connecteur, mais ses relevés d'abonnés (reprise
   // Looker) vivent déjà en base : l'onglet lit ce qui existe.
-  platform: "instagram" | "facebook" | "linkedin" | "tiktok";
+  platform: OrganicPlatform;
   range: DateRange;
   reader?: Awaited<ReturnType<typeof createClient>>;
 }): Promise<OrganicData> {
   const supabase = options.reader ?? (await createClient());
   const previous = previousRange(options.range);
 
+  /* Le compte affecté d'abord : c'est lui qui borne tout ce qui suit. Une
+     Page voisine de l'inventaire ne doit pas entrer dans cette courbe. */
+  const sourceIds = await assignedSourceIds(
+    supabase,
+    options.workspaceId,
+    options.platform,
+  );
+  let postsBuilder = supabase
+    .from("social_posts")
+    .select("*")
+    .eq("workspace_id", options.workspaceId)
+    .eq("platform", options.platform)
+    .gte("published_at", `${previous.from}T00:00:00Z`)
+    // Borne exclusive au lendemain : `published_at` est un instant, pas un
+    // jour — « jusqu'au 31 » veut dire « jusqu'au 31 à minuit passé ».
+    .lt("published_at", `${nextDay(options.range.to)}T00:00:00Z`);
+
+  let followersBuilder = supabase
+    .from("social_followers")
+    .select("*")
+    .eq("workspace_id", options.workspaceId)
+    .eq("platform", options.platform);
+
+  // Les statistiques de Page au grain jour — Facebook seulement en pratique,
+  // la table est vide ailleurs et la requête ne coûte rien.
+  let pageDailyBuilder = supabase
+    .from("social_page_daily")
+    .select("*")
+    .eq("workspace_id", options.workspaceId)
+    .eq("platform", options.platform)
+    .gte("date", previous.from)
+    .lte("date", options.range.to);
+
+  if (sourceIds) {
+    postsBuilder = postsBuilder.in("data_source_id", sourceIds);
+    followersBuilder = followersBuilder.in("data_source_id", sourceIds);
+    pageDailyBuilder = pageDailyBuilder.in("data_source_id", sourceIds);
+  }
+
   const [postsQuery, followersQuery, pageDailyQuery] = await Promise.all([
-    supabase
-      .from("social_posts")
-      .select("*")
-      .eq("workspace_id", options.workspaceId)
-      .eq("platform", options.platform)
-      .gte("published_at", `${previous.from}T00:00:00Z`)
-      // Borne exclusive au lendemain : `published_at` est un instant, pas un
-      // jour — « jusqu'au 31 » veut dire « jusqu'au 31 à minuit passé ».
-      .lt("published_at", `${nextDay(options.range.to)}T00:00:00Z`)
-      .order("published_at", { ascending: false })
-      .limit(500),
-    supabase
-      .from("social_followers")
-      .select("*")
-      .eq("workspace_id", options.workspaceId)
-      .eq("platform", options.platform)
-      .order("date")
-      .limit(1000),
-    // Les statistiques de Page au grain jour — Facebook seulement en
-    // pratique, la table est vide ailleurs et la requête ne coûte rien.
-    supabase
-      .from("social_page_daily")
-      .select("*")
-      .eq("workspace_id", options.workspaceId)
-      .eq("platform", options.platform)
-      .gte("date", previous.from)
-      .lte("date", options.range.to)
-      .limit(1000),
+    postsBuilder.order("published_at", { ascending: false }).limit(500),
+    followersBuilder.order("date").limit(1000),
+    pageDailyBuilder.limit(1000),
   ]);
 
   const allPosts = (postsQuery.data ?? []) as unknown as SocialPost[];
