@@ -6,7 +6,6 @@ import { CheckCircle2, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { publicEnv } from "@/lib/env";
 import { createClient } from "@/lib/supabase/client";
 
 export function LoginForm({ next }: { next?: string }) {
@@ -20,7 +19,12 @@ export function LoginForm({ next }: { next?: string }) {
     setError(null);
 
     const supabase = createClient();
-    const callback = new URL("/auth/callback", publicEnv.NEXT_PUBLIC_SITE_URL);
+    /* L'origine réelle du navigateur, et non `NEXT_PUBLIC_SITE_URL` : cette
+       variable vaut `http://localhost:3000` par défaut, et un environnement où
+       elle n'est pas posée renvoyait le lien de connexion vers localhost. Le
+       lien doit ramener sur le domaine depuis lequel on l'a demandé — c'est
+       aussi le seul où le cookie de session sera lisible. */
+    const callback = new URL("/auth/callback", window.location.origin);
     if (next) callback.searchParams.set("suivant", next);
 
     const { error: signInError } = await supabase.auth.signInWithOtp({
