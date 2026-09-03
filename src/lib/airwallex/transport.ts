@@ -134,6 +134,55 @@ export async function call<T>(path: string): Promise<T> {
   return (await response.json()) as T;
 }
 
+/**
+ * Un appel qui écrit.
+ *
+ * Séparé de `call` et non ajouté en option : lire et écrire chez un service
+ * de facturation ne sont pas la même responsabilité, et la lecture doit
+ * rester ce qu'on appelle sans y réfléchir. Un appelant qui écrit le dit.
+ *
+ * Pas de rejeu automatique, à la différence de `call` : la seule erreur qu'on
+ * retenterait est un 401, et une création rejouée après un 401 tardif
+ * risquerait la double facture. C'est `request_id`, côté Airwallex, qui rend
+ * une création idempotente — et c'est à l'appelant de le fournir stable.
+ */
+export async function post<T>(
+  path: string,
+  payload: Record<string, unknown>,
+): Promise<T> {
+  const token = await getToken();
+  const response = await fetch(`${baseUrl()}${path}`, {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${token}`,
+      "content-type": "application/json",
+      "user-agent": "Antidotes/1.0",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    const detail = await response.text();
+
+    /* Le cas qu'on rencontrera vraiment : une clé API en lecture seule. Le
+       message d'Airwallex — « Insufficient permissions » — ne dit pas quoi
+       faire, et c'est la première chose qu'on cherche à trois heures du
+       matin. */
+    const hint =
+      response.status === 401 && detail.includes("permission")
+        ? " — la clé API n'a pas le droit d'écrire sur la facturation : en créer une avec le rôle d'écriture Billing"
+        : "";
+
+    throw new AirwallexError(
+      `Airwallex ${response.status} sur ${path} — ${detail.slice(0, 300)}${hint}`,
+      response.status,
+      response.status === 429 || response.status >= 500,
+    );
+  }
+
+  return (await response.json()) as T;
+}
+
 /** Vrai si la connexion aboutit — utilisé par les écrans de configuration. */
 export async function checkConnection(): Promise<
   { ok: true } | { ok: false; error: string }
