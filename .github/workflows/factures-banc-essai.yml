@@ -10,6 +10,8 @@
 #   banc-relance-1    antidate le journal pour rendre la 1re relance due
 #   banc-relance-2    idem pour la 2e
 #   banc-nettoyer     supprime le devis d'essai et son journal
+#   banc-fiches       reprend chez Airwallex ce qu'il sait des clients
+#   banc-menage       annule les factures d'essai, efface le devis d'essai
 #
 # À retirer une fois la chaîne éprouvée : un banc d'essai est un instrument de
 # mesure, pas un rouage.
@@ -24,6 +26,8 @@ on:
       - banc-relance-1
       - banc-relance-2
       - banc-nettoyer
+      - banc-fiches
+      - banc-menage
 
 concurrency:
   group: factures-banc
@@ -58,6 +62,8 @@ jobs:
             banc-relance-1) pnpm factures:test --relance 1 ;;
             banc-relance-2) pnpm factures:test --relance 2 ;;
             banc-nettoyer)  pnpm factures:test --nettoyer ;;
+            banc-fiches)    pnpm factures:fiches --ecrire ;;
+            banc-menage)    pnpm factures:menage --ecrire ;;
             *) echo "Branche inattendue"; exit 1 ;;
           esac
         env:
