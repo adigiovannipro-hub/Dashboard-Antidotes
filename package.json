@@ -47,7 +47,8 @@
     "factures:connexion": "node --conditions=react-server --import tsx scripts/recuperer-factures.ts connexion",
     "factures:passage": "node --conditions=react-server --import tsx scripts/recuperer-factures.ts passage",
     "diagnostic:tiktok": "tsx scripts/diagnostic-tiktok.ts",
-    "sonde:factures": "tsx scripts/sonde-factures-airwallex.ts"
+    "sonde:factures": "tsx scripts/sonde-factures-airwallex.ts",
+    "factures:envoi": "node --conditions=react-server --import tsx scripts/factures-envoi.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.115.0",

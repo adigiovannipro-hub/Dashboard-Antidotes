@@ -3,7 +3,11 @@ import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import type { FinanceInvoice } from "@/lib/finance/types";
 import { aliasesFrom, normalizeClientName, resolveClient } from "./reconcile";
-import type { BillingEngagement, BillingInstallment } from "./types";
+import type {
+  BillingEmailKind,
+  BillingEngagement,
+  BillingInstallment,
+} from "./types";
 
 /**
  * Lectures du module Échéances de facturation.
@@ -58,6 +62,41 @@ export async function listInstallments(options: {
     ...line,
     invoice_due_on: finance_invoices?.due_on ?? null,
   }));
+}
+
+/**
+ * Ce qui est parti chez les clients, par mensualité.
+ *
+ * Seulement le type de mail et sa date : l'écran affiche « envoyée le 1er
+ * septembre · 2 relances », pas le corps du message. Le texte est en base
+ * pour l'archive, il n'a rien à faire dans une page qui liste cent lignes.
+ */
+export async function listInvoiceEmails(options: {
+  orgId: string;
+  limit?: number;
+}): Promise<Record<string, { kind: BillingEmailKind; sent_at: string }[]>> {
+  const supabase = await createClient();
+
+  const { data } = await supabase
+    .from("billing_invoice_emails")
+    .select("installment_id, kind, sent_at")
+    .eq("org_id", options.orgId)
+    .order("sent_at")
+    .limit(options.limit ?? 2000);
+
+  const byInstallment: Record<string, { kind: BillingEmailKind; sent_at: string }[]> =
+    {};
+  for (const row of (data ?? []) as unknown as {
+    installment_id: string;
+    kind: BillingEmailKind;
+    sent_at: string;
+  }[]) {
+    (byInstallment[row.installment_id] ??= []).push({
+      kind: row.kind,
+      sent_at: row.sent_at,
+    });
+  }
+  return byInstallment;
 }
 
 /** Ce que le board sait montrer d'une facture Airwallex sans devis. */

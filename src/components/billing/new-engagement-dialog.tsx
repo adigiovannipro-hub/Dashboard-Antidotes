@@ -28,6 +28,16 @@ import {
 import { PendingLabel } from "@/components/ds/pending-label";
 import { formatMoney } from "@/lib/finance/money";
 import { monthsBetween, splitTotal, ttcCentsOf } from "@/lib/billing/schedule";
+import {
+  DEFAULT_REMINDER_TEMPLATE,
+  DEFAULT_SEND_TEMPLATE,
+  TEMPLATE_VARIABLES,
+} from "@/lib/billing/templates";
+
+/* Même style que l'Input : les zones de texte n'ont pas de primitive dans
+   `ui/`, elles se stylent à la main dans les trois écrans qui en portent. */
+const TEMPLATE_FIELD =
+  "border-input bg-surface focus-visible:border-ring focus-visible:ring-ring/20 w-full resize-y rounded-md border px-3 py-2 font-mono text-sm outline-none focus-visible:ring-2";
 
 /* Antidotes facture sans TVA aujourd'hui — le 0 est le défaut, les taux
    français restent à portée de main pour le jour où ça change. */
@@ -211,6 +221,79 @@ function NewEngagementForm({
         <Label htmlFor="devis-notes">Note</Label>
         <Input id="devis-notes" name="notes" placeholder="Facultatif" />
       </div>
+
+      {/* L'envoi automatique, replié : un devis se saisit d'abord, et la
+          plupart n'ont rien à changer aux modèles communs. Ce qui est dedans
+          reste soumis avec le formulaire, ouvert ou non. */}
+      <details className="border-border rounded-md border sm:col-span-2">
+        <summary className="type-label cursor-pointer px-3 py-2">
+          Envoi automatique au client
+          <span className="type-caption text-text-tertiary ml-2 font-normal">
+            facultatif — sans adresse, la facture se fait à la main
+          </span>
+        </summary>
+
+        <div className="grid gap-3 px-3 pb-3 sm:grid-cols-2">
+          <div className="grid gap-1">
+            <Label htmlFor="devis-destinataire">Email du destinataire</Label>
+            <Input
+              id="devis-destinataire"
+              name="recipientEmail"
+              type="email"
+              placeholder="compta@bondet.fr"
+            />
+          </div>
+          <div className="grid gap-1">
+            <Label htmlFor="devis-cc">Copies (CC)</Label>
+            <Input
+              id="devis-cc"
+              name="ccEmails"
+              placeholder="direction@bondet.fr, assistante@bondet.fr"
+            />
+          </div>
+
+          <div className="grid gap-1">
+            <Label htmlFor="devis-prenom">Prénom du contact</Label>
+            <Input id="devis-prenom" name="contactFirstName" placeholder="Jean" />
+          </div>
+          <div className="grid gap-1">
+            <Label htmlFor="devis-modele">Facture modèle (Airwallex)</Label>
+            <Input
+              id="devis-modele"
+              name="templateInvoiceId"
+              placeholder="inv_sgpdwdhb5hl36cokjm3"
+            />
+          </div>
+
+          <div className="grid gap-1 sm:col-span-2">
+            <Label htmlFor="devis-modele-envoi">Modèle du mail d&apos;envoi</Label>
+            <textarea
+              id="devis-modele-envoi"
+              name="sendTemplate"
+              rows={7}
+              className={TEMPLATE_FIELD}
+              defaultValue={DEFAULT_SEND_TEMPLATE}
+            />
+          </div>
+          <div className="grid gap-1 sm:col-span-2">
+            <Label htmlFor="devis-modele-relance">Modèle du mail de relance</Label>
+            <textarea
+              id="devis-modele-relance"
+              name="reminderTemplate"
+              rows={7}
+              className={TEMPLATE_FIELD}
+              defaultValue={DEFAULT_REMINDER_TEMPLATE}
+            />
+          </div>
+
+          <p className="type-caption text-text-secondary sm:col-span-2">
+            La première ligne est l&apos;objet du mail. Variables :{" "}
+            {Object.keys(TEMPLATE_VARIABLES).join(", ")}. Copie cachée
+            systématique vers a.digiovanni.pro@gmail.com. Relances à J+31, J+46
+            et J+61 tant que la facture n&apos;est pas payée.
+          </p>
+        </div>
+      </details>
 
       {/* L'aperçu de la division — ce que « Créer » va générer. */}
       <p

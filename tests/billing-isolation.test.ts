@@ -294,4 +294,103 @@ suite("isolation du module Échéances de facturation (RLS)", () => {
       expect(data ?? []).toEqual([]);
     });
   });
+
+  /* Le journal des envois (20260903e) porte les adresses des clients et le
+     texte des mails qui leur sont partis. Il se cloisonne comme le reste du
+     module, et il porte en plus la garde qui empêche une relance de partir
+     deux fois. */
+  describe("le journal des envois", () => {
+    it("accepte un envoi chez soi", async () => {
+      const { error } = await clients.ownerA.from("billing_invoice_emails").insert({
+        org_id: ids.orgA,
+        installment_id: ids.installmentA,
+        kind: "invoice",
+        to_email: "contact@client-a.test",
+        cc_emails: ["direction@client-a.test"],
+        bcc_email: "a.digiovanni.pro@gmail.com",
+        subject: "Facture INV-0001",
+        body: "Bonjour, voici la facture.",
+      });
+      expect(error).toBeNull();
+    });
+
+    it("refuse le même mail une seconde fois pour la même mensualité", async () => {
+      // C'est la base qui tient l'idempotence, pas le code : un passage
+      // rejoué ne doit pas envoyer deux fois la même relance.
+      const { error } = await clients.ownerA.from("billing_invoice_emails").insert({
+        org_id: ids.orgA,
+        installment_id: ids.installmentA,
+        kind: "invoice",
+        to_email: "contact@client-a.test",
+        subject: "Deuxième envoi",
+        body: "Non.",
+      });
+      expect(error).not.toBeNull();
+    });
+
+    it("laisse passer une relance, qui est un autre type de mail", async () => {
+      const { error } = await clients.ownerA.from("billing_invoice_emails").insert({
+        org_id: ids.orgA,
+        installment_id: ids.installmentA,
+        kind: "reminder_1",
+        to_email: "contact@client-a.test",
+        subject: "Relance",
+        body: "Sauf erreur de ma part…",
+      });
+      expect(error).toBeNull();
+    });
+
+    it("ne laisse pas la voisine lire ce qui est parti", async () => {
+      const { data } = await clients.ownerB
+        .from("billing_invoice_emails")
+        .select("id, to_email")
+        .eq("org_id", ids.orgA);
+      expect(data ?? []).toEqual([]);
+    });
+
+    it("ne laisse pas la voisine journaliser un envoi chez le premier", async () => {
+      const { error } = await clients.ownerB.from("billing_invoice_emails").insert({
+        org_id: ids.orgA,
+        installment_id: ids.installmentA,
+        kind: "reminder_2",
+        to_email: "voleur@ailleurs.test",
+        subject: "Injection",
+        body: "Non.",
+      });
+      expect(error).not.toBeNull();
+    });
+
+    it("laisse un membre simple lire le journal sans pouvoir y écrire", async () => {
+      const { data } = await clients.memberA
+        .from("billing_invoice_emails")
+        .select("id")
+        .eq("org_id", ids.orgA);
+      expect((data ?? []).length).toBeGreaterThan(0);
+
+      const { error } = await clients.memberA.from("billing_invoice_emails").insert({
+        org_id: ids.orgA,
+        installment_id: ids.installmentA,
+        kind: "reminder_3",
+        to_email: "contact@client-a.test",
+        subject: "Par un membre",
+        body: "Non.",
+      });
+      expect(error).not.toBeNull();
+    });
+
+    it("ne laisse pas la voisine lire l'adresse de destinataire d'un devis", async () => {
+      // Les colonnes d'envoi vivent sur `billing_engagements` : la politique
+      // porte sur la ligne, il faut vérifier qu'aucune ne fuit par là.
+      await admin
+        .from("billing_engagements")
+        .update({ recipient_email: "secret@client-a.test" })
+        .eq("id", ids.engagementA);
+
+      const { data } = await clients.ownerB
+        .from("billing_engagements")
+        .select("id, recipient_email")
+        .eq("id", ids.engagementA);
+      expect(data ?? []).toEqual([]);
+    });
+  });
 });

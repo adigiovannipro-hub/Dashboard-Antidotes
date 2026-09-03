@@ -31,7 +31,7 @@ export function InvoicesBlock({ invoices }: { invoices: FinanceInvoice[] }) {
           Aucune facture synchronisée. Elles apparaissent au passage horaire de
           la synchronisation Airwallex.
         </p>
-        <EcheancesLink />
+        <FacturesLink />
       </div>
     );
   }
@@ -60,18 +60,18 @@ export function InvoicesBlock({ invoices }: { invoices: FinanceInvoice[] }) {
         ))}
       </ul>
 
-      <EcheancesLink />
+      <FacturesLink />
     </div>
   );
 }
 
-function EcheancesLink() {
+function FacturesLink() {
   return (
     <Link
-      href="/entreprise/echeances"
+      href="/entreprise/factures"
       className="type-label text-accent-ink inline-flex items-center gap-1 hover:underline"
     >
-      Planifier les échéances à venir
+      Voir toutes les factures
       <ArrowRight strokeWidth={1.75} className="size-4" aria-hidden />
     </Link>
   );

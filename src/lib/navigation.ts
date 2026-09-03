@@ -34,7 +34,7 @@ export type NavIcon =
   | "perso"
   | "moderation"
   | "finance"
-  | "echeances"
+  | "factures"
   | "recus"
   | "acces"
   | "academy";
@@ -186,9 +186,9 @@ export const getAppNavigation = cache(async (): Promise<NavGroup[]> => {
                 match: "prefix",
               },
               {
-                href: "/entreprise/echeances",
-                label: "Échéances",
-                icon: "echeances",
+                href: "/entreprise/factures",
+                label: "Factures",
+                icon: "factures",
                 match: "prefix",
               },
             ] satisfies NavEntry[])

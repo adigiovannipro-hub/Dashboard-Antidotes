@@ -732,12 +732,14 @@ export type {
   BillingClientAlias as BillingClientAliasRow,
   BillingEngagement as BillingEngagementRow,
   BillingInstallment as BillingInstallmentRow,
+  BillingInvoiceEmail as BillingInvoiceEmailRow,
 } from "@/lib/billing/types";
 
 import type {
   BillingClientAlias,
   BillingEngagement,
   BillingInstallment,
+  BillingInvoiceEmail,
 } from "@/lib/billing/types";
 
 /* --- Module Mon travail ----------------------------------------------------
@@ -906,6 +908,7 @@ export type Database = {
       billing_engagements: Table<BillingEngagement>;
       billing_installments: Table<BillingInstallment>;
       billing_client_aliases: Table<BillingClientAlias>;
+      billing_invoice_emails: Table<BillingInvoiceEmail>;
       work_cycles: Table<WorkCycle>;
       work_cycle_steps: Table<WorkCycleStep>;
       work_tasks: Table<WorkTask>;
@@ -1067,13 +1070,17 @@ export type Database = {
         | "transactions"
         | "invoices"
         | "ledger"
-        | "billing";
+        | "billing"
+        // 20260903e — l'émission et les relances des Factures.
+        | "invoicing";
       // Mon travail (0014)
       work_task_source: "manual" | "fathom" | "email" | "recurring";
       work_task_status: "pending" | "done" | "deleted";
       // Échéances (0016)
       billing_engagement_status: "active" | "ended";
       billing_installment_status: "pending" | "issued" | "paid" | "skipped";
+      // Factures — envoi et relances (20260903e)
+      billing_email_kind: "invoice" | "reminder_1" | "reminder_2" | "reminder_3";
       // Contexte client (0032)
       client_asset_type:
         | "website"

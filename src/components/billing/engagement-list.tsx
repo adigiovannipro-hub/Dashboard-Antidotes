@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils";
 import { Counter, Panel, PanelBody, PanelRows } from "@/components/ds/surface";
 import { StatusPill } from "@/components/ds/status-pill";
 import { AddInstallmentDialog } from "@/components/billing/add-installment-dialog";
+import { DeliveryDialog } from "@/components/billing/delivery-dialog";
 import { EngagementActions } from "@/components/billing/engagement-actions";
 import {
   DeleteInstallmentButton,
@@ -183,6 +184,7 @@ function EngagementDetails({
                 engagementId={engagement.id}
                 clientName={engagement.client_name}
               />
+              <DeliveryDialog engagement={engagement} />
               <EngagementActions engagementId={engagement.id} active={active} />
             </div>
           ) : null}

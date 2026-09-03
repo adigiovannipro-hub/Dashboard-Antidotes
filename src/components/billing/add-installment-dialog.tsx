@@ -21,7 +21,7 @@ import { PendingLabel } from "@/components/ds/pending-label";
  * Une mensualité de plus sur un devis en cours — prolongation, rallonge.
  *
  * Deux champs suffisent : le mois et le montant, la TVA et la devise sont
- * celles du devis. La ligne naît « Devis confirmé » et rejoint les groupes,
+ * celles du devis. La ligne naît « Facture confirmée » et rejoint les groupes,
  * le prévisionnel et les cartes au rendu suivant : une seule table, tout
  * l'écran la lit.
  */
@@ -85,7 +85,7 @@ function AddInstallmentForm({
           <DialogHeader>
             <DialogTitle>Nouvelle mensualité</DialogTitle>
             <DialogDescription>
-              Sur le devis de {clientName} — elle démarre « Devis confirmé » et
+              Sur le devis de {clientName} — elle démarre « Facture confirmée » et
               avance ensuite toute seule, comme les autres.
             </DialogDescription>
           </DialogHeader>
