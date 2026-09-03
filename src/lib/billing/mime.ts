@@ -33,6 +33,14 @@ export type InvoiceMessage = {
     filename: string;
     content: Buffer;
   } | null;
+  /**
+   * La carte de signature, placée **après** la pièce jointe.
+   *
+   * L'ordre des parties est l'ordre d'affichage : un mail écrit à la main se
+   * lit message, puis facture, puis carte de visite. Absente : le message
+   * porte sa signature de bout en bout, comme avant.
+   */
+  signature?: { text: string; html: string | null } | null;
 };
 
 /**
@@ -84,54 +92,72 @@ export function buildInvoiceMime(message: InvoiceMessage): string {
   headers.push(`Subject: ${encodeHeader(sanitizeHeaderValue(message.subject))}`);
   headers.push("MIME-Version: 1.0");
 
-  const textPart = [
+  /* Un bloc de texte, seul ou doublé de sa version HTML dans un
+     `alternative` — le HTML en second, un client de messagerie retenant la
+     dernière version qu'il sait afficher. */
+  const textBlock = (text: string) => [
     'Content-Type: text/plain; charset="UTF-8"',
     "Content-Transfer-Encoding: base64",
     "",
-    foldBase64(Buffer.from(message.body, "utf8")),
+    foldBase64(Buffer.from(text, "utf8")),
     "",
   ];
 
-  /* Avec une version HTML, les deux partent dans un `alternative` — et le
-     HTML en second, parce qu'un client de messagerie retient la dernière
-     version qu'il sait afficher. */
-  const inner = `${boundary}-alt`;
-  const bodyLines = message.bodyHtml
-    ? [
-        `Content-Type: multipart/alternative; boundary="${inner}"`,
-        "",
-        `--${inner}`,
-        ...textPart,
-        `--${inner}`,
-        'Content-Type: text/html; charset="UTF-8"',
-        "Content-Transfer-Encoding: base64",
-        "",
-        foldBase64(Buffer.from(message.bodyHtml, "utf8")),
-        "",
-        `--${inner}--`,
-        "",
-      ]
-    : textPart;
+  let alternativeSeq = 0;
+  const block = (text: string, html: string | null) => {
+    if (!html) return textBlock(text);
+    const inner = `${boundary}-alt${(alternativeSeq += 1)}`;
+    return [
+      `Content-Type: multipart/alternative; boundary="${inner}"`,
+      "",
+      `--${inner}`,
+      ...textBlock(text),
+      `--${inner}`,
+      'Content-Type: text/html; charset="UTF-8"',
+      "Content-Transfer-Encoding: base64",
+      "",
+      foldBase64(Buffer.from(html, "utf8")),
+      "",
+      `--${inner}--`,
+      "",
+    ];
+  };
 
   if (!message.attachment) {
-    return [...headers, ...bodyLines].join("\r\n");
+    return [...headers, ...block(message.body, message.bodyHtml ?? null)].join("\r\n");
   }
 
   const filename = sanitizeFilename(message.attachment.filename);
+
+  /* L'ordre des parties **est** l'ordre d'affichage : message, facture,
+     carte de signature. Un mail écrit à la main se lit ainsi, et une pièce
+     jointe reléguée sous le numéro de téléphone se cherche. */
+  const attachmentPart = [
+    `--${boundary}`,
+    `Content-Type: application/pdf; name="${filename}"`,
+    "Content-Transfer-Encoding: base64",
+    /* `inline` et non `attachment` : les clients qui savent la rendre
+       l'affichent à sa place dans le fil du message. Les autres la mettent
+       en pièce jointe, ce qui est le comportement d'avant. */
+    `Content-Disposition: inline; filename="${filename}"`,
+    "",
+    foldBase64(message.attachment.content),
+    "",
+  ];
 
   return [
     ...headers,
     `Content-Type: multipart/mixed; boundary="${boundary}"`,
     "",
     `--${boundary}`,
-    ...bodyLines,
-    `--${boundary}`,
-    `Content-Type: application/pdf; name="${filename}"`,
-    "Content-Transfer-Encoding: base64",
-    `Content-Disposition: attachment; filename="${filename}"`,
-    "",
-    foldBase64(message.attachment.content),
-    "",
+    ...block(message.body, message.bodyHtml ?? null),
+    ...attachmentPart,
+    ...(message.signature
+      ? [
+          `--${boundary}`,
+          ...block(message.signature.text, message.signature.html ?? null),
+        ]
+      : []),
     `--${boundary}--`,
     "",
   ].join("\r\n");

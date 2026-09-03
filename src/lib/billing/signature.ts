@@ -37,6 +37,55 @@ https://bit.ly/2Ku3Pwu`;
  */
 export const SIGNATURE_HTML: string | null = `<table cellpadding="0" cellspacing="0" border="0" width="600px" style="color: rgb(0, 0, 0); font-variant-caps: normal; vertical-align: -webkit-baseline-middle; font-size: small; font-family: Arial;"><tbody><tr><td style="padding-bottom: 15px;"><div style="margin: 0px; font-size: 12px;">À dispo,</div></td></tr><tr><td><table cellpadding="0" cellspacing="0" border="0" style="vertical-align: -webkit-baseline-middle; font-size: small;"><tbody><tr><td width="150" style="vertical-align: middle;"><span style="margin-right: 20px; display: block;"><img src="https://image.noelshack.com/fichiers/2026/01/5/1767349579-cropped-circle-image-30x30.png" role="presentation" width="130" style="max-width: 130px;"></span></td><td style="vertical-align: middle;"><h2 style="margin: 0px; font-size: 16px; line-height: 24px;">Alessandro DI GIOVANNI</h2><div style="margin: 0px; font-size: 12px; line-height: 20px; white-space: nowrap;">Social Media Consultant &amp; Creator Agent</div><div style="margin: 0px; font-size: 12px; line-height: 20px;">Media Kit : <a href="https://shm.to/BjXi8DC" style="color: rgb(0, 0, 0);">Hamza Sdt</a> - <a href="https://shm.to/XHMrZGw" style="color: rgb(0, 0, 0);">Claire Sgr</a></div></td><td width="30" aria-label="Vertical Spacer"><div style="width: 30px;"></div></td><td width="1" aria-label="Divider" style="width: 1px; height: auto; border-bottom: medium; border-left: 1px solid rgb(191, 252, 166);"></td><td width="30" aria-label="Vertical Spacer"><div style="width: 30px;"></div></td><td style="vertical-align: middle;"><table cellpadding="0" cellspacing="0" border="0" style="vertical-align: -webkit-baseline-middle; font-size: small; line-height: 1;"><tbody><tr style="vertical-align: middle; height: 26px;"><td width="24" style="vertical-align: middle;"><table cellpadding="0" cellspacing="0" border="0" style="vertical-align: -webkit-baseline-middle; font-size: small; width: 24px;"><tbody><tr><td style="vertical-align: bottom;"><span style="display: inline-block; background-color: rgb(191, 252, 166);"><img src="https://cdn2.hubspot.net/hubfs/53/tools/email-signature-generator/icons/phone-icon-dark-2x.png" alt="mobilePhone" width="16" style="display: block; background-image: linear-gradient(rgb(191, 252, 166), rgb(191, 252, 166));"></span></td></tr></tbody></table></td><td style="padding: 0px;"><a href="tel:+33679779235" style="text-decoration: none; color: rgb(0, 0, 0); font-size: 12px;">+33679779235</a></td></tr><tr style="vertical-align: middle; height: 26px;"><td width="24" style="vertical-align: middle;"><table cellpadding="0" cellspacing="0" border="0" style="vertical-align: -webkit-baseline-middle; font-size: small; width: 24px;"><tbody><tr><td style="vertical-align: bottom;"><span style="display: inline-block; background-color: rgb(191, 252, 166);"><img src="https://cdn2.hubspot.net/hubfs/53/tools/email-signature-generator/icons/email-icon-dark-2x.png" alt="emailAddress" width="16" style="display: block; background-image: linear-gradient(rgb(191, 252, 166), rgb(191, 252, 166));"></span></td></tr></tbody></table></td><td style="padding: 0px;"><a href="mailto:a.digiovanni.pro@gmail.com" style="text-decoration: none; color: rgb(0, 0, 0); font-size: 12px;">a.digiovanni.pro@gmail.com</a></td></tr><tr style="vertical-align: middle; height: 26px;"><td width="24" style="vertical-align: middle;"><table cellpadding="0" cellspacing="0" border="0" style="vertical-align: -webkit-baseline-middle; font-size: small; width: 24px;"><tbody><tr><td style="vertical-align: bottom;"><span style="display: inline-block; background-color: rgb(191, 252, 166);"><img src="https://cdn2.hubspot.net/hubfs/53/tools/email-signature-generator/icons/link-icon-dark-2x.png" alt="website" width="16" style="display: block; background-image: linear-gradient(rgb(191, 252, 166), rgb(191, 252, 166));"></span></td></tr></tbody></table></td><td style="padding: 0px;"><a href="https://bit.ly/2Ku3Pwu" style="text-decoration: none; color: rgb(0, 0, 0); font-size: 12px;">https://bit.ly/2Ku3Pwu</a></td></tr></tbody></table></td></tr></tbody></table></td></tr><tr><td></td></tr><tr><td></td></tr><tr><td colspan="3" style="max-width: 300px; font-size: 12px; padding-top: 1rem; text-align: center;"><div class="legal-content"><p style="font-size: inherit; margin: 0px;"></p><p style="font-size: inherit; margin: 0px;"></p></div></td></tr></tbody></table>`;
 
+/**
+ * La formule qui ouvre la signature, et que la pièce jointe doit suivre.
+ *
+ * Un mail écrit à la main se lit dans cet ordre : le message, « À dispo, », la
+ * facture, puis la carte de visite. La pièce jointe s'affiche là où elle
+ * tombe dans le message, et la coller après la carte revenait à la reléguer
+ * sous le numéro de téléphone.
+ */
+export const SIGNATURE_INTRO = "À dispo,";
+
+/**
+ * La signature scindée en deux : ce qui précède la pièce jointe, et la carte
+ * qui la suit.
+ *
+ * Le corps rendu se termine par `SIGNATURE_TEXT` — les modèles la portent en
+ * dur. On la retire, on garde « À dispo, » avec le message, et la carte part
+ * après le PDF.
+ */
+export function splitAroundAttachment(body: string): {
+  before: { text: string; html: string | null };
+  after: { text: string; html: string | null };
+} {
+  const cardText = SIGNATURE_TEXT.replace(SIGNATURE_INTRO, "").trimStart();
+  const beforeText = `${body.replace(SIGNATURE_TEXT, "").trimEnd()}\n\n${SIGNATURE_INTRO}`;
+
+  return {
+    before: { text: beforeText, html: bodyAsHtml(beforeText) },
+    after: { text: cardText, html: signatureCardHtml() },
+  };
+}
+
+/**
+ * La carte de signature sans sa première ligne — « À dispo, » est parti avec
+ * le message. Le découpage se fait sur la première rangée du tableau, celle
+ * qui ne porte que cette formule.
+ */
+function signatureCardHtml(): string | null {
+  if (!SIGNATURE_HTML) return null;
+
+  const opening = SIGNATURE_HTML.indexOf("<tbody>");
+  const firstRowEnd = SIGNATURE_HTML.indexOf("</tr>", opening);
+  if (opening === -1 || firstRowEnd === -1) return SIGNATURE_HTML;
+
+  return (
+    SIGNATURE_HTML.slice(0, opening + "<tbody>".length) +
+    SIGNATURE_HTML.slice(firstRowEnd + "</tr>".length)
+  );
+}
+
 /** Le texte d'un corps de mail, échappé pour tenir dans du HTML. */
 function escapeHtml(text: string): string {
   return text

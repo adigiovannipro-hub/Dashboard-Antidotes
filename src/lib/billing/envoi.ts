@@ -17,7 +17,7 @@ import {
 import { formatMoney } from "@/lib/finance/money";
 import { longDayLabel, monthLabel, monthOnlyLabel } from "./format";
 import { buildInvoiceMime } from "./mime";
-import { bodyAsHtml } from "./signature";
+import { splitAroundAttachment } from "./signature";
 import { decideEnvoi, REFUSAL_LABELS, type SentEmail } from "./relances";
 import {
   DEFAULT_REMINDER_1_TEMPLATE,
@@ -548,6 +548,7 @@ async function sendInvoiceEmail(options: {
     );
   }
 
+  const parts = splitAroundAttachment(rendered.body);
   const to = engagement.recipient_email!;
   const cc = engagement.cc_emails ?? [];
 
@@ -559,12 +560,15 @@ async function sendInvoiceEmail(options: {
       cc,
       bcc: ARCHIVE_BCC,
       subject: rendered.subject,
-      body: rendered.body,
-      bodyHtml: bodyAsHtml(rendered.body),
+      /* Le message s'arrête à « À dispo, », la facture suit, la carte de
+         signature ferme : l'ordre d'un mail écrit à la main. */
+      body: parts.before.text,
+      bodyHtml: parts.before.html,
       attachment: {
         filename: `${invoice.number || "facture"}.pdf`,
         content: pdf,
       },
+      signature: parts.after,
     }),
   });
 

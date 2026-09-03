@@ -59,6 +59,33 @@ describe("buildInvoiceMime", () => {
     expect(mime).toContain(Buffer.from("%PDF-1.4").toString("base64"));
   });
 
+  it("place la facture entre le message et la carte de signature", () => {
+    // L'ordre des parties est l'ordre d'affichage : un mail écrit à la main
+    // se lit message, facture, carte de visite — pas l'inverse.
+    const mime = buildInvoiceMime(
+      message({
+        body: "Bonjour,\n\nÀ dispo,",
+        signature: { text: "Alessandro DI GIOVANNI", html: null },
+      }),
+    );
+
+    const messagePos = mime.indexOf(
+      Buffer.from("Bonjour,\n\nÀ dispo,", "utf8").toString("base64"),
+    );
+    const pdfPos = mime.indexOf("Content-Type: application/pdf");
+    const signaturePos = mime.indexOf(
+      Buffer.from("Alessandro DI GIOVANNI", "utf8").toString("base64"),
+    );
+
+    expect(messagePos).toBeGreaterThan(-1);
+    expect(pdfPos).toBeGreaterThan(messagePos);
+    expect(signaturePos).toBeGreaterThan(pdfPos);
+  });
+
+  it("propose la facture en affichage direct plutôt qu'en pièce détachée", () => {
+    expect(buildInvoiceMime(message())).toContain("Content-Disposition: inline;");
+  });
+
   it("part en texte simple quand aucune pièce n'est jointe", () => {
     const mime = buildInvoiceMime(message({ attachment: null }));
     expect(mime).toContain('Content-Type: text/plain; charset="UTF-8"');

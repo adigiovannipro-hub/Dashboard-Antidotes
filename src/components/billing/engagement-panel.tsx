@@ -112,7 +112,7 @@ export function EngagementPanel({
 
       <aside
         aria-label={creating ? "Nouveau devis" : `Devis de ${engagement.client_name}`}
-        className="border-border bg-background animate-in slide-in-from-right fixed inset-y-0 right-0 z-50 flex w-full max-w-2xl flex-col border-l shadow-2xl duration-300 motion-reduce:animate-none"
+        className="border-border bg-background animate-in slide-in-from-right fixed inset-y-0 right-0 z-50 flex w-full max-w-4xl flex-col border-l shadow-2xl duration-300 motion-reduce:animate-none"
       >
         <header className="border-border flex items-start justify-between gap-4 border-b px-6 py-4">
           <div className="min-w-0">
@@ -165,7 +165,7 @@ export function EngagementPanel({
                 ) : null}
               </Field>
 
-              <Field label="Projet" hint="Le nom du devis, en interne.">
+              <Field label="Projet">
                 <Input
                   name="label"
                   required={creating}
@@ -260,9 +260,9 @@ export function EngagementPanel({
 
             <Section
               title="Facturation"
-              hint="Ce qu'Airwallex exige pour émettre : l'identité de l'entreprise facturée et le libellé de la prestation. Le dashboard crée la fiche client à la première facture — plus rien à faire à la main."
+              hint="Ce qui figurera sur la facture. IBAN et mention de TVA partent d'office."
             >
-              <Field label="Raison sociale" hint="Vide : le nom du client est repris." wide>
+              <Field label="Raison sociale" wide>
                 <Input
                   name="billingName"
                   defaultValue={engagement?.billing_name ?? ""}
@@ -307,7 +307,7 @@ export function EngagementPanel({
                   placeholder="Angers"
                 />
               </Field>
-              <Field label="Pays" hint="Code à deux lettres.">
+              <Field label="Pays">
                 <Input
                   name="billingCountry"
                   defaultValue={engagement?.billing_country ?? "FR"}
@@ -318,7 +318,7 @@ export function EngagementPanel({
 
               <Field
                 label="Produit facturé"
-                hint="La ligne de la facture. Vide : le nom du projet est repris."
+               
               >
                 <Input
                   name="productName"
@@ -327,16 +327,11 @@ export function EngagementPanel({
                 />
               </Field>
 
-              <p className="type-caption text-text-tertiary sm:col-span-2">
-                Les mentions de bas de facture — IBAN, SWIFT, « TVA non
-                applicable, article 259-1 du CGI » — sont les mêmes pour tous et
-                partent automatiquement.
-              </p>
             </Section>
 
             <Section
               title="Destinataires"
-              hint="Dès qu'un mois de prestation est terminé, la facture se crée et part à cette adresse avec son PDF. Puis relance à J+31, J+46 et J+61 — le règlement arrête tout."
+              hint="a.digiovanni.pro@gmail.com est toujours en copie cachée."
             >
               <Field
                 label="Email du destinataire"
@@ -352,7 +347,7 @@ export function EngagementPanel({
                 />
               </Field>
 
-              <Field label="Copies (CC)" hint="Séparées par des virgules." wide>
+              <Field label="Copies (CC)" wide>
                 <Input
                   name="ccEmails"
                   defaultValue={(engagement?.cc_emails ?? []).join(", ")}
@@ -372,14 +367,11 @@ export function EngagementPanel({
                 />
               </Field>
 
-              <p className="type-caption text-text-tertiary sm:col-span-2">
-                a.digiovanni.pro@gmail.com est toujours en copie cachée.
-              </p>
             </Section>
 
             <Section
               title="Mail d'envoi"
-              hint="Celui qui accompagne la facture. Il ne réclame aucun mois précédent : les impayés ont leurs propres relances."
+              hint="Part à l'émission, la facture jointe. La signature se met toute seule."
             >
               <Field label="Objet" wide>
                 <Input
@@ -399,29 +391,40 @@ export function EngagementPanel({
 
             <Section
               title="Relances"
-              hint="Trois textes distincts, et la gradation va vers plus de chaleur : à six semaines, un client qui n'a pas payé est bien plus souvent débordé que de mauvaise foi."
+              hint="Tant que la facture n'est pas payée. Un règlement arrête tout."
             >
               {REMINDERS.map((reminder) => (
-                <div key={reminder.key} className="contents">
-                  <Field label={`${reminder.label} — objet`} wide>
+                <details
+                  key={reminder.key}
+                  className="border-border rounded-md border sm:col-span-2"
+                >
+                  <summary className="type-label cursor-pointer px-3 py-2.5">
+                    {reminder.label}
+                    {reminder.hint ? (
+                      <span className="type-caption text-text-tertiary ml-2 font-normal">
+                        {reminder.hint}
+                      </span>
+                    ) : null}
+                  </summary>
+                  <div className="grid gap-3 px-3 pb-3">
                     <Input
                       name={`${reminder.key}Subject`}
+                      aria-label={`${reminder.label} — objet`}
                       defaultValue={
                         engagement?.[reminder.subjectField] ?? reminder.defaultSubject
                       }
                     />
-                  </Field>
-                  <Field label={`${reminder.label} — message`} hint={reminder.hint} wide>
                     <textarea
                       name={`${reminder.key}Template`}
+                      aria-label={`${reminder.label} — message`}
                       rows={11}
                       className={BODY_FIELD}
                       defaultValue={
                         engagement?.[reminder.bodyField] ?? reminder.defaultBody
                       }
                     />
-                  </Field>
-                </div>
+                  </div>
+                </details>
               ))}
             </Section>
 
@@ -438,9 +441,6 @@ export function EngagementPanel({
                   </div>
                 ))}
               </dl>
-              <p className="type-caption text-text-tertiary sm:col-span-2">
-                La signature se met toute seule au bas de chaque mail.
-              </p>
             </Section>
           </div>
 
@@ -504,7 +504,7 @@ const REMINDERS = [
     bodyField: "reminder_3_template",
     defaultSubject: DEFAULT_REMINDER_3_SUBJECT,
     defaultBody: DEFAULT_REMINDER_3_TEMPLATE,
-    hint: "La dernière : après elle, plus rien ne part tout seul.",
+    hint: "la dernière",
   },
 ] as const satisfies readonly {
   key: string;
@@ -540,7 +540,9 @@ function Section({
           <p className="type-caption text-text-tertiary mt-1 max-w-prose">{hint}</p>
         ) : null}
       </div>
-      <div className="grid gap-x-4 gap-y-3 sm:grid-cols-2">{children}</div>
+      {/* `items-start` : sans lui, un champ portant une explication étire
+          sa rangée et son voisin flotte au milieu du vide. */}
+      <div className="grid items-start gap-x-4 gap-y-4 sm:grid-cols-2">{children}</div>
     </section>
   );
 }
