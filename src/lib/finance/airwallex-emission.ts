@@ -196,6 +196,58 @@ export type BillingCustomerInput = {
 };
 
 /**
+ * La fiche client déjà connue d'Airwallex, cherchée par son nom.
+ *
+ * Indispensable avant toute création : le compte porte déjà les clients des
+ * factures émises à la main, et en créer une seconde fiche du même nom ouvre
+ * une **nouvelle série de numéros** — la facture d'août de Chasseurs de
+ * Graines est repartie à `-0001` pour cette raison. La numérotation suit le
+ * client, pas le compte.
+ *
+ * Comparaison sur le nom normalisé — casse, accents et espaces multiples
+ * ignorés : « MEDIAPILOTE ANGERS » et « Mediapilote Angers » sont la même
+ * entreprise. `null` si rien ne correspond, et c'est alors qu'on crée.
+ */
+export async function findBillingCustomerByName(
+  name: string,
+): Promise<string | null> {
+  const wanted = normalizeName(name);
+  if (!wanted) return null;
+
+  let pageAfter: string | undefined;
+  do {
+    const params = new URLSearchParams({ page_size: "100" });
+    if (pageAfter) params.set("page_after", pageAfter);
+
+    const page = await call<{
+      items?: RawInvoice[];
+      has_more?: boolean;
+      page_after?: string;
+    }>(`/api/v1/billing_customers?${params.toString()}`);
+
+    for (const item of page.items ?? []) {
+      if (normalizeName(text(item.name) ?? "") === wanted) {
+        const id = text(item.id);
+        if (id) return id;
+      }
+    }
+
+    pageAfter = page.has_more ? page.page_after : undefined;
+  } while (pageAfter);
+
+  return null;
+}
+
+function normalizeName(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
  * Crée la fiche client chez Airwallex.
  *
  * Faite une fois par devis, puis mémorisée : c'est l'identité qui figurera

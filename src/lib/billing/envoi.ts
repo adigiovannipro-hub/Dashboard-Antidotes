@@ -7,6 +7,7 @@ import {
   downloadInvoicePdf,
   createBillingCustomer,
   createProduct,
+  findBillingCustomerByName,
   emitInvoice,
   getInvoice,
   getInvoiceProductId,
@@ -412,6 +413,14 @@ async function emitFor(
      partir de ce qui a été saisi sur la fiche. */
   let customerId =
     engagement.airwallex_customer_id ?? template?.billing_customer_id ?? null;
+  if (!customerId) {
+    const billingName = engagement.billing_name?.trim() || engagement.client_name;
+
+    /* Chercher avant de créer : le compte porte déjà les clients des factures
+       émises à la main, et une seconde fiche du même nom ouvrirait une
+       nouvelle série de numéros. */
+    customerId = await findBillingCustomerByName(billingName);
+  }
   if (!customerId) {
     const billingName = engagement.billing_name?.trim() || engagement.client_name;
     customerId = await createBillingCustomer(
