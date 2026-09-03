@@ -289,10 +289,20 @@ async function antidater(admin: Admin, orgId: string, n: number) {
   }[];
   if (rows.length === 0) throw new Error("Rien n'est encore parti : envoyer d'abord.");
 
-  /* Reculer de ce qu'il faut pour que le palier visé soit franchi d'un jour :
-     l'envoi initial part à J-(afterDays + 1), les relances déjà envoyées
-     gardent leur écart relatif. */
-  const shiftDays = AFTER_DAYS[n - 1]! + 1;
+  /* On **positionne** l'envoi initial à J-(palier + 1), au lieu de le reculer
+     d'un décalage fixe : appelé deux fois de suite, un décalage fixe s'empile
+     et fait franchir le palier suivant — le passage enverrait la relance 3 là
+     où on voulait éprouver la 2. Les mails déjà partis suivent le même
+     décalage et gardent donc leur écart relatif. */
+  const initial = rows.find((mail) => mail.kind === "invoice");
+  if (!initial) throw new Error("L'envoi initial n'est pas au journal.");
+
+  const startOfDay = (date: Date) =>
+    Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
+  const elapsed = Math.floor(
+    (startOfDay(new Date()) - startOfDay(new Date(initial.sent_at))) / 86_400_000,
+  );
+  const shiftDays = AFTER_DAYS[n - 1]! + 1 - elapsed;
 
   for (const mail of rows) {
     const sent = new Date(mail.sent_at);
