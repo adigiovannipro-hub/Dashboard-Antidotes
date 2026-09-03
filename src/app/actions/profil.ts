@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
-import { requireRealViewer } from "@/lib/auth";
+import { requireViewer } from "@/lib/auth";
 import { createAdminClient, createClient } from "@/lib/supabase/server";
 
 /**
@@ -17,10 +17,6 @@ import { createAdminClient, createClient } from "@/lib/supabase/server";
  *
  * L'identifiant du compte ne vient jamais du formulaire : il est lu de la
  * session. Un champ caché serait un champ modifiable.
- *
- * Et la session doit être **réelle** : en accès ouvert, un visiteur emprunte
- * l'identité de l'owner, et « ma fiche » deviendrait la sienne — n'importe qui
- * pourrait réécrire son nom et sa photo.
  */
 
 export type ProfilResult = { ok: true; message: string } | { ok: false; error: string };
@@ -40,7 +36,7 @@ export async function updateMyProfile(
   _previous: ProfilResult | null,
   formData: FormData,
 ): Promise<ProfilResult> {
-  const viewer = await requireRealViewer();
+  const viewer = await requireViewer();
 
   const parsed = nameSchema.safeParse({
     firstName: formData.get("firstName") ?? "",
@@ -89,7 +85,7 @@ export async function prepareMyAvatarUpload(input: {
   type: string;
   size: number;
 }): Promise<AvatarUpload> {
-  const viewer = await requireRealViewer();
+  const viewer = await requireViewer();
 
   if (input.size > MAX_AVATAR_BYTES) {
     return { ok: false, error: "Trop lourde : 2 Mo maximum." };
@@ -114,7 +110,7 @@ export async function prepareMyAvatarUpload(input: {
 
 /** Accroche le chemin que le navigateur vient de remplir. */
 export async function attachMyAvatar(input: { path: string }): Promise<ProfilResult> {
-  const viewer = await requireRealViewer();
+  const viewer = await requireViewer();
 
   if (!input.path.startsWith(`${viewer.user.id}/`)) {
     return { ok: false, error: "Chemin de fichier inattendu." };
@@ -133,7 +129,7 @@ export async function attachMyAvatar(input: { path: string }): Promise<ProfilRes
 
 /** Retire la photo — la fiche retombe sur les initiales. */
 export async function removeMyAvatar(): Promise<ProfilResult> {
-  const viewer = await requireRealViewer();
+  const viewer = await requireViewer();
 
   const supabase = await createClient();
   const { error } = await supabase

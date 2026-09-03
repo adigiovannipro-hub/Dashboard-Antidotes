@@ -36,14 +36,6 @@ export const getAcademyContext = cache(
     const viewer = await getViewer();
     if (!viewer) return null;
 
-    /* L'accès ouvert emprunte l'identité de l'owner : sur l'Academy, ça
-       donnerait le back-office et toutes les formations à qui a l'URL, et une
-       élève déconnectée se retrouverait dans le compte de l'agence. Le module
-       n'existe pas pour un visiteur sans session — 404, comme pour un client
-       d'espace. C'est la seule section du produit qui refuse l'accès ouvert,
-       parce que c'est la seule qu'on vend à quelqu'un d'autre. */
-    if (viewer.isOpenAccessViewer) return null;
-
     if (viewer.isOwner && viewer.ownedOrgIds.length > 0) {
       return {
         orgId: viewer.ownedOrgIds[0]!,

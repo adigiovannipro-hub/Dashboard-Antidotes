@@ -1,6 +1,6 @@
 import { AppShell } from "@/components/ds/app-shell";
 import { requireAcademyAccess } from "@/lib/academy/access";
-import { requireRealViewer } from "@/lib/auth";
+import { requireViewer } from "@/lib/auth";
 
 /**
  * Section Academy — les formations, type Skool.
@@ -10,11 +10,10 @@ import { requireRealViewer } from "@/lib/auth";
  * répond 404 à qui n'est ni membre de l'organisation ni inscrit à une
  * formation — un client d'espace n'apprend pas l'existence du module.
  *
- * **C'est la seule section du produit qui refuse l'accès ouvert.** Partout
- * ailleurs, un visiteur sans session emprunte l'identité de l'owner, ce qui
- * est un confort de construction. Ici, la formation est vendue à quelqu'un
- * d'autre : l'identité décide de ce qu'on voit, elle ne peut donc pas être
- * empruntée.
+ * L'Academy suit le même régime que le reste du produit : en accès ouvert, un
+ * visiteur sans session est l'owner et voit toutes les formations. Ce qui
+ * sépare une élève du reste ne tient pas à un mur ici, mais à **sa session** —
+ * `getAcademyContext` borne alors ses lectures à ses inscriptions.
  *
  * Plus de sous-titre : il nommait « Devenir freelance social media manager »
  * sur toutes les pages, y compris celles d'une autre formation.
@@ -24,10 +23,7 @@ export default async function AcademyLayout({
 }: {
   children: React.ReactNode;
 }) {
-  /* `requireRealViewer` et non `requireViewer` : l'accès ouvert ferait du
-     visiteur l'owner, et une élève déconnectée verrait le compte de l'agence,
-     son rail complet et son back-office. Ici on renvoie vers la connexion. */
-  const viewer = await requireRealViewer();
+  const viewer = await requireViewer();
   await requireAcademyAccess();
 
   return (

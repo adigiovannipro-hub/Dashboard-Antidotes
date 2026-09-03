@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { ProfilForm } from "@/components/profil/profil-form";
 import { AppShell } from "@/components/ds/app-shell";
 import { Panel, PanelBody } from "@/components/ds/surface";
-import { requireRealViewer } from "@/lib/auth";
+import { requireViewer } from "@/lib/auth";
 import { getMyProfile, signAvatarUrl } from "@/lib/profil/queries";
 
 export const metadata: Metadata = { title: "Mon profil" };
@@ -17,10 +17,7 @@ export const metadata: Metadata = { title: "Mon profil" };
  * suffit à pouvoir se nommer.
  */
 export default async function MonProfilPage() {
-  /* Vraie session exigée : en accès ouvert, « ma fiche » serait celle de
-     l'owner, et n'importe quel visiteur pourrait réécrire son nom et sa
-     photo. */
-  const viewer = await requireRealViewer();
+  const viewer = await requireViewer();
   const profile = await getMyProfile();
   const avatarUrl = await signAvatarUrl(profile?.avatar_url ?? null);
 

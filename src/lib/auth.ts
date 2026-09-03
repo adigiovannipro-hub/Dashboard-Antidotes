@@ -92,8 +92,6 @@ export const getViewer = cache(async () => {
     isOwner: ownedOrgs.size > 0,
     ownedOrgIds: [...ownedOrgs],
     workspaces: accessible,
-    /* Une vraie session : le visiteur est bien qui il dit être. */
-    isOpenAccessViewer: false,
     // Ni membre d'une organisation, ni membre d'un espace : la seule raison
     // d'avoir un compte est alors une formation achetée. La requête n'est
     // posée que dans ce cas — elle ne coûte rien à l'équipe ni aux clients.
@@ -162,10 +160,6 @@ async function openAccessViewer(supabase: SupabaseClient<Database>) {
     })),
     // L'accès ouvert emprunte l'identité de l'owner : jamais une élève.
     isStudent: false,
-    /* Le drapeau qui compte : cette identité est **empruntée**. Toute surface
-       où l'identité décide de ce qu'on voit — l'Academy, la fiche personnelle —
-       doit refuser ce viewer et exiger une vraie connexion. */
-    isOpenAccessViewer: true,
   };
 }
 
@@ -178,21 +172,6 @@ export type Viewer = NonNullable<Awaited<ReturnType<typeof getViewer>>>;
 export async function requireViewer(): Promise<Viewer> {
   const viewer = await getViewer();
   if (!viewer) redirect("/login");
-  return viewer;
-}
-
-/**
- * Exige une **vraie** session, jamais l'identité empruntée de l'accès ouvert.
- *
- * L'accès ouvert fait du premier visiteur venu l'owner de l'organisation. Sur
- * les écrans de pilotage c'est un confort de construction assumé ; sur une
- * surface vendue à quelqu'un d'autre, c'est un défaut : une élève dont la
- * session a expiré deviendrait l'owner, verrait son compte, son rail complet
- * et son back-office. Les sections concernées appellent cette garde en tête.
- */
-export async function requireRealViewer(): Promise<Viewer> {
-  const viewer = await getViewer();
-  if (!viewer || viewer.isOpenAccessViewer) redirect("/login");
   return viewer;
 }
 
