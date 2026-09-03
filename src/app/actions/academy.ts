@@ -3,7 +3,11 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
-import { getAcademyContext, type AcademyAccess } from "@/lib/academy/access";
+import {
+  canReachLesson,
+  getAcademyContext,
+  type AcademyAccess,
+} from "@/lib/academy/access";
 import { sendCourseOnboarding } from "@/lib/academy/onboarding";
 import { shouldComplete } from "@/lib/academy/progress";
 import { videoUploadError } from "@/lib/academy/upload";
@@ -39,6 +43,28 @@ async function guardAdmin(): Promise<AcademyAccess> {
   return context;
 }
 
+/**
+ * La leçon visée appartient-elle à une formation que cette personne suit ?
+ *
+ * Les identifiants de leçon viennent du navigateur : une élève peut en poster
+ * n'importe lequel, y compris celui d'une formation qu'elle n'a pas achetée.
+ * La RLS le refuserait — mais en accès ouvert le client de lecture est
+ * `service_role` et ne refuse plus rien. Le contrôle est donc explicite, sur
+ * chaque écriture d'apprenant.
+ */
+async function guardLesson(context: AcademyAccess, lessonId: string): Promise<void> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("academy_lessons")
+    .select("org_id, course_id")
+    .eq("id", lessonId)
+    .maybeSingle();
+
+  if (data === null || !canReachLesson(context, data)) {
+    throw new Error("Action indisponible.");
+  }
+}
+
 function fail(error: unknown): AcademyResult {
   return { ok: false, error: (error as Error).message };
 }
@@ -72,6 +98,7 @@ export async function recordProgress(input: {
 
   try {
     const context = await guardMember();
+    await guardLesson(context, parsed.data.lessonId);
     const supabase = await createClient();
 
     const { data: existing } = await supabase
@@ -131,6 +158,7 @@ export async function markLessonDone(input: {
 
   try {
     const context = await guardMember();
+    await guardLesson(context, parsed.data.lessonId);
     const supabase = await createClient();
 
     const { error } = await supabase.from("academy_progress").upsert(
@@ -174,6 +202,7 @@ export async function saveLessonNote(input: {
 
   try {
     const context = await guardMember();
+    await guardLesson(context, parsed.data.lessonId);
     const supabase = await createClient();
 
     const { error } = await supabase.from("academy_notes").upsert(

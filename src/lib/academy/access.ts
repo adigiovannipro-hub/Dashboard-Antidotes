@@ -5,6 +5,10 @@ import { notFound } from "next/navigation";
 
 import { getViewer } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import type { AcademyAccess } from "./permissions";
+
+export type { AcademyAccess } from "./permissions";
+export { canReachLesson, canReadCourse, isPublishedChain } from "./permissions";
 
 /**
  * Résolution de l'accès à l'Academy.
@@ -27,24 +31,18 @@ import { createClient } from "@/lib/supabase/server";
  * base ; ceci ne fait que les exprimer côté écran.
  */
 
-export type AcademyAccess = {
-  orgId: string;
-  userId: string;
-  /** Peut créer, éditer, publier, téléverser, inscrire — le back-office. */
-  isAdmin: boolean;
-  /**
-   * Les formations lisibles, ou `null` pour « toutes celles de
-   * l'organisation » — le cas de l'owner et des membres de l'équipe.
-   */
-  courseIds: string[] | null;
-  /** Élève : inscrite à une formation, membre d'aucune organisation. */
-  isStudent: boolean;
-};
-
 export const getAcademyContext = cache(
   async (): Promise<AcademyAccess | null> => {
     const viewer = await getViewer();
     if (!viewer) return null;
+
+    /* L'accès ouvert emprunte l'identité de l'owner : sur l'Academy, ça
+       donnerait le back-office et toutes les formations à qui a l'URL, et une
+       élève déconnectée se retrouverait dans le compte de l'agence. Le module
+       n'existe pas pour un visiteur sans session — 404, comme pour un client
+       d'espace. C'est la seule section du produit qui refuse l'accès ouvert,
+       parce que c'est la seule qu'on vend à quelqu'un d'autre. */
+    if (viewer.isOpenAccessViewer) return null;
 
     if (viewer.isOwner && viewer.ownedOrgIds.length > 0) {
       return {
@@ -109,15 +107,4 @@ export async function requireAcademyAdmin(): Promise<AcademyAccess> {
   const context = await requireAcademyAccess();
   if (!context.isAdmin) notFound();
   return context;
-}
-
-/**
- * Cette formation est-elle lisible par cette personne ?
- *
- * `courseIds === null` vaut « toutes » — l'owner et l'équipe. Sinon la liste
- * est celle des inscriptions actives, et une formation absente de la liste
- * doit se comporter comme une formation qui n'existe pas.
- */
-export function canReadCourse(context: AcademyAccess, courseId: string): boolean {
-  return context.courseIds === null || context.courseIds.includes(courseId);
 }

@@ -29,13 +29,46 @@ export const getModerationContext = cache(async (): Promise<ModerationContext> =
 
   const supabase = await createClient();
 
-  // La RLS filtre déjà : cette requête ne rend que les clients accessibles.
+  /* Les filtres sont explicites et non délégués à la RLS. Elle suffirait si
+     elle s'appliquait toujours — mais en accès ouvert les lectures passent en
+     `service_role`, et « la RLS filtre déjà » devient faux : la liste
+     revenait complète, si bien qu'une élève de l'Academy ou un client
+     d'espace atteignait la Modération. */
   const [{ data: clients }, { data: memberships }] = await Promise.all([
     supabase.from("moderation_clients").select("*").order("name"),
-    supabase.from("moderation_members").select("client_id, role, requires_approval"),
+    supabase
+      .from("moderation_members")
+      .select("client_id, role, requires_approval")
+      .eq("user_id", viewer.user.id),
   ]);
 
-  const list = (clients ?? []) as unknown as ModerationClient[];
+  const membershipRowsBrutes = (memberships ?? []) as unknown as {
+    client_id: string;
+    role: "operator" | "viewer";
+    requires_approval: boolean;
+  }[];
+
+  /* Deux chemins ouvrent un client de modération, et un seul suffit :
+     une adhésion nominative (`moderation_members`), ou le rattachement du
+     client à un espace où la personne est **contributrice** (0041). L'owner
+     voit tout.
+
+     Le rôle compte : un client d'espace atteint son planning, jamais la
+     Modération — c'est un outil interne, et il ne doit pas même en apprendre
+     l'existence. Retenir « tout espace atteint » l'y laissait entrer. */
+  const espacesAtteints = new Set(
+    viewer.workspaces
+      .filter((workspace) => workspace.role === "contributor")
+      .map((workspace) => workspace.id),
+  );
+  const clientsAdherents = new Set(membershipRowsBrutes.map((row) => row.client_id));
+
+  const list = ((clients ?? []) as unknown as ModerationClient[]).filter(
+    (client) =>
+      viewer.isOwner ||
+      clientsAdherents.has(client.id) ||
+      (client.workspace_id !== null && espacesAtteints.has(client.workspace_id)),
+  );
   if (list.length === 0) {
     // L'owner voit le module même vide : c'est lui qui branche les comptes
     // dans Connexions et lance la première synchronisation. Pour tout autre,
@@ -48,11 +81,7 @@ export const getModerationContext = cache(async (): Promise<ModerationContext> =
       : { access: NO_ACCESS, clients: [] };
   }
 
-  const membershipRows = (memberships ?? []) as unknown as {
-    client_id: string;
-    role: "operator" | "viewer";
-    requires_approval: boolean;
-  }[];
+  const membershipRows = membershipRowsBrutes;
 
   // L'owner d'organisation prime : il voit tous les clients sans adhésion.
   // Un contributeur n'a pas de ligne dans `moderation_members` — c'est le

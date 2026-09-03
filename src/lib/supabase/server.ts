@@ -30,24 +30,16 @@ function createOpenAccessClient() {
 }
 
 /**
- * Client serveur portant la session de l'utilisateur. Toutes les requêtes
- * passent par la RLS : c'est le client à utiliser par défaut.
+ * Client **toujours** adossé aux cookies, quel que soit le mode d'accès.
  *
- * **En accès ouvert, il n'y a pas de session**, et la RLS ne rendrait donc
- * aucune ligne. Les lectures basculent alors en `service_role`, ce qui lève
- * l'isolation entre espaces. C'est le prix de l'ouverture, il est assumé et
- * documenté dans `lib/access-mode.ts`.
+ * C'est celui de l'identité : lire la session, la poser, la retirer. Il ne
+ * bascule jamais en `service_role`, et c'est tout l'intérêt — l'accès ouvert
+ * rendait un client sans gestion de cookies, si bien que `verifyOtp` réussissait
+ * côté Supabase et n'écrivait la session **nulle part**. Résultat : personne ne
+ * pouvait se connecter tant que l'application était ouverte, et tout visiteur
+ * — élève comprise — retombait sur l'identité empruntée de l'owner.
  */
-export async function createClient() {
-  if (isOpenAccess()) {
-    // Lire les cookies sans s'en servir, uniquement pour empêcher le rendu
-    // statique. Sans cette ligne, Next ne voit plus aucune dépendance à la
-    // requête et fige le hub, la Modération et l'administration au moment du
-    // build — un dashboard gelé sur les données de la veille.
-    await cookies();
-    return createOpenAccessClient();
-  }
-
+export async function createSessionClient() {
   const cookieStore = await cookies();
 
   return createServerClient<Database>(
@@ -71,6 +63,28 @@ export async function createClient() {
       },
     },
   );
+}
+
+/**
+ * Client serveur portant la session de l'utilisateur. Toutes les requêtes
+ * passent par la RLS : c'est le client à utiliser par défaut.
+ *
+ * **En accès ouvert, il n'y a pas de session**, et la RLS ne rendrait donc
+ * aucune ligne. Les lectures basculent alors en `service_role`, ce qui lève
+ * l'isolation entre espaces. C'est le prix de l'ouverture, il est assumé et
+ * documenté dans `lib/access-mode.ts`.
+ */
+export async function createClient() {
+  if (isOpenAccess()) {
+    // Lire les cookies sans s'en servir, uniquement pour empêcher le rendu
+    // statique. Sans cette ligne, Next ne voit plus aucune dépendance à la
+    // requête et fige le hub, la Modération et l'administration au moment du
+    // build — un dashboard gelé sur les données de la veille.
+    await cookies();
+    return createOpenAccessClient();
+  }
+
+  return createSessionClient();
 }
 
 /**
