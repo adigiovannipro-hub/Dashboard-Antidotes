@@ -94,11 +94,19 @@ L'inscription est écrite **par adresse**, avant que le compte existe. Puis
 que le magic link, sans passer par la boîte d'envoi de Supabase dont le quota
 gratuit est de quelques messages par heure.
 
-**L'envoi passe par Resend**, en HTTP direct (`fetch`, aucune dépendance
-ajoutée) : 3 000 messages par mois en gratuit. **Sans `RESEND_API_KEY`,
-l'inscription est quand même écrite et le lien s'affiche à l'écran, à copier.**
-Dégradation prévue : le module reste utilisable le jour de son installation,
-avant que le domaine d'envoi soit vérifié.
+**L'envoi passe par la boîte Gmail des Reçus** — `getGmailTransport()`, le
+transport de tout courriel sortant du produit, déjà utilisé par les retours du
+Planning et l'envoi en validation. Aucune clé de plus, aucun domaine à faire
+vérifier, aucun quota d'un service tiers : le message part de l'adresse de
+l'agence, celle à laquelle une élève peut répondre.
+
+**Si aucune boîte n'est connectée, l'inscription est quand même écrite et le
+lien s'affiche à l'écran, à copier.** Dégradation prévue : le module reste
+utilisable même si le branchement Gmail saute.
+
+Le message est en `multipart/alternative` — les courriels du Planning n'ont que
+du HTML, celui-ci part à des adresses inconnues, et un message sans partie
+texte est pénalisé par les filtres.
 
 Le lien pointe `/auth/callback?token_hash=…&type=…&suivant=/academy/[formation]`
 — la forme qui fonctionne quand le lien est ouvert **ailleurs** que dans le
@@ -175,11 +183,5 @@ faire déborder la page.
 
 ## Variables d'environnement
 
-Deux nouvelles, toutes deux facultatives :
-
-- `RESEND_API_KEY` — le facteur du courriel d'arrivée. Absente, le lien
-  s'affiche à l'écran pour un envoi à la main.
-- `ACADEMY_EMAIL_FROM` — l'expéditeur affiché. Le défaut `onboarding@resend.dev`
-  ne poste qu'à l'adresse du compte Resend, ce qui suffit pour un essai.
-
-Le reste vit sur les variables Supabase existantes.
+**Aucune.** L'Academy vit sur les variables Supabase existantes, et le courriel
+d'arrivée sur la boîte Gmail déjà connectée aux Reçus.

@@ -13,11 +13,11 @@ import { Label } from "@/components/ui/label";
 /**
  * Inscrire quelqu'un à une formation.
  *
- * Le courriel part tout seul quand `RESEND_API_KEY` est posée. Sinon —
- * et c'est le cas tant que le domaine d'envoi n'est pas vérifié —
- * l'inscription est **quand même écrite** et le lien s'affiche ici, à copier
- * et envoyer à la main. Une dégradation qui laisse le module utilisable vaut
- * mieux qu'un bouton qui refuse de travailler.
+ * Le courriel part par la boîte Gmail de l'agence — celle des Reçus, qui
+ * envoie déjà les retours du Planning. Si elle est déconnectée, l'inscription
+ * est **quand même écrite** et le lien s'affiche ici, à copier et envoyer à la
+ * main. Une dégradation qui laisse le module utilisable vaut mieux qu'un
+ * bouton qui refuse de travailler.
  */
 export function EnrollForm({
   courses,

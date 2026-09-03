@@ -41,11 +41,6 @@ const serverSchema = {
      jetons Google Analytics. Serveur uniquement : elle ouvre l'accès à tous
      les comptes connectés du projet. Voir `docs/web-analytics-setup.md`. */
   COMPOSIO_API_KEY: z.string().min(1),
-  /* Facteur du courriel d'arrivée dans une formation de l'Academy. Absente,
-     le lien d'accès s'affiche à l'écran pour un envoi à la main : c'est une
-     dégradation prévue, pas une panne. `ACADEMY_EMAIL_FROM` l'accompagne et
-     n'est pas listée ici — elle a un défaut utilisable, pas la clé. */
-  RESEND_API_KEY: z.string().min(1),
 } as const;
 
 export type ServerEnvKey = keyof typeof serverSchema;
