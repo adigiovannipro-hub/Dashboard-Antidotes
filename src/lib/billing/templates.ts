@@ -26,6 +26,8 @@ export const TEMPLATE_VARIABLES = {
   "[client]": "Le nom du client — « Bondet ».",
   "[projet]": "L'intitulé de la prestation — « Accompagnement social media ».",
   "[mois]": "Le mois de prestation, sans l'année — « août ».",
+  "[de mois]":
+    "Le mois précédé de sa préposition, élision comprise — « de juillet », « d'août ».",
   "[période]": "Le mois de prestation avec l'année — « août 2026 ».",
   "[montant]": "Le montant TTC de la facture — « 2 522,50 € ».",
   "[numéro]": "Le numéro de la facture chez Airwallex — « INV-A9DFDGZ3-0005 ».",
@@ -62,7 +64,7 @@ export const DEFAULT_SEND_TEMPLATE = `Hello [prénom],
 
 J'espère que vous allez bien,
 
-Vous trouverez en PJ la facture du mois de [mois], d'un montant de [montant].
+Vous trouverez en PJ la facture [de mois], d'un montant de [montant].
 
 Le règlement est attendu pour le [échéance].
 
@@ -79,7 +81,7 @@ export const DEFAULT_REMINDER_SUBJECT = "Relance — facture [mois] — [client]
 
 export const DEFAULT_REMINDER_TEMPLATE = `Hello [prénom],
 
-Est-ce que vous pouvez regarder pour le règlement du mois de [mois] svp 🙏
+Est-ce que vous pouvez regarder pour le règlement [de mois] svp 🙏
 
 La facture [numéro], d'un montant de [montant], était échue le [échéance]. Je vous la remets en pièce jointe.
 
@@ -109,12 +111,22 @@ export type RenderedEmail =
   | { ok: true; subject: string; body: string }
   | { ok: false; unknownVariables: string[] };
 
+/**
+ * « de juillet », mais « d'août ». L'élision devant une voyelle n'est pas
+ * une coquetterie : « la facture du mois de août » saute aux yeux du client
+ * avant le montant.
+ */
+function prepositionFor(month: string): string {
+  return /^[aeiouâéèêîôûy]/i.test(month.trim()) ? `d'${month}` : `de ${month}`;
+}
+
 function valuesOf(facts: TemplateFacts): Record<TemplateVariable, string> {
   return {
     "[prénom]": facts.firstName?.trim() ?? "",
     "[client]": facts.clientName,
     "[projet]": facts.projectLabel,
     "[mois]": facts.month,
+    "[de mois]": prepositionFor(facts.month),
     "[période]": facts.period,
     "[montant]": facts.amount,
     "[numéro]": facts.invoiceNumber,

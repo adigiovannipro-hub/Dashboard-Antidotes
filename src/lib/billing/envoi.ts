@@ -12,7 +12,7 @@ import {
   type EmittedInvoice,
 } from "@/lib/finance/airwallex-emission";
 import { formatMoney } from "@/lib/finance/money";
-import { dayLabel, monthLabel, monthOnlyLabel } from "./format";
+import { dayLabel, longDayLabel, monthLabel, monthOnlyLabel } from "./format";
 import { buildInvoiceMime } from "./mime";
 import { decideEnvoi, REFUSAL_LABELS, type SentEmail } from "./relances";
 import {
@@ -480,7 +480,7 @@ async function sendInvoiceEmail(options: {
        le document qui fait foi, TVA comprise s'il y en a une. */
     amount: formatMoney(invoice.amount_cents, invoice.currency),
     invoiceNumber: invoice.number,
-    dueDate: invoice.due_on ? dayLabel(invoice.due_on) : "réception",
+    dueDate: invoice.due_on ? longDayLabel(invoice.due_on) : "réception",
   });
 
   if (!rendered.ok) {

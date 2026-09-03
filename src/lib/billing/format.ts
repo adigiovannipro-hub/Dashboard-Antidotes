@@ -36,6 +36,21 @@ const MONTH_ONLY = new Intl.DateTimeFormat("fr-FR", {
   timeZone: "UTC",
 });
 
+/* Un tableau abrège, un mail écrit en toutes lettres : « 3 oct. 2026 » dans
+   une phrase adressée à un client fait note de service. */
+const DAY_LONG = new Intl.DateTimeFormat("fr-FR", {
+  day: "numeric",
+  month: "long",
+  year: "numeric",
+  timeZone: "UTC",
+});
+
+/** « 2026-10-03 » → « 3 octobre 2026 ». */
+export function longDayLabel(isoDay: string): string {
+  const date = new Date(`${isoDay}T00:00:00.000Z`);
+  return Number.isNaN(date.getTime()) ? isoDay : DAY_LONG.format(date);
+}
+
 /**
  * « 2026-07-01 » → « juillet ». Sans l'année, pour les phrases où elle
  * alourdit : « la facture du mois de juillet » se dit comme ça.

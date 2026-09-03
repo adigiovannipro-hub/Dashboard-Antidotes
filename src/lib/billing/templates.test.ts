@@ -84,7 +84,7 @@ describe("renderEmail", () => {
     if (!rendu.ok) return;
     expect(rendu.subject).toBe("Facture août — Bondet");
     expect(rendu.body).toContain("Hello Jean,");
-    expect(rendu.body).toContain("la facture du mois de août");
+    expect(rendu.body).toContain("la facture d'août");
     expect(rendu.body).toContain("2 522,50 €");
     expect(rendu.body).toContain("5 septembre 2026");
     expect(rendu.body).not.toMatch(/\[[^\]]+\]/);
@@ -107,7 +107,32 @@ describe("renderEmail", () => {
     expect(rendu.ok).toBe(true);
     if (!rendu.ok) return;
     expect(rendu.subject).toBe("Relance — facture août — Bondet");
-    expect(rendu.body).toContain("règlement du mois de août");
+    expect(rendu.body).toContain("règlement d'août");
     expect(rendu.body).not.toMatch(/\[[^\]]+\]/);
+  });
+});
+
+describe("l'élision de [de mois]", () => {
+  it("dit « de juillet » devant une consonne", () => {
+    const rendu = renderEmail("o", "la facture [de mois]", faits({ month: "juillet" }));
+    expect(rendu.ok && rendu.body).toBe("la facture de juillet");
+  });
+
+  it("dit « d'août » devant une voyelle", () => {
+    // « la facture du mois de août » saute aux yeux du client avant le montant.
+    const rendu = renderEmail("o", "la facture [de mois]", faits({ month: "août" }));
+    expect(rendu.ok && rendu.body).toBe("la facture d'août");
+  });
+
+  it("élide aussi devant avril et octobre", () => {
+    for (const mois of ["avril", "octobre"]) {
+      const rendu = renderEmail("o", "[de mois]", faits({ month: mois }));
+      expect(rendu.ok && rendu.body).toBe(`d'${mois}`);
+    }
+  });
+
+  it("ne confond pas [mois] et [de mois]", () => {
+    const rendu = renderEmail("o", "[mois] puis [de mois]", faits({ month: "août" }));
+    expect(rendu.ok && rendu.body).toBe("août puis d'août");
   });
 });
