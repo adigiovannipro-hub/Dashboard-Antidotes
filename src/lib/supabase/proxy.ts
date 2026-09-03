@@ -18,6 +18,12 @@ const PUBLIC_PATHS = [
   "/auth/erreur",
   "/partage",
   "/api/cron",
+  /* Les pages légales sont publiques par nécessité : Meta, Google et TikTok
+     refusent une application dont l'URL de confidentialité renvoie vers un
+     écran de connexion — c'est un robot qui la lit, jamais un utilisateur
+     authentifié. */
+  "/confidentialite",
+  "/cgu",
 ];
 
 function isPublic(pathname: string) {

@@ -41,11 +41,25 @@ Composio ne gère pas l'OAuth TikTok pour nous, contrairement à LinkedIn ou
 Google : il faut une app à soi.
 
 1. <https://developers.tiktok.com> → **Manage apps** → créer une app.
-2. Ajouter le produit **Login Kit**, puis les portées `user.info.basic`,
-   `user.info.stats` et `video.list`.
-3. Renseigner l'URL de redirection que Composio donne à la création de la
-   configuration d'authentification.
-4. Noter la **client key** et la **client secret**.
+2. Renseigner les deux URL que TikTok exige, et qui sont **servies par
+   l'application elle-même** : <https://antidotes.app/confidentialite> et
+   <https://antidotes.app/cgu> (remplacer par le domaine réel du
+   déploiement). Elles sont publiques — le chemin est dans `PUBLIC_PATHS`,
+   sans quoi l'examinateur tomberait sur l'écran de connexion. La section
+   « Les données venant de TikTok » de la politique nomme les trois portées
+   demandées et l'usage qui en est fait : c'est ce que l'examinateur y
+   cherche.
+3. Ajouter le produit **Login Kit**, puis les portées `user.info.basic`,
+   `user.info.stats` et `video.list`. Rien de plus : une portée superflue
+   allonge la revue.
+4. Login Kit → **Redirect URI**. TikTok en accepte dix, on en pose deux —
+   Composio a fait évoluer le préfixe de version et les deux répondent :
+   `https://backend.composio.dev/api/v3/toolkits/auth/callback`
+   `https://backend.composio.dev/api/v3.1/toolkits/auth/callback`
+5. Créer un **Sandbox** et y déclarer le compte TikTok du client comme
+   *target user*. C'est ce qui permet d'essayer **sans attendre la revue** :
+   l'app fonctionne tout de suite pour les comptes déclarés.
+6. Noter la **client key** et la **client secret**.
 
 Le produit « TikTok Account Management » (Business Account API) se demande
 au même endroit et passe par un audit : à ne lancer que si les vues de

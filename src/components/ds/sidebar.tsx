@@ -248,6 +248,43 @@ export function Sidebar({
           ))}
         </nav>
 
+        {/* Les pages légales, en pied de rail et en tout petit.
+            Elles doivent être **atteignables depuis l'application** : c'est
+            ce que vérifie l'examinateur d'une plateforme dont on consomme
+            l'API, et c'est aussi la moindre des choses pour un client. Mais
+            elles ne sont pas de la navigation : ni icône, ni pastille, ni
+            place dans un groupe — un pied de page, à la taille d'un pied de
+            page.
+
+            `text-text-secondary` et non `--text-tertiary` : 11 px suffisent à
+            se faire discret, et l'encre tertiaire ne monte qu'à 2,79:1.
+            Escamotées quand le rail est replié, comme les libellés : deux
+            liens ne tiennent pas dans 64 px. */}
+        <div
+          className={cn(
+            "shrink-0 border-t border-border px-4 py-3",
+            collapsed && "md:hidden",
+          )}
+        >
+          <p className="type-micro flex flex-wrap items-center gap-x-2 gap-y-1 text-text-secondary">
+            <Link
+              href="/confidentialite"
+              onClick={onCloseMobile}
+              className="focus-visible:ring-ring rounded-sm hover:text-text-primary hover:underline hover:underline-offset-2 focus-visible:ring-2 focus-visible:outline-none"
+            >
+              Confidentialité
+            </Link>
+            <span aria-hidden>·</span>
+            <Link
+              href="/cgu"
+              onClick={onCloseMobile}
+              className="focus-visible:ring-ring rounded-sm hover:text-text-primary hover:underline hover:underline-offset-2 focus-visible:ring-2 focus-visible:outline-none"
+            >
+              CGU
+            </Link>
+          </p>
+        </div>
+
         <div className="hidden shrink-0 border-t border-border p-3 md:block">
           <button
             type="button"
