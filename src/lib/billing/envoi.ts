@@ -5,7 +5,9 @@ import { refreshAccessToken, sendMessage } from "@/lib/recus/gmail";
 import { decryptSecret, encryptSecret } from "@/lib/moderation/crypto";
 import {
   downloadInvoicePdf,
-  emitInvoiceFromTemplate,
+  createBillingCustomer,
+  createProduct,
+  emitInvoice,
   getInvoice,
   getInvoiceProductId,
   getInvoiceTemplate,
@@ -20,7 +22,9 @@ import {
   DEFAULT_REMINDER_1_TEMPLATE,
   DEFAULT_REMINDER_2_TEMPLATE,
   DEFAULT_REMINDER_3_TEMPLATE,
-  DEFAULT_REMINDER_SUBJECT,
+  DEFAULT_REMINDER_1_SUBJECT,
+  DEFAULT_REMINDER_2_SUBJECT,
+  DEFAULT_REMINDER_3_SUBJECT,
   DEFAULT_SEND_SUBJECT,
   DEFAULT_SEND_TEMPLATE,
   renderEmail,
@@ -91,9 +95,19 @@ type EngagementRow = {
   recipient_email: string | null;
   cc_emails: string[] | null;
   contact_first_name: string | null;
+  billing_name: string | null;
+  billing_email: string | null;
+  billing_street: string | null;
+  billing_city: string | null;
+  billing_postcode: string | null;
+  billing_country: string | null;
+  billing_tax_id: string | null;
+  product_name: string | null;
   send_subject: string | null;
   send_template: string | null;
-  reminder_subject: string | null;
+  reminder_1_subject: string | null;
+  reminder_2_subject: string | null;
+  reminder_3_subject: string | null;
   reminder_1_template: string | null;
   reminder_2_template: string | null;
   reminder_3_template: string | null;
@@ -194,7 +208,7 @@ export async function runInvoiceDispatch(options: {
   const { data: engagementData, error: engagementError } = await admin
     .from("billing_engagements")
     .select(
-      "id, client_name, label, recipient_email, cc_emails, contact_first_name, send_subject, send_template, reminder_subject, reminder_1_template, reminder_2_template, reminder_3_template, airwallex_customer_id, airwallex_product_id, template_invoice_external_id",
+      "id, client_name, label, recipient_email, cc_emails, contact_first_name, billing_name, billing_email, billing_street, billing_city, billing_postcode, billing_country, billing_tax_id, product_name, send_subject, send_template, reminder_1_subject, reminder_2_subject, reminder_3_subject, reminder_1_template, reminder_2_template, reminder_3_template, airwallex_customer_id, airwallex_product_id, template_invoice_external_id",
     )
     .eq("org_id", options.orgId)
     .not("recipient_email", "is", null)
@@ -388,45 +402,57 @@ async function emitFor(
   line: InstallmentRow,
   engagement: EngagementRow,
 ): Promise<EmittedInvoice> {
+  /* Une facture modèle, s'il y en a une : elle ne sert plus qu'à reprendre
+     des réglages de forme. Le dashboard sait faire sans. */
   const templateId = engagement.template_invoice_external_id;
-  if (!templateId) {
-    throw new Error(
-      `Aucune facture modèle sur le devis « ${engagement.label} » : créer la première facture dans Airwallex, puis coller son identifiant sur le devis.`,
-    );
-  }
+  const template = templateId ? await getInvoiceTemplate(templateId) : null;
 
-  const template = await getInvoiceTemplate(templateId);
-  if (!template) {
-    throw new Error(`La facture modèle ${templateId} est introuvable chez Airwallex.`);
-  }
-
-  /* Le client de facturation du modèle fait foi, celui mémorisé n'est qu'un
-     repli — une facture dupliquée doit partir chez le même client que celle
-     qu'on duplique. */
-  const customerId = template.billing_customer_id ?? engagement.airwallex_customer_id;
+  /* Le client de facturation : celui du devis, sinon celui du modèle, sinon
+     on le crée. C'est la première émission qui l'inscrit chez Airwallex, à
+     partir de ce qui a été saisi sur la fiche. */
+  let customerId =
+    engagement.airwallex_customer_id ?? template?.billing_customer_id ?? null;
   if (!customerId) {
-    throw new Error(
-      `La facture modèle ${templateId} ne porte aucun client de facturation.`,
+    const billingName = engagement.billing_name?.trim() || engagement.client_name;
+    customerId = await createBillingCustomer(
+      {
+        name: billingName,
+        email: engagement.billing_email ?? engagement.recipient_email,
+        street: engagement.billing_street,
+        city: engagement.billing_city,
+        postcode: engagement.billing_postcode,
+        country: engagement.billing_country ?? "FR",
+        taxId: engagement.billing_tax_id,
+      },
+      `antidotes-client-${engagement.id}`,
     );
   }
 
-  const productId =
-    engagement.airwallex_product_id ?? (await getInvoiceProductId(templateId));
+  /* Le produit : celui du devis, sinon celui lu sur le modèle, sinon créé
+     depuis le libellé de la prestation. */
+  let productId = engagement.airwallex_product_id ?? null;
+  if (!productId && templateId) {
+    productId = await getInvoiceProductId(templateId);
+  }
   if (!productId) {
-    throw new Error(
-      `Impossible de lire le produit facturé sur ${templateId} : le renseigner sur le devis.`,
+    productId = await createProduct(
+      engagement.product_name?.trim() || engagement.label,
+      `antidotes-produit-${engagement.id}`,
     );
   }
 
-  const invoice = await emitInvoiceFromTemplate({
-    template: { ...template, billing_customer_id: customerId },
+  const invoice = await emitInvoice({
+    billingCustomerId: customerId,
     productId,
     amountCents: line.amount_cents,
+    currency: line.currency || "EUR",
     /* Stable pour cette mensualité : c'est ce qui empêche Airwallex de créer
        deux factures si le passage est rejoué après un plantage réseau. */
     requestId: `antidotes-${line.id}`,
-    description: `${engagement.label} — ${monthLabel(line.service_month)}`,
+    description: `${engagement.product_name?.trim() || engagement.label} — ${monthLabel(line.service_month)}`,
+    template,
   });
+
 
   const admin = createAdminClient();
   await admin
@@ -474,10 +500,17 @@ async function sendInvoiceEmail(options: {
     reminder_3: engagement.reminder_3_template ?? DEFAULT_REMINDER_3_TEMPLATE,
   };
 
-  const subjectTemplate =
-    options.kind === "invoice"
-      ? (engagement.send_subject ?? DEFAULT_SEND_SUBJECT)
-      : (engagement.reminder_subject ?? DEFAULT_REMINDER_SUBJECT);
+  /* Chaque mail a aussi son objet : « facture du mois d'août » pour l'envoi,
+     « relance de la facture… », puis « seconde », puis « troisième ». Une
+     boîte de réception encombrée doit les distinguer sans les ouvrir. */
+  const subjectByKind: Record<BillingEmailKind, string> = {
+    invoice: engagement.send_subject ?? DEFAULT_SEND_SUBJECT,
+    reminder_1: engagement.reminder_1_subject ?? DEFAULT_REMINDER_1_SUBJECT,
+    reminder_2: engagement.reminder_2_subject ?? DEFAULT_REMINDER_2_SUBJECT,
+    reminder_3: engagement.reminder_3_subject ?? DEFAULT_REMINDER_3_SUBJECT,
+  };
+
+  const subjectTemplate = subjectByKind[options.kind];
   const bodyTemplate = bodyByKind[options.kind];
 
   const rendered = renderEmail(subjectTemplate, bodyTemplate, {

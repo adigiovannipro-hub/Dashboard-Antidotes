@@ -41,31 +41,38 @@ export type TemplateVariable = keyof typeof TEMPLATE_VARIABLES;
 const VARIABLE_NAMES = Object.keys(TEMPLATE_VARIABLES) as TemplateVariable[];
 
 /**
- * L'objet des mails.
- *
- * Le même pour l'envoi et pour les trois relances, et c'est délibéré : un
- * objet identique garde les relances dans le fil de la facture d'origine —
- * le client retrouve la pièce jointe juste au-dessus, sans la chercher.
+ * Les objets, un par mail.
  *
  * « Alessandro x CLIENT » est la forme employée depuis toujours dans les
- * échanges : le « x » de collaboration, en minuscule, entre deux noms.
+ * échanges : le « x » de collaboration, en minuscule, entre deux noms. Ce qui
+ * suit dit exactement de quoi il s'agit — un envoi, un rappel, un deuxième —
+ * pour qu'une boîte de réception encombrée le distingue sans l'ouvrir.
  */
-export const DEFAULT_SEND_SUBJECT = "Alessandro x [client] : Facture du mois [de mois]";
-export const DEFAULT_REMINDER_SUBJECT = DEFAULT_SEND_SUBJECT;
+export const DEFAULT_SEND_SUBJECT = "Alessandro x [client] : facture du mois [de mois]";
+export const DEFAULT_REMINDER_1_SUBJECT =
+  "Alessandro x [client] : relance de la facture du mois [de mois]";
+export const DEFAULT_REMINDER_2_SUBJECT =
+  "Alessandro x [client] : seconde relance de la facture du mois [de mois]";
+export const DEFAULT_REMINDER_3_SUBJECT =
+  "Alessandro x [client] : troisième relance de la facture du mois [de mois]";
 
 /**
  * L'envoi initial — repris des mails écrits à la main, à une chose près :
  * **aucune relance des mois précédents**. Le mail qui accompagne une facture
  * ne fait qu'une chose, et réclamer un impayé dans le même souffle affaiblit
  * les deux. Les relances ont leurs propres mails, à leur propre rythme.
+ *
+ * La signature ferme le message et porte déjà « À dispo, » : les modèles ne
+ * la répètent pas.
  */
 export const DEFAULT_SEND_TEMPLATE = `Hello [prénom],
 
 J'espère que vous allez bien,
 
-Vous trouverez en PJ la facture [de mois], d'un montant de [montant].
+Vous trouverez en PJ la facture du mois [de mois], d'un montant de [montant].
+Le règlement est attendu pour le [échéance] 🙏
 
-Le règlement est attendu pour le [échéance].
+Merci beaucoup et à très vite,
 
 ${SIGNATURE_TEXT}`;
 
@@ -75,24 +82,29 @@ ${SIGNATURE_TEXT}`;
  * Elle va vers **plus** de chaleur et non vers plus de fermeté : à six
  * semaines, celui qui n'a pas payé est bien plus souvent débordé que de
  * mauvaise foi, et le ton comminatoire d'un automate abîme une relation que
- * deux lignes aimables préservent. La fermeté, s'il en faut, se dit au
- * téléphone — c'est d'ailleurs pour cela qu'il n'y a pas de quatrième mail.
+ * deux lignes aimables préservent. Chacune pose une question différente —
+ * une date, puis un délai — parce qu'une question obtient une réponse là où
+ * un rappel n'obtient rien. La fermeté, s'il en faut, se dit au téléphone :
+ * c'est pour cela qu'il n'y a pas de quatrième mail.
  */
 export const DEFAULT_REMINDER_1_TEMPLATE = `Hello [prénom],
 
-Est-ce que vous pouvez regarder pour le règlement [de mois] svp 🙏
+J'espère que vous allez bien,
+Un e-mail rapide de relance concernant cette facture du mois [de mois], en PJ.
 
-La facture [numéro], d'un montant de [montant], était échue le [échéance]. Je vous la remets en pièce jointe.
+La facture [numéro], d'un montant de [montant], était échue le [échéance].
+Avez-vous une date de règlement à me transmettre ?
 
 Si le règlement est déjà parti, merci d'ignorer ce message.
+Mille mercis,
 
 ${SIGNATURE_TEXT}`;
 
 export const DEFAULT_REMINDER_2_TEMPLATE = `Hello [prénom],
 
-Je me permets de revenir vers vous au sujet de la facture [numéro] [de mois], d'un montant de [montant] — je la remets en pièce jointe pour vous éviter de la chercher.
+Je me permets de revenir vers vous au sujet de la facture [numéro] du mois [de mois], d'un montant de [montant]. Je la remets en pièce jointe.
 
-Si quelque chose bloque de votre côté, dites-le moi, on trouvera une solution.
+Possible de passer en règlement sous peu ?
 
 Merci beaucoup et à très vite,
 
@@ -100,9 +112,9 @@ ${SIGNATURE_TEXT}`;
 
 export const DEFAULT_REMINDER_3_TEMPLATE = `Hello [prénom],
 
-Toujours au sujet de la facture [numéro] [de mois], d'un montant de [montant], échue depuis le [échéance]. Elle est de nouveau en pièce jointe.
+Toujours au sujet de la facture [numéro] du mois [de mois], d'un montant de [montant], échue depuis le [échéance]. Elle est de nouveau en pièce jointe.
 
-Un mot suffit si vous préférez qu'on en parle de vive voix, je vous appelle quand vous voulez.
+Dites-moi si quelque chose bloque de votre côté, je suis joignable quand vous voulez.
 
 Merci beaucoup et à très vite,
 

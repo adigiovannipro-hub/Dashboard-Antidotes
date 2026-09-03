@@ -83,16 +83,30 @@ export type BillingEngagement = {
   recipient_email: string | null;
   cc_emails: string[];
   /** Pour `[prénom]` : Airwallex ne connaît que la raison sociale, et
-      « Bonjour SARL DUPONT » n'est pas une formule de politesse. */
+      « Bonjour SARL DUPONT » n'est pas une formule de politesse. Plusieurs
+      prénoms sont admis — « Christelle, Anthony ». */
   contact_first_name: string | null;
+  /** L'entreprise telle qu'elle figure sur la facture. Vide : le nom du
+      client fait office. C'est avec ces champs que le dashboard crée la
+      fiche client chez Airwallex, à la première émission. */
+  billing_name: string | null;
+  billing_email: string | null;
+  billing_street: string | null;
+  billing_city: string | null;
+  billing_postcode: string | null;
+  billing_country: string;
+  billing_tax_id: string | null;
+  /** Le libellé de la prestation sur la facture — « ACCOMPAGNEMENT SOCIAL
+      MEDIA ». Distinct de `label`, qui nomme le devis en interne. */
+  product_name: string | null;
   /** `null` : le modèle commun s'applique — voir `templates.ts`. L'objet est
       un champ à part du corps : la première ligne d'un texte ne se distingue
       pas à l'œil de son premier paragraphe. */
   send_subject: string | null;
   send_template: string | null;
-  /** L'objet des relances — commun aux trois, et identique à celui de
-      l'envoi : c'est ce qui les garde dans le fil de la facture d'origine. */
-  reminder_subject: string | null;
+  reminder_1_subject: string | null;
+  reminder_2_subject: string | null;
+  reminder_3_subject: string | null;
   /** Trois textes distincts : une relance qui répète mot pour mot la
       précédente se lit comme un automate, et le client le voit. */
   reminder_1_template: string | null;

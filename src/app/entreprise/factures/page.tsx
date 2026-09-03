@@ -6,7 +6,7 @@ import { Panel, PanelBody, PanelHeader, SectionHeader } from "@/components/ds/su
 import { EngagementList } from "@/components/billing/engagement-list";
 import { ForecastChart } from "@/components/billing/forecast-chart";
 import type { BoardRow, InstallmentLine } from "@/components/billing/installment-row";
-import { NewEngagementDialog } from "@/components/billing/new-engagement-dialog";
+import { NewEngagementTrigger } from "@/components/billing/engagement-panel-triggers";
 import { StageGroup } from "@/components/billing/stage-group";
 import { SyncBadge } from "@/components/finance/sync-badge";
 import { requireFinanceAccess } from "@/lib/finance/access";
@@ -165,7 +165,6 @@ export default async function FacturesPage() {
     <div className="space-y-6">
       <SectionHeader
         title="Factures"
-        description="Chaque devis signé engendre ses factures mensuelles : elles partent seules au client, se relancent tant qu'elles ne sont pas payées, et les factures émises hors devis s'affichent aussi."
         action={
           <div className="flex items-center gap-3">
             <SyncBadge
@@ -174,7 +173,7 @@ export default async function FacturesPage() {
               canTrigger={context.canDecide}
             />
             {context.canDecide ? (
-              <NewEngagementDialog knownClients={knownClients} />
+              <NewEngagementTrigger knownClients={knownClients} />
             ) : null}
           </div>
         }

@@ -4,7 +4,7 @@ import {
   DEFAULT_REMINDER_1_TEMPLATE,
   DEFAULT_REMINDER_2_TEMPLATE,
   DEFAULT_REMINDER_3_TEMPLATE,
-  DEFAULT_REMINDER_SUBJECT,
+  DEFAULT_REMINDER_1_SUBJECT,
   DEFAULT_SEND_SUBJECT,
   DEFAULT_SEND_TEMPLATE,
   renderEmail,
@@ -84,9 +84,9 @@ describe("renderEmail", () => {
     const rendu = renderEmail(DEFAULT_SEND_SUBJECT, DEFAULT_SEND_TEMPLATE, faits());
     expect(rendu.ok).toBe(true);
     if (!rendu.ok) return;
-    expect(rendu.subject).toBe("Alessandro x Bondet : Facture du mois d'août");
+    expect(rendu.subject).toBe("Alessandro x Bondet : facture du mois d'août");
     expect(rendu.body).toContain("Hello Jean,");
-    expect(rendu.body).toContain("la facture d'août");
+    expect(rendu.body).toContain("la facture du mois d'août");
     expect(rendu.body).toContain("2 522,50 €");
     expect(rendu.body).toContain("5 septembre 2026");
     expect(rendu.body).not.toMatch(/\[[^\]]+\]/);
@@ -106,10 +106,10 @@ describe("renderEmail", () => {
       DEFAULT_REMINDER_2_TEMPLATE,
       DEFAULT_REMINDER_3_TEMPLATE,
     ]) {
-      const rendu = renderEmail(DEFAULT_REMINDER_SUBJECT, modele, faits());
+      const rendu = renderEmail(DEFAULT_REMINDER_1_SUBJECT, modele, faits());
       expect(rendu.ok).toBe(true);
       if (!rendu.ok) return;
-      expect(rendu.subject).toBe("Alessandro x Bondet : Facture du mois d'août");
+      expect(rendu.subject).toContain("Alessandro x Bondet :");
       expect(rendu.body).toContain("Hello Jean,");
       expect(rendu.body).not.toMatch(/\[[^\]]+\]/);
     }
@@ -129,9 +129,9 @@ describe("renderEmail", () => {
     }
   });
 
-  it("garde le même objet pour l'envoi et les relances", () => {
-    // C'est ce qui garde les relances dans le fil de la facture d'origine.
-    expect(DEFAULT_REMINDER_SUBJECT).toBe(DEFAULT_SEND_SUBJECT);
+  it("distingue l'objet d'une relance de celui d'un envoi", () => {
+    // Une boîte encombrée doit les distinguer sans les ouvrir.
+    expect(DEFAULT_REMINDER_1_SUBJECT).toContain("relance de la facture");
   });
 });
 

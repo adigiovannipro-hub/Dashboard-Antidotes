@@ -34,6 +34,30 @@ import { AirwallexError, call, post } from "@/lib/airwallex/transport";
  * cent à chaque frontière ici, et de sa multiplication au retour.
  */
 
+/**
+ * Le bas de facture : coordonnées bancaires et régime de TVA.
+ *
+ * Dans le `memo`, qu'Airwallex imprime sous le total. C'est **la** partie que
+ * le client utilise pour payer : une facture qui part sans elle oblige à un
+ * second mail, et la première facture d'essai est partie ainsi.
+ *
+ * Constante et non saisie par devis : ces lignes sont les mêmes pour tout le
+ * monde, et une donnée qui ne varie jamais n'a pas à pouvoir diverger d'un
+ * client à l'autre. Repris mot pour mot des factures émises à la main.
+ */
+export const INVOICE_MEMO = [
+  "Nom du Compte Global: ANTIDOTES Limited",
+  "IBAN: DE68202208000046374258",
+  "Code SWIFT: SXPYDEHH",
+  "Nom de la banque: Banking Circle S.A.",
+  "Lieu: Allemagne",
+  "",
+  "TVA non applicable – article 259-1 du CGI",
+].join("\n");
+
+/** Délai de règlement, en jours — celui des factures émises jusqu'ici. */
+export const DEFAULT_DAYS_UNTIL_DUE = 30;
+
 /** Une facture Airwallex, réduite à ce dont l'envoi a besoin. */
 export type EmittedInvoice = {
   external_id: string;
@@ -157,6 +181,74 @@ export async function getInvoiceProductId(
   }
 }
 
+// --- Ce que le dashboard crée lui-même ---------------------------------------
+
+/** L'identité d'une entreprise facturée, telle qu'Airwallex la réclame. */
+export type BillingCustomerInput = {
+  name: string;
+  email: string | null;
+  street: string | null;
+  city: string | null;
+  postcode: string | null;
+  /** Code pays ISO à deux lettres. */
+  country: string;
+  taxId: string | null;
+};
+
+/**
+ * Crée la fiche client chez Airwallex.
+ *
+ * Faite une fois par devis, puis mémorisée : c'est l'identité qui figurera
+ * sur toutes ses factures. L'adresse n'est envoyée que si elle est complète —
+ * une adresse partielle est refusée, et une facture sans adresse vaut mieux
+ * qu'une facture qui n'existe pas.
+ */
+export async function createBillingCustomer(
+  input: BillingCustomerInput,
+  requestId: string,
+): Promise<string> {
+  const address =
+    input.street && input.city && input.postcode
+      ? {
+          address: {
+            street: input.street,
+            city: input.city,
+            postcode: input.postcode,
+            country_code: input.country.toUpperCase().slice(0, 2),
+          },
+        }
+      : {};
+
+  const raw = await post<RawInvoice>("/api/v1/billing_customers/create", {
+    request_id: requestId,
+    name: input.name,
+    type: "BUSINESS",
+    ...(input.email ? { email: input.email } : {}),
+    ...(input.taxId ? { tax_identification_number: input.taxId } : {}),
+    ...address,
+  });
+
+  const id = text(raw.id);
+  if (!id) throw new AirwallexError("Airwallex a créé un client sans identifiant.");
+  return id;
+}
+
+/** Crée le produit facturé — le libellé qui apparaît sur la ligne. */
+export async function createProduct(
+  name: string,
+  requestId: string,
+): Promise<string> {
+  const raw = await post<RawInvoice>("/api/v1/products/create", {
+    request_id: requestId,
+    name,
+    active: true,
+  });
+
+  const id = text(raw.id);
+  if (!id) throw new AirwallexError("Airwallex a créé un produit sans identifiant.");
+  return id;
+}
+
 /**
  * Un prix ponctuel au montant exact d'une mensualité.
  *
@@ -189,56 +281,54 @@ async function createOneOffPrice(options: {
 }
 
 /**
- * Crée la facture du mois à l'image d'une précédente, et la finalise.
+ * Crée la facture d'une mensualité, et la finalise.
  *
- * Trois appels, dans cet ordre, et l'ordre est la sécurité : le brouillon
+ * Quatre appels, dans cet ordre, et l'ordre est la sécurité : le brouillon
  * n'existe pour personne tant qu'il n'est pas finalisé, donc un plantage
  * entre deux étapes ne laisse jamais une facture à moitié envoyée.
+ *
+ * Rien n'est dupliqué d'une facture précédente : le client, le produit et le
+ * prix viennent du devis, et les mentions de bas de page de `INVOICE_MEMO`.
+ * Une facture modèle reste acceptée — elle sert alors de source pour les
+ * seuls réglages de forme — mais elle n'est plus nécessaire.
  *
  * `requestId` doit être **stable pour une mensualité donnée** : c'est lui qui
  * empêche une seconde facture si notre base perd la trace de la première.
  */
-export async function emitInvoiceFromTemplate(options: {
-  template: InvoiceTemplate;
+export async function emitInvoice(options: {
+  billingCustomerId: string;
   productId: string;
   amountCents: number;
+  currency: string;
   /** Stable pour une mensualité — voir plus haut. */
   requestId: string;
-  /** Ce que la facture porte en clair, à la place du libellé du produit. */
+  /** Ce que la facture porte en clair sur sa ligne. */
   description?: string;
+  /** Repris d'une facture existante quand on en tient une, valeurs de la
+      maison sinon. */
+  template?: InvoiceTemplate | null;
 }): Promise<EmittedInvoice> {
   const { template } = options;
-  if (!template.billing_customer_id) {
-    throw new AirwallexError(
-      `La facture modèle ${template.external_id} ne porte aucun client de facturation : impossible d'en dupliquer une.`,
-    );
-  }
 
   const priceId = await createOneOffPrice({
     productId: options.productId,
-    currency: template.currency,
+    currency: options.currency,
     amountCents: options.amountCents,
     requestId: `${options.requestId}-prix`,
   });
 
   const draft = await post<RawInvoice>("/api/v1/invoices/create", {
     request_id: options.requestId,
-    billing_customer_id: template.billing_customer_id,
-    currency: template.currency,
-    /* Recopiés du modèle sans être interprétés : le `memo` porte l'IBAN et la
-       mention de TVA, le `footer` ce qui va en bas de page. */
-    ...(template.memo ? { memo: template.memo } : {}),
-    ...(template.footer ? { footer: template.footer } : {}),
-    ...(template.collection_method
-      ? { collection_method: template.collection_method }
-      : {}),
-    ...(template.days_until_due !== null
-      ? { days_until_due: template.days_until_due }
-      : {}),
-    ...(template.default_tax_percent !== null
-      ? { default_tax_percent: template.default_tax_percent }
-      : {}),
-    ...(template.legal_entity_id
+    billing_customer_id: options.billingCustomerId,
+    currency: options.currency,
+    /* Le `memo` porte l'IBAN et la mention de TVA : c'est avec lui que le
+       client paie. Une facture partie sans lui oblige à un second mail. */
+    memo: template?.memo ?? INVOICE_MEMO,
+    collection_method: template?.collection_method ?? "OUT_OF_BAND",
+    days_until_due: template?.days_until_due ?? DEFAULT_DAYS_UNTIL_DUE,
+    default_tax_percent: template?.default_tax_percent ?? 0,
+    ...(template?.footer ? { footer: template.footer } : {}),
+    ...(template?.legal_entity_id
       ? { legal_entity_id: template.legal_entity_id }
       : {}),
   });

@@ -1,6 +1,6 @@
 /**
- * Le banc d'essai de la chaîne de facturation — un client, un produit, une
- * facture modèle et un devis, tous à 1 €, tous marqués « TEST ».
+ * Le banc d'essai de la chaîne de facturation — un devis à 1 €, marqué
+ * « TEST », et rien d'autre.
  *
  *   pnpm factures:test --preparer   met le scénario en place
  *   pnpm factures:test --etat       dit où en est le scénario
@@ -8,9 +8,10 @@
  *                                   relance N due dès le prochain passage
  *   pnpm factures:test --nettoyer   retire le devis et son journal
  *
- * Pourquoi un client et un produit dédiés : la chaîne duplique une facture
- * existante, et prendre celle d'un vrai client ferait apparaître une facture
- * de 1 € dans son historique. Le banc d'essai ne touche à personne.
+ * Rien n'est préparé chez Airwallex : le dashboard crée lui-même la fiche
+ * client, le produit et la facture. Le banc part donc de ce que remplit un
+ * humain, et vérifie que la chaîne fait le reste. Il porte son propre nom de
+ * client — une facture d'essai n'a rien à faire dans l'historique d'un vrai.
  *
  * Ce que le nettoyage **ne fait pas** : supprimer les factures émises chez
  * Airwallex. Une facture finalisée porte un numéro et devient un document
@@ -66,78 +67,11 @@ type Admin = Awaited<
 // --- Mise en place ----------------------------------------------------------
 
 async function preparer(admin: Admin, orgId: string) {
-  const { post } = await import("../src/lib/airwallex/transport");
-  const { emitInvoiceFromTemplate, getInvoiceTemplate } = await import(
-    "../src/lib/finance/airwallex-emission"
-  );
-
-  const stamp = Date.now();
-
-  /* Un client de facturation à nous : la facture d'essai ne doit apparaître
-     dans l'historique d'aucun vrai client. */
-  const customer = await post<{ id?: string }>("/api/v1/billing_customers/create", {
-    request_id: `test-client-${stamp}`,
-    name: MARQUEUR,
-    email: DESTINATAIRE,
-    type: "BUSINESS",
-  });
-  const customerId = customer.id;
-  if (!customerId) throw new Error("Client de facturation non créé.");
-  console.log(`Client de facturation : ${customerId}`);
-
-  const product = await post<{ id?: string }>("/api/v1/products/create", {
-    request_id: `test-produit-${stamp}`,
-    name: MARQUEUR,
-    description: "Essai de la chaîne d'émission automatique. Un euro.",
-    active: true,
-  });
-  const productId = product.id;
-  if (!productId) throw new Error("Produit non créé.");
-  console.log(`Produit : ${productId}`);
-
-  const price = await post<{ id?: string }>("/api/v1/prices/create", {
-    request_id: `test-prix-${stamp}`,
-    product_id: productId,
-    currency: "EUR",
-    unit_amount: 1,
-    type: "ONE_OFF",
-    pricing_model: "PER_UNIT",
-    active: true,
-  });
-  const priceId = price.id;
-  if (!priceId) throw new Error("Prix non créé.");
-
-  /* La facture modèle — celle qu'on créerait à la main la première fois. Elle
-     est finalisée : c'est ce qui lui donne son numéro, et le dispositif lit sa
-     forme, pas son statut. */
-  const draft = await post<{ id?: string }>("/api/v1/invoices/create", {
-    request_id: `test-modele-${stamp}`,
-    billing_customer_id: customerId,
-    currency: "EUR",
-    collection_method: "OUT_OF_BAND",
-    days_until_due: 30,
-    memo: "Facture d'essai — chaîne d'envoi automatique. Aucun règlement attendu.",
-  });
-  const modelId = draft.id;
-  if (!modelId) throw new Error("Facture modèle non créée.");
-
-  await post(`/api/v1/invoices/${modelId}/add_line_items`, {
-    request_id: `test-modele-lignes-${stamp}`,
-    line_items: [{ price_id: priceId, quantity: 1 }],
-  });
-  await post(`/api/v1/invoices/${modelId}/finalize`, {
-    request_id: `test-modele-finalisation-${stamp}`,
-  });
-  console.log(`Facture modèle : ${modelId}`);
-
-  /* Contrôle : le dispositif doit savoir relire cette facture pour la
-     dupliquer. Mieux vaut le découvrir ici que dans le passage. */
-  const template = await getInvoiceTemplate(modelId);
-  if (!template?.billing_customer_id) {
-    throw new Error(`La facture modèle ${modelId} est illisible.`);
-  }
-  console.log(`Modèle relu : client ${template.billing_customer_id}, ${template.currency}`);
-  void emitInvoiceFromTemplate;
+  /* Rien n'est créé chez Airwallex ici, et c'est tout l'intérêt : depuis que
+     le dashboard crée lui-même la fiche client, le produit et la facture, le
+     banc doit partir de ce que remplit un humain — un devis, des coordonnées
+     de facturation — et vérifier que la chaîne fait le reste. Préparer le
+     terrain chez Airwallex reviendrait à tester le banc, pas le dispositif. */
 
   /* Le devis : un mois de prestation terminé, donc une mensualité à facturer
      tout de suite. Le mois précédent celui d'aujourd'hui. */
@@ -160,9 +94,14 @@ async function preparer(admin: Admin, orgId: string) {
       recipient_email: DESTINATAIRE,
       cc_emails: [],
       contact_first_name: "Alessandro",
-      airwallex_customer_id: customerId,
-      airwallex_product_id: productId,
-      template_invoice_external_id: modelId,
+      /* L'identité facturée, telle qu'un humain la saisirait sur la fiche. */
+      billing_name: MARQUEUR,
+      billing_email: DESTINATAIRE,
+      billing_street: "34 Rue de Bélissen",
+      billing_city: "Lyon",
+      billing_postcode: "69005",
+      billing_country: "FR",
+      product_name: "ESSAI FACTURATION AUTOMATIQUE",
     } as never)
     .select("id")
     .single();
