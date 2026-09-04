@@ -1035,7 +1035,7 @@ export async function deleteEnrollment(input: {
   }
 }
 
-/** Renvoie un lien d'accès neuf — celui du courriel n'est valable qu'un jour. */
+/** Renvoie un lien d'accès neuf — celui du courriel expire en une heure. */
 export async function resendOnboarding(input: {
   enrollmentId: string;
 }): Promise<EnrollResult> {
