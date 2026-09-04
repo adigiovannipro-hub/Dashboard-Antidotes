@@ -6,7 +6,7 @@ import { redirect } from "next/navigation";
 import type { SupabaseClient, User } from "@supabase/supabase-js";
 
 import { isOpenAccess } from "@/lib/access-mode";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createSessionClient } from "@/lib/supabase/server";
 import type { Database, Workspace, WorkspaceRole } from "@/lib/supabase/database.types";
 
 /** Rôle effectif de l'utilisateur sur un espace donné. */
@@ -24,22 +24,36 @@ export interface WorkspaceAccess extends Workspace {
  * réseau vers la base.
  */
 export const getViewer = cache(async () => {
-  const supabase = await createClient();
-
+  /* L'identité vient **toujours** du client de session, jamais du client de
+     lecture : en accès ouvert ce dernier est `service_role` et ne connaît
+     aucun utilisateur, si bien qu'une personne pourtant connectée était lue
+     comme anonyme — donc traitée en owner. C'est la cause du défaut où une
+     élève se retrouvait dans le compte de l'agence. */
+  const session = await createSessionClient();
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await session.auth.getUser();
+
+  const supabase = await createClient();
 
   // En accès ouvert, l'absence de session n'est pas un refus : le visiteur est
   // traité comme l'owner de l'organisation. Voir `lib/access-mode.ts`.
   if (!user) return isOpenAccess() ? openAccessViewer(supabase) : null;
 
-  // Une seule requête par table : la RLS filtre déjà à la source, il n'y a
-  // aucun `where` à ajouter ici.
+  /* Les filtres `user_id` sont explicites et non délégués à la RLS. Elle
+     suffirait si elle s'appliquait toujours — mais en accès ouvert les
+     lectures passent en `service_role`, et sans ces `where` un client
+     récupérerait les appartenances de tout le monde. */
   const [{ data: orgMemberships }, { data: memberships }, { data: workspaces }] =
     await Promise.all([
-      supabase.from("organization_members").select("org_id, role"),
-      supabase.from("memberships").select("workspace_id, role"),
+      supabase
+        .from("organization_members")
+        .select("org_id, role")
+        .eq("user_id", user.id),
+      supabase
+        .from("memberships")
+        .select("workspace_id, role")
+        .eq("user_id", user.id),
       supabase.from("workspaces").select("*").order("type").order("name"),
     ]);
 
@@ -56,12 +70,21 @@ export const getViewer = cache(async () => {
     ]),
   );
 
-  const accessible: WorkspaceAccess[] = (workspaces ?? []).map((workspace) => ({
-    ...workspace,
-    role: ownedOrgs.has(workspace.org_id)
-      ? "owner"
-      : (roleByWorkspace.get(workspace.id) ?? "client"),
-  }));
+  /* La liste des espaces est lue sans `where` — un owner les veut tous — donc
+     elle arrive complète quand la RLS ne filtre pas. Le tri se fait ici : on
+     est owner de son organisation, ou membre déclaré d'un espace. Sans cette
+     ligne, un client connecté verrait le rail entier de l'agence. */
+  const accessible: WorkspaceAccess[] = (workspaces ?? [])
+    .filter(
+      (workspace) =>
+        ownedOrgs.has(workspace.org_id) || roleByWorkspace.has(workspace.id),
+    )
+    .map((workspace) => ({
+      ...workspace,
+      role: ownedOrgs.has(workspace.org_id)
+        ? "owner"
+        : (roleByWorkspace.get(workspace.id) ?? "client"),
+    }));
 
   return {
     user,

@@ -37,7 +37,10 @@ export async function AppShell({
       groups={groups}
       email={viewer.email}
       isOwner={viewer.isOwner}
-      openAccess={isOpenAccess()}
+      /* Le bandeau ne s'adresse qu'à l'agence : il dit « cette application
+         est ouverte pendant la construction ». Affiché à une élève ou à un
+         client, il annonce une faiblesse à quelqu'un qui n'a rien à en faire. */
+      openAccess={isOpenAccess() && viewer.isOwner}
       title={title}
       subtitle={subtitle}
       actions={actions}

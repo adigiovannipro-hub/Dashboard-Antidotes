@@ -18,6 +18,13 @@ Trois profils, et c'est la nouveauté structurante :
 
 Un client d'espace ne voit rien : le module répond 404, pas 403.
 
+**L'Academy est la seule section du produit qui refuse l'accès ouvert.** Partout
+ailleurs, un visiteur sans session emprunte l'identité de l'owner — un confort
+de construction assumé. Ici la formation est vendue à quelqu'un d'autre :
+l'identité décide de ce qu'on voit, et sans session il n'existe aucun moyen de
+distinguer une élève de l'agence. Un visiteur anonyme est donc renvoyé vers
+`/login`, owner compris.
+
 ## Schéma des tables (migrations 0056-0058, puis 20260903a-c)
 
 | Table | Rôle | Colonnes notables |

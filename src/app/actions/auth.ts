@@ -2,10 +2,10 @@
 
 import { redirect } from "next/navigation";
 
-import { createClient } from "@/lib/supabase/server";
+import { createSessionClient } from "@/lib/supabase/server";
 
 export async function signOut() {
-  const supabase = await createClient();
+  const supabase = await createSessionClient();
   await supabase.auth.signOut();
   redirect("/login");
 }

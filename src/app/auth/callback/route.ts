@@ -1,7 +1,7 @@
 import type { EmailOtpType } from "@supabase/supabase-js";
 import { NextResponse, type NextRequest } from "next/server";
 
-import { createClient } from "@/lib/supabase/server";
+import { createSessionClient } from "@/lib/supabase/server";
 
 /**
  * Point d'atterrissage du magic link.
@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
   const type = searchParams.get("type") as EmailOtpType | null;
   const next = searchParams.get("suivant") ?? "/";
 
-  const supabase = await createClient();
+  const supabase = await createSessionClient();
 
   let failed: string | null = null;
 

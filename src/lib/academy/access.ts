@@ -5,6 +5,10 @@ import { notFound } from "next/navigation";
 
 import { getViewer } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import type { AcademyAccess } from "./permissions";
+
+export type { AcademyAccess } from "./permissions";
+export { canReachLesson, canReadCourse, isPublishedChain } from "./permissions";
 
 /**
  * Résolution de l'accès à l'Academy.
@@ -26,20 +30,6 @@ import { createClient } from "@/lib/supabase/server";
  * La RLS des migrations 0057 et 20260903b applique les mêmes frontières côté
  * base ; ceci ne fait que les exprimer côté écran.
  */
-
-export type AcademyAccess = {
-  orgId: string;
-  userId: string;
-  /** Peut créer, éditer, publier, téléverser, inscrire — le back-office. */
-  isAdmin: boolean;
-  /**
-   * Les formations lisibles, ou `null` pour « toutes celles de
-   * l'organisation » — le cas de l'owner et des membres de l'équipe.
-   */
-  courseIds: string[] | null;
-  /** Élève : inscrite à une formation, membre d'aucune organisation. */
-  isStudent: boolean;
-};
 
 export const getAcademyContext = cache(
   async (): Promise<AcademyAccess | null> => {
@@ -109,15 +99,4 @@ export async function requireAcademyAdmin(): Promise<AcademyAccess> {
   const context = await requireAcademyAccess();
   if (!context.isAdmin) notFound();
   return context;
-}
-
-/**
- * Cette formation est-elle lisible par cette personne ?
- *
- * `courseIds === null` vaut « toutes » — l'owner et l'équipe. Sinon la liste
- * est celle des inscriptions actives, et une formation absente de la liste
- * doit se comporter comme une formation qui n'existe pas.
- */
-export function canReadCourse(context: AcademyAccess, courseId: string): boolean {
-  return context.courseIds === null || context.courseIds.includes(courseId);
 }

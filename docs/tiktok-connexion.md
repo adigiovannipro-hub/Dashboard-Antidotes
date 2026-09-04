@@ -42,13 +42,18 @@ Google : il faut une app à soi.
 
 1. <https://developers.tiktok.com> → **Manage apps** → créer une app.
 2. Renseigner les deux URL que TikTok exige, et qui sont **servies par
-   l'application elle-même** : <https://antidotes.app/confidentialite> et
-   <https://antidotes.app/cgu> (remplacer par le domaine réel du
-   déploiement). Elles sont publiques — le chemin est dans `PUBLIC_PATHS`,
-   sans quoi l'examinateur tomberait sur l'écran de connexion. La section
-   « Les données venant de TikTok » de la politique nomme les trois portées
-   demandées et l'usage qui en est fait : c'est ce que l'examinateur y
-   cherche.
+   l'application elle-même** : `/confidentialite` et `/cgu`. Elles sont
+   publiques — les chemins sont dans `PUBLIC_PATHS`, sans quoi l'examinateur
+   tomberait sur l'écran de connexion. La section « Les données venant de
+   TikTok » de la politique nomme les trois portées demandées et l'usage qui
+   en est fait : c'est ce que l'examinateur y cherche.
+
+   **Prendre l'URL de production Vercel, jamais celle d'un déploiement.**
+   Vercel donne trois formes d'adresse : celle d'un déploiement
+   (`…-a1b2c3d4-….vercel.app`), qui **change à chaque push** et sera morte
+   quand TikTok reviendra vérifier ; l'alias de production
+   (`<projet>.vercel.app`), stable ; et le domaine propre, le jour où il
+   existera. Seules les deux dernières conviennent.
 3. Ajouter le produit **Login Kit**, puis les portées `user.info.basic`,
    `user.info.stats` et `video.list`. Rien de plus : une portée superflue
    allonge la revue.
@@ -112,3 +117,74 @@ la veille du passage), et `social_page_daily` seulement si la Business API
 est obtenue. L'onglet `tiktok` du Reporting existe déjà, avec son jeu de
 tuiles et son chiffre héros : il n'y a pas d'écran à construire, seulement
 une source à brancher.
+
+---
+
+## Où on en est — 3 septembre 2026
+
+Session interrompue faute de patience, et c'est un signal légitime : le
+chemin officiel demande beaucoup de gestes avant le premier chiffre.
+
+**Fait :**
+
+- App TikTok « Antidotes » créée, **ownership Organization**, type `Other`
+  (aucun des deux ne se change ensuite).
+- Icône 1024×1024, nom, catégorie, description (110 car.) renseignés.
+- Les trois URL pointent sur `https://dashboard-antidotes-beta.vercel.app`
+  (CGU, confidentialité, site) et le domaine est **vérifié par préfixe** —
+  `public/tiktokVF8RKRNKQRzpHceGTGvHNkTl5tIfzjXo.txt`.
+- Produit `Login Kit`. Scopes `user.info.basic`, `user.info.stats`,
+  `video.list` — `user.info.profile` retiré à dessein : tout scope doit être
+  démontré dans la vidéo de revue, et l'écran n'affiche ni bio ni badge.
+- Texte de revue rédigé (949 / 1000).
+- Configuration d'authentification TikTok ouverte côté Composio. Le Redirect
+  URI qu'elle donne est `https://backend.composio.dev/api/v1/auth-apps/add`
+  — **pas** les `v3` que la documentation générale annonce.
+
+**Reste à faire, dans cet ordre :**
+
+1. Créer un **sandbox vide** (surtout pas « Clone from Production » : le
+   clone traîne l'exigence de vidéo, qui bloque l'enregistrement). Y
+   reconfigurer à la main Login Kit, les trois scopes, le Redirect URI
+   Composio, et déclarer le compte de test en *target user*.
+2. Coller les identifiants **du sandbox** dans la configuration Composio.
+3. `pnpm diagnostic:tiktok` (étape db-admin) — sonder avant d'écrire.
+4. Écrire le connecteur, et **le bouton de connexion dans Connexions** :
+   contrairement à LinkedIn, dont le bouton ne fait qu'importer
+   l'inventaire, TikTok exige un vrai aller-retour d'autorisation lancé
+   depuis le site. Sans lui, il n'y a rien à filmer.
+5. La vidéo de revue, en dernier, une fois que les chiffres s'affichent.
+
+## Ce qui a été tranché en chemin
+
+**Le sandbox rend les données réelles de comptes réels**, jusqu'à dix, sans
+aucune revue. La revue ne devient nécessaire qu'au-delà de dix comptes
+connectés — donc pas avant longtemps. C'est le fait qui devrait guider la
+suite : il n'y a pas d'urgence à soumettre.
+
+**L'API officielle ne donne rien de plus qu'un scraper public** : vues,
+j'aime, commentaires, partages par vidéo, et le nombre d'abonnés. Ni portée,
+ni impressions, ni série temporelle — celles-ci vivent dans la Business
+Account API, qui demande le produit « TikTok Account Management » et un
+audit séparé. Le choix entre voie officielle et voie tierce est donc un
+arbitrage de **légitimité contre friction**, jamais de richesse de données.
+
+**Les deux portes de sortie**, si la voie officielle reste bloquante :
+
+- **Apify / ScrapTik** — environ 1,70 $ pour 1 000 vidéos, 5 $ de crédit
+  mensuel offert. Aucun OAuth, aucune revue, lit n'importe quel compte
+  public (donc la veille concurrentielle en prime). Contre : contraire aux
+  CGU de TikTok, casse sans prévenir, et sort du free tier.
+- **Import CSV** depuis TikTok Studio — zéro coût, zéro API, un geste manuel
+  par mois. Le projet a déjà ce motif avec `pnpm import:followers`.
+
+## TikTok Ads — un autre chantier, une autre porte
+
+À ne pas confondre avec ce qui précède. Le payant passe par la **Marketing
+API**, sur le portail `business-api.tiktok.com` : **une autre application,
+un autre compte développeur, une autre validation**. Rien de ce qui est
+décrit ci-dessus ne s'y réutilise, sauf les pages légales.
+
+L'onglet `tiktok-ads` du Reporting existe déjà (migration 0068) et attend sa
+source. À instruire à part, quand l'organique sera réglé — le sonder avant
+d'écrire, comme le reste.

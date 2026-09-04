@@ -26,9 +26,12 @@ export default function CguPage() {
       other={{ href: "/confidentialite", label: "Politique de confidentialité →" }}
     >
       <LegalSection title="Éditeur">
+        {/* Pas de « éditée par Antidotes » sous un titre « Éditeur » : la
+            raison sociale, quand elle sera renseignée, ouvre le bloc
+            d'identité juste en dessous. */}
         <p>
-          La plateforme Antidotes est éditée par {LEGAL_ENTITY.nom}. Directeur
-          de la publication : {LEGAL_ENTITY.responsable}. Contact :{" "}
+          Directeur de la publication : {LEGAL_ENTITY.responsable}. Contact
+          :{" "}
           <a
             href={`mailto:${LEGAL_ENTITY.email}`}
             className="underline underline-offset-4 hover:text-text-primary"
@@ -134,8 +137,9 @@ export default function CguPage() {
 
       <LegalSection title="Droit applicable">
         <p>
-          Ces conditions sont soumises au droit français. À défaut d&apos;accord
-          amiable, le litige relève des tribunaux compétents.
+          Ces conditions sont soumises au droit {LEGAL_ENTITY.droitApplicable}.
+          À défaut d&apos;accord amiable, le litige relève des tribunaux
+          compétents.
         </p>
       </LegalSection>
     </LegalPage>

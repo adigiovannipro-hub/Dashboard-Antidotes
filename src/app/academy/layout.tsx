@@ -10,6 +10,11 @@ import { requireViewer } from "@/lib/auth";
  * répond 404 à qui n'est ni membre de l'organisation ni inscrit à une
  * formation — un client d'espace n'apprend pas l'existence du module.
  *
+ * L'Academy suit le même régime que le reste du produit : en accès ouvert, un
+ * visiteur sans session est l'owner et voit toutes les formations. Ce qui
+ * sépare une élève du reste ne tient pas à un mur ici, mais à **sa session** —
+ * `getAcademyContext` borne alors ses lectures à ses inscriptions.
+ *
  * Plus de sous-titre : il nommait « Devenir freelance social media manager »
  * sur toutes les pages, y compris celles d'une autre formation.
  */
