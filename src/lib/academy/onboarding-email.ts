@@ -14,11 +14,18 @@ import { encodeHeader } from "@/lib/recus/mime";
 /**
  * Le lien à mettre dans le courriel.
  *
- * Il pointe le point d'atterrissage du magic link sous sa forme
- * `token_hash` — celle qui fonctionne quand le lien est ouvert **ailleurs**
- * que dans le navigateur qui l'a demandé, ce qui est exactement le cas d'une
- * invitation : personne n'a rien demandé depuis son navigateur. La forme PKCE
- * (`?code=`) échouerait, son vérificateur n'existant nulle part.
+ * Il porte le jeton sous sa forme `token_hash` — celle qui fonctionne quand
+ * le lien est ouvert **ailleurs** que dans le navigateur qui l'a demandé, ce
+ * qui est exactement le cas d'une invitation : personne n'a rien demandé
+ * depuis son navigateur. La forme PKCE (`?code=`) échouerait, son vérificateur
+ * n'existant nulle part.
+ *
+ * Il ne pointe **pas** directement le point d'atterrissage, mais une page
+ * d'entrée avec un bouton : le jeton ne sert qu'une fois, et les messageries
+ * ouvrent les liens avant la personne — aperçus, filtres anti-hameçonnage,
+ * scanners d'entreprise. Un GET suffisait à consommer le jeton, et l'élève
+ * arrivait ensuite sur « ce lien a déjà été utilisé ». La vérification ne se
+ * fait plus que sur un POST, qu'aucun robot de messagerie n'envoie.
  *
  * `suivant` ramène droit sur la formation : une élève n'a rien à faire sur
  * l'accueil de l'application.
@@ -37,7 +44,7 @@ export function onboardingLink(options: {
     type: options.type,
     suivant: destination,
   });
-  return `${base}/auth/callback?${query.toString()}`;
+  return `${base}/auth/acces?${query.toString()}`;
 }
 
 export type OnboardingEmail = {
@@ -95,9 +102,9 @@ export function buildOnboardingHtml(email: OnboardingEmail): string {
         Entrer dans la formation
       </a>
       <p style="margin:20px 0 0;font-size:13px;line-height:1.55;color:#6f6b63;">
-        Il est valable 24 heures — passé ce délai, demande-m'en un nouveau.
-        Une fois à l'intérieur, commence par renseigner ton profil : photo,
-        prénom, nom. C'est le premier écran, ça prend une minute.
+        Il expire au bout d'une heure — passé ce délai, demande-m'en un
+        nouveau. Une fois à l'intérieur, commence par renseigner ton profil :
+        photo, prénom, nom. C'est le premier écran, ça prend une minute.
       </p>
       <p style="margin:20px 0 0;font-size:14px;line-height:1.55;">
         Bon travail,<br />${escapeHtml(email.senderName)}
@@ -126,7 +133,7 @@ export function buildOnboardingText(email: OnboardingEmail): string {
     "Clique sur ce lien pour entrer — il te connecte directement, sans mot de passe :",
     email.link,
     "",
-    "Le lien est valable 24 heures. Passé ce délai, demande-m'en un nouveau.",
+    "Le lien expire au bout d'une heure. Passé ce délai, demande-m'en un nouveau.",
     "",
     "Une fois à l'intérieur, commence par renseigner ton profil (photo, prénom, nom) : c'est le premier écran, ça prend une minute.",
     "",

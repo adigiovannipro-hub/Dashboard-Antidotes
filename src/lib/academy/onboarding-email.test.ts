@@ -21,7 +21,7 @@ const email = (patch: Partial<OnboardingEmail> = {}): OnboardingEmail => ({
   to: "camille@exemple.fr",
   firstName: "Camille",
   courseTitle: "Devenir libre grâce à l'UGC",
-  link: "https://antidotes.test/auth/callback?token_hash=abc&type=invite&suivant=%2Facademy%2Fugc",
+  link: "https://antidotes.test/auth/acces?token_hash=abc&type=invite&suivant=%2Facademy%2Fugc",
   senderName: "Alessandro",
   ...patch,
 });
@@ -35,7 +35,9 @@ describe("onboardingLink", () => {
       courseSlug: "devenir-libre-grace-a-l-ugc",
     });
 
-    expect(link).toContain("/auth/callback?");
+    // La page d'entrée, pas le point d'atterrissage : un GET ne consomme
+    // rien, c'est le bouton qui vérifie.
+    expect(link).toContain("/auth/acces?");
     expect(link).toContain("token_hash=jeton-123");
     expect(link).toContain("type=invite");
     // Le retour se fait sur la formation, jamais sur l'accueil.
@@ -49,7 +51,7 @@ describe("onboardingLink", () => {
       type: "magiclink",
       courseSlug: "ugc",
     });
-    expect(link.startsWith("https://antidotes.test/auth/callback?")).toBe(true);
+    expect(link.startsWith("https://antidotes.test/auth/acces?")).toBe(true);
   });
 });
 
