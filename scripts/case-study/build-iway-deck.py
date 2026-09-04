@@ -298,7 +298,7 @@ def build():
     for lab, w in (("Instagram", 0.8), ("TikTok", 0.62), ("LinkedIn", 0.74), ("YouTube", 0.74), ("Facebook", 0.8)):
         pill(s, xs, 3.05, w, 0.3, lab, size=8.5); xs += w + 0.07
     pic_rect(s, photo_f1, 0.6, 3.6, 3.9, 3.05, radius=0.14, shadow_on=True)
-    text(s, 0.6, 6.72, 3.9, 0.25, "Shooting simulateur F1 — I-WAY Lyon, 2026", size=8.5, color=INK2)
+    text(s, 0.6, 6.72, 3.9, 0.25, "Shooting simulateur F1 — I-WAY, mai 2026", size=8.5, color=INK2)
 
     # carte brief
     rect(s, 4.85, 0.9, 3.85, 6.05, fill=WHITE, line=LINE, radius=0.16, shadow_on=True)
@@ -428,7 +428,7 @@ def build():
         ], "size": 9, "color": INK2, "space_after": 2},
         {"runs": [
             {"t": "Meta Ads, 12 derniers mois ", "bold": True}, {"t": "2,1 M impressions · 1,45 M personnes touchées · 79 570 clics · CTR 3,8 %   ·   "},
-            {"t": "≈ 1 000 contenus ", "bold": True}, {"t": "planifiés et produits depuis oct. 2023"},
+            {"t": "≈ 1 000 contenus ", "bold": True}, {"t": "planifiés depuis oct. 2023 (planning éditorial)"},
         ], "size": 9, "color": INK2},
     ])
 
