@@ -20,8 +20,6 @@
  * qu'aucun automatisme ne rattrape.
  */
 
-import { SIGNATURE_TEXT } from "./signature";
-
 /** Les variables qu'un modèle peut porter, et ce qu'elles disent. */
 export const TEMPLATE_VARIABLES = {
   "[prénom]": "Le prénom du contact — « Jean ». Vide, la formule se replie.",
@@ -62,8 +60,10 @@ export const DEFAULT_REMINDER_3_SUBJECT =
  * ne fait qu'une chose, et réclamer un impayé dans le même souffle affaiblit
  * les deux. Les relances ont leurs propres mails, à leur propre rythme.
  *
- * La signature ferme le message et porte déjà « À dispo, » : les modèles ne
- * la répètent pas.
+ * Les modèles ne portent pas la signature : « À dispo, » et la carte de
+ * visite sont ajoutées à l'envoi, de part et d'autre de la pièce jointe
+ * (`signature.ts`). Un texte qui n'a qu'une version n'a pas à se recopier
+ * dans quatre modèles.
  */
 export const DEFAULT_SEND_TEMPLATE = `Hello [prénom],
 
@@ -72,9 +72,7 @@ J'espère que vous allez bien,
 Vous trouverez en PJ la facture du mois [de mois], d'un montant de [montant].
 Le règlement est attendu pour le [échéance] 🙏
 
-Merci beaucoup et à très vite,
-
-${SIGNATURE_TEXT}`;
+Merci beaucoup et à très vite,`;
 
 /**
  * Les trois relances, et leur gradation.
@@ -96,9 +94,7 @@ La facture [numéro], d'un montant de [montant], était échue le [échéance].
 Avez-vous une date de règlement à me transmettre ?
 
 Si le règlement est déjà parti, merci d'ignorer ce message.
-Mille mercis,
-
-${SIGNATURE_TEXT}`;
+Mille mercis,`;
 
 export const DEFAULT_REMINDER_2_TEMPLATE = `Hello [prénom],
 
@@ -106,9 +102,7 @@ Je me permets de revenir vers vous au sujet de la facture [numéro] du mois [de 
 
 Possible de passer en règlement sous peu ?
 
-Merci beaucoup et à très vite,
-
-${SIGNATURE_TEXT}`;
+Merci beaucoup et à très vite,`;
 
 export const DEFAULT_REMINDER_3_TEMPLATE = `Hello [prénom],
 
@@ -116,9 +110,7 @@ Toujours au sujet de la facture [numéro] du mois [de mois], d'un montant de [mo
 
 Dites-moi si quelque chose bloque de votre côté, je suis joignable quand vous voulez.
 
-Merci beaucoup et à très vite,
-
-${SIGNATURE_TEXT}`;
+Merci beaucoup et à très vite,`;
 
 /** Les faits d'une facture, tels qu'un modèle peut les nommer. */
 export type TemplateFacts = {

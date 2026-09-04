@@ -73,6 +73,44 @@ export function EngagementPanel({
   const [recipient, setRecipient] = useState(engagement?.recipient_email ?? "");
   const enabled = recipient.trim() !== "";
 
+  /* Les champs de facturation sont contrôlés : « Remplir » les réécrit d'un
+     coup depuis l'annuaire des entreprises. */
+  const [billingName, setBillingName] = useState(engagement?.billing_name ?? "");
+  const [billingTaxId, setBillingTaxId] = useState(engagement?.billing_tax_id ?? "");
+  const [billingStreet, setBillingStreet] = useState(engagement?.billing_street ?? "");
+  const [billingPostcode, setBillingPostcode] = useState(
+    engagement?.billing_postcode ?? "",
+  );
+  const [billingCity, setBillingCity] = useState(engagement?.billing_city ?? "");
+  const [identifiant, setIdentifiant] = useState("");
+  const [recherche, setRecherche] = useState(false);
+
+  const remplirDepuisIdentifiant = async () => {
+    setRecherche(true);
+    try {
+      const response = await fetch(
+        `/api/factures/entreprise?identifiant=${encodeURIComponent(identifiant)}`,
+      );
+      const payload = await response.json();
+      if (!response.ok) {
+        toast.error(payload.error ?? "Entreprise introuvable.");
+        return;
+      }
+      /* Ce que l'annuaire ne sait pas, on ne l'efface pas : une adresse
+         saisie à la main vaut mieux qu'un champ vidé. */
+      if (payload.name) setBillingName(payload.name);
+      if (payload.taxId) setBillingTaxId(payload.taxId);
+      if (payload.street) setBillingStreet(payload.street);
+      if (payload.postcode) setBillingPostcode(payload.postcode);
+      if (payload.city) setBillingCity(payload.city);
+      toast.success(`${payload.name} — SIREN ${payload.siren}`);
+    } catch {
+      toast.error("L'annuaire des entreprises n'a pas répondu.");
+    } finally {
+      setRecherche(false);
+    }
+  };
+
   const [firstMonth, setFirstMonth] = useState("");
   const [lastMonth, setLastMonth] = useState("");
   const [totalAmount, setTotalAmount] = useState("");
@@ -262,10 +300,37 @@ export function EngagementPanel({
               title="Facturation"
               hint="Ce qui figurera sur la facture. IBAN et mention de TVA partent d'office."
             >
+              {/* Coller un identifiant remplit le reste : la raison sociale et
+                  l'adresse d'une entreprise française sont publiques, les
+                  recopier d'un document est une occasion de faute de frappe
+                  sur une pièce comptable. */}
+              <Field label="SIRET ou n° de TVA" wide>
+                <div className="flex gap-2">
+                  <Input
+                    value={identifiant}
+                    onChange={(event) => setIdentifiant(event.target.value)}
+                    placeholder="FR94452373269"
+                    className="font-mono"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={remplirDepuisIdentifiant}
+                    disabled={recherche || !identifiant.trim()}
+                    className="shrink-0"
+                  >
+                    <PendingLabel pending={recherche} busy="Recherche…">
+                      Remplir
+                    </PendingLabel>
+                  </Button>
+                </div>
+              </Field>
+
               <Field label="Raison sociale" wide>
                 <Input
                   name="billingName"
-                  defaultValue={engagement?.billing_name ?? ""}
+                  value={billingName}
+                  onChange={(event) => setBillingName(event.target.value)}
                   placeholder="MEDIAPILOTE ANGERS"
                 />
               </Field>
@@ -281,7 +346,8 @@ export function EngagementPanel({
               <Field label="Numéro de TVA">
                 <Input
                   name="billingTaxId"
-                  defaultValue={engagement?.billing_tax_id ?? ""}
+                  value={billingTaxId}
+                  onChange={(event) => setBillingTaxId(event.target.value)}
                   placeholder="FR28478864432"
                 />
               </Field>
@@ -289,21 +355,24 @@ export function EngagementPanel({
               <Field label="Adresse" wide>
                 <Input
                   name="billingStreet"
-                  defaultValue={engagement?.billing_street ?? ""}
+                  value={billingStreet}
+                  onChange={(event) => setBillingStreet(event.target.value)}
                   placeholder="3TER Promenade la Baumette"
                 />
               </Field>
               <Field label="Code postal">
                 <Input
                   name="billingPostcode"
-                  defaultValue={engagement?.billing_postcode ?? ""}
+                  value={billingPostcode}
+                  onChange={(event) => setBillingPostcode(event.target.value)}
                   placeholder="49000"
                 />
               </Field>
               <Field label="Ville">
                 <Input
                   name="billingCity"
-                  defaultValue={engagement?.billing_city ?? ""}
+                  value={billingCity}
+                  onChange={(event) => setBillingCity(event.target.value)}
                   placeholder="Angers"
                 />
               </Field>

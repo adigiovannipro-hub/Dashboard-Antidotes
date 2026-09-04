@@ -125,7 +125,21 @@ describe("renderEmail", () => {
   it("finit les deux dernières relances sur une note chaleureuse", () => {
     for (const modele of [DEFAULT_REMINDER_2_TEMPLATE, DEFAULT_REMINDER_3_TEMPLATE]) {
       expect(modele).toContain("Merci beaucoup et à très vite");
-      expect(modele).toContain("À dispo,");
+    }
+  });
+
+  it("ne porte la signature dans aucun modèle", () => {
+    // Elle est posée à l'envoi, de part et d'autre de la pièce jointe : la
+    // recopier dans quatre modèles, c'est quatre endroits à corriger le jour
+    // où le numéro de téléphone change.
+    for (const modele of [
+      DEFAULT_SEND_TEMPLATE,
+      DEFAULT_REMINDER_1_TEMPLATE,
+      DEFAULT_REMINDER_2_TEMPLATE,
+      DEFAULT_REMINDER_3_TEMPLATE,
+    ]) {
+      expect(modele).not.toContain("À dispo,");
+      expect(modele).not.toContain("DI GIOVANNI");
     }
   });
 
