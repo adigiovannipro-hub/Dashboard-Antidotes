@@ -10,6 +10,15 @@ import {
   lastMonthOf,
   monthsBetween,
 } from "@/lib/billing/schedule";
+import {
+  createEngagementInput,
+  deliveryInput,
+  ficheColumns,
+  ficheFrom,
+  firstIssue,
+  frenchAmount,
+  isoMonth,
+} from "@/lib/billing/forms";
 import { TEMPLATE_VARIABLES, unknownVariablesIn } from "@/lib/billing/templates";
 import { createClient } from "@/lib/supabase/server";
 
@@ -42,82 +51,6 @@ function refresh() {
   revalidatePath(FINANCE_PATH);
 }
 
-/* Le formulaire parle en euros, la base en centimes. La virgule française
-   est admise : « 2500,50 » vaut 2 500,50 €. */
-const frenchAmount = z
-  .string()
-  .trim()
-  .min(1)
-  .transform((value) => Number(value.replace(/\s/g, "").replace(",", ".")))
-  .pipe(z.number().positive().finite());
-
-/* `<input type="month">` envoie `AAAA-MM` : on cale au 1er. */
-const isoMonth = z
-  .string()
-  .regex(/^\d{4}-\d{2}$/)
-  .transform((value) => `${value}-01`);
-
-/* Une liste d'adresses saisie à la main : virgules, points-virgules, sauts de
-   ligne, espaces — tout ce qu'un copier-coller depuis un client de messagerie
-   peut produire. */
-const emailList = z
-  .string()
-  .trim()
-  .transform((value) =>
-    value
-      .split(/[,;\n]/)
-      .map((address) => address.trim())
-      .filter(Boolean),
-  )
-  .refine(
-    (addresses) => addresses.every((address) => /^[^@\s]+@[^@\s]+$/.test(address)),
-    { message: "adresse invalide" },
-  );
-
-// --- Créer un devis ----------------------------------------------------------
-
-const createEngagementInput = z
-  .object({
-    clientName: z.string().trim().min(1).max(200),
-    label: z.string().trim().min(1).max(200),
-    firstMonth: isoMonth,
-    lastMonth: isoMonth,
-    /* L'un des deux suffit : le total se divise, le mensuel se multiplie. */
-    totalAmount: frenchAmount.optional(),
-    monthlyAmount: frenchAmount.optional(),
-    vatRate: z
-      .string()
-      .trim()
-      .transform((value) => Number(value.replace(",", ".")))
-      .pipe(z.number().min(0).max(100)),
-    notes: z.string().trim().max(2000).optional(),
-    /* L'envoi automatique se règle dès la saisie du devis — et se retouche
-       ensuite par `updateEngagementDelivery`. Tout est facultatif : un devis
-       sans adresse se facture à la main, comme avant. */
-    recipientEmail: z
-      .string()
-      .trim()
-      .refine((value) => value === "" || /^[^@\s]+@[^@\s]+$/.test(value), {
-        message: "adresse invalide",
-      })
-      .optional(),
-    ccEmails: emailList.optional(),
-    contactFirstName: z.string().trim().max(100).optional(),
-    templateInvoiceId: z.string().trim().max(100).optional(),
-    sendSubject: z.string().trim().max(300).optional(),
-    sendTemplate: z.string().trim().max(5000).optional(),
-    reminderSubject: z.string().trim().max(300).optional(),
-    reminder1Template: z.string().trim().max(5000).optional(),
-    reminder2Template: z.string().trim().max(5000).optional(),
-    reminder3Template: z.string().trim().max(5000).optional(),
-  })
-  .refine((data) => data.totalAmount || data.monthlyAmount, {
-    message: "montant absent",
-  })
-  .refine((data) => data.lastMonth >= data.firstMonth, {
-    message: "période inversée",
-  });
-
 export async function createEngagement(
   _previous: BillingActionResult | null,
   formData: FormData,
@@ -131,32 +64,21 @@ export async function createEngagement(
     monthlyAmount: formData.get("monthlyAmount") || undefined,
     vatRate: formData.get("vatRate") || "0",
     notes: formData.get("notes") || undefined,
-    recipientEmail: formData.get("recipientEmail") ?? "",
-    ccEmails: formData.get("ccEmails") ?? "",
-    contactFirstName: formData.get("contactFirstName") ?? "",
-    templateInvoiceId: formData.get("templateInvoiceId") ?? "",
-    sendSubject: formData.get("sendSubject") ?? "",
-    sendTemplate: formData.get("sendTemplate") ?? "",
-    reminderSubject: formData.get("reminderSubject") ?? "",
-    reminder1Template: formData.get("reminder1Template") ?? "",
-    reminder2Template: formData.get("reminder2Template") ?? "",
-    reminder3Template: formData.get("reminder3Template") ?? "",
+    ...ficheFrom(formData),
   });
   if (!parsed.success) {
-    return {
-      ok: false,
-      error:
-        "Formulaire incomplet : il faut un client, une prestation, une période dans le bon sens et au moins un montant.",
-    };
+    return { ok: false, error: firstIssue(parsed.error) };
   }
 
   for (const template of [
-    parsed.data.sendSubject ?? "",
-    parsed.data.sendTemplate ?? "",
-    parsed.data.reminderSubject ?? "",
-    parsed.data.reminder1Template ?? "",
-    parsed.data.reminder2Template ?? "",
-    parsed.data.reminder3Template ?? "",
+    parsed.data.sendSubject,
+    parsed.data.sendTemplate,
+    parsed.data.reminder1Subject,
+    parsed.data.reminder1Template,
+    parsed.data.reminder2Subject,
+    parsed.data.reminder2Template,
+    parsed.data.reminder3Subject,
+    parsed.data.reminder3Template,
   ]) {
     const unknown = unknownVariablesIn(template);
     if (unknown.length > 0) {
@@ -196,18 +118,9 @@ export async function createEngagement(
         first_month: parsed.data.firstMonth,
         months_count: monthsCount,
         notes: parsed.data.notes ?? null,
-        /* L'envoi automatique, tel qu'il a été réglé à la saisie. Vide
-           partout : le devis se facture à la main, ce qui reste le défaut. */
-        recipient_email: parsed.data.recipientEmail || null,
-        cc_emails: parsed.data.ccEmails ?? [],
-        contact_first_name: parsed.data.contactFirstName || null,
-        template_invoice_external_id: parsed.data.templateInvoiceId || null,
-        send_subject: parsed.data.sendSubject || null,
-        send_template: parsed.data.sendTemplate || null,
-        reminder_subject: parsed.data.reminderSubject || null,
-        reminder_1_template: parsed.data.reminder1Template || null,
-        reminder_2_template: parsed.data.reminder2Template || null,
-        reminder_3_template: parsed.data.reminder3Template || null,
+        /* La fiche, telle qu'elle a été réglée à la saisie. Sans adresse de
+           destinataire, le devis se facture à la main — le défaut. */
+        ...ficheColumns(parsed.data),
       } as never)
       .select("id")
       .single();
@@ -592,27 +505,6 @@ export async function deleteEngagement(
 
 // --- Régler l'envoi automatique ----------------------------------------------
 
-const deliveryInput = z.object({
-  engagementId: z.uuid(),
-  /* Vide = automatisme désactivé pour ce client. C'est le seul interrupteur,
-     et c'est délibéré : il se lit d'un coup d'œil sur la fiche du devis. */
-  recipientEmail: z
-    .string()
-    .trim()
-    .refine((value) => value === "" || /^[^@\s]+@[^@\s]+$/.test(value), {
-      message: "adresse invalide",
-    }),
-  ccEmails: emailList,
-  contactFirstName: z.string().trim().max(100),
-  templateInvoiceId: z.string().trim().max(100),
-  sendSubject: z.string().trim().max(300),
-  sendTemplate: z.string().trim().max(5000),
-  reminderSubject: z.string().trim().max(300),
-  reminder1Template: z.string().trim().max(5000),
-  reminder2Template: z.string().trim().max(5000),
-  reminder3Template: z.string().trim().max(5000),
-});
-
 /**
  * Ce qu'il faut pour qu'une facture parte toute seule : à qui, avec quel
  * texte, et à partir de quelle facture modèle.
@@ -628,28 +520,22 @@ export async function updateEngagementDelivery(
 ): Promise<BillingActionResult> {
   const parsed = deliveryInput.safeParse({
     engagementId: formData.get("engagementId"),
-    recipientEmail: formData.get("recipientEmail") ?? "",
-    ccEmails: formData.get("ccEmails") ?? "",
-    contactFirstName: formData.get("contactFirstName") ?? "",
-    templateInvoiceId: formData.get("templateInvoiceId") ?? "",
-    sendSubject: formData.get("sendSubject") ?? "",
-    sendTemplate: formData.get("sendTemplate") ?? "",
-    reminderSubject: formData.get("reminderSubject") ?? "",
-    reminderTemplate: formData.get("reminderTemplate") ?? "",
+    ...ficheFrom(formData),
   });
   if (!parsed.success) {
-    return {
-      ok: false,
-      error: "Adresse invalide : vérifier le destinataire et les copies.",
-    };
+    /* Le champ fautif est nommé : un message générique envoyait chercher
+       une adresse invalide là où c'était un modèle trop long. */
+    return { ok: false, error: firstIssue(parsed.error) };
   }
 
   for (const template of [
     parsed.data.sendSubject,
     parsed.data.sendTemplate,
-    parsed.data.reminderSubject,
+    parsed.data.reminder1Subject,
     parsed.data.reminder1Template,
+    parsed.data.reminder2Subject,
     parsed.data.reminder2Template,
+    parsed.data.reminder3Subject,
     parsed.data.reminder3Template,
   ]) {
     const unknown = unknownVariablesIn(template);
@@ -668,18 +554,7 @@ export async function updateEngagementDelivery(
   const { error } = await supabase
     .from("billing_engagements")
     .update({
-      recipient_email: parsed.data.recipientEmail || null,
-      cc_emails: parsed.data.ccEmails,
-      contact_first_name: parsed.data.contactFirstName || null,
-      template_invoice_external_id: parsed.data.templateInvoiceId || null,
-      /* Vide = le modèle commun s'applique. On n'enregistre pas une copie du
-         texte par défaut : le jour où il change, tous les devis en profitent. */
-      send_subject: parsed.data.sendSubject || null,
-      send_template: parsed.data.sendTemplate || null,
-      reminder_subject: parsed.data.reminderSubject || null,
-      reminder_1_template: parsed.data.reminder1Template || null,
-      reminder_2_template: parsed.data.reminder2Template || null,
-      reminder_3_template: parsed.data.reminder3Template || null,
+      ...ficheColumns(parsed.data),
     } as never)
     .eq("id", parsed.data.engagementId)
     .eq("org_id", context.orgId);
