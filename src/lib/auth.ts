@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import type { SupabaseClient, User } from "@supabase/supabase-js";
 
 import { isOpenAccess } from "@/lib/access-mode";
+import { claimEnrollments } from "@/lib/academy/claim";
 import { createClient, createSessionClient } from "@/lib/supabase/server";
 import type { Database, Workspace, WorkspaceRole } from "@/lib/supabase/database.types";
 
@@ -98,7 +99,7 @@ export const getViewer = cache(async () => {
     isStudent:
       (orgMemberships ?? []).length === 0 &&
       (memberships ?? []).length === 0 &&
-      (await hasEnrollment(supabase, user.id)),
+      (await hasEnrollment(supabase, user.id, user.email ?? "")),
   };
 });
 
@@ -108,10 +109,16 @@ export const getViewer = cache(async () => {
  * Le filtre `user_id` est explicite : en accès ouvert le client de lecture est
  * `service_role`, et sans lui l'existence d'une seule inscription en base
  * ferait passer tout le monde pour élève.
+ *
+ * Aucune ligne à son identifiant ne veut pas dire aucune inscription : une
+ * invitation posée **après** la création du compte attend encore à son
+ * adresse. On la raccroche ici, en ceinture du point d'atterrissage du lien —
+ * une session ouverte avant l'inscription ne repasse jamais par lui.
  */
 async function hasEnrollment(
   supabase: SupabaseClient<Database>,
   userId: string,
+  email: string,
 ): Promise<boolean> {
   const { data } = await supabase
     .from("academy_enrollments")
@@ -119,7 +126,9 @@ async function hasEnrollment(
     .eq("user_id", userId)
     .eq("status", "active")
     .limit(1);
-  return (data ?? []).length > 0;
+  if ((data ?? []).length > 0) return true;
+
+  return (await claimEnrollments({ userId, email })) > 0;
 }
 
 /**

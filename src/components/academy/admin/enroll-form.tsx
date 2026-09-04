@@ -118,8 +118,8 @@ export function EnrollForm({
       {link ? (
         <div className="rounded-md border border-border bg-warning-subtle p-4">
           <p className="type-caption text-text-primary">
-            Le courriel n&apos;est pas parti — envoie ce lien à la main. Il est
-            valable 24 heures.
+            Le courriel n&apos;est pas parti — envoie ce lien à la main. Il
+            expire en une heure.
           </p>
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <code className="type-caption min-w-0 flex-1 truncate rounded bg-surface px-2 py-1.5 text-text-primary">

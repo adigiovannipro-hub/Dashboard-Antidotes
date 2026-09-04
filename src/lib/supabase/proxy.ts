@@ -15,6 +15,7 @@ import { publicEnv } from "@/lib/env";
 const PUBLIC_PATHS = [
   "/login",
   "/auth/callback",
+  "/auth/acces",
   "/auth/erreur",
   "/partage",
   "/api/cron",
