@@ -836,6 +836,46 @@ import type {
   AcademyVideoProvider,
 } from "@/lib/academy/types";
 
+/* --- Pôle Antidotes (outbound + inbound) ------------------------------------
+   Le détail vit dans `src/lib/antidotes/types.ts`, aligné sur les migrations
+   20260907a et 20260907b. */
+export type {
+  Campaign as AntidotesCampaignRow,
+  Prospect as AntidotesProspectRow,
+  Contact as AntidotesContactRow,
+  Interaction as AntidotesInteractionRow,
+  Sequence as AntidotesSequenceRow,
+  SequenceStep as AntidotesSequenceStepRow,
+  SequenceEnrollment as AntidotesSequenceEnrollmentRow,
+  ReferencePost as AntidotesReferencePostRow,
+  GeneratedPost as AntidotesGeneratedPostRow,
+  CaseStudy as AntidotesCaseStudyRow,
+} from "@/lib/antidotes/types";
+
+import type {
+  Campaign as AntidotesCampaign,
+  CampaignEngine as AntidotesCampaignEngine,
+  CaseStudy as AntidotesCaseStudy,
+  Contact as AntidotesContact,
+  DiscoverySource as AntidotesDiscoverySource,
+  EmailStatus as AntidotesEmailStatus,
+  EnrollmentStatus as AntidotesEnrollmentStatus,
+  GeneratedPost as AntidotesGeneratedPost,
+  GeneratedPostStatus as AntidotesGeneratedPostStatus,
+  Interaction as AntidotesInteraction,
+  InteractionType as AntidotesInteractionType,
+  OutreachChannel as AntidotesOutreachChannel,
+  PostPlatform as AntidotesPostPlatform,
+  Prospect as AntidotesProspect,
+  ProspectSource as AntidotesProspectSource,
+  ProspectStatus as AntidotesProspectStatus,
+  ReferencePost as AntidotesReferencePost,
+  Seniority as AntidotesSeniority,
+  Sequence as AntidotesSequence,
+  SequenceEnrollment as AntidotesSequenceEnrollment,
+  SequenceStep as AntidotesSequenceStep,
+} from "@/lib/antidotes/types";
+
 type Table<Row, Insert = Partial<Row>, Update = Partial<Row>> = {
   Row: Row;
   Insert: Insert;
@@ -928,6 +968,16 @@ export type Database = {
       academy_progress: Table<AcademyProgress>;
       academy_notes: Table<AcademyNote>;
       academy_enrollments: Table<AcademyEnrollment>;
+      antidotes_campaigns: Table<AntidotesCampaign>;
+      antidotes_prospects: Table<AntidotesProspect>;
+      antidotes_contacts: Table<AntidotesContact>;
+      antidotes_interactions: Table<AntidotesInteraction>;
+      antidotes_sequences: Table<AntidotesSequence>;
+      antidotes_sequence_steps: Table<AntidotesSequenceStep>;
+      antidotes_sequence_enrollments: Table<AntidotesSequenceEnrollment>;
+      antidotes_reference_posts: Table<AntidotesReferencePost>;
+      antidotes_generated_posts: Table<AntidotesGeneratedPost>;
+      antidotes_case_studies: Table<AntidotesCaseStudy>;
     };
     // `never` satisfait la contrainte `Record<string, GenericView>` de
     // postgrest-js tout en déclarant qu'il n'y a ni vue ni fonction exposée.
@@ -1131,6 +1181,18 @@ export type Database = {
       academy_progress_status: AcademyProgressStatus;
       // Academy — inscriptions (20260903a)
       academy_enrollment_status: AcademyEnrollmentStatus;
+      // Pôle Antidotes (20260907a)
+      antidotes_campaign_engine: AntidotesCampaignEngine;
+      antidotes_prospect_source: AntidotesProspectSource;
+      antidotes_prospect_status: AntidotesProspectStatus;
+      antidotes_email_status: AntidotesEmailStatus;
+      antidotes_seniority: AntidotesSeniority;
+      antidotes_discovery_source: AntidotesDiscoverySource;
+      antidotes_outreach_channel: AntidotesOutreachChannel;
+      antidotes_interaction_type: AntidotesInteractionType;
+      antidotes_enrollment_status: AntidotesEnrollmentStatus;
+      antidotes_generated_post_status: AntidotesGeneratedPostStatus;
+      antidotes_post_platform: AntidotesPostPlatform;
     };
     CompositeTypes: Record<never, never>;
   };
