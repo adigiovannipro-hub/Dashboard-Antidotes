@@ -3,6 +3,7 @@ import "server-only";
 import { cache } from "react";
 
 import { getAcademyContext } from "@/lib/academy/access";
+import { ANTIDOTES_PAGES, antidotesPageLabel } from "@/lib/antidotes/navigation";
 import { getViewer } from "@/lib/auth";
 import { getModerationContext } from "@/lib/moderation/access";
 import { isModerationVisible } from "@/lib/moderation/permissions";
@@ -37,7 +38,8 @@ export type NavIcon =
   | "factures"
   | "recus"
   | "acces"
-  | "academy";
+  | "academy"
+  | "antidotes";
 
 export type NavEntry = {
   href: string;
@@ -190,6 +192,21 @@ export const getAppNavigation = cache(async (): Promise<NavGroup[]> => {
                 label: "Factures",
                 icon: "factures",
                 match: "prefix",
+              },
+              // Le pôle de développement commercial de l'agence : outbound
+              // (sourcing, pipeline, séquences) et inbound (radar, studio).
+              // Owner seulement, comme Finance — la prospection de l'agence
+              // n'existe pour personne d'autre. Ses pages viennent de la même
+              // liste que ses onglets : voir `lib/antidotes/navigation.ts`.
+              {
+                href: "/antidotes",
+                label: "Antidotes",
+                icon: "antidotes",
+                match: "prefix",
+                children: ANTIDOTES_PAGES.map((page) => ({
+                  href: page.href,
+                  label: antidotesPageLabel(page),
+                })),
               },
             ] satisfies NavEntry[])
           : []),

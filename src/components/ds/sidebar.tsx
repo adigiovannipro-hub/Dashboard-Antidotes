@@ -14,6 +14,7 @@ import {
   PanelLeftOpen,
   Receipt,
   Sun,
+  Target,
   Users,
   Wallet,
   X,
@@ -58,6 +59,7 @@ const ICONS: Record<NavIcon, LucideIcon> = {
   recus: Receipt,
   acces: KeyRound,
   academy: GraduationCap,
+  antidotes: Target,
 };
 
 function isActive(entry: NavEntry, pathname: string): boolean {

@@ -27,6 +27,20 @@ export const CASH_HIDDEN_COOKIE = "antidotes_cash_hidden";
 /** Un an, limité à ce site : une préférence d'affichage ne voyage pas. */
 export const PREFERENCE_MAX_AGE = 31_536_000;
 
+// --- Pipeline Antidotes : kanban ou tableau ---------------------------------
+
+/**
+ * La vue du pipeline. `"tableau"` pour la vue en lignes, tout le reste vaut
+ * le kanban — la vue par défaut, celle où l'on déplace les prospects.
+ */
+export const PIPELINE_VIEW_COOKIE = "antidotes_pipeline_vue";
+
+export type PipelineView = "kanban" | "tableau";
+
+export function parsePipelineView(raw: string | undefined): PipelineView {
+  return raw === "tableau" ? "tableau" : "kanban";
+}
+
 // --- Planning Éditorial : l'état de lecture d'un tableau ---------------------
 
 /**
