@@ -17,6 +17,7 @@ import {
   type PipelineFilters as Filters,
 } from "@/lib/antidotes/pipeline-params";
 import type { PipelineFacets, ProspectDetail } from "@/lib/antidotes/queries";
+import type { SequenceOption } from "@/lib/antidotes/sequences/queries";
 import type { PipelineProspect } from "@/lib/antidotes/types";
 import type { PipelineView } from "@/lib/ui-preferences";
 
@@ -36,6 +37,7 @@ export function PipelineScreen({
   view,
   detail,
   selectedId,
+  sequences,
 }: {
   /** Les prospects après filtres. */
   prospects: PipelineProspect[];
@@ -47,6 +49,8 @@ export function PipelineScreen({
   detail: ProspectDetail | null;
   /** Le `?prospect=` de l'URL, tel que le serveur l'a lu. */
   selectedId: string | null;
+  /** Les séquences où inscrire, depuis le tableau ou le panneau. */
+  sequences: SequenceOption[];
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -97,7 +101,7 @@ export function PipelineScreen({
           }
         />
       ) : view === "tableau" ? (
-        <PipelineTable prospects={prospects} onOpen={navigate} />
+        <PipelineTable prospects={prospects} onOpen={navigate} sequences={sequences} />
       ) : (
         <PipelineBoard prospects={prospects} onOpen={navigate} />
       )}
@@ -108,6 +112,7 @@ export function PipelineScreen({
         detail={loadedDetail}
         loading={pending && loadedDetail === null}
         onClose={() => navigate(null)}
+        sequences={sequences}
       />
     </div>
   );

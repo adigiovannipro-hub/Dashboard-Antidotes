@@ -9,6 +9,7 @@ import { SectionHeader } from "@/components/ds/surface";
 import { requireAntidotesAccess } from "@/lib/antidotes/access";
 import { applyPipelineFilters, parsePipelineParams } from "@/lib/antidotes/pipeline-params";
 import { getProspectDetail, listPipelineProspects } from "@/lib/antidotes/queries";
+import { listSequenceOptions } from "@/lib/antidotes/sequences/queries";
 import { PIPELINE_VIEW_COOKIE, parsePipelineView } from "@/lib/ui-preferences";
 
 export const metadata: Metadata = { title: "Pipeline · Antidotes" };
@@ -33,11 +34,12 @@ export default async function PipelinePage({ searchParams }: { searchParams: Sea
   ]);
   const params = parsePipelineParams(query);
 
-  const [{ prospects, facets }, detail] = await Promise.all([
+  const [{ prospects, facets }, detail, sequences] = await Promise.all([
     listPipelineProspects({ orgId: context.orgId }),
     params.prospectId
       ? getProspectDetail({ orgId: context.orgId, prospectId: params.prospectId })
       : Promise.resolve(null),
+    listSequenceOptions({ orgId: context.orgId }),
   ]);
 
   const filtered = applyPipelineFilters(prospects, params.filters);
@@ -104,6 +106,7 @@ export default async function PipelinePage({ searchParams }: { searchParams: Sea
         view={view}
         detail={detail}
         selectedId={params.prospectId}
+        sequences={sequences}
       />
     </div>
   );

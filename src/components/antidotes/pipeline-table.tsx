@@ -6,10 +6,12 @@ import { toast } from "sonner";
 
 import { moveProspects } from "@/app/actions/antidotes";
 import { NativeSelect } from "@/components/antidotes/controls";
+import { EnrollDialog } from "@/components/antidotes/enroll-dialog";
 import { PendingLabel } from "@/components/ds/pending-label";
 import { StatusPill } from "@/components/ds/status-pill";
 import { Button } from "@/components/ui/button";
 import { relativeDays } from "@/lib/antidotes/dates";
+import type { SequenceOption } from "@/lib/antidotes/sequences/queries";
 import {
   PROSPECT_STATUSES,
   PROSPECT_STATUS_LABELS,
@@ -40,9 +42,11 @@ const collator = new Intl.Collator("fr");
 export function PipelineTable({
   prospects,
   onOpen,
+  sequences,
 }: {
   prospects: PipelineProspect[];
   onOpen: (prospectId: string) => void;
+  sequences: SequenceOption[];
 }) {
   const [sort, setSort] = useState<{ key: SortKey; desc: boolean } | null>(null);
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
@@ -169,6 +173,11 @@ export function PipelineTable({
               Déplacer
             </PendingLabel>
           </Button>
+          <EnrollDialog
+            prospectIds={visibleSelected.map((row) => row.id)}
+            sequences={sequences}
+            onDone={() => setSelected(new Set())}
+          />
           <Button
             type="button"
             size="sm"

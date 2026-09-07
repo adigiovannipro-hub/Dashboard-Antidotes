@@ -12,13 +12,14 @@ import type {
   ResolvedVisual,
 } from "@/lib/planning/types";
 
-export type WorkTaskSource = "manual" | "fathom" | "email" | "recurring";
+export type WorkTaskSource = "manual" | "fathom" | "email" | "recurring" | "antidotes";
 
 export const WORK_SOURCE_LABELS: Record<WorkTaskSource, string> = {
   manual: "Manuel",
   fathom: "Fathom",
   email: "Mail",
   recurring: "Récurrent",
+  antidotes: "Prospection",
 };
 
 export type WorkTaskStatus = "pending" | "done" | "deleted";

@@ -40,7 +40,11 @@ import { qualifyCandidate } from "./qualify";
 /** Ce que le passage insère pour une société qualifiée. */
 export type ProspectInsert = Omit<Prospect, "id" | "created_at" | "updated_at">;
 
-export type ContactInsert = Omit<Contact, "id" | "created_at" | "updated_at" | "outreach_channel">;
+// `unsubscribe_token` est généré en base (20260909a) : le passage ne le pose jamais.
+export type ContactInsert = Omit<
+  Contact,
+  "id" | "created_at" | "updated_at" | "outreach_channel" | "unsubscribe_token"
+>;
 
 /** La persistance vue par le passage — une implémentation Supabase, une doublure en test. */
 export type SourcingStore = {

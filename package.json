@@ -51,7 +51,8 @@
     "factures:fiches": "node --conditions=react-server --import tsx scripts/factures-fiches.ts",
     "factures:menage": "node --conditions=react-server --import tsx scripts/factures-menage.ts",
     "sourcing:passage": "node --conditions=react-server --import tsx scripts/sourcing-passage.ts",
-    "sonde:sourcing": "tsx scripts/sonde-sourcing.ts"
+    "sonde:sourcing": "tsx scripts/sonde-sourcing.ts",
+    "sequences:passage": "node --conditions=react-server --import tsx scripts/sequences-passage.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.115.0",

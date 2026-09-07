@@ -133,7 +133,9 @@ export type InteractionType =
   | "call"
   | "note"
   | "linkedin_dm"
-  | "meeting";
+  | "meeting"
+  | "bounce"
+  | "opt_out";
 
 export const INTERACTION_TYPE_LABELS: Record<InteractionType, string> = {
   email_sent: "Email envoyé",
@@ -144,6 +146,8 @@ export const INTERACTION_TYPE_LABELS: Record<InteractionType, string> = {
   note: "Note",
   linkedin_dm: "Message LinkedIn",
   meeting: "Rendez-vous",
+  bounce: "Email rebondi",
+  opt_out: "Désinscription",
 };
 
 /**
@@ -426,6 +430,8 @@ export type Contact = {
   outreach_channel: OutreachChannel;
   created_at: string;
   updated_at: string;
+  /** Le jeton du lien de désinscription, généré en base (20260909a). */
+  unsubscribe_token: string;
 };
 
 export type Interaction = {
@@ -445,6 +451,8 @@ export type Sequence = {
   name: string;
   description: string | null;
   is_active: boolean;
+  /** Réglages à forme complète par défaut : `resolveSequenceSettings()`. */
+  settings: Record<string, unknown>;
   created_at: string;
   updated_at: string;
 };
@@ -461,6 +469,19 @@ export type SequenceStep = {
   created_at: string;
 };
 
+/**
+ * L'observation qui personnalise les emails d'une inscription — tirée du
+ * site ou des publicités par le passage, ou écrite à la main.
+ */
+export type EnrollmentPersonalization = {
+  observation?: string | null;
+  observation_source?: "site" | "ads" | "manual" | "none";
+  generated_at?: string;
+  /** Vrai une fois l'observation cherchée, trouvée ou non : on ne recommence pas. */
+  ready?: boolean;
+  error?: string;
+};
+
 export type SequenceEnrollment = {
   id: string;
   org_id: string;
@@ -470,6 +491,18 @@ export type SequenceEnrollment = {
   status: EnrollmentStatus;
   enrolled_at: string;
   next_send_at: string | null;
+  /** Le canal figé à l'inscription : email, ou piste LinkedIn manuelle. */
+  channel: OutreachChannel;
+  personalization: EnrollmentPersonalization;
+  /** Le fil Gmail de la conversation, dès le premier envoi. */
+  thread_id: string | null;
+  /** Le Message-ID du dernier envoi, pour répondre dans le fil. */
+  last_message_id: string | null;
+  last_sent_at: string | null;
+  replied_at: string | null;
+  stopped_at: string | null;
+  paused_reason: string | null;
+  last_error: string | null;
 };
 
 export type ReferencePost = {

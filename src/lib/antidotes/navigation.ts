@@ -5,8 +5,8 @@
  * et aucun onglet ne mène à un 404.
  *
  * Deux pôles, outbound et inbound, plus les case studies à la racine. Seul
- * le pipeline existe aujourd'hui ; les autres entrées rejoindront cette liste
- * avec leur page, jamais avant.
+ * l'outbound existe aujourd'hui — sourcing, pipeline, séquences ; les autres
+ * entrées rejoindront cette liste avec leur page, jamais avant.
  *
  * Ni `"use client"` ni `server-only` : lu par la navigation serveur et par
  * les onglets client.
@@ -40,6 +40,12 @@ export const ANTIDOTES_PAGES: AntidotesPage[] = [
     group: "outbound",
     href: "/antidotes/outbound/pipeline",
     name: "Pipeline",
+  },
+  {
+    key: "sequences",
+    group: "outbound",
+    href: "/antidotes/outbound/sequences",
+    name: "Séquences",
   },
 ];
 

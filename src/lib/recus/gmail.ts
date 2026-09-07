@@ -468,6 +468,68 @@ export async function archiveMessage(options: {
   );
 }
 
+/** Un message d'un fil, en-têtes seulement — ce que le relevé des séquences lit. */
+export type GmailThreadMessage = {
+  id: string;
+  threadId: string;
+  fromEmail: string;
+  fromName: string | null;
+  subject: string | null;
+  autoSubmitted: string | null;
+  precedence: string | null;
+  receivedAt: Date;
+  snippet: string;
+  labelIds: string[];
+};
+
+/**
+ * Les messages d'un fil, sans leur corps.
+ *
+ * Sert au relevé des réponses d'une séquence : nos envois partent dans un
+ * fil, et tout ce qui y arrive ensuite — réponse, rebond du facteur,
+ * répondeur d'absence — s'y lit d'un seul appel. `format=metadata` avec les
+ * seuls en-têtes utiles : `Auto-Submitted` et `Precedence` distinguent un
+ * répondeur d'une vraie réponse.
+ */
+export async function getThreadMessages(
+  accessToken: string,
+  threadId: string,
+): Promise<GmailThreadMessage[]> {
+  const params = new URLSearchParams({ format: "metadata" });
+  for (const name of ["From", "Subject", "Auto-Submitted", "Precedence"]) {
+    params.append("metadataHeaders", name);
+  }
+  const thread = await call<{
+    messages?: {
+      id: string;
+      threadId: string;
+      internalDate?: string;
+      snippet?: string;
+      labelIds?: string[];
+      payload?: { headers?: { name: string; value: string }[] };
+    }[];
+  }>(accessToken, `/threads/${threadId}?${params.toString()}`);
+
+  return (thread.messages ?? []).map((raw) => {
+    const headers = raw.payload?.headers ?? [];
+    const header = (name: string) =>
+      headers.find((entry) => entry.name.toLowerCase() === name.toLowerCase())?.value ?? null;
+    const from = parseAddress(header("From"));
+    return {
+      id: raw.id,
+      threadId: raw.threadId,
+      fromEmail: from.email,
+      fromName: from.name,
+      subject: header("Subject"),
+      autoSubmitted: header("Auto-Submitted"),
+      precedence: header("Precedence"),
+      receivedAt: new Date(Number(raw.internalDate ?? Date.now())),
+      snippet: raw.snippet ?? "",
+      labelIds: raw.labelIds ?? [],
+    };
+  });
+}
+
 export async function sendMessage(options: {
   accessToken: string;
   mime: string;

@@ -1,6 +1,7 @@
 import "server-only";
 
 import { createClient } from "@/lib/supabase/server";
+import { listProspectEnrollments } from "./sequences/queries";
 import type {
   Campaign,
   CampaignRun,
@@ -8,6 +9,7 @@ import type {
   Interaction,
   PipelineProspect,
   Prospect,
+  SequenceEnrollment,
 } from "./types";
 
 /**
@@ -107,9 +109,13 @@ function buildFacets(
   };
 }
 
+export type ProspectEnrollmentSummary = { enrollment: SequenceEnrollment; sequenceName: string };
+
 export type ProspectDetail = {
   prospect: PipelineProspect;
   interactions: Interaction[];
+  /** Les séquences où ce prospect est inscrit, la plus récente en tête. */
+  enrollments: ProspectEnrollmentSummary[];
 };
 
 /**
@@ -124,7 +130,7 @@ export async function getProspectDetail(options: {
 }): Promise<ProspectDetail | null> {
   const supabase = await createClient();
 
-  const [{ data: prospect }, { data: contacts }, { data: interactions }] =
+  const [{ data: prospect }, { data: contacts }, { data: interactions }, enrollments] =
     await Promise.all([
       supabase
         .from("antidotes_prospects")
@@ -147,6 +153,7 @@ export async function getProspectDetail(options: {
         .eq("prospect_id", options.prospectId)
         .order("occurred_at", { ascending: false })
         .limit(200),
+      listProspectEnrollments({ orgId: options.orgId, prospectId: options.prospectId }),
     ]);
 
   if (!prospect) return null;
@@ -170,6 +177,7 @@ export async function getProspectDetail(options: {
       campaign_name: campaignName,
     },
     interactions: (interactions ?? []) as unknown as Interaction[],
+    enrollments,
   };
 }
 

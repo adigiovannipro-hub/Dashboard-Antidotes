@@ -1129,7 +1129,7 @@ export type Database = {
         // 20260903e — l'émission et les relances des Factures.
         | "invoicing";
       // Mon travail (0014)
-      work_task_source: "manual" | "fathom" | "email" | "recurring";
+      work_task_source: "manual" | "fathom" | "email" | "recurring" | "antidotes";
       work_task_status: "pending" | "done" | "deleted";
       // Échéances (0016)
       billing_engagement_status: "active" | "ended";

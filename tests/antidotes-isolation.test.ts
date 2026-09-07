@@ -346,6 +346,100 @@ suite("isolation du pôle Antidotes (RLS)", () => {
     });
   });
 
+  describe("les séquences (phase 3)", () => {
+    it("l'owner règle une séquence et y inscrit un contact ; le client ne voit rien", async () => {
+      const { data: sequence, error: sequenceError } = await clients.owner
+        .from("antidotes_sequences")
+        .insert({
+          org_id: ids.org,
+          name: "Opticiens — miroir",
+          settings: { daily_cap: 10, case_study_url: "https://antidotes.test/cas" },
+        })
+        .select("id, settings")
+        .single();
+      if (sequenceError) throw new Error(`Migration 20260909a non appliquée ? ${sequenceError.message}`);
+      expect(sequence?.settings).toEqual({ daily_cap: 10, case_study_url: "https://antidotes.test/cas" });
+
+      const { error: stepError } = await clients.owner.from("antidotes_sequence_steps").insert({
+        org_id: ids.org,
+        sequence_id: sequence!.id,
+        position: 1,
+        delay_days: 0,
+        subject_template: "{{societe}}",
+        body_template: "Bonjour {{prenom|à vous}}",
+      });
+      expect(stepError).toBeNull();
+
+      // Ana a une adresse risquée : la piste est LinkedIn, sans calendrier.
+      const { data: enrollment, error: enrollmentError } = await clients.owner
+        .from("antidotes_sequence_enrollments")
+        .insert({ org_id: ids.org, sequence_id: sequence!.id, contact_id: ids.contact, channel: "linkedin" })
+        .select("id, status, channel, personalization")
+        .single();
+      expect(enrollmentError).toBeNull();
+      expect(enrollment).toMatchObject({ status: "active", channel: "linkedin", personalization: {} });
+
+      const { data: personalized, error: updateError } = await clients.owner
+        .from("antidotes_sequence_enrollments")
+        .update({ personalization: { observation: "Trois boutiques.", ready: true }, thread_id: "t-1" })
+        .eq("id", enrollment!.id)
+        .select("personalization, thread_id");
+      expect(updateError).toBeNull();
+      expect(personalized?.[0]).toEqual({ personalization: { observation: "Trois boutiques.", ready: true }, thread_id: "t-1" });
+
+      const [{ data: sequences }, { data: steps }, { data: enrollments }] = await Promise.all([
+        clients.client.from("antidotes_sequences").select("id").eq("id", sequence!.id),
+        clients.client.from("antidotes_sequence_steps").select("id").eq("sequence_id", sequence!.id),
+        clients.client.from("antidotes_sequence_enrollments").select("id").eq("id", enrollment!.id),
+      ]);
+      expect(sequences).toEqual([]);
+      expect(steps).toEqual([]);
+      expect(enrollments).toEqual([]);
+
+      const { error: intrusion } = await clients.client
+        .from("antidotes_sequence_enrollments")
+        .insert({ org_id: ids.org, sequence_id: sequence!.id, contact_id: ids.contact });
+      expect(intrusion).not.toBeNull();
+
+      // On repart propre pour le test de désinscription qui suit.
+      await admin.from("antidotes_sequence_enrollments").delete().eq("id", enrollment!.id);
+    });
+
+    it("chaque contact porte un jeton de désinscription, et le client n'y accède pas", async () => {
+      const { data } = await clients.owner
+        .from("antidotes_contacts")
+        .select("unsubscribe_token")
+        .eq("id", ids.contact)
+        .single();
+      expect(data?.unsubscribe_token).toMatch(/^[0-9a-f]{32}$/);
+
+      const { data: forbidden } = await clients.client
+        .from("antidotes_contacts")
+        .select("unsubscribe_token")
+        .eq("unsubscribe_token", data!.unsubscribe_token);
+      expect(forbidden).toEqual([]);
+    });
+
+    it("une piste LinkedIn est une tâche « Mon travail » de source antidotes, que le client ne lit pas", async () => {
+      const { data: task, error } = await clients.owner
+        .from("work_tasks")
+        .insert({
+          org_id: ids.org,
+          title: "LinkedIn · Ana (Lunettes témoin)",
+          source: "antidotes",
+          due_date: "2026-09-09",
+          dedupe_key: `antidotes:linkedin:${RUN}`,
+        })
+        .select("id, source")
+        .single();
+      if (error) throw new Error(`Valeur d'enum antidotes absente de work_task_source ? ${error.message}`);
+      expect(task?.source).toBe("antidotes");
+
+      const { data: hidden } = await clients.client.from("work_tasks").select("id").eq("id", task!.id);
+      expect(hidden).toEqual([]);
+    });
+  });
+
   describe("la désinscription est définitive", () => {
     it("se date toute seule et ne se retire plus", async () => {
       const { data: optedOut } = await clients.owner

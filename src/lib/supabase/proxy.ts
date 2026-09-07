@@ -25,6 +25,11 @@ const PUBLIC_PATHS = [
      authentifié. */
   "/confidentialite",
   "/cgu",
+  /* La désinscription d'un prospect : la page à un bouton et la route que
+     ce bouton — ou le geste « Se désabonner » d'une messagerie — poste.
+     Publiques par nature, résolues par le jeton du contact. */
+  "/desinscription",
+  "/api/desinscription",
 ];
 
 function isPublic(pathname: string) {

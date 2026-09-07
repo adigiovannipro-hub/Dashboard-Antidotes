@@ -166,6 +166,26 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           CREDENTIALS_ENCRYPTION_KEY: ${{ secrets.CREDENTIALS_ENCRYPTION_KEY }}
 
+      # Les séquences de prospection du pôle Antidotes : relevé des fils
+      # Gmail (réponses, rebonds), observations, envois dus. Même greffe
+      # horaire, même boîte Gmail que les Reçus — et jamais sur
+      # `portee: finance` : ouvrir un écran ne doit pas envoyer un email à un
+      # prospect. La fenêtre d'envoi (jours et heures de Paris) et le plafond
+      # quotidien vivent sur chaque séquence ; un tour à vide coûte une
+      # seconde.
+      - name: Séquences de prospection
+        if: always() && inputs.portee != 'finance'
+        run: pnpm sequences:passage
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          NEXT_PUBLIC_SITE_URL: ${{ vars.NEXT_PUBLIC_SITE_URL || 'https://dashboard-antidotes-beta.vercel.app' }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          CREDENTIALS_ENCRYPTION_KEY: ${{ secrets.CREDENTIALS_ENCRYPTION_KEY }}
+          GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
+          GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+
       # L'émission des factures et leurs relances. Greffée sur le passage
       # horaire, et **jamais** sur `portee: finance` : ce dernier est ce que
       # l'ouverture d'un écran déclenche, et ouvrir une page ne doit pas

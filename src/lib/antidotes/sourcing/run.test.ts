@@ -57,6 +57,7 @@ function memoryStore() {
         created_at: stamp,
         updated_at: stamp,
         outreach_channel: row.email_status === "valid" ? "email" : row.email_status === "risky" ? "linkedin" : "none",
+        unsubscribe_token: "jeton-test",
       };
       contacts.set(created.id, created);
       return created;

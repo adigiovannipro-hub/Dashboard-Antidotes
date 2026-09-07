@@ -6,12 +6,14 @@ import {
   ExternalLink,
   Mail,
   MailOpen,
+  MailX,
   MessageSquare,
   MousePointerClick,
   Phone,
   Plus,
   Reply,
   StickyNote,
+  UserX,
   type LucideIcon,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -24,6 +26,7 @@ import {
   type AntidotesResult,
 } from "@/app/actions/antidotes";
 import { NativeSelect, TextArea } from "@/components/antidotes/controls";
+import { EnrollDialog } from "@/components/antidotes/enroll-dialog";
 import { PendingLabel } from "@/components/ds/pending-label";
 import { StatusPill, type StatusTone } from "@/components/ds/status-pill";
 import { Button } from "@/components/ui/button";
@@ -38,7 +41,8 @@ import {
 } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatDate, formatDateTime, relativeDays } from "@/lib/antidotes/dates";
-import type { ProspectDetail } from "@/lib/antidotes/queries";
+import type { ProspectDetail, ProspectEnrollmentSummary } from "@/lib/antidotes/queries";
+import type { SequenceOption } from "@/lib/antidotes/sequences/queries";
 import {
   DISCOVERY_SOURCE_LABELS,
   EMAIL_STATUS_LABELS,
@@ -55,6 +59,7 @@ import {
   type EmailStatus,
   type Interaction,
   type InteractionType,
+  ENROLLMENT_STATUS_LABELS,
   type PipelineProspect,
   type ProspectStatus,
 } from "@/lib/antidotes/types";
@@ -75,6 +80,7 @@ export function ProspectSheet({
   detail,
   loading,
   onClose,
+  sequences,
 }: {
   open: boolean;
   /** Le prospect tel que la liste le connaît — l'en-tête, tout de suite. */
@@ -83,6 +89,8 @@ export function ProspectSheet({
   detail: ProspectDetail | null;
   loading: boolean;
   onClose: () => void;
+  /** Les séquences où inscrire ce prospect. */
+  sequences: SequenceOption[];
 }) {
   const prospect = detail?.prospect ?? fallback;
 
@@ -90,7 +98,12 @@ export function ProspectSheet({
     <Sheet open={open} onOpenChange={(next) => (next ? undefined : onClose())}>
       <SheetContent className="gap-0 sm:max-w-xl" aria-busy={loading}>
         {prospect ? (
-          <ProspectPanel prospect={prospect} interactions={detail?.interactions ?? null} />
+          <ProspectPanel
+            prospect={prospect}
+            interactions={detail?.interactions ?? null}
+            enrollments={detail?.enrollments ?? null}
+            sequences={sequences}
+          />
         ) : null}
       </SheetContent>
     </Sheet>
@@ -100,10 +113,14 @@ export function ProspectSheet({
 function ProspectPanel({
   prospect,
   interactions,
+  enrollments,
+  sequences,
 }: {
   prospect: PipelineProspect;
   /** `null` : le journal arrive encore — le panneau, lui, est déjà là. */
   interactions: Interaction[] | null;
+  enrollments: ProspectEnrollmentSummary[] | null;
+  sequences: SequenceOption[];
 }) {
   const place = [prospect.city, prospect.country].filter(Boolean).join(", ");
 
@@ -143,7 +160,7 @@ function ProspectPanel({
 
       <div className="min-h-0 flex-1 space-y-6 overflow-y-auto p-4">
         <Facts prospect={prospect} />
-        <Contacts prospect={prospect} />
+        <Contacts prospect={prospect} sequences={sequences} enrollments={enrollments} />
         <Notes prospectId={prospect.id} notes={prospect.notes} />
         <Timeline prospect={prospect} interactions={interactions} />
       </div>
@@ -246,7 +263,15 @@ const EMAIL_TONES: Record<EmailStatus, StatusTone> = {
   invalid: "danger",
 };
 
-function Contacts({ prospect }: { prospect: PipelineProspect }) {
+function Contacts({
+  prospect,
+  sequences,
+  enrollments,
+}: {
+  prospect: PipelineProspect;
+  sequences: SequenceOption[];
+  enrollments: ProspectEnrollmentSummary[] | null;
+}) {
   const [adding, setAdding] = useState(false);
 
   return (
@@ -259,12 +284,30 @@ function Contacts({ prospect }: { prospect: PipelineProspect }) {
           </span>
         </h3>
         {!adding ? (
-          <Button type="button" variant="outline" size="sm" onClick={() => setAdding(true)}>
-            <Plus aria-hidden />
-            Ajouter un contact
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            {prospect.contacts.length > 0 ? (
+              <EnrollDialog prospectIds={[prospect.id]} sequences={sequences} variant="ghost" />
+            ) : null}
+            <Button type="button" variant="outline" size="sm" onClick={() => setAdding(true)}>
+              <Plus aria-hidden />
+              Ajouter un contact
+            </Button>
+          </div>
         ) : null}
       </div>
+
+      {enrollments && enrollments.length > 0 ? (
+        <ul className="type-caption mt-3 flex flex-wrap gap-2 text-text-secondary">
+          {enrollments.map(({ enrollment, sequenceName }) => (
+            <li key={enrollment.id} className="inline-flex items-center gap-1.5 rounded-pill border border-border px-2.5 py-1">
+              <span className="text-text-primary">{sequenceName}</span>
+              <span aria-hidden>·</span>
+              <span>{ENROLLMENT_STATUS_LABELS[enrollment.status]}</span>
+              {enrollment.channel === "linkedin" ? <span>· LinkedIn</span> : enrollment.current_step > 0 ? <span>· étape {enrollment.current_step}</span> : null}
+            </li>
+          ))}
+        </ul>
+      ) : null}
 
       {prospect.contacts.length > 0 ? (
         <ul className="mt-3 divide-y divide-border rounded-md border border-border">
@@ -489,6 +532,8 @@ const INTERACTION_ICONS: Record<InteractionType, LucideIcon> = {
   note: StickyNote,
   linkedin_dm: MessageSquare,
   meeting: CalendarCheck,
+  bounce: MailX,
+  opt_out: UserX,
 };
 
 function Timeline({
