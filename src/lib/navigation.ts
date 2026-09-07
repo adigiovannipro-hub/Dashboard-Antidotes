@@ -200,7 +200,10 @@ export const getAppNavigation = cache(async (): Promise<NavGroup[]> => {
               // liste que ses onglets : voir `lib/antidotes/navigation.ts`.
               {
                 href: "/antidotes",
-                label: "Antidotes",
+                // « Prospection » et non « Antidotes » : l'espace de l'agence
+                // porte déjà ce nom deux lignes plus haut dans le même groupe,
+                // et deux entrées homonymes côte à côte ne se distinguent pas.
+                label: "Prospection",
                 icon: "antidotes",
                 match: "prefix",
                 children: ANTIDOTES_PAGES.map((page) => ({

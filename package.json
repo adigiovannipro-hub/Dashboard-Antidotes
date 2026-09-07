@@ -49,7 +49,9 @@
     "diagnostic:tiktok": "tsx scripts/diagnostic-tiktok.ts",
     "factures:envoi": "node --conditions=react-server --import tsx scripts/factures-envoi.ts",
     "factures:fiches": "node --conditions=react-server --import tsx scripts/factures-fiches.ts",
-    "factures:menage": "node --conditions=react-server --import tsx scripts/factures-menage.ts"
+    "factures:menage": "node --conditions=react-server --import tsx scripts/factures-menage.ts",
+    "sourcing:passage": "node --conditions=react-server --import tsx scripts/sourcing-passage.ts",
+    "sonde:sourcing": "tsx scripts/sonde-sourcing.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.115.0",

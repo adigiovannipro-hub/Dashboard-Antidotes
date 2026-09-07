@@ -1,0 +1,67 @@
+# Le sourcing du pôle Antidotes — les passages de campagne, exécutés ici et
+# non sur Vercel.
+#
+# Un passage parle à Apify (Google Maps, recherche LinkedIn), à l'Ad Library
+# de Meta, au registre légal, à Dropcontact et Hunter, et peut durer plusieurs
+# minutes : rien de tout cela ne tient dans une fonction Vercel, et les deux
+# créneaux cron de l'hébergeur sont pris. Le passage est **résumable** : il
+# sauve son avancement quand son budget est épuisé, et le tour suivant
+# reprend.
+#
+# Deux déclencheurs :
+#   • « Lancer » depuis l'écran de campagne — un `workflow_dispatch`, comme la
+#     synchronisation Finance à la demande (`GITHUB_SYNC_TOKEN`) ;
+#   • un filet toutes les trois heures, pour les passages restés en file quand
+#     le déclenchement n'a pas pu partir, et pour les passages interrompus.
+#     Pas horaire : un tour à vide coûte ~40 s d'installation, et rien ne
+#     presse — le sourcing n'est pas une attente d'écran.
+#
+# Un workflow à part, et non une étape de `airwallex-sync.yml` : son job est
+# borné à dix minutes, un seul appel Apify peut en prendre cinq.
+#
+# Secrets requis : NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY,
+# SUPABASE_SERVICE_ROLE_KEY — plus, selon les fournisseurs branchés :
+# APIFY_TOKEN, META_AD_LIBRARY_TOKEN, DROPCONTACT_API_KEY, HUNTER_API_KEY.
+
+name: Sourcing Antidotes
+
+on:
+  schedule:
+    - cron: "41 */3 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: antidotes-sourcing
+  cancel-in-progress: false
+
+jobs:
+  sourcer:
+    name: Passages de campagne
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.18.2
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Installation
+        run: pnpm install --frozen-lockfile
+
+      - name: Passages de sourcing
+        run: pnpm sourcing:passage
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          APIFY_TOKEN: ${{ secrets.APIFY_TOKEN }}
+          META_AD_LIBRARY_TOKEN: ${{ secrets.META_AD_LIBRARY_TOKEN }}
+          DROPCONTACT_API_KEY: ${{ secrets.DROPCONTACT_API_KEY }}
+          HUNTER_API_KEY: ${{ secrets.HUNTER_API_KEY }}

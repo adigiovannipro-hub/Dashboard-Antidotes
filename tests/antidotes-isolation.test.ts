@@ -299,6 +299,53 @@ suite("isolation du pôle Antidotes (RLS)", () => {
     });
   });
 
+  describe("les passages de sourcing (phase 2)", () => {
+    it("l'owner demande un passage et le relit ; le client ne voit rien", async () => {
+      const { data: campaign, error: campaignError } = await clients.owner
+        .from("antidotes_campaigns")
+        .insert({ org_id: ids.org, name: "Opticiens Lyon", engine: "maps" })
+        .select("id")
+        .single();
+      expect(campaignError).toBeNull();
+
+      const { data: run, error: runError } = await clients.owner
+        .from("antidotes_campaign_runs")
+        .insert({ org_id: ids.org, campaign_id: campaign!.id })
+        .select("id, status, stage")
+        .single();
+      if (runError) throw new Error(`Migration 20260908a non appliquée ? ${runError.message}`);
+      expect(run?.status).toBe("queued");
+      expect(run?.stage).toBe("sourcing");
+
+      const [{ data: ownerReads }, { data: clientReads }] = await Promise.all([
+        clients.owner.from("antidotes_campaign_runs").select("id").eq("id", run!.id),
+        clients.client.from("antidotes_campaign_runs").select("id").eq("id", run!.id),
+      ]);
+      expect(ownerReads).toHaveLength(1);
+      expect(clientReads).toEqual([]);
+
+      const { error: intrusion } = await clients.client
+        .from("antidotes_campaign_runs")
+        .insert({ org_id: ids.org, campaign_id: campaign!.id });
+      expect(intrusion).not.toBeNull();
+    });
+
+    it("un prospect porte ce que le sourcing apprend : note, verdict, passage", async () => {
+      const { data, error } = await clients.owner
+        .from("antidotes_prospects")
+        .update({
+          rating: 4.5,
+          qualification: { outcome: "qualified", reasons: [] },
+          enrichment: { discovery_at: new Date().toISOString(), discovery_source: "legal_registry" },
+        })
+        .eq("id", ids.prospect)
+        .select("rating, qualification, enrichment");
+      expect(error).toBeNull();
+      expect(data?.[0]?.rating).toBe(4.5);
+      expect(data?.[0]?.qualification).toEqual({ outcome: "qualified", reasons: [] });
+    });
+  });
+
   describe("la désinscription est définitive", () => {
     it("se date toute seule et ne se retire plus", async () => {
       const { data: optedOut } = await clients.owner

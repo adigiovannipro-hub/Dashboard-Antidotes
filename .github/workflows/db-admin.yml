@@ -94,6 +94,18 @@ on:
         description: "… sur ce mois (AAAA-MM)"
         type: string
         default: ""
+      sonde_sourcing:
+        description: "Sonder les fournisseurs du sourcing pour une société (son nom)"
+        type: string
+        default: ""
+      sonde_sourcing_ville:
+        description: "… dans cette ville"
+        type: string
+        default: ""
+      sonde_sourcing_maps:
+        description: "… et sonder Google Maps avec ce mot-clé (3 lieux)"
+        type: string
+        default: ""
 
 jobs:
   operer:
@@ -237,6 +249,22 @@ jobs:
           ${{ inputs.sonde_linkedin_publication != '' && format('--mois "{0}"', inputs.sonde_linkedin_publication) || '' }}
         env:
           COMPOSIO_API_KEY: ${{ secrets.COMPOSIO_API_KEY }}
+
+      # Ce que chaque fournisseur du sourcing répond vraiment pour une
+      # société — registre légal, Ad Library, recherche LinkedIn, site, et
+      # Google Maps si un mot-clé est donné. Lecture seule, réponses brutes :
+      # c'est ce qui tranche la forme d'un connecteur avant de s'y fier.
+      - name: Sonde du sourcing
+        if: ${{ inputs.sonde_sourcing != '' }}
+        run: >-
+          pnpm sonde:sourcing --societe "${{ inputs.sonde_sourcing }}"
+          ${{ inputs.sonde_sourcing_ville != '' && format('--ville "{0}"', inputs.sonde_sourcing_ville) || '' }}
+          ${{ inputs.sonde_sourcing_maps != '' && format('--maps "{0}"', inputs.sonde_sourcing_maps) || '' }}
+        env:
+          APIFY_TOKEN: ${{ secrets.APIFY_TOKEN }}
+          META_AD_LIBRARY_TOKEN: ${{ secrets.META_AD_LIBRARY_TOKEN }}
+          DROPCONTACT_API_KEY: ${{ secrets.DROPCONTACT_API_KEY }}
+          HUNTER_API_KEY: ${{ secrets.HUNTER_API_KEY }}
 
       # Les miniatures des visuels déjà en bucket : sharp pour les images,
       # ffmpeg pour la première image des vidéos — plus préinstallé sur

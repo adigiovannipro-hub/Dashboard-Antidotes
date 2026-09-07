@@ -23,7 +23,7 @@ export default async function AntidotesLayout({
   await requireAntidotesAccess();
 
   return (
-    <AppShell viewer={viewer} title="Antidotes" wide>
+    <AppShell viewer={viewer} title="Prospection" wide>
       <div className="flex min-w-0 flex-col gap-6">
         <AntidotesNav />
         <div className="min-w-0">{children}</div>

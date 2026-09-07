@@ -30,6 +30,12 @@ export const ANTIDOTES_GROUP_LABELS: Record<AntidotesGroup, string> = {
 
 export const ANTIDOTES_PAGES: AntidotesPage[] = [
   {
+    key: "sourcing",
+    group: "outbound",
+    href: "/antidotes/outbound/sourcing",
+    name: "Sourcing",
+  },
+  {
     key: "pipeline",
     group: "outbound",
     href: "/antidotes/outbound/pipeline",
@@ -37,8 +43,8 @@ export const ANTIDOTES_PAGES: AntidotesPage[] = [
   },
 ];
 
-/** La porte d'entrée du pôle : sa première page. */
-export const ANTIDOTES_HOME = ANTIDOTES_PAGES[0]!.href;
+/** La porte d'entrée du pôle : le pipeline — c'est là qu'on travaille. */
+export const ANTIDOTES_HOME = "/antidotes/outbound/pipeline";
 
 /** Le libellé complet d'une page, tel que le rail l'affiche : « Outbound · Pipeline ». */
 export function antidotesPageLabel(page: AntidotesPage): string {

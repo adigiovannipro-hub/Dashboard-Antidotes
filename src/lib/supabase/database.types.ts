@@ -850,11 +850,15 @@ export type {
   ReferencePost as AntidotesReferencePostRow,
   GeneratedPost as AntidotesGeneratedPostRow,
   CaseStudy as AntidotesCaseStudyRow,
+  CampaignRun as AntidotesCampaignRunRow,
 } from "@/lib/antidotes/types";
 
 import type {
   Campaign as AntidotesCampaign,
   CampaignEngine as AntidotesCampaignEngine,
+  CampaignRun as AntidotesCampaignRun,
+  RunStage as AntidotesRunStage,
+  RunStatus as AntidotesRunStatus,
   CaseStudy as AntidotesCaseStudy,
   Contact as AntidotesContact,
   DiscoverySource as AntidotesDiscoverySource,
@@ -978,6 +982,7 @@ export type Database = {
       antidotes_reference_posts: Table<AntidotesReferencePost>;
       antidotes_generated_posts: Table<AntidotesGeneratedPost>;
       antidotes_case_studies: Table<AntidotesCaseStudy>;
+      antidotes_campaign_runs: Table<AntidotesCampaignRun>;
     };
     // `never` satisfait la contrainte `Record<string, GenericView>` de
     // postgrest-js tout en déclarant qu'il n'y a ni vue ni fonction exposée.
@@ -1193,6 +1198,9 @@ export type Database = {
       antidotes_enrollment_status: AntidotesEnrollmentStatus;
       antidotes_generated_post_status: AntidotesGeneratedPostStatus;
       antidotes_post_platform: AntidotesPostPlatform;
+      // Pôle Antidotes — sourcing (20260908a)
+      antidotes_run_status: AntidotesRunStatus;
+      antidotes_run_stage: AntidotesRunStage;
     };
     CompositeTypes: Record<never, never>;
   };

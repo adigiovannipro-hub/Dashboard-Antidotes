@@ -128,12 +128,27 @@ export async function readWorkflowState(): Promise<WorkflowState> {
  * depuis GitHub, dont le défaut est `tout`.
  */
 export async function dispatchSyncWorkflow(): Promise<void> {
+  await dispatchWorkflow(SYNC_WORKFLOW_FILE, { portee: "finance" });
+}
+
+/**
+ * Le workflow des passages de sourcing du pôle Antidotes : « Lancer » depuis
+ * l'écran de campagne pose un passage en file puis donne cet ordre — même
+ * jeton, même mécanique que Finance, une autre file d'attente.
+ */
+export const SOURCING_WORKFLOW_FILE = "sourcing.yml";
+
+export async function dispatchSourcingWorkflow(): Promise<void> {
+  await dispatchWorkflow(SOURCING_WORKFLOW_FILE, {});
+}
+
+async function dispatchWorkflow(file: string, inputs: Record<string, string>): Promise<void> {
   const response = await fetch(
-    `${API}/repos/${repo()}/actions/workflows/${SYNC_WORKFLOW_FILE}/dispatches`,
+    `${API}/repos/${repo()}/actions/workflows/${file}/dispatches`,
     {
       method: "POST",
       headers: { ...headers(), "Content-Type": "application/json" },
-      body: JSON.stringify({ ref: ref(), inputs: { portee: "finance" } }),
+      body: JSON.stringify({ ref: ref(), inputs }),
       cache: "no-store",
     },
   );

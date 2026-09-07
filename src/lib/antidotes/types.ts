@@ -222,18 +222,136 @@ export type CampaignFilters = {
   reference_size?: SizeSignal | null;
 };
 
+// --- Sourcing (phase 2) ------------------------------------------------------
+
+/** Les trois sources de décisionnaire, en cascade — on s'arrête au premier nom. */
+export type DiscoverySourceKey = "linkedin" | "legal_registry" | "website";
+
+export const DISCOVERY_SOURCE_KEY_LABELS: Record<DiscoverySourceKey, string> = {
+  linkedin: "LinkedIn (via Apify)",
+  legal_registry: "Registre légal (SIREN)",
+  website: "Site de la société",
+};
+
+/** Les fournisseurs d'adresse, dans l'ordre de la cascade. */
+export type EmailProviderKey = "dropcontact" | "hunter" | "pattern";
+
+export const EMAIL_PROVIDER_LABELS: Record<EmailProviderKey, string> = {
+  dropcontact: "Dropcontact",
+  hunter: "Hunter",
+  pattern: "Déduction de motif",
+};
+
+/**
+ * Les paramètres du moteur. Un lieu physique se cherche par mots-clés et
+ * villes ; une boutique par catégorie, pays et trafic. Tout est optionnel en
+ * base — les défauts vivent dans `sourcing/config.ts`.
+ */
+export type CampaignSourceParams = {
+  keywords?: string[];
+  cities?: string[];
+  radius_km?: number;
+  /** Plafond de lieux par recherche : c'est lui qui borne la facture Apify. */
+  max_places?: number;
+  category?: string;
+  country?: string;
+  traffic_min?: number | null;
+  traffic_max?: number | null;
+};
+
+export type CampaignTargeting = {
+  job_keywords?: string[];
+  /** À partir de cet effectif, on vise le marketing plutôt que le dirigeant. */
+  marketing_threshold?: number;
+  discovery_sources?: { source: DiscoverySourceKey; enabled: boolean }[];
+  enrichment_waterfall?: { provider: EmailProviderKey; enabled: boolean }[];
+  verification_ttl_days?: number;
+};
+
+export type RunStatus = "queued" | "running" | "done" | "error";
+
+export const RUN_STATUS_LABELS: Record<RunStatus, string> = {
+  queued: "En file",
+  running: "En cours",
+  done: "Terminé",
+  error: "En erreur",
+};
+
+export type RunStage = "sourcing" | "discovering" | "verifying" | "done";
+
+export const RUN_STAGE_LABELS: Record<RunStage, string> = {
+  sourcing: "Sourcing",
+  discovering: "Décisionnaires",
+  verifying: "Adresses",
+  done: "Terminé",
+};
+
+/** Le taux de survie d'un passage, étape par étape. */
+export type RunStats = {
+  sourced: number;
+  qualified: number;
+  /** Passés en « À qualifier » : un filtre n'a pas pu être évalué. */
+  to_review: number;
+  contact_found: number;
+  email_valid: number;
+  email_risky: number;
+  /** Les rejets, comptés par raison. */
+  rejected: Record<string, number>;
+};
+
+export type RunError = {
+  at: string;
+  step: string;
+  message: string;
+  prospect?: string;
+};
+
+export type CampaignRun = {
+  id: string;
+  org_id: string;
+  campaign_id: string;
+  status: RunStatus;
+  stage: RunStage;
+  stats: Partial<RunStats>;
+  errors: RunError[];
+  requested_at: string;
+  started_at: string | null;
+  finished_at: string | null;
+  heartbeat_at: string | null;
+  created_at: string;
+};
+
+/** Le verdict de qualification, tel que le prospect le garde. */
+export type ProspectQualification = {
+  outcome?: "qualified" | "to_review";
+  reasons?: string[];
+  size_ratio?: number | null;
+  checked_at?: string;
+};
+
+/** L'avancement de l'enrichissement d'un prospect. */
+export type ProspectEnrichment = {
+  discovery_at?: string;
+  discovery_source?: DiscoverySourceKey | null;
+  candidates?: number;
+  email_at?: string;
+  email_provider?: EmailProviderKey | null;
+  errors?: string[];
+};
+
 export type Campaign = {
   id: string;
   org_id: string;
   name: string;
   engine: CampaignEngine;
   reference_client: string | null;
-  source_params: Record<string, unknown>;
+  source_params: CampaignSourceParams;
   filters: CampaignFilters;
-  targeting: Record<string, unknown>;
+  targeting: CampaignTargeting;
   is_active: boolean;
   last_run_at: string | null;
-  stats: Record<string, unknown>;
+  /** Le taux de survie du dernier passage, recopié pour la liste. */
+  stats: Partial<RunStats>;
   created_at: string;
   updated_at: string;
 };
@@ -275,6 +393,13 @@ export type Prospect = {
   external_ids: ExternalIds;
   /** Dernier geste de contact, entretenu par le trigger du journal. */
   last_contact_at: string | null;
+  /** Note Google (0-5), quand la source la donne. */
+  rating: number | null;
+  phone: string | null;
+  qualification: ProspectQualification;
+  enrichment: ProspectEnrichment;
+  /** Le passage de sourcing qui l'a posé ou touché en dernier. */
+  last_run_id: string | null;
   created_at: string;
   updated_at: string;
 };

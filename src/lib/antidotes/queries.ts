@@ -3,6 +3,7 @@ import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import type {
   Campaign,
+  CampaignRun,
   Contact,
   Interaction,
   PipelineProspect,
@@ -170,6 +171,115 @@ export async function getProspectDetail(options: {
     },
     interactions: (interactions ?? []) as unknown as Interaction[],
   };
+}
+
+// --- Sourcing (phase 2) ------------------------------------------------------
+
+/** Une campagne telle que la liste l'affiche : son dernier passage, ses prospects. */
+export type CampaignSummary = Campaign & {
+  latest_run: CampaignRun | null;
+  prospect_count: number;
+};
+
+export async function listCampaigns(options: { orgId: string }): Promise<CampaignSummary[]> {
+  const supabase = await createClient();
+
+  const [{ data: campaigns }, { data: runs }, { data: prospects }] = await Promise.all([
+    supabase
+      .from("antidotes_campaigns")
+      .select("*")
+      .eq("org_id", options.orgId)
+      .order("created_at", { ascending: false })
+      .limit(200),
+    supabase
+      .from("antidotes_campaign_runs")
+      .select("*")
+      .eq("org_id", options.orgId)
+      .order("requested_at", { ascending: false })
+      .limit(500),
+    supabase
+      .from("antidotes_prospects")
+      .select("campaign_id")
+      .eq("org_id", options.orgId)
+      .not("campaign_id", "is", null)
+      .limit(5000),
+  ]);
+
+  // Le plus récent passage de chaque campagne : la liste arrive triée, le
+  // premier vu gagne.
+  const latestByCampaign = new Map<string, CampaignRun>();
+  for (const run of (runs ?? []) as unknown as CampaignRun[]) {
+    if (!latestByCampaign.has(run.campaign_id)) latestByCampaign.set(run.campaign_id, run);
+  }
+  const countByCampaign = new Map<string, number>();
+  for (const row of (prospects ?? []) as unknown as { campaign_id: string }[]) {
+    countByCampaign.set(row.campaign_id, (countByCampaign.get(row.campaign_id) ?? 0) + 1);
+  }
+
+  return ((campaigns ?? []) as unknown as Campaign[]).map((campaign) => ({
+    ...campaign,
+    latest_run: latestByCampaign.get(campaign.id) ?? null,
+    prospect_count: countByCampaign.get(campaign.id) ?? 0,
+  }));
+}
+
+export type CampaignDetail = {
+  campaign: Campaign;
+  runs: CampaignRun[];
+  prospect_count: number;
+};
+
+export async function getCampaignDetail(options: {
+  orgId: string;
+  campaignId: string;
+}): Promise<CampaignDetail | null> {
+  const supabase = await createClient();
+
+  const [{ data: campaign }, { data: runs }, { count }] = await Promise.all([
+    supabase
+      .from("antidotes_campaigns")
+      .select("*")
+      .eq("org_id", options.orgId)
+      .eq("id", options.campaignId)
+      .maybeSingle(),
+    supabase
+      .from("antidotes_campaign_runs")
+      .select("*")
+      .eq("org_id", options.orgId)
+      .eq("campaign_id", options.campaignId)
+      .order("requested_at", { ascending: false })
+      .limit(20),
+    supabase
+      .from("antidotes_prospects")
+      .select("id", { count: "exact", head: true })
+      .eq("org_id", options.orgId)
+      .eq("campaign_id", options.campaignId),
+  ]);
+
+  if (!campaign) return null;
+  return {
+    campaign: campaign as unknown as Campaign,
+    runs: (runs ?? []) as unknown as CampaignRun[],
+    prospect_count: count ?? 0,
+  };
+}
+
+/** Un passage en file ou en cours pour cette campagne — on n'en lance pas deux. */
+export async function getActiveRun(options: {
+  orgId: string;
+  campaignId: string;
+}): Promise<CampaignRun | null> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("antidotes_campaign_runs")
+    .select("*")
+    .eq("org_id", options.orgId)
+    .eq("campaign_id", options.campaignId)
+    .in("status", ["queued", "running"])
+    .order("requested_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  return (data as unknown as CampaignRun | null) ?? null;
 }
 
 /** La campagne d'un prospect, pour recalculer son score avec ses poids. */
