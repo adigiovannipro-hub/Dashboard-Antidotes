@@ -13,6 +13,7 @@
  */
 
 import { encodeHeader } from "@/lib/recus/mime";
+import { SIGNATURE_IMAGES } from "./signature-assets";
 
 export type InvoiceMessage = {
   from: string;
@@ -42,6 +43,11 @@ export type InvoiceMessage = {
    */
   signature?: { text: string; html: string | null } | null;
 };
+
+/** Un identifiant de `Content-ID`, réduit à un jeu de caractères sûr. */
+function sanitizeCid(cid: string): string {
+  return cid.replace(/[^A-Za-z0-9._-]+/g, "");
+}
 
 /**
  * Neutralise les sauts de ligne d'un en-tête.
@@ -123,6 +129,39 @@ export function buildInvoiceMime(message: InvoiceMessage): string {
     ];
   };
 
+  /* La carte de visite et ses images dans un même `related` : c'est ce qui
+     lie un `cid:` du HTML à la pièce qui le porte. Posées à côté dans le
+     `mixed`, certains clients les affichent en pièces jointes séparées au
+     lieu de les rendre dans la signature. */
+  const signaturePart = (signature: { text: string; html: string | null }) => {
+    const inner = block(signature.text, signature.html ?? null);
+    if (!signature.html || SIGNATURE_IMAGES.length === 0) return inner;
+
+    const related = `${boundary}-rel`;
+    return [
+      `Content-Type: multipart/related; boundary="${related}"`,
+      "",
+      `--${related}`,
+      ...inner,
+      ...SIGNATURE_IMAGES.flatMap((image) => {
+        const cid = sanitizeCid(image.cid);
+        const filename = sanitizeFilename(image.filename);
+        return [
+          `--${related}`,
+          `Content-Type: ${image.contentType}; name="${filename}"`,
+          "Content-Transfer-Encoding: base64",
+          `Content-ID: <${cid}>`,
+          `Content-Disposition: inline; filename="${filename}"`,
+          "",
+          image.base64.replace(/\s+/g, "").replace(/(.{76})/g, "$1\r\n"),
+          "",
+        ];
+      }),
+      `--${related}--`,
+      "",
+    ];
+  };
+
   if (!message.attachment) {
     return [...headers, ...block(message.body, message.bodyHtml ?? null)].join("\r\n");
   }
@@ -153,10 +192,7 @@ export function buildInvoiceMime(message: InvoiceMessage): string {
     ...block(message.body, message.bodyHtml ?? null),
     ...attachmentPart,
     ...(message.signature
-      ? [
-          `--${boundary}`,
-          ...block(message.signature.text, message.signature.html ?? null),
-        ]
+      ? [`--${boundary}`, ...signaturePart(message.signature)]
       : []),
     `--${boundary}--`,
     "",

@@ -1,0 +1,126 @@
+/**
+ * Les images de la signature, embarquées dans le message.
+ *
+ * Elles vivaient sur des hébergeurs tiers — Noelshack pour la photo, le CDN
+ * de HubSpot pour les deux pictogrammes. Deux façons de disparaître : un
+ * hébergeur d'images grand public refuse le lien direct depuis un autre
+ * domaine, et Gmail charge les images par son propre proxy, sans référent.
+ * Résultat, une carte de visite sans visage ni pictogramme.
+ *
+ * Elles voyagent donc **avec** le mail, en pièces jointes `inline` que le
+ * HTML appelle par `cid:`. Plus d'hébergeur, plus de blocage : la photo
+ * s'affiche même hors ligne, dans Gmail comme dans Outlook.
+ *
+ * Encodées en dur plutôt que lues sur le disque : une fonction Vercel ne
+ * transporte que ce qui est tracé, et un fichier oublié au traçage donnerait
+ * exactement la panne qu'on vient de réparer.
+ *
+ * Photo réduite à 156 px pour un affichage à 130, passée en JPEG et
+ * débarrassée de son profil ICC : 4,7 Ko contre 175.
+ */
+
+export type SignatureImage = {
+  /** L'identifiant que le HTML appelle par `cid:`. */
+  cid: string;
+  filename: string;
+  contentType: string;
+  base64: string;
+};
+
+export const SIGNATURE_IMAGES: SignatureImage[] = [
+  {
+    cid: "antidotes-avatar",
+    filename: "alessandro-di-giovanni.jpg",
+    contentType: "image/jpeg",
+    base64: `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`,
+  },
+  {
+    cid: "antidotes-icone-tel",
+    filename: "telephone.png",
+    contentType: "image/png",
+    base64: `iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAIAAAD8GO2jAAABpUlEQVR4nOyWO0hCURjHz/WRD7IitSjLhoasIDUIHQLtQaXR\
+EEJDNIRDQw1GYENDoEsGDhEF0ib0JCIqEAskKJNsqSRIQgoENcoXYiiSty5cEJF83NCl7n/6f/d85/wu5zsv0vnnNiilSKDE\
+wgH/HLC/YjJqDz4iMcSzONV7L6sEAgFgVK4OW7ojdHREfk/wxnwPsCsXoJbLSg9PNiyguIDO3vb08Np0G/CFQBEBXYP8lK9p\
+ZM6uKStZDFBEgFDalpolgaR1ZKqPRMa86nIBIAganRlA/dmm1W6+A9iVZ9khf13FrkD9stIQCUZBcQF0Bm1aP4H60FtE1aP1\
+uF5TrX5v/poTJxcVuTOaO7jPDrfb6UV8+D1iNl5wefVNPI5l16aSaB7tLiKZxG2py7YHoUIunEQ8oZbpHJfO1JexuWHLzlXA\
+F0ZDZBoPfYbfAxDFovF5ue7B9pQtIds4hZ4ttHKq/nRBLBcCjMJweFFoZUvH6nWrRjTEz2ii0inZeuUvcobYDcz+8W6JQoQU\
+Bk7CySQMw19ypVQsE/yYD+GvChyAA/4A4BsAAP//BTFHewAAAAZJREFUAwBqJ4HQe7BXsgAAAABJRU5ErkJggg==`,
+  },
+  {
+    cid: "antidotes-icone-mail",
+    filename: "mail.png",
+    contentType: "image/png",
+    base64: `iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAIAAAD8GO2jAAABk0lEQVR4nOyWbygDYRzHn1272fJKXk2mljLaMl7QyhpXxFLe\
+rCnzYsMrXowW8yeZWZpSFknUyiaRf2/3RlEKi2ZNGzUkeackaWN2u3OlvHC7c9u6N7rvy7tP38/TXb9fD/8Q3QBshg9YDifg\
+BKwIPFN7INuYJnS/nvDIg4bwDSDbkNvoPpGirqwaUUAQj4bBMCx4EAmfRKkASgGcB4ePoziG27cHCsUFaZmnx2d7x/yV/5aA\
+k4lkWgaiErgvnBKZOHJ601VpPd+/JAN+X7C7aphoJzACpuqhFJTIitwBZ4Ne9fYSs2pnlobWU2jq+xWaRBcta6Nts7HXeItR\
+Q2AETNVD9w8EQoFt01zbrFwwe3ZcvtDRtWPXgqWwcd3cXehBIIRHVnsRvQrQ5u850Jrqy2tKbe2uaODeKB/EcTzx/ilVSCa3\
++mkO/hMIMIhUXrxyNt3Uqf6IJ4j21h5k2e9g0g6YT7IoXzjm7VNqKvJEcKNBDRgns1VBnB1kmH+8TXNZeYwEXvYERtLKzSU8\
+7l7ECTgB+AIAAP//G6wxaAAAAAZJREFUAwDgeIaKWktGTQAAAABJRU5ErkJggg==`,
+  },
+];
