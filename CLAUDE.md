@@ -15,6 +15,7 @@ Je ne suis pas développeur. Je décris des besoins produit, pas des solutions t
 - **Demande-moi uniquement le produit et les secrets.** Ce que doit faire la fonctionnalité, à quoi ça ressemble, quelles clés API fournir.
 - **Fonctionnel avant élégant.** Une feature qui marche de bout en bout bat une abstraction propre à moitié branchée. Pas de refacto non demandée.
 - **Jamais de faux positif.** Ne dis pas que c'est fait sans preuve : sortie de test, build qui passe, ou URL de preview. Si un bout est encore en démo ou en mock, dis-le explicitement.
+- **Ce qui atteint un client se prouve par la vraie chaîne avant de partir en `main`.** Règle absolue, posée le 8/09/2026 après quatre factures parties avec une signature amputée. Tout ce qui sort du produit vers un client — mail de facturation, relance, courriel de validation, publication automatique, réponse de modération — ne se merge qu'après un **passage réel par le code du produit** vers une adresse ou un compte de test (`pnpm factures:renvoi --vers`, ou l'équivalent à construire pour le module), **relu par la machine** (arbre MIME, identifiants, contenu — jamais « ça a l'air bon ») et **regardé à l'écran** sur les clients que les destinataires utilisent (Gmail, Mail iPhone). Un test qui passe par un autre chemin que le produit — connecteur, sandbox, MIME refait à la main, capture locale — ne vaut rien : il prouve le test, pas l'envoi. Si ce chemin de test n'existe pas encore pour le module touché, le construire fait partie du chantier, avant le merge, jamais après. Et jamais de renvoi en masse aux clients sans ce passage.
 - Réponds en français.
 
 ## Architecture des espaces
@@ -374,6 +375,7 @@ Le dépôt embarque des skills dans `.claude/skills/`, certains en lien symboliq
 - **Tu ne merges jamais dans `main` toi-même.** Quand un chantier est terminé : push, puis donne-moi l'URL du déploiement Vercel de preview. Je valide visuellement, puis je te dis de merger.
 - **C'est moi qui déclare une phase terminée**, pas toi. Tu peux dire qu'un chantier te semble prêt ; tu ne le clôtures pas.
 - Un chantier n'est « terminé » que si le build passe, les types passent, les tests passent, et la preview est en ligne.
+- **Et, s'il touche à ce qu'un client reçoit, que le passage réel vers une adresse de test a été fait et relu** — voir la règle du même nom dans « Comment travailler avec moi ».
 - Commits en français, descriptifs, une intention par commit.
 - **Vérifie l'écart avec `main` en début de session.** Ce fichier n'est chargé automatiquement que depuis `main` ; une session qui clone le repo y arrive par défaut et ne voit ni les branches en cours ni ce qu'elles contiennent. Si `main` est loin derrière, dis-le-moi avant de commencer.
 
