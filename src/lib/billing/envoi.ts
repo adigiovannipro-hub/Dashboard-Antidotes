@@ -129,6 +129,13 @@ type InstallmentRow = {
   airwallex_invoice_id: string | null;
 };
 
+/** Les colonnes d'un devis telles que l'envoi les lit — une seule liste. */
+const ENGAGEMENT_COLUMNS =
+  "id, client_name, label, recipient_email, cc_emails, contact_first_name, billing_name, billing_email, billing_street, billing_city, billing_postcode, billing_country, billing_tax_id, product_name, send_subject, send_template, reminder_1_subject, reminder_2_subject, reminder_3_subject, reminder_1_template, reminder_2_template, reminder_3_template, airwallex_customer_id, airwallex_product_id, template_invoice_external_id";
+
+const INSTALLMENT_COLUMNS =
+  "id, engagement_id, service_month, amount_cents, currency, vat_rate, issue_on, status, airwallex_invoice_id";
+
 type EmailRow = {
   installment_id: string;
   kind: BillingEmailKind;
@@ -208,9 +215,7 @@ export async function runInvoiceDispatch(options: {
      ailleurs. */
   const { data: engagementData, error: engagementError } = await admin
     .from("billing_engagements")
-    .select(
-      "id, client_name, label, recipient_email, cc_emails, contact_first_name, billing_name, billing_email, billing_street, billing_city, billing_postcode, billing_country, billing_tax_id, product_name, send_subject, send_template, reminder_1_subject, reminder_2_subject, reminder_3_subject, reminder_1_template, reminder_2_template, reminder_3_template, airwallex_customer_id, airwallex_product_id, template_invoice_external_id",
-    )
+    .select(ENGAGEMENT_COLUMNS)
     .eq("org_id", options.orgId)
     .not("recipient_email", "is", null)
     .limit(500);
@@ -230,9 +235,7 @@ export async function runInvoiceDispatch(options: {
 
   const { data: installmentData, error: installmentError } = await admin
     .from("billing_installments")
-    .select(
-      "id, engagement_id, service_month, amount_cents, currency, vat_rate, issue_on, status, airwallex_invoice_id",
-    )
+    .select(INSTALLMENT_COLUMNS)
     .eq("org_id", options.orgId)
     .in("engagement_id", [...engagements.keys()])
     .in("status", ["pending", "issued"])
@@ -496,7 +499,16 @@ async function sendInvoiceEmail(options: {
   invoice: EmittedInvoice;
   kind: BillingEmailKind;
   mailbox: { accessToken: string; from: string };
-}): Promise<void> {
+  /** Ajouté tel quel en fin d'objet : un renvoi se dit dans l'objet. */
+  subjectSuffix?: string;
+  /**
+   * Où poser la trace. Une ligne nouvelle par défaut ; un renvoi met à jour
+   * celle du premier envoi — le journal est unique par (mensualité, type),
+   * et c'est cette contrainte qui empêche un passage rejoué de doubler un
+   * mail. Elle vaut aussi pour un renvoi voulu.
+   */
+  journal?: { mode: "insert" } | { mode: "update"; emailId: string };
+}): Promise<{ messageId: string; subject: string }> {
   const { engagement, invoice, line } = options;
 
   /* Chaque relance a son texte : la deuxième n'est pas la première répétée.
@@ -551,6 +563,7 @@ async function sendInvoiceEmail(options: {
   const parts = splitAroundAttachment(rendered.body);
   const to = engagement.recipient_email!;
   const cc = engagement.cc_emails ?? [];
+  const subject = `${rendered.subject}${options.subjectSuffix ?? ""}`;
 
   const messageId = await sendMessage({
     accessToken: options.mailbox.accessToken,
@@ -559,7 +572,7 @@ async function sendInvoiceEmail(options: {
       to,
       cc,
       bcc: ARCHIVE_BCC,
-      subject: rendered.subject,
+      subject,
       /* Le message s'arrête à « À dispo, », la facture suit, la carte de
          signature ferme : l'ordre d'un mail écrit à la main. */
       body: parts.before.text,
@@ -573,18 +586,32 @@ async function sendInvoiceEmail(options: {
   });
 
   const admin = createAdminClient();
-  const { error } = await admin.from("billing_invoice_emails").insert({
-    org_id: options.orgId,
-    installment_id: line.id,
-    kind: options.kind,
-    to_email: to,
-    cc_emails: cc,
-    bcc_email: ARCHIVE_BCC,
-    subject: rendered.subject,
-    body: rendered.body,
-    invoice_external_id: invoice.external_id,
-    gmail_message_id: messageId,
-  } as never);
+  const journal = options.journal ?? { mode: "insert" };
+  const { error } =
+    journal.mode === "insert"
+      ? await admin.from("billing_invoice_emails").insert({
+          org_id: options.orgId,
+          installment_id: line.id,
+          kind: options.kind,
+          to_email: to,
+          cc_emails: cc,
+          bcc_email: ARCHIVE_BCC,
+          subject,
+          body: rendered.body,
+          invoice_external_id: invoice.external_id,
+          gmail_message_id: messageId,
+        } as never)
+      : /* La date d'envoi suit : le client a reçu la facture aujourd'hui, et
+           c'est d'aujourd'hui que se comptent les relances. */
+        await admin
+          .from("billing_invoice_emails")
+          .update({
+            subject,
+            invoice_external_id: invoice.external_id,
+            gmail_message_id: messageId,
+            sent_at: new Date().toISOString(),
+          } as never)
+          .eq("id", journal.emailId);
 
   /* Le mail est parti : si le journal refuse la ligne, il faut le savoir
      bruyamment. Une relance non journalisée repartirait à l'identique au
@@ -599,4 +626,146 @@ async function sendInvoiceEmail(options: {
     .from("billing_installments")
     .update({ last_send_error: null } as never)
     .eq("id", line.id);
+
+  return { messageId, subject };
+}
+
+type JournalRow = {
+  id: string;
+  installment_id: string;
+  to_email: string;
+  subject: string;
+  sent_at: string;
+};
+
+export type ResendOutcome =
+  | { kind: "sent"; installmentId: string; to: string; subject: string }
+  | { kind: "failed"; installmentId: string; error: string };
+
+/**
+ * Renvoie les derniers envois de factures, tels quels, l'objet complété.
+ *
+ * Pour le jour où un défaut d'affichage a touché ce qui est parti : le même
+ * modèle, la même facture relue chez Airwallex (son `pdf_url` a expiré
+ * depuis), le même destinataire — et une mention en fin d'objet qui dit au
+ * client pourquoi il reçoit deux fois la même chose. Les relances ne sont pas
+ * concernées : on ne renvoie que ce qui a un document à montrer.
+ *
+ * La ligne du journal est mise à jour, jamais doublée. Les envois repartent
+ * dans l'ordre où ils étaient partis.
+ */
+export async function resendRecentInvoices(options: {
+  orgId: string;
+  count: number;
+  subjectSuffix: string;
+  simulation?: boolean;
+}): Promise<ResendOutcome[]> {
+  const count = Math.min(Math.max(options.count, 0), MAX_EMAILS_PER_RUN);
+  if (count === 0) return [];
+
+  const admin = createAdminClient();
+  const outcomes: ResendOutcome[] = [];
+
+  const { data: emailData, error: emailError } = await admin
+    .from("billing_invoice_emails")
+    .select("id, installment_id, to_email, subject, sent_at")
+    .eq("org_id", options.orgId)
+    .eq("kind", "invoice")
+    .order("sent_at", { ascending: false })
+    .limit(count);
+  if (emailError) throw new Error(`Lecture du journal : ${emailError.message}`);
+
+  const emails = ((emailData ?? []) as unknown as JournalRow[]).reverse();
+  if (emails.length === 0) return outcomes;
+
+  const { data: installmentData, error: installmentError } = await admin
+    .from("billing_installments")
+    .select(INSTALLMENT_COLUMNS)
+    .eq("org_id", options.orgId)
+    .in(
+      "id",
+      emails.map((email) => email.installment_id),
+    );
+  if (installmentError) {
+    throw new Error(`Lecture des mensualités : ${installmentError.message}`);
+  }
+  const installments = new Map(
+    ((installmentData ?? []) as unknown as InstallmentRow[]).map((row) => [row.id, row]),
+  );
+
+  const { data: engagementData, error: engagementError } = await admin
+    .from("billing_engagements")
+    .select(ENGAGEMENT_COLUMNS)
+    .eq("org_id", options.orgId)
+    .in("id", [...new Set([...installments.values()].map((row) => row.engagement_id))]);
+  if (engagementError) {
+    throw new Error(`Lecture des devis : ${engagementError.message}`);
+  }
+  const engagements = new Map(
+    ((engagementData ?? []) as unknown as EngagementRow[]).map((row) => [row.id, row]),
+  );
+
+  let mailbox: { accessToken: string; from: string } | null = null;
+
+  for (const email of emails) {
+    const line = installments.get(email.installment_id);
+    const engagement = line ? engagements.get(line.engagement_id) : undefined;
+    if (!line || !engagement?.recipient_email) {
+      outcomes.push({
+        kind: "failed",
+        installmentId: email.installment_id,
+        error: "Mensualité ou devis introuvable, ou devis sans adresse de destinataire.",
+      });
+      continue;
+    }
+
+    if (options.simulation) {
+      outcomes.push({
+        kind: "sent",
+        installmentId: line.id,
+        to: engagement.recipient_email,
+        subject: `${email.subject}${options.subjectSuffix}`,
+      });
+      continue;
+    }
+
+    try {
+      if (!mailbox) {
+        mailbox = await gmailAccessToken(options.orgId);
+        if (!mailbox) {
+          throw new Error(
+            "Aucune boîte Gmail connectée : brancher la boîte dans Reçus avant d'envoyer des factures.",
+          );
+        }
+      }
+
+      const invoice = await resolveInvoice(line, engagement);
+      const sent = await sendInvoiceEmail({
+        orgId: options.orgId,
+        line,
+        engagement,
+        invoice,
+        kind: "invoice",
+        mailbox,
+        subjectSuffix: options.subjectSuffix,
+        journal: { mode: "update", emailId: email.id },
+      });
+
+      outcomes.push({
+        kind: "sent",
+        installmentId: line.id,
+        to: engagement.recipient_email,
+        subject: sent.subject,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      await admin
+        .from("billing_installments")
+        .update({ last_send_error: message.slice(0, 500) } as never)
+        .eq("id", line.id);
+      outcomes.push({ kind: "failed", installmentId: line.id, error: message });
+    }
+  }
+
+  return outcomes;
 }

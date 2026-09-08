@@ -94,6 +94,18 @@ on:
         description: "… sur ce mois (AAAA-MM)"
         type: string
         default: ""
+      renvoi_factures:
+        description: "Factures : renvoyer les N derniers envois (nombre, vide = non)"
+        type: string
+        default: ""
+      renvoi_factures_suffixe:
+        description: "… en ajoutant ceci à la fin de l'objet"
+        type: string
+        default: " (renvoi suite à bug réception mail)"
+      renvoi_factures_simulation:
+        description: "… en simulation : décide et affiche, n'envoie rien"
+        type: boolean
+        default: false
 
 jobs:
   operer:
@@ -252,6 +264,29 @@ jobs:
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+
+      # Renvoyer les derniers envois de factures, tels quels, l'objet complété :
+      # pour le jour où un défaut d'affichage a touché ce qui est parti. Même
+      # modèle, même facture relue chez Airwallex, même destinataire ; la
+      # ligne du journal est mise à jour, jamais doublée. Airwallex refuse les
+      # IP de Vercel, d'où ce runner — comme pour l'émission.
+      - name: Renvoi des factures
+        if: ${{ inputs.renvoi_factures != '' }}
+        run: >-
+          pnpm factures:renvoi
+          --nombre "${{ inputs.renvoi_factures }}"
+          --suffixe "${{ inputs.renvoi_factures_suffixe }}"
+          ${{ inputs.renvoi_factures_simulation && '--simulation' || '' }}
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          AIRWALLEX_CLIENT_ID: ${{ secrets.AIRWALLEX_CLIENT_ID }}
+          AIRWALLEX_API_KEY: ${{ secrets.AIRWALLEX_API_KEY }}
+          AIRWALLEX_ENV: production
+          CREDENTIALS_ENCRYPTION_KEY: ${{ secrets.CREDENTIALS_ENCRYPTION_KEY }}
+          GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
+          GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
 
       # Les suites d'isolation ouvrent de vraies sessions et écrivent des
       # données préfixées (zz-fin-…, nettoyées en fin de suite). C'est ici
