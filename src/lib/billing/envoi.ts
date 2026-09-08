@@ -507,7 +507,13 @@ async function sendInvoiceEmail(options: {
    * et c'est cette contrainte qui empêche un passage rejoué de doubler un
    * mail. Elle vaut aussi pour un renvoi voulu.
    */
-  journal?: { mode: "insert" } | { mode: "update"; emailId: string };
+  journal?: { mode: "insert" } | { mode: "update"; emailId: string } | { mode: "none" };
+  /**
+   * À qui envoyer, à la place du client : un test vers sa propre boîte, avec
+   * la vraie facture et la vraie chaîne. Sans copie, et sans journal — un
+   * test ne compte pas comme reçu par le client.
+   */
+  recipient?: { to: string; cc: string[] };
 }): Promise<{ messageId: string; subject: string }> {
   const { engagement, invoice, line } = options;
 
@@ -561,8 +567,8 @@ async function sendInvoiceEmail(options: {
   }
 
   const parts = splitAroundAttachment(rendered.body);
-  const to = engagement.recipient_email!;
-  const cc = engagement.cc_emails ?? [];
+  const to = options.recipient?.to ?? engagement.recipient_email!;
+  const cc = options.recipient?.cc ?? engagement.cc_emails ?? [];
   const subject = `${rendered.subject}${options.subjectSuffix ?? ""}`;
 
   const messageId = await sendMessage({
@@ -585,8 +591,10 @@ async function sendInvoiceEmail(options: {
     }),
   });
 
-  const admin = createAdminClient();
   const journal = options.journal ?? { mode: "insert" };
+  if (journal.mode === "none") return { messageId, subject };
+
+  const admin = createAdminClient();
   const { error } =
     journal.mode === "insert"
       ? await admin.from("billing_invoice_emails").insert({
@@ -659,6 +667,8 @@ export async function resendRecentInvoices(options: {
   count: number;
   subjectSuffix: string;
   simulation?: boolean;
+  /** Tout part vers cette adresse, sans copie ni journal : un test. */
+  testRecipient?: string;
 }): Promise<ResendOutcome[]> {
   const count = Math.min(Math.max(options.count, 0), MAX_EMAILS_PER_RUN);
   if (count === 0) return [];
@@ -719,11 +729,13 @@ export async function resendRecentInvoices(options: {
       continue;
     }
 
+    const to = options.testRecipient ?? engagement.recipient_email;
+
     if (options.simulation) {
       outcomes.push({
         kind: "sent",
         installmentId: line.id,
-        to: engagement.recipient_email,
+        to,
         subject: `${email.subject}${options.subjectSuffix}`,
       });
       continue;
@@ -748,21 +760,25 @@ export async function resendRecentInvoices(options: {
         kind: "invoice",
         mailbox,
         subjectSuffix: options.subjectSuffix,
-        journal: { mode: "update", emailId: email.id },
+        journal: options.testRecipient
+          ? { mode: "none" }
+          : { mode: "update", emailId: email.id },
+        recipient: options.testRecipient
+          ? { to: options.testRecipient, cc: [] }
+          : undefined,
       });
 
-      outcomes.push({
-        kind: "sent",
-        installmentId: line.id,
-        to: engagement.recipient_email,
-        subject: sent.subject,
-      });
+      outcomes.push({ kind: "sent", installmentId: line.id, to, subject: sent.subject });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      await admin
-        .from("billing_installments")
-        .update({ last_send_error: message.slice(0, 500) } as never)
-        .eq("id", line.id);
+      /* Un test qui échoue n'est pas une facture en souffrance : la ligne du
+         client ne porte pas l'erreur. */
+      if (!options.testRecipient) {
+        await admin
+          .from("billing_installments")
+          .update({ last_send_error: message.slice(0, 500) } as never)
+          .eq("id", line.id);
+      }
       outcomes.push({ kind: "failed", installmentId: line.id, error: message });
     }
   }

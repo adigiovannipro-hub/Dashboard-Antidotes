@@ -71,21 +71,17 @@ export function splitAroundAttachment(body: string): {
 }
 
 /**
- * La carte de signature sans sa première ligne — « À dispo, » est parti avec
- * le message. Le découpage se fait sur la première rangée du tableau, celle
- * qui ne porte que cette formule.
+ * La carte de signature, telle qu'elle part après la pièce jointe : entière.
+ *
+ * L'ancienne carte logeait « À dispo, » dans sa première rangée, et cette
+ * fonction la retirait — la formule ferme le message, avant le PDF. Sur la
+ * carte actuelle, la première rangée est la carte entière : le même découpage
+ * a laissé aux clients la seule ligne de l'adresse e-mail (vécu le 8/09/2026,
+ * quatre factures). La formule vit dans `SIGNATURE_TEXT`, rien n'est à
+ * retirer ici, et `signature.test.ts` l'encode.
  */
 function signatureCardHtml(): string | null {
-  if (!SIGNATURE_HTML) return null;
-
-  const opening = SIGNATURE_HTML.indexOf("<tbody>");
-  const firstRowEnd = SIGNATURE_HTML.indexOf("</tr>", opening);
-  if (opening === -1 || firstRowEnd === -1) return SIGNATURE_HTML;
-
-  return (
-    SIGNATURE_HTML.slice(0, opening + "<tbody>".length) +
-    SIGNATURE_HTML.slice(firstRowEnd + "</tr>".length)
-  );
+  return SIGNATURE_HTML;
 }
 
 /** Le texte d'un corps de mail, échappé pour tenir dans du HTML. */

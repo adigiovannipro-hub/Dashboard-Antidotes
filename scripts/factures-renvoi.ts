@@ -3,6 +3,9 @@
  *
  *   pnpm factures:renvoi --nombre 4 --suffixe " (renvoi suite à bug réception mail)"
  *   pnpm factures:renvoi --nombre 4 --simulation     décide et affiche, n'envoie rien
+ *   pnpm factures:renvoi --nombre 1 --vers moi@x.fr  le dernier envoi, vers cette
+ *                                                    adresse, sans journal : un test
+ *                                                    de la vraie chaîne
  *
  * Pour le jour où un défaut d'affichage a touché ce qui est parti — même
  * modèle, même facture relue chez Airwallex, même destinataire, et une mention
@@ -38,7 +41,8 @@ function argument(name: string): string | undefined {
 async function main() {
   const simulation = process.argv.includes("--simulation");
   const count = Number.parseInt(argument("--nombre") ?? "4", 10);
-  const subjectSuffix = argument("--suffixe") ?? "";
+  const testRecipient = argument("--vers")?.trim() || undefined;
+  const subjectSuffix = argument("--suffixe") ?? (testRecipient ? " (test)" : "");
 
   if (!Number.isInteger(count) || count <= 0) {
     console.error("--nombre attend un entier strictement positif.");
@@ -82,8 +86,17 @@ async function main() {
   }
 
   if (simulation) console.log("— Simulation : rien ne partira —");
+  if (testRecipient) {
+    console.log(`— Test : tout part vers ${testRecipient}, rien n'est journalisé —`);
+  }
 
-  const outcomes = await resendRecentInvoices({ orgId, count, subjectSuffix, simulation });
+  const outcomes = await resendRecentInvoices({
+    orgId,
+    count,
+    subjectSuffix,
+    simulation,
+    testRecipient,
+  });
 
   for (const outcome of outcomes) {
     if (outcome.kind === "sent") {
