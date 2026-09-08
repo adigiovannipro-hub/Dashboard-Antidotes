@@ -61,8 +61,11 @@ export function splitAroundAttachment(body: string): {
   const cardText = SIGNATURE_TEXT.replace(SIGNATURE_INTRO, "").trimStart();
   const beforeText = `${body.replace(SIGNATURE_TEXT, "").trimEnd()}\n\n${SIGNATURE_INTRO}`;
 
+  /* Le corps qui précède la pièce jointe ne porte **pas** la carte : elle
+     part derrière le PDF, dans `after`. La passer par `bodyAsHtml`, qui la
+     concatène, l'affichait deux fois dans le même mail. */
   return {
-    before: { text: beforeText, html: bodyAsHtml(beforeText) },
+    before: { text: beforeText, html: paragraphsAsHtml(beforeText) },
     after: { text: cardText, html: signatureCardHtml() },
   };
 }
@@ -104,6 +107,20 @@ function escapeHtml(text: string): string {
  * texte en est retirée : c'est sa version riche qui la remplace.
  */
 export function bodyAsHtml(body: string): string | null {
+  const paragraphs = paragraphsAsHtml(body);
+  if (!paragraphs || !SIGNATURE_HTML) return null;
+
+  return paragraphs.replace(/<\/div>$/, `${SIGNATURE_HTML}</div>`);
+}
+
+/**
+ * Le corps seul, mis en paragraphes — sans la carte de signature.
+ *
+ * C'est ce qui part avant la pièce jointe. `null` quand aucune signature
+ * HTML n'est posée : le mail est alors en texte seul de bout en bout, et une
+ * version HTML n'apporterait qu'un risque d'affichage de plus.
+ */
+function paragraphsAsHtml(body: string): string | null {
   if (!SIGNATURE_HTML) return null;
 
   const withoutSignature = body.replace(SIGNATURE_TEXT, "").trimEnd();
@@ -112,5 +129,5 @@ export function bodyAsHtml(body: string): string | null {
     .map((block) => `<p style="margin:0 0 1em">${block.replace(/\n/g, "<br>")}</p>`)
     .join("");
 
-  return `<div style="font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;font-size:14px;line-height:1.55;color:#1a1a1a">${paragraphs}${SIGNATURE_HTML}</div>`;
+  return `<div style="font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;font-size:14px;line-height:1.55;color:#1a1a1a">${paragraphs}</div>`;
 }
