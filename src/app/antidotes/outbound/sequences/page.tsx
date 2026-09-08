@@ -39,7 +39,7 @@ export default async function SequencesPage() {
       enrolled: sum.enrolled + entry.counts.enrolled,
       sent: sum.sent + entry.counts.sent,
       replied: sum.replied + entry.counts.replied,
-      contacted: sum.contacted + Math.round(entry.counts.replyRate === null ? 0 : entry.counts.replied / entry.counts.replyRate),
+      contacted: sum.contacted + entry.counts.contacted,
     }),
     { enrolled: 0, sent: 0, replied: 0, contacted: 0 },
   );

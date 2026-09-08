@@ -38,6 +38,14 @@ on:
         description: "Effacer les données de démonstration Finance (garde les vraies)"
         type: boolean
         default: false
+      seed_antidotes:
+        description: "Amorcer la démonstration du pôle Antidotes (pipeline, sourcing, séquences, radar, studio)"
+        type: boolean
+        default: false
+      purge_antidotes_demo:
+        description: "… ou l'effacer (ne touche qu'aux lignes du seed)"
+        type: boolean
+        default: false
       import_followers:
         description: "Reprendre l'antériorité des abonnés relevée sur Looker"
         type: boolean
@@ -176,6 +184,21 @@ jobs:
       - name: Purge des données de démonstration Finance
         if: ${{ inputs.purge_finance_demo }}
         run: pnpm purge:finance-demo
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+
+      # Le jeu de démonstration du pôle Antidotes : des sociétés, des personnes
+      # et des chiffres inventés, pour regarder les six écrans remplis avant
+      # qu'un vrai passage ne les remplisse. Purge exacte par identifiants.
+      - name: Démonstration du pôle Antidotes
+        if: ${{ inputs.seed_antidotes }}
+        run: pnpm seed:antidotes
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+
+      - name: Purge de la démonstration du pôle Antidotes
+        if: ${{ inputs.purge_antidotes_demo }}
+        run: pnpm seed:antidotes --reset
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
 

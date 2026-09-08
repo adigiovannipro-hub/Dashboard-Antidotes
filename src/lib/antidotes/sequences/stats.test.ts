@@ -39,6 +39,20 @@ describe("computeSequenceCounts", () => {
   it("n'invente pas de taux sans envoi", () => {
     expect(computeSequenceCounts([], [], 0).replyRate).toBeNull();
   });
+
+  /* Le nombre de contactés est rendu tel quel, jamais à redériver d'un taux :
+     une séquence qui a envoyé sans réponse a un taux de 0, et retrouver les
+     contactés en divisant les réponses par ce taux donne NaN — la page de
+     liste affichait alors « aucun contacté » avec des envois au compteur. */
+  it("rend les contactés même quand personne n'a répondu", () => {
+    const counts = computeSequenceCounts(
+      [{ status: "active", channel: "email" }, { status: "active", channel: "email" }],
+      [{ type: "email_sent" }, { type: "email_sent" }],
+      2,
+    );
+    expect(counts.contacted).toBe(2);
+    expect(counts.replyRate).toBe(0);
+  });
 });
 
 describe("evaluateBounceGuard", () => {

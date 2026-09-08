@@ -21,6 +21,8 @@ export type SequenceCounts = {
   sent: number;
   replied: number;
   bounced: number;
+  /** Inscriptions ayant reçu au moins un envoi — la base du taux de réponse. */
+  contacted: number;
   /** Réponses rapportées aux inscriptions ayant reçu au moins un envoi ; `null` sans envoi. */
   replyRate: number | null;
 };
@@ -49,6 +51,7 @@ export function computeSequenceCounts(
     sent,
     replied,
     bounced,
+    contacted,
     replyRate: contacted > 0 ? replied / contacted : null,
   };
 }
