@@ -18,27 +18,23 @@
  *     collée dans Gmail devient un `cid:` qui ne veut rien dire hors de son
  *     message d'origine, et une `data:` est bloquée par la plupart des
  *     clients ;
- *   • **seul le style en ligne (`style="…"`) est garanti**. La signature
- *     porte un `<style>` en tête — la requête média qui laisse les libellés
- *     revenir à la ligne sous 480 px. C'est un bonus : la plupart des
- *     clients le suppriment, et la carte se lit sans lui.
+ *   • **pas de `<style>` ni de classes** : seul le style en ligne
+ *     (`style="…"`) survit à un client de messagerie.
  */
 
 /** La signature en texte, celle qui arrive partout. */
 export const SIGNATURE_TEXT = `À dispo,
 
 Alessandro DI GIOVANNI
-Consultant Social Media & Influence Freelance
-10 Rue Félix Brun, 69007 Lyon
+Social Media Consultant & Creator Agent
 +33 6 79 77 92 35
-a.digiovanni.pro@gmail.com
-https://alessandrodigiovanni.com`;
+a.digiovanni.pro@gmail.com`;
 
 /**
  * La signature en HTML. `null` tant qu'elle n'a pas été fournie — le mail
  * part alors en texte seul.
  */
-export const SIGNATURE_HTML: string | null = `<style>@media only screen and (max-width:480px) { .mailbutler-signature b { white-space: normal !important; } .mailbutler-signature em { white-space: normal !important; } .mailbutler-signature i { white-space: normal !important; } .mailbutler-signature li { white-space: normal !important; } .mailbutler-signature span { white-space: normal !important; } .mailbutler-signature strong { white-space: normal !important; } } </style> <div id="MailbutlerSignature" class="mailbutler-signature ltr" data-signature-id="d62893bd-b283-4b3f-a272-60f702f375ab" style="-moz-box-sizing: border-box; -ms-text-size-adjust: 100%; -webkit-box-sizing: border-box; -webkit-text-size-adjust: 100%; box-sizing: border-box; margin-top: 0; margin-right: 0; margin-bottom: 0; margin-left: 0; min-width: 100%; padding-top: 0; padding-right: 0; padding-bottom: 0; padding-left: 0; width: 100% !important;">  <!--[if mso]> <style type="text/css"> table, td, span, b, a, li, p { font-family:Lucida Sans Unicode, sans-serif !important; } </style> <![endif]-->   <table width="100%" style="border-collapse: collapse; border-spacing: 0; margin-top: 0 !important; margin-right: 0 !important; margin-bottom: 0 !important; margin-left: 0 !important; mso-table-lspace: 0 !important; mso-table-rspace: 0 !important; padding-top: 0; padding-right: 0; padding-bottom: 0; padding-left: 0; table-layout: fixed !important; text-align: left; vertical-align: top; width: 100%;"><tr style="padding-top: 0; padding-right: 0; padding-bottom: 0; padding-left: 0; vertical-align: top;" align="left"><td style="-moz-hyphens: auto; -webkit-hyphens: auto; border-collapse: collapse !important; color: #000000; font-family: Lucida Sans Unicode,Helvetica,Arial,sans-serif; font-size: 9px; font-weight: 400; hyphens: auto; line-height: 1.5; margin-top: 0; margin-right: 0; margin-bottom: 0; margin-left: 0; mso-table-lspace: 0 !important; mso-table-rspace: 0 !important; padding-top: 0; padding-right: 0; padding-bottom: 0; padding-left: 0; word-wrap: break-word;" align="left" valign="top"> <div class="pb-8" style="padding-bottom: 8px;"> <p class="mb-2" style="color: #000000; font-size: 9px; font-weight: 400; line-height: inherit; margin-top: 0; margin-right: 0; margin-left: 0; margin-bottom: 2px; padding-top: 0; padding-right: 0; padding-bottom: 0; padding-left: 0;" align="left"><b class="larger" style="color: #000000; font-size: 130%; line-height: inherit; margin-bottom: 0; white-space: nowrap;">Alessandro DI GIOVANNI</b></p> <p style="color: #000000; font-size: 9px; font-weight: 400; line-height: inherit; margin-top: 0; margin-right: 0; margin-left: 0; margin-bottom: 0; padding-top: 0; padding-right: 0; padding-bottom: 0; padding-left: 0;" align="left"> <span style="border-top-width: 0; border-right-width: 0; border-bottom-width: 0; border-left-width: 0; color: #000000; font-size: 9px; line-height: inherit; margin-top: 0; margin-right: 0; margin-left: 0; margin-bottom: 0; padding-top: 0; padding-right: 0; padding-bottom: 0; padding-left: 0; white-space: nowrap;">Consultant Social Media &amp; Influence Freelance</span>  </p>   <p style="color: #000000; font-size: 9px; font-weight: 400; line-height: inherit; margin-top: 0; margin-right: 0; margin-left: 0; margin-bottom: 0; padding-top: 0; padding-right: 0; padding-bottom: 0; padding-left: 0;" align="left">  <span style="border-top-width: 0; border-right-width: 0; border-bottom-width: 0; border-left-width: 0; color: #000000; font-size: 9px; line-height: inherit; margin-top: 0; margin-right: 0; margin-left: 0; margin-bottom: 0; padding-top: 0; padding-right: 0; padding-bottom: 0; padding-left: 0; white-space: nowrap;"><a class="primary-color" href="https://alessandrodigiovanni.com" target="_blank" rel="noopener" style="color: #7D9BD0 !important; font-size: 9px; font-weight: 400; line-height: inherit; margin-top: 0; margin-right: 0; margin-left: 0; margin-bottom: 0; padding-top: 0; padding-right: 0; padding-bottom: 0; padding-left: 0; text-align: left; text-decoration: none;"><b class="primary-color" style="color: #7D9BD0 !important; font-size: 9px; line-height: inherit; margin-bottom: 0; white-space: nowrap;">website</b></a></span>   <!--[if mso]> <b style="color: #000000; font-size: 12px;">|</b> <![endif]--> <span class="mb-signature-separator" style="border-top-width: 0; border-right-width: 0; border-bottom-width: 0; border-left-width: 2px; border-left-color: #000; border-left-style: solid; color: #000000; font-size: 9px; line-height: inherit; margin-top: 0; margin-bottom: 0; margin-left: 4px; margin-right: 6px; padding-top: 0; padding-right: 0; padding-bottom: 0; padding-left: 0; white-space: nowrap;"></span>   <span class="border_left" style="border-top-width: 0; border-right-width: 0; border-bottom-width: 0; border-left-width: 0; color: #000000; font-size: 9px; line-height: inherit; margin-top: 0; margin-right: 0; margin-left: 0; margin-bottom: 0; padding-top: 0; padding-right: 0; padding-bottom: 0; padding-left: 0; white-space: nowrap;"><a class="primary-color" href="mailto:a.digiovanni.pro@gmail.com" style="color: #7D9BD0 !important; font-size: 9px; font-weight: 400; line-height: inherit; margin-top: 0; margin-right: 0; margin-left: 0; margin-bottom: 0; padding-top: 0; padding-right: 0; padding-bottom: 0; padding-left: 0; text-align: left; text-decoration: none;"><b class="primary-color" style="color: #7D9BD0 !important; font-size: 9px; line-height: inherit; margin-bottom: 0; white-space: nowrap;">mail</b> </a></span>  </p>  </div> <!--[if mso]> <table role="presentation" border="0" cellspacing="8" cellpadding="4" width="100%" style="width:100%;"> <tr> <td width="68" valign="top"> <![endif]--><div class="mb-signature-column pr-12 pb-8" style="float: left; max-width: 68px; padding-bottom: 8px; padding-right: 12px;">  <a href="https://bit.ly/3qyOy4M" target="_blank" rel="noopener" style="color: #000000; font-size: 9px; font-weight: 400; line-height: inherit; margin-top: 0; margin-right: 0; margin-left: 0; margin-bottom: 0; padding-top: 0; padding-right: 0; padding-bottom: 0; padding-left: 0; text-align: left; text-decoration: none;"><img src="https://images.mailbutler.io/u/56d1508a-5daa-49fd-9df1-eb898c78e648/d62893bd-b283-4b3f-a272-60f702f375ab__image.png?version=1692189322" srcset="https://images.mailbutler.io/u/56d1508a-5daa-49fd-9df1-eb898c78e648/d62893bd-b283-4b3f-a272-60f702f375ab__image_2x.png?version=1692189322 2x" alt="Signature Image" title="Signature Image" width="68" height="68" style="-ms-interpolation-mode: bicubic; border-top-style: none; border-right-style: none; border-bottom-style: none; border-left-style: none; border-radius: 32.98px; clear: both; display: block; height: auto; max-width: 100%; outline: 0; text-decoration: none; width: 68px;"> </a>  </div> <!--[if mso]> </td><td valign="top"> <![endif]--><div class="mb-signature-column" style="float: left; max-width: 480px;"> <div class="mb-signature-field-list mb-signature-text-bullets" style="margin-top: 0; margin-right: 0; margin-bottom: 0; margin-left: 0; padding-top: 0; padding-right: 0; padding-bottom: 0; padding-left: 0;">  <div class="mb-signature-list-item" style="margin-bottom: 2px; margin-top: 2px;"> <b class="primary-color" style="color: #7D9BD0 !important; font-size: 9px; line-height: inherit; margin-bottom: 0; margin-right: 4px; white-space: nowrap;">a:</b><span style="border-top-width: 0; border-right-width: 0; border-bottom-width: 0; border-left-width: 0; color: #000000; font-size: 9px; line-height: inherit; margin-top: 0; margin-right: 0; margin-left: 0; margin-bottom: 0; padding-top: 0; padding-right: 0; padding-bottom: 0; padding-left: 0; white-space: nowrap;">10 Rue Félix Brun, 69007 Lyon </span> </div>     <div class="mb-signature-list-item" style="margin-bottom: 2px; margin-top: 2px;"> <b class="primary-color" style="color: #7D9BD0 !important; font-size: 9px; line-height: inherit; margin-bottom: 0; margin-right: 4px; white-space: nowrap;">m:</b> <a href="tel:+33679779235" style="color: #000000; font-size: 9px; font-weight: 400; line-height: inherit; margin-top: 0; margin-right: 0; margin-left: 0; margin-bottom: 0; padding-top: 0; padding-right: 0; padding-bottom: 0; padding-left: 0; text-align: left; text-decoration: none;"><span style="border-top-width: 0; border-right-width: 0; border-bottom-width: 0; border-left-width: 0; color: #000000; font-size: 9px; line-height: inherit; margin-top: 0; margin-right: 0; margin-left: 0; margin-bottom: 0; padding-top: 0; padding-right: 0; padding-bottom: 0; padding-left: 0; white-space: nowrap;">+33679779235</span></a> </div>  </div> <div class="clearfix" style="clear: both;"></div> <div class="social-icons mt-10" style="margin-top: 10px;">     <!--[if mso]> <table role="presentation" border="0" cellspacing="4" cellpadding="4"> <tr> <![endif]-->     <!--[if mso]> <td valign="middle"> <![endif]--><div style="border-top-width: 2px; border-right-width: 2px; border-bottom-width: 2px; border-left-width: 2px; border-top-color: #7D9BD0; border-right-color: #7D9BD0; border-bottom-color: #7D9BD0; border-left-color: #7D9BD0; border-top-style: solid; border-right-style: solid; border-bottom-style: solid; border-left-style: solid; border-radius: 5.329999999999997px; float: left; margin-bottom: 2px; margin-left: 20px; margin-right: 2px; padding-top: 3px; padding-right: 12px; padding-left: 12px; padding-bottom: 2px;"><a href="https://bit.ly/3qyOy4M" target="_blank" rel="noopener" style="color: #000000; font-size: 9px; font-weight: 400; line-height: inherit; margin-top: 0; margin-right: 0; margin-left: 0; margin-bottom: 0; padding-top: 0; padding-right: 0; padding-bottom: 0; padding-left: 0; text-align: left; text-decoration: none;"><span style="border-top-width: 0; border-right-width: 0; border-bottom-width: 0; border-left-width: 0; color: #000000; font-size: 9px; line-height: inherit; margin-top: 0; margin-right: 0; margin-left: 0; margin-bottom: 0; padding-top: 0; padding-right: 0; padding-bottom: 0; padding-left: 0; white-space: nowrap;">Ils m’ont fait confiance</span></a></div> <!--[if mso]> </td> <![endif]-->   <div style="border-top-style: none; border-right-style: none; border-bottom-style: none; border-left-style: none; float: left; height: 2px; margin-top: 0; margin-left: 0; margin-bottom: 2px; margin-right: 2px; padding-top: 0; padding-right: 0; padding-left: 0; padding-bottom: 2px; width: 100%;"></div> <!--[if mso]> </tr></table> <![endif]--> </div> </div> <!--[if mso]> </td></tr></table> <![endif]-->  </td></tr></table>  <!-- prevent Gmail on iOS font size manipulation --><div style="display: none; white-space: nowrap; font-style: normal; font-variant: normal; font-weight: normal; font-size: 15px; font-family: courier; line-height: 0;">                                                           </div> </div>`;
+export const SIGNATURE_HTML: string | null = `<table cellpadding="0" cellspacing="0" border="0" width="600px" style="color: rgb(0, 0, 0); font-variant-caps: normal; vertical-align: -webkit-baseline-middle; font-size: small; font-family: Arial;"><tbody><tr><td style="padding-bottom: 15px;"><div style="margin: 0px; font-size: 12px;">À dispo,</div></td></tr><tr><td><table cellpadding="0" cellspacing="0" border="0" style="vertical-align: -webkit-baseline-middle; font-size: small;"><tbody><tr><td width="150" style="vertical-align: middle;"><span style="margin-right: 20px; display: block;"><img src="https://image.noelshack.com/fichiers/2026/01/5/1767349579-cropped-circle-image-30x30.png" role="presentation" width="130" style="max-width: 130px;"></span></td><td style="vertical-align: middle;"><h2 style="margin: 0px; font-size: 16px; line-height: 24px;">Alessandro DI GIOVANNI</h2><div style="margin: 0px; font-size: 12px; line-height: 20px; white-space: nowrap;">Social Media Consultant &amp; Creator Agent</div><div style="margin: 0px; font-size: 12px; line-height: 20px;"><br></div></td><td width="30" aria-label="Vertical Spacer"><div style="width: 30px;"></div></td><td width="1" aria-label="Divider" style="width: 1px; height: auto; border-bottom: medium; border-left: 1px solid rgb(191, 252, 166);"></td><td width="30" aria-label="Vertical Spacer"><div style="width: 30px;"></div></td><td style="vertical-align: middle;"><table cellpadding="0" cellspacing="0" border="0" style="vertical-align: -webkit-baseline-middle; font-size: small; line-height: 1;"><tbody><tr style="vertical-align: middle; height: 26px;"><td width="24" style="vertical-align: middle;"><table cellpadding="0" cellspacing="0" border="0" style="vertical-align: -webkit-baseline-middle; font-size: small; width: 24px;"><tbody><tr><td style="vertical-align: bottom;"><span style="display: inline-block; background-color: rgb(191, 252, 166);"><img src="https://cdn2.hubspot.net/hubfs/53/tools/email-signature-generator/icons/phone-icon-dark-2x.png" alt="mobilePhone" width="16" style="display: block; background-image: linear-gradient(rgb(191, 252, 166), rgb(191, 252, 166));"></span></td></tr></tbody></table></td><td style="padding: 0px;"><a href="tel:+33679779235" style="text-decoration: none; color: rgb(0, 0, 0); font-size: 12px;">+33679779235</a></td></tr><tr style="vertical-align: middle; height: 26px;"><td width="24" style="vertical-align: middle;"><table cellpadding="0" cellspacing="0" border="0" style="vertical-align: -webkit-baseline-middle; font-size: small; width: 24px;"><tbody><tr><td style="vertical-align: bottom;"><span style="display: inline-block; background-color: rgb(191, 252, 166);"><img src="https://cdn2.hubspot.net/hubfs/53/tools/email-signature-generator/icons/email-icon-dark-2x.png" alt="emailAddress" width="16" style="display: block; background-image: linear-gradient(rgb(191, 252, 166), rgb(191, 252, 166));"></span></td></tr></tbody></table></td><td style="padding: 0px;"><a href="mailto:a.digiovanni.pro@gmail.com" style="text-decoration: none; color: rgb(0, 0, 0); font-size: 12px;">a.digiovanni.pro@gmail.com</a></td></tr><tr style="vertical-align: middle; height: 26px;"><td width="24" style="vertical-align: middle;"><br></td><td style="padding: 0px;"></td></tr></tbody></table></td></tr></tbody></table></td></tr><tr><td></td></tr><tr><td></td></tr><tr><td colspan="3" style="max-width: 300px; font-size: 12px; padding-top: 1rem; text-align: center;"><div class="legal-content"><p style="font-size: inherit; margin: 0px;"></p><p style="font-size: inherit; margin: 0px;"></p></div></td></tr></tbody></table>`;
 
 /**
  * La formule qui ouvre la signature, et que la pièce jointe doit suivre.
@@ -65,25 +61,28 @@ export function splitAroundAttachment(body: string): {
   const cardText = SIGNATURE_TEXT.replace(SIGNATURE_INTRO, "").trimStart();
   const beforeText = `${body.replace(SIGNATURE_TEXT, "").trimEnd()}\n\n${SIGNATURE_INTRO}`;
 
-  /* Le corps qui précède la pièce jointe ne porte **pas** la carte : elle
-     part derrière le PDF, dans `after`. La passer par `bodyAsHtml`, qui la
-     concatène, l'affichait deux fois dans le même mail. */
   return {
-    before: { text: beforeText, html: paragraphsAsHtml(beforeText) },
+    before: { text: beforeText, html: bodyAsHtml(beforeText) },
     after: { text: cardText, html: signatureCardHtml() },
   };
 }
 
 /**
- * La carte de signature, telle qu'elle part après la pièce jointe.
- *
- * Elle ne porte pas « À dispo, » : la formule vit dans `SIGNATURE_TEXT` et
- * ferme le message, avant le PDF. Rien à découper ici — la version
- * précédente amputait la première rangée du tableau parce que la formule y
- * était collée.
+ * La carte de signature sans sa première ligne — « À dispo, » est parti avec
+ * le message. Le découpage se fait sur la première rangée du tableau, celle
+ * qui ne porte que cette formule.
  */
 function signatureCardHtml(): string | null {
-  return SIGNATURE_HTML;
+  if (!SIGNATURE_HTML) return null;
+
+  const opening = SIGNATURE_HTML.indexOf("<tbody>");
+  const firstRowEnd = SIGNATURE_HTML.indexOf("</tr>", opening);
+  if (opening === -1 || firstRowEnd === -1) return SIGNATURE_HTML;
+
+  return (
+    SIGNATURE_HTML.slice(0, opening + "<tbody>".length) +
+    SIGNATURE_HTML.slice(firstRowEnd + "</tr>".length)
+  );
 }
 
 /** Le texte d'un corps de mail, échappé pour tenir dans du HTML. */
@@ -105,20 +104,6 @@ function escapeHtml(text: string): string {
  * texte en est retirée : c'est sa version riche qui la remplace.
  */
 export function bodyAsHtml(body: string): string | null {
-  const paragraphs = paragraphsAsHtml(body);
-  if (!paragraphs || !SIGNATURE_HTML) return null;
-
-  return paragraphs.replace(/<\/div>$/, `${SIGNATURE_HTML}</div>`);
-}
-
-/**
- * Le corps seul, mis en paragraphes — sans la carte de signature.
- *
- * C'est ce qui part avant la pièce jointe. `null` quand aucune signature
- * HTML n'est posée : le mail est alors en texte seul de bout en bout, et une
- * version HTML n'apporterait qu'un risque d'affichage de plus.
- */
-function paragraphsAsHtml(body: string): string | null {
   if (!SIGNATURE_HTML) return null;
 
   const withoutSignature = body.replace(SIGNATURE_TEXT, "").trimEnd();
@@ -127,5 +112,5 @@ function paragraphsAsHtml(body: string): string | null {
     .map((block) => `<p style="margin:0 0 1em">${block.replace(/\n/g, "<br>")}</p>`)
     .join("");
 
-  return `<div style="font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;font-size:14px;line-height:1.55;color:#1a1a1a">${paragraphs}</div>`;
+  return `<div style="font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;font-size:14px;line-height:1.55;color:#1a1a1a">${paragraphs}${SIGNATURE_HTML}</div>`;
 }
