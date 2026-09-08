@@ -34,7 +34,10 @@ import { cn } from "@/lib/utils";
  *    quelconque et l'aplat part ailleurs sur la page.
  */
 
-export type PillBox = { x: number; width: number };
+/* `y` et `height` : une liste de pastilles qui se replie sur deux lignes —
+   les six onglets du pôle Antidotes sur un téléphone — doit poser l'aplat
+   sur la bonne ligne, pas l'étirer sur la hauteur de la liste entière. */
+export type PillBox = { x: number; y: number; width: number; height: number };
 
 /**
  * Mesure la pastille active et suit ses déplacements.
@@ -62,10 +65,19 @@ export function usePillIndicator<T extends HTMLElement>(activeKey: string) {
         return;
       }
       setBox((current) => {
-        const next = { x: target.offsetLeft, width: target.offsetWidth };
+        const next = {
+          x: target.offsetLeft,
+          y: target.offsetTop,
+          width: target.offsetWidth,
+          height: target.offsetHeight,
+        };
         // Éviter un rendu pour une mesure identique : le `ResizeObserver` se
         // déclenche aussi pour des changements qui ne bougent rien.
-        return current && current.x === next.x && current.width === next.width
+        return current &&
+          current.x === next.x &&
+          current.y === next.y &&
+          current.width === next.width &&
+          current.height === next.height
           ? current
           : next;
       });
@@ -116,13 +128,17 @@ export function PillIndicator({
       className={cn(
         "absolute left-0",
         variant === "pill"
-          ? "inset-y-1 rounded-pill bg-primary"
+          ? "top-0 rounded-pill bg-primary"
           : "-bottom-px h-0.5 rounded-pill bg-text-primary",
         "transition-[transform,width] duration-(--motion-duration-slow) ease-exit",
         "motion-reduce:transition-none",
         className,
       )}
-      style={{ transform: `translateX(${box.x}px)`, width: box.width }}
+      style={
+        variant === "pill"
+          ? { transform: `translate(${box.x}px, ${box.y}px)`, width: box.width, height: box.height }
+          : { transform: `translateX(${box.x}px)`, width: box.width }
+      }
     />
   );
 }

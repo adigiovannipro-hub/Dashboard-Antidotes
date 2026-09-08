@@ -65,7 +65,7 @@ export function PanelHeader({
           <p className="type-caption mt-0.5 text-text-secondary">{description}</p>
         ) : null}
       </div>
-      {action ? <div className="shrink-0">{action}</div> : null}
+      {action ? <div className="max-w-full shrink-0">{action}</div> : null}
     </div>
   );
 }
@@ -163,7 +163,7 @@ export function SectionHeader({
           <p className="type-caption mt-1 text-text-secondary">{description}</p>
         ) : null}
       </div>
-      {action ? <div className="shrink-0">{action}</div> : null}
+      {action ? <div className="max-w-full shrink-0">{action}</div> : null}
     </div>
   );
 }

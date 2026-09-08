@@ -440,6 +440,67 @@ suite("isolation du pôle Antidotes (RLS)", () => {
     });
   });
 
+  describe("l'inbound (phase 4)", () => {
+    it("l'owner veille un compte, range un post relevé et un sujet ; le client ne voit rien", async () => {
+      const { data: account, error: accountError } = await clients.owner
+        .from("antidotes_radar_accounts")
+        .insert({ org_id: ids.org, platform: "linkedin", handle: "clara-social", followers: 4200 })
+        .select("id")
+        .single();
+      if (accountError) throw new Error(`Migration 20260910a non appliquée ? ${accountError.message}`);
+
+      const { data: post, error: postError } = await clients.owner
+        .from("antidotes_reference_posts")
+        .insert({
+          org_id: ids.org,
+          platform: "linkedin",
+          author_handle: "clara-social",
+          content: "Vos posts d'expertise n'attirent aucun client.",
+          url: `https://www.linkedin.com/posts/${RUN}`,
+          metrics: { likes: 620, comments: 88 },
+          is_mine: false,
+          account_id: account!.id,
+          published_at: new Date().toISOString(),
+        })
+        .select("id, account_id, embedding_source")
+        .single();
+      expect(postError).toBeNull();
+      expect(post).toMatchObject({ account_id: account!.id, embedding_source: null });
+
+      const { data: topic, error: topicError } = await clients.owner
+        .from("antidotes_radar_topics")
+        .insert({ org_id: ids.org, title: "Montrer le prix, pas la méthode", evidence: [{ post_id: post!.id, why: "162 ‰" }] })
+        .select("id, status")
+        .single();
+      expect(topicError).toBeNull();
+      expect(topic?.status).toBe("new");
+
+      const { data: generated, error: generatedError } = await clients.owner
+        .from("antidotes_generated_posts")
+        .insert({ org_id: ids.org, topic: "Montrer le prix", content: "Brouillon.", topic_id: topic!.id, examples: [{ post_id: post!.id, similarity: 0.8 }] })
+        .select("id, status, examples")
+        .single();
+      expect(generatedError).toBeNull();
+      expect(generated).toMatchObject({ status: "draft", examples: [{ post_id: post!.id, similarity: 0.8 }] });
+
+      const [{ data: accounts }, { data: posts }, { data: topics }, { data: drafts }] = await Promise.all([
+        clients.client.from("antidotes_radar_accounts").select("id").eq("id", account!.id),
+        clients.client.from("antidotes_reference_posts").select("id").eq("id", post!.id),
+        clients.client.from("antidotes_radar_topics").select("id").eq("id", topic!.id),
+        clients.client.from("antidotes_generated_posts").select("id").eq("id", generated!.id),
+      ]);
+      expect(accounts).toEqual([]);
+      expect(posts).toEqual([]);
+      expect(topics).toEqual([]);
+      expect(drafts).toEqual([]);
+
+      const { error: intrusion } = await clients.client
+        .from("antidotes_radar_accounts")
+        .insert({ org_id: ids.org, platform: "x", handle: "intrus" });
+      expect(intrusion).not.toBeNull();
+    });
+  });
+
   describe("la désinscription est définitive", () => {
     it("se date toute seule et ne se retire plus", async () => {
       const { data: optedOut } = await clients.owner

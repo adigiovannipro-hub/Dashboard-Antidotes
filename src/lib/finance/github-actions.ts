@@ -137,6 +137,7 @@ export async function dispatchSyncWorkflow(): Promise<void> {
  * jeton, même mécanique que Finance, une autre file d'attente.
  */
 export const SOURCING_WORKFLOW_FILE = "sourcing.yml";
+export const RADAR_WORKFLOW_FILE = "radar.yml";
 
 export async function dispatchSourcingWorkflow(): Promise<void> {
   await dispatchWorkflow(SOURCING_WORKFLOW_FILE, {});
@@ -161,4 +162,9 @@ async function dispatchWorkflow(file: string, inputs: Record<string, string>): P
   throw new Error(
     `GitHub a refusé le déclenchement (${response.status})${detail ? ` — ${detail.slice(0, 200)}` : ""}`,
   );
+}
+
+/** Le relevé du radar inbound, à la demande — même jeton, même refus s'il manque. */
+export async function dispatchRadarWorkflow(): Promise<void> {
+  await dispatchWorkflow(RADAR_WORKFLOW_FILE, {});
 }

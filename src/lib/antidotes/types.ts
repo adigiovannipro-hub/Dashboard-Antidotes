@@ -185,9 +185,9 @@ export type GeneratedPostStatus = "draft" | "approved" | "published" | "rejected
 
 export const GENERATED_POST_STATUS_LABELS: Record<GeneratedPostStatus, string> = {
   draft: "Brouillon",
-  approved: "Validé",
+  approved: "Approuvé",
   published: "Publié",
-  rejected: "Refusé",
+  rejected: "Écarté",
 };
 
 export type PostPlatform = "linkedin" | "x" | "youtube" | "tiktok" | "instagram";
@@ -505,6 +505,16 @@ export type SequenceEnrollment = {
   last_error: string | null;
 };
 
+/** Les grandeurs brutes d'un post, telles que le réseau les rend. */
+export type PostMetrics = {
+  likes?: number;
+  comments?: number;
+  shares?: number;
+  views?: number;
+  /** Les abonnés de l'auteur au moment du relevé — le dénominateur du score relatif. */
+  followers_at_collect?: number;
+};
+
 export type ReferencePost = {
   id: string;
   org_id: string;
@@ -512,14 +522,59 @@ export type ReferencePost = {
   author_handle: string | null;
   content: string;
   url: string | null;
-  metrics: Record<string, unknown>;
+  metrics: PostMetrics;
   is_mine: boolean;
   /** pgvector sérialise en chaîne à travers PostgREST. */
   embedding: string | null;
   tags: string[];
   collected_at: string;
   created_at: string;
+  /** Le compte veillé d'où vient le post (20260910a) ; nul pour mes propres posts. */
+  account_id: string | null;
+  published_at: string | null;
+  /** `openai` — ou nul tant qu'aucun vecteur n'est calculé. */
+  embedding_source: string | null;
 };
+
+export type TopicStatus = "new" | "used" | "dismissed";
+
+export const TOPIC_STATUS_LABELS: Record<TopicStatus, string> = {
+  new: "Proposé",
+  used: "Utilisé",
+  dismissed: "Écarté",
+};
+
+export type RadarAccount = {
+  id: string;
+  org_id: string;
+  platform: PostPlatform;
+  handle: string;
+  url: string | null;
+  label: string | null;
+  followers: number | null;
+  is_active: boolean;
+  last_collected_at: string | null;
+  last_error: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type TopicEvidence = { post_id: string; why: string };
+
+export type RadarTopic = {
+  id: string;
+  org_id: string;
+  title: string;
+  angle: string | null;
+  evidence: TopicEvidence[];
+  score: number | null;
+  status: TopicStatus;
+  created_at: string;
+};
+
+/** Un exemple du corpus injecté dans le prompt d'un post généré. */
+export type GeneratedExample = { post_id: string; similarity: number };
 
 export type GeneratedPost = {
   id: string;
@@ -533,6 +588,12 @@ export type GeneratedPost = {
   linkedin_post_id: string | null;
   created_at: string;
   updated_at: string;
+  topic_id: string | null;
+  brief: string | null;
+  examples: GeneratedExample[];
+  image_prompt: string | null;
+  published_url: string | null;
+  error: string | null;
 };
 
 export type CaseStudy = {

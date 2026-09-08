@@ -1,0 +1,55 @@
+# Le radar inbound du pôle Antidotes — la veille des comptes cibles,
+# exécutée ici et non sur Vercel : un acteur Apify peut prendre des minutes,
+# et les deux créneaux cron de l'hébergeur sont pris.
+#
+# Une fois par jour, tôt, plus le bouton « Relever maintenant » de l'écran
+# (`workflow_dispatch`, `GITHUB_SYNC_TOKEN`). Coût : une minute d'installation
+# et quelques dixièmes de centime Apify par compte veillé.
+#
+# Secrets : NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY,
+# SUPABASE_SERVICE_ROLE_KEY, CREDENTIALS_ENCRYPTION_KEY (jeton Instagram de
+# l'inventaire) — plus, selon les réseaux : APIFY_TOKEN (LinkedIn, X,
+# TikTok), YOUTUBE_API_KEY, OPENAI_API_KEY (vecteurs du corpus).
+
+name: Radar Antidotes
+
+on:
+  schedule:
+    - cron: "40 5 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: antidotes-radar
+  cancel-in-progress: false
+
+jobs:
+  relever:
+    name: Relevé des comptes veillés
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.18.2
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Installation
+        run: pnpm install --frozen-lockfile
+
+      - name: Relevé du radar
+        run: pnpm radar:passage
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          CREDENTIALS_ENCRYPTION_KEY: ${{ secrets.CREDENTIALS_ENCRYPTION_KEY }}
+          APIFY_TOKEN: ${{ secrets.APIFY_TOKEN }}
+          YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}

@@ -850,6 +850,8 @@ export type {
   ReferencePost as AntidotesReferencePostRow,
   GeneratedPost as AntidotesGeneratedPostRow,
   CaseStudy as AntidotesCaseStudyRow,
+  RadarAccount as AntidotesRadarAccountRow,
+  RadarTopic as AntidotesRadarTopicRow,
   CampaignRun as AntidotesCampaignRunRow,
 } from "@/lib/antidotes/types";
 
@@ -874,6 +876,9 @@ import type {
   ProspectSource as AntidotesProspectSource,
   ProspectStatus as AntidotesProspectStatus,
   ReferencePost as AntidotesReferencePost,
+  RadarAccount as AntidotesRadarAccount,
+  RadarTopic as AntidotesRadarTopic,
+  TopicStatus as AntidotesTopicStatus,
   Seniority as AntidotesSeniority,
   Sequence as AntidotesSequence,
   SequenceEnrollment as AntidotesSequenceEnrollment,
@@ -982,6 +987,8 @@ export type Database = {
       antidotes_reference_posts: Table<AntidotesReferencePost>;
       antidotes_generated_posts: Table<AntidotesGeneratedPost>;
       antidotes_case_studies: Table<AntidotesCaseStudy>;
+      antidotes_radar_accounts: Table<AntidotesRadarAccount>;
+      antidotes_radar_topics: Table<AntidotesRadarTopic>;
       antidotes_campaign_runs: Table<AntidotesCampaignRun>;
     };
     // `never` satisfait la contrainte `Record<string, GenericView>` de
@@ -1200,6 +1207,7 @@ export type Database = {
       antidotes_post_platform: AntidotesPostPlatform;
       // Pôle Antidotes — sourcing (20260908a)
       antidotes_run_status: AntidotesRunStatus;
+      antidotes_topic_status: AntidotesTopicStatus;
       antidotes_run_stage: AntidotesRunStage;
     };
     CompositeTypes: Record<never, never>;
