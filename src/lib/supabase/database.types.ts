@@ -85,6 +85,8 @@ export type Profile = {
   last_name: string | null;
   avatar_url: string | null;
   created_at: string;
+  /** L'ordre choisi des entrées du rail, par groupe (20260911a). */
+  rail_order: { clients?: string[]; entreprise?: string[] };
 }
 
 export type DataSource = {
@@ -853,6 +855,7 @@ export type {
   RadarAccount as AntidotesRadarAccountRow,
   RadarTopic as AntidotesRadarTopicRow,
   CampaignRun as AntidotesCampaignRunRow,
+  InboundSettings as AntidotesInboundSettingsRow,
 } from "@/lib/antidotes/types";
 
 import type {
@@ -879,6 +882,9 @@ import type {
   RadarAccount as AntidotesRadarAccount,
   RadarTopic as AntidotesRadarTopic,
   TopicStatus as AntidotesTopicStatus,
+  InboundSettings as AntidotesInboundSettings,
+  GeneratedPostFormat as AntidotesPostFormat,
+  MediaKind as AntidotesMediaKind,
   Seniority as AntidotesSeniority,
   Sequence as AntidotesSequence,
   SequenceEnrollment as AntidotesSequenceEnrollment,
@@ -990,6 +996,7 @@ export type Database = {
       antidotes_radar_accounts: Table<AntidotesRadarAccount>;
       antidotes_radar_topics: Table<AntidotesRadarTopic>;
       antidotes_campaign_runs: Table<AntidotesCampaignRun>;
+      antidotes_inbound_settings: Table<AntidotesInboundSettings>;
     };
     // `never` satisfait la contrainte `Record<string, GenericView>` de
     // postgrest-js tout en déclarant qu'il n'y a ni vue ni fonction exposée.
@@ -1208,6 +1215,8 @@ export type Database = {
       // Pôle Antidotes — sourcing (20260908a)
       antidotes_run_status: AntidotesRunStatus;
       antidotes_topic_status: AntidotesTopicStatus;
+      antidotes_post_format: AntidotesPostFormat;
+      antidotes_media_kind: AntidotesMediaKind;
       antidotes_run_stage: AntidotesRunStage;
     };
     CompositeTypes: Record<never, never>;

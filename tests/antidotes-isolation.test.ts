@@ -501,6 +501,55 @@ suite("isolation du pôle Antidotes (RLS)", () => {
     });
   });
 
+  describe("l'inbound, deuxième forme", () => {
+    it("l'owner écrit ses consignes de voix et programme un brouillon ; le client ne lit rien", async () => {
+      const { data: settings, error: settingsError } = await clients.owner
+        .from("antidotes_inbound_settings")
+        .upsert({ org_id: ids.org, guidelines: "Phrases courtes, jamais de « Voici ».", thresholds: { instagram: { min_views: 10000 } } })
+        .select("org_id, thresholds")
+        .single();
+      if (settingsError) throw new Error(`Migration 20260911a non appliquée ? ${settingsError.message}`);
+      expect(settings).toMatchObject({ org_id: ids.org, thresholds: { instagram: { min_views: 10000 } } });
+
+      const { data: draft, error: draftError } = await clients.owner
+        .from("antidotes_generated_posts")
+        .insert({ org_id: ids.org, topic: "Script", content: "Accroche.", format: "reel_script", scheduled_at: new Date().toISOString() })
+        .select("id, format, scheduled_at")
+        .single();
+      expect(draftError).toBeNull();
+      expect(draft?.format).toBe("reel_script");
+      expect(draft?.scheduled_at).not.toBeNull();
+
+      const { data: post, error: postError } = await clients.owner
+        .from("antidotes_reference_posts")
+        .insert({
+          org_id: ids.org,
+          platform: "instagram",
+          content: "(Reel sans légende)",
+          url: `https://www.instagram.com/reel/${RUN}/`,
+          is_mine: false,
+          media_kind: "video",
+          transcript: "Trois plans, un produit, zéro studio.",
+        })
+        .select("id, media_kind, transcript")
+        .single();
+      expect(postError).toBeNull();
+      expect(post).toMatchObject({ media_kind: "video", transcript: "Trois plans, un produit, zéro studio." });
+
+      const [{ data: readSettings }, { data: readDraft }] = await Promise.all([
+        clients.client.from("antidotes_inbound_settings").select("org_id").eq("org_id", ids.org),
+        clients.client.from("antidotes_generated_posts").select("id").eq("id", draft!.id),
+      ]);
+      expect(readSettings).toEqual([]);
+      expect(readDraft).toEqual([]);
+
+      const { error: intrusion } = await clients.client
+        .from("antidotes_inbound_settings")
+        .upsert({ org_id: ids.org, guidelines: "intrus" });
+      expect(intrusion).not.toBeNull();
+    });
+  });
+
   describe("la désinscription est définitive", () => {
     it("se date toute seule et ne se retire plus", async () => {
       const { data: optedOut } = await clients.owner

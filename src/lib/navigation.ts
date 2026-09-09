@@ -3,8 +3,10 @@ import "server-only";
 import { cache } from "react";
 
 import { getAcademyContext } from "@/lib/academy/access";
-import { ANTIDOTES_PAGES, antidotesPageLabel } from "@/lib/antidotes/navigation";
+import { ANTIDOTES_SECTIONS } from "@/lib/antidotes/navigation";
 import { getViewer } from "@/lib/auth";
+import { orderEntries, parseRailOrder, RAIL_GROUP_KEYS } from "@/lib/navigation-order";
+import { createClient } from "@/lib/supabase/server";
 import { getModerationContext } from "@/lib/moderation/access";
 import { isModerationVisible } from "@/lib/moderation/permissions";
 import { getNavBadges } from "@/lib/mon-travail/badges";
@@ -93,11 +95,16 @@ export const getAppNavigation = cache(async (): Promise<NavGroup[]> => {
     ];
   }
 
-  const [moderation, badges, academy] = await Promise.all([
+  const supabase = await createClient();
+  const [moderation, badges, academy, profile] = await Promise.all([
     getModerationContext(),
     getNavBadges(),
     getAcademyContext(),
+    // L'ordre du rail rangé à la souris : lu ici pour que le premier rendu
+    // soit déjà le bon — un rail qui se réordonne après coup saute.
+    supabase.from("profiles").select("rail_order").eq("id", viewer.user.id).maybeSingle(),
   ]);
+  const railOrder = parseRailOrder((profile.data as { rail_order?: unknown } | null)?.rail_order);
 
   // Plus de `"personal"` : le rail ne porte plus de section Perso, et laisser
   // le cas ouvert aurait gardé une branche que rien n'emprunte.
@@ -181,6 +188,25 @@ export const getAppNavigation = cache(async (): Promise<NavGroup[]> => {
         ...workspacesOfType("business"),
         ...(viewer.isOwner
           ? ([
+              // Le pôle de développement commercial de l'agence, juste sous
+              // son espace : c'est de lui qu'il parle. Owner seulement, comme
+              // Finance — la prospection de l'agence n'existe pour personne
+              // d'autre. Deux entrées de sous-menu, ses deux versants, et pas
+              // une de plus : les pages de l'outbound sont des onglets de la
+              // section (`lib/antidotes/navigation.ts`), pas des lignes du rail.
+              {
+                href: "/antidotes",
+                // « Prospection » et non « Antidotes » : l'espace de l'agence
+                // porte déjà ce nom juste au-dessus dans le même groupe, et
+                // deux entrées homonymes côte à côte ne se distinguent pas.
+                label: "Prospection",
+                icon: "antidotes",
+                match: "prefix",
+                children: ANTIDOTES_SECTIONS.map((section) => ({
+                  href: section.href,
+                  label: section.name,
+                })),
+              },
               {
                 href: "/entreprise/finance",
                 label: "Finance",
@@ -192,24 +218,6 @@ export const getAppNavigation = cache(async (): Promise<NavGroup[]> => {
                 label: "Factures",
                 icon: "factures",
                 match: "prefix",
-              },
-              // Le pôle de développement commercial de l'agence : outbound
-              // (sourcing, pipeline, séquences) et inbound (radar, studio).
-              // Owner seulement, comme Finance — la prospection de l'agence
-              // n'existe pour personne d'autre. Ses pages viennent de la même
-              // liste que ses onglets : voir `lib/antidotes/navigation.ts`.
-              {
-                href: "/antidotes",
-                // « Prospection » et non « Antidotes » : l'espace de l'agence
-                // porte déjà ce nom deux lignes plus haut dans le même groupe,
-                // et deux entrées homonymes côte à côte ne se distinguent pas.
-                label: "Prospection",
-                icon: "antidotes",
-                match: "prefix",
-                children: ANTIDOTES_PAGES.map((page) => ({
-                  href: page.href,
-                  label: antidotesPageLabel(page),
-                })),
               },
             ] satisfies NavEntry[])
           : []),
@@ -235,5 +243,12 @@ export const getAppNavigation = cache(async (): Promise<NavGroup[]> => {
     // compte se cherche là, pas dans une navigation de travail.
   ];
 
-  return groups.filter((group) => group.entries.length > 0);
+  return groups
+    .filter((group) => group.entries.length > 0)
+    .map((group) => {
+      // Les deux groupes qu'on range à la main suivent l'ordre mémorisé ;
+      // « Aujourd'hui » garde le sien, il n'a que deux lignes et un sens.
+      const key = RAIL_GROUP_KEYS[group.title];
+      return key ? { ...group, entries: orderEntries(group.entries, railOrder[key]) } : group;
+    });
 });

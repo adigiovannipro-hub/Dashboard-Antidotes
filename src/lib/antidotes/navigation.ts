@@ -4,73 +4,56 @@
  * client : une page ajoutée demain apparaît aux deux endroits sans retouche,
  * et aucun onglet ne mène à un 404.
  *
- * Deux pôles, outbound et inbound, plus les case studies à la racine. Les
- * case studies rejoindront cette liste avec leur page, jamais avant.
+ * Deux versants, et c'est tout ce que le rail montre : **Outbound** — trois
+ * pages, sourcing, pipeline, séquences, en onglets d'un cran plus bas — et
+ * **Inbound**, une seule page à vues. Les case studies rejoindront cette
+ * liste avec leur page, jamais avant.
  *
  * Ni `"use client"` ni `server-only` : lu par la navigation serveur et par
  * les onglets client.
  */
 
-export type AntidotesGroup = "outbound" | "inbound" | "root";
+export type AntidotesSection = "outbound" | "inbound";
 
-export type AntidotesPage = {
-  /** Le segment de route, pour savoir quel onglet est actif. */
-  key: string;
-  group: AntidotesGroup;
+export type AntidotesSectionEntry = {
+  key: AntidotesSection;
   href: string;
   name: string;
 };
 
-export const ANTIDOTES_GROUP_LABELS: Record<AntidotesGroup, string> = {
-  outbound: "Outbound",
-  inbound: "Inbound",
-  root: "",
+export const ANTIDOTES_SECTIONS: AntidotesSectionEntry[] = [
+  { key: "outbound", href: "/antidotes/outbound", name: "Outbound" },
+  { key: "inbound", href: "/antidotes/inbound", name: "Inbound" },
+];
+
+export type AntidotesPage = {
+  /** Le segment de route, pour savoir quel onglet est actif. */
+  key: string;
+  section: AntidotesSection;
+  href: string;
+  name: string;
 };
 
-export const ANTIDOTES_PAGES: AntidotesPage[] = [
-  {
-    key: "sourcing",
-    group: "outbound",
-    href: "/antidotes/outbound/sourcing",
-    name: "Sourcing",
-  },
-  {
-    key: "pipeline",
-    group: "outbound",
-    href: "/antidotes/outbound/pipeline",
-    name: "Pipeline",
-  },
-  {
-    key: "sequences",
-    group: "outbound",
-    href: "/antidotes/outbound/sequences",
-    name: "Séquences",
-  },
-  {
-    key: "radar",
-    group: "inbound",
-    href: "/antidotes/inbound/radar",
-    name: "Radar",
-  },
-  {
-    key: "studio",
-    group: "inbound",
-    href: "/antidotes/inbound/studio",
-    name: "Studio",
-  },
-  {
-    key: "library",
-    group: "inbound",
-    href: "/antidotes/inbound/library",
-    name: "Bibliothèque",
-  },
+/** Les pages de l'outbound, dans l'ordre du parcours : sourcer, travailler, contacter. */
+export const OUTBOUND_PAGES: AntidotesPage[] = [
+  { key: "sourcing", section: "outbound", href: "/antidotes/outbound/sourcing", name: "Sourcing" },
+  { key: "pipeline", section: "outbound", href: "/antidotes/outbound/pipeline", name: "Pipeline" },
+  { key: "sequences", section: "outbound", href: "/antidotes/outbound/sequences", name: "Séquences" },
 ];
+
+/** Toutes les pages à onglets ; l'inbound n'en a pas, sa page est unique. */
+export const ANTIDOTES_PAGES: AntidotesPage[] = [...OUTBOUND_PAGES];
 
 /** La porte d'entrée du pôle : le pipeline — c'est là qu'on travaille. */
 export const ANTIDOTES_HOME = "/antidotes/outbound/pipeline";
 
-/** Le libellé complet d'une page, tel que le rail l'affiche : « Outbound · Pipeline ». */
-export function antidotesPageLabel(page: AntidotesPage): string {
-  const group = ANTIDOTES_GROUP_LABELS[page.group];
-  return group ? `${group} · ${page.name}` : page.name;
+/** La page unique de l'inbound. */
+export const INBOUND_HOME = "/antidotes/inbound";
+
+/** Le versant d'un chemin, ou rien hors du pôle. */
+export function sectionOf(pathname: string): AntidotesSection | null {
+  const entry = ANTIDOTES_SECTIONS.find(
+    (section) => pathname === section.href || pathname.startsWith(`${section.href}/`),
+  );
+  return entry?.key ?? null;
 }

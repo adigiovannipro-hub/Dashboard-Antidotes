@@ -261,6 +261,13 @@ export type CampaignSourceParams = {
   country?: string;
   traffic_min?: number | null;
   traffic_max?: number | null;
+  /**
+   * L'URL de la Bibliothèque publicitaire Meta collée depuis le navigateur —
+   * une recherche ou la page d'un annonceur. Ses paramètres (pays, requête,
+   * page) sont lus par `ad-library-url.ts` et servent à la vérification des
+   * publicités actives.
+   */
+  ad_library_url?: string | null;
 };
 
 export type CampaignTargeting = {
@@ -511,6 +518,8 @@ export type PostMetrics = {
   comments?: number;
   shares?: number;
   views?: number;
+  /** Enregistrements (Instagram, TikTok) — le signal le plus rare, donc le plus parlant. */
+  saves?: number;
   /** Les abonnés de l'auteur au moment du relevé — le dénominateur du score relatif. */
   followers_at_collect?: number;
 };
@@ -534,6 +543,21 @@ export type ReferencePost = {
   published_at: string | null;
   /** `openai` — ou nul tant qu'aucun vecteur n'est calculé. */
   embedding_source: string | null;
+  /** La nature du média (20260911a) ; nul quand le réseau ne le dit pas. */
+  media_kind: MediaKind | null;
+  /** L'URL du média rendue au relevé — périssable, jamais affichée. */
+  media_url: string | null;
+  /** Le script d'une vidéo, transcrit au relevé ; c'est lui qu'on lit pour un reel. */
+  transcript: string | null;
+};
+
+export type MediaKind = "video" | "image" | "carousel" | "text";
+
+export const MEDIA_KIND_LABELS: Record<MediaKind, string> = {
+  video: "Vidéo",
+  image: "Image",
+  carousel: "Carrousel",
+  text: "Texte",
 };
 
 export type TopicStatus = "new" | "used" | "dismissed";
@@ -594,6 +618,39 @@ export type GeneratedPost = {
   image_prompt: string | null;
   published_url: string | null;
   error: string | null;
+  /** Post LinkedIn ou script de reel (20260911a) : deux formes du même sujet. */
+  format: GeneratedPostFormat;
+  /** Un post approuvé part à cette date par le passage horaire ; nul, il part au clic. */
+  scheduled_at: string | null;
+};
+
+export type GeneratedPostFormat = "linkedin_post" | "reel_script";
+
+export const GENERATED_POST_FORMAT_LABELS: Record<GeneratedPostFormat, string> = {
+  linkedin_post: "Post LinkedIn",
+  reel_script: "Script de reel",
+};
+
+/** Les seuils de relevé d'un réseau : en dessous, un post n'entre pas dans le tableau. */
+export type InboundThreshold = {
+  min_views?: number;
+  min_likes?: number;
+  min_comments?: number;
+};
+
+/**
+ * Mes consignes de voix — une ligne par organisation (20260911a). Ce que
+ * chaque génération reçoit avant mes exemples : comment j'écris, ce que je
+ * ne dis jamais, et un exemple par forme.
+ */
+export type InboundSettings = {
+  org_id: string;
+  guidelines: string | null;
+  linkedin_example: string | null;
+  reel_example: string | null;
+  email_example: string | null;
+  thresholds: Partial<Record<PostPlatform, InboundThreshold>>;
+  updated_at: string;
 };
 
 export type CaseStudy = {
