@@ -174,7 +174,7 @@ export function CampaignForm({
               <Input
                 id="c-adlibrary"
                 name="adLibraryUrl"
-                type="url"
+                type="text"
                 inputMode="url"
                 maxLength={2000}
                 className="min-w-0 flex-1"

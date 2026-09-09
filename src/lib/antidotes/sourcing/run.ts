@@ -207,8 +207,11 @@ async function admitCompany(input: {
   // Les publicités ne se vérifient que si le filtre les regarde : chaque
   // appel compte, et « bonus » ou « non » n'en ont pas besoin pour trancher.
   // La Bibliothèque collée dans la campagne, quand elle se lit, dit sur quel
-  // marché regarder — son pays passe avant celui de la source — et, si elle
-  // désigne une page, laquelle.
+  // marché regarder — son pays passe avant celui de la source. Sa page, elle,
+  // ne sert pas ici : l'URL désigne une seule Page (celle du client de
+  // référence ou d'un concurrent connu), et chaque prospect se cherche par
+  // son propre nom — appliquer cette page à toutes les sociétés du passage
+  // leur prêterait les publicités d'un autre.
   let ads: boolean | null = null;
   let adsSeenAt: string | null = null;
   if (config.filters.require_ads !== false) {
@@ -217,7 +220,6 @@ async function admitCompany(input: {
       const verdict = await providers.ads({
         company_name: company.company_name,
         country: adLibrary?.country ?? country,
-        page_id: adLibrary?.pageId ?? null,
       });
       if (verdict) {
         ads = verdict.active;

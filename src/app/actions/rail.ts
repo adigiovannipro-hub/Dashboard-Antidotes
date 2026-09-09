@@ -48,7 +48,10 @@ export async function saveRailOrder(input: {
     .select("rail_order")
     .eq("id", viewer.user.id)
     .maybeSingle();
-  if (readError) return { ok: false, error: readError.message };
+  if (readError) {
+    console.error("rail_order : lecture refusée", readError.message);
+    return { ok: false, error: "L'ordre n'a pas pu être relu." };
+  }
 
   const merged = mergeRailOrder(
     parseRailOrder((profile as { rail_order?: unknown } | null)?.rail_order),
@@ -60,7 +63,10 @@ export async function saveRailOrder(input: {
     .from("profiles")
     .update({ rail_order: merged } as never)
     .eq("id", viewer.user.id);
-  if (error) return { ok: false, error: error.message };
+  if (error) {
+    console.error("rail_order : écriture refusée", error.message);
+    return { ok: false, error: "L'ordre n'a pas pu être enregistré." };
+  }
 
   // Le rail est rendu par tous les layouts : c'est l'arbre entier qui relit
   // l'ordre, pas une page.

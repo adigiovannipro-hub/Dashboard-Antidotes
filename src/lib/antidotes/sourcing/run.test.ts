@@ -201,7 +201,7 @@ describe("runCampaign", () => {
     expect(memory.campaigns.get("camp-1")?.stats?.email_valid).toBe(1);
   });
 
-  it("vérifie les publicités sur le pays et la page de la Bibliothèque collée, quand elle se lit", async () => {
+  it("vérifie les publicités sur le pays de la Bibliothèque collée, jamais sur sa page — chaque société se cherche par son nom", async () => {
     const asked: { country: string; page_id?: string | null }[] = [];
     const memory = memoryStore();
     await runCampaign({
@@ -224,7 +224,7 @@ describe("runCampaign", () => {
       now: clock(),
       deadline: later,
     });
-    expect(asked).toEqual([{ country: "BE", page_id: "42" }]);
+    expect(asked).toEqual([{ country: "BE", page_id: undefined }]);
 
     // Une URL qui ne se lit pas ne change rien : le pays de la société, sans page.
     asked.length = 0;
@@ -245,7 +245,7 @@ describe("runCampaign", () => {
       now: clock(),
       deadline: later,
     });
-    expect(asked).toEqual([{ country: "FR", page_id: null }]);
+    expect(asked).toEqual([{ country: "FR", page_id: undefined }]);
   });
 
   it("envoie en revue quand les publicités ne peuvent pas être vérifiées", async () => {
