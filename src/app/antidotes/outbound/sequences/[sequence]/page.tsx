@@ -6,14 +6,14 @@ import { ArrowLeft, Users } from "lucide-react";
 import { EnrollmentsTable } from "@/components/antidotes/enrollments-table";
 import { LinkedinTodo } from "@/components/antidotes/linkedin-todo";
 import { SequenceForm } from "@/components/antidotes/sequence-form";
+import { SequenceFunnel, SequenceMessages } from "@/components/antidotes/sequence-funnel";
 import { EmptyState } from "@/components/ds/empty-state";
 import { StatusPill } from "@/components/ds/status-pill";
-import { Panel, PanelHeader, SectionHeader } from "@/components/ds/surface";
+import { Panel, PanelBody, PanelHeader, SectionHeader } from "@/components/ds/surface";
 import { Button } from "@/components/ui/button";
 import { requireAntidotesAccess } from "@/lib/antidotes/access";
 import { buildTemplateContext } from "@/lib/antidotes/sequences/passage";
 import { getSequenceDetail } from "@/lib/antidotes/sequences/queries";
-import { formatRate } from "@/lib/antidotes/sequences/stats";
 import { renderTemplate } from "@/lib/antidotes/sequences/templates";
 
 type Params = Promise<{ sequence: string }>;
@@ -65,7 +65,6 @@ export default async function SequencePage({ params }: { params: Params }) {
 
       <SectionHeader
         title={sequence.name}
-        description={`${counts.enrolled} inscrit${counts.enrolled > 1 ? "s" : ""} · ${counts.sent} envoyé${counts.sent > 1 ? "s" : ""} · ${counts.replied} réponse${counts.replied > 1 ? "s" : ""}${counts.replyRate !== null ? ` (${formatRate(counts.replyRate)})` : ""}`}
         className="flex-wrap"
         action={
           <div className="flex flex-wrap items-center gap-2">
@@ -86,6 +85,12 @@ export default async function SequencePage({ params }: { params: Params }) {
       ) : (
         <Panel>
           <PanelHeader title="Inscriptions" count={enrollments.length} />
+          {/* L'entonnoir vit dans le panneau des inscriptions, pas dans
+              l'en-tête : ce sont ces lignes qu'il résume. */}
+          <PanelBody className="border-b border-border">
+            <SequenceFunnel counts={counts} />
+            <SequenceMessages counts={counts} className="mt-4" />
+          </PanelBody>
           <EnrollmentsTable rows={enrollments} stepCount={steps.length} />
         </Panel>
       )}
