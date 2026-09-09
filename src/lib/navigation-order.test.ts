@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { moveEntry, orderEntries, parseRailOrder } from "./navigation-order";
+import { mergeRailOrder, moveEntry, orderEntries, parseRailOrder, reorderHrefs } from "./navigation-order";
 
 const entries = [
   { href: "/espace/bondet" },
@@ -47,5 +47,45 @@ describe("moveEntry", () => {
   it("rend une copie intacte sur un geste sans effet", () => {
     expect(moveEntry(["a", "b"], 1, 1)).toEqual(["a", "b"]);
     expect(moveEntry(["a", "b"], 5, 0)).toEqual(["a", "b"]);
+  });
+});
+
+describe("reorderHrefs", () => {
+  const hrefs = ["/espace/bondet", "/espace/anmf", "/espace/i-way"];
+
+  it("pose l'entrée saisie à la place de celle où on la lâche", () => {
+    expect(reorderHrefs(hrefs, "/espace/anmf", "/espace/i-way")).toEqual([
+      "/espace/bondet",
+      "/espace/i-way",
+      "/espace/anmf",
+    ]);
+    expect(reorderHrefs(hrefs, "/espace/i-way", "/espace/bondet")).toEqual([
+      "/espace/i-way",
+      "/espace/bondet",
+      "/espace/anmf",
+    ]);
+  });
+
+  it("rend une copie intacte sur un dépôt sur soi-même ou hors liste", () => {
+    expect(reorderHrefs(hrefs, "/espace/anmf", "/espace/anmf")).toEqual(hrefs);
+    expect(reorderHrefs(hrefs, "/espace/anmf", "/espace/inconnu")).toEqual(hrefs);
+    expect(reorderHrefs(hrefs, "/espace/inconnu", "/espace/anmf")).toEqual(hrefs);
+  });
+});
+
+describe("mergeRailOrder", () => {
+  it("réécrit le groupe rangé et garde l'autre", () => {
+    expect(mergeRailOrder({ entreprise: ["/academy", "/antidotes"] }, "clients", ["/espace/anmf", "/espace/bondet"])).toEqual(
+      {
+        clients: ["/espace/anmf", "/espace/bondet"],
+        entreprise: ["/academy", "/antidotes"],
+      },
+    );
+  });
+
+  it("ne garde qu'une fois le même href", () => {
+    expect(mergeRailOrder({}, "entreprise", ["/academy", "/academy", "/antidotes"])).toEqual({
+      entreprise: ["/academy", "/antidotes"],
+    });
   });
 });

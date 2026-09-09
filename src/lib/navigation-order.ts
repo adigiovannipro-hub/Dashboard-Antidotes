@@ -56,3 +56,36 @@ export function moveEntry<T>(entries: readonly T[], from: number, to: number): T
   next.splice(to, 0, moved!);
   return next;
 }
+
+/**
+ * La liste des `href` d'un groupe après un dépôt : l'entrée saisie prend la
+ * place de celle sur laquelle on l'a lâchée. C'est ce qui part à la base —
+ * pas des indices, qui ne survivraient pas à un client ajouté demain.
+ *
+ * Un dépôt sur soi-même ou sur une entrée inconnue rend la liste intacte,
+ * sans rien enregistrer d'autre qu'une copie.
+ */
+export function reorderHrefs(
+  hrefs: readonly string[],
+  activeHref: string,
+  overHref: string,
+): string[] {
+  const from = hrefs.indexOf(activeHref);
+  const to = hrefs.indexOf(overHref);
+  if (from === -1 || to === -1) return [...hrefs];
+  return moveEntry(hrefs, from, to);
+}
+
+/**
+ * L'ordre mémorisé, un groupe réécrit et l'autre conservé tel quel : ranger
+ * les clients ne doit pas effacer ce qu'on avait rangé dans « Mon
+ * entreprise ». Les doublons tombent — deux fois le même `href` donneraient
+ * deux rangs à une seule ligne.
+ */
+export function mergeRailOrder(
+  current: RailOrder,
+  group: RailGroupKey,
+  hrefs: readonly string[],
+): RailOrder {
+  return { ...current, [group]: [...new Set(hrefs)] };
+}
