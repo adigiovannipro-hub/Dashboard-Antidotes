@@ -1,7 +1,7 @@
 import "server-only";
 
 import { createClient } from "@/lib/supabase/server";
-import type { Contact, Prospect, Sequence, SequenceEnrollment, SequenceStep } from "../types";
+import type { Contact, Prospect, ProspectStatus, Sequence, SequenceEnrollment, SequenceStep } from "../types";
 import { resolveSequenceSettings, type SequenceSettings } from "./defaults";
 import { computeSequenceCounts, evaluateBounceGuard, type BounceGuard, type SequenceCounts } from "./stats";
 
@@ -51,9 +51,14 @@ export async function listSequenceSummaries(options: { orgId: string }): Promise
       .order("created_at", { ascending: false })
       .limit(200),
     supabase.from("antidotes_sequence_steps").select("sequence_id").eq("org_id", options.orgId).limit(2000),
+    // Le statut du prospect remonte par le contact inscrit : c'est lui qui
+    // dit si la séquence a produit un rendez-vous. Un seul chemin de clé
+    // relie les contacts aux prospects, l'embarquement n'est pas ambigu.
     supabase
       .from("antidotes_sequence_enrollments")
-      .select("sequence_id, status, channel, last_sent_at, next_send_at")
+      .select(
+        "sequence_id, status, channel, last_sent_at, next_send_at, replied_at, contact:antidotes_contacts(prospect:antidotes_prospects(status))",
+      )
       .eq("org_id", options.orgId)
       .limit(10000),
     interactionsBySequence(options.orgId),
@@ -63,7 +68,9 @@ export async function listSequenceSummaries(options: { orgId: string }): Promise
   for (const step of (steps ?? []) as unknown as { sequence_id: string }[]) {
     stepCount.set(step.sequence_id, (stepCount.get(step.sequence_id) ?? 0) + 1);
   }
-  type Lite = Pick<SequenceEnrollment, "sequence_id" | "status" | "channel" | "last_sent_at" | "next_send_at">;
+  type Lite = Pick<SequenceEnrollment, "sequence_id" | "status" | "channel" | "last_sent_at" | "next_send_at" | "replied_at"> & {
+    contact: { prospect: { status: ProspectStatus } | null } | null;
+  };
   const bySequence = new Map<string, Lite[]>();
   for (const row of (enrollments ?? []) as unknown as Lite[]) {
     bySequence.set(row.sequence_id, [...(bySequence.get(row.sequence_id) ?? []), row]);
@@ -76,11 +83,12 @@ export async function listSequenceSummaries(options: { orgId: string }): Promise
       .filter((row) => row.status === "active" && row.next_send_at)
       .map((row) => row.next_send_at!)
       .sort()[0];
+    const enrollmentsLike = rows.map((row) => ({ ...row, prospect_status: row.contact?.prospect?.status ?? null }));
     return {
       sequence,
       settings: resolveSequenceSettings(sequence.settings),
       stepCount: stepCount.get(sequence.id) ?? 0,
-      counts: computeSequenceCounts(rows, interactions.get(sequence.id) ?? [], contacted),
+      counts: computeSequenceCounts(enrollmentsLike, interactions.get(sequence.id) ?? [], contacted),
       nextSendAt: next ?? null,
     };
   });
@@ -177,13 +185,17 @@ export async function getSequenceDetail(options: {
   const list = (enrollments ?? []) as unknown as SequenceEnrollment[];
   const rows = await loadEnrollmentRows(options.orgId, list);
   const contacted = list.filter((entry) => entry.last_sent_at !== null).length;
+  // Les prospects sont déjà lus pour le tableau : la marche « Rendez-vous »
+  // se compte sur eux, sans seconde lecture.
+  const prospectStatus = new Map(rows.map((entry) => [entry.enrollment.id, entry.prospect.status]));
+  const enrollmentsLike = list.map((entry) => ({ ...entry, prospect_status: prospectStatus.get(entry.id) ?? null }));
 
   return {
     sequence: row,
     settings: resolveSequenceSettings(row.settings),
     steps: (steps ?? []) as unknown as SequenceStep[],
     enrollments: rows,
-    counts: computeSequenceCounts(list, interactions.get(row.id) ?? [], contacted),
+    counts: computeSequenceCounts(enrollmentsLike, interactions.get(row.id) ?? [], contacted),
   };
 }
 
