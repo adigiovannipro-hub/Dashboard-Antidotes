@@ -1,12 +1,32 @@
 "use client";
 
-import { useState } from "react";
+import { useOptimistic, useState, useTransition, type CSSProperties, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import {
+  closestCenter,
+  DndContext,
+  DragOverlay,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+  type DragStartEvent,
+  type UniqueIdentifier,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import {
   Briefcase,
   CalendarClock,
   GraduationCap,
+  GripVertical,
   KeyRound,
   Lock,
   MessagesSquare,
@@ -20,12 +40,22 @@ import {
   X,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import { toast } from "sonner";
 
+import { saveRailOrder } from "@/app/actions/rail";
 import { useOptimisticPill } from "@/components/ds/pill-indicator";
 import { LinkPending } from "@/components/ds/route-progress";
+import { BodyPortal } from "@/components/planning/body-portal";
 import { Wordmark } from "@/components/wordmark";
 import { WorkspaceMenu } from "@/components/workspaces/workspace-menu";
+import { safeAction } from "@/lib/context/safe-action";
 import type { NavEntry, NavGroup, NavIcon } from "@/lib/navigation";
+import {
+  orderEntries,
+  RAIL_GROUP_KEYS,
+  reorderHrefs,
+  type RailGroupKey,
+} from "@/lib/navigation-order";
 import { PREFERENCE_MAX_AGE, RAIL_COOKIE } from "@/lib/ui-preferences";
 import { cn } from "@/lib/utils";
 
@@ -42,6 +72,15 @@ import { cn } from "@/lib/utils";
  * tentative par `useSyncExternalStore` ne se resynchronisait jamais après
  * l'hydratation, laissant les libellés visibles et tronqués dans un rail de
  * 64 px, avec un `aria-pressed` faux.
+ *
+ * Les lignes de « Clients » et de « Mon entreprise » se rangent à la souris,
+ * chacune dans son groupe — un client ne devient pas un outil de l'agence en
+ * changeant de tiroir. Le geste passe par une **poignée** et non par la ligne
+ * entière : la ligne reste un lien, un clic navigue. L'ordre se pose
+ * localement au lâcher, part en base derrière, et revient à sa place avec un
+ * toast si l'écriture échoue. Rien de tout cela en rail replié (plus de
+ * libellés) ni en mobile, où le tiroir défile au doigt et où un capteur
+ * tactile lui volerait le défilement : la poignée n'y est pas rendue.
  */
 
 function remember(collapsed: boolean) {
@@ -67,6 +106,8 @@ function isActive(entry: NavEntry, pathname: string): boolean {
   return pathname === entry.href || pathname.startsWith(`${entry.href}/`);
 }
 
+type OrderUpdate = { key: RailGroupKey; hrefs: string[] };
+
 export function Sidebar({
   groups,
   mobileOpen,
@@ -89,6 +130,28 @@ export function Sidebar({
   // L'entrée cliquée prend donc l'état actif tout de suite, et la route
   // reprend la main dès qu'elle a répondu.
   const { active: activePath, select } = useOptimisticPill(pathname);
+
+  // Même mécanique que le kanban du pipeline : la ligne se pose au lâcher,
+  // l'action part derrière, et l'état retombe sur ce que le serveur rend —
+  // le nouvel ordre s'il a écrit, l'ancien s'il a refusé.
+  const [orderedGroups, applyOrder] = useOptimistic(
+    groups,
+    (state: NavGroup[], update: OrderUpdate) =>
+      state.map((group) =>
+        RAIL_GROUP_KEYS[group.title] === update.key
+          ? { ...group, entries: orderEntries(group.entries, update.hrefs) }
+          : group,
+      ),
+  );
+  const [, startTransition] = useTransition();
+
+  function reorder(key: RailGroupKey, hrefs: string[]) {
+    startTransition(async () => {
+      applyOrder({ key, hrefs });
+      const result = await safeAction(() => saveRailOrder({ group: key, hrefs }));
+      if (!result.ok) toast.error(result.error);
+    });
+  }
 
   function toggle() {
     setCollapsed((previous) => {
@@ -158,96 +221,45 @@ export function Sidebar({
         </div>
 
         <nav className="min-h-0 flex-1 overflow-y-auto px-3 py-4">
-          {groups.map((group) => (
-            <div key={group.title} className="mb-5 last:mb-0">
-              <p
-                className={cn(
-                  // `--text-tertiary` ne monte qu'à 2,79:1 : il est réservé aux
-                  // icônes et aux ornements, jamais à du texte.
-                  "type-overline mb-1.5 px-2 text-text-secondary",
-                  collapsed && "md:sr-only",
+          {orderedGroups.map((group) => {
+            const sortKey: RailGroupKey | undefined = RAIL_GROUP_KEYS[group.title];
+            const rowProps = {
+              collapsed,
+              activePath,
+              onNavigate: (href: string) => {
+                select(href);
+                onCloseMobile();
+              },
+            };
+            return (
+              <div key={group.title} className="mb-5 last:mb-0">
+                <p
+                  className={cn(
+                    // `--text-tertiary` ne monte qu'à 2,79:1 : il est réservé aux
+                    // icônes et aux ornements, jamais à du texte.
+                    "type-overline mb-1.5 px-2 text-text-secondary",
+                    collapsed && "md:sr-only",
+                  )}
+                >
+                  {group.title}
+                </p>
+                {sortKey ? (
+                  <SortableEntries
+                    sortKey={sortKey}
+                    entries={group.entries}
+                    onReorder={(hrefs) => reorder(sortKey, hrefs)}
+                    {...rowProps}
+                  />
+                ) : (
+                  <ul className="space-y-0.5">
+                    {group.entries.map((entry) => (
+                      <EntryRow key={entry.href} entry={entry} {...rowProps} />
+                    ))}
+                  </ul>
                 )}
-              >
-                {group.title}
-              </p>
-              <ul className="space-y-0.5">
-                {group.entries.map((entry) => {
-                  const active = isActive(entry, activePath);
-                  return (
-                    <li key={entry.href} className="group/espace">
-                      <div className="relative">
-                        <SidebarLink
-                          entry={entry}
-                          active={active}
-                          collapsed={collapsed}
-                          onNavigate={() => {
-                            select(entry.href);
-                            onCloseMobile();
-                          }}
-                        />
-                        {/* Posé par-dessus la réserve de droite du lien : un
-                            bouton *dans* un lien n'est pas du HTML valide, et
-                            deux éléments côte à côte rogneraient le libellé. */}
-                        {entry.manage ? (
-                          <span className="absolute inset-y-0 right-1 flex items-center">
-                            <WorkspaceMenu
-                              slug={entry.manage.slug}
-                              name={entry.manage.name}
-                              collapsed={collapsed}
-                            />
-                          </span>
-                        ) : null}
-                      </div>
-
-                      {/* Le sous-menu des pages de l'espace. Au survol sur
-                          grand écran — le dépli est purement CSS, la hauteur
-                          glisse de 0fr à 1fr — et déplié en continu sur
-                          l'espace courant en mobile, où le survol n'existe
-                          pas. Rail replié : rien, il n'y a plus de libellés. */}
-                      {entry.children && !collapsed ? (
-                        <div
-                          className={cn(
-                            "grid transition-[grid-template-rows] duration-(--motion-duration-slow) ease-exit motion-reduce:transition-none",
-                            active ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
-                            "md:grid-rows-[0fr] md:group-hover/espace:grid-rows-[1fr] md:group-focus-within/espace:grid-rows-[1fr]",
-                          )}
-                        >
-                          <ul className="overflow-hidden">
-                            {entry.children.map((child) => {
-                              const childActive =
-                                activePath === child.href ||
-                                activePath.startsWith(`${child.href}/`);
-                              return (
-                                <li key={child.href}>
-                                  <Link
-                                    href={child.href}
-                                    onClick={() => {
-                                      select(entry.href);
-                                      onCloseMobile();
-                                    }}
-                                    aria-current={childActive ? "page" : undefined}
-                                    className={cn(
-                                      "type-caption focus-visible:ring-ring relative ml-[1.4rem] flex items-center rounded-md border-l border-border py-1.5 pl-4 transition-colors duration-(--motion-duration) ease-standard focus-visible:ring-2 focus-visible:outline-none",
-                                      childActive
-                                        ? "font-medium text-accent-ink"
-                                        : "text-text-secondary hover:bg-muted hover:text-text-primary",
-                                    )}
-                                  >
-                                    <LinkPending />
-                                    <span className="truncate">{child.label}</span>
-                                  </Link>
-                                </li>
-                              );
-                            })}
-                          </ul>
-                        </div>
-                      ) : null}
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-          ))}
+              </div>
+            );
+          })}
         </nav>
 
         {/* Les pages légales, en pied de rail et en tout petit.
@@ -313,21 +325,302 @@ export function Sidebar({
   );
 }
 
+type RowProps = {
+  collapsed: boolean;
+  activePath: string;
+  onNavigate: (href: string) => void;
+};
+
+/**
+ * Un groupe dont les lignes se rangent. Un `DndContext` par groupe — c'est
+ * ce qui interdit de déposer un client dans « Mon entreprise » sans avoir à
+ * l'écrire — et un `id` fixe, sinon dnd-kit numérote ses `aria-describedby`
+ * dans l'ordre de montage, différent entre le serveur et le navigateur.
+ */
+function SortableEntries({
+  sortKey,
+  entries,
+  onReorder,
+  ...rowProps
+}: RowProps & {
+  sortKey: RailGroupKey;
+  entries: NavEntry[];
+  onReorder: (hrefs: string[]) => void;
+}) {
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const sensors = useSensors(
+    // Six pixels avant de saisir : en deçà, c'est un clic sur la poignée qui
+    // n'a rien à faire, pas un déplacement raté.
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
+  const hrefs = entries.map((entry) => entry.href);
+  const active = activeId ? (entries.find((entry) => entry.href === activeId) ?? null) : null;
+
+  function labelOf(id: UniqueIdentifier): string {
+    return entries.find((entry) => entry.href === String(id))?.label ?? "";
+  }
+  function positionOf(id: UniqueIdentifier): string {
+    return `position ${hrefs.indexOf(String(id)) + 1} sur ${hrefs.length}`;
+  }
+
+  function onDragStart(event: DragStartEvent) {
+    setActiveId(String(event.active.id));
+  }
+
+  function onDragEnd(event: DragEndEvent) {
+    setActiveId(null);
+    const over = event.over?.id;
+    if (typeof over !== "string" || over === event.active.id) return;
+    const next = reorderHrefs(hrefs, String(event.active.id), over);
+    if (next.every((href, index) => href === hrefs[index])) return;
+    onReorder(next);
+  }
+
+  return (
+    <DndContext
+      id={`rail-${sortKey}`}
+      sensors={sensors}
+      collisionDetection={closestCenter}
+      onDragStart={onDragStart}
+      onDragEnd={onDragEnd}
+      onDragCancel={() => setActiveId(null)}
+      accessibility={{
+        screenReaderInstructions: {
+          draggable:
+            "Espace ou Entrée pour saisir la ligne, flèches haut et bas pour la déplacer, Espace ou Entrée pour déposer, Échap pour annuler.",
+        },
+        announcements: {
+          onDragStart: ({ active }) => `${labelOf(active.id)} saisi, ${positionOf(active.id)}.`,
+          onDragOver: ({ active, over }) =>
+            over
+              ? `${labelOf(active.id)} en ${positionOf(over.id)}.`
+              : `${labelOf(active.id)} hors de la liste.`,
+          onDragEnd: ({ active, over }) =>
+            over
+              ? `${labelOf(active.id)} déposé en ${positionOf(over.id)}.`
+              : "Déplacement annulé.",
+          onDragCancel: () => "Déplacement annulé.",
+        },
+      }}
+    >
+      <SortableContext items={hrefs} strategy={verticalListSortingStrategy}>
+        <ul className="space-y-0.5">
+          {entries.map((entry) => (
+            <SortableRow
+              key={entry.href}
+              entry={entry}
+              sorting={activeId !== null}
+              {...rowProps}
+            />
+          ))}
+        </ul>
+      </SortableContext>
+
+      {/* Dans `<body>` et non dans le rail : l'`aside` porte un `transform`
+          et un `overflow-hidden`, qui feraient de lui le repère d'un élément
+          fixe et rogneraient la ligne dès qu'elle en sort. */}
+      <BodyPortal>
+        <DragOverlay dropAnimation={null}>
+          {active ? (
+            <div className="rounded-md bg-sidebar shadow-card-hover">
+              <SidebarLink
+                entry={active}
+                active={isActive(active, rowProps.activePath)}
+                collapsed={false}
+                sortable={false}
+                onNavigate={() => {}}
+              />
+            </div>
+          ) : null}
+        </DragOverlay>
+      </BodyPortal>
+    </DndContext>
+  );
+}
+
+function SortableRow({
+  entry,
+  sorting,
+  collapsed,
+  ...rowProps
+}: RowProps & { entry: NavEntry; sorting: boolean }) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    setActivatorNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({
+    id: entry.href,
+    disabled: collapsed,
+    attributes: { roleDescription: "ligne déplaçable" },
+  });
+
+  const style: CSSProperties = {
+    transform: CSS.Translate.toString(transform),
+    transition,
+  };
+
+  return (
+    <EntryRow
+      entry={entry}
+      collapsed={collapsed}
+      rowRef={setNodeRef}
+      style={style}
+      dragging={isDragging}
+      sorting={sorting}
+      handle={
+        <button
+          type="button"
+          ref={setActivatorNodeRef}
+          {...attributes}
+          {...listeners}
+          aria-label={`Déplacer ${entry.label}`}
+          className={cn(
+            "hover:bg-muted focus-visible:ring-ring size-7 shrink-0 cursor-grab touch-none items-center justify-center rounded-sm text-text-secondary transition-opacity duration-(--motion-duration) ease-standard focus-visible:ring-2 focus-visible:outline-none active:cursor-grabbing",
+            // Jamais rendue en mobile ni en rail replié : c'est elle seule qui
+            // porte les capteurs, sans elle rien ne se saisit.
+            "hidden",
+            !collapsed && "md:inline-flex",
+            // Même apparition que les trois points : au survol de la ligne,
+            // au focus clavier — et tant qu'on la tient.
+            "md:opacity-0 md:group-hover/espace:opacity-100 md:group-focus-within/espace:opacity-100 md:focus-visible:opacity-100",
+            isDragging && "md:opacity-100",
+          )}
+        >
+          <GripVertical className="size-4" strokeWidth={1.75} aria-hidden />
+        </button>
+      }
+      {...rowProps}
+    />
+  );
+}
+
+/**
+ * Une ligne du rail : le lien, sa réserve de droite (poignée, trois points),
+ * et le sous-menu des pages de l'espace.
+ */
+function EntryRow({
+  entry,
+  collapsed,
+  activePath,
+  onNavigate,
+  rowRef,
+  style,
+  handle,
+  dragging = false,
+  sorting = false,
+}: RowProps & {
+  entry: NavEntry;
+  rowRef?: (node: HTMLElement | null) => void;
+  style?: CSSProperties;
+  handle?: ReactNode;
+  /** Cette ligne est celle qu'on tient : l'original s'efface sous l'overlay. */
+  dragging?: boolean;
+  /** Un glissement est en cours dans le groupe : les sous-menus ne
+      s'ouvrent pas au passage, ils changeraient la hauteur des cibles. */
+  sorting?: boolean;
+}) {
+  const active = isActive(entry, activePath);
+
+  return (
+    <li
+      ref={rowRef}
+      style={style}
+      className={cn("group/espace", dragging && "opacity-40")}
+    >
+      <div className="relative">
+        <SidebarLink
+          entry={entry}
+          active={active}
+          collapsed={collapsed}
+          sortable={handle !== undefined}
+          onNavigate={() => onNavigate(entry.href)}
+        />
+        {/* Posés par-dessus la réserve de droite du lien : un bouton *dans*
+            un lien n'est pas du HTML valide, et deux éléments côte à côte
+            rogneraient le libellé. */}
+        {handle || entry.manage ? (
+          <span className="absolute inset-y-0 right-1 flex items-center gap-0.5">
+            {handle}
+            {entry.manage ? (
+              <WorkspaceMenu
+                slug={entry.manage.slug}
+                name={entry.manage.name}
+                collapsed={collapsed}
+              />
+            ) : null}
+          </span>
+        ) : null}
+      </div>
+
+      {/* Le sous-menu des pages de l'espace. Au survol sur grand écran — le
+          dépli est purement CSS, la hauteur glisse de 0fr à 1fr — et déplié
+          en continu sur l'espace courant en mobile, où le survol n'existe
+          pas. Rail replié : rien, il n'y a plus de libellés. */}
+      {entry.children && !collapsed ? (
+        <div
+          className={cn(
+            "grid transition-[grid-template-rows] duration-(--motion-duration-slow) ease-exit motion-reduce:transition-none",
+            active ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
+            "md:grid-rows-[0fr]",
+            !sorting &&
+              "md:group-hover/espace:grid-rows-[1fr] md:group-focus-within/espace:grid-rows-[1fr]",
+          )}
+        >
+          <ul className="overflow-hidden">
+            {entry.children.map((child) => {
+              const childActive =
+                activePath === child.href || activePath.startsWith(`${child.href}/`);
+              return (
+                <li key={child.href}>
+                  <Link
+                    href={child.href}
+                    onClick={() => onNavigate(entry.href)}
+                    aria-current={childActive ? "page" : undefined}
+                    className={cn(
+                      "type-caption focus-visible:ring-ring relative ml-[1.4rem] flex items-center rounded-md border-l border-border py-1.5 pl-4 transition-colors duration-(--motion-duration) ease-standard focus-visible:ring-2 focus-visible:outline-none",
+                      childActive
+                        ? "font-medium text-accent-ink"
+                        : "text-text-secondary hover:bg-muted hover:text-text-primary",
+                    )}
+                  >
+                    <LinkPending />
+                    <span className="truncate">{child.label}</span>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      ) : null}
+    </li>
+  );
+}
+
 function SidebarLink({
   entry,
   active,
   collapsed,
+  sortable,
   onNavigate,
 }: {
   entry: NavEntry;
   active: boolean;
   collapsed: boolean;
+  /** Une poignée occupe la réserve de droite à partir de `md`. */
+  sortable: boolean;
   onNavigate: () => void;
 }) {
   const Icon = ICONS[entry.icon];
   // Zéro ne s'affiche pas : une pastille vide occupe la place d'une alerte
   // pour annoncer qu'il n'y en a pas.
   const showBadge = entry.badge !== undefined && entry.badge > 0;
+  const manage = entry.manage !== undefined && !collapsed;
 
   return (
     <Link
@@ -346,8 +639,11 @@ function SidebarLink({
         // La barre active occupe le retrait gauche : sans lui, elle décalerait
         // l'icône de trois pixels en devenant visible.
         "pl-2.5",
-        // Réserve la place des trois points, sinon le libellé passe dessous.
-        entry.manage && !collapsed && "pr-9",
+        // Réserve la place des trois points, et de la poignée à partir de
+        // `md` — sinon le libellé passe dessous. La poignée n'existe pas en
+        // mobile, la réserve non plus.
+        manage && "pr-9",
+        sortable && !collapsed && (manage ? "md:pr-16" : "md:pr-9"),
         active
           ? "bg-accent-subtle font-medium text-accent-ink"
           : "text-text-secondary hover:bg-muted hover:text-text-primary",
