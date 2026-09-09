@@ -113,6 +113,7 @@ export function PipelineScreen({
         loading={pending && loadedDetail === null}
         onClose={() => navigate(null)}
         sequences={sequences}
+        campaigns={facets.campaigns}
       />
     </div>
   );

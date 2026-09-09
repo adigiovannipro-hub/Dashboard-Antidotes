@@ -14,11 +14,15 @@ import {
   type DragEndEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
+import { Plus } from "lucide-react";
 import { toast } from "sonner";
 
 import { moveProspects } from "@/app/actions/antidotes";
+import { NewProspectFormDialog } from "@/components/antidotes/new-prospect-dialog";
+import { StatusDot } from "@/components/antidotes/pipeline-chips";
 import { ProspectCard } from "@/components/antidotes/prospect-card";
-import { Counter } from "@/components/ds/surface";
+import { Button } from "@/components/ui/button";
+import { PROSPECT_STATUS_TONES } from "@/lib/antidotes/colors";
 import {
   PROSPECT_STATUSES,
   PROSPECT_STATUS_LABELS,
@@ -56,6 +60,8 @@ export function PipelineBoard({
   );
   const [, startTransition] = useTransition();
   const [activeId, setActiveId] = useState<string | null>(null);
+  /** La colonne dont on a pressé le « + » : le dialogue naît avec son statut. */
+  const [creating, setCreating] = useState<ProspectStatus | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
@@ -121,6 +127,7 @@ export function PipelineBoard({
             prospects={byStatus.get(status) ?? []}
             dragging={activeId !== null}
             onOpen={onOpen}
+            onCreate={() => setCreating(status)}
           />
         ))}
       </div>
@@ -128,6 +135,15 @@ export function PipelineBoard({
       <DragOverlay dropAnimation={null}>
         {active ? <ProspectCard prospect={active} overlay className="w-64" /> : null}
       </DragOverlay>
+
+      {/* Un seul dialogue pour huit colonnes : le statut change, pas le formulaire. */}
+      <NewProspectFormDialog
+        open={creating !== null}
+        onOpenChange={(next) => {
+          if (!next) setCreating(null);
+        }}
+        status={creating ?? undefined}
+      />
     </DndContext>
   );
 
@@ -145,11 +161,13 @@ function Column({
   prospects,
   dragging,
   onOpen,
+  onCreate,
 }: {
   status: ProspectStatus;
   prospects: PipelineProspect[];
   dragging: boolean;
   onOpen: (prospectId: string) => void;
+  onCreate: () => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: status });
 
@@ -162,9 +180,22 @@ function Column({
         isOver ? "border-border-strong bg-accent-subtle/40" : "border-border",
       )}
     >
-      <header className="flex items-center justify-between gap-2 px-3 py-2.5">
-        <h3 className="type-label text-text-primary">{PROSPECT_STATUS_LABELS[status]}</h3>
-        <Counter value={prospects.length} />
+      <header className="flex items-center gap-2 px-3 py-2">
+        <StatusDot tone={PROSPECT_STATUS_TONES[status]} />
+        <h3 className="type-label min-w-0 flex-1 truncate text-text-primary">
+          {PROSPECT_STATUS_LABELS[status]}
+        </h3>
+        <span className="type-caption text-text-secondary tabular-nums">{prospects.length}</span>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-xs"
+          onClick={onCreate}
+          aria-label={`Ajouter un prospect dans ${PROSPECT_STATUS_LABELS[status]}`}
+          className="-mr-1.5 text-text-secondary hover:text-text-primary"
+        >
+          <Plus aria-hidden />
+        </Button>
       </header>
 
       <div className="flex min-h-24 flex-1 flex-col gap-2 px-2 pb-2">

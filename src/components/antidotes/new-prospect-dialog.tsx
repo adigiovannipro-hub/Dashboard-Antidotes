@@ -17,11 +17,13 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PIPELINE_PARAM_KEYS, withPipelineParams } from "@/lib/antidotes/pipeline-params";
+import { PROSPECT_STATUS_LABELS, type ProspectStatus } from "@/lib/antidotes/types";
 
 /**
  * La création manuelle : les champs essentiels, rien d'autre. Le prospect
- * naît « À qualifier », source `manual`, et son panneau s'ouvre aussitôt —
- * c'est là qu'on ajoute le décisionnaire qu'on vient de repérer.
+ * naît « À qualifier » — ou dans la colonne dont on a pressé le « + » —,
+ * source `manual`, et son panneau s'ouvre aussitôt : c'est là qu'on ajoute
+ * le décisionnaire qu'on vient de repérer.
  */
 export function NewProspectDialog() {
   const [open, setOpen] = useState(false);
@@ -32,20 +34,44 @@ export function NewProspectDialog() {
         <Plus aria-hidden />
         Ajouter un prospect
       </Button>
-
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Nouveau prospect</DialogTitle>
-          </DialogHeader>
-          <NewProspectForm onDone={() => setOpen(false)} />
-        </DialogContent>
-      </Dialog>
+      <NewProspectFormDialog open={open} onOpenChange={setOpen} />
     </>
   );
 }
 
-function NewProspectForm({ onDone }: { onDone: () => void }) {
+/**
+ * Le dialogue seul, piloté de l'extérieur : le kanban en ouvre un par
+ * colonne, avec le statut de la colonne déjà choisi.
+ */
+export function NewProspectFormDialog({
+  open,
+  onOpenChange,
+  status,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  status?: ProspectStatus;
+}) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>
+            Nouveau prospect
+            {status && status !== "to_qualify" ? (
+              <span className="type-caption ml-2 font-normal text-text-secondary">
+                {PROSPECT_STATUS_LABELS[status]}
+              </span>
+            ) : null}
+          </DialogTitle>
+        </DialogHeader>
+        <NewProspectForm status={status} onDone={() => onOpenChange(false)} />
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function NewProspectForm({ status, onDone }: { status?: ProspectStatus; onDone: () => void }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -77,6 +103,7 @@ function NewProspectForm({ onDone }: { onDone: () => void }) {
 
   return (
     <form action={formAction} className="grid gap-3 sm:grid-cols-2">
+      {status ? <input type="hidden" name="status" value={status} /> : null}
       <div className="grid gap-1 sm:col-span-2">
         <Label htmlFor="prospect-company">Société</Label>
         <Input
