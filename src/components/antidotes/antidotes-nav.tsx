@@ -33,21 +33,25 @@ export function AntidotesNav() {
   const pathname = usePathname();
   const settledSection = sectionOf(pathname) ?? "outbound";
   const { active: activeSection, select: selectSection } = useOptimisticPill(settledSection);
-  const sections = usePillIndicator<HTMLUListElement>(activeSection);
+  // Destructurés à l'appel : le lint des refs refuse qu'un objet qui porte
+  // une ref soit lu pendant le rendu, même pour en tirer une largeur.
+  const { listRef: sectionsRef, box: sectionsBox, measured: sectionsMeasured } =
+    usePillIndicator<HTMLUListElement>(activeSection);
 
   const settledPage =
     OUTBOUND_PAGES.find((page) => pathname === page.href || pathname.startsWith(`${page.href}/`))?.key ?? "";
   const { active: activePage, select: selectPage } = useOptimisticPill(settledPage);
-  const pages = usePillIndicator<HTMLUListElement>(activePage);
+  const { listRef: pagesRef, box: pagesBox, measured: pagesMeasured } =
+    usePillIndicator<HTMLUListElement>(activePage);
 
   return (
     <div className="flex min-w-0 flex-col gap-3">
       <nav aria-label="Versants de la prospection">
         <ul
-          ref={sections.listRef}
+          ref={sectionsRef}
           className="relative inline-flex items-center gap-1 rounded-pill bg-surface-sunken p-1"
         >
-          <PillIndicator box={sections.box} />
+          <PillIndicator box={sectionsBox} />
           {ANTIDOTES_SECTIONS.map((section) => {
             const current = activeSection === section.key;
             return (
@@ -59,7 +63,7 @@ export function AntidotesNav() {
                   className={cn(
                     "type-caption focus-visible:ring-ring relative block rounded-pill px-3.5 py-1.5 font-medium transition-colors duration-(--motion-duration) ease-standard focus-visible:ring-2 focus-visible:outline-none",
                     current
-                      ? cn("text-primary-foreground", !sections.measured && "bg-primary")
+                      ? cn("text-primary-foreground", !sectionsMeasured && "bg-primary")
                       : "text-text-secondary hover:text-text-primary",
                   )}
                 >
@@ -74,8 +78,8 @@ export function AntidotesNav() {
 
       {activeSection === "outbound" ? (
         <nav aria-label="Pages de l'outbound" className="border-b border-border">
-          <ul ref={pages.listRef} className="relative -mb-px flex items-center gap-1">
-            <PillIndicator box={pages.box} variant="underline" />
+          <ul ref={pagesRef} className="relative -mb-px flex items-center gap-1">
+            <PillIndicator box={pagesBox} variant="underline" />
             {OUTBOUND_PAGES.map((page) => {
               const current = activePage === page.key;
               return (
@@ -87,7 +91,7 @@ export function AntidotesNav() {
                     className={cn(
                       "type-label focus-visible:ring-ring relative block px-3 py-2 transition-colors duration-(--motion-duration) ease-standard focus-visible:ring-2 focus-visible:outline-none",
                       current
-                        ? cn("text-text-primary", !pages.measured && "border-b-2 border-text-primary")
+                        ? cn("text-text-primary", !pagesMeasured && "border-b-2 border-text-primary")
                         : "text-text-secondary hover:text-text-primary",
                     )}
                   >
