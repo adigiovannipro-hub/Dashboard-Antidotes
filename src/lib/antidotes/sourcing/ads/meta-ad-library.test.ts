@@ -10,6 +10,17 @@ describe("adLibraryUrl", () => {
     expect(url.searchParams.get("ad_active_status")).toBe("ACTIVE");
     expect(url.searchParams.get("ad_reached_countries")).toBe('["FR"]');
     expect(url.searchParams.get("search_terms")).toBe("Optique Saint-Jean");
+    expect(url.searchParams.get("search_page_ids")).toBeNull();
+  });
+
+  it("cherche par page, et plus par nom, quand la Bibliothèque en désigne une", () => {
+    const url = new URL(
+      adLibraryUrl({ company_name: "Optique Saint-Jean", country: "BE", token: "t", page_id: "123" }),
+    );
+    expect(url.searchParams.get("search_page_ids")).toBe('["123"]');
+    expect(url.searchParams.get("search_terms")).toBeNull();
+    expect(url.searchParams.get("search_type")).toBeNull();
+    expect(url.searchParams.get("ad_reached_countries")).toBe('["BE"]');
   });
 });
 

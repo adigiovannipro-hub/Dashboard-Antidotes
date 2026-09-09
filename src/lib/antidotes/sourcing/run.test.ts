@@ -201,6 +201,53 @@ describe("runCampaign", () => {
     expect(memory.campaigns.get("camp-1")?.stats?.email_valid).toBe(1);
   });
 
+  it("vérifie les publicités sur le pays et la page de la Bibliothèque collée, quand elle se lit", async () => {
+    const asked: { country: string; page_id?: string | null }[] = [];
+    const memory = memoryStore();
+    await runCampaign({
+      store: memory.store,
+      providers: providers({
+        engines: { maps: async () => [company("Optique A")] },
+        ads: async ({ country, page_id }) => {
+          asked.push({ country, page_id });
+          return { active: true, last_seen_at: null };
+        },
+      }),
+      campaign: {
+        ...campaign,
+        source_params: {
+          ...campaign.source_params,
+          ad_library_url: "https://www.facebook.com/ads/library/?country=BE&q=opticien&view_all_page_id=42",
+        },
+      },
+      run,
+      now: clock(),
+      deadline: later,
+    });
+    expect(asked).toEqual([{ country: "BE", page_id: "42" }]);
+
+    // Une URL qui ne se lit pas ne change rien : le pays de la société, sans page.
+    asked.length = 0;
+    await runCampaign({
+      store: memoryStore().store,
+      providers: providers({
+        engines: { maps: async () => [company("Optique A")] },
+        ads: async ({ country, page_id }) => {
+          asked.push({ country, page_id });
+          return { active: true, last_seen_at: null };
+        },
+      }),
+      campaign: {
+        ...campaign,
+        source_params: { ...campaign.source_params, ad_library_url: "https://www.facebook.com/bondet" },
+      },
+      run,
+      now: clock(),
+      deadline: later,
+    });
+    expect(asked).toEqual([{ country: "FR", page_id: null }]);
+  });
+
   it("envoie en revue quand les publicités ne peuvent pas être vérifiées", async () => {
     const memory = memoryStore();
     const report = await runCampaign({

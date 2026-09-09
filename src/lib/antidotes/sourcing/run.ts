@@ -30,6 +30,7 @@ import type {
   RunStats,
   Seniority,
 } from "../types";
+import { parseAdLibraryUrl } from "./ad-library-url";
 import { campaignReadiness, resolveCampaignConfig, type ResolvedCampaignConfig } from "./config";
 import { pickDecisionMaker, type PersonCandidate } from "./decision-maker";
 import { findEmail } from "./email/cascade";
@@ -205,11 +206,19 @@ async function admitCompany(input: {
 
   // Les publicités ne se vérifient que si le filtre les regarde : chaque
   // appel compte, et « bonus » ou « non » n'en ont pas besoin pour trancher.
+  // La Bibliothèque collée dans la campagne, quand elle se lit, dit sur quel
+  // marché regarder — son pays passe avant celui de la source — et, si elle
+  // désigne une page, laquelle.
   let ads: boolean | null = null;
   let adsSeenAt: string | null = null;
   if (config.filters.require_ads !== false) {
     if (providers.ads) {
-      const verdict = await providers.ads({ company_name: company.company_name, country });
+      const adLibrary = config.source.ad_library_url ? parseAdLibraryUrl(config.source.ad_library_url) : null;
+      const verdict = await providers.ads({
+        company_name: company.company_name,
+        country: adLibrary?.country ?? country,
+        page_id: adLibrary?.pageId ?? null,
+      });
       if (verdict) {
         ads = verdict.active;
         adsSeenAt = verdict.active ? (verdict.last_seen_at ?? isoNow(now)) : null;

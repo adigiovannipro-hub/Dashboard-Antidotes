@@ -146,10 +146,13 @@ const saveInput = z.object({
   country: z.string().trim().max(2).toUpperCase(),
   trafficMin: optionalNumber(0, 100_000_000),
   trafficMax: optionalNumber(0, 100_000_000),
+  adLibraryUrl: z.string().trim().max(2000, "L'URL de la Bibliothèque est trop longue."),
   // Filtres
   sizeTolerance: requiredNumber(10, 100, 40),
   requireAds: z.enum(["oui", "non", "bonus"]),
-  countries: z.string().max(200),
+  // Les cases cochées ; ce qui n'est pas un code alpha-2 est filtré plus bas
+  // plutôt que de faire échouer l'enregistrement entier.
+  countries: z.array(z.string().trim().max(10)).max(60),
   minRating: requiredNumber(0, 5, 4),
   referenceSector: z.string().trim().max(120),
   referenceSize: optionalNumber(0, 100_000_000),
@@ -188,9 +191,11 @@ export async function saveCampaign(
     country: formValue(formData, "country") || "FR",
     trafficMin: formValue(formData, "trafficMin"),
     trafficMax: formValue(formData, "trafficMax"),
+    adLibraryUrl: formValue(formData, "adLibraryUrl"),
     sizeTolerance: formValue(formData, "sizeTolerance"),
     requireAds: formValue(formData, "requireAds") || "oui",
-    countries: formValue(formData, "countries"),
+    // Une case par pays : toutes les valeurs cochées, pas la première.
+    countries: formData.getAll("countries").map((value) => String(value)),
     minRating: formValue(formData, "minRating"),
     referenceSector: formValue(formData, "referenceSector"),
     referenceSize: formValue(formData, "referenceSize"),
@@ -207,9 +212,9 @@ export async function saveCampaign(
   if (!parsed.success) return firstIssue(parsed.error, "Saisie invalide.");
   const input = parsed.data;
 
-  const countries = listOf(input.countries)
-    .map((code) => code.toUpperCase())
-    .filter((code) => /^[A-Z]{2}$/.test(code));
+  const countries = [
+    ...new Set(input.countries.map((code) => code.toUpperCase()).filter((code) => /^[A-Z]{2}$/.test(code))),
+  ];
 
   const source_params: CampaignSourceParams = {
     keywords: listOf(input.keywords),
@@ -220,6 +225,9 @@ export async function saveCampaign(
     country: /^[A-Z]{2}$/.test(input.country) ? input.country : "FR",
     traffic_min: input.trafficMin,
     traffic_max: input.trafficMax,
+    // L'URL est gardée même si elle ne se lit pas : l'écran le dit à côté du
+    // champ, et le passage ne s'en sert que lorsqu'elle se lit.
+    ad_library_url: input.adLibraryUrl || null,
   };
 
   const filters: CampaignFilters = {

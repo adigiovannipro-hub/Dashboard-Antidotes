@@ -45,7 +45,12 @@ export type SourcingEngine = (params: ResolvedSourceParams) => Promise<SourcedCo
 /** `null` : impossible de savoir — jeton absent, refus, plafond. */
 export type AdsVerdict = { active: boolean; last_seen_at: string | null } | null;
 
-export type AdsChecker = (input: { company_name: string; country: string }) => Promise<AdsVerdict>;
+export type AdsChecker = (input: {
+  company_name: string;
+  country: string;
+  /** Une page d'annonceur désignée par la Bibliothèque collée : la recherche se fait par page, plus par nom. */
+  page_id?: string | null;
+}) => Promise<AdsVerdict>;
 
 export type DiscoveryInput = {
   company_name: string;

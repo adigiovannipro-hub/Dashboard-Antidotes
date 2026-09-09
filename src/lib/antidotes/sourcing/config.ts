@@ -92,6 +92,8 @@ export type ResolvedSourceParams = {
   country: string;
   traffic_min: number | null;
   traffic_max: number | null;
+  /** L'URL collée telle quelle ; `ad-library-url.ts` la lit au moment de vérifier les publicités. */
+  ad_library_url: string | null;
 };
 
 export type ResolvedCampaignConfig = {
@@ -209,6 +211,7 @@ export function resolveSourceParams(
     country: (typeof raw.country === "string" ? raw.country.trim().toUpperCase() : "") || "FR",
     traffic_min: nullableNumber(raw.traffic_min),
     traffic_max: nullableNumber(raw.traffic_max),
+    ad_library_url: (typeof raw.ad_library_url === "string" ? raw.ad_library_url.trim() : "") || null,
   };
 }
 
@@ -227,6 +230,8 @@ export function resolveCampaignConfig(
 /**
  * Ce qui manque pour qu'une campagne puisse tourner. Vide : elle peut partir.
  * L'écran l'affiche à côté du bouton, le passage refuse de démarrer sans.
+ * La Bibliothèque publicitaire n'en fait pas partie : sans elle, les
+ * publicités se vérifient sur le pays de la source, comme avant.
  */
 export function campaignReadiness(config: ResolvedCampaignConfig): string[] {
   const missing: string[] = [];
