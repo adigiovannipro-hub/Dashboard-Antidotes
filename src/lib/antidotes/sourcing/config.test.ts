@@ -101,7 +101,29 @@ describe("resolveFilters", () => {
   });
 });
 
+describe("resolveSourceParams", () => {
+  it("garde l'URL de la Bibliothèque publicitaire, et la rend nulle quand elle est vide", () => {
+    expect(resolveCampaignConfig(campaign()).source.ad_library_url).toBeNull();
+    expect(
+      resolveCampaignConfig(campaign({ source_params: { ad_library_url: "  " } })).source.ad_library_url,
+    ).toBeNull();
+    expect(
+      resolveCampaignConfig(
+        campaign({ source_params: { ad_library_url: " https://www.facebook.com/ads/library/?country=FR " } }),
+      ).source.ad_library_url,
+    ).toBe("https://www.facebook.com/ads/library/?country=FR");
+  });
+});
+
 describe("campaignReadiness", () => {
+  it("ne réclame jamais la Bibliothèque publicitaire pour partir", () => {
+    const config = resolveCampaignConfig(
+      campaign({ source_params: { keywords: ["opticien"], cities: ["Lyon"] } }),
+    );
+    expect(config.source.ad_library_url).toBeNull();
+    expect(campaignReadiness(config)).toEqual([]);
+  });
+
   it("nomme ce qui manque à une campagne Maps", () => {
     expect(campaignReadiness(resolveCampaignConfig(campaign()))).toEqual([
       "au moins un mot-clé métier",
