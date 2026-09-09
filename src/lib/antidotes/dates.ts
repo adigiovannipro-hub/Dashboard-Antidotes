@@ -60,3 +60,36 @@ export function formatDate(iso: string | null): string {
   if (Number.isNaN(date.getTime())) return "—";
   return DATE.format(date);
 }
+
+const DAY_KEY = new Intl.DateTimeFormat("fr-CA", {
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  timeZone: "Europe/Paris",
+});
+
+/**
+ * Vrai quand le geste prévu tombe aujourd'hui ou avant — jour civil de
+ * Paris, celui des fenêtres d'envoi. Un envoi de ce soir est « dû » dès le
+ * matin : c'est la journée qu'on regarde, pas l'heure.
+ */
+export function isDue(iso: string | null, now: Date = new Date()): boolean {
+  if (!iso) return false;
+  const then = new Date(iso);
+  if (Number.isNaN(then.getTime())) return false;
+  return DAY_KEY.format(then) <= DAY_KEY.format(now);
+}
+
+const SHORT_DAY = new Intl.DateTimeFormat("fr-FR", {
+  day: "numeric",
+  month: "short",
+  timeZone: "Europe/Paris",
+});
+
+/** « 12 sept. » — la pastille de date d'une carte, sans l'année. */
+export function formatShortDay(iso: string | null): string {
+  if (!iso) return "—";
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "—";
+  return SHORT_DAY.format(date);
+}

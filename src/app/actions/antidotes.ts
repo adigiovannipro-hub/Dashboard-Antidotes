@@ -97,6 +97,8 @@ const createProspectInput = z.object({
     .refine((value) => value === null || /^[A-Z]{2}$/.test(value), {
       message: "Le pays est un code à deux lettres (FR, BE…).",
     }),
+  /* Le « + » d'une colonne du kanban crée directement dedans. */
+  status: z.string().refine(isProspectStatus, { message: "Statut inconnu." }),
 });
 
 export async function createProspect(
@@ -109,6 +111,7 @@ export async function createProspect(
     city: formValue(formData, "city"),
     sector: formValue(formData, "sector"),
     country: formValue(formData, "country"),
+    status: formValue(formData, "status") || "to_qualify",
   });
   if (!parsed.success) return firstIssue(parsed.error, "Saisie invalide.");
 
@@ -127,7 +130,7 @@ export async function createProspect(
         city: parsed.data.city,
         sector: parsed.data.sector,
         country: parsed.data.country,
-        status: "to_qualify",
+        status: parsed.data.status as ProspectStatus,
         score: 0,
       })
       .select("id")
@@ -209,6 +212,98 @@ export async function updateProspectNotes(input: {
       .select("id");
     if (error) throw new Error(error.message);
     if ((data ?? []).length === 0) throw new Error("Prospect introuvable.");
+
+    revalidatePath(PIPELINE_PATH);
+    return OK;
+  } catch (error) {
+    return fail(error);
+  }
+}
+
+// --- Fiche ---------------------------------------------------------------------
+
+const updateProspectInput = z.object({
+  prospectId: z.uuid(),
+  companyName: z
+    .string()
+    .trim()
+    .min(1, "Le nom de la société est requis.")
+    .max(200, "200 caractères au plus.")
+    .optional(),
+  website: optionalText(300).optional(),
+  city: optionalText(120).optional(),
+  sector: optionalText(120).optional(),
+  country: z
+    .string()
+    .trim()
+    .toUpperCase()
+    .transform((value) => (value.length > 0 ? value : null))
+    .refine((value) => value === null || /^[A-Z]{2}$/.test(value), {
+      message: "Le pays est un code à deux lettres (FR, BE…).",
+    })
+    .optional(),
+  referenceClient: optionalText(120).optional(),
+  /* Une chaîne vide retire le prospect de sa campagne. */
+  campaignId: z
+    .string()
+    .transform((value) => (value.length > 0 ? value : null))
+    .refine((value) => value === null || z.uuid().safeParse(value).success, {
+      message: "Campagne inconnue.",
+    })
+    .optional(),
+});
+
+export type ProspectPatch = Omit<z.input<typeof updateProspectInput>, "prospectId">;
+
+/**
+ * Un champ de la fiche, modifié en place au blur du panneau. Seuls les
+ * champs présents sont écrits ; le score suit, parce que le secteur et la
+ * campagne entrent dans sa formule — il reste calculé, jamais saisi.
+ */
+export async function updateProspect(input: {
+  prospectId: string;
+  patch: ProspectPatch;
+}): Promise<AntidotesResult> {
+  const parsed = updateProspectInput.safeParse({ prospectId: input.prospectId, ...input.patch });
+  if (!parsed.success) return firstIssue(parsed.error, "Saisie invalide.");
+
+  try {
+    const { orgId } = await guardOwner();
+    const supabase = await createClient();
+    const { prospectId, ...fields } = parsed.data;
+
+    const patch: Record<string, string | null> = {};
+    if (fields.companyName !== undefined) patch.company_name = fields.companyName;
+    if (fields.website !== undefined) patch.website = normalizeWebsite(fields.website);
+    if (fields.city !== undefined) patch.city = fields.city;
+    if (fields.sector !== undefined) patch.sector = fields.sector;
+    if (fields.country !== undefined) patch.country = fields.country;
+    if (fields.referenceClient !== undefined) patch.reference_client = fields.referenceClient;
+    if (fields.campaignId !== undefined) {
+      if (fields.campaignId) {
+        // La campagne doit être à nous : la clé étrangère ne regarde pas l'org.
+        const { data: campaign } = await supabase
+          .from("antidotes_campaigns")
+          .select("id")
+          .eq("org_id", orgId)
+          .eq("id", fields.campaignId)
+          .maybeSingle();
+        if (!campaign) throw new Error("Campagne introuvable.");
+      }
+      patch.campaign_id = fields.campaignId;
+    }
+    if (Object.keys(patch).length === 0) return OK;
+
+    const { data, error } = await supabase
+      .from("antidotes_prospects")
+      .update(patch as never)
+      .eq("org_id", orgId)
+      .eq("id", prospectId)
+      .select("id");
+    if (error) throw new Error(error.message);
+    if ((data ?? []).length === 0) throw new Error("Prospect introuvable.");
+
+    await refreshProspectScore(supabase, { orgId, prospectId });
 
     revalidatePath(PIPELINE_PATH);
     return OK;

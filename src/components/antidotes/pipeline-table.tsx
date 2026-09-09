@@ -7,9 +7,11 @@ import { toast } from "sonner";
 import { moveProspects } from "@/app/actions/antidotes";
 import { NativeSelect } from "@/components/antidotes/controls";
 import { EnrollDialog } from "@/components/antidotes/enroll-dialog";
+import { CampaignChip, ScoreFlag } from "@/components/antidotes/pipeline-chips";
 import { PendingLabel } from "@/components/ds/pending-label";
 import { StatusPill } from "@/components/ds/status-pill";
 import { Button } from "@/components/ui/button";
+import { PROSPECT_STATUS_TONES } from "@/lib/antidotes/colors";
 import { relativeDays } from "@/lib/antidotes/dates";
 import type { SequenceOption } from "@/lib/antidotes/sequences/queries";
 import {
@@ -32,10 +34,23 @@ import { cn } from "@/lib/utils";
  * l'action de masse partie.
  */
 
-type SortKey = "company" | "city" | "sector" | "country" | "status" | "score" | "contact";
+type SortKey =
+  | "company"
+  | "campaign"
+  | "city"
+  | "sector"
+  | "country"
+  | "status"
+  | "score"
+  | "contact";
 
 const GRID =
-  "grid grid-cols-[28px_minmax(180px,1.6fr)_minmax(110px,1fr)_minmax(120px,1fr)_56px_minmax(120px,1fr)_72px_minmax(110px,1fr)_minmax(150px,1.2fr)] items-center gap-x-2";
+  "grid grid-cols-[28px_minmax(180px,1.6fr)_minmax(140px,1.1fr)_minmax(110px,1fr)_minmax(120px,1fr)_56px_minmax(120px,1fr)_80px_minmax(110px,1fr)_minmax(150px,1.2fr)] items-center gap-x-2";
+
+/** L'origine d'un prospect, telle que la colonne Campagne la trie. */
+function originOf(row: PipelineProspect): string {
+  return row.campaign_name ?? (row.reference_client ? `Miroir de ${row.reference_client}` : "");
+}
 
 const collator = new Intl.Collator("fr");
 
@@ -61,6 +76,8 @@ export function PipelineTable({
       switch (sort.key) {
         case "company":
           return collator.compare(a.company_name, b.company_name) * factor;
+        case "campaign":
+          return collator.compare(originOf(a), originOf(b)) * factor;
         case "city":
           return collator.compare(text(a.city), text(b.city)) * factor;
         case "sector":
@@ -192,7 +209,7 @@ export function PipelineTable({
       ) : null}
 
       <div className="overflow-x-auto rounded-lg border border-border bg-surface shadow-card">
-        <div className="min-w-[1080px]">
+        <div className="min-w-[1200px]">
           <div className={cn(GRID, "border-b border-border-strong bg-surface-sunken px-2 py-1")}>
             <span className="flex justify-center">
               <input
@@ -204,6 +221,7 @@ export function PipelineTable({
               />
             </span>
             {header("company", "Société")}
+            {header("campaign", "Campagne")}
             {header("city", "Ville")}
             {header("sector", "Secteur")}
             {header("country", "Pays")}
@@ -244,6 +262,17 @@ export function PipelineTable({
                   </span>
                   {row.ads_active ? <StatusPill tone="positive">Pubs</StatusPill> : null}
                 </button>
+                <span className="flex min-w-0 px-1.5">
+                  {originOf(row) ? (
+                    <CampaignChip
+                      campaignId={row.campaign_id}
+                      campaignName={row.campaign_name}
+                      referenceClient={row.reference_client}
+                    />
+                  ) : (
+                    <span className="type-caption text-text-secondary">—</span>
+                  )}
+                </span>
                 <span className="type-caption truncate px-1.5 text-text-secondary">
                   {row.city ?? "—"}
                 </span>
@@ -254,10 +283,12 @@ export function PipelineTable({
                   {row.country ?? "—"}
                 </span>
                 <span className="px-1.5">
-                  <StatusPill tone="neutral">{PROSPECT_STATUS_LABELS[row.status]}</StatusPill>
+                  <StatusPill tone={PROSPECT_STATUS_TONES[row.status]}>
+                    {PROSPECT_STATUS_LABELS[row.status]}
+                  </StatusPill>
                 </span>
-                <span className="type-label px-1.5 text-right text-text-primary tabular-nums">
-                  {row.score}
+                <span className="flex justify-end px-1.5">
+                  <ScoreFlag score={row.score} />
                 </span>
                 <span className="type-caption px-1.5 text-text-secondary">
                   {row.last_contact_at ? relativeDays(row.last_contact_at) : "—"}

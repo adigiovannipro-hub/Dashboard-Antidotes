@@ -45,34 +45,76 @@ export async function listPipelineProspects(options: {
 }): Promise<{ prospects: PipelineProspect[]; facets: PipelineFacets }> {
   const supabase = await createClient();
 
-  const [{ data: prospects }, { data: contacts }, { data: campaigns }] =
-    await Promise.all([
-      supabase
-        .from("antidotes_prospects")
-        .select("*")
-        .eq("org_id", options.orgId)
-        .order("updated_at", { ascending: false })
-        .limit(options.limit ?? 1000),
-      supabase
-        .from("antidotes_contacts")
-        .select("*")
-        .eq("org_id", options.orgId)
-        .order("is_primary", { ascending: false })
-        .order("created_at", { ascending: true })
-        .limit(5000),
-      supabase
-        .from("antidotes_campaigns")
-        .select("id, name")
-        .eq("org_id", options.orgId)
-        .order("name", { ascending: true })
-        .limit(200),
-    ]);
+  // Le journal et les inscriptions ne voyagent pas entiers : une colonne
+  // chacun, comptés et réduits en mémoire. Plafond à 5 000 lignes — au-delà,
+  // un compteur de carte pourrait sous-compter, jamais casser l'écran ; le
+  // journal complet se lit au panneau, prospect par prospect.
+  const [
+    { data: prospects },
+    { data: contacts },
+    { data: campaigns },
+    { data: interactions },
+    { data: enrollments },
+  ] = await Promise.all([
+    supabase
+      .from("antidotes_prospects")
+      .select("*")
+      .eq("org_id", options.orgId)
+      .order("updated_at", { ascending: false })
+      .limit(options.limit ?? 1000),
+    supabase
+      .from("antidotes_contacts")
+      .select("*")
+      .eq("org_id", options.orgId)
+      .order("is_primary", { ascending: false })
+      .order("created_at", { ascending: true })
+      .limit(5000),
+    supabase
+      .from("antidotes_campaigns")
+      .select("id, name")
+      .eq("org_id", options.orgId)
+      .order("name", { ascending: true })
+      .limit(200),
+    supabase
+      .from("antidotes_interactions")
+      .select("prospect_id")
+      .eq("org_id", options.orgId)
+      .limit(5000),
+    supabase
+      .from("antidotes_sequence_enrollments")
+      .select("contact_id, next_send_at")
+      .eq("org_id", options.orgId)
+      .eq("status", "active")
+      .not("next_send_at", "is", null)
+      .limit(5000),
+  ]);
 
   const contactsByProspect = new Map<string, Contact[]>();
+  const prospectOfContact = new Map<string, string>();
   for (const contact of (contacts ?? []) as unknown as Contact[]) {
     const list = contactsByProspect.get(contact.prospect_id) ?? [];
     list.push(contact);
     contactsByProspect.set(contact.prospect_id, list);
+    prospectOfContact.set(contact.id, contact.prospect_id);
+  }
+
+  const journalCount = new Map<string, number>();
+  for (const row of (interactions ?? []) as unknown as { prospect_id: string }[]) {
+    journalCount.set(row.prospect_id, (journalCount.get(row.prospect_id) ?? 0) + 1);
+  }
+
+  // Le prochain geste d'un prospect : le plus proche des envois planifiés
+  // sur ses contacts — une inscription par contact, un prospect peut en
+  // avoir plusieurs.
+  const nextSend = new Map<string, string>();
+  for (const row of (enrollments ?? []) as unknown as {
+    contact_id: string;
+    next_send_at: string;
+  }[]) {
+    const prospectId = prospectOfContact.get(row.contact_id);
+    if (!prospectId) continue;
+    const current = nextSend.get(prospectId);
+    if (!current || row.next_send_at < current) nextSend.set(prospectId, row.next_send_at);
   }
 
   const campaignRows = (campaigns ?? []) as unknown as { id: string; name: string }[];
@@ -85,6 +127,8 @@ export async function listPipelineProspects(options: {
       campaign_name: prospect.campaign_id
         ? (campaignName.get(prospect.campaign_id) ?? null)
         : null,
+      journal_count: journalCount.get(prospect.id) ?? 0,
+      next_send_at: nextSend.get(prospect.id) ?? null,
     }),
   );
 
@@ -170,13 +214,21 @@ export async function getProspectDetail(options: {
     campaignName = (campaign as unknown as { name: string } | null)?.name ?? null;
   }
 
+  const journal = (interactions ?? []) as unknown as Interaction[];
+  const nextSendAt = enrollments
+    .filter(({ enrollment }) => enrollment.status === "active" && enrollment.next_send_at)
+    .map(({ enrollment }) => enrollment.next_send_at as string)
+    .sort()[0] ?? null;
+
   return {
     prospect: {
       ...row,
       contacts: (contacts ?? []) as unknown as Contact[],
       campaign_name: campaignName,
+      journal_count: journal.length,
+      next_send_at: nextSendAt,
     },
-    interactions: (interactions ?? []) as unknown as Interaction[],
+    interactions: journal,
     enrollments,
   };
 }

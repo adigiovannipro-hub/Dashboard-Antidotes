@@ -679,6 +679,8 @@ export type CaseStudy = {
 export type PipelineProspect = Prospect & {
   contacts: Contact[];
   campaign_name: string | null;
+  journal_count: number;
+  next_send_at: string | null;
 };
 
 /** Le nom complet d'un contact, ou son adresse, ou un tiret. */

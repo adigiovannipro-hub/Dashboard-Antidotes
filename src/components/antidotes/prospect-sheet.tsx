@@ -22,11 +22,14 @@ import {
   addContact,
   addInteraction,
   moveProspects,
+  updateProspect,
   updateProspectNotes,
   type AntidotesResult,
+  type ProspectPatch,
 } from "@/app/actions/antidotes";
 import { NativeSelect, TextArea } from "@/components/antidotes/controls";
 import { EnrollDialog } from "@/components/antidotes/enroll-dialog";
+import { CampaignDot, ScoreFlag } from "@/components/antidotes/pipeline-chips";
 import { PendingLabel } from "@/components/ds/pending-label";
 import { StatusPill, type StatusTone } from "@/components/ds/status-pill";
 import { Button } from "@/components/ui/button";
@@ -41,7 +44,11 @@ import {
 } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatDate, formatDateTime, relativeDays } from "@/lib/antidotes/dates";
-import type { ProspectDetail, ProspectEnrollmentSummary } from "@/lib/antidotes/queries";
+import type {
+  PipelineFacets,
+  ProspectDetail,
+  ProspectEnrollmentSummary,
+} from "@/lib/antidotes/queries";
 import type { SequenceOption } from "@/lib/antidotes/sequences/queries";
 import {
   DISCOVERY_SOURCE_LABELS,
@@ -81,6 +88,7 @@ export function ProspectSheet({
   loading,
   onClose,
   sequences,
+  campaigns,
 }: {
   open: boolean;
   /** Le prospect tel que la liste le connaît — l'en-tête, tout de suite. */
@@ -91,6 +99,8 @@ export function ProspectSheet({
   onClose: () => void;
   /** Les séquences où inscrire ce prospect. */
   sequences: SequenceOption[];
+  /** Les campagnes de l'organisation, pour le sélecteur de la fiche. */
+  campaigns: PipelineFacets["campaigns"];
 }) {
   const prospect = detail?.prospect ?? fallback;
 
@@ -103,6 +113,7 @@ export function ProspectSheet({
             interactions={detail?.interactions ?? null}
             enrollments={detail?.enrollments ?? null}
             sequences={sequences}
+            campaigns={campaigns}
           />
         ) : null}
       </SheetContent>
@@ -115,12 +126,14 @@ function ProspectPanel({
   interactions,
   enrollments,
   sequences,
+  campaigns,
 }: {
   prospect: PipelineProspect;
   /** `null` : le journal arrive encore — le panneau, lui, est déjà là. */
   interactions: Interaction[] | null;
   enrollments: ProspectEnrollmentSummary[] | null;
   sequences: SequenceOption[];
+  campaigns: PipelineFacets["campaigns"];
 }) {
   const place = [prospect.city, prospect.country].filter(Boolean).join(", ");
 
@@ -149,7 +162,7 @@ function ProspectPanel({
         </SheetDescription>
         <div className="mt-2 flex flex-wrap items-center gap-3">
           <StatusSelect prospectId={prospect.id} status={prospect.status} />
-          <span className="type-label text-text-primary tabular-nums">Score {prospect.score}</span>
+          <ScoreFlag score={prospect.score} />
           <span className="type-caption text-text-secondary">
             {prospect.last_contact_at
               ? `Dernier contact ${relativeDays(prospect.last_contact_at)}`
@@ -159,7 +172,7 @@ function ProspectPanel({
       </SheetHeader>
 
       <div className="min-h-0 flex-1 space-y-6 overflow-y-auto p-4">
-        <Facts prospect={prospect} />
+        <Facts prospect={prospect} campaigns={campaigns} />
         <Contacts prospect={prospect} sequences={sequences} enrollments={enrollments} />
         <Notes prospectId={prospect.id} notes={prospect.notes} />
         <Timeline prospect={prospect} interactions={interactions} />
@@ -220,30 +233,251 @@ function StatusSelect({ prospectId, status }: { prospectId: string; status: Pros
 
 // --- Fiche -----------------------------------------------------------------------
 
-function Facts({ prospect }: { prospect: PipelineProspect }) {
+/**
+ * La fiche : ce qu'on sait de la société, modifiable en place. Chaque champ
+ * texte s'enregistre au blur, la campagne au changement ; le score, lui,
+ * n'a pas de champ — il se recalcule derrière chaque enregistrement.
+ */
+function Facts({
+  prospect,
+  campaigns,
+}: {
+  prospect: PipelineProspect;
+  campaigns: PipelineFacets["campaigns"];
+}) {
   const size = Object.entries(prospect.size_signal ?? {})
     .filter(([, value]) => typeof value === "number")
     .map(([key, value]) => `${SIZE_LABELS[key] ?? key} ${new Intl.NumberFormat("fr-FR").format(value as number)}`)
     .join(" · ");
 
-  const rows: [string, string | null][] = [
+  const readOnly: [string, string | null][] = [
     ["Source", PROSPECT_SOURCE_LABELS[prospect.source]],
-    ["Campagne", prospect.campaign_name],
-    ["Référence", prospect.reference_client],
     ["Taille", size || null],
     ["Pubs vues", prospect.ads_last_seen_at ? formatDate(prospect.ads_last_seen_at) : null],
     ["Ajouté", formatDate(prospect.created_at)],
   ];
 
   return (
-    <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5">
-      {rows.map(([label, value]) => (
-        <div key={label} className="contents">
-          <dt className="type-caption text-text-secondary">{label}</dt>
-          <dd className="type-caption text-text-primary">{value ?? "—"}</dd>
-        </div>
+    <dl className="grid grid-cols-[auto_1fr] items-center gap-x-4 gap-y-1">
+      <FactRow label="Société">
+        <InlineText
+          prospectId={prospect.id}
+          field="companyName"
+          label="Société"
+          value={prospect.company_name}
+          required
+          maxLength={200}
+        />
+      </FactRow>
+      <FactRow label="Site">
+        <InlineText
+          prospectId={prospect.id}
+          field="website"
+          label="Site"
+          value={prospect.website}
+          maxLength={300}
+          inputMode="url"
+          placeholder="exemple.fr"
+        />
+      </FactRow>
+      <FactRow label="Ville">
+        <InlineText
+          prospectId={prospect.id}
+          field="city"
+          label="Ville"
+          value={prospect.city}
+          maxLength={120}
+        />
+      </FactRow>
+      <FactRow label="Pays">
+        <InlineText
+          prospectId={prospect.id}
+          field="country"
+          label="Pays"
+          value={prospect.country}
+          maxLength={2}
+          placeholder="FR"
+          className="w-16 uppercase"
+        />
+      </FactRow>
+      <FactRow label="Secteur">
+        <InlineText
+          prospectId={prospect.id}
+          field="sector"
+          label="Secteur"
+          value={prospect.sector}
+          maxLength={120}
+        />
+      </FactRow>
+      <FactRow label="Campagne">
+        <CampaignSelect
+          prospectId={prospect.id}
+          campaignId={prospect.campaign_id}
+          campaigns={campaigns}
+        />
+      </FactRow>
+      <FactRow label="Référence">
+        <InlineText
+          prospectId={prospect.id}
+          field="referenceClient"
+          label="Référence"
+          value={prospect.reference_client}
+          maxLength={120}
+          placeholder="Client miroir"
+        />
+      </FactRow>
+      {readOnly.map(([label, value]) => (
+        <FactRow key={label} label={label}>
+          <span className="type-caption px-1.5 text-text-primary">{value ?? "—"}</span>
+        </FactRow>
       ))}
     </dl>
+  );
+}
+
+function FactRow({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="contents">
+      <dt className="type-caption text-text-secondary">{label}</dt>
+      <dd className="type-caption flex min-h-7 min-w-0 items-center text-text-primary">
+        {children}
+      </dd>
+    </div>
+  );
+}
+
+/* Un champ qui ne ressemble à un champ qu'au survol et au focus : la fiche
+   se lit comme une liste, et s'édite d'un clic. */
+const INLINE_FIELD =
+  "type-caption h-7 w-full min-w-0 rounded-sm border border-transparent bg-transparent px-1.5 text-text-primary outline-none transition-colors duration-(--motion-duration) ease-standard placeholder:text-text-tertiary hover:border-input focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/20 disabled:opacity-50";
+
+type TextField = Exclude<keyof ProspectPatch, "campaignId">;
+
+function InlineText({
+  prospectId,
+  field,
+  label,
+  value,
+  required,
+  className,
+  ...props
+}: {
+  prospectId: string;
+  field: TextField;
+  /** Le nom du champ pour le lecteur d'écran — le `dt` d'à côté n'y est pas relié. */
+  label: string;
+  value: string | null;
+  /** Vide refusé : on revient à la valeur enregistrée plutôt que d'effacer. */
+  required?: boolean;
+  className?: string;
+} & Pick<React.ComponentProps<"input">, "maxLength" | "inputMode" | "placeholder">) {
+  const [draft, setDraft] = useState(value ?? "");
+  const [committed, setCommitted] = useState(value ?? "");
+  const [pending, startTransition] = useTransition();
+  /* Échap abandonne : le blur qui suit ne doit pas enregistrer le brouillon. */
+  const cancelled = useRef(false);
+
+  // La ligne vient du serveur : une valeur changée ailleurs remplace la
+  // nôtre tant qu'on n'a pas commencé à écrire.
+  const [seen, setSeen] = useState(value ?? "");
+  if (seen !== (value ?? "")) {
+    setSeen(value ?? "");
+    if (draft === committed) setDraft(value ?? "");
+    setCommitted(value ?? "");
+  }
+
+  function commit() {
+    if (cancelled.current) {
+      cancelled.current = false;
+      setDraft(committed);
+      return;
+    }
+    const next = draft.trim();
+    if (next === committed || (required && next.length === 0)) {
+      setDraft(committed);
+      return;
+    }
+    startTransition(async () => {
+      const result = await updateProspect({ prospectId, patch: { [field]: next } as ProspectPatch });
+      if (result.ok) {
+        setCommitted(next);
+        setDraft(next);
+      } else {
+        setDraft(committed);
+        toast.error(result.error);
+      }
+    });
+  }
+
+  return (
+    <input
+      type="text"
+      aria-label={label}
+      value={draft}
+      disabled={pending}
+      onChange={(event) => setDraft(event.target.value)}
+      onBlur={commit}
+      onKeyDown={(event) => {
+        if (event.key === "Enter") event.currentTarget.blur();
+        if (event.key === "Escape") {
+          cancelled.current = true;
+          event.currentTarget.blur();
+        }
+      }}
+      className={cn(INLINE_FIELD, className)}
+      {...props}
+    />
+  );
+}
+
+function CampaignSelect({
+  prospectId,
+  campaignId,
+  campaigns,
+}: {
+  prospectId: string;
+  campaignId: string | null;
+  campaigns: PipelineFacets["campaigns"];
+}) {
+  const [current, setCurrent] = useState(campaignId ?? "");
+  const [pending, startTransition] = useTransition();
+
+  const [seen, setSeen] = useState(campaignId ?? "");
+  if (seen !== (campaignId ?? "")) {
+    setSeen(campaignId ?? "");
+    setCurrent(campaignId ?? "");
+  }
+
+  return (
+    <span className="flex min-w-0 items-center gap-2">
+      <CampaignDot campaignId={current || null} />
+      <NativeSelect
+        size="small"
+        aria-label="Campagne"
+        value={current}
+        disabled={pending}
+        onChange={(event) => {
+          const next = event.target.value;
+          const previous = current;
+          setCurrent(next);
+          startTransition(async () => {
+            const result = await updateProspect({ prospectId, patch: { campaignId: next } });
+            if (!result.ok) {
+              setCurrent(previous);
+              toast.error(result.error);
+            }
+          });
+        }}
+        className="h-7 min-w-0 flex-1"
+      >
+        <option value="">Aucune</option>
+        {campaigns.map((campaign) => (
+          <option key={campaign.id} value={campaign.id}>
+            {campaign.name}
+          </option>
+        ))}
+      </NativeSelect>
+    </span>
   );
 }
 
