@@ -6,6 +6,7 @@ import { StatusPill } from "@/components/ds/status-pill";
 import { AddInstallmentDialog } from "@/components/billing/add-installment-dialog";
 import { EditEngagementTrigger } from "@/components/billing/engagement-panel-triggers";
 import { EngagementActions } from "@/components/billing/engagement-actions";
+import { SummaryActions } from "@/components/billing/summary-actions";
 import {
   DeleteInstallmentButton,
   InstallmentAction,
@@ -114,9 +115,12 @@ const MONTH_GRID =
 
 /* La colonne d'état ouvre la ligne, à la même largeur que dans les groupes du
    board : l'œil descend une seule colonne d'étiquettes du haut de la page
-   jusqu'ici, au lieu de la chercher tantôt à gauche tantôt à droite. */
+   jusqu'ici, au lieu de la chercher tantôt à gauche tantôt à droite.
+   Cinquième colonne : les commandes du devis, remontées sur sa ligne — elles
+   attendaient en bas du détail déplié, donc invisibles tant qu'on n'avait pas
+   ouvert le devis pour les y chercher. */
 const ENGAGEMENT_GRID =
-  "md:grid md:grid-cols-[8.5rem_minmax(0,1fr)_auto_auto] md:items-center md:gap-x-4";
+  "md:grid md:grid-cols-[8.5rem_minmax(0,1fr)_auto_auto_auto] md:items-center md:gap-x-4";
 
 function EngagementDetails({
   engagement,
@@ -159,6 +163,22 @@ function EngagementDetails({
           {formatTotals(ttcTotalsOf(billable))}
         </span>
 
+        {/* Les deux portes du devis, sur sa ligne. Clore et supprimer restent
+            en bas du détail : ce sont des gestes que rien ne presse, et leurs
+            boutons soumettent un formulaire — ce que la garde de
+            `SummaryActions` ne peut pas laisser passer ici. */}
+        {canDecide ? (
+          <SummaryActions className="basis-full md:basis-auto md:justify-end">
+            <AddInstallmentDialog
+              engagementId={engagement.id}
+              clientName={engagement.client_name}
+            />
+            <EditEngagementTrigger engagement={engagement} />
+          </SummaryActions>
+        ) : (
+          <span />
+        )}
+
         <ChevronDown
           aria-hidden
           strokeWidth={1.75}
@@ -179,14 +199,7 @@ function EngagementDetails({
             {engagement.notes ? ` — ${engagement.notes}` : ""}
           </p>
           {canDecide ? (
-            <div className="flex flex-wrap items-center gap-2">
-              <AddInstallmentDialog
-                engagementId={engagement.id}
-                clientName={engagement.client_name}
-              />
-              <EditEngagementTrigger engagement={engagement} />
-              <EngagementActions engagementId={engagement.id} active={active} />
-            </div>
+            <EngagementActions engagementId={engagement.id} active={active} />
           ) : null}
         </div>
       </div>
