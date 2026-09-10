@@ -21,14 +21,15 @@ import { cn } from "@/lib/utils";
  * résolution, ils ne peuvent pas se contredire.
  *
  * Chaque part porte la **couleur de sa catégorie** — stable, dérivée du slug,
- * dans la gamme de la charte (verts, olive, doré, oranges — voir
- * `category-colors.ts`) : « Virements » garde sa teinte d'un mois à l'autre,
- * là où la couleur par rang repeignait tout au changement de filtre. Les
- * petites parts se replient dans « Autres » en gris, pour que le camembert
- * reste une silhouette lisible. La **liste** à droite montre toutes les
- * catégories avec leur total — c'est elle qui répond à « combien pour cette
- * catégorie ce mois-ci », et c'est elle qui porte l'identité pour de bon :
- * une gamme chaude resserrée ne sépare pas vert et orange pour tout le monde.
+ * dans la gamme de la charte (les verts de la rampe ordinale du Reporting,
+ * doré, oranges, terre — voir `category-colors.ts`) : « Virements » garde sa
+ * teinte d'un mois à l'autre, là où la couleur par rang repeignait tout au
+ * changement de filtre. Les petites parts se replient dans « Autres » en
+ * gris, pour que le camembert reste une silhouette lisible. La **liste** à
+ * droite montre toutes les catégories avec leur total — c'est elle qui répond
+ * à « combien pour cette catégorie ce mois-ci », et c'est elle qui porte
+ * l'identité pour de bon : une gamme chaude resserrée ne sépare pas vert et
+ * orange pour tout le monde.
  */
 
 const SIZE = 168;

@@ -10,30 +10,44 @@ import { slugifyCategoryName } from "./categories";
  * pour toutes — c'est la règle du design system (« la couleur suit l'entité,
  * jamais son rang »), et c'est ce qui rend deux mois comparables d'un regard.
  *
- * La gamme est celle de la charte : verts autour du vert de marque, olive,
- * doré, oranges — ni rose ni bleu, sur consigne. Validée au validateur de
- * palette sur les deux surfaces (≥ 2:1 partout, écart vision normale 19,2) ;
+ * **Les verts sont ceux de la rampe ordinale du Reporting** — les jetons
+ * `--ordinal-1/2/3` de l'histogramme des sources de trafic — et non des
+ * hexadécimaux à eux : deux gammes de verts voisines mais distinctes se
+ * lisaient comme un défaut d'impression d'un écran à l'autre. Le jeton fait
+ * foi, il porte aussi son inversion en mode sombre, ce qu'un hexadécimal
+ * figé ne sait pas faire. Un jeton passe partout où ces valeurs sont
+ * consommées : `style={{ backgroundColor }}` pour la pastille de la légende
+ * et l'attribut `stroke` du camembert, que le navigateur résout comme une
+ * propriété CSS (c'est déjà le cas d'`OTHER_COLOR` ci-dessous).
+ *
+ * Les chaleurs restent en dur : aucun jeton ne les porte, et la charte n'en
+ * déclare pas — les ajouter demanderait de toucher `globals.css`. Ni rose ni
+ * bleu, sur consigne. L'olive d'avant est partie : entre le vert de marque et
+ * le doré, elle ne séparait plus rien une fois les verts calés sur la rampe.
+ *
+ * Validée au validateur de palette sur les deux surfaces (≥ 2:1 partout) ;
  * une gamme chaude resserrée ne peut par nature pas séparer vert et orange
  * pour un daltonien deutan — c'est la **légende chiffrée complète**, toujours
  * rendue à côté du camembert, qui porte l'identité, jamais la couleur seule.
  */
 export const CATEGORY_PALETTE: readonly string[] = [
-  "#2e5c17", // vert profond
+  "var(--ordinal-1)", // vert de marque
   "#d9a520", // doré
-  "#5c9139", // vert de marque foncé
+  "var(--ordinal-3)", // vert profond
   "#c15818", // orange brûlé
-  "#a3b02c", // olive
+  "var(--ordinal-2)", // vert médian
   "#8a4a12", // terre
   "#e0912f", // ambre
-  "#3f7a2a", // vert feuille
 ];
 
 /**
  * Les sept catégories du plan par défaut reçoivent leur teinte **en dur**,
  * dispersée sur la gamme : le hachage les aurait laissées au hasard, avec
- * des collisions probables entre les sept. Une personnalisée passe par le
- * hachage — déterministe, donc la même couleur à chaque rendu, sur chaque
- * écran, sans colonne en base ni migration.
+ * des collisions probables entre les sept. Les rangs alternent vert et
+ * chaleur — deux parts voisines du camembert ne peuvent pas tomber sur deux
+ * pas de la même rampe. Une personnalisée passe par le hachage —
+ * déterministe, donc la même couleur à chaque rendu, sur chaque écran, sans
+ * colonne en base ni migration.
  */
 const FIXED_SLOTS: Record<string, number> = {
   virements: 0,
