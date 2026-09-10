@@ -691,7 +691,7 @@ const TOPICS: TopicSeed[] = [
 
 type DraftSeed = {
   key: string;
-  format?: "linkedin_post" | "reel_script";
+  format?: "linkedin_post" | "reel_script" | "youtube_script";
   /** Décalage en jours de la date de programmation ; absent, le brouillon n'a pas de date. */
   scheduled?: number;
   topic: string;
@@ -739,6 +739,12 @@ const DRAFTS: DraftSeed[] = [
     sourceKey: "lumen-1", status: "draft", days: -1, format: "reel_script",
     examples: [{ post: "un-an-outil", similarity: 0.61 }],
     content: "ACCROCHE (3 s) : Trois plans. Pas trente.\n\n1. La veille d'un tournage, je prépare trois plans. [face caméra]\n2. Le jour même, j'en jette un — celui qui marchait sur le papier. [plan serré sur un carnet]\n3. Ce qui reste tient debout parce que j'ai accepté de perdre le reste. [texte à l'écran : 3 plans, 1 idée]\n\nCHUTE : Un brief à deux coûte une heure. Un tournage raté coûte la journée.",
+  },
+  {
+    key: "budget-youtube", topic: "Ce que coûte vraiment une campagne à 20 € par jour",
+    sourceKey: "hugo-4", status: "draft", days: -3, format: "youtube_script", scheduled: 8,
+    examples: [{ post: "meta-tunnel", similarity: 0.66 }],
+    content: "TITRE : 20 € par jour pendant 90 jours, les vrais chiffres\n\nACCROCHE (15 s) : J'ai gardé le même budget pendant trois mois sans y toucher. Voilà ce que ça donne, ligne par ligne.\n\n1. Le point de départ [face caméra] — un compte neuf, une seule audience, une créa.\n2. Ce que la plateforme apprend les dix premiers jours [capture d'écran : coût par achat par jour] — le coût monte avant de descendre, et c'est normal.\n3. Le moment où j'ai failli tout arrêter [face caméra] — jour 14, 61 € le premier achat.\n4. Ce qui a changé au jour 30 [texte à l'écran : 61 € → 19 €].\n\nCONCLUSION : Un budget qui monte trop vite apprend mal. Laissez-lui trente jours avant de juger.",
   },
   {
     key: "agence-2027", topic: "Faut-il encore payer une agence en 2027 ?",
@@ -1075,8 +1081,10 @@ async function main() {
       );
     }
 
-    // Mes consignes de voix : sans elles, la vue Consignes s'ouvre vide et on
-    // ne voit pas ce qui change dans la génération.
+    // Mes consignes de voix : sans elles, la fenêtre Prompts s'ouvre vide et
+    // on ne voit pas ce qui change dans la génération. `prompts` reste vide :
+    // c'est **l'absence de retouche**, donc les prompts d'origine du code —
+    // y semer un texte ferait croire que le défaut est une saisie.
     await db.query(
       `insert into antidotes_inbound_settings (org_id, guidelines, linkedin_example, reel_example, email_example, thresholds)
        values ($1, $2, $3, $4, $5, $6::jsonb)
@@ -1101,7 +1109,7 @@ async function main() {
     console.log(`Mes posts           ${LIBRARY.length}`);
     console.log(`Comptes veillés     ${ACCOUNTS.length} · ${RADAR_POSTS.length} posts relevés`);
     console.log(`Sujets              ${TOPICS.length} · brouillons ${DRAFTS.length}`);
-    console.log("\nOuvrir /antidotes/outbound/pipeline — puis sourcing et séquences, et /antidotes/inbound pour ses six vues.");
+    console.log("\nOuvrir /antidotes/outbound/pipeline — puis sourcing et séquences, et /antidotes/inbound pour son tableau.");
     console.log("Effacer : pnpm seed:antidotes --reset");
   } finally {
     await db.end();

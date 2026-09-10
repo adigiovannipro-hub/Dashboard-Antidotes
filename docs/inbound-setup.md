@@ -1,27 +1,34 @@
-# Inbound — une page, six vues
+# Inbound — un tableau
 
 Le versant inbound du pôle Antidotes sert le personal branding : veiller ce
-qui marche dans la niche, en tirer un post LinkedIn ou un script de reel qui
-sonne comme moi, le valider, le dater, le publier.
+qui marche dans la niche, en tirer un post LinkedIn, un script de reel ou un
+script de vidéo YouTube qui sonne comme moi, le valider, le dater, le publier.
 
-Tout tient sur `/antidotes/inbound`, en six vues :
+Tout tient sur `/antidotes/inbound`, et l'écran **est** le tableau : la veille
+et mes propres posts dans les mêmes lignes, réseau, date, auteur, contenu,
+chiffres, score. Le réseau, la date et l'auteur se corrigent dans la cellule ;
+le texte se relit dans le panneau.
 
-| Vue | Ce qu'on y fait |
+| Où | Ce qu'on y fait |
 |---|---|
-| **Contenus** | Le tableau de ce qui a marché ailleurs. Filtres et seuils dans l'URL ; une ligne ouvre le panneau |
-| **Comptes** | Les concurrents veillés, par réseau |
-| **Sujets** | Ce que le modèle tire des meilleurs contenus |
-| **Mes posts** | Mes publications (le corpus qui donne le ton) et mes brouillons |
-| **Calendrier** | Le mois : ce qui part quand |
-| **Consignes** | Ma voix et les seuils de relevé |
+| Le tableau | Ce qui a marché, chez les autres et chez moi. Une ligne ouvre le panneau |
+| **Calendrier** | Le même contenu au mois : la veille en gris, ce qui est de moi en vert |
+| **Filtres** | Réseau, période, source, cinq seuils, tri — un panneau, et les filtres posés en pastilles sous la barre |
+| **Comptes** | Les concurrents veillés : on colle un lien, le réseau se reconnaît. Et les seuils de relevé |
+| **Prompts** | Ma voix, puis un prompt et un exemple **par forme** |
 
-Le **panneau** porte le geste central : « Réécrire pour moi », en deux
-formes — script de reel, post LinkedIn. Puis relire, approuver, dater,
-illustrer, publier. Rien ne part sans être approuvé.
+Le **panneau** est en deux parties : le contenu actuel — visuel, script,
+chiffres — puis « Réécrire pour moi », en trois boutons. Puis relire,
+approuver, dater, illustrer, publier. Rien ne part sans être approuvé.
 
-## La bibliothèque
+Tout l'état d'affichage vit dans l'URL mais **ne repasse pas par le serveur** :
+filtrer, trier, ouvrir une ligne ne coûte aucun aller-retour, la page ayant
+déjà tout chargé.
 
-Trente à cinquante de mes meilleurs posts, collés un par un ou importés
+## Mes posts
+
+Trente à cinquante de mes meilleurs posts — dans le tableau, avec la veille,
+sous le filtre « Mes posts ». Collés un par un ou importés
 depuis l'export LinkedIn (**Paramètres → Confidentialité des données →
 Obtenir une copie de vos données**, fichier `Shares.csv`). Réactions et
 commentaires se saisissent à la main — l'export ne les contient pas.
@@ -53,7 +60,7 @@ abonnés viennent du réseau quand il les rend (X, TikTok, YouTube,
 Instagram) ou se saisissent sur le compte (LinkedIn). Sans dénominateur, le
 score est absolu et l'écran l'affiche en interactions.
 
-**Les seuils décident de ce qu'une vague garde** (vue Consignes, par réseau) :
+**Les seuils décident de ce qu'une vague garde** (fenêtre Comptes, par réseau) :
 en dessous, un contenu n'entre pas dans le corpus. Un seuil ne juge que ce que
 le réseau rend — « ≥ 10 000 vues » n'écarte pas un post LinkedIn, qui n'a pas
 de vues.
@@ -65,10 +72,9 @@ tableau montre et que le studio reçoit comme matière — une légende de trois
 mots ne dit rien de ce qui a marché. Sans la clé, le passage le dit et
 continue.
 
-« Proposer des sujets » soumet les trente meilleurs posts des trente
-derniers jours à `claude-opus-5`, qui rend quatre à huit sujets appuyés sur
-des posts cités. Un sujet s'écrit (il passe « utilisé ») ou s'écarte (il ne
-revient pas).
+La proposition de sujets par le modèle a été **retirée de l'écran** : on part
+d'un contenu qui a marché, pas d'un sujet abstrait. `propose-topics.ts` et sa
+table restent en place, sans point d'entrée.
 
 **Aucun connecteur n'a tourné contre le vrai service** : ils sont écrits
 sur la documentation des acteurs et des API. Le premier relevé réel se lit
@@ -77,11 +83,13 @@ dans le journal du workflow ; une erreur de forme se voit sur le compte
 
 ## Écrire, dans ma voix
 
-Deux formes, deux prompts : un **post LinkedIn** (`studio-prompt.ts`) et un
+Trois formes, trois prompts : un **post LinkedIn** (`studio-prompt.ts`), un
 **script de reel** (`reel-prompt.ts` — accroche de trois secondes, plans
 numérotés avec leur indication visuelle, chute ; quarante-cinq à soixante
-secondes). Un post lu et un script dit ne se coupent pas aux mêmes endroits :
-raccourcir l'un pour faire l'autre s'entend.
+secondes) et un **script de vidéo YouTube** (`prompts.ts` — titre, accroche de
+quinze secondes, sections numérotées, conclusion ; six à huit minutes). Un post
+lu et un script dit ne se coupent pas aux mêmes endroits : raccourcir l'un pour
+faire l'autre s'entend.
 
 Chaque génération reçoit, dans cet ordre : **mes consignes de voix**, mon
 exemple de la forme demandée, puis mes cinq posts les plus proches du sujet,
@@ -89,10 +97,14 @@ puis la matière de la veille (jamais comme modèle). `claude-opus-5` écrit
 (`ANTHROPIC_API_KEY`, déjà sur Vercel). Le brouillon se relit, se corrige, se
 réécrit ; **rien ne part sans être approuvé**.
 
-**Les consignes** vivent dans la vue du même nom : comment j'écris, un post,
-un script et un email de ma main, et les seuils de relevé. C'est le seul
-endroit de l'inbound qui porte une phrase d'explication — sans elle, on ne
-devine pas que ce qui est écrit là change ce que le modèle rend.
+**Les prompts s'écrivent à l'écran** (fenêtre « Prompts ») : « comment
+j'écris », valable pour tout, puis un onglet par forme avec sa consigne et son
+exemple. Le champ est prérempli avec le prompt d'origine et **le vider y
+revient** — `resolvePrompt` (pur, testé) traite un champ vide comme une absence
+de retouche, jamais comme une consigne vide : ouvrir la fenêtre une fois ne
+doit pas casser la génération. C'est le seul endroit de l'inbound qui porte une
+phrase d'explication — sans elle, on ne devine pas que ce qui est écrit là
+change ce que le modèle rend.
 
 **Visuel** : `REPLICATE_API_TOKEN` et `REPLICATE_LORA_VERSION` (la version
 d'un LoRA Flux entraîné sur mes photos, `owner/model:version` ou hash),
@@ -100,6 +112,8 @@ d'un LoRA Flux entraîné sur mes photos, `owner/model:version` ou hash),
 rapatriée dans le bucket privé `antidotes-visuals`. Environ trois centimes
 par image ; l'entraînement du LoRA est une opération à part (quelques
 euros, une fois). Hypothèse du cahier des charges, à confirmer sur pièce.
+C'est le **seul** générateur d'images branché : le panneau le nomme plutôt que
+d'offrir à côté des boutons morts pour ceux qui ne le sont pas encore.
 
 **Publication** : `POST /rest/posts` sur l'API LinkedIn par le passage brut
 de Composio, avec le compte LinkedIn déjà connecté pour le Reporting. Il

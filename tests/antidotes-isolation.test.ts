@@ -501,6 +501,42 @@ suite("isolation du pôle Antidotes (RLS)", () => {
     });
   });
 
+  describe("l'inbound, troisième forme", () => {
+    it("l'owner écrit un prompt par forme et tire un script YouTube ; le client n'en lit rien", async () => {
+      const { data: prompts, error: promptsError } = await clients.owner
+        .from("antidotes_inbound_settings")
+        .upsert({
+          org_id: ids.org,
+          prompts: { youtube_script: { prompt: "Titre sous soixante caractères.", example: "TITRE : …" } },
+        })
+        .select("org_id, prompts")
+        .single();
+      if (promptsError) throw new Error(`Migration 20260912a non appliquée ? ${promptsError.message}`);
+      expect(prompts).toMatchObject({
+        prompts: { youtube_script: { prompt: "Titre sous soixante caractères." } },
+      });
+
+      const { data: script, error: scriptError } = await clients.owner
+        .from("antidotes_generated_posts")
+        .insert({ org_id: ids.org, topic: "Vidéo", content: "TITRE : …", format: "youtube_script" })
+        .select("id, format")
+        .single();
+      if (scriptError) throw new Error(`Valeur d'enum absente ? ${scriptError.message}`);
+      expect(script?.format).toBe("youtube_script");
+
+      const { data: readPrompts } = await clients.client
+        .from("antidotes_inbound_settings")
+        .select("prompts")
+        .eq("org_id", ids.org);
+      expect(readPrompts).toEqual([]);
+
+      const { error: intrusion } = await clients.client
+        .from("antidotes_inbound_settings")
+        .upsert({ org_id: ids.org, prompts: { linkedin_post: { prompt: "intrus" } } });
+      expect(intrusion).not.toBeNull();
+    });
+  });
+
   describe("l'inbound, deuxième forme", () => {
     it("l'owner écrit ses consignes de voix et programme un brouillon ; le client ne lit rien", async () => {
       const { data: settings, error: settingsError } = await clients.owner
