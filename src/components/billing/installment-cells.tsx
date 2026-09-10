@@ -21,6 +21,7 @@ import { PendingLabel } from "@/components/ds/pending-label";
 import { inputAmountValue, monthLabel, periodLabel } from "@/lib/billing/format";
 import { ttcCentsOf } from "@/lib/billing/schedule";
 import { formatMoney } from "@/lib/finance/money";
+import { cn } from "@/lib/utils";
 
 /**
  * Les trois cellules modifiables d'une échéance : période, montant HT,
@@ -71,10 +72,18 @@ export function InstallmentCells({
     );
   }
 
-  /* Le survol souligne au lieu d'encadrer : une bordure au repos ferait de
-     chaque ligne un formulaire, et l'écran se lit d'abord. */
-  const cellule =
-    "rounded-sm transition-colors duration-(--motion-duration) ease-standard hover:bg-muted focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-none";
+  /* La convention de l'écran pour **tout ce qui s'édite d'un clic** : rien au
+     repos — une bordure permanente ferait de chaque ligne un formulaire, et la
+     page se lit d'abord — puis un liseré pointillé et un fond au survol. Le
+     pointillé est posé en `outline` et non en `border` : il se dessine hors du
+     flux, donc le chiffre ne bouge pas d'un pixel au passage de la souris.
+     Au clavier, c'est l'anneau de focus de la maison qui prend le relais. */
+  const cellule = cn(
+    "cursor-pointer rounded-sm outline-1 outline-offset-2 outline-dashed outline-transparent",
+    "transition-colors duration-(--motion-duration) ease-standard",
+    "hover:bg-muted hover:outline-border-strong",
+    "focus-visible:bg-muted focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-none",
+  );
 
   return (
     <>
@@ -82,7 +91,10 @@ export function InstallmentCells({
         type="button"
         onClick={() => setChamp("periode")}
         aria-label={`Modifier la période de ${monthLabel(serviceMonth)}`}
-        className={`${cellule} type-caption bg-neutral-subtle text-neutral-ink inline-flex w-fit items-center rounded-pill px-2.5 py-0.5 font-medium whitespace-nowrap tabular-nums hover:bg-neutral-subtle/70`}
+        className={cn(
+          cellule,
+          "type-caption bg-neutral-subtle text-neutral-ink inline-flex w-fit items-center rounded-pill px-2.5 py-0.5 font-medium whitespace-nowrap tabular-nums hover:bg-neutral-subtle/70",
+        )}
       >
         {periode}
       </button>
@@ -94,7 +106,10 @@ export function InstallmentCells({
         type="button"
         onClick={() => setChamp("ttc")}
         aria-label={`Modifier le montant de ${monthLabel(serviceMonth)}`}
-        className={`${cellule} type-label text-text-primary px-1 text-left tabular-nums md:text-right`}
+        className={cn(
+          cellule,
+          "type-label text-text-primary px-1 text-left tabular-nums md:text-right",
+        )}
       >
         {ttc}
       </button>
