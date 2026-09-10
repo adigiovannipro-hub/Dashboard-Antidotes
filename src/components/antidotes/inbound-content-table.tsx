@@ -1,10 +1,11 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { ArrowDown, ArrowUp, Film, Rss } from "lucide-react";
 import { toast } from "sonner";
 
-import { updateReferencePost } from "@/app/actions/antidotes-inbound";
+import { renameRadarAccount, updateReferencePost } from "@/app/actions/antidotes-inbound";
 import { NativeSelect } from "@/components/antidotes/controls";
 import { PlatformChip } from "@/components/antidotes/inbound-chips";
 import { useInboundUrl } from "@/components/antidotes/inbound-url";
@@ -171,18 +172,54 @@ export function InboundContentTable({
   );
 }
 
+type CellPatch = { platform?: PostPlatform; publishedAt?: string | null; authorHandle?: string | null };
+
 function ContentRow({ entry }: { entry: InboundContent }) {
+  const router = useRouter();
   const { go } = useInboundUrl();
-  const post = entry.post;
-  const text = post.transcript?.trim() || post.content;
   const [pending, startTransition] = useTransition();
   const [editing, setEditing] = useState<"platform" | "date" | "author" | null>(null);
 
-  const save = (patch: Parameters<typeof updateReferencePost>[0]) => {
+  /* La cellule modifiée se pose tout de suite et le serveur confirme derrière
+     — même mécanique que le kanban du pipeline. Sans ça, corriger un réseau
+     ne se verrait qu'au rechargement suivant, et le geste paraîtrait perdu.
+     L'état local retombe dès que la ligne rendue par le serveur porte la
+     nouvelle valeur. */
+  const [local, setLocal] = useState<CellPatch>({});
+  const [seen, setSeen] = useState(entry.post);
+  if (seen !== entry.post) {
+    setSeen(entry.post);
+    setLocal({});
+  }
+
+  const post = entry.post;
+  const platform = local.platform ?? post.platform;
+  const publishedAt = local.publishedAt !== undefined ? local.publishedAt : post.published_at;
+  const author =
+    local.authorHandle !== undefined
+      ? local.authorHandle
+      : post.is_mine
+        ? "Moi"
+        : (entry.account?.label ?? post.author_handle);
+  const text = post.transcript?.trim() || post.content;
+
+  const save = (patch: CellPatch) => {
     setEditing(null);
+    setLocal((previous) => ({ ...previous, ...patch }));
     startTransition(async () => {
-      const result = await updateReferencePost(patch);
-      if (!result.ok) toast.error(result.error);
+      /* Renommer l'auteur d'un post rattaché à un compte veillé renomme **le
+         compte** : c'est lui que la colonne affiche, et ses vingt autres
+         lignes portent le même nom. Écrire sur le post seul aurait été un
+         geste sans effet visible, le libellé du compte primant à l'affichage. */
+      const result =
+        patch.authorHandle !== undefined && entry.account
+          ? await renameRadarAccount({ accountId: entry.account.id, label: patch.authorHandle ?? "" })
+          : await updateReferencePost({ postId: post.id, ...patch });
+      if (result.ok) router.refresh();
+      else {
+        setLocal({});
+        toast.error(result.error);
+      }
     });
   };
 
@@ -207,9 +244,9 @@ function ContentRow({ entry }: { entry: InboundContent }) {
             size="small"
             autoFocus
             aria-label="Réseau"
-            defaultValue={post.platform}
+            defaultValue={platform}
             onBlur={() => setEditing(null)}
-            onChange={(event) => save({ postId: post.id, platform: event.target.value as PostPlatform })}
+            onChange={(event) => save({ platform: event.target.value as PostPlatform })}
           >
             {PLATFORMS.map((platform) => (
               <option key={platform} value={platform}>
@@ -221,11 +258,11 @@ function ContentRow({ entry }: { entry: InboundContent }) {
           <button
             type="button"
             onClick={() => setEditing("platform")}
-            aria-label={`Réseau : ${POST_PLATFORM_LABELS[post.platform]}`}
+            aria-label={`Réseau : ${POST_PLATFORM_LABELS[platform]}`}
             className={cn(cell, "inline-flex w-auto items-center gap-2")}
           >
-            <PlatformChip platform={post.platform} mine={post.is_mine} />
-            <span className="type-caption text-text-secondary">{POST_PLATFORM_LABELS[post.platform]}</span>
+            <PlatformChip platform={platform} mine={post.is_mine} />
+            <span className="type-caption text-text-secondary">{POST_PLATFORM_LABELS[platform]}</span>
           </button>
         )}
       </td>
@@ -236,15 +273,13 @@ function ContentRow({ entry }: { entry: InboundContent }) {
             type="date"
             autoFocus
             aria-label="Date de publication"
-            defaultValue={post.published_at?.slice(0, 10) ?? ""}
-            onBlur={(event) =>
-              save({ postId: post.id, publishedAt: event.target.value || null })
-            }
+            defaultValue={publishedAt?.slice(0, 10) ?? ""}
+            onBlur={(event) => save({ publishedAt: event.target.value || null })}
             className="h-8 w-40"
           />
         ) : (
           <button type="button" onClick={() => setEditing("date")} className={cn(cell, "type-caption tabular-nums text-text-secondary")}>
-            {post.published_at ? formatDate(post.published_at) : "—"}
+            {publishedAt ? formatDate(publishedAt) : "—"}
           </button>
         )}
       </td>
@@ -254,13 +289,13 @@ function ContentRow({ entry }: { entry: InboundContent }) {
           <Input
             autoFocus
             aria-label="Auteur"
-            defaultValue={entry.account?.label ?? post.author_handle ?? ""}
-            onBlur={(event) => save({ postId: post.id, authorHandle: event.target.value.trim() || null })}
+            defaultValue={author ?? ""}
+            onBlur={(event) => save({ authorHandle: event.target.value.trim() || null })}
             className="h-8"
           />
         ) : (
           <button type="button" onClick={() => setEditing("author")} className={cn(cell, "type-label truncate text-text-primary")}>
-            {post.is_mine ? "Moi" : (entry.account?.label ?? post.author_handle ?? "—")}
+            {author ?? "—"}
           </button>
         )}
       </td>

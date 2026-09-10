@@ -318,6 +318,30 @@ export async function addRadarAccount(_previous: InboundResult | null, formData:
   }
 }
 
+/**
+ * Le nom affiché d'un compte veillé, corrigé depuis la colonne Auteur du
+ * tableau. C'est le compte qu'on renomme, pas la ligne : ses vingt posts
+ * portent le même auteur, et les corriger un à un serait absurde.
+ */
+export async function renameRadarAccount(input: { accountId: string; label: string }): Promise<InboundResult> {
+  const parsed = z.object({ accountId: z.uuid(), label: z.string().trim().max(120) }).safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Saisie invalide." };
+  try {
+    const { orgId } = await guardOwner();
+    const supabase = await createClient();
+    const { error } = await supabase
+      .from("antidotes_radar_accounts")
+      .update({ label: parsed.data.label || null } as never)
+      .eq("org_id", orgId)
+      .eq("id", parsed.data.accountId);
+    if (error) throw new Error(error.message);
+    revalidatePath(RADAR_PATH);
+    return { ok: true, message: "Enregistré." };
+  } catch (error) {
+    return fail(error);
+  }
+}
+
 export async function deleteRadarAccount(input: { accountId: string }): Promise<InboundResult> {
   const parsed = z.object({ accountId: z.uuid() }).safeParse(input);
   if (!parsed.success) return { ok: false, error: "Compte invalide." };
