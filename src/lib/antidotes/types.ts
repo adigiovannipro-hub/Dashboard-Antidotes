@@ -624,11 +624,24 @@ export type GeneratedPost = {
   scheduled_at: string | null;
 };
 
-export type GeneratedPostFormat = "linkedin_post" | "reel_script";
+/**
+ * Les trois formes qu'une matière peut prendre (20260912a). Le nom dit la
+ * sortie, pas le réseau qui l'a inspirée : un reel d'Instagram peut aussi
+ * bien donner un post LinkedIn.
+ */
+export type GeneratedPostFormat = "linkedin_post" | "reel_script" | "youtube_script";
 
 export const GENERATED_POST_FORMAT_LABELS: Record<GeneratedPostFormat, string> = {
   linkedin_post: "Post LinkedIn",
   reel_script: "Script de reel",
+  youtube_script: "Script YouTube",
+};
+
+/** Le verbe du bouton qui la fabrique — c'est ce qu'on lit dans le panneau. */
+export const GENERATED_POST_FORMAT_ACTIONS: Record<GeneratedPostFormat, string> = {
+  linkedin_post: "Générer un post LinkedIn",
+  reel_script: "Générer un script Instagram",
+  youtube_script: "Générer une vidéo YouTube",
 };
 
 /** Les seuils de relevé d'un réseau : en dessous, un post n'entre pas dans le tableau. */
@@ -650,7 +663,16 @@ export type InboundSettings = {
   reel_example: string | null;
   email_example: string | null;
   thresholds: Partial<Record<PostPlatform, InboundThreshold>>;
+  /** Un prompt et un exemple par forme (20260912a) ; un format absent retombe
+      sur le prompt par défaut du code, jamais sur du vide. */
+  prompts: Partial<Record<GeneratedPostFormat, InboundPrompt>>;
   updated_at: string;
+};
+
+/** Ce qui se règle pour une forme : la consigne, et un exemple à imiter. */
+export type InboundPrompt = {
+  prompt?: string;
+  example?: string;
 };
 
 export type CaseStudy = {

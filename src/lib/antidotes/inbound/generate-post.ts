@@ -7,20 +7,24 @@ import type { Database } from "@/lib/supabase/database.types";
 import type { GeneratedExample, GeneratedPostFormat, InboundSettings, ReferencePost } from "../types";
 import { POST_PLATFORM_LABELS } from "../types";
 import { embedderFromEnv } from "./embeddings";
-import { buildReelPrompt, REEL_MAX_CHARS, REEL_SYSTEM } from "./reel-prompt";
+import { resolvePrompt } from "./prompts";
+import { buildReelPrompt } from "./reel-prompt";
 import { parseVector, rankBySimilarity } from "./similarity";
-import { buildStudioPrompt, cleanGeneratedPost, LINKEDIN_MAX_CHARS, STUDIO_SYSTEM } from "./studio-prompt";
+import { buildStudioPrompt, cleanGeneratedPost } from "./studio-prompt";
 
 /**
- * Un post LinkedIn **ou un script de reel** depuis un sujet : les cinq posts
+ * Une forme depuis une matière : les cinq posts
  * du corpus les plus proches servent d'exemples, le contenu de la veille de
  * matière, mes consignes de voix passent avant tout le reste, et
  * `claude-opus-5` écrit. Le brouillon revient avec ses exemples — on doit
  * pouvoir dire pourquoi il sonne comme il sonne — et la méthode de
  * rapprochement, vecteurs ou lexical, que l'écran affiche.
  *
- * Deux formes, deux prompts : un post lu et un script parlé ne se coupent pas
- * aux mêmes endroits, et raccourcir l'un pour faire l'autre s'entend.
+ * Trois formes, trois prompts : un post lu, un script de reel et un script de
+ * vidéo longue ne se coupent pas aux mêmes endroits, et raccourcir l'un pour
+ * faire l'autre s'entend. Le prompt de chaque forme se réécrit à l'écran
+ * (fenêtre « Prompts ») ; sans retouche, c'est celui du code qui part —
+ * `resolvePrompt` tranche.
  */
 
 export const STUDIO_MODEL = "claude-opus-5";
@@ -41,8 +45,11 @@ export async function generatePost(options: {
   sourcePostId: string | null;
   authorName: string | null;
   format?: GeneratedPostFormat;
-  /** Mes consignes de voix ; nulles tant que l'onglet Consignes est vide. */
-  settings?: Pick<InboundSettings, "guidelines" | "linkedin_example" | "reel_example"> | null;
+  /** Mes consignes de voix et mes prompts ; nulles tant que rien n'est écrit. */
+  settings?: Pick<
+    InboundSettings,
+    "guidelines" | "linkedin_example" | "reel_example" | "prompts"
+  > | null;
   anthropic?: Anthropic;
 }): Promise<GeneratedDraft> {
   if (!process.env.ANTHROPIC_API_KEY) {
@@ -89,7 +96,7 @@ export async function generatePost(options: {
 
   const source = sourceRow as unknown as Pick<ReferencePost, "platform" | "author_handle" | "content" | "transcript"> | null;
   const format = options.format ?? "linkedin_post";
-  const reel = format === "reel_script";
+  const resolved = resolvePrompt(options.settings ?? null, format);
   /* Pour un reel de la veille, c'est le script qui est la matière : sa
      légende ne dit presque rien de ce qui a marché. */
   const sourceContent = source ? (source.transcript?.trim() || source.content) : null;
@@ -105,20 +112,26 @@ export async function generatePost(options: {
         : null,
     authorName: options.authorName,
   };
-  const prompt = reel
-    ? buildReelPrompt({ ...shared, example: options.settings?.reel_example ?? null })
-    : buildStudioPrompt({ ...shared, example: options.settings?.linkedin_example ?? null });
+  /* Les deux scripts partagent la mise en forme de la demande — sujet,
+     consignes, exemple, matière ; seul le système change d'une forme à
+     l'autre. Le post LinkedIn garde la sienne, qui nomme « mes posts ». */
+  const prompt =
+    format === "linkedin_post"
+      ? buildStudioPrompt({ ...shared, example: resolved.example })
+      : buildReelPrompt({ ...shared, example: resolved.example });
 
   const anthropic = options.anthropic ?? new Anthropic();
   const response = await anthropic.messages.create({
     model: STUDIO_MODEL,
-    max_tokens: 1500,
-    system: reel ? REEL_SYSTEM : STUDIO_SYSTEM,
+    /* Un script de vidéo longue fait mille mots dits : le plafond des deux
+       formes courtes le couperait en plein milieu. */
+    max_tokens: format === "youtube_script" ? 4000 : 1500,
+    system: resolved.system,
     messages: [{ role: "user", content: prompt }],
   });
   if (response.stop_reason === "refusal") throw new Error("Génération refusée par les garde-fous du modèle.");
   const block = response.content.find((entry) => entry.type === "text");
   const content = cleanGeneratedPost(block?.type === "text" ? block.text : "");
   if (!content) throw new Error("Le modèle n'a rendu aucun texte.");
-  return { content: content.slice(0, reel ? REEL_MAX_CHARS : LINKEDIN_MAX_CHARS), examples, method };
+  return { content: content.slice(0, resolved.maxChars), examples, method };
 }
