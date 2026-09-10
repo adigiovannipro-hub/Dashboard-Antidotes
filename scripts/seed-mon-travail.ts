@@ -8,8 +8,8 @@
  * Le jeu de données montre la page d'accueil en situation : trois clients de
  * démonstration avec des publications aujourd'hui à des statuts variés — en
  * plus de Bondet, dont le planning d'août tombe déjà sur le jour J et n'est
- * pas touché —, des tâches Fathom et mail simulées, la ligne quotidienne
- * d'hier restée cochable (le retard rouge), le cycle mensuel matérialisé.
+ * pas touché —, des tâches Fathom et mail simulées dont une datée d'hier (le
+ * retard rouge), le cycle mensuel matérialisé.
  *
  * Les dates sont relatives au jour du lancement : rejouer le script recale la
  * démo sur aujourd'hui. Idempotent : identifiants dérivés de clés stables,
@@ -24,7 +24,6 @@ import { Client } from "pg";
 import { addDays, monthKeyOf, todayInParis } from "../src/lib/mon-travail/dates";
 import {
   planCycleTasks,
-  planDailyTask,
   type CycleForPlanning,
 } from "../src/lib/mon-travail/recurrence";
 import { DEFAULT_CYCLE_STEPS } from "../src/lib/mon-travail/types";
@@ -454,10 +453,10 @@ async function main() {
     }
 
     // --- Occurrences générées : le travail que fera le cron ---------------
-    const planned = [
-      planDailyTask(orgId, today),
-      ...planCycleTasks({ orgId, monthKey, cycles: cyclesForPlanning }),
-    ];
+    // La ligne quotidienne fixe n'est plus semée : elle a quitté le dashboard,
+    // et les lignes déjà en base y sont masquées à la lecture. Le retard rouge
+    // de la démo vient désormais des tâches datées d'hier ci-dessous.
+    const planned = planCycleTasks({ orgId, monthKey, cycles: cyclesForPlanning });
 
     let generatedCount = 0;
     for (const task of planned) {
@@ -479,39 +478,6 @@ async function main() {
       generatedCount += rowCount ?? 0;
     }
 
-    // La ligne quotidienne d'hier, restée en attente : le retard rouge de la
-    // démo. Celle d'avant-hier, cochée. `do nothing` : l'état bouge en
-    // interface, le seed ne le reprend pas.
-    const yesterday = planDailyTask(orgId, addDays(today, -1));
-    await db.query(
-      `insert into work_tasks
-         (id, org_id, title, source, due_date, dedupe_key)
-       values ($1, $2, $3, 'recurring'::work_task_source, $4, $5)
-       on conflict (org_id, dedupe_key) do nothing`,
-      [
-        stableId(`task:${yesterday.dedupe_key}`),
-        orgId,
-        yesterday.title,
-        yesterday.due_date,
-        yesterday.dedupe_key,
-      ],
-    );
-    const beforeYesterday = planDailyTask(orgId, addDays(today, -2));
-    await db.query(
-      `insert into work_tasks
-         (id, org_id, title, source, status, due_date, done_at, dedupe_key)
-       values ($1, $2, $3, 'recurring'::work_task_source,
-               'done'::work_task_status, $4, $5, $6)
-       on conflict (org_id, dedupe_key) do nothing`,
-      [
-        stableId(`task:${beforeYesterday.dedupe_key}`),
-        orgId,
-        beforeYesterday.title,
-        beforeYesterday.due_date,
-        `${beforeYesterday.due_date}T16:45:00Z`,
-        beforeYesterday.dedupe_key,
-      ],
-    );
 
     // --- Tâches Fathom, mail et manuelles ----------------------------------
     const workspaceIdBySlug = new Map(

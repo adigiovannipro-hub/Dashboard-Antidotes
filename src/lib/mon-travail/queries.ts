@@ -8,6 +8,7 @@ import type {
   PlanningSubject,
 } from "@/lib/planning/types";
 import { createClient } from "@/lib/supabase/server";
+import { withoutDailyTasks } from "./types";
 import type { PublicationRow, TaskWorkspace, WorkTask } from "./types";
 
 /**
@@ -238,6 +239,12 @@ export async function listNextPublications(options: {
 /**
  * Les tâches encore ouvertes jusqu'à l'horizon donné — retards compris,
  * puisqu'une tâche en attente d'avant aujourd'hui est passée sous `until`.
+ *
+ * Les lignes quotidiennes sont écartées ici, à la lecture : elles restent en
+ * base — rien n'est supprimé — mais plus personne ne les planifie, et les
+ * laisser passer les afficherait en retard rouge jusqu'à la fin des temps.
+ * Le filtre est en mémoire et non dans la requête : le prédicat structurel
+ * (`isDailyTask`) est l'unique juge, on ne le récrit pas en SQL à côté.
  */
 export async function listOpenTasks(options: {
   until: string;
@@ -259,10 +266,15 @@ export async function listOpenTasks(options: {
     .order("created_at")
     .limit(options.limit ?? 200);
 
-  return (data ?? []) as unknown as WorkTask[];
+  return withoutDailyTasks((data ?? []) as unknown as WorkTask[]);
 }
 
-/** Les dernières tâches faites, pour la section « Archivé » en bas de page. */
+/**
+ * Les dernières tâches faites, pour la section « Archivé » en bas de page.
+ *
+ * Même masquage qu'en lecture ouverte : une ligne quotidienne cochée hier n'a
+ * pas plus à figurer dans l'archivé que dans le reste.
+ */
 export async function listArchivedTasks(options: {
   workspaceId?: string | null;
   limit?: number;
@@ -277,5 +289,5 @@ export async function listArchivedTasks(options: {
     .order("done_at", { ascending: false })
     .limit(options.limit ?? 40);
 
-  return (data ?? []) as unknown as WorkTask[];
+  return withoutDailyTasks((data ?? []) as unknown as WorkTask[]);
 }

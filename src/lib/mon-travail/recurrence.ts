@@ -1,6 +1,10 @@
 /**
- * Génération des tâches récurrentes : la ligne quotidienne et le cycle
- * mensuel de chaque client.
+ * Génération des tâches récurrentes : le cycle mensuel de chaque client.
+ *
+ * La ligne quotidienne fixe se planifiait ici aussi ; elle n'existe plus, seul
+ * le cycle par client est encore semé. Toute récurrence porte donc désormais
+ * une étape de cycle, et c'est cette absence qui fait reconnaître les
+ * anciennes lignes quotidiennes (`isDailyTask`) pour les masquer à la lecture.
  *
  * Fonctions pures, zéro import Supabase : le cron et le seed matérialisent ce
  * que ces fonctions planifient, et les tests les exercent sans base. La clé
@@ -10,7 +14,7 @@
  */
 
 import { lastDayOfMonth } from "./dates";
-import { DAILY_TASK_TITLE, type WorkCycleStep, type WorkTask } from "./types";
+import type { WorkCycleStep, WorkTask } from "./types";
 
 /** Une tâche planifiée, prête à être insérée dans `work_tasks`. */
 export type PlannedTask = {
@@ -22,18 +26,6 @@ export type PlannedTask = {
   due_date: string;
   dedupe_key: string;
 };
-
-export function planDailyTask(orgId: string, day: string): PlannedTask {
-  return {
-    org_id: orgId,
-    workspace_id: null,
-    cycle_step_id: null,
-    title: DAILY_TASK_TITLE,
-    source: "recurring",
-    due_date: day,
-    dedupe_key: `daily:${day}`,
-  };
-}
 
 /**
  * Échéance de la semaine N d'un mois : le jour `7 × N`, borné au dernier jour

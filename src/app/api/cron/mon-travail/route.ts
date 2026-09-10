@@ -8,7 +8,6 @@ import { purgeEmailTasks, syncEmailTasks } from "@/lib/mon-travail/emails-sync";
 import { purgeFathomTasks, syncFathomTasks } from "@/lib/mon-travail/fathom-sync";
 import {
   planCycleTasks,
-  planDailyTask,
   type CycleForPlanning,
   type PlannedTask,
 } from "@/lib/mon-travail/recurrence";
@@ -18,14 +17,16 @@ import { createAdminClient } from "@/lib/supabase/server";
 /**
  * Le passage quotidien de « Mon travail » : matérialiser les récurrences.
  *
- * Deux générations, toutes deux idempotentes par `dedupe_key` — l'insertion
- * ignore ce qui existe, y compris une occurrence déjà cochée ou supprimée :
+ * Une seule génération, idempotente par `dedupe_key` — l'insertion ignore ce
+ * qui existe, y compris une occurrence déjà cochée ou supprimée : les
+ * occurrences du cycle mensuel de chaque client actif, pour le mois en cours.
+ * Rejouées chaque jour et pas seulement le 1er : un passage manqué se rattrape
+ * tout seul, et un client activé en cours de mois reçoit ses tâches dès le
+ * lendemain.
  *
- *   • la ligne quotidienne fixe du jour, une par organisation ;
- *   • les occurrences du cycle mensuel de chaque client actif, pour le mois
- *     en cours. Rejouées chaque jour et pas seulement le 1er : un passage
- *     manqué se rattrape tout seul, et un client activé en cours de mois
- *     reçoit ses tâches dès le lendemain.
+ * La ligne quotidienne fixe partait d'ici ; elle ne sert plus sur le
+ * dashboard. Ce qu'elle rappelait — modération, publications, ads — continue
+ * de tourner ailleurs : c'est seulement la ligne de todo qui a disparu.
  *
  * Le passage en retard, lui, n'a pas besoin de cron : il se calcule à la
  * lecture — une tâche en attente d'avant aujourd'hui est un retard.
@@ -96,7 +97,7 @@ export async function GET(request: Request) {
   const errors: string[] = [];
 
   for (const org of orgRows ?? []) {
-    const planned: PlannedTask[] = [planDailyTask(org.id, today)];
+    const planned: PlannedTask[] = [];
 
     try {
       const [{ data: cycleRows, error: cyclesError }, { data: stepRows, error: stepsError }] =
@@ -121,18 +122,25 @@ export async function GET(request: Request) {
         ...planCycleTasks({ orgId: org.id, monthKey, cycles: forPlanning }),
       );
 
-      const { data: inserted, error: upsertError } = await admin
-        .from("work_tasks")
-        .upsert(planned, {
-          onConflict: "org_id,dedupe_key",
-          ignoreDuplicates: true,
-        })
-        .select("id");
-      if (upsertError) throw new Error(upsertError.message);
+      /* Une organisation sans cycle actif ne planifie plus rien depuis le
+         retrait de la ligne quotidienne : un upsert vide part quand même chez
+         PostgREST et n'a aucun sens à lire dans le rapport. */
+      let created = 0;
+      if (planned.length > 0) {
+        const { data: inserted, error: upsertError } = await admin
+          .from("work_tasks")
+          .upsert(planned, {
+            onConflict: "org_id,dedupe_key",
+            ignoreDuplicates: true,
+          })
+          .select("id");
+        if (upsertError) throw new Error(upsertError.message);
+        created = inserted?.length ?? 0;
+      }
 
       report[`org:${org.id}`] = {
         planifiees: planned.length,
-        creees: inserted?.length ?? 0,
+        creees: created,
       };
     } catch (error) {
       errors.push(

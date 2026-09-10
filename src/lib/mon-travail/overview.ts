@@ -5,6 +5,8 @@ import { ACTIONABLE_STATUSES } from "@/lib/moderation/types";
 import { createClient } from "@/lib/supabase/server";
 import { EXCLUDED_STATUSES, DONE_STATUSES } from "@/lib/planning/types";
 import { addDays, lastDayOfMonth } from "./dates";
+import { withoutDailyTasks } from "./types";
+import type { WorkTask } from "./types";
 
 /**
  * Les agrégats de la page d'accueil.
@@ -161,8 +163,10 @@ export async function getOverview(options: {
       loadSubjects(today),
       loadModerationPending(),
       supabase
+        // `source` et `cycle_step_id` ne servent qu'à reconnaître les lignes
+        // quotidiennes, qui ne se comptent plus nulle part.
         .from("work_tasks")
-        .select("workspace_id, status, due_date")
+        .select("workspace_id, status, due_date, source, cycle_step_id")
         .eq("status", "pending")
         .limit(1000),
       options.isOwner && options.orgId ? loadInvoices(options.orgId) : null,
@@ -188,10 +192,12 @@ export async function getOverview(options: {
   );
 
   // --- Tâches ---------------------------------------------------------------
-  const tasks = (taskRows ?? []) as unknown as {
-    workspace_id: string | null;
-    due_date: string;
-  }[];
+  const tasks = withoutDailyTasks(
+    (taskRows ?? []) as unknown as Pick<
+      WorkTask,
+      "workspace_id" | "due_date" | "source" | "cycle_step_id"
+    >[],
+  );
   const overdue = tasks.filter((task) => task.due_date < today);
 
   // --- Par espace -----------------------------------------------------------

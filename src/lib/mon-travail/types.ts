@@ -30,7 +30,15 @@ export const WORK_STATUS_LABELS: Record<WorkTaskStatus, string> = {
   deleted: "Supprimée",
 };
 
-/** La ligne quotidienne fixe, 7 j/7 — une seule ligne, une seule coche. */
+/**
+ * Le titre de la ligne quotidienne fixe, posée 7 j/7 jusqu'en septembre 2026.
+ *
+ * Plus rien ne la planifie : la Modération, la publication automatique et le
+ * reporting continuent d'exister, c'est la ligne de todo qui a disparu. Ce
+ * titre et le prédicat `isDailyTask` ne servent plus qu'à **masquer** les
+ * occurrences déjà posées en base — aucune n'est supprimée, elles ne
+ * s'affichent simplement plus nulle part.
+ */
 export const DAILY_TASK_TITLE = "Modération, publications, ads";
 
 /**
@@ -89,13 +97,31 @@ export type WorkTask = {
 };
 
 /**
- * La ligne quotidienne est la seule récurrence sans étape de cycle : c'est ce
- * qui la distingue, sans colonne supplémentaire à maintenir.
+ * Reconnaît une ligne quotidienne, pour la masquer.
+ *
+ * Elle est la seule récurrence sans étape de cycle — le cycle mensuel en pose
+ * toujours une —, c'est donc ce qui la distingue, sans colonne supplémentaire
+ * à maintenir. Structurel et non par le titre : une occurrence renommée à la
+ * main reste masquée, ce qui est bien ce qu'on veut.
  */
 export function isDailyTask(
   task: Pick<WorkTask, "source" | "cycle_step_id">,
 ): boolean {
   return task.source === "recurring" && task.cycle_step_id === null;
+}
+
+/**
+ * Écarte les lignes quotidiennes d'une lecture.
+ *
+ * Appliqué à la **lecture** — listes, archivé, compteurs — et non dans chaque
+ * composant : c'est le seul endroit par lequel tout passe. Sans lui, les
+ * occurrences restées en base s'afficheraient éternellement en retard rouge
+ * sur l'accueil.
+ */
+export function withoutDailyTasks<
+  T extends Pick<WorkTask, "source" | "cycle_step_id">,
+>(tasks: T[]): T[] {
+  return tasks.filter((task) => !isDailyTask(task));
 }
 
 /** L'espace rattaché à une tâche, tel que l'affichage en a besoin. */

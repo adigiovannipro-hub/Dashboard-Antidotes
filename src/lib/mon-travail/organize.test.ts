@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { organizeTasks } from "./organize";
-import type { WorkTask } from "./types";
+import { DAILY_TASK_TITLE, type WorkTask } from "./types";
 
 const TODAY = "2026-08-05";
 
@@ -28,9 +28,10 @@ const task = (overrides: Partial<WorkTask> = {}): WorkTask => {
   };
 };
 
+/** Une occurrence de l'ancienne ligne quotidienne, telle que la base en porte. */
 const daily = (day: string): WorkTask =>
   task({
-    title: "Modération, publications, ads",
+    title: DAILY_TASK_TITLE,
     source: "recurring",
     cycle_step_id: null,
     due_date: day,
@@ -46,13 +47,20 @@ describe("organizeTasks", () => {
     expect(overdue.map((entry) => entry.id)).toEqual([older.id, late.id]);
   });
 
-  it("place la ligne quotidienne en tête d'aujourd'hui", () => {
+  it("n'affiche plus la ligne quotidienne, ni aujourd'hui, ni en retard", () => {
     const manual = task();
     const routine = daily(TODAY);
-    const { today } = organizeTasks([manual, routine], TODAY);
+    const oldRoutine = daily("2026-07-30");
+    const { overdue, today, upcoming } = organizeTasks(
+      [manual, routine, oldRoutine],
+      TODAY,
+    );
 
-    expect(today[0]?.id).toBe(routine.id);
-    expect(today[1]?.id).toBe(manual.id);
+    // Les occurrences restent en base ; c'est la lecture qui les masque, sans
+    // quoi elles crieraient en retard rouge pour toujours.
+    expect(overdue).toEqual([]);
+    expect(today.map((entry) => entry.id)).toEqual([manual.id]);
+    expect(upcoming).toEqual([]);
   });
 
   it("groupe les quatre jours suivants et ignore les jours vides", () => {

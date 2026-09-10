@@ -4,13 +4,13 @@
  *
  * Fonction pure : la page lit la base, ce module range. L'échéance étant un
  * jour sans heure, le tri « par échéance » à l'intérieur d'un jour retombe
- * sur un ordre stable — la ligne quotidienne d'abord, puis l'ordre de
- * création.
+ * sur l'ordre de création — la ligne quotidienne, qui passait devant, n'existe
+ * plus.
  */
 
 import { addDays } from "./dates";
 import { isOverdue } from "./recurrence";
-import { isDailyTask, type WorkTask } from "./types";
+import { withoutDailyTasks, type WorkTask } from "./types";
 
 export type DayGroup = { day: string; tasks: WorkTask[] };
 
@@ -36,12 +36,15 @@ function byDay(tasks: WorkTask[]): Map<string, WorkTask[]> {
 }
 
 function inDayOrder(a: WorkTask, b: WorkTask): number {
-  if (isDailyTask(a) !== isDailyTask(b)) return isDailyTask(a) ? -1 : 1;
   return a.created_at.localeCompare(b.created_at);
 }
 
 export function organizeTasks(tasks: WorkTask[], today: string): OrganizedTasks {
-  const pending = tasks.filter((task) => task.status === "pending");
+  // La lecture les écarte déjà, mais c'est ici que se décide ce qui s'affiche :
+  // aucune des trois sections ne doit jamais rendre une ligne quotidienne.
+  const pending = withoutDailyTasks(tasks).filter(
+    (task) => task.status === "pending",
+  );
 
   const overdue = pending
     .filter((task) => isOverdue(task, today))

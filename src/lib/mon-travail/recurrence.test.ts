@@ -4,10 +4,9 @@ import {
   dueDateForWeek,
   isOverdue,
   planCycleTasks,
-  planDailyTask,
   type CycleForPlanning,
 } from "./recurrence";
-import { DAILY_TASK_TITLE } from "./types";
+import { isDailyTask } from "./types";
 
 const ORG = "11111111-1111-4111-8111-111111111111";
 
@@ -21,20 +20,26 @@ const cycle = (overrides: Partial<CycleForPlanning> = {}): CycleForPlanning => (
   ...overrides,
 });
 
-describe("planDailyTask", () => {
-  it("produit la ligne quotidienne fixe, sans client, avec sa clé du jour", () => {
-    const task = planDailyTask(ORG, "2026-08-05");
-    expect(task.title).toBe(DAILY_TASK_TITLE);
-    expect(task.workspace_id).toBeNull();
-    expect(task.cycle_step_id).toBeNull();
-    expect(task.due_date).toBe("2026-08-05");
-    expect(task.dedupe_key).toBe("daily:2026-08-05");
+describe("la ligne quotidienne n'est plus planifiée", () => {
+  it("ne pose que des occurrences rattachées à une étape de cycle", () => {
+    const planned = planCycleTasks({
+      orgId: ORG,
+      monthKey: "2026-08",
+      cycles: [cycle()],
+    });
+
+    expect(planned.every((task) => task.cycle_step_id !== null)).toBe(true);
+    expect(planned.some((task) => isDailyTask(task))).toBe(false);
   });
 
-  it("donne la même clé à deux planifications du même jour", () => {
-    expect(planDailyTask(ORG, "2026-08-05").dedupe_key).toBe(
-      planDailyTask(ORG, "2026-08-05").dedupe_key,
-    );
+  it("ne produit plus aucune clé du jour", () => {
+    const planned = planCycleTasks({
+      orgId: ORG,
+      monthKey: "2026-08",
+      cycles: [cycle()],
+    });
+
+    expect(planned.some((task) => task.dedupe_key.startsWith("daily:"))).toBe(false);
   });
 });
 
