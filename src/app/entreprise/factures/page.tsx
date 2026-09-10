@@ -24,8 +24,15 @@ import {
   stageOf,
   stageOfInvoice,
   totalsOf,
+  ttcCentsOf,
   wasIssuedInMonth,
 } from "@/lib/billing/schedule";
+import {
+  GROUP_SORT_PARAMS,
+  parseBoardSort,
+  sortBoardRows,
+  type BoardSortKey,
+} from "@/lib/billing/board-sort";
 import {
   listEngagements,
   listInstallments,
@@ -37,6 +44,8 @@ import { getLastSyncRun } from "@/lib/finance/queries";
 import type { BillingInstallment } from "@/lib/billing/types";
 
 export const metadata: Metadata = { title: "Factures · Mon entreprise" };
+
+type Search = Promise<Record<string, string | undefined>>;
 
 /**
  * L'écran Factures — le remplaçant du board Monday, groupes compris.
@@ -59,8 +68,9 @@ export const metadata: Metadata = { title: "Factures · Mon entreprise" };
  * qu'elle n'est pas payée (`src/lib/billing/envoi.ts`). Ce qui est parti se
  * lit sous le nom du client, sur la ligne.
  */
-export default async function FacturesPage() {
+export default async function FacturesPage({ searchParams }: { searchParams: Search }) {
   const context = await requireFinanceAccess();
+  const query = await searchParams;
 
   const [engagements, living, orphanInvoices, knownClients, emailsByInstallment, sync] =
     await Promise.all([
@@ -147,6 +157,16 @@ export default async function FacturesPage() {
   );
   const unpaidCount = overdueInvoices.length + overdueLines.length;
   const lateCount = kpis.late.count + unpaidCount;
+
+  /* Le tri demandé sur un groupe s'applique **par-dessus** ces ordres par
+     défaut, qui restent la réponse en l'absence de paramètre : chacun d'eux
+     encode une décision produit qu'un tri alphabétique ne remplace pas. */
+  const sorted = {
+    to_invoice: sortBoardRows(groups.to_invoice, boardSortKeyOf, parseBoardSort(query[GROUP_SORT_PARAMS.to_invoice])),
+    invoiced: sortBoardRows(groups.invoiced, boardSortKeyOf, parseBoardSort(query[GROUP_SORT_PARAMS.invoiced])),
+    paid: sortBoardRows(groups.paid, boardSortKeyOf, parseBoardSort(query[GROUP_SORT_PARAMS.paid])),
+    confirmed: sortBoardRows(groups.confirmed, boardSortKeyOf, parseBoardSort(query[GROUP_SORT_PARAMS.confirmed])),
+  };
 
   const averageMonthly = forecastAverage(forecast);
   const forecastMonths = forecast.filter((point) => point.count > 0).length;
@@ -237,7 +257,8 @@ export default async function FacturesPage() {
         title="À facturer"
         description="Le mois de prestation est terminé : ces factures doivent partir. « Facturée » se coche seule à la synchronisation suivante."
         stage="to_invoice"
-        rows={groups.to_invoice}
+        sortParam={GROUP_SORT_PARAMS.to_invoice}
+        rows={sorted.to_invoice}
         canDecide={context.canDecide}
         emptyText={`Rien à facturer aujourd'hui. La prochaine bascule aura lieu le 1er ${nextSwitch}.`}
         defaultOpen
@@ -247,7 +268,8 @@ export default async function FacturesPage() {
         title="Facturée"
         description="Émises, en attente du règlement client — les premières parties en premier, les retards de paiement en bas."
         stage="invoiced"
-        rows={groups.invoiced}
+        sortParam={GROUP_SORT_PARAMS.invoiced}
+        rows={sorted.invoiced}
         canDecide={context.canDecide}
         emptyText="Aucune facture en attente de règlement."
         defaultOpen
@@ -257,7 +279,8 @@ export default async function FacturesPage() {
         title="Payée"
         description="Tout ce qui est encaissé, du plus récent au plus ancien."
         stage="paid"
-        rows={groups.paid}
+        sortParam={GROUP_SORT_PARAMS.paid}
+        rows={sorted.paid}
         canDecide={context.canDecide}
         emptyText="Aucun paiement récent."
       />
@@ -266,7 +289,8 @@ export default async function FacturesPage() {
         title="Facture confirmée"
         description="Les mensualités à venir : chacune passera « À facturer » le 1er du mois suivant sa prestation."
         stage="confirmed"
-        rows={groups.confirmed}
+        sortParam={GROUP_SORT_PARAMS.confirmed}
+        rows={sorted.confirmed}
         canDecide={context.canDecide}
         emptyText="Aucune mensualité planifiée. « Ajouter un devis » génère les prochaines."
         defaultOpen
@@ -279,6 +303,30 @@ export default async function FacturesPage() {
       />
     </div>
   );
+}
+
+/**
+ * Ce qu'une rangée offre au tri d'un groupe — et c'est **ce qu'elle affiche**
+ * qui fait foi : la période montre le mois de prestation d'une mensualité et
+ * le jour d'émission d'une facture libre, le montant est celui de la colonne
+ * Montant, TTC. Trier sur une valeur qu'on ne voit pas donnerait un ordre
+ * inexplicable.
+ */
+function boardSortKeyOf(row: BoardRow): BoardSortKey {
+  if (row.kind === "installment") {
+    return {
+      client: row.line.client,
+      date: row.line.service_month,
+      cents: ttcCentsOf(row.line.amount_cents, row.line.vat_rate),
+      currency: row.line.currency,
+    };
+  }
+  return {
+    client: row.invoice.client_name,
+    date: row.invoice.issued_on ?? row.invoice.paid_at?.slice(0, 10) ?? "",
+    cents: row.invoice.amount_cents,
+    currency: row.invoice.currency,
+  };
 }
 
 /** La date de référence d'une rangée : jour prévu d'une mensualité, jour
