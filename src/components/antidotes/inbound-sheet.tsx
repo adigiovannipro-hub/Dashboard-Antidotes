@@ -324,8 +324,11 @@ function Reshape({
               type="button"
               variant={existing ? "outline" : "accent"}
               size="sm"
-              disabled={pending || !studio.anthropic}
-              title={studio.anthropic ? undefined : "ANTHROPIC_API_KEY absente"}
+              /* Relire une forme déjà écrite ne demande aucune clé : seule
+                 l'écriture en a besoin. Sans cette distinction, un brouillon
+                 devenait inatteignable dès que la clé manquait. */
+              disabled={pending || (!existing && !studio.anthropic)}
+              title={existing || studio.anthropic ? undefined : "ANTHROPIC_API_KEY absente"}
               onClick={() => (existing ? setFormat(entry) : write(entry))}
               aria-pressed={existing ? format === entry : undefined}
               className={cn(existing && format === entry && "border-accent-ink text-accent-ink")}
