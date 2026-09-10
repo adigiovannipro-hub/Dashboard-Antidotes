@@ -1,5 +1,6 @@
 import { cn } from "@/lib/utils";
 import { StatusPill, type StatusTone } from "@/components/ds/status-pill";
+import { SortHead } from "@/components/billing/group-sort";
 import {
   DeleteInstallmentButton,
   InstallmentAction,
@@ -75,7 +76,12 @@ export type BoardRow =
 export const INSTALLMENT_GRID =
   "md:grid md:grid-cols-[8.5rem_minmax(0,1.4fr)_8.5rem_8rem_minmax(9rem,auto)] md:items-center md:gap-x-4";
 
-export function InstallmentsHeader() {
+/* Les trois colonnes qui portent une valeur comparable se trient au clic ;
+   l'état et les actions n'en sont pas. Le tri est local au groupe — d'où le
+   paramètre d'URL passé de haut en bas plutôt que déduit ici. Sans lui, les
+   en-têtes restent du texte : seule une page qui applique le tri a le droit
+   de le proposer. */
+export function InstallmentsHeader({ sortParam }: { sortParam?: string }) {
   return (
     <div
       className={cn(
@@ -84,9 +90,26 @@ export function InstallmentsHeader() {
       )}
     >
       <span>Statut</span>
-      <span>Client · Projet</span>
-      <span>Période</span>
-      <span className="text-right">Montant</span>
+      {sortParam ? (
+        <>
+          <SortHead
+            param={sortParam}
+            field="client"
+            label="Client · Projet"
+            announce="client"
+          />
+          <SortHead param={sortParam} field="periode" label="Période" />
+          <span className="text-right">
+            <SortHead param={sortParam} field="montant" label="Montant" align="right" />
+          </span>
+        </>
+      ) : (
+        <>
+          <span>Client · Projet</span>
+          <span>Période</span>
+          <span className="text-right">Montant</span>
+        </>
+      )}
       <span>
         <span className="sr-only">Actions</span>
       </span>

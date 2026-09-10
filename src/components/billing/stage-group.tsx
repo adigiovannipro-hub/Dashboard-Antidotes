@@ -50,6 +50,7 @@ export function StageGroup({
   title,
   description,
   stage,
+  sortParam,
   rows,
   canDecide,
   emptyText,
@@ -59,6 +60,11 @@ export function StageGroup({
   title: string;
   description?: string;
   stage: InstallmentStage;
+  /** Le paramètre d'URL où ce groupe range son tri — les quatre groupes se
+      trient séparément, et c'est la page qui les nomme. Absent, l'en-tête
+      reste inerte : une colonne qui se clique sans que la page applique le
+      tri promettrait un geste qui ne fait rien. */
+  sortParam?: string;
   rows: BoardRow[];
   canDecide: boolean;
   /** Affiché à la place des lignes quand le groupe est vide. */
@@ -89,7 +95,7 @@ export function StageGroup({
       </PanelBody>
     ) : (
       <>
-        <InstallmentsHeader />
+        <InstallmentsHeader sortParam={sortParam} />
         {/* Les lignes défilent, l'en-tête de colonnes et la somme restent :
             ce sont les deux repères qu'on ne veut jamais perdre de vue. */}
         <div className={cn(SIX_ROWS, "overflow-y-auto")}>
