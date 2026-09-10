@@ -132,6 +132,11 @@ export function ExpensesTable({
   const hasFilters = ["du", "au", "categorie", "justificatif"].some((key) =>
     searchParams.has(key),
   );
+  /* Le mois vit à part des filtres réinitialisables — l'écran s'ouvre toujours
+     sur un mois — mais il restreint la liste comme eux : sans lui, un mois sans
+     dépense afficherait « aucune dépense synchronisée », ce qui est faux. */
+  const monthValue = searchParams.get("mois");
+  const restricted = hasFilters || (monthValue !== null && monthValue !== "tout");
 
   return (
     <div className="space-y-4">
@@ -203,7 +208,7 @@ export function ExpensesTable({
 
       {rows.length === 0 ? (
         <p className="text-muted-foreground py-10 text-center text-sm">
-          {hasFilters
+          {restricted
             ? "Aucune dépense ne correspond à ces filtres."
             : "Aucune dépense synchronisée pour l'instant."}
         </p>

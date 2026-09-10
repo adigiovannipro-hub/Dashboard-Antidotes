@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import type { Metadata } from "next";
 import { CreditCard, ReceiptText, TriangleAlert } from "lucide-react";
 
@@ -71,7 +72,24 @@ export default async function FinancePage({
   searchParams: Search;
 }) {
   const context = await requireFinanceAccess();
-  const params = parseExpenseParams(await searchParams);
+  const query = await searchParams;
+
+  /* Le mois en cours est le défaut de l'écran — dépenses et répartition. Sans
+     période dans l'URL, on l'y écrit plutôt que de le deviner au rendu : le
+     lien se partage, la pastille s'allume d'elle-même, et l'export CSV lit
+     exactement la même chose que le tableau. « Tout » est donc un choix
+     explicite (`?mois=tout`), sinon il renverrait ici en boucle. */
+  if (!query.mois && !query.du && !query.au) {
+    const cible = new URLSearchParams(
+      Object.entries(query).filter(
+        (entry): entry is [string, string] => entry[1] !== undefined,
+      ),
+    );
+    cible.set("mois", currentMonthParam());
+    redirect(`/entreprise/finance?${cible.toString()}`);
+  }
+
+  const params = parseExpenseParams(query);
 
   /* La trésorerie d'abord, seule : la courbe du solde est ancrée sur le
      disponible réel, elle ne peut pas se calculer avant de le connaître. */
@@ -425,7 +443,7 @@ function monthOptions(): FilterOption[] {
     });
   }
 
-  options.push({ value: "", label: "Tout", href: "/entreprise/finance" });
+  options.push({ value: "", label: "Tout", href: "/entreprise/finance?mois=tout" });
   return options;
 }
 
