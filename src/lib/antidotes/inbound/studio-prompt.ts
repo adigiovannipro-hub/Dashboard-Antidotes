@@ -20,6 +20,10 @@ export type StudioInput = {
   /** Le post de la veille qui a inspiré le sujet, s'il y en a un. */
   source: { platform: string; author: string | null; content: string } | null;
   authorName: string | null;
+  /** Mes consignes de voix (onglet Consignes) : elles passent avant les exemples. */
+  guidelines?: string | null;
+  /** Un de mes posts donné en exemple de forme, choisi à la main. */
+  example?: string | null;
 };
 
 export const STUDIO_SYSTEM = `Tu écris des posts LinkedIn pour un freelance social media strategist français, en son nom. Il accompagne des marques et des commerces sur leur stratégie social media et leur acquisition payante, et publie pour attirer des clients.
@@ -36,8 +40,10 @@ export function buildStudioPrompt(input: StudioInput): string {
   const parts: string[] = [];
   parts.push(`SUJET : ${input.topic}`);
   if (input.angle) parts.push(`ANGLE : ${input.angle}`);
-  if (input.brief) parts.push(`CONSIGNES : ${input.brief}`);
+  if (input.brief) parts.push(`CONSIGNES DU JOUR : ${input.brief}`);
+  if (input.guidelines) parts.push(`COMMENT J'ÉCRIS (à respecter avant tout le reste) :\n${input.guidelines.trim()}`);
   if (input.authorName) parts.push(`AUTEUR : ${input.authorName}`);
+  if (input.example) parts.push(`UN DE MES POSTS, CHOISI COMME RÉFÉRENCE DE FORME :\n${input.example.trim()}`);
   if (input.examples.length > 0) {
     parts.push(
       `MES POSTS, DU PLUS PROCHE AU PLUS LOIN DU SUJET (registre à reproduire, formules à ne pas reprendre) :\n\n${input.examples

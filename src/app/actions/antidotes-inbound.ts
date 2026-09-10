@@ -7,8 +7,10 @@ import { embedderFromEnv, toPgVector } from "@/lib/antidotes/inbound/embeddings"
 import { generatePost } from "@/lib/antidotes/inbound/generate-post";
 import { publishToLinkedin } from "@/lib/antidotes/inbound/linkedin-publish";
 import { proposeTopics } from "@/lib/antidotes/inbound/propose-topics";
+import { getInboundSettings } from "@/lib/antidotes/inbound/queries";
 import { normalizeHandle } from "@/lib/antidotes/inbound/radar/types";
 import { parseSharesCsv } from "@/lib/antidotes/inbound/shares-csv";
+import { REEL_MAX_CHARS } from "@/lib/antidotes/inbound/reel-prompt";
 import { LINKEDIN_MAX_CHARS } from "@/lib/antidotes/inbound/studio-prompt";
 import { generateVisual, readVisual } from "@/lib/antidotes/inbound/visual";
 import type { GeneratedPost, RadarTopic } from "@/lib/antidotes/types";
@@ -24,9 +26,14 @@ import { createAdminClient, createClient } from "@/lib/supabase/server";
 
 export type InboundResult = { ok: true; message?: string; id?: string } | { ok: false; error: string };
 
-const LIBRARY_PATH = "/antidotes/inbound/library";
-const RADAR_PATH = "/antidotes/inbound/radar";
-const STUDIO_PATH = "/antidotes/inbound/studio";
+/* L'inbound tient sur une page à vues : un seul chemin à revalider, quel que
+   soit le geste — un compte veillé, un brouillon et une consigne vivent au
+   même endroit. Les trois constantes d'avant (radar, studio, bibliothèque)
+   pointaient des routes qui ne sont plus que des redirections. */
+const INBOUND_PATH = "/antidotes/inbound";
+const LIBRARY_PATH = INBOUND_PATH;
+const RADAR_PATH = INBOUND_PATH;
+const STUDIO_PATH = INBOUND_PATH;
 
 const PLATFORMS = ["linkedin", "x", "youtube", "tiktok", "instagram"] as const;
 
@@ -397,12 +404,15 @@ export async function setTopicStatus(input: { topicId: string; status: "new" | "
 
 // --- Studio --------------------------------------------------------------------------
 
+const FORMATS = ["linkedin_post", "reel_script"] as const;
+
 const draftInput = z.object({
   topic: z.string().trim().min(5, "Un sujet d'au moins cinq caractères.").max(300),
   angle: z.string().trim().max(400),
   brief: z.string().trim().max(1000),
   topicId: z.union([z.literal(""), z.uuid()]),
   sourcePostId: z.union([z.literal(""), z.uuid()]),
+  format: z.enum(FORMATS).default("linkedin_post"),
 });
 
 export async function createDraft(_previous: InboundResult | null, formData: FormData): Promise<InboundResult> {
@@ -412,6 +422,7 @@ export async function createDraft(_previous: InboundResult | null, formData: For
     brief: formValue(formData, "brief"),
     topicId: formValue(formData, "topicId").trim(),
     sourcePostId: formValue(formData, "sourcePostId").trim(),
+    format: formValue(formData, "format").trim() || undefined,
   });
   if (!parsed.success) return firstIssue(parsed.error, "Saisie invalide.");
   const input = parsed.data;
@@ -427,6 +438,8 @@ export async function createDraft(_previous: InboundResult | null, formData: For
       brief: input.brief || null,
       sourcePostId: input.sourcePostId || null,
       authorName: await authorName(email),
+      format: input.format,
+      settings: await getInboundSettings({ orgId }),
     });
     const { data, error } = await supabase
       .from("antidotes_generated_posts")
@@ -437,6 +450,7 @@ export async function createDraft(_previous: InboundResult | null, formData: For
         content: draft.content,
         status: "draft",
         topic_id: input.topicId || null,
+        format: input.format,
         brief: [input.angle ? `Angle : ${input.angle}` : "", input.brief].filter(Boolean).join("\n") || null,
         examples: draft.examples,
       } as never)
@@ -635,6 +649,270 @@ export async function publishDraftNow(input: { postId: string }): Promise<Inboun
     revalidatePath(`${STUDIO_PATH}/${post.id}`);
     revalidatePath(STUDIO_PATH);
     return { ok: true, message: "Publié sur LinkedIn." };
+  } catch (error) {
+    return fail(error);
+  }
+}
+
+
+// --- La page unique : consignes, programmation, écriture depuis le panneau -----------
+
+const settingsInput = z.object({
+  guidelines: z.string().trim().max(4000),
+  linkedinExample: z.string().trim().max(4000),
+  reelExample: z.string().trim().max(4000),
+  emailExample: z.string().trim().max(4000),
+});
+
+/**
+ * Mes consignes de voix et les seuils de relevé. Une ligne par organisation,
+ * posée à la première écriture (`upsert` sur la clé primaire `org_id`).
+ *
+ * Les seuils arrivent en champs `seuil_<réseau>_<grandeur>` : l'écran n'en
+ * rend que pour les réseaux réellement veillés, et un champ vide efface le
+ * seuil plutôt que de le mettre à zéro — zéro serait un seuil, l'absence non.
+ */
+export async function saveInboundSettings(_previous: InboundResult | null, formData: FormData): Promise<InboundResult> {
+  const parsed = settingsInput.safeParse({
+    guidelines: formValue(formData, "guidelines"),
+    linkedinExample: formValue(formData, "linkedinExample"),
+    reelExample: formValue(formData, "reelExample"),
+    emailExample: formValue(formData, "emailExample"),
+  });
+  if (!parsed.success) return firstIssue(parsed.error, "Saisie invalide.");
+
+  const thresholds: Record<string, Record<string, number>> = {};
+  for (const [key, raw] of formData.entries()) {
+    const match = /^seuil_([a-z]+)_(views|likes|comments)$/.exec(key);
+    if (!match || typeof raw !== "string") continue;
+    const value = Number(raw.trim());
+    if (!raw.trim() || !Number.isFinite(value) || value <= 0) continue;
+    const platform = match[1]!;
+    if (!(PLATFORMS as readonly string[]).includes(platform)) continue;
+    thresholds[platform] = { ...thresholds[platform], [`min_${match[2]}`]: Math.floor(value) };
+  }
+
+  try {
+    const { orgId } = await guardOwner();
+    const supabase = await createClient();
+    const { error } = await supabase.from("antidotes_inbound_settings").upsert(
+      {
+        org_id: orgId,
+        guidelines: parsed.data.guidelines || null,
+        linkedin_example: parsed.data.linkedinExample || null,
+        reel_example: parsed.data.reelExample || null,
+        email_example: parsed.data.emailExample || null,
+        thresholds,
+      } as never,
+      { onConflict: "org_id" },
+    );
+    if (error) throw new Error(error.message);
+    revalidatePath(INBOUND_PATH);
+    return { ok: true, message: "Consignes enregistrées." };
+  } catch (error) {
+    return fail(error);
+  }
+}
+
+/**
+ * La date d'un brouillon. Un post LinkedIn approuvé part tout seul à cette
+ * date (`pnpm studio:publier`, passage horaire) ; un script de reel n'a pas
+ * de publication, sa date est un repère dans le calendrier.
+ */
+export async function scheduleDraft(input: { postId: string; scheduledAt: string | null }): Promise<InboundResult> {
+  const parsed = z
+    .object({ postId: z.uuid(), scheduledAt: z.union([z.string().min(1), z.null()]) })
+    .safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Date invalide." };
+  try {
+    const { orgId } = await guardOwner();
+    const post = await loadDraft(orgId, parsed.data.postId);
+    if (post.status === "published") throw new Error("Un post publié ne se reprogramme pas.");
+
+    let scheduledAt: string | null = null;
+    if (parsed.data.scheduledAt) {
+      const at = new Date(parsed.data.scheduledAt);
+      if (Number.isNaN(at.getTime())) throw new Error("Date illisible.");
+      // Une heure de battement : programmer « maintenant » depuis un écran
+      // ouvert depuis dix minutes ne doit pas être refusé, mais hier si.
+      if (at.getTime() < Date.now() - 3_600_000) throw new Error("Cette date est passée.");
+      scheduledAt = at.toISOString();
+    }
+
+    const supabase = await createClient();
+    const { error } = await supabase
+      .from("antidotes_generated_posts")
+      .update({ scheduled_at: scheduledAt } as never)
+      .eq("org_id", orgId)
+      .eq("id", post.id);
+    if (error) throw new Error(error.message);
+    revalidatePath(INBOUND_PATH);
+    return { ok: true, message: scheduledAt ? "Date posée." : "Date retirée." };
+  } catch (error) {
+    return fail(error);
+  }
+}
+
+/**
+ * Écrire depuis le panneau latéral, dans l'une des deux formes.
+ *
+ * Un seul brouillon par source et par format : réécrire remplace le texte au
+ * lieu d'empiler des jumeaux dans le calendrier. Un brouillon déjà approuvé
+ * ou publié n'est jamais écrasé — on repart d'un neuf.
+ */
+export async function generateDraft(input: {
+  format: "linkedin_post" | "reel_script";
+  sourcePostId?: string | null;
+  topicId?: string | null;
+  topic?: string | null;
+  angle?: string | null;
+  brief?: string | null;
+}): Promise<InboundResult> {
+  const parsed = z
+    .object({
+      format: z.enum(FORMATS),
+      sourcePostId: z.union([z.uuid(), z.null()]).optional(),
+      topicId: z.union([z.uuid(), z.null()]).optional(),
+      topic: z.union([z.string().trim().max(300), z.null()]).optional(),
+      angle: z.union([z.string().trim().max(400), z.null()]).optional(),
+      brief: z.union([z.string().trim().max(1000), z.null()]).optional(),
+    })
+    .safeParse(input);
+  if (!parsed.success) return firstIssue(parsed.error, "Saisie invalide.");
+  const data = parsed.data;
+
+  try {
+    const { orgId, email } = await guardOwner();
+    const supabase = await createClient();
+
+    // Le sujet vient de ce qu'on a sous la main : le titre du sujet proposé,
+    // sinon la première phrase du contenu de la veille. Jamais un « Sans
+    // titre » : c'est ce texte qui guide la génération.
+    let topic = data.topic?.trim() || "";
+    let angle = data.angle?.trim() || null;
+    if (data.topicId) {
+      const { data: topicRow } = await supabase
+        .from("antidotes_radar_topics")
+        .select("title, angle")
+        .eq("org_id", orgId)
+        .eq("id", data.topicId)
+        .maybeSingle();
+      const row = topicRow as unknown as Pick<RadarTopic, "title" | "angle"> | null;
+      if (row) {
+        topic = topic || row.title;
+        angle = angle ?? row.angle;
+      }
+    }
+    if (!topic && data.sourcePostId) {
+      const { data: sourceRow } = await supabase
+        .from("antidotes_reference_posts")
+        .select("content, transcript")
+        .eq("org_id", orgId)
+        .eq("id", data.sourcePostId)
+        .maybeSingle();
+      const row = sourceRow as unknown as { content: string; transcript: string | null } | null;
+      const text = (row?.transcript?.trim() || row?.content || "").replace(/\s+/g, " ").trim();
+      topic = text.split(/(?<=[.!?])\s/)[0]?.slice(0, 200) ?? "";
+    }
+    if (topic.length < 5) throw new Error("Aucun sujet à écrire : le contenu source est vide.");
+
+    const draft = await generatePost({
+      supabase,
+      orgId,
+      topic,
+      angle,
+      brief: data.brief?.trim() || null,
+      sourcePostId: data.sourcePostId ?? null,
+      authorName: await authorName(email),
+      format: data.format,
+      settings: await getInboundSettings({ orgId }),
+    });
+
+    // Un brouillon de la même source et du même format se réécrit ; approuvé
+    // ou publié, il est laissé tranquille et un nouveau naît à côté.
+    let existingId: string | null = null;
+    if (data.sourcePostId) {
+      const { data: existing } = await supabase
+        .from("antidotes_generated_posts")
+        .select("id, status")
+        .eq("org_id", orgId)
+        .eq("source_post_id", data.sourcePostId)
+        .eq("format", data.format)
+        .eq("status", "draft")
+        .limit(1)
+        .maybeSingle();
+      existingId = (existing as unknown as { id: string } | null)?.id ?? null;
+    }
+
+    const payload = {
+      org_id: orgId,
+      source_post_id: data.sourcePostId ?? null,
+      topic,
+      content: draft.content,
+      status: "draft",
+      topic_id: data.topicId ?? null,
+      format: data.format,
+      brief: [angle ? `Angle : ${angle}` : "", data.brief ?? ""].filter(Boolean).join("\n") || null,
+      examples: draft.examples,
+      error: null,
+    };
+    const { data: saved, error } = existingId
+      ? await supabase
+          .from("antidotes_generated_posts")
+          .update(payload as never)
+          .eq("org_id", orgId)
+          .eq("id", existingId)
+          .select("id")
+          .single()
+      : await supabase
+          .from("antidotes_generated_posts")
+          .insert(payload as never)
+          .select("id")
+          .single();
+    if (error) throw new Error(error.message);
+
+    if (data.topicId) {
+      await supabase
+        .from("antidotes_radar_topics")
+        .update({ status: "used" } as never)
+        .eq("org_id", orgId)
+        .eq("id", data.topicId);
+    }
+    revalidatePath(INBOUND_PATH);
+    const method =
+      draft.method === "embedding"
+        ? "exemples choisis par vecteurs"
+        : draft.method === "lexical"
+          ? "exemples choisis par recoupement lexical"
+          : "sans exemple : la bibliothèque est vide";
+    return { ok: true, id: (saved as unknown as { id: string }).id, message: `Écrit — ${method}.` };
+  } catch (error) {
+    return fail(error);
+  }
+}
+
+/** Le texte d'un brouillon, enregistré depuis le panneau. */
+export async function saveDraftText(input: { postId: string; content: string }): Promise<InboundResult> {
+  const parsed = z
+    .object({ postId: z.uuid(), content: z.string().trim().min(20, "Un texte d'au moins vingt caractères.").max(REEL_MAX_CHARS) })
+    .safeParse(input);
+  if (!parsed.success) return firstIssue(parsed.error, "Saisie invalide.");
+  try {
+    const { orgId } = await guardOwner();
+    const post = await loadDraft(orgId, parsed.data.postId);
+    if (post.status === "published") throw new Error("Un post publié ne se modifie plus.");
+    if (post.format === "linkedin_post" && parsed.data.content.length > LINKEDIN_MAX_CHARS) {
+      throw new Error(`LinkedIn accepte ${LINKEDIN_MAX_CHARS} caractères au plus.`);
+    }
+    const supabase = await createClient();
+    const { error } = await supabase
+      .from("antidotes_generated_posts")
+      .update({ content: parsed.data.content } as never)
+      .eq("org_id", orgId)
+      .eq("id", post.id);
+    if (error) throw new Error(error.message);
+    revalidatePath(INBOUND_PATH);
+    return { ok: true, message: "Enregistré." };
   } catch (error) {
     return fail(error);
   }

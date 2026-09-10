@@ -1,7 +1,15 @@
 import "server-only";
 
 import { createAdminClient, createClient } from "@/lib/supabase/server";
-import type { GeneratedPost, GeneratedPostStatus, PostPlatform, RadarAccount, RadarTopic, ReferencePost } from "../types";
+import type {
+  GeneratedPost,
+  GeneratedPostStatus,
+  InboundSettings,
+  PostPlatform,
+  RadarAccount,
+  RadarTopic,
+  ReferencePost,
+} from "../types";
 import { engagementScore, type EngagementScore } from "./engagement";
 import { radarAvailability, type RadarAvailability } from "./radar/assemble";
 import { publishAvailability } from "./linkedin-publish";
@@ -187,3 +195,149 @@ export async function getStudioPost(options: { orgId: string; postId: string }):
 }
 
 export const STUDIO_STATUS_ORDER: GeneratedPostStatus[] = ["draft", "approved", "published", "rejected"];
+
+
+// --- La page unique de l'inbound ---------------------------------------------------
+
+/** Les colonnes d'un post relevé ou d'un post à moi — jamais le vecteur, lourd et inutile à l'écran. */
+const POST_COLUMNS =
+  "id, org_id, platform, author_handle, content, url, metrics, is_mine, tags, collected_at, created_at, account_id, published_at, embedding_source, media_kind, media_url, transcript";
+
+export type InboundContent = {
+  post: Omit<ReferencePost, "embedding">;
+  account: RadarAccount | null;
+  score: EngagementScore;
+};
+
+export type InboundData = {
+  accounts: RadarAccount[];
+  /** Tout le corpus de veille récent, filtré et rangé à l'écran. */
+  contents: InboundContent[];
+  topics: RadarTopic[];
+  myPosts: LibraryPost[];
+  drafts: GeneratedPost[];
+  settings: InboundSettings | null;
+  availability: RadarAvailability;
+  studio: StudioAvailability;
+  /** L'instant de la lecture : la fenêtre des filtres et le jour du calendrier s'y appuient. */
+  now: number;
+};
+
+/**
+ * Une seule lecture pour la page entière : ses six vues se choisissent sans
+ * aller-retour serveur, et le tableau se filtre en mémoire — le corpus d'une
+ * veille tient largement dans la limite ci-dessous.
+ */
+export async function getInboundData(options: { orgId: string }): Promise<InboundData> {
+  const supabase = await createClient();
+  const [{ data: accountRows }, { data: contentRows }, { data: topicRows }, { data: mineRows }, { data: draftRows }, settings] =
+    await Promise.all([
+      supabase.from("antidotes_radar_accounts").select("*").eq("org_id", options.orgId).order("created_at").limit(200),
+      supabase
+        .from("antidotes_reference_posts")
+        .select(POST_COLUMNS)
+        .eq("org_id", options.orgId)
+        .eq("is_mine", false)
+        .order("published_at", { ascending: false, nullsFirst: false })
+        .limit(600),
+      supabase
+        .from("antidotes_radar_topics")
+        .select("*")
+        .eq("org_id", options.orgId)
+        .order("created_at", { ascending: false })
+        .limit(60),
+      supabase
+        .from("antidotes_reference_posts")
+        .select(POST_COLUMNS)
+        .eq("org_id", options.orgId)
+        .eq("is_mine", true)
+        .order("published_at", { ascending: false, nullsFirst: false })
+        .limit(500),
+      supabase
+        .from("antidotes_generated_posts")
+        .select("*")
+        .eq("org_id", options.orgId)
+        .order("updated_at", { ascending: false })
+        .limit(300),
+      getInboundSettings({ orgId: options.orgId }),
+    ]);
+
+  const accounts = (accountRows ?? []) as unknown as RadarAccount[];
+  const byId = new Map(accounts.map((account) => [account.id, account]));
+  const contents = ((contentRows ?? []) as unknown as Omit<ReferencePost, "embedding">[]).map((post) => {
+    const account = post.account_id ? (byId.get(post.account_id) ?? null) : null;
+    return {
+      post,
+      account,
+      score: engagementScore(post.metrics, account?.followers ?? post.metrics.followers_at_collect ?? null),
+    };
+  });
+
+  return {
+    now: Date.now(),
+    accounts,
+    contents,
+    topics: (topicRows ?? []) as unknown as RadarTopic[],
+    myPosts: ((mineRows ?? []) as unknown as Omit<ReferencePost, "embedding">[]).map((row) => ({
+      ...row,
+      embedding: null,
+      hasVector: row.embedding_source !== null,
+    })),
+    drafts: (draftRows ?? []) as unknown as GeneratedPost[],
+    settings,
+    availability: radarAvailability(),
+    studio: studioAvailability(),
+  };
+}
+
+/** Mes consignes de voix. Nulles tant que rien n'a été écrit — jamais inventées. */
+export async function getInboundSettings(options: { orgId: string }): Promise<InboundSettings | null> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("antidotes_inbound_settings")
+    .select("*")
+    .eq("org_id", options.orgId)
+    .maybeSingle();
+  return (data as unknown as InboundSettings | null) ?? null;
+}
+
+/** Le détail d'un post relevé, tel que le panneau latéral le montre. */
+export type InboundPostDetail = {
+  post: Omit<ReferencePost, "embedding">;
+  account: RadarAccount | null;
+  score: EngagementScore;
+  /** Les brouillons déjà écrits depuis ce post, un par format au plus. */
+  drafts: GeneratedPost[];
+};
+
+export async function getInboundPost(options: { orgId: string; postId: string }): Promise<InboundPostDetail | null> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("antidotes_reference_posts")
+    .select(POST_COLUMNS)
+    .eq("org_id", options.orgId)
+    .eq("id", options.postId)
+    .maybeSingle();
+  const post = data as unknown as Omit<ReferencePost, "embedding"> | null;
+  if (!post) return null;
+
+  const [{ data: accountRow }, { data: draftRows }] = await Promise.all([
+    post.account_id
+      ? supabase.from("antidotes_radar_accounts").select("*").eq("org_id", options.orgId).eq("id", post.account_id).maybeSingle()
+      : Promise.resolve({ data: null }),
+    supabase
+      .from("antidotes_generated_posts")
+      .select("*")
+      .eq("org_id", options.orgId)
+      .eq("source_post_id", options.postId)
+      .order("updated_at", { ascending: false })
+      .limit(10),
+  ]);
+  const account = (accountRow as unknown as RadarAccount | null) ?? null;
+  return {
+    post,
+    account,
+    score: engagementScore(post.metrics, account?.followers ?? post.metrics.followers_at_collect ?? null),
+    drafts: (draftRows ?? []) as unknown as GeneratedPost[],
+  };
+}
