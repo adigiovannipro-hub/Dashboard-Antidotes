@@ -71,7 +71,10 @@ export function SortHead({
       onClick={toggle}
       aria-label={`Trier par ${announce ?? label.toLowerCase()}`}
       className={cn(
-        "focus-visible:ring-ring inline-flex items-center gap-1 rounded-sm transition-colors duration-(--motion-duration) ease-standard hover:text-text-primary focus-visible:ring-2 focus-visible:outline-none",
+        /* `uppercase` explicite : un `<button>` ne reçoit pas le
+           `text-transform` de l'en-tête (feuille de style du navigateur), et
+           « Période » se lisait en minuscules à côté de « STATUT ». */
+        "focus-visible:ring-ring inline-flex items-center gap-1 rounded-sm uppercase transition-colors duration-(--motion-duration) ease-standard hover:text-text-primary focus-visible:ring-2 focus-visible:outline-none",
         active && "text-text-primary",
         align === "right" && "justify-end",
       )}

@@ -186,7 +186,9 @@ export default async function FacturesPage({ searchParams }: { searchParams: Sea
       <SectionHeader
         title="Factures"
         action={
-          <div className="flex items-center gap-3">
+          /* `flex-wrap` : au téléphone, le badge et les deux boutons
+             débordaient l'écran de vingt pixels. */
+          <div className="flex flex-wrap items-center gap-3">
             <SyncBadge
               lastRunAt={sync?.started_at ?? null}
               lastRunStatus={sync?.status ?? null}
