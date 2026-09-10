@@ -6,6 +6,7 @@ import { decryptSecret } from "@/lib/moderation/crypto";
 import type { Database } from "@/lib/supabase/database.types";
 import type { PostPlatform } from "../../types";
 import { createInstagramCollector } from "./instagram";
+import { createInstagramApifyCollector } from "./instagram-apify";
 import { createLinkedinCollector } from "./linkedin";
 import { createTiktokCollector } from "./tiktok";
 import type { RadarProviders } from "./types";
@@ -32,7 +33,9 @@ export function radarAvailability(): RadarAvailability {
     x: apify,
     tiktok: apify,
     youtube: process.env.YOUTUBE_API_KEY?.trim() ? null : "YOUTUBE_API_KEY absente",
-    instagram: null, // dépend de l'inventaire, jugé au relevé
+    // Apify rend les vues et la vidéo ; sans lui, la Business Discovery de
+    // l'inventaire Meta prend le relais — jugée au relevé.
+    instagram: null,
   };
 }
 
@@ -77,8 +80,19 @@ export async function assembleRadarProviders(admin: SupabaseClient<Database>): P
   if (youtubeKey) providers.collectors.youtube = createYoutubeCollector({ apiKey: youtubeKey });
   else providers.missing.youtube = "YOUTUBE_API_KEY absente";
 
-  const instagram = await instagramCredentials(admin);
-  if ("error" in instagram) providers.missing.instagram = instagram.error;
-  else providers.collectors.instagram = createInstagramCollector(instagram);
+  /* Instagram a deux chemins, et l'ordre compte : l'acteur Apify rend les
+     **vues** d'un reel et son fichier vidéo — le score et le script en
+     dépendent — là où la Business Discovery de Meta ne rend ni l'un ni
+     l'autre. Elle reste le repli gratuit quand `APIFY_TOKEN` manque. */
+  if (apify) {
+    providers.collectors.instagram = createInstagramApifyCollector({ token: apify });
+  } else {
+    const instagram = await instagramCredentials(admin);
+    if ("error" in instagram) {
+      providers.missing.instagram = `${instagram.error} (ou APIFY_TOKEN, qui rend en plus les vues et le script)`;
+    } else {
+      providers.collectors.instagram = createInstagramCollector(instagram);
+    }
+  }
   return providers;
 }

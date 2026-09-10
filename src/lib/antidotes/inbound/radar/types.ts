@@ -8,7 +8,7 @@
  * fonction `fetch` injectée.
  */
 
-import type { PostMetrics, PostPlatform } from "../../types";
+import type { MediaKind, PostMetrics, PostPlatform } from "../../types";
 
 export type RadarPost = {
   url: string;
@@ -16,6 +16,10 @@ export type RadarPost = {
   published_at: string | null;
   metrics: PostMetrics;
   author_handle: string | null;
+  /** La nature du média, quand le réseau la dit — un reel se lit par son script. */
+  media_kind?: MediaKind;
+  /** L'URL du média, périssable : elle ne sert qu'à transcrire, jamais à l'affichage. */
+  media_url?: string | null;
 };
 
 export type RadarCollection = {
@@ -57,3 +61,6 @@ export function normalizeHandle(raw: string): string {
   const handle = (fromUrl ? fromUrl[1]! : trimmed).replace(/^@/, "").replace(/\/+$/, "");
   return handle;
 }
+
+/** Ce que le relevé garde d'un réseau — en dessous, un contenu n'entre pas. */
+export type RadarThreshold = { min_views?: number; min_likes?: number; min_comments?: number };

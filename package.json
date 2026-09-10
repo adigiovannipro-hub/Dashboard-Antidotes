@@ -54,6 +54,7 @@
     "sonde:sourcing": "tsx scripts/sonde-sourcing.ts",
     "sequences:passage": "node --conditions=react-server --import tsx scripts/sequences-passage.ts",
     "radar:passage": "node --conditions=react-server --import tsx scripts/radar-passage.ts",
+    "studio:publier": "node --conditions=react-server --import tsx scripts/studio-publish.ts",
     "seed:antidotes": "tsx scripts/seed-antidotes.ts"
   },
   "dependencies": {

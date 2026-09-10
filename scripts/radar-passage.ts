@@ -27,6 +27,7 @@ async function main() {
   const { assembleRadarProviders } = await import("../src/lib/antidotes/inbound/radar/assemble");
   const { collectRadar } = await import("../src/lib/antidotes/inbound/collect");
   const { createRadarStore, embedMissing, listRadarOrgIds } = await import("../src/lib/antidotes/inbound/store");
+  const { transcribeMissing } = await import("../src/lib/antidotes/inbound/transcribe");
   const { embedderFromEnv } = await import("../src/lib/antidotes/inbound/embeddings");
 
   const admin = createAdminClient();
@@ -40,12 +41,35 @@ async function main() {
   if (orgIds.length === 0) console.log("Aucun compte veillé.");
   let failures = 0;
   for (const orgId of orgIds) {
-    const report = await collectRadar({ store: createRadarStore(admin, orgId), providers, now: () => new Date() });
-    console.log(`→ organisation ${orgId} : ${report.accounts} compte(s) relevé(s), ${report.collected} post(s) rangés`);
+    // Les seuils des Consignes s'appliquent au relevé : ce qui passe dessous
+    // n'entre pas dans le corpus, et ne sera donc jamais à transcrire.
+    const { data: settingsRow } = await admin
+      .from("antidotes_inbound_settings")
+      .select("thresholds")
+      .eq("org_id", orgId)
+      .maybeSingle();
+    const thresholds = (settingsRow as { thresholds?: Record<string, { min_views?: number; min_likes?: number; min_comments?: number }> } | null)?.thresholds;
+
+    const report = await collectRadar({
+      store: createRadarStore(admin, orgId),
+      providers,
+      now: () => new Date(),
+      thresholds,
+    });
+    console.log(
+      `→ organisation ${orgId} : ${report.accounts} compte(s) relevé(s), ${report.collected} post(s) rangés${report.belowThreshold > 0 ? `, ${report.belowThreshold} sous le seuil` : ""}`,
+    );
     for (const skipped of report.skipped) console.log(`    · ${skipped.account} ignoré — ${skipped.reason}`);
     for (const error of report.errors) console.log(`    ⚠ ${error.account} — ${error.message}`);
     failures += report.errors.length;
   }
+
+  /* Les scripts avant les vecteurs : un reel vectorisé sur sa légende ne
+     ressemble à rien, et c'est le script que le studio lit. */
+  const transcription = await transcribeMissing({ admin });
+  console.log(
+    `Scripts transcrits : ${transcription.transcribed}${transcription.skipped ? ` · ${transcription.skipped} trop lourds` : ""}${transcription.errors.length ? ` · ${transcription.errors.slice(0, 3).join(" ; ")}` : ""}`,
+  );
 
   const embedder = embedderFromEnv();
   if (embedder) {

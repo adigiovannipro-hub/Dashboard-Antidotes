@@ -123,7 +123,9 @@ export function InboundCalendar({
                     <p
                       className={cn(
                         "type-caption px-1 tabular-nums",
-                        day.inMonth ? "text-text-secondary" : "text-text-tertiary",
+                        // Jamais `--text-tertiary` sur du texte : 2,67:1, mesuré
+                        // à l'audit. Le fond creux dit déjà « hors du mois ».
+                        "text-text-secondary",
                         day.date === today && "font-medium text-accent-ink",
                       )}
                     >

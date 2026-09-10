@@ -46,6 +46,8 @@ export function createRadarStore(admin: Admin, orgId: string): RadarStore {
         account_id: account.id,
         published_at: post.published_at,
         collected_at: new Date().toISOString(),
+        ...(post.media_kind ? { media_kind: post.media_kind } : {}),
+        ...(post.media_url !== undefined ? { media_url: post.media_url } : {}),
       }));
       // Une URL déjà connue rafraîchit ses chiffres ; jamais un doublon.
       const { data, error } = await admin

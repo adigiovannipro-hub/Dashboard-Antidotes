@@ -614,7 +614,20 @@ const ACCOUNTS: AccountSeed[] = [
   { key: "lemlist-x", platform: "x", handle: "lemlist", label: "Lemlist", followers: 88000, active: false, collected: -12, error: "Apify : l'acteur a rendu 0 tweet, compte peut-être protégé." },
 ];
 
-type RadarPostSeed = { key: string; account: string; days: number; likes: number; comments: number; shares?: number; content: string; url: string };
+type RadarPostSeed = {
+  key: string;
+  account: string;
+  days: number;
+  likes: number;
+  comments: number;
+  shares?: number;
+  views?: number;
+  saves?: number;
+  content: string;
+  url: string;
+  /** Un reel se lit par son script : c'est lui que le tableau montre. */
+  transcript?: string;
+};
 
 const RADAR_POSTS: RadarPostSeed[] = [
   { key: "clara-1", account: "clara-social", days: -3, likes: 1240, comments: 188, shares: 61, url: "https://www.linkedin.com/feed/update/urn:li:share:8001",
@@ -635,10 +648,12 @@ const RADAR_POSTS: RadarPostSeed[] = [
     content: "Arrêtez de regarder le coût par clic. Regardez le coût par achat, et si vous ne l'avez pas, votre pixel est mal posé." },
   { key: "hugo-4", account: "hugo-ads", days: -27, likes: 640, comments: 88, shares: 31, url: "https://www.linkedin.com/feed/update/urn:li:share:8104",
     content: "J'ai fait tourner la même publicité avec deux budgets : 20 € et 200 € par jour.\n\nLe petit budget a gagné, en coût par achat. Personne ne le dit, parce que ça ne vend pas de prestation." },
-  { key: "lumen-1", account: "agence-lumen", days: -4, likes: 4200, comments: 138, url: "https://www.instagram.com/reel/lumen-a1/",
-    content: "Coulisses d'un shooting produit : ce qu'on prépare la veille, ce qu'on jette le jour même." },
-  { key: "lumen-2", account: "agence-lumen", days: -11, likes: 2760, comments: 74, url: "https://www.instagram.com/reel/lumen-a2/",
-    content: "Trois plans, un produit, zéro studio. Tourné dans une cuisine." },
+  { key: "lumen-1", account: "agence-lumen", days: -4, likes: 4200, comments: 138, views: 48000, saves: 1200, url: "https://www.instagram.com/reel/lumen-a1/",
+    content: "Coulisses d'un shooting produit : ce qu'on prépare la veille, ce qu'on jette le jour même.",
+    transcript: "La veille d'un shooting, on prépare trois plans. Trois, pas trente. Le jour même, on en jette au moins un — celui qui marchait sur le papier et qui ne dit rien à l'image. Ce qui reste tient debout parce qu'on a accepté de perdre le reste. C'est pour ça que le brief se fait à deux." },
+  { key: "lumen-2", account: "agence-lumen", days: -11, likes: 2760, comments: 74, views: 12400, saves: 310, url: "https://www.instagram.com/reel/lumen-a2/",
+    content: "Trois plans, un produit, zéro studio. Tourné dans une cuisine.",
+    transcript: "Zéro studio. Une cuisine, une fenêtre, une feuille blanche pour renvoyer la lumière. Le produit est posé sur un plan de travail que personne ne verra. Trois plans : le geste, le détail, le résultat. Vous n'avez pas besoin d'un décor, vous avez besoin d'une intention." },
   { key: "lumen-3", account: "agence-lumen", days: -19, likes: 1180, comments: 42, url: "https://www.instagram.com/p/lumen-a3/",
     content: "Le brief que nos clients détestent remplir — et pourquoi on le maintient." },
   { key: "lumen-4", account: "agence-lumen", days: -33, likes: 890, comments: 26, url: "https://www.instagram.com/reel/lumen-a4/",
@@ -676,6 +691,9 @@ const TOPICS: TopicSeed[] = [
 
 type DraftSeed = {
   key: string;
+  format?: "linkedin_post" | "reel_script";
+  /** Décalage en jours de la date de programmation ; absent, le brouillon n'a pas de date. */
+  scheduled?: number;
   topic: string;
   topicKey?: string;
   sourceKey?: string;
@@ -699,13 +717,13 @@ const DRAFTS: DraftSeed[] = [
   },
   {
     key: "prix-flou", topic: "« Trop cher » veut presque toujours dire « trop flou »",
-    topicKey: "prix-flou", sourceKey: "clara-4", status: "draft", days: -2,
+    topicKey: "prix-flou", sourceKey: "clara-4", status: "draft", days: -2, format: "reel_script", scheduled: 5,
     examples: [{ post: "devis-refuse", similarity: 0.74 }, { post: "client-fantome", similarity: 0.51 }],
     content: "« C'est trop cher. »\n\nJ'ai mis trois ans à comprendre que cette phrase ne parle presque jamais du prix.\n\nElle dit : je ne vois pas ce que j'achète. Un devis à 1 400 € qui liste douze lignes techniques est plus cher, dans la tête du client, qu'un devis à 1 800 € qui dit ce qu'il obtient.\n\nAvant de baisser vos tarifs, réécrivez votre proposition en trois lignes.",
   },
   {
     key: "petit-budget", topic: "Le petit budget qui bat le gros",
-    topicKey: "petit-budget", sourceKey: "hugo-4", status: "approved", days: -4,
+    topicKey: "petit-budget", sourceKey: "hugo-4", status: "approved", days: -4, scheduled: 3,
     imagePrompt: "deux écrans côte à côte, chiffres, ambiance sobre",
     examples: [{ post: "meta-tunnel", similarity: 0.69 }, { post: "abonnes-mensonge", similarity: 0.44 }],
     content: "On m'a demandé combien il fallait mettre pour que la publicité « marche ».\n\nLa vraie réponse tient en une expérience : même créa, même audience, 20 € par jour d'un côté, 200 € de l'autre. Le petit budget a gagné, en coût par achat.\n\nUn budget qui monte trop vite apprend mal. Il achète large avant d'avoir compris qui achète.\n\nCommencez petit, laissez apprendre, montez ensuite.",
@@ -715,6 +733,12 @@ const DRAFTS: DraftSeed[] = [
     status: "published", days: -11, publishedUrl: "https://www.linkedin.com/feed/update/urn:li:share:7004",
     examples: [{ post: "reporting-lu", similarity: 0.88 }],
     content: "Un reporting que le client ne lit pas est un reporting raté.\n\nQuarante pages, trois bandes : les chiffres, l'audience, le détail. Le client ouvre le lien et comprend en une minute.\n\nLa clarté, c'est du respect.",
+  },
+  {
+    key: "coulisses-reel", topic: "Trois plans valent mieux que trente",
+    sourceKey: "lumen-1", status: "draft", days: -1, format: "reel_script",
+    examples: [{ post: "un-an-outil", similarity: 0.61 }],
+    content: "ACCROCHE (3 s) : Trois plans. Pas trente.\n\n1. La veille d'un tournage, je prépare trois plans. [face caméra]\n2. Le jour même, j'en jette un — celui qui marchait sur le papier. [plan serré sur un carnet]\n3. Ce qui reste tient debout parce que j'ai accepté de perdre le reste. [texte à l'écran : 3 plans, 1 idée]\n\nCHUTE : Un brief à deux coûte une heure. Un tournage raté coûte la journée.",
   },
   {
     key: "agence-2027", topic: "Faut-il encore payer une agence en 2027 ?",
@@ -774,6 +798,7 @@ async function main() {
       await db.query("delete from antidotes_prospects where id = any($1::uuid[])", [ids.prospects]);
       await db.query("delete from antidotes_campaign_runs where id = any($1::uuid[])", [ids.runs]);
       await db.query("delete from antidotes_campaigns where id = any($1::uuid[])", [ids.campaigns]);
+      await db.query("delete from antidotes_inbound_settings where org_id = $1", [orgId]);
     };
 
     if (reset) {
@@ -988,14 +1013,23 @@ async function main() {
     for (const post of RADAR_POSTS) {
       const account = ACCOUNTS.find((entry) => entry.key === post.account)!;
       await db.query(
-        `insert into antidotes_reference_posts (id, org_id, platform, author_handle, content, url, metrics, is_mine, account_id, published_at, collected_at)
-         values ($1, $2, $3::antidotes_post_platform, $4, $5, $6, $7::jsonb, false, $8, $9, $10)
+        `insert into antidotes_reference_posts (id, org_id, platform, author_handle, content, url, metrics, is_mine, account_id, published_at, collected_at, media_kind, transcript)
+         values ($1, $2, $3::antidotes_post_platform, $4, $5, $6, $7::jsonb, false, $8, $9, $10, $11::antidotes_media_kind, $12)
          on conflict (id) do update set content = excluded.content, url = excluded.url, metrics = excluded.metrics,
-           account_id = excluded.account_id, published_at = excluded.published_at, collected_at = excluded.collected_at`,
+           account_id = excluded.account_id, published_at = excluded.published_at, collected_at = excluded.collected_at,
+           media_kind = excluded.media_kind, transcript = excluded.transcript`,
         [
           stableId(`post-veille:${post.key}`), orgId, account.platform, account.handle, post.content, post.url,
-          JSON.stringify({ likes: post.likes, comments: post.comments, ...(post.shares ? { shares: post.shares } : {}) }),
+          JSON.stringify({
+            likes: post.likes,
+            comments: post.comments,
+            ...(post.shares ? { shares: post.shares } : {}),
+            ...(post.views ? { views: post.views } : {}),
+            ...(post.saves ? { saves: post.saves } : {}),
+          }),
           stableId(`compte:${post.account}`), at(post.days, 8), at(-1, 5),
+          post.transcript ? "video" : null,
+          post.transcript ?? null,
         ],
       );
     }
@@ -1019,12 +1053,14 @@ async function main() {
     for (const draft of DRAFTS) {
       await db.query(
         `insert into antidotes_generated_posts (id, org_id, source_post_id, topic, content, status, topic_id, brief,
-           examples, image_prompt, published_url, published_at, created_at)
-         values ($1, $2, $3, $4, $5, $6::antidotes_generated_post_status, $7, $8, $9::jsonb, $10, $11, $12, $13)
+           examples, image_prompt, published_url, published_at, created_at, format, scheduled_at)
+         values ($1, $2, $3, $4, $5, $6::antidotes_generated_post_status, $7, $8, $9::jsonb, $10, $11, $12, $13,
+           $14::antidotes_post_format, $15)
          on conflict (id) do update set source_post_id = excluded.source_post_id, topic = excluded.topic,
            content = excluded.content, status = excluded.status, topic_id = excluded.topic_id, brief = excluded.brief,
            examples = excluded.examples, image_prompt = excluded.image_prompt, published_url = excluded.published_url,
-           published_at = excluded.published_at, created_at = excluded.created_at`,
+           published_at = excluded.published_at, created_at = excluded.created_at, format = excluded.format,
+           scheduled_at = excluded.scheduled_at`,
         [
           stableId(`brouillon:${draft.key}`), orgId,
           draft.sourceKey ? stableId(`post-veille:${draft.sourceKey}`) : null,
@@ -1033,9 +1069,28 @@ async function main() {
           JSON.stringify(draft.examples.map((entry) => ({ post_id: stableId(`mon-post:${entry.post}`), similarity: entry.similarity }))),
           draft.imagePrompt ?? null, draft.publishedUrl ?? null,
           draft.status === "published" ? at(draft.days, 14) : null, at(draft.days, 9),
+          draft.format ?? "linkedin_post",
+          draft.scheduled === undefined ? null : at(draft.scheduled, 9),
         ],
       );
     }
+
+    // Mes consignes de voix : sans elles, la vue Consignes s'ouvre vide et on
+    // ne voit pas ce qui change dans la génération.
+    await db.query(
+      `insert into antidotes_inbound_settings (org_id, guidelines, linkedin_example, reel_example, email_example, thresholds)
+       values ($1, $2, $3, $4, $5, $6::jsonb)
+       on conflict (org_id) do update set guidelines = excluded.guidelines, linkedin_example = excluded.linkedin_example,
+         reel_example = excluded.reel_example, email_example = excluded.email_example, thresholds = excluded.thresholds`,
+      [
+        orgId,
+        "Phrases courtes, une idée par post, toujours un chiffre ou une situation vécue. Je vouvoie. Jamais de « Voici », jamais de morale finale, jamais d'emoji.",
+        "Les posts d'expertise ne font pas signer.\n\nIls rassurent. Ce qui fait signer, c'est le post où vous montrez un client qui a changé quelque chose, et ce que ça lui a coûté.\n\nMontrez le prix, pas la méthode.",
+        "ACCROCHE (3 s) : J'ai arrêté les carrousels.\n\n1. Trois mois de posts texte seul. [face caméra]\n2. Plus de commentaires, plus de rendez-vous. [texte à l'écran : +40 % de commentaires]\n\nCHUTE : Le format n'est pas le message.",
+        "Bonjour,\n\nJ'ai regardé votre compte : vos vidéos tournent, mais aucune ne dit où réserver. C'est le trou le plus fréquent, et le plus rapide à combler.\n\nQuinze minutes cette semaine ?",
+        JSON.stringify({ instagram: { min_views: 5000 }, linkedin: { min_likes: 100 } }),
+      ],
+    );
 
     console.log(`Campagnes           ${CAMPAIGNS.length} (dont 1 e-commerce sans source branchée)`);
     console.log(`Passages            ${RUNS.length}`);
@@ -1046,7 +1101,7 @@ async function main() {
     console.log(`Mes posts           ${LIBRARY.length}`);
     console.log(`Comptes veillés     ${ACCOUNTS.length} · ${RADAR_POSTS.length} posts relevés`);
     console.log(`Sujets              ${TOPICS.length} · brouillons ${DRAFTS.length}`);
-    console.log("\nOuvrir /antidotes/outbound/pipeline — puis sourcing, séquences, radar, studio, bibliothèque.");
+    console.log("\nOuvrir /antidotes/outbound/pipeline — puis sourcing et séquences, et /antidotes/inbound pour ses six vues.");
     console.log("Effacer : pnpm seed:antidotes --reset");
   } finally {
     await db.end();

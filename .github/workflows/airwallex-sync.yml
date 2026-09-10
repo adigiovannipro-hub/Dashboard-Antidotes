@@ -153,6 +153,19 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           CREDENTIALS_ENCRYPTION_KEY: ${{ secrets.CREDENTIALS_ENCRYPTION_KEY }}
 
+      # Les posts LinkedIn du pôle Antidotes programmés à une heure passée.
+      # Même greffe horaire, même raison : les deux créneaux cron de Vercel
+      # sont pris. Un post n'est publié que s'il est approuvé, et son statut
+      # est relu juste avant l'envoi — rien ne part deux fois.
+      - name: Publication des posts programmés (Antidotes)
+        if: always() && inputs.portee != 'finance'
+        run: pnpm studio:publier
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          COMPOSIO_API_KEY: ${{ secrets.COMPOSIO_API_KEY }}
+
       # La Modération relève les commentaires Meta des comptes affectés dans
       # Connexions — même greffe horaire que la publication, les créneaux cron
       # de Vercel étant pris. Meta accepte les IP GitHub ; le passage coûte

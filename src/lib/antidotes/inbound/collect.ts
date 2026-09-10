@@ -7,7 +7,7 @@
  * n'arrête pas les autres.
  */
 
-import type { PostPlatform, RadarAccount } from "../types";
+import type { InboundThreshold, PostPlatform, RadarAccount } from "../types";
 import type { RadarPost, RadarProviders } from "./radar/types";
 
 export type RadarStore = {
@@ -19,16 +19,38 @@ export type RadarStore = {
 export type CollectReport = {
   accounts: number;
   collected: number;
+  /** Écartés par un seuil : comptés, jamais rangés — le tableau reste lisible. */
+  belowThreshold: number;
   skipped: { account: string; reason: string }[];
   errors: { account: string; message: string }[];
 };
+
+/**
+ * Un seuil ne juge que ce que le réseau rend : un post sans compteur de vues
+ * n'est pas écarté par « ≥ 10 000 vues ». Rejeter sur une grandeur absente
+ * viderait le tableau des réseaux qui ne la donnent pas — LinkedIn n'a pas
+ * de vues. Même règle qu'à l'écran (`filters.ts`), et c'est voulu : ce qu'on
+ * garde et ce qu'on montre se disent de la même façon.
+ */
+export function passesThreshold(post: RadarPost, threshold: InboundThreshold | undefined): boolean {
+  if (!threshold) return true;
+  const ok = (value: number | undefined, minimum: number | undefined) =>
+    minimum === undefined || value === undefined || value >= minimum;
+  return (
+    ok(post.metrics.views, threshold.min_views) &&
+    ok(post.metrics.likes, threshold.min_likes) &&
+    ok(post.metrics.comments, threshold.min_comments)
+  );
+}
 
 export async function collectRadar(options: {
   store: RadarStore;
   providers: RadarProviders;
   now: () => Date;
+  /** Les seuils par réseau, tels que les Consignes les portent. */
+  thresholds?: Partial<Record<PostPlatform, InboundThreshold>>;
 }): Promise<CollectReport> {
-  const report: CollectReport = { accounts: 0, collected: 0, skipped: [], errors: [] };
+  const report: CollectReport = { accounts: 0, collected: 0, belowThreshold: 0, skipped: [], errors: [] };
   const accounts = await options.store.listActiveAccounts();
 
   for (const account of accounts) {
@@ -41,7 +63,10 @@ export async function collectRadar(options: {
     report.accounts += 1;
     try {
       const collection = await collector({ handle: account.handle, url: account.url });
-      const stored = await options.store.upsertPosts(account, collection.posts);
+      const threshold = options.thresholds?.[account.platform as PostPlatform];
+      const kept = collection.posts.filter((post) => passesThreshold(post, threshold));
+      report.belowThreshold += collection.posts.length - kept.length;
+      const stored = await options.store.upsertPosts(account, kept);
       report.collected += stored;
       await options.store.saveAccount(account.id, {
         followers: collection.followers ?? account.followers,

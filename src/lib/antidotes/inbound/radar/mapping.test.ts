@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { mapInstagramMedia } from "./instagram";
+import { mapApifyInstagramItem } from "./instagram-apify";
 import { mapLinkedinPost } from "./linkedin";
 import { mapTiktokPost } from "./tiktok";
 import { asIso, normalizeHandle } from "./types";
@@ -77,5 +78,52 @@ describe("normalizeHandle / asIso", () => {
   it("date un timestamp en secondes comme en millisecondes", () => {
     expect(asIso(1757260800)).toBe("2025-09-07T16:00:00.000Z");
     expect(asIso("pas une date")).toBeNull();
+  });
+});
+
+
+describe("mapApifyInstagramItem", () => {
+  it("lit un reel : vues, vidéo, nature du média", () => {
+    const post = mapApifyInstagramItem(
+      {
+        type: "Video",
+        url: "https://www.instagram.com/reel/abc/",
+        caption: "  Coulisses d'un shooting.  ",
+        timestamp: "2026-09-04T08:00:00.000Z",
+        likesCount: 4200,
+        commentsCount: 138,
+        videoPlayCount: 48000,
+        videoUrl: "https://cdn.invalid/reel.mp4",
+        ownerUsername: "agence.lumen",
+      },
+      "agence.lumen",
+      31000,
+    );
+    expect(post).toEqual({
+      url: "https://www.instagram.com/reel/abc/",
+      content: "Coulisses d'un shooting.",
+      published_at: "2026-09-04T08:00:00.000Z",
+      metrics: { likes: 4200, comments: 138, views: 48000, followers_at_collect: 31000 },
+      author_handle: "agence.lumen",
+      media_kind: "video",
+      media_url: "https://cdn.invalid/reel.mp4",
+    });
+  });
+
+  it("nomme un média sans légende plutôt que de rendre une ligne vide", () => {
+    const post = mapApifyInstagramItem({ type: "Sidecar", shortCode: "xyz", caption: null }, "lumen", null);
+    expect(post?.content).toBe("(Carrousel sans légende)");
+    expect(post?.url).toBe("https://www.instagram.com/p/xyz/");
+    expect(post?.media_kind).toBe("carousel");
+    expect(post?.media_url).toBeNull();
+  });
+
+  it("écarte une entrée sans identifiant : rien à rattacher", () => {
+    expect(mapApifyInstagramItem({ type: "Image", caption: "sans url" }, "lumen", null)).toBeNull();
+  });
+
+  it("ne pose pas de vues quand le réseau n'en rend aucune", () => {
+    const post = mapApifyInstagramItem({ type: "Image", shortCode: "s", likesCount: 12 }, "lumen", null);
+    expect(post?.metrics.views).toBeUndefined();
   });
 });
