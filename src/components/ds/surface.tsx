@@ -65,7 +65,7 @@ export function PanelHeader({
           <p className="type-caption mt-0.5 text-text-secondary">{description}</p>
         ) : null}
       </div>
-      {action ? <div className="max-w-full shrink-0">{action}</div> : null}
+      {action ? <div className="max-w-full">{action}</div> : null}
     </div>
   );
 }
@@ -153,7 +153,11 @@ export function SectionHeader({
   className?: string;
 }) {
   return (
-    <div className={cn("flex items-end justify-between gap-4", className)}>
+    /* `flex-wrap` : une barre d'outils plus large que la place restante
+       passe à la ligne au lieu d'être rognée hors de l'écran — sur un
+       téléphone, deux boutons de l'inbound sortaient du cadre et devenaient
+       inatteignables. Tant que tout tient, rien ne bouge. */
+    <div className={cn("flex flex-wrap items-end justify-between gap-4", className)}>
       <div className="min-w-0">
         <h2 className="type-h2 flex items-center gap-2 text-text-primary">
           {title}
@@ -163,7 +167,7 @@ export function SectionHeader({
           <p className="type-caption mt-1 text-text-secondary">{description}</p>
         ) : null}
       </div>
-      {action ? <div className="max-w-full shrink-0">{action}</div> : null}
+      {action ? <div className="max-w-full">{action}</div> : null}
     </div>
   );
 }

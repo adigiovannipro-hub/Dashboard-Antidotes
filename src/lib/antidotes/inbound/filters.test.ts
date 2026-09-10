@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  activeFilterCount,
   applyContentFilters,
   contentFiltersToParams,
   parseContentFilters,
@@ -19,6 +20,7 @@ const row = (over: Partial<ContentRow> & { key?: string }): ContentRow & { key: 
   // `??` avalerait un `published_at: null` explicite, que ce fichier teste.
   published_at: "published_at" in over ? over.published_at! : day(-3),
   score: over.score ?? { sortKey: 1 },
+  is_mine: over.is_mine ?? false,
 });
 
 describe("parseThreshold", () => {
@@ -96,5 +98,58 @@ describe("contentFiltersToParams", () => {
       vues: "5000",
       tri: "vues",
     });
+  });
+});
+
+describe("les colonnes ajoutées au tri", () => {
+  it("range par partages et par enregistrements", () => {
+    const rows = [
+      row({ key: "a", metrics: { shares: 2, saves: 90 } }),
+      row({ key: "b", metrics: { shares: 30, saves: 4 } }),
+    ];
+    expect(applyContentFilters(rows, parseContentFilters({ tri: "partages" }), NOW).map((r) => r.key)).toEqual([
+      "b",
+      "a",
+    ]);
+    expect(
+      applyContentFilters(rows, parseContentFilters({ tri: "enregistrements" }), NOW).map((r) => r.key),
+    ).toEqual(["a", "b"]);
+  });
+
+  it("inverse l'ordre quand on redemande la même colonne", () => {
+    const rows = [row({ key: "a", metrics: { likes: 10 } }), row({ key: "b", metrics: { likes: 90 } })];
+    expect(
+      applyContentFilters(rows, parseContentFilters({ tri: "likes", sens: "asc" }), NOW).map((r) => r.key),
+    ).toEqual(["a", "b"]);
+  });
+});
+
+describe("la source des lignes", () => {
+  const rows = [row({ key: "veille" }), row({ key: "moi", is_mine: true })];
+
+  it("mêle la veille et mes posts par défaut", () => {
+    expect(applyContentFilters(rows, parseContentFilters({}), NOW)).toHaveLength(2);
+  });
+
+  it("ne garde que ce qu'on demande", () => {
+    expect(applyContentFilters(rows, parseContentFilters({ source: "moi" }), NOW).map((r) => r.key)).toEqual([
+      "moi",
+    ]);
+    expect(
+      applyContentFilters(rows, parseContentFilters({ source: "veille" }), NOW).map((r) => r.key),
+    ).toEqual(["veille"]);
+  });
+});
+
+describe("activeFilterCount", () => {
+  it("ne compte pas les valeurs par défaut", () => {
+    expect(activeFilterCount(parseContentFilters({}))).toBe(0);
+    expect(activeFilterCount(parseContentFilters({ tri: "vues", sens: "asc" }))).toBe(0);
+  });
+
+  it("compte chaque filtre réellement posé", () => {
+    expect(
+      activeFilterCount(parseContentFilters({ reseau: "linkedin", vues: "1000", source: "moi" })),
+    ).toBe(3);
   });
 });

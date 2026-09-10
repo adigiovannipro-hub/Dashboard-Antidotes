@@ -1,23 +1,23 @@
 /**
- * Les vues de la page inbound — la même idée que les onglets d'un espace :
- * une liste, lue par la barre de vues et par la page qui la sert. Un nom
- * ajouté ici apparaît à l'écran sans autre retouche.
+ * Les deux façons de regarder l'inbound : le tableau, ou le mois.
+ *
+ * Il y en avait six. Radar, studio, bibliothèque, sujets et consignes étaient
+ * cinq écrans pour un seul geste — regarder ce qui a marché, en tirer quelque
+ * chose. Tout est revenu dans **le tableau** ; ce qui reste ici n'est plus
+ * qu'un changement de représentation des mêmes lignes, et les réglages sont
+ * passés dans des fenêtres (Comptes, Prompts, Filtres).
  *
  * Ni `"use client"` ni `server-only` : la page serveur lit `?vue=`, la barre
- * cliente rend les onglets.
+ * cliente rend la bascule.
  */
 
 export const INBOUND_VIEWS = [
-  { key: "contenus", label: "Contenus" },
-  { key: "comptes", label: "Comptes" },
-  { key: "sujets", label: "Sujets" },
-  { key: "mes-posts", label: "Mes posts" },
+  { key: "tableau", label: "Tableau" },
   { key: "calendrier", label: "Calendrier" },
-  { key: "consignes", label: "Consignes" },
 ] as const;
 
 export type InboundView = (typeof INBOUND_VIEWS)[number]["key"];
 
-export function parseInboundView(raw: string | undefined): InboundView {
-  return INBOUND_VIEWS.some((view) => view.key === raw) ? (raw as InboundView) : "contenus";
+export function parseInboundView(raw: string | undefined | null): InboundView {
+  return raw === "calendrier" ? "calendrier" : "tableau";
 }

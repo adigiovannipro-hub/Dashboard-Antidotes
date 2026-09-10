@@ -1,230 +1,291 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import Link from "next/link";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Film } from "lucide-react";
+import { useMemo, useState, useTransition } from "react";
+import { ArrowDown, ArrowUp, Film, Rss } from "lucide-react";
+import { toast } from "sonner";
 
+import { updateReferencePost } from "@/app/actions/antidotes-inbound";
+import { NativeSelect } from "@/components/antidotes/controls";
+import { PlatformChip } from "@/components/antidotes/inbound-chips";
+import { useInboundUrl } from "@/components/antidotes/inbound-url";
 import { EmptyState } from "@/components/ds/empty-state";
-import { Panel, PanelBody, PanelHeader } from "@/components/ds/surface";
+import { Panel, PanelBody } from "@/components/ds/surface";
 import { Input } from "@/components/ui/input";
 import { formatDate } from "@/lib/antidotes/dates";
 import { formatEngagement } from "@/lib/antidotes/inbound/engagement";
 import {
   applyContentFilters,
-  CONTENT_PERIODS,
-  CONTENT_SORT_LABELS,
   type ContentFilters,
   type ContentSort,
 } from "@/lib/antidotes/inbound/filters";
 import type { InboundContent } from "@/lib/antidotes/inbound/queries";
-import { POST_PLATFORM_LABELS, type PostPlatform, type RadarAccount } from "@/lib/antidotes/types";
+import { POST_PLATFORM_LABELS, type PostPlatform } from "@/lib/antidotes/types";
 import { formatValue } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 /**
- * Le tableau des contenus relevés — ce qui a marché chez les autres.
+ * Le tableau — l'écran de l'inbound, et plus une vue parmi six.
  *
- * Un reel se lit par sa **transcription**, pas par sa légende : c'est le
- * script qu'on vient chercher. Une grandeur que le réseau ne rend pas
- * s'affiche `—` et n'est jamais comptée pour zéro. Le tableau défile dans
- * son cadre : c'est lui qui est large, pas la page.
+ * Il se lit comme du Notion et se corrige comme un tableur : le réseau, la
+ * date et l'auteur se modifient dans la cellule, parce que le relevé se
+ * trompe et qu'attendre un passage pour corriger un nom n'a pas de sens. Le
+ * texte, lui, s'édite dans le panneau : deux lignes de tableau ne suffisent
+ * pas à relire un script.
+ *
+ * Les chiffres ne se modifient pas : ils viennent du réseau. Les saisir à la
+ * main reviendrait à inventer une performance, ce que l'application ne fait
+ * nulle part.
+ *
+ * Un clic sur la ligne ouvre le panneau — sans aller-retour serveur, tout est
+ * déjà chargé.
  */
 
-const COLUMNS: { key: ContentSort | null; label: string; align?: "right" }[] = [
-  { key: null, label: "Réseau" },
-  { key: null, label: "Auteur" },
-  { key: null, label: "Contenu" },
-  { key: "vues", label: "Vues", align: "right" },
-  { key: "likes", label: "Likes", align: "right" },
-  { key: "commentaires", label: "Comm.", align: "right" },
-  { key: null, label: "Part.", align: "right" },
-  { key: null, label: "Enreg.", align: "right" },
-  { key: "score", label: "Score", align: "right" },
-  { key: "date", label: "Date", align: "right" },
+const PLATFORMS: PostPlatform[] = ["linkedin", "instagram", "youtube", "tiktok", "x"];
+
+type Column = {
+  label: string;
+  sort?: ContentSort;
+  align?: "right";
+};
+
+const COLUMNS: Column[] = [
+  { label: "Réseau" },
+  { label: "Date", sort: "date" },
+  { label: "Auteur" },
+  { label: "Contenu" },
+  { label: "Vues", sort: "vues", align: "right" },
+  { label: "Likes", sort: "likes", align: "right" },
+  { label: "Comm.", sort: "commentaires", align: "right" },
+  { label: "Part.", sort: "partages", align: "right" },
+  { label: "Enreg.", sort: "enregistrements", align: "right" },
+  { label: "Score", sort: "score", align: "right" },
 ];
 
 export function InboundContentTable({
   contents,
   filters,
-  accounts,
   now,
 }: {
   contents: InboundContent[];
   filters: ContentFilters;
-  accounts: RadarAccount[];
   /** L'instant de référence de la fenêtre, posé par le serveur : lu au rendu,
       il changerait à chaque passage et ferait glisser la période sous les pieds. */
   now: number;
 }) {
-  const router = useRouter();
-  const pathname = usePathname();
-  const params = useSearchParams();
+  const { go } = useInboundUrl();
   const rows = useMemo(
     () =>
       applyContentFilters(
-        contents.map((entry) => ({ ...entry, ...entry.post, platform: entry.post.platform })),
+        contents.map((entry) => ({
+          ...entry,
+          platform: entry.post.platform,
+          metrics: entry.post.metrics,
+          published_at: entry.post.published_at,
+          is_mine: entry.post.is_mine,
+        })),
         filters,
         now,
       ),
     [contents, filters, now],
   );
 
-  /** Les réseaux proposés sont ceux qu'on veille : un filtre vide ne sert à rien. */
-  const platforms = useMemo(() => {
-    const set = new Set<PostPlatform>(accounts.map((account) => account.platform));
-    for (const entry of contents) set.add(entry.post.platform);
-    return [...set];
-  }, [accounts, contents]);
+  /* Un clic range du plus grand au plus petit ; le même clic sur la colonne
+     déjà rangée retourne l'ordre. « Score » est le tri par défaut : il ne
+     s'écrit pas dans l'URL, sinon chaque lien porterait un paramètre nul. */
+  const nextSort = (sort: ContentSort): Record<string, string | null> => ({
+    tri: sort === "score" ? null : sort,
+    sens: filters.sort === sort && filters.direction === "desc" ? "asc" : null,
+    post: null,
+    brouillon: null,
+  });
 
-  const withParam = (patch: Record<string, string | null>) => {
-    const query = new URLSearchParams(params.toString());
-    for (const [key, value] of Object.entries(patch)) {
-      if (value === null || value === "") query.delete(key);
-      else query.set(key, value);
-    }
-    for (const key of ["post", "brouillon", "sujet", "mien"]) query.delete(key);
-    const search = query.toString();
-    return search ? `${pathname}?${search}` : pathname;
-  };
-
-  const open = (postId: string) => router.push(withParam({ post: postId }), { scroll: false });
+  if (rows.length === 0) {
+    return (
+      <Panel>
+        <PanelBody>
+          <EmptyState
+            icon={contents.length === 0 ? Rss : Film}
+            message={
+              contents.length === 0
+                ? "Rien de relevé pour l'instant : ajoutez un compte, le relevé passe chaque nuit."
+                : "Aucun contenu ne passe ces filtres. Élargissez la période ou baissez un seuil."
+            }
+          />
+        </PanelBody>
+      </Panel>
+    );
+  }
 
   return (
     <Panel>
-      <PanelHeader
-        title="Ce qui marche"
-        count={rows.length}
-        action={
-          <div className="flex flex-wrap items-center justify-end gap-1.5">
-            <Chip href={withParam({ reseau: null })} active={filters.platform === null}>
-              Tous
-            </Chip>
-            {platforms.map((platform) => (
-              <Chip key={platform} href={withParam({ reseau: platform })} active={filters.platform === platform}>
-                {POST_PLATFORM_LABELS[platform]}
-              </Chip>
-            ))}
-            <span aria-hidden className="mx-1 h-4 w-px bg-border-strong" />
-            {CONTENT_PERIODS.map((period) => (
-              <Chip
-                key={period.label}
-                href={withParam({ jours: period.value === null ? "tout" : String(period.value) })}
-                active={filters.days === period.value}
-              >
-                {period.label}
-              </Chip>
-            ))}
-          </div>
-        }
-      />
-
-      <PanelBody className="border-b border-border">
-        <div className="flex flex-wrap items-end gap-3">
-          <Threshold label="≥ vues" name="vues" value={filters.minViews} withParam={withParam} />
-          <Threshold label="≥ likes" name="likes" value={filters.minLikes} withParam={withParam} />
-          <Threshold label="≥ commentaires" name="commentaires" value={filters.minComments} withParam={withParam} />
-          <p className="type-caption ml-auto text-text-secondary">
-            Trié par {CONTENT_SORT_LABELS[filters.sort].toLowerCase()}
-          </p>
-        </div>
-      </PanelBody>
-
-      {rows.length === 0 ? (
-        <PanelBody>
-          <EmptyState icon={Film} message="Aucun contenu ne passe ces filtres. Élargissez la période ou baissez un seuil." />
-        </PanelBody>
-      ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[64rem] border-collapse">
-            <thead>
-              <tr className="border-b border-border-strong">
-                {COLUMNS.map((column) => (
-                  <th
-                    key={column.label}
-                    scope="col"
-                    className={cn(
-                      "type-overline px-3 py-2 text-text-secondary",
-                      column.align === "right" ? "text-right" : "text-left",
-                    )}
-                  >
-                    {column.key ? (
-                      <Link
-                        href={withParam({ tri: column.key })}
-                        className={cn(
-                          "focus-visible:ring-ring rounded-sm hover:text-text-primary focus-visible:ring-2 focus-visible:outline-none",
-                          filters.sort === column.key && "text-text-primary",
-                        )}
-                      >
-                        {column.label}
-                      </Link>
-                    ) : (
-                      column.label
-                    )}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row) => {
-                const post = row.post;
-                const text = post.transcript?.trim() || post.content;
-                return (
-                  <tr
-                    key={post.id}
-                    onClick={() => open(post.id)}
-                    className="cursor-pointer border-b border-border transition-colors duration-(--motion-duration) ease-standard last:border-0 hover:bg-muted"
-                  >
-                    <td className="px-3 py-2.5">
-                      <span className="type-caption inline-flex items-center gap-1.5 rounded-pill bg-surface-sunken px-2 py-0.5 text-text-secondary">
-                        {POST_PLATFORM_LABELS[post.platform]}
-                      </span>
-                    </td>
-                    <td className="px-3 py-2.5">
-                      <p className="type-label truncate text-text-primary">{row.account?.label ?? post.author_handle ?? "—"}</p>
-                      {row.account?.handle ? (
-                        <p className="type-caption truncate text-text-secondary">{row.account.handle}</p>
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[68rem] border-collapse">
+          <thead>
+            <tr className="border-b border-border-strong">
+              {COLUMNS.map((column) => (
+                <th
+                  key={column.label}
+                  scope="col"
+                  className={cn(
+                    "type-overline px-3 py-2 text-text-secondary",
+                    column.align === "right" ? "text-right" : "text-left",
+                  )}
+                >
+                  {column.sort ? (
+                    <button
+                      type="button"
+                      onClick={() => go(nextSort(column.sort!))}
+                      className={cn(
+                        /* `uppercase` explicite : un `<button>` ne reçoit pas
+                           le `text-transform` de son parent (feuille de style
+                           du navigateur), et « Date » se lisait en minuscules
+                           entre deux en-têtes capitalisés. */
+                        "focus-visible:ring-ring inline-flex items-center gap-1 rounded-sm uppercase hover:text-text-primary focus-visible:ring-2 focus-visible:outline-none",
+                        filters.sort === column.sort && "text-text-primary",
+                      )}
+                    >
+                      {column.label}
+                      {filters.sort === column.sort ? (
+                        filters.direction === "asc" ? (
+                          <ArrowUp className="size-3" strokeWidth={2} aria-hidden />
+                        ) : (
+                          <ArrowDown className="size-3" strokeWidth={2} aria-hidden />
+                        )
                       ) : null}
-                    </td>
-                    <td className="max-w-md px-3 py-2.5">
-                      <button
-                        type="button"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          open(post.id);
-                        }}
-                        className="focus-visible:ring-ring block w-full rounded-sm text-left focus-visible:ring-2 focus-visible:outline-none"
-                      >
-                        <span className="type-body line-clamp-2 text-text-primary">{text}</span>
-                      </button>
-                      {post.media_kind === "video" ? (
-                        <span className="type-caption mt-1 inline-flex items-center gap-1 text-text-secondary">
-                          <Film className="size-3.5" strokeWidth={1.75} aria-hidden />
-                          {post.transcript ? "Script" : "Vidéo"}
-                        </span>
-                      ) : null}
-                    </td>
-                    <Metric value={post.metrics.views} />
-                    <Metric value={post.metrics.likes} />
-                    <Metric value={post.metrics.comments} />
-                    <Metric value={post.metrics.shares} />
-                    <Metric value={post.metrics.saves} />
-                    <td className="px-3 py-2.5 text-right">
-                      <span className="type-label whitespace-nowrap text-text-primary tabular-nums">
-                        {formatEngagement(row.score)}
-                      </span>
-                    </td>
-                    <td className="type-caption px-3 py-2.5 text-right whitespace-nowrap text-text-secondary tabular-nums">
-                      {post.published_at ? formatDate(post.published_at) : "—"}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
+                    </button>
+                  ) : (
+                    column.label
+                  )}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => (
+              <ContentRow key={row.post.id} entry={row} />
+            ))}
+          </tbody>
+        </table>
+      </div>
     </Panel>
+  );
+}
+
+function ContentRow({ entry }: { entry: InboundContent }) {
+  const { go } = useInboundUrl();
+  const post = entry.post;
+  const text = post.transcript?.trim() || post.content;
+  const [pending, startTransition] = useTransition();
+  const [editing, setEditing] = useState<"platform" | "date" | "author" | null>(null);
+
+  const save = (patch: Parameters<typeof updateReferencePost>[0]) => {
+    setEditing(null);
+    startTransition(async () => {
+      const result = await updateReferencePost(patch);
+      if (!result.ok) toast.error(result.error);
+    });
+  };
+
+  const open = () => go({ post: post.id, brouillon: null });
+
+  /* Une cellule modifiable se signale au survol et nulle part ailleurs : une
+     bordure au repos ferait de chaque ligne un formulaire. */
+  const cell =
+    "focus-visible:ring-ring w-full rounded-sm px-1 py-0.5 text-left transition-colors duration-(--motion-duration) ease-standard hover:bg-muted focus-visible:ring-2 focus-visible:outline-none";
+
+  return (
+    <tr
+      onClick={open}
+      className={cn(
+        "cursor-pointer border-b border-border transition-colors duration-(--motion-duration) ease-standard last:border-0 hover:bg-muted/60",
+        pending && "opacity-60",
+      )}
+    >
+      <td className="px-3 py-2.5" onClick={(event) => event.stopPropagation()}>
+        {editing === "platform" ? (
+          <NativeSelect
+            size="small"
+            autoFocus
+            aria-label="Réseau"
+            defaultValue={post.platform}
+            onBlur={() => setEditing(null)}
+            onChange={(event) => save({ postId: post.id, platform: event.target.value as PostPlatform })}
+          >
+            {PLATFORMS.map((platform) => (
+              <option key={platform} value={platform}>
+                {POST_PLATFORM_LABELS[platform]}
+              </option>
+            ))}
+          </NativeSelect>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setEditing("platform")}
+            aria-label={`Réseau : ${POST_PLATFORM_LABELS[post.platform]}`}
+            className={cn(cell, "inline-flex w-auto items-center gap-2")}
+          >
+            <PlatformChip platform={post.platform} mine={post.is_mine} />
+            <span className="type-caption text-text-secondary">{POST_PLATFORM_LABELS[post.platform]}</span>
+          </button>
+        )}
+      </td>
+
+      <td className="px-3 py-2.5 whitespace-nowrap" onClick={(event) => event.stopPropagation()}>
+        {editing === "date" ? (
+          <Input
+            type="date"
+            autoFocus
+            aria-label="Date de publication"
+            defaultValue={post.published_at?.slice(0, 10) ?? ""}
+            onBlur={(event) =>
+              save({ postId: post.id, publishedAt: event.target.value || null })
+            }
+            className="h-8 w-40"
+          />
+        ) : (
+          <button type="button" onClick={() => setEditing("date")} className={cn(cell, "type-caption tabular-nums text-text-secondary")}>
+            {post.published_at ? formatDate(post.published_at) : "—"}
+          </button>
+        )}
+      </td>
+
+      <td className="max-w-48 px-3 py-2.5" onClick={(event) => event.stopPropagation()}>
+        {editing === "author" ? (
+          <Input
+            autoFocus
+            aria-label="Auteur"
+            defaultValue={entry.account?.label ?? post.author_handle ?? ""}
+            onBlur={(event) => save({ postId: post.id, authorHandle: event.target.value.trim() || null })}
+            className="h-8"
+          />
+        ) : (
+          <button type="button" onClick={() => setEditing("author")} className={cn(cell, "type-label truncate text-text-primary")}>
+            {post.is_mine ? "Moi" : (entry.account?.label ?? post.author_handle ?? "—")}
+          </button>
+        )}
+      </td>
+
+      <td className="max-w-lg px-3 py-2.5">
+        <span className="type-body line-clamp-2 text-text-primary">{text}</span>
+        {post.media_kind === "video" ? (
+          <span className="type-caption mt-1 inline-flex items-center gap-1 text-text-secondary">
+            <Film className="size-3.5" strokeWidth={1.75} aria-hidden />
+            {post.transcript ? "Script" : "Vidéo"}
+          </span>
+        ) : null}
+      </td>
+
+      <Metric value={post.metrics.views} />
+      <Metric value={post.metrics.likes} />
+      <Metric value={post.metrics.comments} />
+      <Metric value={post.metrics.shares} />
+      <Metric value={post.metrics.saves} />
+      <td className="px-3 py-2.5 text-right">
+        <span className="type-label whitespace-nowrap text-text-primary tabular-nums">
+          {formatEngagement(entry.score)}
+        </span>
+      </td>
+    </tr>
   );
 }
 
@@ -235,65 +296,5 @@ function Metric({ value }: { value: number | undefined }) {
         {value === undefined ? "—" : formatValue(value, "integer")}
       </span>
     </td>
-  );
-}
-
-function Chip({ href, active, children }: { href: string; active: boolean; children: React.ReactNode }) {
-  return (
-    <Link
-      href={href}
-      aria-current={active ? "true" : undefined}
-      className={cn(
-        "type-caption focus-visible:ring-ring rounded-pill px-2.5 py-1 font-medium transition-colors duration-(--motion-duration) ease-standard focus-visible:ring-2 focus-visible:outline-none",
-        active ? "bg-primary text-primary-foreground" : "bg-surface-sunken text-text-secondary hover:text-text-primary",
-      )}
-    >
-      {children}
-    </Link>
-  );
-}
-
-/**
- * Un seuil s'applique en quittant le champ ou à Entrée — jamais à la frappe :
- * une navigation par caractère rechargerait le tableau six fois pour « 10000 ».
- */
-function Threshold({
-  label,
-  name,
-  value,
-  withParam,
-}: {
-  label: string;
-  name: string;
-  value: number | null;
-  withParam: (patch: Record<string, string | null>) => string;
-}) {
-  const router = useRouter();
-  const [draft, setDraft] = useState(value?.toString() ?? "");
-
-  const apply = () => {
-    const next = draft.trim();
-    if (next === (value?.toString() ?? "")) return;
-    router.push(withParam({ [name]: next || null }), { scroll: false });
-  };
-
-  return (
-    <label className="type-caption flex items-center gap-2 text-text-secondary">
-      {label}
-      <Input
-        inputMode="numeric"
-        value={draft}
-        onChange={(event) => setDraft(event.target.value.replace(/[^\d]/g, ""))}
-        onBlur={apply}
-        onKeyDown={(event) => {
-          if (event.key === "Enter") {
-            event.preventDefault();
-            apply();
-          }
-        }}
-        className="h-8 w-24 tabular-nums"
-        placeholder="—"
-      />
-    </label>
   );
 }

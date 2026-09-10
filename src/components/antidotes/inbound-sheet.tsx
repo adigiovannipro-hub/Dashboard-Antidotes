@@ -13,9 +13,11 @@ import {
   saveDraftText,
   scheduleDraft,
   setDraftStatus,
+  updateReferencePost,
   type InboundResult,
 } from "@/app/actions/antidotes-inbound";
 import { TextArea } from "@/components/antidotes/controls";
+import { PlatformChip } from "@/components/antidotes/inbound-chips";
 import { PendingLabel } from "@/components/ds/pending-label";
 import { StatusPill, type StatusTone } from "@/components/ds/status-pill";
 import { Button } from "@/components/ui/button";
@@ -24,16 +26,17 @@ import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { formatDate } from "@/lib/antidotes/dates";
 import { formatEngagement } from "@/lib/antidotes/inbound/engagement";
-import type { InboundPostDetail, LibraryPost, StudioAvailability, StudioPostDetail } from "@/lib/antidotes/inbound/queries";
-import { LINKEDIN_MAX_CHARS } from "@/lib/antidotes/inbound/studio-prompt";
+import { FORMAT_MAX_CHARS, INBOUND_FORMATS } from "@/lib/antidotes/inbound/prompts";
+import type { InboundContent, StudioAvailability } from "@/lib/antidotes/inbound/queries";
 import {
+  GENERATED_POST_FORMAT_ACTIONS,
   GENERATED_POST_FORMAT_LABELS,
   GENERATED_POST_STATUS_LABELS,
+  MEDIA_KIND_LABELS,
   POST_PLATFORM_LABELS,
   type GeneratedPost,
   type GeneratedPostFormat,
   type GeneratedPostStatus,
-  type RadarTopic,
 } from "@/lib/antidotes/types";
 import { formatValue } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -43,10 +46,14 @@ import { cn } from "@/lib/utils";
  * publication du planning : la ligne cliquée s'ouvre à droite, l'écran
  * derrière ne bouge pas.
  *
- * Il porte le geste central du pôle : **réécrire pour moi**. Un contenu qui a
- * marché ailleurs donne deux formes — un script de reel, un post LinkedIn —
- * écrites dans ma voix, relues à la main, approuvées, datées, publiées. Rien
- * ne part sans être passé par « approuvé ».
+ * Deux parties, et pas une de plus : **le contenu actuel** — ce qui a été
+ * publié, ses visuels, son script, ses chiffres — puis **ce qu'on en tire**,
+ * dans l'une des trois formes. Les exemples de ton, le taux de similarité et
+ * le rappel de la matière ont disparu : on regardait la matière juste
+ * au-dessus, et un pourcentage de proximité ne change aucune décision.
+ *
+ * Tout ce qu'il affiche vient de la lecture de la page : il s'ouvre sans rien
+ * demander au serveur.
  */
 
 const TONES: Record<GeneratedPostStatus, StatusTone> = {
@@ -56,230 +63,173 @@ const TONES: Record<GeneratedPostStatus, StatusTone> = {
   rejected: "neutral",
 };
 
-const FORMATS: GeneratedPostFormat[] = ["reel_script", "linkedin_post"];
-
 export function InboundSheet({
-  postDetail,
-  draftDetail,
-  topic,
-  myPost,
+  content,
+  drafts,
+  loneDraft,
+  visuals,
   studio,
   onClose,
 }: {
-  postDetail: InboundPostDetail | null;
-  draftDetail: StudioPostDetail | null;
-  topic: RadarTopic | null;
-  myPost: LibraryPost | null;
+  /** La ligne ouverte, ou nulle. */
+  content: InboundContent | null;
+  /** Les brouillons tirés de cette ligne, un par forme au plus. */
+  drafts: GeneratedPost[];
+  /** Un brouillon sans matière — ouvert depuis le calendrier, quand sa source
+      a disparu ou qu'il vient d'un sujet de l'ancienne forme. */
+  loneDraft: GeneratedPost | null;
+  visuals: Record<string, string>;
   studio: StudioAvailability;
   onClose: () => void;
 }) {
-  const open = Boolean(postDetail || draftDetail || topic || myPost);
-
+  const open = content !== null || loneDraft !== null;
   return (
     <Sheet open={open} onOpenChange={(next) => (next ? undefined : onClose())}>
-      <SheetContent className="w-full sm:max-w-xl">
-        {postDetail ? <SourcePanel detail={postDetail} studio={studio} /> : null}
-        {!postDetail && draftDetail ? <DraftPanel detail={draftDetail} studio={studio} /> : null}
-        {!postDetail && !draftDetail && topic ? <TopicPanel topic={topic} studio={studio} /> : null}
-        {!postDetail && !draftDetail && !topic && myPost ? <MinePanel post={myPost} /> : null}
+      <SheetContent className="w-full sm:max-w-2xl">
+        {content ? (
+          <ContentPanel entry={content} drafts={drafts} visuals={visuals} studio={studio} />
+        ) : loneDraft ? (
+          <>
+            <SheetHeader>
+              <SheetTitle>{loneDraft.topic ?? GENERATED_POST_FORMAT_LABELS[loneDraft.format]}</SheetTitle>
+              <SheetDescription>
+                {GENERATED_POST_FORMAT_LABELS[loneDraft.format]} · {GENERATED_POST_STATUS_LABELS[loneDraft.status]}
+              </SheetDescription>
+            </SheetHeader>
+            <div className="overflow-y-auto px-5 pb-6">
+              <DraftEditor draft={loneDraft} studio={studio} visualUrl={visuals[loneDraft.id] ?? null} />
+            </div>
+          </>
+        ) : null}
       </SheetContent>
     </Sheet>
   );
 }
 
-/** Un contenu relevé : ce qu'il dit, ce qu'il a fait, et les deux formes à en tirer. */
-function SourcePanel({ detail, studio }: { detail: InboundPostDetail; studio: StudioAvailability }) {
-  const { post, account, score } = detail;
-  const text = post.transcript?.trim() || post.content;
+function ContentPanel({
+  entry,
+  drafts,
+  visuals,
+  studio,
+}: {
+  entry: InboundContent;
+  drafts: GeneratedPost[];
+  visuals: Record<string, string>;
+  studio: StudioAvailability;
+}) {
+  const { post, account, score } = entry;
 
   return (
     <>
       <SheetHeader>
-        <SheetTitle>{account?.label ?? post.author_handle ?? POST_PLATFORM_LABELS[post.platform]}</SheetTitle>
+        <SheetTitle className="flex items-center gap-2">
+          <PlatformChip platform={post.platform} mine={post.is_mine} />
+          {post.is_mine ? "Mon post" : (account?.label ?? post.author_handle ?? POST_PLATFORM_LABELS[post.platform])}
+        </SheetTitle>
         <SheetDescription>
           {POST_PLATFORM_LABELS[post.platform]}
-          {post.published_at ? ` · ${formatDate(post.published_at)}` : ""} · {formatEngagement(score)}
+          {post.published_at ? ` · ${formatDate(post.published_at)}` : ""}
+          {post.media_kind ? ` · ${MEDIA_KIND_LABELS[post.media_kind]}` : ""} · {formatEngagement(score)}
         </SheetDescription>
       </SheetHeader>
 
-      <div className="space-y-5 overflow-y-auto px-5 pb-6">
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-          <Metric label="Vues" value={post.metrics.views} />
-          <Metric label="Likes" value={post.metrics.likes} />
-          <Metric label="Commentaires" value={post.metrics.comments} />
-          <Metric label="Partages" value={post.metrics.shares} />
-          <Metric label="Enregistrements" value={post.metrics.saves} />
-          {post.url ? (
-            <a
-              href={post.url}
-              target="_blank"
-              rel="noreferrer"
-              className="type-caption focus-visible:ring-ring ml-auto inline-flex items-center gap-1 rounded-sm text-accent-ink hover:underline focus-visible:ring-2 focus-visible:outline-none"
-            >
-              Ouvrir <ExternalLink className="size-3" strokeWidth={1.75} aria-hidden />
-            </a>
-          ) : null}
-        </div>
+      <div className="space-y-6 overflow-y-auto px-5 pb-6">
+        <section className="space-y-3">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+            <Metric label="Vues" value={post.metrics.views} />
+            <Metric label="Likes" value={post.metrics.likes} />
+            <Metric label="Commentaires" value={post.metrics.comments} />
+            <Metric label="Partages" value={post.metrics.shares} />
+            <Metric label="Enregistrements" value={post.metrics.saves} />
+            {post.url ? (
+              <a
+                href={post.url}
+                target="_blank"
+                rel="noreferrer"
+                className="type-caption focus-visible:ring-ring ml-auto inline-flex items-center gap-1 rounded-sm text-accent-ink hover:underline focus-visible:ring-2 focus-visible:outline-none"
+              >
+                Ouvrir <ExternalLink className="size-3" strokeWidth={1.75} aria-hidden />
+              </a>
+            ) : null}
+          </div>
 
-        <section className="rounded-md border border-border bg-surface-sunken p-4">
-          <p className="type-overline text-text-secondary">
-            {post.transcript ? "Script de la vidéo" : "Contenu"}
-          </p>
-          <p className="type-body mt-2 whitespace-pre-wrap text-text-primary">{text}</p>
-          {post.transcript && post.content && post.content !== post.transcript ? (
-            <p className="type-caption mt-3 border-t border-border pt-3 whitespace-pre-wrap text-text-secondary">
-              Légende : {post.content}
-            </p>
-          ) : null}
+          <Media url={post.media_url} kind={post.media_kind} />
+
+          <SourceText
+            postId={post.id}
+            transcript={post.transcript}
+            content={post.content}
+          />
         </section>
 
-        <Reshape drafts={detail.drafts} sourcePostId={post.id} studio={studio} />
-      </div>
-    </>
-  );
-}
-
-/** Un brouillon ouvert directement : son texte, son état, sa date, sa source. */
-function DraftPanel({ detail, studio }: { detail: StudioPostDetail; studio: StudioAvailability }) {
-  const { post, source, examples, visualUrl } = detail;
-
-  return (
-    <>
-      <SheetHeader>
-        <SheetTitle>{post.topic ?? GENERATED_POST_FORMAT_LABELS[post.format]}</SheetTitle>
-        <SheetDescription>
-          {GENERATED_POST_FORMAT_LABELS[post.format]} · {GENERATED_POST_STATUS_LABELS[post.status]}
-        </SheetDescription>
-      </SheetHeader>
-
-      <div className="space-y-5 overflow-y-auto px-5 pb-6">
-        <DraftEditor draft={post} studio={studio} visualUrl={visualUrl} />
-
-        {examples.length > 0 ? (
-          <section>
-            <p className="type-overline text-text-secondary">Exemples de ton</p>
-            <ul className="mt-2 space-y-2">
-              {examples.map((example) => (
-                <li key={example.post.id} className="rounded-md border border-border p-3">
-                  <p className="type-caption text-text-secondary">
-                    similarité {Math.round(example.similarity * 100)} %
-                    {example.post.published_at ? ` · ${formatDate(example.post.published_at)}` : ""}
-                  </p>
-                  <p className="type-caption mt-1 line-clamp-3 text-text-primary">{example.post.content}</p>
-                </li>
-              ))}
-            </ul>
-          </section>
-        ) : null}
-
-        {source ? (
-          <section className="rounded-md border border-border bg-surface-sunken p-4">
-            <p className="type-overline text-text-secondary">Matière</p>
-            <p className="type-caption mt-1 text-text-secondary">
-              {POST_PLATFORM_LABELS[source.platform]}
-              {source.author_handle ? ` · ${source.author_handle}` : ""}
-            </p>
-            <p className="type-caption mt-2 line-clamp-6 whitespace-pre-wrap text-text-primary">
-              {source.transcript?.trim() || source.content}
-            </p>
-          </section>
-        ) : null}
-      </div>
-    </>
-  );
-}
-
-/** Un sujet proposé : ce qu'il affirme, et les deux formes à en tirer. */
-function TopicPanel({ topic, studio }: { topic: RadarTopic; studio: StudioAvailability }) {
-  return (
-    <>
-      <SheetHeader>
-        <SheetTitle>{topic.title}</SheetTitle>
-        <SheetDescription>{topic.angle ?? "Sujet proposé par le radar"}</SheetDescription>
-      </SheetHeader>
-      <div className="space-y-5 overflow-y-auto px-5 pb-6">
-        {topic.evidence.length > 0 ? (
-          <section className="rounded-md border border-border bg-surface-sunken p-4">
-            <p className="type-overline text-text-secondary">Ce qui l&apos;appuie</p>
-            <ul className="mt-2 space-y-1">
-              {topic.evidence.map((entry) => (
-                <li key={entry.post_id} className="type-caption text-text-primary">
-                  {entry.why}
-                </li>
-              ))}
-            </ul>
-          </section>
-        ) : null}
-        <Reshape drafts={[]} topicId={topic.id} studio={studio} />
-      </div>
-    </>
-  );
-}
-
-/** Un de mes posts publiés : son texte et ses chiffres, en lecture. */
-function MinePanel({ post }: { post: LibraryPost }) {
-  return (
-    <>
-      <SheetHeader>
-        <SheetTitle>Mon post</SheetTitle>
-        <SheetDescription>
-          {post.published_at ? formatDate(post.published_at) : "Sans date"} ·{" "}
-          {post.hasVector ? "vectorisé" : "sans vecteur"}
-        </SheetDescription>
-      </SheetHeader>
-      <div className="space-y-4 overflow-y-auto px-5 pb-6">
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-          <Metric label="Réactions" value={post.metrics.likes} />
-          <Metric label="Commentaires" value={post.metrics.comments} />
-          {post.url ? (
-            <a
-              href={post.url}
-              target="_blank"
-              rel="noreferrer"
-              className="type-caption focus-visible:ring-ring ml-auto inline-flex items-center gap-1 rounded-sm text-accent-ink hover:underline focus-visible:ring-2 focus-visible:outline-none"
-            >
-              Ouvrir <ExternalLink className="size-3" strokeWidth={1.75} aria-hidden />
-            </a>
-          ) : null}
-        </div>
-        <p className="type-body whitespace-pre-wrap text-text-primary">{post.content}</p>
-        {post.tags.length > 0 ? (
-          <p className="type-caption text-text-secondary">{post.tags.join(" · ")}</p>
-        ) : null}
+        <Reshape sourcePostId={post.id} drafts={drafts} visuals={visuals} studio={studio} />
       </div>
     </>
   );
 }
 
 /**
- * Les deux formes, côte à côte : un script de reel et un post LinkedIn tirés
- * de la même matière. L'onglet ouvert est celui qui a déjà un brouillon —
- * sinon le script, parce que c'est la forme que la veille inspire le plus.
+ * Le média relevé. Les URL rendues par les réseaux périment en quelques
+ * jours : une image cassée dirait « panne » là où il n'y a qu'un lien mort,
+ * donc l'échec de chargement retire l'aperçu au lieu de l'afficher brisé.
  */
-function Reshape({
-  drafts,
-  sourcePostId,
-  topicId,
-  studio,
-}: {
-  drafts: GeneratedPost[];
-  sourcePostId?: string;
-  topicId?: string;
-  studio: StudioAvailability;
-}) {
-  const existing = (format: GeneratedPostFormat) => drafts.find((draft) => draft.format === format) ?? null;
-  const [format, setFormat] = useState<GeneratedPostFormat>(
-    () => FORMATS.find((entry) => existing(entry)) ?? "reel_script",
+function Media({ url, kind }: { url: string | null; kind: string | null }) {
+  const [broken, setBroken] = useState(false);
+  if (!url || broken) return null;
+  if (kind === "video") {
+    return (
+      <video
+        src={url}
+        controls
+        preload="metadata"
+        onError={() => setBroken(true)}
+        className="max-h-80 w-full rounded-md border border-border bg-surface-sunken"
+      />
+    );
+  }
+  return (
+    // eslint-disable-next-line @next/next/no-img-element -- média externe, périssable
+    <img
+      src={url}
+      alt=""
+      onError={() => setBroken(true)}
+      className="max-h-80 w-full rounded-md border border-border object-contain"
+    />
   );
-  const draft = existing(format);
+}
+
+/** Le script ou la légende, relu et corrigé sur place. */
+function SourceText({
+  postId,
+  transcript,
+  content,
+}: {
+  postId: string;
+  transcript: string | null;
+  content: string;
+}) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
+  const isScript = Boolean(transcript?.trim());
+  const [text, setText] = useState(transcript?.trim() || content);
+  const [saved, setSaved] = useState(text);
 
-  const write = () => {
+  const [seen, setSeen] = useState(postId);
+  if (seen !== postId) {
+    setSeen(postId);
+    const next = transcript?.trim() || content;
+    setText(next);
+    setSaved(next);
+  }
+
+  const save = () => {
     startTransition(async () => {
-      const result = await generateDraft({ format, sourcePostId: sourcePostId ?? null, topicId: topicId ?? null });
+      const result = await updateReferencePost(
+        isScript ? { postId, transcript: text } : { postId, content: text },
+      );
       if (result.ok) {
-        toast.success(result.message ?? "Écrit.");
+        setSaved(text);
+        toast.success("Enregistré.");
         router.refresh();
       } else {
         toast.error(result.error);
@@ -288,55 +238,126 @@ function Reshape({
   };
 
   return (
-    <section className="space-y-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="type-overline text-text-secondary">Réécrire pour moi</p>
-        <div className="inline-flex items-center gap-1 rounded-pill bg-surface-sunken p-1">
-          {FORMATS.map((entry) => (
-            <button
+    <div className="space-y-2">
+      <div className="flex items-center justify-between gap-3">
+        <p className="type-overline text-text-secondary">{isScript ? "Script de la vidéo" : "Contenu"}</p>
+        {text !== saved ? (
+          <Button type="button" variant="outline" size="sm" disabled={pending} onClick={save}>
+            <PendingLabel pending={pending} busy="Enregistrement…">
+              Enregistrer
+            </PendingLabel>
+          </Button>
+        ) : null}
+      </div>
+      <TextArea
+        aria-label={isScript ? "Script de la vidéo" : "Contenu du post"}
+        value={text}
+        onChange={(event) => setText(event.target.value)}
+        className="min-h-40"
+      />
+      {isScript && content && content !== transcript ? (
+        <p className="type-caption whitespace-pre-wrap text-text-secondary">Légende : {content}</p>
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * Ce qu'on en tire : trois boutons, un par forme. Une forme déjà écrite
+ * devient un onglet — on relit, on corrige, on date, on publie.
+ */
+function Reshape({
+  sourcePostId,
+  drafts,
+  visuals,
+  studio,
+}: {
+  sourcePostId: string;
+  drafts: GeneratedPost[];
+  visuals: Record<string, string>;
+  studio: StudioAvailability;
+}) {
+  const router = useRouter();
+  const [pending, startTransition] = useTransition();
+  const [busy, setBusy] = useState<GeneratedPostFormat | null>(null);
+  const [format, setFormat] = useState<GeneratedPostFormat | null>(
+    () => INBOUND_FORMATS.find((entry) => drafts.some((draft) => draft.format === entry)) ?? null,
+  );
+
+  /* Le panneau change de ligne sans se démonter : l'onglet ouvert doit suivre
+     la nouvelle matière, sinon il montre le brouillon de la ligne d'avant.
+     Ajustement pendant le rendu, comme partout dans le dépôt — un effet
+     ferait clignoter le panneau d'un tour. */
+  const [seen, setSeen] = useState(sourcePostId);
+  if (seen !== sourcePostId) {
+    setSeen(sourcePostId);
+    setFormat(INBOUND_FORMATS.find((entry) => drafts.some((draft) => draft.format === entry)) ?? null);
+  }
+
+  const write = (target: GeneratedPostFormat) => {
+    setBusy(target);
+    startTransition(async () => {
+      const result = await generateDraft({ format: target, sourcePostId });
+      if (result.ok) {
+        setFormat(target);
+        toast.success(result.message ?? "Écrit.");
+        router.refresh();
+      } else {
+        toast.error(result.error);
+      }
+      setBusy(null);
+    });
+  };
+
+  const draft = format ? (drafts.find((entry) => entry.format === format) ?? null) : null;
+
+  return (
+    <section className="space-y-3 border-t border-border pt-5">
+      <p className="type-overline text-text-secondary">Réécrire pour moi</p>
+
+      <div className="flex flex-wrap gap-2">
+        {INBOUND_FORMATS.map((entry) => {
+          const existing = drafts.find((item) => item.format === entry) ?? null;
+          return (
+            <Button
               key={entry}
               type="button"
-              onClick={() => setFormat(entry)}
-              aria-pressed={format === entry}
-              className={cn(
-                "type-caption focus-visible:ring-ring rounded-pill px-3 py-1 font-medium transition-colors duration-(--motion-duration) ease-standard focus-visible:ring-2 focus-visible:outline-none",
-                format === entry
-                  ? "bg-primary text-primary-foreground"
-                  : "text-text-secondary hover:text-text-primary",
-              )}
+              variant={existing ? "outline" : "accent"}
+              size="sm"
+              disabled={pending || !studio.anthropic}
+              title={studio.anthropic ? undefined : "ANTHROPIC_API_KEY absente"}
+              onClick={() => (existing ? setFormat(entry) : write(entry))}
+              aria-pressed={existing ? format === entry : undefined}
+              className={cn(existing && format === entry && "border-accent-ink text-accent-ink")}
             >
-              {GENERATED_POST_FORMAT_LABELS[entry]}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {draft ? (
-        <DraftEditor draft={draft} studio={studio} visualUrl={null} onRewrite={write} rewriting={pending} />
-      ) : (
-        <div className="rounded-md border border-dashed border-border-strong p-5 text-center">
-          <p className="type-body text-text-secondary">
-            Aucun {GENERATED_POST_FORMAT_LABELS[format].toLowerCase()} tiré de cette matière.
-          </p>
-          <div className="mt-3 flex flex-col items-center gap-2">
-            <Button type="button" variant="accent" onClick={write} disabled={pending || !studio.anthropic}>
-              <Sparkles aria-hidden />
-              <PendingLabel pending={pending} busy="Écriture…">
-                Écrire
+              {existing ? null : <Sparkles aria-hidden />}
+              <PendingLabel pending={busy === entry} busy="Écriture…">
+                {existing ? GENERATED_POST_FORMAT_LABELS[entry] : GENERATED_POST_FORMAT_ACTIONS[entry]}
               </PendingLabel>
             </Button>
-            {!studio.anthropic ? (
-              <span className="type-caption text-warning-ink">ANTHROPIC_API_KEY absente</span>
-            ) : null}
-          </div>
-        </div>
-      )}
+          );
+        })}
+      </div>
+
+      {!studio.anthropic ? (
+        <p className="type-caption text-warning-ink">ANTHROPIC_API_KEY absente : rien ne peut s&apos;écrire.</p>
+      ) : null}
+
+      {draft ? (
+        <DraftEditor
+          draft={draft}
+          studio={studio}
+          visualUrl={visuals[draft.id] ?? null}
+          onRewrite={() => write(draft.format)}
+          rewriting={busy === draft.format}
+        />
+      ) : null}
     </section>
   );
 }
 
 /** Le texte d'un brouillon et tout ce qu'on peut en faire. */
-function DraftEditor({
+export function DraftEditor({
   draft,
   studio,
   visualUrl,
@@ -356,7 +377,7 @@ function DraftEditor({
   const [date, setDate] = useState(toLocalInput(draft.scheduled_at));
   const [imagePrompt, setImagePrompt] = useState(draft.image_prompt ?? "");
 
-  /* Le brouillon change quand on passe d'un format à l'autre, ou après une
+  /* Le brouillon change quand on passe d'une forme à l'autre, ou après une
      réécriture. L'éditeur suit **pendant le rendu** — le pattern « adjusting
      state when props change » de React, déjà employé par `useOptimisticPill`
      et les cellules du Planning : un effet ferait clignoter le texte d'un
@@ -393,12 +414,11 @@ function DraftEditor({
   };
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3 rounded-md border border-border bg-surface-sunken p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <StatusPill tone={TONES[draft.status]}>{GENERATED_POST_STATUS_LABELS[draft.status]}</StatusPill>
         <span className="type-caption text-text-secondary tabular-nums">
-          {content.length.toLocaleString("fr-FR")}
-          {linkedin ? ` / ${LINKEDIN_MAX_CHARS.toLocaleString("fr-FR")}` : ""} caractères
+          {content.length.toLocaleString("fr-FR")} / {FORMAT_MAX_CHARS[draft.format].toLocaleString("fr-FR")} caractères
         </span>
       </div>
 
@@ -407,7 +427,7 @@ function DraftEditor({
         value={content}
         onChange={(event) => setContent(event.target.value)}
         readOnly={published}
-        className="min-h-64"
+        className="min-h-64 bg-surface"
       />
 
       {visualUrl ? (
@@ -490,7 +510,7 @@ function DraftEditor({
       </div>
 
       {!published ? (
-        <div className="grid gap-2 rounded-md border border-border p-4">
+        <div className="grid gap-2 rounded-md border border-border bg-surface p-4">
           <Label htmlFor={`date-${draft.id}`} className="type-caption text-text-secondary">
             <CalendarClock className="mr-1 inline size-3.5" strokeWidth={1.75} aria-hidden />
             {linkedin ? "Part tout seul à cette date, une fois approuvé" : "Repère dans le calendrier"}
@@ -529,28 +549,42 @@ function DraftEditor({
         </div>
       ) : null}
 
+      {!published ? (
+        <div className="grid gap-2 rounded-md border border-border bg-surface p-4">
+          <Label htmlFor={`visuel-${draft.id}`} className="type-caption text-text-secondary">
+            <ImageIcon className="mr-1 inline size-3.5" strokeWidth={1.75} aria-hidden />
+            Ce que l&apos;image doit montrer
+          </Label>
+          <div className="flex flex-wrap items-center gap-2">
+            <Input
+              id={`visuel-${draft.id}`}
+              value={imagePrompt}
+              onChange={(event) => setImagePrompt(event.target.value)}
+              placeholder="selfie en atelier, lumière naturelle, regard caméra"
+              className="min-w-0 flex-1"
+            />
+            <Button
+              type="button"
+              variant="outline"
+              disabled={pending || Boolean(studio.visual) || imagePrompt.trim().length < 5}
+              title={studio.visual ?? undefined}
+              onClick={() => run(() => generateVisualNow({ postId: draft.id, prompt: imagePrompt }))}
+            >
+              <PendingLabel pending={pending} busy="Génération…">
+                Générer la photo
+              </PendingLabel>
+            </Button>
+          </div>
+          {/* Un seul générateur est branché : le dire vaut mieux qu'offrir un
+              bouton mort à côté. */}
+          <p className="type-caption text-text-secondary">
+            {studio.visual ?? "Modèle entraîné sur mon visage (Replicate). Les autres générateurs viendront avec leur clé."}
+          </p>
+        </div>
+      ) : null}
+
       {linkedin && !published ? (
         <div className="flex flex-wrap items-center gap-2">
-          <Input
-            aria-label="Ce que l'image montre"
-            value={imagePrompt}
-            onChange={(event) => setImagePrompt(event.target.value)}
-            placeholder="portrait en atelier, lumière naturelle, regard caméra"
-            className="min-w-0 flex-1"
-          />
-          <Button
-            type="button"
-            variant="outline"
-            disabled={pending || Boolean(studio.visual) || imagePrompt.trim().length < 5}
-            title={studio.visual ?? undefined}
-            onClick={() => run(() => generateVisualNow({ postId: draft.id, prompt: imagePrompt }))}
-          >
-            <ImageIcon aria-hidden />
-            <PendingLabel pending={pending} busy="Génération…">
-              Générer le visuel
-            </PendingLabel>
-          </Button>
-          {studio.visual ? <span className="type-caption text-text-secondary">{studio.visual}</span> : null}
           <Button
             type="button"
             variant="accent"

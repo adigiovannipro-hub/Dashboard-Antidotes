@@ -1,216 +1,210 @@
 "use client";
 
-import { useMemo } from "react";
-import Link from "next/link";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useMemo, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { CalendarDays, RefreshCw, SlidersHorizontal, Table2 } from "lucide-react";
+import { toast } from "sonner";
 
+import { collectRadarNow } from "@/app/actions/antidotes-inbound";
+import { InboundAccountsDialog } from "@/components/antidotes/inbound-accounts-dialog";
 import { InboundCalendar } from "@/components/antidotes/inbound-calendar";
 import { InboundContentTable } from "@/components/antidotes/inbound-content-table";
-import { InboundMyPosts } from "@/components/antidotes/inbound-my-posts";
-import { InboundSettingsForm } from "@/components/antidotes/inbound-settings-form";
+import { ActiveFilterChips, InboundFiltersPanel } from "@/components/antidotes/inbound-filters";
+import { InboundMineMenu } from "@/components/antidotes/inbound-mine-menu";
+import { InboundPromptsDialog } from "@/components/antidotes/inbound-prompts-dialog";
 import { InboundSheet } from "@/components/antidotes/inbound-sheet";
-import { RadarAccounts } from "@/components/antidotes/radar-accounts";
-import { RadarActions, AddAccountDialog } from "@/components/antidotes/radar-tools";
-import { RadarTopics } from "@/components/antidotes/radar-topics";
-import { EmptyState } from "@/components/ds/empty-state";
-import {
-  PillIndicator,
-  useOptimisticPill,
-  usePillIndicator,
-} from "@/components/ds/pill-indicator";
-import { LinkPending } from "@/components/ds/route-progress";
-import { Panel, PanelBody, PanelHeader, SectionHeader } from "@/components/ds/surface";
-import type { ContentFilters } from "@/lib/antidotes/inbound/filters";
-import type { InboundData, InboundPostDetail, StudioPostDetail } from "@/lib/antidotes/inbound/queries";
-import type { InboundView } from "@/lib/antidotes/inbound/views";
+import { useInboundUrl } from "@/components/antidotes/inbound-url";
+import { PendingLabel } from "@/components/ds/pending-label";
+import { SectionHeader } from "@/components/ds/surface";
+import { Button } from "@/components/ui/button";
+import { monthKeyOf, parseMonthKey } from "@/lib/antidotes/inbound/calendar";
+import { activeFilterCount, parseContentFilters } from "@/lib/antidotes/inbound/filters";
+import type { InboundData } from "@/lib/antidotes/inbound/queries";
+import { parseInboundView } from "@/lib/antidotes/inbound/views";
+import type { PostPlatform } from "@/lib/antidotes/types";
 import { cn } from "@/lib/utils";
-import { Lightbulb, Radio, Rss } from "lucide-react";
 
 /**
- * L'écran de l'inbound : une barre de vues, la vue choisie, un panneau.
+ * L'inbound : un tableau, un calendrier, un panneau. Rien d'autre.
  *
- * Tout l'état d'affichage vit dans l'URL — la vue, les filtres, le mois du
- * calendrier, la ligne ouverte. Un écran se partage par copie du lien, et le
- * retour arrière ramène exactement ce qu'on regardait.
+ * Il y avait six vues. Cinq étaient des réglages ou des listes qu'on
+ * consultait une fois par semaine ; elles sont passées dans des fenêtres
+ * (Comptes, Prompts) ou ont disparu (les sujets proposés). Ce qui reste est
+ * le geste : regarder ce qui a marché, en tirer quelque chose.
+ *
+ * **Tout l'état d'affichage se lit dans l'URL et s'y écrit sans repasser par
+ * le serveur** (`useInboundUrl`) : filtrer, trier, ouvrir une ligne ne coûte
+ * plus un aller-retour. L'écran se partage toujours par copie du lien.
  */
-export function InboundScreen({
-  view,
-  views,
-  filters,
-  month,
-  data,
-  postDetail,
-  draftDetail,
-  openTopicId,
-}: {
-  view: InboundView;
-  views: readonly { key: InboundView; label: string }[];
-  filters: ContentFilters;
-  month: string;
-  data: InboundData;
-  postDetail: InboundPostDetail | null;
-  draftDetail: StudioPostDetail | null;
-  openTopicId: string | null;
-}) {
+export function InboundScreen({ data }: { data: InboundData }) {
   const router = useRouter();
-  const pathname = usePathname();
-  const params = useSearchParams();
+  const { params, go } = useInboundUrl();
+  const [showFilters, setShowFilters] = useState(false);
+  const [collecting, startCollect] = useTransition();
 
-  const { active, select } = useOptimisticPill(view);
-  // Destructuré à l'appel : le lint des refs refuse qu'un objet qui porte une
-  // ref soit lu pendant le rendu, même pour en tirer une largeur.
-  const { listRef: pillsRef, box: pillsBox, measured: pillsMeasured } = usePillIndicator<HTMLUListElement>(active);
-
-  const hrefFor = (next: InboundView) => {
-    // Changer de vue garde les filtres qui la concernent et laisse tomber ce
-    // qui n'a pas de sens ailleurs : une ligne ouverte, un mois de calendrier.
-    const query = new URLSearchParams();
-    if (next !== "contenus") query.set("vue", next);
-    if (next === "contenus") {
-      for (const key of ["reseau", "jours", "vues", "likes", "commentaires", "tri"]) {
-        const value = params.get(key);
-        if (value) query.set(key, value);
-      }
-    }
-    const search = query.toString();
-    return search ? `${pathname}?${search}` : pathname;
-  };
-
-  const closeSheet = () => {
-    const query = new URLSearchParams(params.toString());
-    for (const key of ["post", "brouillon", "sujet", "mien"]) query.delete(key);
-    const search = query.toString();
-    router.push(search ? `${pathname}?${search}` : pathname, { scroll: false });
-  };
-
-  const topic = useMemo(
-    () => (openTopicId ? (data.topics.find((entry) => entry.id === openTopicId) ?? null) : null),
-    [openTopicId, data.topics],
+  const view = parseInboundView(params.get("vue"));
+  const filters = useMemo(
+    () =>
+      parseContentFilters({
+        reseau: params.get("reseau") ?? undefined,
+        jours: params.get("jours") ?? undefined,
+        vues: params.get("vues") ?? undefined,
+        likes: params.get("likes") ?? undefined,
+        commentaires: params.get("commentaires") ?? undefined,
+        partages: params.get("partages") ?? undefined,
+        enregistrements: params.get("enregistrements") ?? undefined,
+        tri: params.get("tri") ?? undefined,
+        sens: params.get("sens") ?? undefined,
+        source: params.get("source") ?? undefined,
+      }),
+    [params],
   );
-  const myPost = useMemo(() => {
-    const id = params.get("mien");
-    return id ? (data.myPosts.find((post) => post.id === id) ?? null) : null;
-  }, [params, data.myPosts]);
+  const month = parseMonthKey(params.get("mois") ?? undefined, new Date(data.now));
 
-  const activeAccounts = data.accounts.filter((account) => account.is_active).length;
-  const newTopics = data.topics.filter((entry) => entry.status === "new");
+  const openId = params.get("post");
+  const openDraftId = params.get("brouillon");
+  const content = useMemo(
+    () => (openId ? (data.contents.find((entry) => entry.post.id === openId) ?? null) : null),
+    [openId, data.contents],
+  );
+  const sheetDrafts = useMemo(
+    () => (openId ? data.drafts.filter((draft) => draft.source_post_id === openId) : []),
+    [openId, data.drafts],
+  );
+  const loneDraft = useMemo(
+    () => (!openId && openDraftId ? (data.drafts.find((draft) => draft.id === openDraftId) ?? null) : null),
+    [openId, openDraftId, data.drafts],
+  );
+
+  /** Les réseaux proposés au filtre sont ceux qui ont réellement quelque chose. */
+  const platforms = useMemo(() => {
+    const set = new Set<PostPlatform>(data.accounts.map((account) => account.platform));
+    for (const entry of data.contents) set.add(entry.post.platform);
+    return [...set];
+  }, [data.accounts, data.contents]);
+
+  const filterCount = activeFilterCount(filters);
+
+  const collect = () =>
+    startCollect(async () => {
+      const result = await collectRadarNow();
+      if (result.ok) {
+        toast.success(result.message ?? "Relevé lancé.");
+        router.refresh();
+      } else {
+        toast.error(result.error);
+      }
+    });
 
   return (
     <div className="space-y-5">
       <SectionHeader
         title="Inbound"
-        count={data.contents.length}
         action={
-          <div className="flex flex-wrap items-center justify-end gap-2">
-            <RadarActions
-              hasAccounts={data.accounts.length > 0}
-              hasPosts={data.contents.length > 0}
-              anthropic={data.studio.anthropic}
+          <div className="flex flex-wrap items-center gap-2 md:justify-end">
+            <div className="inline-flex items-center gap-1 rounded-pill bg-surface-sunken p-1">
+              <ViewButton
+                current={view === "tableau"}
+                label="Tableau"
+                icon={<Table2 className="size-4" strokeWidth={1.75} aria-hidden />}
+                onClick={() => go({ vue: null, mois: null })}
+              />
+              <ViewButton
+                current={view === "calendrier"}
+                label="Calendrier"
+                icon={<CalendarDays className="size-4" strokeWidth={1.75} aria-hidden />}
+                onClick={() => go({ vue: "calendrier", mois: monthKeyOf(new Date(data.now)) })}
+              />
+            </div>
+
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              aria-expanded={showFilters}
+              onClick={() => setShowFilters((open) => !open)}
+            >
+              <SlidersHorizontal aria-hidden />
+              Filtres
+              {filterCount > 0 ? (
+                <span className="type-caption ml-1 rounded-pill bg-accent-subtle px-1.5 font-medium text-accent-ink tabular-nums">
+                  {filterCount}
+                </span>
+              ) : null}
+            </Button>
+
+            <InboundAccountsDialog
+              accounts={data.accounts}
+              availability={data.availability}
+              settings={data.settings}
             />
-            <AddAccountDialog availability={data.availability} />
+            <InboundPromptsDialog settings={data.settings} />
+
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={collecting || data.accounts.length === 0}
+              onClick={collect}
+            >
+              <RefreshCw aria-hidden />
+              <PendingLabel pending={collecting} busy="Lancement…">
+                Relever
+              </PendingLabel>
+            </Button>
+
+            <InboundMineMenu embeddings={data.studio.embeddings} />
           </div>
         }
       />
 
-      <nav aria-label="Vues de l'inbound" className="overflow-x-auto">
-        <ul
-          ref={pillsRef}
-          className="relative inline-flex items-center gap-1 rounded-pill bg-surface-sunken p-1"
-        >
-          <PillIndicator box={pillsBox} />
-          {views.map((entry) => {
-            const current = active === entry.key;
-            return (
-              <li key={entry.key} data-pill={entry.key} className="relative">
-                <Link
-                  href={hrefFor(entry.key)}
-                  aria-current={view === entry.key ? "page" : undefined}
-                  onClick={() => select(entry.key)}
-                  className={cn(
-                    "type-caption focus-visible:ring-ring relative block rounded-pill px-3.5 py-1.5 font-medium whitespace-nowrap transition-colors duration-(--motion-duration) ease-standard focus-visible:ring-2 focus-visible:outline-none",
-                    current
-                      ? cn("text-primary-foreground", !pillsMeasured && "bg-primary")
-                      : "text-text-secondary hover:text-text-primary",
-                  )}
-                >
-                  <LinkPending />
-                  {entry.label}
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
-      </nav>
+      {showFilters ? (
+        <InboundFiltersPanel filters={filters} platforms={platforms} onClose={() => setShowFilters(false)} />
+      ) : (
+        <ActiveFilterChips filters={filters} />
+      )}
 
-      {view === "contenus" ? (
-        <InboundContentTable contents={data.contents} filters={filters} accounts={data.accounts} now={data.now} />
-      ) : null}
-
-      {view === "comptes" ? (
-        <Panel>
-          <PanelHeader
-            title="Comptes veillés"
-            count={data.accounts.length}
-            description={`${activeAccounts} en veille`}
-          />
-          {data.accounts.length === 0 ? (
-            <PanelBody>
-              <EmptyState
-                icon={Radio}
-                message="Aucun compte veillé. Ajoutez un profil LinkedIn ou Instagram pour lancer la première vague."
-              />
-            </PanelBody>
-          ) : (
-            <RadarAccounts accounts={data.accounts} availability={data.availability} />
-          )}
-        </Panel>
-      ) : null}
-
-      {view === "sujets" ? (
-        <Panel>
-          <PanelHeader title="Sujets proposés" count={newTopics.length} />
-          {data.topics.length === 0 ? (
-            <PanelBody>
-              <EmptyState
-                icon={Lightbulb}
-                message="Aucun sujet. « Proposer des sujets » lit les meilleurs contenus des trente derniers jours."
-              />
-            </PanelBody>
-          ) : (
-            <RadarTopics topics={data.topics} />
-          )}
-        </Panel>
-      ) : null}
-
-      {view === "mes-posts" ? (
-        <InboundMyPosts posts={data.myPosts} drafts={data.drafts} embeddings={data.studio.embeddings} />
-      ) : null}
-
-      {view === "calendrier" ? <InboundCalendar month={month} drafts={data.drafts} now={data.now} /> : null}
-
-      {view === "consignes" ? (
-        <InboundSettingsForm settings={data.settings} accounts={data.accounts} />
-      ) : null}
-
-      {data.contents.length === 0 && view === "contenus" && data.accounts.length === 0 ? (
-        <Panel>
-          <PanelBody>
-            <EmptyState
-              icon={Rss}
-              message="Rien de relevé pour l'instant : ajoutez un compte, le relevé passe chaque nuit."
-            />
-          </PanelBody>
-        </Panel>
-      ) : null}
+      {view === "tableau" ? (
+        <InboundContentTable contents={data.contents} filters={filters} now={data.now} />
+      ) : (
+        <InboundCalendar month={month} contents={data.contents} drafts={data.drafts} now={data.now} />
+      )}
 
       <InboundSheet
-        postDetail={postDetail}
-        draftDetail={draftDetail}
-        topic={topic}
-        myPost={myPost}
+        content={content}
+        drafts={sheetDrafts}
+        loneDraft={loneDraft}
+        visuals={data.visuals}
         studio={data.studio}
-        onClose={closeSheet}
+        onClose={() => go({ post: null, brouillon: null })}
       />
     </div>
+  );
+}
+
+function ViewButton({
+  current,
+  label,
+  icon,
+  onClick,
+}: {
+  current: boolean;
+  label: string;
+  icon: React.ReactNode;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={current}
+      className={cn(
+        "type-caption focus-visible:ring-ring inline-flex items-center gap-1.5 rounded-pill px-3 py-1.5 font-medium whitespace-nowrap transition-colors duration-(--motion-duration) ease-standard focus-visible:ring-2 focus-visible:outline-none",
+        current ? "bg-primary text-primary-foreground" : "text-text-secondary hover:text-text-primary",
+      )}
+    >
+      {icon}
+      {label}
+    </button>
   );
 }

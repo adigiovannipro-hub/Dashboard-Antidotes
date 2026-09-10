@@ -2,65 +2,21 @@ import type { Metadata } from "next";
 
 import { InboundScreen } from "@/components/antidotes/inbound-screen";
 import { requireAntidotesAccess } from "@/lib/antidotes/access";
-import { parseMonthKey } from "@/lib/antidotes/inbound/calendar";
-import { parseContentFilters } from "@/lib/antidotes/inbound/filters";
-import { getInboundData, getInboundPost, getStudioPost } from "@/lib/antidotes/inbound/queries";
-import { INBOUND_VIEWS, parseInboundView } from "@/lib/antidotes/inbound/views";
+import { getInboundData } from "@/lib/antidotes/inbound/queries";
 
 export const metadata: Metadata = { title: "Inbound · Antidotes" };
 
-type Search = Promise<Record<string, string | string[] | undefined>>;
-
-const single = (value: string | string[] | undefined): string | undefined =>
-  typeof value === "string" ? value : undefined;
-
 /**
- * L'inbound sur une seule page.
+ * L'inbound sur une seule page — et sur une seule lecture.
  *
- * Radar, studio et bibliothèque étaient trois écrans pour un seul geste :
- * regarder ce qui marche chez les autres, en tirer un post ou un script,
- * le valider, le publier. Ils tiennent maintenant dans une page à **vues**
- * (`?vue=`) — contenus, comptes, sujets, mes posts, calendrier, consignes —
- * dont le tableau se filtre dans l'URL et dont chaque ligne ouvre le même
- * panneau latéral (`?post=`, `?sujet=`, `?brouillon=`, `?mien=`).
- *
- * Une seule lecture sert les six vues : elles se choisissent sans
- * aller-retour serveur, et le tableau se range en mémoire.
+ * La page ne lit plus les paramètres d'URL : filtres, tri, vue et ligne
+ * ouverte sont de l'affichage, et l'écran a déjà tout ce qu'il faut pour les
+ * appliquer en mémoire. C'est ce qui rend le panneau instantané — avant,
+ * `?post=` relançait le rendu serveur complet pour retrouver une ligne que la
+ * page portait déjà.
  */
-export default async function InboundPage({ searchParams }: { searchParams: Search }) {
-  const [context, query] = await Promise.all([requireAntidotesAccess(), searchParams]);
-  const view = parseInboundView(single(query.vue));
-  const filters = parseContentFilters({
-    reseau: single(query.reseau),
-    jours: single(query.jours),
-    vues: single(query.vues),
-    likes: single(query.likes),
-    commentaires: single(query.commentaires),
-    tri: single(query.tri),
-  });
-  const month = parseMonthKey(single(query.mois), new Date());
-
-
-  const openPost = single(query.post) ?? single(query.mien) ?? null;
-  const openDraft = single(query.brouillon) ?? null;
-  const openTopic = single(query.sujet) ?? null;
-
-  const [data, postDetail, draftDetail] = await Promise.all([
-    getInboundData({ orgId: context.orgId }),
-    openPost ? getInboundPost({ orgId: context.orgId, postId: openPost }) : Promise.resolve(null),
-    openDraft ? getStudioPost({ orgId: context.orgId, postId: openDraft }) : Promise.resolve(null),
-  ]);
-
-  return (
-    <InboundScreen
-      view={view}
-      views={INBOUND_VIEWS}
-      filters={filters}
-      month={month}
-      data={data}
-      postDetail={postDetail}
-      draftDetail={draftDetail}
-      openTopicId={openTopic}
-    />
-  );
+export default async function InboundPage() {
+  const context = await requireAntidotesAccess();
+  const data = await getInboundData({ orgId: context.orgId });
+  return <InboundScreen data={data} />;
 }

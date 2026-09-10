@@ -16,17 +16,42 @@ export type ContentFilters = {
   minViews: number | null;
   minLikes: number | null;
   minComments: number | null;
+  minShares: number | null;
+  minSaves: number | null;
   sort: ContentSort;
+  /** `desc` par défaut : sur toutes ces colonnes, c'est le haut qui intéresse. */
+  direction: SortDirection;
+  /** Ce qu'on regarde : la veille, mes propres posts, ou les deux. */
+  source: ContentSource;
 };
 
-export type ContentSort = "score" | "vues" | "likes" | "commentaires" | "date";
+export type ContentSort =
+  | "score"
+  | "vues"
+  | "likes"
+  | "commentaires"
+  | "partages"
+  | "enregistrements"
+  | "date";
+
+export type SortDirection = "asc" | "desc";
+
+export type ContentSource = "tout" | "veille" | "moi";
 
 export const CONTENT_SORT_LABELS: Record<ContentSort, string> = {
   score: "Score",
   vues: "Vues",
   likes: "Likes",
   commentaires: "Commentaires",
+  partages: "Partages",
+  enregistrements: "Enregistrements",
   date: "Date",
+};
+
+export const CONTENT_SOURCE_LABELS: Record<ContentSource, string> = {
+  tout: "Tout",
+  veille: "La veille",
+  moi: "Mes posts",
 };
 
 /** Les périodes proposées ; `null` = tout. */
@@ -50,8 +75,26 @@ export function parsePlatform(raw: string | undefined): PostPlatform | null {
   return raw && (PLATFORMS as string[]).includes(raw) ? (raw as PostPlatform) : null;
 }
 
+const SORTS: ContentSort[] = [
+  "score",
+  "vues",
+  "likes",
+  "commentaires",
+  "partages",
+  "enregistrements",
+  "date",
+];
+
 export function parseSort(raw: string | undefined): ContentSort {
-  return raw === "vues" || raw === "likes" || raw === "commentaires" || raw === "date" ? raw : "score";
+  return SORTS.includes(raw as ContentSort) ? (raw as ContentSort) : "score";
+}
+
+export function parseDirection(raw: string | undefined): SortDirection {
+  return raw === "asc" ? "asc" : "desc";
+}
+
+export function parseSource(raw: string | undefined): ContentSource {
+  return raw === "veille" || raw === "moi" ? raw : "tout";
 }
 
 /**
@@ -71,7 +114,11 @@ export function parseContentFilters(params: Record<string, string | undefined>):
     minViews: parseThreshold(params.vues),
     minLikes: parseThreshold(params.likes),
     minComments: parseThreshold(params.commentaires),
+    minShares: parseThreshold(params.partages),
+    minSaves: parseThreshold(params.enregistrements),
     sort: parseSort(params.tri),
+    direction: parseDirection(params.sens),
+    source: parseSource(params.source),
   };
 }
 
@@ -81,6 +128,8 @@ export type ContentRow = {
   metrics: PostMetrics;
   published_at: string | null;
   score: { sortKey: number };
+  /** Vrai pour un de mes posts : le tableau mêle la veille et ma production. */
+  is_mine?: boolean;
 };
 
 /**
@@ -97,6 +146,8 @@ function passesThreshold(value: number | undefined, minimum: number | null): boo
 
 export function matchesFilters(row: ContentRow, filters: ContentFilters, now: number): boolean {
   if (filters.platform && row.platform !== filters.platform) return false;
+  if (filters.source === "veille" && row.is_mine) return false;
+  if (filters.source === "moi" && !row.is_mine) return false;
   if (filters.days !== null) {
     if (!row.published_at) return false;
     const at = Date.parse(row.published_at);
@@ -105,11 +156,17 @@ export function matchesFilters(row: ContentRow, filters: ContentFilters, now: nu
   return (
     passesThreshold(row.metrics.views, filters.minViews) &&
     passesThreshold(row.metrics.likes, filters.minLikes) &&
-    passesThreshold(row.metrics.comments, filters.minComments)
+    passesThreshold(row.metrics.comments, filters.minComments) &&
+    passesThreshold(row.metrics.shares, filters.minShares) &&
+    passesThreshold(row.metrics.saves, filters.minSaves)
   );
 }
 
-export function sortRows<T extends ContentRow>(rows: readonly T[], sort: ContentSort): T[] {
+export function sortRows<T extends ContentRow>(
+  rows: readonly T[],
+  sort: ContentSort,
+  direction: SortDirection = "desc",
+): T[] {
   const value = (row: ContentRow): number => {
     switch (sort) {
       case "vues":
@@ -118,13 +175,18 @@ export function sortRows<T extends ContentRow>(rows: readonly T[], sort: Content
         return row.metrics.likes ?? 0;
       case "commentaires":
         return row.metrics.comments ?? 0;
+      case "partages":
+        return row.metrics.shares ?? 0;
+      case "enregistrements":
+        return row.metrics.saves ?? 0;
       case "date":
         return row.published_at ? Date.parse(row.published_at) : 0;
       default:
         return row.score.sortKey;
     }
   };
-  return [...rows].sort((a, b) => value(b) - value(a));
+  const sign = direction === "asc" ? -1 : 1;
+  return [...rows].sort((a, b) => sign * (value(b) - value(a)));
 }
 
 export function applyContentFilters<T extends ContentRow>(
@@ -132,7 +194,25 @@ export function applyContentFilters<T extends ContentRow>(
   filters: ContentFilters,
   now: number,
 ): T[] {
-  return sortRows(rows.filter((row) => matchesFilters(row, filters, now)), filters.sort);
+  return sortRows(
+    rows.filter((row) => matchesFilters(row, filters, now)),
+    filters.sort,
+    filters.direction,
+  );
+}
+
+/** Le nombre de filtres réellement posés — ce que la pastille du bouton affiche. */
+export function activeFilterCount(filters: ContentFilters): number {
+  return [
+    filters.platform !== null,
+    filters.days !== 30,
+    filters.minViews !== null,
+    filters.minLikes !== null,
+    filters.minComments !== null,
+    filters.minShares !== null,
+    filters.minSaves !== null,
+    filters.source !== "tout",
+  ].filter(Boolean).length;
 }
 
 /** Les paramètres d'URL d'un jeu de filtres — l'inverse de `parseContentFilters`. */
@@ -143,6 +223,24 @@ export function contentFiltersToParams(filters: Partial<ContentFilters>): Record
   if (filters.minViews) params.vues = String(filters.minViews);
   if (filters.minLikes) params.likes = String(filters.minLikes);
   if (filters.minComments) params.commentaires = String(filters.minComments);
+  if (filters.minShares) params.partages = String(filters.minShares);
+  if (filters.minSaves) params.enregistrements = String(filters.minSaves);
   if (filters.sort && filters.sort !== "score") params.tri = filters.sort;
+  if (filters.direction === "asc") params.sens = "asc";
+  if (filters.source && filters.source !== "tout") params.source = filters.source;
   return params;
 }
+
+/** Les clés d'URL que le tableau possède — à effacer quand on quitte sa vue. */
+export const CONTENT_FILTER_KEYS = [
+  "reseau",
+  "jours",
+  "vues",
+  "likes",
+  "commentaires",
+  "partages",
+  "enregistrements",
+  "tri",
+  "sens",
+  "source",
+] as const;

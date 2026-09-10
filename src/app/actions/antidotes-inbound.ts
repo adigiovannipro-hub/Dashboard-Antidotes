@@ -6,14 +6,14 @@ import { z } from "zod";
 import { embedderFromEnv, toPgVector } from "@/lib/antidotes/inbound/embeddings";
 import { generatePost } from "@/lib/antidotes/inbound/generate-post";
 import { publishToLinkedin } from "@/lib/antidotes/inbound/linkedin-publish";
-import { proposeTopics } from "@/lib/antidotes/inbound/propose-topics";
+import { parseAccountUrl } from "@/lib/antidotes/inbound/account-url";
+import { FORMAT_MAX_CHARS, INBOUND_FORMATS } from "@/lib/antidotes/inbound/prompts";
 import { getInboundSettings } from "@/lib/antidotes/inbound/queries";
 import { normalizeHandle } from "@/lib/antidotes/inbound/radar/types";
 import { parseSharesCsv } from "@/lib/antidotes/inbound/shares-csv";
-import { REEL_MAX_CHARS } from "@/lib/antidotes/inbound/reel-prompt";
 import { LINKEDIN_MAX_CHARS } from "@/lib/antidotes/inbound/studio-prompt";
 import { generateVisual, readVisual } from "@/lib/antidotes/inbound/visual";
-import type { GeneratedPost, RadarTopic } from "@/lib/antidotes/types";
+import type { GeneratedPost, GeneratedPostFormat, RadarTopic } from "@/lib/antidotes/types";
 import { getViewer } from "@/lib/auth";
 import { dispatchRadarWorkflow, syncDispatchUnavailable } from "@/lib/finance/github-actions";
 import { createAdminClient, createClient } from "@/lib/supabase/server";
@@ -265,23 +265,32 @@ export async function embedLibraryNow(): Promise<InboundResult> {
 
 // --- Radar : les comptes veillés --------------------------------------------------
 
+/**
+ * Un compte à veiller depuis **une adresse collée**, et rien d'autre : le
+ * réseau se lit dans le domaine, l'identifiant dans le chemin. Choisir le
+ * réseau à la main puis retaper le pseudo était deux gestes pour une
+ * information que le lien porte déjà.
+ */
 const accountInput = z.object({
-  platform: z.enum(PLATFORMS),
-  handle: z.string().trim().min(1, "Un identifiant ou une URL de profil.").max(200),
+  url: z.string().trim().min(4, "Collez le lien d'un profil.").max(400),
   label: z.string().trim().max(120),
-  followers: z.union([z.literal(""), z.coerce.number().int().min(0)]),
 });
 
 export async function addRadarAccount(_previous: InboundResult | null, formData: FormData): Promise<InboundResult> {
   const parsed = accountInput.safeParse({
-    platform: formValue(formData, "platform"),
-    handle: formValue(formData, "handle"),
+    url: formValue(formData, "url"),
     label: formValue(formData, "label"),
-    followers: formValue(formData, "followers").trim(),
   });
   if (!parsed.success) return firstIssue(parsed.error, "Saisie invalide.");
-  const raw = parsed.data.handle;
-  const handle = normalizeHandle(raw);
+
+  const account = parseAccountUrl(parsed.data.url);
+  if (!account) {
+    return {
+      ok: false,
+      error: "Réseau non reconnu. Collez une adresse LinkedIn, Instagram, YouTube, TikTok ou X.",
+    };
+  }
+  const handle = normalizeHandle(account.handle);
   if (!handle) return { ok: false, error: "Identifiant illisible." };
 
   try {
@@ -291,45 +300,19 @@ export async function addRadarAccount(_previous: InboundResult | null, formData:
       .from("antidotes_radar_accounts")
       .insert({
         org_id: orgId,
-        platform: parsed.data.platform,
+        platform: account.platform,
         handle,
-        url: /^https?:\/\//i.test(raw) ? raw : null,
+        /* L'adresse gardée est celle qu'on reconstruit, jamais celle qui a
+           été collée : un lien d'application mobile porte des paramètres de
+           suivi qui périment. */
+        url: account.url,
         label: parsed.data.label || null,
-        followers: parsed.data.followers === "" ? null : parsed.data.followers,
       } as never)
       .select("id")
       .single();
     if (error) throw new Error(error.code === "23505" ? "Ce compte est déjà veillé." : error.message);
     revalidatePath(RADAR_PATH);
     return { ok: true, id: (data as unknown as { id: string }).id, message: "Compte ajouté. Il sera relevé au prochain passage." };
-  } catch (error) {
-    return fail(error);
-  }
-}
-
-export async function updateRadarAccount(input: {
-  accountId: string;
-  isActive?: boolean;
-  followers?: number | null;
-}): Promise<InboundResult> {
-  const parsed = z
-    .object({ accountId: z.uuid(), isActive: z.boolean().optional(), followers: z.number().int().min(0).nullable().optional() })
-    .safeParse(input);
-  if (!parsed.success) return { ok: false, error: "Saisie invalide." };
-  try {
-    const { orgId } = await guardOwner();
-    const supabase = await createClient();
-    const patch: Record<string, unknown> = {};
-    if (parsed.data.isActive !== undefined) patch.is_active = parsed.data.isActive;
-    if (parsed.data.followers !== undefined) patch.followers = parsed.data.followers;
-    const { error } = await supabase
-      .from("antidotes_radar_accounts")
-      .update(patch as never)
-      .eq("org_id", orgId)
-      .eq("id", parsed.data.accountId);
-    if (error) throw new Error(error.message);
-    revalidatePath(RADAR_PATH);
-    return { ok: true, message: "Enregistré." };
   } catch (error) {
     return fail(error);
   }
@@ -368,43 +351,7 @@ export async function collectRadarNow(): Promise<InboundResult> {
   }
 }
 
-// --- Radar : les sujets ---------------------------------------------------------------
-
-export async function proposeTopicsNow(): Promise<InboundResult> {
-  try {
-    const { orgId } = await guardOwner();
-    const supabase = await createClient();
-    const result = await proposeTopics({ supabase, orgId });
-    revalidatePath(RADAR_PATH);
-    if (result.candidates === 0) return { ok: false, error: "Aucun post de la veille sur les trente derniers jours : relevez des comptes d'abord." };
-    return { ok: true, message: `${result.created} sujet${result.created > 1 ? "s" : ""} proposé${result.created > 1 ? "s" : ""} à partir de ${result.candidates} posts.` };
-  } catch (error) {
-    return fail(error);
-  }
-}
-
-export async function setTopicStatus(input: { topicId: string; status: "new" | "used" | "dismissed" }): Promise<InboundResult> {
-  const parsed = z.object({ topicId: z.uuid(), status: z.enum(["new", "used", "dismissed"]) }).safeParse(input);
-  if (!parsed.success) return { ok: false, error: "Sujet invalide." };
-  try {
-    const { orgId } = await guardOwner();
-    const supabase = await createClient();
-    const { error } = await supabase
-      .from("antidotes_radar_topics")
-      .update({ status: parsed.data.status } as never)
-      .eq("org_id", orgId)
-      .eq("id", parsed.data.topicId);
-    if (error) throw new Error(error.message);
-    revalidatePath(RADAR_PATH);
-    return { ok: true, message: parsed.data.status === "dismissed" ? "Sujet écarté." : "Enregistré." };
-  } catch (error) {
-    return fail(error);
-  }
-}
-
 // --- Studio --------------------------------------------------------------------------
-
-const FORMATS = ["linkedin_post", "reel_script"] as const;
 
 const draftInput = z.object({
   topic: z.string().trim().min(5, "Un sujet d'au moins cinq caractères.").max(300),
@@ -412,7 +359,7 @@ const draftInput = z.object({
   brief: z.string().trim().max(1000),
   topicId: z.union([z.literal(""), z.uuid()]),
   sourcePostId: z.union([z.literal(""), z.uuid()]),
-  format: z.enum(FORMATS).default("linkedin_post"),
+  format: z.enum(INBOUND_FORMATS).default("linkedin_post"),
 });
 
 export async function createDraft(_previous: InboundResult | null, formData: FormData): Promise<InboundResult> {
@@ -657,30 +604,71 @@ export async function publishDraftNow(input: { postId: string }): Promise<Inboun
 
 // --- La page unique : consignes, programmation, écriture depuis le panneau -----------
 
-const settingsInput = z.object({
+const promptsInput = z.object({
   guidelines: z.string().trim().max(4000),
-  linkedinExample: z.string().trim().max(4000),
-  reelExample: z.string().trim().max(4000),
   emailExample: z.string().trim().max(4000),
 });
 
 /**
- * Mes consignes de voix et les seuils de relevé. Une ligne par organisation,
- * posée à la première écriture (`upsert` sur la clé primaire `org_id`).
+ * Ma voix et mes prompts — ce que la fenêtre « Prompts » enregistre.
  *
- * Les seuils arrivent en champs `seuil_<réseau>_<grandeur>` : l'écran n'en
- * rend que pour les réseaux réellement veillés, et un champ vide efface le
- * seuil plutôt que de le mettre à zéro — zéro serait un seuil, l'absence non.
+ * Une ligne par organisation, posée à la première écriture (`upsert` sur la
+ * clé primaire `org_id`). Les prompts arrivent en champs
+ * `prompt_<format>` / `exemple_<format>` : **un champ vide efface la
+ * retouche**, il ne pose pas une consigne vide — sans quoi ouvrir la fenêtre
+ * une fois suffirait à casser la génération (`resolvePrompt` retombe alors
+ * sur le prompt du code).
  */
-export async function saveInboundSettings(_previous: InboundResult | null, formData: FormData): Promise<InboundResult> {
-  const parsed = settingsInput.safeParse({
+export async function saveInboundPrompts(_previous: InboundResult | null, formData: FormData): Promise<InboundResult> {
+  const parsed = promptsInput.safeParse({
     guidelines: formValue(formData, "guidelines"),
-    linkedinExample: formValue(formData, "linkedinExample"),
-    reelExample: formValue(formData, "reelExample"),
     emailExample: formValue(formData, "emailExample"),
   });
   if (!parsed.success) return firstIssue(parsed.error, "Saisie invalide.");
 
+  const prompts: Record<string, { prompt?: string; example?: string }> = {};
+  for (const format of INBOUND_FORMATS) {
+    const prompt = formValue(formData, `prompt_${format}`).trim();
+    const example = formValue(formData, `exemple_${format}`).trim();
+    if (prompt.length > 8000 || example.length > 8000) {
+      return { ok: false, error: "Un prompt ou un exemple dépasse 8 000 caractères." };
+    }
+    const entry: { prompt?: string; example?: string } = {};
+    if (prompt) entry.prompt = prompt;
+    if (example) entry.example = example;
+    if (Object.keys(entry).length > 0) prompts[format] = entry;
+  }
+
+  try {
+    const { orgId } = await guardOwner();
+    const supabase = await createClient();
+    const { error } = await supabase.from("antidotes_inbound_settings").upsert(
+      {
+        org_id: orgId,
+        guidelines: parsed.data.guidelines || null,
+        email_example: parsed.data.emailExample || null,
+        prompts,
+      } as never,
+      { onConflict: "org_id" },
+    );
+    if (error) throw new Error(error.message);
+    revalidatePath(INBOUND_PATH);
+    return { ok: true, message: "Prompts enregistrés." };
+  } catch (error) {
+    return fail(error);
+  }
+}
+
+/**
+ * Ce qu'une vague garde : les seuils de relevé, réglés dans la fenêtre des
+ * comptes veillés — c'est là qu'ils ont leur sens, ils décident de ce qui
+ * entre en base, pas de ce que le tableau affiche.
+ *
+ * Les seuils arrivent en champs `seuil_<réseau>_<grandeur>` ; un champ vide
+ * efface le seuil plutôt que de le mettre à zéro — zéro serait un seuil,
+ * l'absence non.
+ */
+export async function saveInboundThresholds(_previous: InboundResult | null, formData: FormData): Promise<InboundResult> {
   const thresholds: Record<string, Record<string, number>> = {};
   for (const [key, raw] of formData.entries()) {
     const match = /^seuil_([a-z]+)_(views|likes|comments)$/.exec(key);
@@ -695,20 +683,68 @@ export async function saveInboundSettings(_previous: InboundResult | null, formD
   try {
     const { orgId } = await guardOwner();
     const supabase = await createClient();
-    const { error } = await supabase.from("antidotes_inbound_settings").upsert(
-      {
-        org_id: orgId,
-        guidelines: parsed.data.guidelines || null,
-        linkedin_example: parsed.data.linkedinExample || null,
-        reel_example: parsed.data.reelExample || null,
-        email_example: parsed.data.emailExample || null,
-        thresholds,
-      } as never,
-      { onConflict: "org_id" },
-    );
+    const { error } = await supabase
+      .from("antidotes_inbound_settings")
+      .upsert({ org_id: orgId, thresholds } as never, { onConflict: "org_id" });
     if (error) throw new Error(error.message);
     revalidatePath(INBOUND_PATH);
-    return { ok: true, message: "Consignes enregistrées." };
+    return { ok: true, message: "Seuils enregistrés." };
+  } catch (error) {
+    return fail(error);
+  }
+}
+
+/**
+ * Une cellule du tableau, modifiée à la main.
+ *
+ * Le relevé écrit ce qu'il trouve ; il se trompe parfois de réseau, rate un
+ * nom d'auteur, ou rend une légende là où le script compte. Le tableau se
+ * corrige donc comme un tableur — et c'est la même table que le relevé
+ * réécrira au passage suivant, sauf pour les colonnes qu'il ne touche pas.
+ */
+export async function updateReferencePost(input: {
+  postId: string;
+  platform?: (typeof PLATFORMS)[number];
+  authorHandle?: string | null;
+  publishedAt?: string | null;
+  content?: string;
+  transcript?: string | null;
+}): Promise<InboundResult> {
+  const parsed = z
+    .object({
+      postId: z.uuid(),
+      platform: z.enum(PLATFORMS).optional(),
+      authorHandle: z.union([z.string().trim().max(200), z.null()]).optional(),
+      publishedAt: z.union([z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date au format JJ/MM/AAAA."), z.null()]).optional(),
+      content: z.string().trim().max(8000).optional(),
+      transcript: z.union([z.string().trim().max(20000), z.null()]).optional(),
+    })
+    .safeParse(input);
+  if (!parsed.success) return firstIssue(parsed.error, "Saisie invalide.");
+
+  const patch: Record<string, unknown> = {};
+  if (parsed.data.platform !== undefined) patch.platform = parsed.data.platform;
+  if (parsed.data.authorHandle !== undefined) patch.author_handle = parsed.data.authorHandle || null;
+  /* Une date de publication est un instant en base : minuit UTC du jour
+     saisi, la même convention que partout ailleurs dans le dépôt. */
+  if (parsed.data.publishedAt !== undefined) {
+    patch.published_at = parsed.data.publishedAt ? `${parsed.data.publishedAt}T00:00:00.000Z` : null;
+  }
+  if (parsed.data.content !== undefined) patch.content = parsed.data.content;
+  if (parsed.data.transcript !== undefined) patch.transcript = parsed.data.transcript || null;
+  if (Object.keys(patch).length === 0) return { ok: true };
+
+  try {
+    const { orgId } = await guardOwner();
+    const supabase = await createClient();
+    const { error } = await supabase
+      .from("antidotes_reference_posts")
+      .update(patch as never)
+      .eq("org_id", orgId)
+      .eq("id", parsed.data.postId);
+    if (error) throw new Error(error.message);
+    revalidatePath(INBOUND_PATH);
+    return { ok: true, message: "Enregistré." };
   } catch (error) {
     return fail(error);
   }
@@ -754,14 +790,14 @@ export async function scheduleDraft(input: { postId: string; scheduledAt: string
 }
 
 /**
- * Écrire depuis le panneau latéral, dans l'une des deux formes.
+ * Écrire depuis le panneau latéral, dans l'une des trois formes.
  *
  * Un seul brouillon par source et par format : réécrire remplace le texte au
  * lieu d'empiler des jumeaux dans le calendrier. Un brouillon déjà approuvé
  * ou publié n'est jamais écrasé — on repart d'un neuf.
  */
 export async function generateDraft(input: {
-  format: "linkedin_post" | "reel_script";
+  format: GeneratedPostFormat;
   sourcePostId?: string | null;
   topicId?: string | null;
   topic?: string | null;
@@ -770,7 +806,7 @@ export async function generateDraft(input: {
 }): Promise<InboundResult> {
   const parsed = z
     .object({
-      format: z.enum(FORMATS),
+      format: z.enum(INBOUND_FORMATS),
       sourcePostId: z.union([z.uuid(), z.null()]).optional(),
       topicId: z.union([z.uuid(), z.null()]).optional(),
       topic: z.union([z.string().trim().max(300), z.null()]).optional(),
@@ -894,7 +930,17 @@ export async function generateDraft(input: {
 /** Le texte d'un brouillon, enregistré depuis le panneau. */
 export async function saveDraftText(input: { postId: string; content: string }): Promise<InboundResult> {
   const parsed = z
-    .object({ postId: z.uuid(), content: z.string().trim().min(20, "Un texte d'au moins vingt caractères.").max(REEL_MAX_CHARS) })
+    /* Le plafond de la forme la plus longue : le vrai plafond, celui du
+       format du brouillon, se vérifie plus bas — ici on ne fait que refuser
+       l'absurde. */
+    .object({
+      postId: z.uuid(),
+      content: z
+        .string()
+        .trim()
+        .min(20, "Un texte d'au moins vingt caractères.")
+        .max(Math.max(...Object.values(FORMAT_MAX_CHARS))),
+    })
     .safeParse(input);
   if (!parsed.success) return firstIssue(parsed.error, "Saisie invalide.");
   try {
@@ -903,6 +949,9 @@ export async function saveDraftText(input: { postId: string; content: string }):
     if (post.status === "published") throw new Error("Un post publié ne se modifie plus.");
     if (post.format === "linkedin_post" && parsed.data.content.length > LINKEDIN_MAX_CHARS) {
       throw new Error(`LinkedIn accepte ${LINKEDIN_MAX_CHARS} caractères au plus.`);
+    }
+    if (parsed.data.content.length > FORMAT_MAX_CHARS[post.format]) {
+      throw new Error(`Ce format tient en ${FORMAT_MAX_CHARS[post.format]} caractères.`);
     }
     const supabase = await createClient();
     const { error } = await supabase
