@@ -76,6 +76,16 @@ export type NavEntry = {
 
 export type NavGroup = { title: string; entries: NavEntry[] };
 
+/**
+ * L'espace de l'agence — « Antidotes » et ses sous-pages — dans le rail.
+ *
+ * Masqué sur demande : rien n'est supprimé, les pages restent atteignables
+ * par leur adresse. Repasser cette ligne à `true` les fait revenir sous
+ * « Mon entreprise », telles qu'elles étaient. Le groupe garde Prospection,
+ * Finance, Factures et Academy — c'est d'eux qu'on se sert.
+ */
+const ESPACES_ENTREPRISE_DANS_LE_RAIL: boolean = false;
+
 export const getAppNavigation = cache(async (): Promise<NavGroup[]> => {
   const viewer = await getViewer();
   if (!viewer) return [];
@@ -185,7 +195,7 @@ export const getAppNavigation = cache(async (): Promise<NavGroup[]> => {
     {
       title: "Mon entreprise",
       entries: [
-        ...workspacesOfType("business"),
+        ...(ESPACES_ENTREPRISE_DANS_LE_RAIL ? workspacesOfType("business") : []),
         ...(viewer.isOwner
           ? ([
               // Le pôle de développement commercial de l'agence, juste sous

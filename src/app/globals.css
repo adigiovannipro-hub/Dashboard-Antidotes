@@ -604,3 +604,29 @@
     break-inside: avoid;
   }
 }
+
+/* --- Le rail en mode réarrangement ---------------------------------------- */
+
+/* Les lignes gigotent, comme les applications d'un iPhone qu'on réorganise :
+   c'est le mouvement qui dit « attrape-moi », là où une poignée permanente
+   occupait la ligne toute l'année pour un geste qu'on fait deux fois. Rotation
+   minuscule — au-delà d'un degré, le libellé devient pénible à lire. */
+@keyframes rail-remuer {
+  from {
+    transform: rotate(-0.6deg);
+  }
+  to {
+    transform: rotate(0.6deg);
+  }
+}
+
+.rail-remuer {
+  animation: rail-remuer 0.3s ease-in-out infinite alternate;
+}
+
+/* Mouvement réduit : le liseré vert dit à lui seul ce qui est déplaçable. */
+@media (prefers-reduced-motion: reduce) {
+  .rail-remuer {
+    animation: none;
+  }
+}

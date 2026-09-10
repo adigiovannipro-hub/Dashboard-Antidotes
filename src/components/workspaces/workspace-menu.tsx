@@ -2,7 +2,15 @@
 
 import { useCallback, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Copy, ImageUp, MoreHorizontal, Pencil, Trash2, Users } from "lucide-react";
+import {
+  ArrowUpDown,
+  Copy,
+  ImageUp,
+  MoreHorizontal,
+  Pencil,
+  Trash2,
+  Users,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -55,11 +63,18 @@ export function WorkspaceMenu({
   slug,
   name,
   collapsed,
+  onRearrange,
 }: {
   slug: string;
   name: string;
   /** Rail replié : il n'y a plus la place, et le libellé non plus n'y est pas. */
   collapsed: boolean;
+  /**
+   * Fait entrer tout le rail en mode réarrangement. Le geste porte sur le
+   * rail entier, pas sur cet espace : il s'ouvre depuis l'endroit où l'on
+   * regarde la ligne qu'on veut déplacer.
+   */
+  onRearrange?: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const [dialogue, setDialogue] = useState<Dialogue | null>(null);
@@ -122,6 +137,16 @@ export function WorkspaceMenu({
             <Users className="size-3.5" aria-hidden />
             Partenaires et droits
           </DropdownMenuItem>
+
+          {/* Absent sous `md` : le tiroir mobile se parcourt au doigt, on n'y
+              traîne pas une ligne. `hidden` retire aussi l'entrée du parcours
+              clavier, là où un simple masquage visuel l'y laisserait. */}
+          {onRearrange ? (
+            <DropdownMenuItem className="hidden md:flex" onClick={onRearrange}>
+              <ArrowUpDown className="size-3.5" aria-hidden />
+              Réarranger
+            </DropdownMenuItem>
+          ) : null}
 
           <DropdownMenuSeparator />
 

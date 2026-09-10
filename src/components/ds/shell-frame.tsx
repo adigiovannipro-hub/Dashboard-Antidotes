@@ -68,22 +68,29 @@ export function ShellFrame({
 
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-20 border-b border-border bg-canvas/85 backdrop-blur">
-          <div className={wide ? "mx-auto flex w-full items-center gap-3 px-4 py-3.5 md:px-6" : "mx-auto flex w-full max-w-[90rem] items-center gap-3 px-4 py-3.5 md:px-10"}>
+          {/* `py-2.5` et non `py-3.5` : la barre est collante, donc payée sur
+              chaque écran et à chaque défilement. Dix pixels rendus au
+              contenu, titre intact. */}
+          <div className={wide ? "mx-auto flex w-full items-center gap-3 px-4 py-2.5 md:px-6" : "mx-auto flex w-full max-w-[90rem] items-center gap-3 px-4 py-2.5 md:px-10"}>
             <button
               type="button"
               onClick={() => setMobileOpen(true)}
               aria-label="Ouvrir la navigation"
-              className="hover:bg-muted focus-visible:ring-ring -ml-1 rounded-md p-2 text-text-secondary focus-visible:ring-2 focus-visible:outline-none md:hidden"
+              /* `p-2.5` : 20 px d'icône et 10 px de part et d'autre font une
+                 cible de 40 px, le minimum au doigt. La barre a maigri, pas
+                 lui. */
+              className="hover:bg-muted focus-visible:ring-ring -ml-1 rounded-md p-2.5 text-text-secondary focus-visible:ring-2 focus-visible:outline-none md:hidden"
             >
               <Menu className="size-5" strokeWidth={1.75} aria-hidden />
             </button>
 
             <div className="min-w-0 flex-1">
               <h1 className="type-h1 truncate text-text-primary">{title}</h1>
+              {/* `type-micro` : 11 px en casse normale, la taille du pied de
+                  rail — mesurée à 5,36:1 sur cette encre. Le sous-titre est
+                  une précision, pas une seconde ligne de titre. */}
               {subtitle ? (
-                <p className="type-caption mt-0.5 truncate text-text-secondary">
-                  {subtitle}
-                </p>
+                <p className="type-micro truncate text-text-secondary">{subtitle}</p>
               ) : null}
             </div>
 

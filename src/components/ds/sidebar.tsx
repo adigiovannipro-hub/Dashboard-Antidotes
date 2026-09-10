@@ -1,6 +1,6 @@
 "use client";
 
-import { useOptimistic, useState, useTransition, type CSSProperties, type ReactNode } from "react";
+import { useOptimistic, useState, useTransition, type CSSProperties } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -26,7 +26,6 @@ import {
   Briefcase,
   CalendarClock,
   GraduationCap,
-  GripVertical,
   KeyRound,
   Lock,
   MessagesSquare,
@@ -75,12 +74,20 @@ import { cn } from "@/lib/utils";
  *
  * Les lignes de « Clients » et de « Mon entreprise » se rangent à la souris,
  * chacune dans son groupe — un client ne devient pas un outil de l'agence en
- * changeant de tiroir. Le geste passe par une **poignée** et non par la ligne
- * entière : la ligne reste un lien, un clic navigue. L'ordre se pose
- * localement au lâcher, part en base derrière, et revient à sa place avec un
- * toast si l'écriture échoue. Rien de tout cela en rail replié (plus de
- * libellés) ni en mobile, où le tiroir défile au doigt et où un capteur
- * tactile lui volerait le défilement : la poignée n'y est pas rendue.
+ * changeant de tiroir.
+ *
+ * Le rangement est un **mode**, pas une poignée permanente : « Réarranger »,
+ * dans les trois points d'un espace, fait gigoter les lignes déplaçables sous
+ * un liseré vert, à la manière d'un iPhone qu'on réorganise. Une poignée
+ * visible au survol occupait la ligne toute l'année pour un geste qu'on fait
+ * deux fois ; le mouvement dit « attrape-moi » sans rien prendre au repos.
+ * Pendant le mode la ligne n'est plus un lien mais un bouton : un clic
+ * n'emmène nulle part, et le clavier reprend la main dessus.
+ *
+ * L'ordre se pose localement au lâcher, part en base derrière, et revient à sa
+ * place avec un toast si l'écriture échoue. Rien de tout cela en rail replié
+ * (plus de libellés) ni en mobile, où le tiroir défile au doigt et où un
+ * capteur tactile lui volerait le défilement : le mode ne s'y ouvre pas.
  */
 
 function remember(collapsed: boolean) {
@@ -122,6 +129,8 @@ export function Sidebar({
 }) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(initialCollapsed);
+  // Le rangement est un mode, ouvert depuis les trois points d'un espace.
+  const [rearranging, setRearranging] = useState(false);
 
   // Le rail est le seul chemin qui **change de section** — de la Finance au
   // planning d'un client, par exemple. C'est aussi le plus lent : la coquille
@@ -160,6 +169,10 @@ export function Sidebar({
     });
   }
 
+  // Replier le rail retire les libellés, donc les lignes à saisir : le mode
+  // n'aurait plus rien à montrer.
+  if (collapsed && rearranging) setRearranging(false);
+
   return (
     <>
       {/* Voile du tiroir mobile. Le rail est un panneau plein écran en dessous
@@ -177,13 +190,15 @@ export function Sidebar({
         aria-label="Navigation principale"
         data-collapsed={collapsed ? "" : undefined}
         className={cn(
-          "fixed inset-y-0 left-0 z-50 flex w-[17rem] shrink-0 flex-col overflow-hidden border-r border-border bg-sidebar",
+          "fixed inset-y-0 left-0 z-50 flex w-[16rem] shrink-0 flex-col overflow-hidden border-r border-border bg-sidebar",
           "md:sticky md:top-0 md:z-30 md:h-dvh md:translate-x-0",
           // Le repli parcourt 11 rem : à 150 ms il saute plutôt qu'il ne
           // glisse. C'est un déplacement, il prend la durée des déplacements.
           "transition-[width,transform] duration-(--motion-duration-slow) ease-exit motion-reduce:transition-none",
           mobileOpen ? "translate-x-0" : "-translate-x-full",
-          collapsed ? "md:w-16" : "md:w-60",
+          // Seize pixels rendus au contenu : le rail prenait trop de place à
+          // gauche pour ce qu'il porte. Le `truncate` des libellés existait déjà.
+          collapsed ? "md:w-16" : "md:w-56",
         )}
       >
         <div
@@ -220,12 +235,40 @@ export function Sidebar({
           </button>
         </div>
 
-        <nav className="min-h-0 flex-1 overflow-y-auto px-3 py-4">
+        {/* Le bandeau du mode : il dit ce qui se passe et comment en sortir.
+            `Échap` fait la même chose — c'est le geste attendu d'un mode. */}
+        {rearranging ? (
+          <div
+            className="flex shrink-0 items-center justify-between gap-2 border-b border-border bg-accent-subtle px-3 py-2"
+            onKeyDown={(event) => {
+              if (event.key === "Escape") setRearranging(false);
+            }}
+          >
+            <p className="type-caption text-accent-ink">Glissez les lignes</p>
+            <button
+              type="button"
+              autoFocus
+              onClick={() => setRearranging(false)}
+              className="type-caption focus-visible:ring-ring rounded-md bg-primary px-2.5 py-1 font-medium text-primary-foreground focus-visible:ring-2 focus-visible:outline-none"
+            >
+              Terminé
+            </button>
+          </div>
+        ) : null}
+
+        <nav
+          className="min-h-0 flex-1 overflow-y-auto px-3 py-4"
+          onKeyDown={(event) => {
+            if (event.key === "Escape" && rearranging) setRearranging(false);
+          }}
+        >
           {orderedGroups.map((group) => {
             const sortKey: RailGroupKey | undefined = RAIL_GROUP_KEYS[group.title];
             const rowProps = {
               collapsed,
               activePath,
+              rearranging,
+              onRearrange: () => setRearranging(true),
               onNavigate: (href: string) => {
                 select(href);
                 onCloseMobile();
@@ -328,6 +371,9 @@ export function Sidebar({
 type RowProps = {
   collapsed: boolean;
   activePath: string;
+  /** Le rail est en mode réarrangement : les lignes se saisissent. */
+  rearranging: boolean;
+  onRearrange: () => void;
   onNavigate: (href: string) => void;
 };
 
@@ -407,10 +453,11 @@ function SortableEntries({
     >
       <SortableContext items={hrefs} strategy={verticalListSortingStrategy}>
         <ul className="space-y-0.5">
-          {entries.map((entry) => (
+          {entries.map((entry, index) => (
             <SortableRow
               key={entry.href}
               entry={entry}
+              index={index}
               sorting={activeId !== null}
               {...rowProps}
             />
@@ -444,25 +491,23 @@ function SortableRow({
   entry,
   sorting,
   collapsed,
+  index,
   ...rowProps
-}: RowProps & { entry: NavEntry; sorting: boolean }) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    setActivatorNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({
+}: RowProps & { entry: NavEntry; sorting: boolean; index: number }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: entry.href,
-    disabled: collapsed,
+    // Hors du mode, rien ne se saisit : la ligne reste un lien ordinaire.
+    disabled: collapsed || !rowProps.rearranging,
     attributes: { roleDescription: "ligne déplaçable" },
   });
 
   const style: CSSProperties = {
     transform: CSS.Translate.toString(transform),
     transition,
+    /* Un décalage de phase par ligne : sans lui, tout le rail bat à
+       l'unisson, ce qui ressemble à un défaut d'affichage plutôt qu'à des
+       lignes qu'on peut attraper une par une. */
+    animationDelay: rowProps.rearranging ? `${(index % 5) * 60}ms` : undefined,
   };
 
   return (
@@ -473,52 +518,34 @@ function SortableRow({
       style={style}
       dragging={isDragging}
       sorting={sorting}
-      handle={
-        <button
-          type="button"
-          ref={setActivatorNodeRef}
-          {...attributes}
-          {...listeners}
-          aria-label={`Déplacer ${entry.label}`}
-          className={cn(
-            "hover:bg-muted focus-visible:ring-ring size-7 shrink-0 cursor-grab touch-none items-center justify-center rounded-sm text-text-secondary transition-opacity duration-(--motion-duration) ease-standard focus-visible:ring-2 focus-visible:outline-none active:cursor-grabbing",
-            // Jamais rendue en mobile ni en rail replié : c'est elle seule qui
-            // porte les capteurs, sans elle rien ne se saisit.
-            "hidden",
-            !collapsed && "md:inline-flex",
-            // Même apparition que les trois points : au survol de la ligne,
-            // au focus clavier — et tant qu'on la tient.
-            "md:opacity-0 md:group-hover/espace:opacity-100 md:group-focus-within/espace:opacity-100 md:focus-visible:opacity-100",
-            isDragging && "md:opacity-100",
-          )}
-        >
-          <GripVertical className="size-4" strokeWidth={1.75} aria-hidden />
-        </button>
-      }
+      grab={rowProps.rearranging ? { ...attributes, ...listeners } : undefined}
       {...rowProps}
     />
   );
 }
 
 /**
- * Une ligne du rail : le lien, sa réserve de droite (poignée, trois points),
- * et le sous-menu des pages de l'espace.
+ * Une ligne du rail : le lien, sa réserve de droite (trois points), et le
+ * sous-menu des pages de l'espace.
  */
 function EntryRow({
   entry,
   collapsed,
   activePath,
+  rearranging,
+  onRearrange,
   onNavigate,
   rowRef,
   style,
-  handle,
+  grab,
   dragging = false,
   sorting = false,
 }: RowProps & {
   entry: NavEntry;
   rowRef?: (node: HTMLElement | null) => void;
   style?: CSSProperties;
-  handle?: ReactNode;
+  /** Les écouteurs de saisie, quand le mode réarrangement est ouvert. */
+  grab?: Record<string, unknown>;
   /** Cette ligne est celle qu'on tient : l'original s'efface sous l'overlay. */
   dragging?: boolean;
   /** Un glissement est en cours dans le groupe : les sous-menus ne
@@ -526,34 +553,41 @@ function EntryRow({
   sorting?: boolean;
 }) {
   const active = isActive(entry, activePath);
+  const grabbable = grab !== undefined;
 
   return (
     <li
       ref={rowRef}
       style={style}
-      className={cn("group/espace", dragging && "opacity-40")}
+      className={cn(
+        "group/espace",
+        dragging && "opacity-40",
+        // Le gigotement ne porte que sur les lignes réellement déplaçables,
+        // et s'arrête sur celle qu'on tient — elle suit déjà le curseur.
+        grabbable && !dragging && "rail-remuer",
+      )}
     >
       <div className="relative">
         <SidebarLink
           entry={entry}
           active={active}
           collapsed={collapsed}
-          sortable={handle !== undefined}
+          sortable={entry.manage !== undefined && !rearranging}
+          grab={grab}
           onNavigate={() => onNavigate(entry.href)}
         />
         {/* Posés par-dessus la réserve de droite du lien : un bouton *dans*
             un lien n'est pas du HTML valide, et deux éléments côte à côte
-            rogneraient le libellé. */}
-        {handle || entry.manage ? (
+            rogneraient le libellé. Retirés pendant le mode : les trois points
+            avalaient le glissement démarré sur leur moitié de ligne. */}
+        {entry.manage && !rearranging ? (
           <span className="absolute inset-y-0 right-1 flex items-center gap-0.5">
-            {handle}
-            {entry.manage ? (
-              <WorkspaceMenu
-                slug={entry.manage.slug}
-                name={entry.manage.name}
-                collapsed={collapsed}
-              />
-            ) : null}
+            <WorkspaceMenu
+              slug={entry.manage.slug}
+              name={entry.manage.name}
+              collapsed={collapsed}
+              onRearrange={onRearrange}
+            />
           </span>
         ) : null}
       </div>
@@ -562,7 +596,7 @@ function EntryRow({
           dépli est purement CSS, la hauteur glisse de 0fr à 1fr — et déplié
           en continu sur l'espace courant en mobile, où le survol n'existe
           pas. Rail replié : rien, il n'y a plus de libellés. */}
-      {entry.children && !collapsed ? (
+      {entry.children && !collapsed && !rearranging ? (
         <div
           className={cn(
             "grid transition-[grid-template-rows] duration-(--motion-duration-slow) ease-exit motion-reduce:transition-none",
@@ -607,13 +641,16 @@ function SidebarLink({
   active,
   collapsed,
   sortable,
+  grab,
   onNavigate,
 }: {
   entry: NavEntry;
   active: boolean;
   collapsed: boolean;
-  /** Une poignée occupe la réserve de droite à partir de `md`. */
+  /** Les trois points occupent la réserve de droite à partir de `md`. */
   sortable: boolean;
+  /** Les écouteurs de saisie : la ligne devient un bouton, pas un lien. */
+  grab?: Record<string, unknown>;
   onNavigate: () => void;
 }) {
   const Icon = ICONS[entry.icon];
@@ -622,34 +659,25 @@ function SidebarLink({
   const showBadge = entry.badge !== undefined && entry.badge > 0;
   const manage = entry.manage !== undefined && !collapsed;
 
-  return (
-    <Link
-      href={entry.href}
-      onClick={onNavigate}
-      aria-current={active ? "page" : undefined}
-      title={
-        collapsed
-          ? showBadge
-            ? `${entry.label} — ${entry.badge} en attente`
-            : entry.label
-          : undefined
-      }
-      className={cn(
-        "type-label focus-visible:ring-ring relative flex items-center gap-3 rounded-md py-2 pr-2.5 transition-colors duration-(--motion-duration) ease-standard focus-visible:ring-2 focus-visible:outline-none",
-        // La barre active occupe le retrait gauche : sans lui, elle décalerait
-        // l'icône de trois pixels en devenant visible.
-        "pl-2.5",
-        // Réserve la place des trois points, et de la poignée à partir de
-        // `md` — sinon le libellé passe dessous. La poignée n'existe pas en
-        // mobile, la réserve non plus.
-        manage && "pr-9",
-        sortable && !collapsed && (manage ? "md:pr-16" : "md:pr-9"),
-        active
-          ? "bg-accent-subtle font-medium text-accent-ink"
-          : "text-text-secondary hover:bg-muted hover:text-text-primary",
-        collapsed && "md:justify-center md:px-0",
-      )}
-    >
+  const className = cn(
+    "type-label focus-visible:ring-ring relative flex w-full items-center gap-3 rounded-md py-2 pr-2.5 transition-colors duration-(--motion-duration) ease-standard focus-visible:ring-2 focus-visible:outline-none",
+    // La barre active occupe le retrait gauche : sans lui, elle décalerait
+    // l'icône de trois pixels en devenant visible.
+    "pl-2.5",
+    // Réserve la place des trois points — sinon le libellé passe dessous.
+    manage && sortable && "pr-9",
+    active
+      ? "bg-accent-subtle font-medium text-accent-ink"
+      : "text-text-secondary hover:bg-muted hover:text-text-primary",
+    collapsed && "md:justify-center md:px-0",
+    /* Le liseré du mode : `--accent-ink`, pas le vert de marque — celui-ci
+       tombe à 2,71:1 sur la surface du rail, sous les 3:1 dus à un repère
+       graphique porteur de sens. */
+    grab && "cursor-grab touch-none text-left ring-1 ring-accent-ink active:cursor-grabbing",
+  );
+
+  const body = (
+    <>
       <LinkPending />
 
       {/* Toujours rendue, jamais montée/démontée : une barre qui apparaît d'un
@@ -714,6 +742,35 @@ function SidebarLink({
           <span className="sr-only"> en attente</span>
         </span>
       ) : null}
+    </>
+  );
+
+  /* Pendant le mode, la ligne n'est plus un lien mais un bouton : un clic ne
+     doit emmener nulle part, et c'est un bouton — pas un lien neutralisé —
+     que le clavier et les lecteurs d'écran annoncent comme saisissable. */
+  if (grab) {
+    return (
+      <button type="button" {...grab} aria-label={`Déplacer ${entry.label}`} className={className}>
+        {body}
+      </button>
+    );
+  }
+
+  return (
+    <Link
+      href={entry.href}
+      onClick={onNavigate}
+      aria-current={active ? "page" : undefined}
+      title={
+        collapsed
+          ? showBadge
+            ? `${entry.label} — ${entry.badge} en attente`
+            : entry.label
+          : undefined
+      }
+      className={className}
+    >
+      {body}
     </Link>
   );
 }
