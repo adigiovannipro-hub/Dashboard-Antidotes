@@ -114,6 +114,32 @@ describe("pagePostToPost", () => {
     expect(post?.saves).toBe(0);
   });
 
+  it("préfère « views » à « post_impressions » quand Meta rend les deux", () => {
+    // Meta a déprécié `post_impressions` fin 2025 : c'est `views` qui vit.
+    const post = pagePostToPost({
+      id: "123_456",
+      created_time: "2026-08-03T09:00:00+0000",
+      insights: {
+        data: [
+          { name: "views", values: [{ value: 6100 }] },
+          { name: "post_impressions", values: [{ value: 5400 }] },
+        ],
+      },
+    });
+    expect(post?.impressions).toBe(6100);
+  });
+
+  it("retombe sur « post_impressions » quand « views » manque", () => {
+    // L'historique déjà collecté ne porte que l'ancien nom : le remettre à
+    // zéro le jour de la bascule effacerait des chiffres bien réels.
+    const post = pagePostToPost({
+      id: "123_456",
+      created_time: "2026-08-03T09:00:00+0000",
+      insights: { data: [{ name: "post_impressions", values: [{ value: 5400 }] }] },
+    });
+    expect(post?.impressions).toBe(5400);
+  });
+
   it("saute un post sans date", () => {
     expect(pagePostToPost({ id: "1" })).toBeNull();
   });
@@ -172,6 +198,50 @@ describe("pageInsightsToDaily", () => {
       { date: "2026-08-30", impressions: 120, reach: 0, engagements: 0, video_views: 0 },
       { date: "2026-08-31", impressions: 80, reach: 100, engagements: 0, video_views: 0 },
     ]);
+  });
+
+  it("ne somme jamais deux noms de la même grandeur pour un même jour", () => {
+    /* Le défaut le plus coûteux de la bascule : `page_media_view` remplace
+       `page_impressions`, et Meta peut rendre les deux pour la même journée.
+       Les additionner doublerait les impressions en silence — aucun écran ne
+       le dirait. Le nom vivant gagne, l'ancien ne s'y ajoute pas. */
+    const rows = pageInsightsToDaily([
+      {
+        name: "page_media_view",
+        period: "day",
+        values: [{ value: 900, end_time: "2026-09-01T07:00:00+0000" }],
+      },
+      {
+        name: "page_impressions",
+        period: "day",
+        values: [{ value: 880, end_time: "2026-09-01T07:00:00+0000" }],
+      },
+    ]);
+    expect(rows).toEqual([
+      { date: "2026-08-31", impressions: 900, reach: 0, engagements: 0, video_views: 0 },
+    ]);
+  });
+
+  it("retombe sur le nom déprécié quand le nom vivant se tait", () => {
+    const rows = pageInsightsToDaily([
+      {
+        name: "page_impressions",
+        period: "day",
+        values: [{ value: 880, end_time: "2026-09-01T07:00:00+0000" }],
+      },
+    ]);
+    expect(rows[0]?.impressions).toBe(880);
+  });
+
+  it("ne compte qu'une fois un même relevé rendu deux fois", () => {
+    // Deux tranches de 90 jours qui se recouvrent rendent le même point : une
+    // seule mesure, pas deux parts.
+    const point = { value: 500, end_time: "2026-09-01T07:00:00+0000" };
+    const rows = pageInsightsToDaily([
+      { name: "page_impressions_unique", period: "day", values: [point] },
+      { name: "page_impressions_unique", period: "day", values: [point] },
+    ]);
+    expect(rows[0]?.reach).toBe(500);
   });
 
   it("ignore une métrique inconnue et une valeur illisible", () => {

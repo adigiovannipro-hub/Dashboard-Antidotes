@@ -31,7 +31,10 @@ export async function GET(request: Request) {
   const asked = url.searchParams.get("retour") ?? "";
   const back = asked.startsWith(`/espace/${workspaceSlug}/`)
     ? asked
-    : `/espace/${workspaceSlug}/planning`;
+    /* La porte de l'espace, qui redirige vers sa première page : Connexions
+       a quitté le planning pour le Reporting, et un défaut codé en dur sur le
+       planning ramènerait ailleurs que là d'où l'on est parti. */
+    : `/espace/${workspaceSlug}`;
 
   // Brancher un compte engage l'inventaire de l'agence : réservé à l'agence.
   const workspace = await getWorkspace(workspaceSlug);

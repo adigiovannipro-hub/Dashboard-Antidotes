@@ -32,7 +32,7 @@ portée qui s'y ajoute doit être ajoutée à l'app **avant** le rebranchement.
 
 ## 3. Brancher et affecter
 
-1. Espace client → Planning Éditorial → **Connexions** → brancher Meta,
+1. Espace client → Reporting → **Connexions** → brancher Meta,
    accepter toutes les portées.
 2. Affecter le compte Instagram, la Page et le compte publicitaire de ce
    client — un compte par réseau et par espace.

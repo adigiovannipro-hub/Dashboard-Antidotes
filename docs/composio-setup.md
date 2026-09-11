@@ -141,7 +141,7 @@ Ce que la constante ferme, vérifié sur `build && start` :
 |---|---|---|
 | `/api/social/meta/connexion` et son callback | dialogue Facebook Login | **404** |
 | `/api/social/youtube/connexion` et son callback | dialogue Google | **404** |
-| Boîte « Connexions » du Planning | boutons Brancher / Rebrancher | la note de bascule |
+| Boîte « Connexions » du Reporting | boutons Brancher / Rebrancher | la note de bascule |
 | État vide du Reporting | « à faire depuis Connexions » | la note de bascule |
 | Modération avant premier relevé | « brancher un compte… » | la note de bascule |
 | Notes de `/api/reporting/sync` et `/api/moderation/sync` | idem | la note de bascule |

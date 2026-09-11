@@ -102,6 +102,14 @@ on:
         description: "… sur ce mois (AAAA-MM)"
         type: string
         default: ""
+      sonde_meta:
+        description: "Sonder la Graph API de Meta (slug d'espace, vide = non)"
+        type: string
+        default: ""
+      sonde_meta_version:
+        description: "… sur cette version de Graph (v21.0 par défaut)"
+        type: string
+        default: ""
       sonde_sourcing:
         description: "Sonder les fournisseurs du sourcing pour une société (son nom)"
         type: string
@@ -296,6 +304,21 @@ jobs:
           ${{ inputs.sonde_linkedin_publication != '' && format('--mois "{0}"', inputs.sonde_linkedin_publication) || '' }}
         env:
           COMPOSIO_API_KEY: ${{ secrets.COMPOSIO_API_KEY }}
+
+      # Quels noms de métriques Meta sert encore, sur les comptes affectés à
+      # un espace : `views` contre `post_impressions` par publication,
+      # `page_media_view` contre `page_impressions` au grain jour. Réponses
+      # brutes, lecture seule — c'est la seule chose qui tranche, la
+      # documentation ne datant pas ses dépréciations par version.
+      - name: Sonde Meta
+        if: ${{ inputs.sonde_meta != '' }}
+        run: pnpm sonde:meta --espace "${{ inputs.sonde_meta }}"
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          CREDENTIALS_ENCRYPTION_KEY: ${{ secrets.CREDENTIALS_ENCRYPTION_KEY }}
+          META_GRAPH_VERSION: ${{ inputs.sonde_meta_version }}
 
       # Ce que chaque fournisseur du sourcing répond vraiment pour une
       # société — registre légal, Ad Library, recherche LinkedIn, site, et

@@ -26,14 +26,19 @@ export function StatTile({
   metric,
   value,
   delta,
+  label,
   className,
 }: {
   metric: MetricId;
   value: number | null;
   delta?: MetricDelta;
+  /** Le mot de l'onglet ouvert, quand il diffère du catalogue — « Vues » sur
+      l'organique là où le payant dit « Impressions ». */
+  label?: string;
   className?: string;
 }) {
   const definition = METRIC_DEFINITIONS[metric];
+  const titre = label ?? definition.label;
 
   return (
     <div
@@ -43,11 +48,8 @@ export function StatTile({
       )}
     >
       <div className="min-w-0 flex-1">
-        <p
-          className="type-overline text-text-secondary leading-tight"
-          title={definition.label}
-        >
-          {definition.label}
+        <p className="type-overline text-text-secondary leading-tight" title={titre}>
+          {titre}
         </p>
         {/* Chiffres proportionnels : `tabular-nums` sur une grande valeur
             isolée donnerait des chasses égales et un rendu lâche. */}
@@ -80,6 +82,7 @@ export function HeroFigure({
   delta,
   sentence,
   period,
+  label,
   className,
 }: {
   metric: MetricId;
@@ -88,6 +91,8 @@ export function HeroFigure({
   /** La phrase que le client lira en premier. Elle doit tenir seule. */
   sentence?: string;
   period?: string;
+  /** Voir `StatTile` — le vocabulaire de l'onglet prime sur le catalogue. */
+  label?: string;
   className?: string;
 }) {
   const definition = METRIC_DEFINITIONS[metric];
@@ -100,7 +105,9 @@ export function HeroFigure({
       )}
     >
       <div className="min-w-0 flex-1">
-        <p className="type-overline text-text-secondary">{definition.label}</p>
+        <p className="type-overline text-text-secondary">
+          {label ?? definition.label}
+        </p>
         <div className="mt-2 flex flex-wrap items-baseline gap-x-3 gap-y-1.5">
           <p className="text-text-primary text-4xl leading-none font-bold">
             {formatMetric(metric, value)}

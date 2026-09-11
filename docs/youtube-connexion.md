@@ -55,7 +55,7 @@ est déjà en production et il n'y a rien à faire.
 
 ## Brancher
 
-1. Ouvrir le Planning du client, bouton **Connexions**.
+1. Ouvrir le Reporting du client, bouton **Connexions**.
 2. Le bouton « Brancher YouTube » n'apparaît que si **YouTube est déclaré aux
    livrables du Contexte** — c'est la déclaration du client qui commande
    l'écran, pas une liste en dur.

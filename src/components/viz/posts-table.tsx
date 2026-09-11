@@ -59,7 +59,7 @@ export function PostsTable({
   posts: readonly SocialPost[];
   /** Les enregistrements n'existent que sur Instagram. */
   withSaves: boolean;
-  /** Meta ne rend plus les impressions des publications de Page (fin 2025). */
+  /** La colonne « Vues » : présente partout où la source rend la grandeur. */
   withImpressions?: boolean;
   /** Le clic est une mesure LinkedIn : Meta ne le rend pas par publication. */
   withClicks?: boolean;
@@ -69,7 +69,11 @@ export function PostsTable({
     if (withImpressions) {
       base.push({
         key: "impressions",
-        header: "Impressions",
+        /* « Vues » et non « Impressions » : c'est le mot des réseaux, et celui
+           de la métrique depuis que Meta a renommé `post_impressions` en
+           `views`. Le tableau des ad sets garde « Impressions » — sur du
+           payant, « vues » se lirait comme des personnes. */
+        header: "Vues",
         kind: "integer",
         value: (post) => number(post.impressions),
         total: (rows) => sumOf(rows, (post) => number(post.impressions)),
@@ -131,7 +135,9 @@ export function PostsTable({
       },
       {
         key: "engagement",
-        header: "Engagement",
+        // Un taux, pas un volume : « Engagement » laissait croire à un compte
+        // d'interactions, que les colonnes voisines portent déjà.
+        header: "Taux d'engagement",
         kind: "percent",
         value: (post) => {
           const base = engagementBase(post);
@@ -148,7 +154,7 @@ export function PostsTable({
   }, [withSaves, withImpressions, withClicks]);
 
   const [sort, setSort] = useState<{ key: string; desc: boolean }>({
-    // Sans colonne Impressions (Facebook), les « J'aime » classent le mieux.
+    // Sans colonne de vues, les « J'aime » classent le mieux.
     key: withImpressions ? "impressions" : "likes",
     desc: true,
   });
