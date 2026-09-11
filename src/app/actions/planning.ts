@@ -127,7 +127,7 @@ export async function createMonth(
     // heurte au 23505 et le mois ne revient jamais.
     const { data: row } = await supabase
       .from("planning_months")
-      .select("id, deleted_at")
+      .select("id, deleted_at, position")
       .eq("board_id", parsed.data.boardId)
       .eq("month", parsed.data.month)
       .maybeSingle();
@@ -150,11 +150,18 @@ export async function createMonth(
     const position = (last?.position ?? -1) + 1;
 
     if (slot.action === "restore") {
-      // Libellé et position repris du menu : c'est le mois que l'écran a
-      // proposé, pas celui qu'on avait renommé avant de le jeter.
+      /* Libellé repris du menu — c'est le mois que l'écran a proposé, pas
+         celui qu'on avait renommé avant de le jeter. La **place**, elle, est
+         celle qu'il avait : un mois relevé revient dans le calendrier, pas
+         après décembre. C'est la seule différence avec une création. */
+      const priorPosition = (row as unknown as { position?: number | null } | null)?.position;
       const { error } = await supabase
         .from("planning_months")
-        .update({ deleted_at: null, label, position })
+        .update({
+          deleted_at: null,
+          label,
+          position: priorPosition ?? position,
+        })
         .eq("id", slot.monthId);
       if (error) throw new Error(error.message);
 
