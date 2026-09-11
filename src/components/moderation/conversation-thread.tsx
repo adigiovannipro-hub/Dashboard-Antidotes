@@ -6,6 +6,7 @@ import {
   AlertTriangle,
   ArrowLeft,
   Check,
+  ChevronUp,
   Clock,
   ExternalLink,
   Loader2,
@@ -56,6 +57,37 @@ import { cn } from "@/lib/utils";
  * attente. Chacune a son raccourci ; le refus ouvre systématiquement la box de
  * correction, jamais un simple rejet : c'est la règle qui fait progresser la FAQ.
  */
+/** Au-delà, le fil se déroule à la demande. */
+const VISIBLE_MESSAGES = 30;
+
+/** Le jour d'un message, à Paris — la journée de travail, pas celle d'UTC. */
+function dayKey(iso: string): string {
+  return new Intl.DateTimeFormat("fr-CA", {
+    timeZone: "Europe/Paris",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date(iso));
+}
+
+/**
+ * Le séparateur de jour : « Aujourd'hui », « Hier », sinon la date en toutes
+ * lettres. Une date brute répétée ne dit rien de plus qu'un trait.
+ */
+function dayLabel(iso: string): string {
+  const key = dayKey(iso);
+  const today = dayKey(new Date().toISOString());
+  const yesterday = dayKey(new Date(Date.now() - 86_400_000).toISOString());
+  if (key === today) return "Aujourd'hui";
+  if (key === yesterday) return "Hier";
+  return new Intl.DateTimeFormat("fr-FR", {
+    timeZone: "Europe/Paris",
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  }).format(new Date(iso));
+}
+
 export function ConversationThread({
   clientSlug,
   clientName,
@@ -88,6 +120,8 @@ export function ConversationThread({
     null,
   );
   const asked = useRef(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [expanded, setExpanded] = useState(false);
   const [replyPending, startReply] = useTransition();
   const replyRef = useRef<HTMLTextAreaElement>(null);
 
@@ -188,6 +222,16 @@ export function ConversationThread({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [conversation, current, canAct]);
 
+  /* Le fil s'ouvre sur son dernier message, comme toute messagerie. Sans
+     ancrage, une conversation longue s'ouvrait en haut et il fallait dérouler
+     pour lire ce qui venait d'arriver — c'est-à-dire la seule chose qu'on
+     vient lire. `expanded` en dépendance : dérouler les anciens messages
+     repose la vue en bas plutôt que de sauter au début. */
+  useEffect(() => {
+    const node = scrollRef.current;
+    if (node) node.scrollTop = node.scrollHeight;
+  }, [conversation?.id, messages.length, expanded]);
+
   /** Met le pseudo de l'auteur dans la zone de saisie et y pose le curseur. */
   function mentionAuthor(handle: string | null) {
     const mention = handle ? `@${handle} ` : "";
@@ -218,6 +262,11 @@ export function ConversationThread({
       </div>
     );
   }
+
+  /* Les trente derniers, sauf demande explicite. Un fil de deux cents
+     messages ouvrirait l'écran sur une conversation de l'an dernier. */
+  const visibleMessages = expanded ? messages : messages.slice(-VISIBLE_MESSAGES);
+  const hidden = messages.length - visibleMessages.length;
 
   const lastInbound = [...messages]
     .reverse()
@@ -323,51 +372,82 @@ export function ConversationThread({
       ) : null}
 
       {/* Fil de conversation */}
-      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-5 py-4">
-        {messages.map((message) => (
-          <div
-            key={message.id}
-            className={cn(
-              "group/message type-body max-w-[75%] rounded-lg px-3 py-2",
-              message.direction === "inbound"
-                ? "bg-card"
-                : "bg-brand-mint text-heading ml-auto",
-            )}
-          >
-            {message.body ? (
-              <p className="whitespace-pre-wrap">{message.body}</p>
-            ) : null}
-
-            <MessageAttachments attachments={message.attachments} />
-
-            <div className="mt-1 flex items-center gap-2">
-              <p className="text-muted-foreground type-micro">
-                {new Intl.DateTimeFormat("fr-FR", {
-                  dateStyle: "short",
-                  timeStyle: "short",
-                  timeZone: "Europe/Paris",
-                }).format(new Date(message.sent_at))}
-                {message.origin === "platform" && message.direction === "outbound"
-                  ? " · envoyé hors outil"
-                  : null}
-              </p>
-
-              {canAct && message.direction === "inbound" ? (
-                // Répondre **à ce message** : le pseudo part dans la zone de
-                // saisie, mention comprise. Une conversation à trois voix se
-                // répond en nommant celui à qui on parle.
-                <button
-                  type="button"
-                  onClick={() => mentionAuthor(message.author_handle)}
-                  className="focus-visible:ring-ring text-muted-foreground hover:text-accent-ink type-micro inline-flex items-center gap-1 rounded-sm opacity-0 transition-opacity duration-(--motion-duration) ease-standard group-hover/message:opacity-100 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:outline-none"
-                >
-                  <Reply className="size-3" strokeWidth={1.75} aria-hidden />
-                  Répondre
-                </button>
-              ) : null}
-            </div>
+      <div ref={scrollRef} className="min-h-0 flex-1 space-y-3 overflow-y-auto px-5 py-4">
+        {hidden > 0 ? (
+          /* Les anciens messages ne se chargent pas tout seuls : un fil de
+             deux cents messages ouvrirait l'écran sur une conversation de
+             l'an dernier, et il faudrait dérouler pour trouver ce qui vient
+             d'arriver. */
+          <div className="flex justify-center">
+            <Button type="button" variant="outline" size="sm" onClick={() => setExpanded(true)}>
+              <ChevronUp className="size-4" strokeWidth={1.75} aria-hidden />
+              {hidden === 1
+                ? "Voir le message précédent"
+                : `Voir les ${hidden} messages précédents`}
+            </Button>
           </div>
-        ))}
+        ) : null}
+
+        {visibleMessages.map((message, index) => {
+          const previous = visibleMessages[index - 1];
+          const newDay = !previous || dayKey(previous.sent_at) !== dayKey(message.sent_at);
+
+          return (
+            <div key={message.id} className="space-y-3">
+              {newDay ? (
+                /* Un séparateur de jour, pas une date par bulle : sur un fil
+                   d'une semaine, la même date répétée trente fois se lit comme
+                   du bruit, et on ne voit plus où la journée commence. */
+                <p className="type-micro text-text-secondary flex items-center gap-3 py-1">
+                  <span aria-hidden className="h-px flex-1 bg-border" />
+                  {dayLabel(message.sent_at)}
+                  <span aria-hidden className="h-px flex-1 bg-border" />
+                </p>
+              ) : null}
+
+              <div
+                className={cn(
+                  "group/message type-body max-w-[75%] rounded-lg px-3 py-2",
+                  message.direction === "inbound"
+                    ? "bg-card"
+                    : "bg-brand-mint text-heading ml-auto",
+                )}
+              >
+                {message.body ? (
+                  <p className="whitespace-pre-wrap">{message.body}</p>
+                ) : null}
+
+                <MessageAttachments attachments={message.attachments} />
+
+                <div className="mt-1 flex items-center gap-2">
+                  <p className="text-muted-foreground type-micro">
+                    {new Intl.DateTimeFormat("fr-FR", {
+                      timeStyle: "short",
+                      timeZone: "Europe/Paris",
+                    }).format(new Date(message.sent_at))}
+                    {message.origin === "platform" && message.direction === "outbound"
+                      ? " · envoyé hors outil"
+                      : null}
+                  </p>
+
+                  {canAct && message.direction === "inbound" ? (
+                    // Répondre **à ce message** : le pseudo part dans la zone
+                    // de saisie, mention comprise. Une conversation à trois
+                    // voix se répond en nommant celui à qui on parle.
+                    <button
+                      type="button"
+                      onClick={() => mentionAuthor(message.author_handle)}
+                      className="focus-visible:ring-ring text-muted-foreground hover:text-accent-ink type-micro inline-flex items-center gap-1 rounded-sm opacity-0 transition-opacity duration-(--motion-duration) ease-standard group-hover/message:opacity-100 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:outline-none"
+                    >
+                      <Reply className="size-3" strokeWidth={1.75} aria-hidden />
+                      Répondre
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+            </div>
+          );
+        })}
       </div>
 
       {/* Zone de réponse.
