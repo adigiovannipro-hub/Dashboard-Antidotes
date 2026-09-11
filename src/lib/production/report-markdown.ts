@@ -112,3 +112,108 @@ export function summaryParagraph(markdown: string, maxLength = 420): string {
   }
   return cut !== "" ? cut : `${text.slice(0, maxLength - 1)}…`;
 }
+
+// --- Points d'ancrage de la boucle -------------------------------------------
+
+/**
+ * Les deux sections que le prompt de reporting produit **sous un titre fixe**.
+ *
+ * `client_reports.report` est du markdown libre, et une boucle qui relit du
+ * texte libre a besoin d'un point d'ancrage stable : sans lui, les phases
+ * Intentions et Content devraient soit tout réinjecter — deux comptes rendus
+ * entiers doublent le prompt d'entrée — soit deviner où se trouve la
+ * conclusion. Le prompt s'engage sur ces deux titres, ces fonctions les
+ * retrouvent, et un rapport plus ancien qui ne les porte pas retombe
+ * proprement sur son premier paragraphe.
+ */
+export const REPORT_SECTION_KEPT = "Mécaniques retenues";
+export const REPORT_SECTION_DROPPED = "Mécaniques à retirer";
+
+function normalizeHeading(text: string): string {
+  return text
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+/**
+ * Le corps d'une section, du titre demandé jusqu'au titre suivant de niveau
+ * égal ou supérieur. Chaîne vide quand la section n'existe pas — un rapport
+ * antérieur à cette structure ne doit pas faire échouer la lecture.
+ */
+export function extractReportSection(markdown: string, title: string): string {
+  const wanted = normalizeHeading(title);
+  const blocks = parseReport(markdown);
+
+  let level: number | null = null;
+  const kept: string[] = [];
+
+  for (const block of blocks) {
+    if (block.kind === "heading") {
+      if (level === null) {
+        // Le titre peut être numéroté par le modèle : « 6. Mécaniques retenues ».
+        const heading = normalizeHeading(block.text).replace(/^\d+\s*/, "");
+        if (heading === wanted || heading.endsWith(` ${wanted}`)) level = block.level;
+        continue;
+      }
+      if (block.level <= level) break;
+      kept.push(block.text);
+      continue;
+    }
+    if (level === null) continue;
+    if (block.kind === "paragraph") {
+      kept.push(block.spans.map((span) => span.text).join("").trim());
+    } else {
+      for (const item of block.items) {
+        kept.push(`- ${item.map((span) => span.text).join("").trim()}`);
+      }
+    }
+  }
+
+  return kept.join("\n").trim();
+}
+
+/** Une synthèse passée, réduite à ce que la génération suivante doit en savoir. */
+export type PastReport = {
+  /** Le mois **analysé**, en toutes lettres — « juillet 2026 ». */
+  monthLabel: string;
+  report: string;
+};
+
+/** Au-delà, deux synthèses entières doublent le prompt d'entrée. */
+const MAX_REPORT_EXCERPT_CHARS = 1200;
+
+/**
+ * `{{syntheses_precedentes}}` — ce que les derniers comptes rendus ont conclu.
+ *
+ * **Le mois analysé est toujours nommé**, et c'est le point délicat : la phase
+ * Reporting analyse M−1 quand les Intentions visent M+1. Deux mois d'écart que
+ * le modèle ne voit pas si on lui sert un texte sans étiquette — il daterait
+ * les enseignements du mois qu'il prépare.
+ */
+export function renderRecentReports(reports: PastReport[]): string {
+  if (reports.length === 0) return "";
+  return reports
+    .map((entry) => {
+      const kept = extractReportSection(entry.report, REPORT_SECTION_KEPT);
+      const dropped = extractReportSection(entry.report, REPORT_SECTION_DROPPED);
+      const body =
+        kept === "" && dropped === ""
+          ? // Rapport antérieur aux sections normalisées : son résumé vaut mieux
+            // que rien, et il est dit pour ce qu'il est.
+            `Synthèse (ce compte rendu est antérieur aux sections normalisées) :\n${summaryParagraph(
+              entry.report,
+              MAX_REPORT_EXCERPT_CHARS,
+            )}`
+          : [
+              kept === "" ? "" : `${REPORT_SECTION_KEPT} :\n${kept}`,
+              dropped === "" ? "" : `${REPORT_SECTION_DROPPED} :\n${dropped}`,
+            ]
+              .filter((part) => part !== "")
+              .join("\n\n");
+      return `--- Analyse du mois de ${entry.monthLabel} ---\n${body}`;
+    })
+    .join("\n\n");
+}
