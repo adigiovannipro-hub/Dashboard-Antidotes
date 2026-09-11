@@ -425,12 +425,15 @@ export function PlanningBoardView({
   // ici décalait le planning de tous les autres écrans.
   return (
     <div className="min-w-0 flex-1 space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      {/* Alignés par le bas, et la barre d'outils décollée du filet des
+          onglets : centrés, ses champs de 36 px chevauchaient le soulignement
+          de la rangée, si bien que la recherche semblait posée dessus. */}
+      <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-3">
         <BoardTabs boards={boards} current={board} workspaceSlug={workspaceSlug} />
 
         {/* La recherche : sujets et wordings, accents et casse pliés. Puis
             les archives et la corbeille du tableau. */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 pb-2">
           {searching ? (
             <span className="text-muted-foreground text-xs tabular-nums">
               {resultCount} résultat{resultCount > 1 ? "s" : ""}
@@ -908,7 +911,11 @@ export function BoardTabs({
 }
 
 /**
- * « + 2027 » au bout des onglets : prolonge le planning d'une année.
+ * Le « + » au bout des onglets : prolonge le planning d'une année.
+ *
+ * Le millésime a quitté le bouton — il doublait l'onglet d'à côté et donnait à
+ * une action rare le poids d'un tableau existant. Il reste dans l'infobulle et
+ * dans le nom lu à voix haute, sans quoi le bouton serait muet.
  *
  * La configuration suit — colonnes, étiquettes — jamais le contenu, comme la
  * duplication d'un espace. Le bouton n'apparaît que si un tableau éditorial
@@ -960,9 +967,9 @@ function AddYearTab({
         disabled={pending}
         className="type-label text-text-secondary hover:text-text-primary focus-visible:ring-ring relative -mb-px flex items-center gap-1 border-b-2 border-transparent px-0.5 pb-2.5 transition-colors duration-(--motion-duration) ease-standard focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50"
         title={`Créer le tableau ${nextYear} — colonnes et étiquettes reprises, mois vides`}
+        aria-label={`Créer le tableau ${nextYear}`}
       >
-        <Plus aria-hidden strokeWidth={1.75} className="size-3.5" />
-        {pending ? "Création…" : String(nextYear)}
+        <Plus aria-hidden strokeWidth={1.75} className="size-4" />
       </button>
     </li>
   );
