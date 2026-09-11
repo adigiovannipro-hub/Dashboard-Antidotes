@@ -484,6 +484,26 @@ export type FaqCategoryRow = {
   client_id: string;
   name: string;
   position: number;
+  /** Choisie depuis l'écran (20260912b) ; sans elle, l'étiquette retombe sur
+      la teinte déduite du nom — aucune FAQ existante ne change d'aspect. */
+  color: string | null;
+}
+
+/**
+ * Un message du fil d'une entrée FAQ (20260912b) : l'agence informe le client
+ * et lui demande l'autorisation d'employer une formule, le client répond au
+ * même endroit. Ni update ni delete en RLS — un fil ne se réécrit pas.
+ */
+export type FaqCommentRow = {
+  id: string;
+  client_id: string;
+  entry_id: string;
+  author_id: string | null;
+  author_name: string | null;
+  body: string;
+  /** Adresses prévenues par e-mail à l'écriture, comme les retours du planning. */
+  mentions: string[];
+  created_at: string;
 }
 
 export type FaqEntryVersionRow = {
@@ -930,6 +950,7 @@ export type Database = {
       drafts: Table<DraftRow>;
       faq_entries: Table<FaqEntryRow>;
       faq_categories: Table<FaqCategoryRow>;
+      faq_comments: Table<FaqCommentRow>;
       faq_entry_versions: Table<FaqEntryVersionRow>;
       story_mentions: Table<StoryMentionRow>;
       channel_connections: Table<ChannelConnectionRow>;

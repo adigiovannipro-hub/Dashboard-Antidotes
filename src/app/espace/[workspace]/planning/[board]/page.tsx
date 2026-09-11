@@ -1,13 +1,9 @@
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
-import { FaqBoardView } from "@/components/planning/faq-board";
-import { FaqModerationBoard } from "@/components/planning/faq-moderation-board";
 import { PlanningBoardView } from "@/components/planning/planning-board";
 import { getWorkspace } from "@/lib/auth";
-import { listFaqEntries as listModerationFaqEntries } from "@/lib/moderation/queries";
-import { createClient } from "@/lib/supabase/server";
 import { normalizeDeliverables } from "@/lib/context/deliverables";
 import { getActiveContext } from "@/lib/context/queries";
 import {
@@ -16,7 +12,6 @@ import {
   getBoardContent,
   listActivity,
   listBoards,
-  listFaqEntries,
 } from "@/lib/planning/queries";
 import { metaConfigured } from "@/lib/social/meta";
 import {
@@ -68,56 +63,13 @@ export default async function PlanningBoardPage({
   const scope = { workspace: workspace.slug, board: board.slug };
 
   if (board.kind === "faq") {
-    /* La FAQ du client est celle de la Modération : le tableau vit ici, dans
-       la section Planning — au même endroit que le board Monday d'origine —
-       et s'enrichit tout seul à chaque correction validée dans l'inbox. La
-       RLS (20260830) ouvre ces lectures aux membres de l'espace. */
-    const supabase = await createClient();
-    const { data: moderationClient } = await supabase
-      .from("moderation_clients")
-      .select("id")
-      .eq("workspace_id", workspace.id)
-      .maybeSingle();
-    const clientId = (moderationClient as { id: string } | null)?.id ?? null;
-
-    if (!clientId) {
-      // Pas de client de modération rattaché : l'ancien tableau libre reste.
-      return (
-        <FaqBoardView
-          scope={scope}
-          boards={boards}
-          board={board}
-          entries={await listFaqEntries(board.id)}
-          workspaceSlug={workspace.slug}
-        />
-      );
-    }
-
+    /* La FAQ a quitté la section Planning le 11/09 : elle est une page du menu
+       de l'espace. Ce chemin ne sert plus qu'aux liens déjà partagés — celui
+       d'un fil de modération porte `?entree=`, il doit arriver sur la bonne
+       ligne. */
     const query = await searchParams;
-    const [entries, { data: categories }] = await Promise.all([
-      listModerationFaqEntries(clientId),
-      supabase
-        .from("faq_categories")
-        .select("id, name")
-        .eq("client_id", clientId)
-        .order("position"),
-    ]);
-
-    return (
-      <FaqModerationBoard
-        boards={boards}
-        board={board}
-        workspaceSlug={workspace.slug}
-        clientId={clientId}
-        entries={
-          workspace.role === "owner"
-            ? entries
-            : entries.filter((entry) => entry.active)
-        }
-        categories={(categories ?? []) as { id: string; name: string }[]}
-        isOwner={workspace.role === "owner"}
-        openEntryId={query.entree ?? null}
-      />
+    redirect(
+      `/espace/${workspace.slug}/faq${query.entree ? `?entree=${query.entree}` : ""}`,
     );
   }
 

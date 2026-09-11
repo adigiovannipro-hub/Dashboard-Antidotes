@@ -10,6 +10,7 @@ import { getModerationContext } from "@/lib/moderation/access";
 import { can } from "@/lib/moderation/permissions";
 import { markSeenOnPlatform, sendReply } from "@/lib/moderation/send";
 import type { Conversation } from "@/lib/moderation/types";
+import { sendFaqCommentEmails } from "@/lib/moderation/faq-notify";
 import { createAdminClient, createClient } from "@/lib/supabase/server";
 import { DeterministicEmbeddings, toPgVector } from "@/lib/moderation/embeddings";
 import { planLearning, recordCorrection, recordDirectValidation } from "@/lib/moderation/learning";
@@ -735,104 +736,389 @@ export async function sendManualReply(input: {
 
 // --- FAQ : édition et validation client --------------------------------------
 
-const faqEntryInput = z.object({
+/* Les cellules du tableau de la FAQ écrivent un champ à la fois, comme celles
+   du planning : le formulaire complet du panneau latéral a disparu avec lui.
+   La clé est le nom du champ côté écran, la valeur sa colonne. */
+const FAQ_TEXT_COLUMNS = {
+  title: "title",
+  question: "question_canonical",
+  answerFr: "answer_fr",
+  answerTiktok: "answer_tiktok",
+} as const;
+
+const faqFieldInput = z.object({
   clientId: z.uuid(),
-  entryId: z.uuid().nullable(),
-  title: z.string().trim().min(1, "Le titre est obligatoire.").max(200),
-  categoryName: z.string().trim().max(80),
-  question: z.string().trim().min(1, "La question est obligatoire."),
-  answerFr: z.string().trim().max(6000),
-  answerTiktok: z.string().trim().max(6000),
-  active: z.boolean(),
+  entryId: z.uuid(),
+  field: z.enum(["title", "question", "answerFr", "answerTiktok"]),
+  value: z.string().trim().max(6000),
 });
 
 /**
- * Crée ou met à jour une entrée FAQ depuis l'écran.
+ * Écrit une cellule de texte d'un élément de langage.
  *
- * La catégorie se crée au passage si elle n'existe pas — le vocabulaire du
- * client s'étend depuis la cellule, comme les étiquettes du planning. Une
- * question modifiée perd son vecteur : le relevé horaire la réindexe, et
- * d'ici là elle est simplement invisible de la recherche sémantique.
+ * Une question modifiée perd son vecteur : le relevé horaire la réindexe, et
+ * d'ici là elle est simplement invisible de la recherche sémantique — jamais
+ * un blocage de l'écriture, le modèle d'embeddings ne chargeant pas sur
+ * Vercel.
  */
-export async function saveFaqEntry(input: {
+export async function updateFaqEntryField(input: {
   clientId: string;
-  entryId: string | null;
-  title: string;
-  categoryName: string;
-  question: string;
-  answerFr: string;
-  answerTiktok: string;
-  active: boolean;
+  entryId: string;
+  field: "title" | "question" | "answerFr" | "answerTiktok";
+  value: string;
 }): Promise<ModerationResult> {
-  const parsed = faqEntryInput.safeParse(input);
+  const parsed = faqFieldInput.safeParse(input);
   if (!parsed.success) {
-    return {
-      ok: false,
-      error: parsed.error.issues[0]?.message ?? "Formulaire invalide.",
-    };
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Saisie invalide." };
   }
+
+  try {
+    await requireOperator(parsed.data.clientId);
+    const supabase = await createClient();
+
+    const column = FAQ_TEXT_COLUMNS[parsed.data.field];
+    const row: Record<string, unknown> = {
+      // `question_canonical` est non nulle ; les trois autres colonnes
+      // préfèrent `null` au vide, que l'écran rend « — ».
+      [column]:
+        parsed.data.field === "question"
+          ? parsed.data.value
+          : parsed.data.value || null,
+      updated_at: new Date().toISOString(),
+    };
+    if (parsed.data.field === "question") row.embedding_source = null;
+
+    const { error } = await supabase
+      .from("faq_entries")
+      .update(row as never)
+      .eq("id", parsed.data.entryId)
+      .eq("client_id", parsed.data.clientId);
+    if (error) return { ok: false, error: error.message };
+
+    revalidatePath("/moderation");
+    revalidatePath("/espace", "layout");
+    return { ok: true, message: "" };
+  } catch (error) {
+    return { ok: false, error: (error as Error).message };
+  }
+}
+
+/** Range un élément de langage sous un thème, ou l'en sort. */
+export async function setFaqEntryCategory(input: {
+  clientId: string;
+  entryId: string;
+  categoryId: string | null;
+}): Promise<ModerationResult> {
+  const parsed = z
+    .object({
+      clientId: z.uuid(),
+      entryId: z.uuid(),
+      categoryId: z.uuid().nullable(),
+    })
+    .safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Requête incomplète." };
+
+  try {
+    await requireOperator(parsed.data.clientId);
+    const supabase = await createClient();
+    const { error } = await supabase
+      .from("faq_entries")
+      .update({
+        category_id: parsed.data.categoryId,
+        updated_at: new Date().toISOString(),
+      } as never)
+      .eq("id", parsed.data.entryId)
+      .eq("client_id", parsed.data.clientId);
+    if (error) return { ok: false, error: error.message };
+
+    revalidatePath("/espace", "layout");
+    return { ok: true, message: "" };
+  } catch (error) {
+    return { ok: false, error: (error as Error).message };
+  }
+}
+
+/**
+ * Le « + Ajouter un élément » du bas du tableau.
+ *
+ * La ligne naît vide, comme sur Monday : on la remplit dans ses cellules.
+ * `question_canonical` est non nulle, d'où la chaîne vide plutôt qu'un titre
+ * inventé qu'il faudrait ensuite effacer.
+ */
+export async function createFaqEntry(input: {
+  clientId: string;
+}): Promise<ModerationResult> {
+  const parsed = z.object({ clientId: z.uuid() }).safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Requête incomplète." };
 
   try {
     const { viewer } = await requireOperator(parsed.data.clientId);
     const supabase = await createClient();
+    const { error } = await supabase.from("faq_entries").insert({
+      client_id: parsed.data.clientId,
+      question_canonical: "",
+      variants: [],
+      created_by: viewer.user.id,
+    } as never);
+    if (error) return { ok: false, error: error.message };
 
-    let categoryId: string | null = null;
-    if (parsed.data.categoryName !== "") {
-      const { data: existingCategory } = await supabase
-        .from("faq_categories")
-        .select("id")
-        .eq("client_id", parsed.data.clientId)
-        .eq("name", parsed.data.categoryName)
-        .maybeSingle();
-      if (existingCategory) {
-        categoryId = (existingCategory as { id: string }).id;
-      } else {
-        const { data: createdCategory, error: categoryError } = await supabase
-          .from("faq_categories")
-          .insert({
-            client_id: parsed.data.clientId,
-            name: parsed.data.categoryName,
-          } as never)
-          .select("id")
-          .single();
-        if (categoryError) return { ok: false, error: categoryError.message };
-        categoryId = (createdCategory as { id: string }).id;
-      }
+    revalidatePath("/espace", "layout");
+    return { ok: true, message: "" };
+  } catch (error) {
+    return { ok: false, error: (error as Error).message };
+  }
+}
+
+// --- Les thèmes ------------------------------------------------------------
+
+const HEX = /^#[0-9a-f]{6}$/i;
+
+export async function createFaqCategory(input: {
+  clientId: string;
+  name: string;
+  color: string;
+}): Promise<ModerationResult> {
+  const parsed = z
+    .object({
+      clientId: z.uuid(),
+      name: z.string().trim().min(1, "Le thème a besoin d'un nom.").max(80),
+      color: z.string().regex(HEX, "Couleur invalide."),
+    })
+    .safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Thème invalide." };
+  }
+
+  try {
+    await requireOperator(parsed.data.clientId);
+    const supabase = await createClient();
+    const { error } = await supabase.from("faq_categories").insert({
+      client_id: parsed.data.clientId,
+      name: parsed.data.name,
+      color: parsed.data.color,
+    } as never);
+    // `unique (client_id, name)` depuis 0004 : le doublon se dit en français
+    // plutôt qu'en message Postgres.
+    if (error) {
+      return {
+        ok: false,
+        error: error.code === "23505" ? "Ce thème existe déjà." : error.message,
+      };
     }
 
-    const row = {
-      title: parsed.data.title,
-      question_canonical: parsed.data.question,
-      answer_fr: parsed.data.answerFr || null,
-      answer_tiktok: parsed.data.answerTiktok || null,
-      category_id: categoryId,
-      active: parsed.data.active,
-      embedding_source: null,
-      updated_at: new Date().toISOString(),
+    revalidatePath("/espace", "layout");
+    return { ok: true, message: "" };
+  } catch (error) {
+    return { ok: false, error: (error as Error).message };
+  }
+}
+
+export async function renameFaqCategory(input: {
+  clientId: string;
+  categoryId: string;
+  name: string;
+}): Promise<ModerationResult> {
+  const parsed = z
+    .object({
+      clientId: z.uuid(),
+      categoryId: z.uuid(),
+      name: z.string().trim().min(1, "Le thème a besoin d'un nom.").max(80),
+    })
+    .safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Thème invalide." };
+  }
+
+  try {
+    await requireOperator(parsed.data.clientId);
+    const supabase = await createClient();
+    const { error } = await supabase
+      .from("faq_categories")
+      .update({ name: parsed.data.name } as never)
+      .eq("id", parsed.data.categoryId)
+      .eq("client_id", parsed.data.clientId);
+    if (error) {
+      return {
+        ok: false,
+        error: error.code === "23505" ? "Ce thème existe déjà." : error.message,
+      };
+    }
+
+    revalidatePath("/espace", "layout");
+    return { ok: true, message: "" };
+  } catch (error) {
+    return { ok: false, error: (error as Error).message };
+  }
+}
+
+export async function setFaqCategoryColor(input: {
+  clientId: string;
+  categoryId: string;
+  color: string;
+}): Promise<ModerationResult> {
+  const parsed = z
+    .object({
+      clientId: z.uuid(),
+      categoryId: z.uuid(),
+      color: z.string().regex(HEX, "Couleur invalide."),
+    })
+    .safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Couleur invalide." };
+  }
+
+  try {
+    await requireOperator(parsed.data.clientId);
+    const supabase = await createClient();
+    const { error } = await supabase
+      .from("faq_categories")
+      .update({ color: parsed.data.color } as never)
+      .eq("id", parsed.data.categoryId)
+      .eq("client_id", parsed.data.clientId);
+    if (error) return { ok: false, error: error.message };
+
+    revalidatePath("/espace", "layout");
+    return { ok: true, message: "" };
+  } catch (error) {
+    return { ok: false, error: (error as Error).message };
+  }
+}
+
+/** Les éléments rangés sous ce thème le perdent — `on delete set null`. */
+export async function deleteFaqCategory(input: {
+  clientId: string;
+  categoryId: string;
+}): Promise<ModerationResult> {
+  const parsed = z
+    .object({ clientId: z.uuid(), categoryId: z.uuid() })
+    .safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Requête incomplète." };
+
+  try {
+    await requireOperator(parsed.data.clientId);
+    const supabase = await createClient();
+    const { error } = await supabase
+      .from("faq_categories")
+      .delete()
+      .eq("id", parsed.data.categoryId)
+      .eq("client_id", parsed.data.clientId);
+    if (error) return { ok: false, error: error.message };
+
+    revalidatePath("/espace", "layout");
+    return { ok: true, message: "Thème supprimé." };
+  } catch (error) {
+    return { ok: false, error: (error as Error).message };
+  }
+}
+
+// --- Le fil d'un élément de langage ----------------------------------------
+
+/**
+ * Poste un message dans le fil d'un élément de langage.
+ *
+ * L'agence y informe le client d'une formule et lui en demande
+ * l'autorisation ; le client répond au même endroit. L'action est donc ouverte
+ * aux deux, et suit pour cela le modèle de `setFaqClientReview` : client admin
+ * **après** une vérification applicative d'appartenance à l'espace rattaché.
+ * La RLS filtre des lignes et non des colonnes — ouvrir l'écriture de la table
+ * au rôle client lui ouvrirait la réponse elle-même.
+ */
+export async function addFaqComment(input: {
+  entryId: string;
+  body: string;
+  mentions: string[];
+}): Promise<ModerationResult> {
+  const parsed = z
+    .object({
+      entryId: z.uuid(),
+      body: z.string().trim().min(1, "Le message est vide.").max(4000),
+      mentions: z.array(z.email()).max(10),
+    })
+    .safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Message invalide." };
+  }
+
+  try {
+    const viewer = await getViewer();
+    if (!viewer) return { ok: false, error: "Session expirée." };
+
+    const admin = createAdminClient();
+    const { data: entryRow, error: entryError } = await admin
+      .from("faq_entries")
+      .select("id, client_id, title, question_canonical")
+      .eq("id", parsed.data.entryId)
+      .maybeSingle();
+    if (entryError) return { ok: false, error: entryError.message };
+    if (!entryRow) return { ok: false, error: "Entrée introuvable." };
+
+    const entry = entryRow as unknown as {
+      client_id: string;
+      title: string | null;
+      question_canonical: string;
     };
 
-    if (parsed.data.entryId) {
-      const { error } = await supabase
-        .from("faq_entries")
-        .update(row as never)
-        .eq("id", parsed.data.entryId)
-        .eq("client_id", parsed.data.clientId);
-      if (error) return { ok: false, error: error.message };
-    } else {
-      const { error } = await supabase.from("faq_entries").insert({
-        ...row,
-        client_id: parsed.data.clientId,
-        variants: [],
-        created_by: viewer.user.id,
-      } as never);
-      if (error) return { ok: false, error: error.message };
-    }
+    const { data: clientRow } = await admin
+      .from("moderation_clients")
+      .select("workspace_id")
+      .eq("id", entry.client_id)
+      .maybeSingle();
+    const workspaceId = (clientRow as { workspace_id?: string | null } | null)
+      ?.workspace_id;
+    const workspace = workspaceId
+      ? viewer.workspaces.find((candidate) => candidate.id === workspaceId)
+      : undefined;
+    // Message identique à celui d'une entrée absente : rien ne doit confirmer
+    // l'existence de la FAQ d'un autre client.
+    if (!workspace) return { ok: false, error: "Entrée introuvable." };
 
-    revalidatePath("/moderation");
+    const { data: profile } = await admin
+      .from("profiles")
+      .select("full_name")
+      .eq("id", viewer.user.id)
+      .maybeSingle();
+    const authorName =
+      (profile as { full_name?: string | null } | null)?.full_name ?? viewer.email;
+
+    const { error } = await admin.from("faq_comments").insert({
+      client_id: entry.client_id,
+      entry_id: parsed.data.entryId,
+      author_id: viewer.user.id,
+      author_name: authorName,
+      body: parsed.data.body,
+      mentions: parsed.data.mentions,
+    } as never);
+    if (error) return { ok: false, error: error.message };
+
     revalidatePath("/espace", "layout");
+
+    // L'e-mail part après l'écriture, jamais à sa place : une boîte en panne
+    // laisse le message dans le fil, avec une phrase qui dit ce qui n'est pas
+    // parti.
+    if (parsed.data.mentions.length === 0) return { ok: true, message: "" };
+
+    const outcome = await sendFaqCommentEmails({
+      recipients: parsed.data.mentions,
+      workspaceSlug: workspace.slug,
+      workspaceName: workspace.name,
+      entryId: parsed.data.entryId,
+      entryTitle: entry.title || entry.question_canonical,
+      authorName,
+      body: parsed.data.body,
+    });
+
+    if (outcome.sent.length > 0 && outcome.failed.length === 0) {
+      return { ok: true, message: `Message envoyé à ${outcome.sent.join(", ")}.` };
+    }
+    if (outcome.sent.length > 0) {
+      return {
+        ok: true,
+        message: `Message envoyé à ${outcome.sent.join(", ")} — échec pour ${outcome.failed.join(", ")}.`,
+      };
+    }
     return {
       ok: true,
-      message: parsed.data.entryId ? "Entrée mise à jour." : "Entrée créée.",
+      message: `Message enregistré, e-mail non parti : ${outcome.reason ?? "envoi refusé"}`,
     };
   } catch (error) {
     return { ok: false, error: (error as Error).message };
@@ -862,40 +1148,6 @@ export async function deleteFaqEntry(input: {
     revalidatePath("/moderation");
     revalidatePath("/espace", "layout");
     return { ok: true, message: "Entrée supprimée." };
-  } catch (error) {
-    return { ok: false, error: (error as Error).message };
-  }
-}
-
-/** Soumet des entrées au client : elles s'affichent « À valider » chez lui. */
-export async function submitFaqForReview(input: {
-  clientId: string;
-  entryIds: string[];
-}): Promise<ModerationResult> {
-  const parsed = z
-    .object({ clientId: z.uuid(), entryIds: z.array(z.uuid()).min(1).max(200) })
-    .safeParse(input);
-  if (!parsed.success) return { ok: false, error: "Requête incomplète." };
-
-  try {
-    await requireOperator(parsed.data.clientId);
-    const supabase = await createClient();
-    const { error } = await supabase
-      .from("faq_entries")
-      .update({ client_review: "pending", client_reviewed_at: null } as never)
-      .eq("client_id", parsed.data.clientId)
-      .in("id", parsed.data.entryIds);
-    if (error) return { ok: false, error: error.message };
-
-    revalidatePath("/moderation");
-    revalidatePath("/espace", "layout");
-    return {
-      ok: true,
-      message:
-        parsed.data.entryIds.length > 1
-          ? `${parsed.data.entryIds.length} entrées soumises au client.`
-          : "Entrée soumise au client.",
-    };
   } catch (error) {
     return { ok: false, error: (error as Error).message };
   }

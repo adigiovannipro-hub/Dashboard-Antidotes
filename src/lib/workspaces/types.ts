@@ -12,6 +12,16 @@ import type { WorkspaceRole } from "@/lib/supabase/database.types";
 export const PLANNING_PAGE_KEY = "planning";
 
 /**
+ * Clé de la page FAQ.
+ *
+ * La FAQ était un onglet de la section Planning — un `planning_board` de
+ * `kind = 'faq'`. Le retour d'écran du 11/09 l'en sort : c'est une page du
+ * menu de l'espace, entre le Contexte et le Planning. Elle n'a pas de slug de
+ * tableau, d'où une clé en dur comme celle du planning.
+ */
+export const FAQ_PAGE_KEY = "faq";
+
+/**
  * La page Contexte n'apparaît jamais dans la matrice de droits : elle est
  * réservée à l'owner, et un droit qu'on pourrait cocher laisserait croire
  * qu'elle se partage.

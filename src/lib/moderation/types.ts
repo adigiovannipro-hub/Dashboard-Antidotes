@@ -371,3 +371,32 @@ export type FaqEntry = {
   updated_at: string;
   deleted_at: string | null;
 };
+
+/** Un thème de la FAQ — la colonne « Thème » du board Monday d'origine. */
+export type FaqCategory = {
+  id: string;
+  client_id: string;
+  name: string;
+  position: number;
+  /** Choisie dans l'éditeur d'étiquettes ; `null` = teinte déduite du nom. */
+  color: string | null;
+};
+
+/**
+ * Un message du fil d'un élément de langage.
+ *
+ * Le fil sert à informer le client d'une formule et à lui en demander
+ * l'autorisation ; les adresses taguées reçoivent le message par e-mail, par
+ * la boîte Gmail des Reçus. `author_name` est recopié à l'écriture : un
+ * message doit rester lisible quand le compte qui l'a posé n'existe plus.
+ */
+export type FaqComment = {
+  id: string;
+  client_id: string;
+  entry_id: string;
+  author_id: string | null;
+  author_name: string | null;
+  body: string;
+  mentions: string[];
+  created_at: string;
+};

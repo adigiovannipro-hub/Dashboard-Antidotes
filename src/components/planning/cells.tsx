@@ -370,8 +370,11 @@ function relativeLuminance(color: string): number | null {
  * que le sombre était meilleur. « PUBLIÉ » (#00c875) sortait ainsi à 2,21:1 au
  * lieu de 7,88:1, et « WORDING À FAIRE » (#ff6d3b) à 2,82:1 au lieu de 6,19:1.
  * Un calcul ne se dérègle pas ; une constante, si.
+ *
+ * Exporté : les étiquettes de thème de la FAQ suivent la même règle, et un
+ * second calcul d'encre finirait par diverger de celui-ci.
  */
-function chipInk(color: string): string {
+export function chipInk(color: string): string {
   const background = relativeLuminance(color);
   if (background === null) return INK_LIGHT;
 
@@ -674,12 +677,22 @@ export function WordingCell({
   subjectName,
   onCommit,
   generateSubjectId,
+  fieldName,
+  placeholder,
+  readOnly,
 }: {
   value: string | null;
   subjectName: string;
   onCommit: (next: string | null) => void;
   /** Posé par l'agence seulement : le stylo de génération apparaît au survol. */
   generateSubjectId?: string;
+  /** Ce que la cellule contient — « Wording » par défaut, « Réponse » dans la
+      FAQ : c'est ce que le lecteur d'écran annonce. */
+  fieldName?: string;
+  placeholder?: string;
+  /** Le client lit la FAQ sans la réécrire : la bulle de survol reste, le
+      cadre d'édition ne s'ouvre pas. */
+  readOnly?: boolean;
 }) {
   const anchorRef = useRef<HTMLButtonElement>(null);
   const [editor, setEditor] = useState<AnchoredBox | null>(null);
@@ -718,6 +731,7 @@ export function WordingCell({
   };
 
   const openEditor = () => {
+    if (readOnly) return;
     hideTip();
     const rect = anchorRef.current?.getBoundingClientRect();
     if (!rect) return;
@@ -745,12 +759,14 @@ export function WordingCell({
     // `save` change à chaque frappe ; réinscrire l'écouteur est sans coût.
   });
 
+  const label = `${fieldName ?? "Wording"} de ${subjectName || "la publication"}`;
+
   return (
     <span className="group/wording relative block min-w-0 flex-1">
       <button
         ref={anchorRef}
         type="button"
-        aria-label={`Wording de ${subjectName || "la publication"}`}
+        aria-label={label}
         onClick={openEditor}
         onMouseEnter={showTip}
         onMouseLeave={scheduleTipClose}
@@ -806,8 +822,11 @@ export function WordingCell({
                 setEditor(null);
               }
             }}
-            aria-label={`Wording de ${subjectName || "la publication"}`}
-            placeholder="La caption publiable, ou l'intention en phase de planning."
+            aria-label={label}
+            placeholder={
+              placeholder ??
+              "La caption publiable, ou l'intention en phase de planning."
+            }
             className="border-ring bg-background field-sizing-content max-h-[60vh] min-h-36 w-full resize rounded-md border-2 px-3 pt-2 pb-7 text-sm shadow-xl outline-none"
           />
           <span

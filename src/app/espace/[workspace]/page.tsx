@@ -2,6 +2,7 @@ import { notFound, redirect } from "next/navigation";
 
 import { getViewer, getWorkspace } from "@/lib/auth";
 import { listHiddenPages, listWorkspacePages } from "@/lib/workspaces/queries";
+import { PLANNING_PAGE_KEY } from "@/lib/workspaces/types";
 
 /** Un espace n'est qu'une porte : on entre directement dans sa première page. */
 export default async function WorkspaceIndexPage({
@@ -24,7 +25,12 @@ export default async function WorkspaceIndexPage({
       : listHiddenPages(workspace.id, viewer?.email ?? ""),
   ]);
 
-  const first = pages.find((page) => !hidden.has(page.key));
+  const visible = pages.filter((page) => !hidden.has(page.key));
+  // Le planning d'abord, quel que soit l'ordre du menu : la FAQ l'y précède
+  // parce qu'on y cherche une formule, mais ce qu'on ouvre en entrant chez un
+  // client, c'est le mois en cours.
+  const first =
+    visible.find((page) => page.key === PLANNING_PAGE_KEY) ?? visible[0];
   if (first) redirect(`/espace/${workspace.slug}/${first.key}`);
 
   return (
