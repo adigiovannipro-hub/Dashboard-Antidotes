@@ -6,7 +6,7 @@ import {
   PublicationRowView,
 } from "@/components/mon-travail/publication-row";
 import { RescheduleLateButton } from "@/components/mon-travail/reschedule-late";
-import { Panel, PanelHeader, PanelRows } from "@/components/ds/surface";
+import { Panel, PanelHeader } from "@/components/ds/surface";
 import { StatusPill } from "@/components/ds/status-pill";
 import { Button } from "@/components/ui/button";
 import { READY_STATUSES, type PlanningStatus } from "@/lib/planning/types";
@@ -15,7 +15,11 @@ import type { PublicationRow } from "@/lib/mon-travail/types";
 /**
  * « À publier » : les lignes de publication du jour, tous clients confondus,
  * pour vérifier que ce qui devait partir est bien parti. Ce qui est déjà
- * marqué publié n'apparaît plus ici — il a rejoint « Archivé » en bas de page.
+ * marqué publié n'apparaît plus ici.
+ *
+ * L'ordre est celui du travail — date, puis réseau — et non celui des
+ * clients : on ouvre Instagram une fois. La colonne « Client » dit de qui
+ * vient chaque ligne et mène à son board.
  *
  * Une journée vide ne se solde pas par une phrase et du blanc : le panneau
  * bascule sur les prochaines publications datées. La question qui suit
@@ -52,11 +56,7 @@ export function PublicationsSection({
         title={empty ? "Prochaines publications" : "À publier"}
         count={empty ? undefined : rows.length}
         description={
-          empty
-            ? "Rien à publier aujourd'hui — voici ce qui arrive, par réseau."
-            : late > 0
-              ? "Les retards d'abord, en rouge, puis aujourd'hui, groupé par réseau."
-              : "Aujourd'hui, groupé par réseau."
+          empty && next.length > 0 ? "Rien à publier aujourd'hui." : undefined
         }
         action={
           late > 0 ? (
@@ -107,16 +107,19 @@ export function PublicationsSection({
           </p>
         </div>
       ) : (
-        /* Onze colonnes ne tiennent pas toujours dans la largeur disponible :
-           le tableau défile dans son panneau plutôt que de comprimer chaque
-           cellule jusqu'à l'illisible. */
+        /* Aux largeurs du board, les douze colonnes dépassent la largeur
+           disponible : le tableau défile dans son panneau plutôt que de
+           comprimer chaque cellule jusqu'à l'illisible. */
         <div className="overflow-x-auto">
           <PublicationHeader />
-          <PanelRows>
+          {/* Un conteneur nu, et surtout pas `PanelRows` : son `divide-y`
+              doublerait le filet que chaque ligne porte déjà. Reste à retirer
+              celui de la dernière, qui traînerait au ras du panneau. */}
+          <div className="[&>*:last-child]:border-b-0">
             {(empty ? next : rows).map((row) => (
               <PublicationRowView key={row.subject.id} row={row} />
             ))}
-          </PanelRows>
+          </div>
         </div>
       )}
     </Panel>

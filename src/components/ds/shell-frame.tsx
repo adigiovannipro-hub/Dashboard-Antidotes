@@ -17,6 +17,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import type { NavGroup } from "@/lib/navigation";
+import { cn } from "@/lib/utils";
 
 /**
  * Le cadre applicatif : rail à gauche, barre de page en haut, contenu au
@@ -68,10 +69,22 @@ export function ShellFrame({
 
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-20 border-b border-border bg-canvas/85 backdrop-blur">
-          {/* `py-2.5` et non `py-3.5` : la barre est collante, donc payée sur
-              chaque écran et à chaque défilement. Dix pixels rendus au
-              contenu, titre intact. */}
-          <div className={wide ? "mx-auto flex w-full items-center gap-3 px-4 py-2.5 md:px-6" : "mx-auto flex w-full max-w-[90rem] items-center gap-3 px-4 py-2.5 md:px-10"}>
+          {/* `h-14`, la hauteur exacte du bloc de marque du rail : les deux
+              bordures basses se rejoignent et le haut de l'application forme
+              une seule bande. Le titre descend en `type-h2` — la taille du
+              Wordmark d'en face — et le sous-titre passe en ligne, faute de
+              place pour deux étages.
+
+              `flex-wrap` sous `md` : le titre est à `flex-1 min-w-0`, il ne
+              déclenche donc jamais le retour à la ligne ; seule une barre à
+              trois actions qui dépasse la largeur du téléphone y bascule,
+              plutôt que de déborder. */}
+          <div
+            className={cn(
+              "mx-auto flex w-full min-h-14 flex-wrap items-center gap-x-3 gap-y-1 px-4 md:h-14 md:flex-nowrap",
+              wide ? "md:px-6" : "max-w-[90rem] md:px-10",
+            )}
+          >
             <button
               type="button"
               onClick={() => setMobileOpen(true)}
@@ -85,12 +98,24 @@ export function ShellFrame({
             </button>
 
             <div className="min-w-0 flex-1">
-              <h1 className="type-h1 truncate text-text-primary">{title}</h1>
-              {/* `type-micro` : 11 px en casse normale, la taille du pied de
-                  rail — mesurée à 5,36:1 sur cette encre. Le sous-titre est
-                  une précision, pas une seconde ligne de titre. */}
+              <div className="flex min-w-0 items-baseline gap-1.5">
+                <h1 className="type-h2 min-w-0 truncate text-text-primary">{title}</h1>
+                {/* `type-micro` : 11 px en casse normale, la taille du pied de
+                    rail — mesurée à 5,36:1 sur cette encre. Le sous-titre est
+                    une précision, pas une seconde ligne de titre. */}
+                {subtitle ? (
+                  <span className="type-micro hidden min-w-0 truncate text-text-secondary sm:block">
+                    <span aria-hidden>·</span> {subtitle}
+                  </span>
+                ) : null}
+              </div>
+              {/* Au téléphone il n'y a pas la place de les mettre côte à côte :
+                  le sous-titre repasse dessous, et les deux tiennent encore
+                  dans les 56 px de la bande. */}
               {subtitle ? (
-                <p className="type-micro truncate text-text-secondary">{subtitle}</p>
+                <p className="type-micro truncate text-text-secondary sm:hidden">
+                  {subtitle}
+                </p>
               ) : null}
             </div>
 
