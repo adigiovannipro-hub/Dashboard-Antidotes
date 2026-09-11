@@ -84,14 +84,6 @@ on:
         description: "… et sonder Google Maps avec ce mot-clé (3 lieux)"
         type: string
         default: ""
-      factures_menage:
-        description: "Factures : effacer le devis d'essai TEST FACTURATION AUTOMATIQUE (aperçu)"
-        type: boolean
-        default: false
-      factures_menage_ecrire:
-        description: "… et l'exécuter pour de bon"
-        type: boolean
-        default: false
       renvoi_factures:
         description: "Factures : renvoyer les N derniers envois (nombre, vide = non)"
         type: string
@@ -246,25 +238,6 @@ jobs:
           META_AD_LIBRARY_TOKEN: ${{ secrets.META_AD_LIBRARY_TOKEN }}
           DROPCONTACT_API_KEY: ${{ secrets.DROPCONTACT_API_KEY }}
           HUNTER_API_KEY: ${{ secrets.HUNTER_API_KEY }}
-
-      # Le ménage d'après essais. Le script existait depuis l'émission des
-      # premières factures et n'avait aucun chemin d'exécution : sans terminal,
-      # le devis d'essai restait à l'écran. Il annule chez Airwallex les
-      # factures nommées une par une — jamais par un filtre — et efface le
-      # devis `TEST FACTURATION AUTOMATIQUE`, mensualités et journal compris
-      # par la cascade. Sans « … et l'exécuter », il ne fait que lister.
-      - name: Ménage des factures d'essai
-        if: ${{ inputs.factures_menage }}
-        run: >-
-          pnpm factures:menage
-          ${{ inputs.factures_menage_ecrire && '--ecrire' || '' }}
-        env:
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          AIRWALLEX_CLIENT_ID: ${{ secrets.AIRWALLEX_CLIENT_ID }}
-          AIRWALLEX_API_KEY: ${{ secrets.AIRWALLEX_API_KEY }}
-          AIRWALLEX_ENV: production
 
       # Renvoyer les derniers envois de factures, tels quels, l'objet complété :
       # pour le jour où un défaut d'affichage a touché ce qui est parti. Même

@@ -1,10 +1,15 @@
 # La télécommande base de données — pour un projet piloté sans terminal.
 #
-# Les diagnostics, les sondes et les opérations qui parlent à un service
-# extérieur vivent dans « Sondes et diagnostics » (db-sondes.yml). Le découpage
-# n'est pas cosmétique : GitHub refuse **plus de 25 `inputs`** sur un
-# `workflow_dispatch`, et le fichier en comptait 35 — il ne se lançait plus du
-# tout, et rien ne le disait avant d'essayer.
+# Les diagnostics, les sondes et le renvoi des factures vivent dans « Sondes et
+# diagnostics » (db-sondes.yml). Le découpage n'est pas cosmétique : GitHub
+# refuse **plus de 25 `inputs`** sur un `workflow_dispatch`, et le fichier en
+# comptait 35 — il ne se lançait plus du tout, et rien ne le disait avant
+# d'essayer. Le ménage des factures d'essai est resté ici : il efface une ligne
+# de la base, ce n'est pas une sonde.
+#
+# Attention, un workflow n'est dispatchable depuis une branche que s'il existe
+# aussi sur la branche par défaut : db-sondes.yml ne se lancera qu'une fois
+# fusionné.
 #
 # Tout se déclenche depuis l'onglet Actions de GitHub : Actions →
 # « Base de données » → Run workflow, cocher ce qu'on veut, lancer.
@@ -62,6 +67,14 @@ on:
         default: false
       previews_planning:
         description: "Planning : fabriquer les miniatures manquantes des visuels"
+        type: boolean
+        default: false
+      factures_menage:
+        description: "Factures : effacer le devis d'essai TEST FACTURATION AUTOMATIQUE (aperçu)"
+        type: boolean
+        default: false
+      factures_menage_ecrire:
+        description: "… et l'exécuter pour de bon"
         type: boolean
         default: false
       isolation_tests:
@@ -172,6 +185,25 @@ jobs:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
 
+
+      # Le ménage d'après essais. Le script existait depuis l'émission des
+      # premières factures et n'avait aucun chemin d'exécution : sans terminal,
+      # le devis d'essai restait à l'écran. Il annule chez Airwallex les
+      # factures nommées une par une — jamais par un filtre — et efface le
+      # devis `TEST FACTURATION AUTOMATIQUE`, mensualités et journal compris
+      # par la cascade. Sans « … et l'exécuter », il ne fait que lister.
+      - name: Ménage des factures d'essai
+        if: ${{ inputs.factures_menage }}
+        run: >-
+          pnpm factures:menage
+          ${{ inputs.factures_menage_ecrire && '--ecrire' || '' }}
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          AIRWALLEX_CLIENT_ID: ${{ secrets.AIRWALLEX_CLIENT_ID }}
+          AIRWALLEX_API_KEY: ${{ secrets.AIRWALLEX_API_KEY }}
+          AIRWALLEX_ENV: production
 
       # Les suites d'isolation ouvrent de vraies sessions et écrivent des
       # données préfixées (zz-fin-…, nettoyées en fin de suite). C'est ici
