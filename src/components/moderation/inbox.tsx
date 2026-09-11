@@ -496,7 +496,12 @@ export function Inbox({
                 />
                 {checkedVisible.length > 0
                   ? `${checkedVisible.length} sélectionnée(s)`
-                  : "Tout sélectionner"}
+                  : unreadShown > 0
+                    ? // Ce qu'on vient chercher en ouvrant l'Inbox se dit en
+                      // tête de liste, en clair. « Tout sélectionner » est un
+                      // geste, pas une information.
+                      `${unreadShown} non ${unreadShown > 1 ? "lues" : "lue"}`
+                    : "Tout sélectionner"}
               </label>
 
               {/* « Tout lire » ne passe pas par la sélection : la case ci-contre

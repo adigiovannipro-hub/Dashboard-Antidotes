@@ -186,12 +186,19 @@ export function InboxFilterBar({
             <Toggle
               active={selection.unreadOnly}
               href={buildHref({ nonlus: selection.unreadOnly ? null : "1" })}
+              count={counters.unread}
+              /* Le seul filtre qui appelle : quand il reste du neuf, la
+                 bascule porte la pastille de marque et l'encre primaire —
+                 c'est le chemin vers les nouveaux messages, il doit se voir
+                 sans le chercher. */
+              highlight
             >
               Non lus
             </Toggle>
             <Toggle
               active={selection.flaggedOnly}
               href={buildHref({ signalees: selection.flaggedOnly ? null : "1" })}
+              count={counters.flagged}
             >
               Signalées
             </Toggle>
@@ -302,25 +309,38 @@ function ClientLink({
 function Toggle({
   active,
   href,
+  count,
+  highlight = false,
   children,
 }: {
   active: boolean;
   href: string;
+  /** Ce que le clic montrera. Omis, la bascule n'affiche aucun nombre. */
+  count?: number;
+  /** Au repos mais non vide, la bascule s'allume au lieu de s'effacer. */
+  highlight?: boolean;
   children: React.ReactNode;
 }) {
+  const calling = !active && highlight && (count ?? 0) > 0;
   return (
     <Link
       href={href}
       role="button"
       aria-pressed={active}
       className={cn(
-        "type-caption focus-visible:ring-ring rounded-pill border px-2.5 py-1 font-medium transition-colors duration-(--motion-duration) ease-standard focus-visible:ring-2 focus-visible:outline-none",
+        "type-caption focus-visible:ring-ring inline-flex items-center gap-1.5 rounded-pill border px-2.5 py-1 font-medium transition-colors duration-(--motion-duration) ease-standard focus-visible:ring-2 focus-visible:outline-none",
         active
           ? "border-accent-ink/30 bg-accent-subtle text-accent-ink"
-          : "border-transparent text-text-secondary hover:bg-surface-sunken hover:text-text-primary",
+          : calling
+            ? "border-border bg-surface text-text-primary hover:bg-surface-sunken"
+            : "border-transparent text-text-secondary hover:bg-surface-sunken hover:text-text-primary",
       )}
     >
+      {calling ? (
+        <span aria-hidden className="size-2 shrink-0 rounded-pill bg-brand" />
+      ) : null}
       {children}
+      {count === undefined ? null : <span className="tabular-nums">{count}</span>}
     </Link>
   );
 }
