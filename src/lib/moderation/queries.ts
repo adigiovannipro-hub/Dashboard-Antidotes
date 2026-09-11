@@ -12,6 +12,8 @@ import type {
   ConversationKind,
   ConversationStatus,
   Draft,
+  FaqCategory,
+  FaqComment,
   FaqEntry,
   InboxView,
   ModerationChannel,
@@ -223,6 +225,40 @@ export async function getConversationThread(conversationId: string): Promise<{
     messages: (messages ?? []) as unknown as ModerationMessage[],
     draft: ((drafts ?? [])[0] as unknown as Draft) ?? null,
   };
+}
+
+/**
+ * Les thèmes d'un client, dans l'ordre du board.
+ *
+ * Lus ici et non plus en ligne dans la page : la FAQ a maintenant son écran,
+ * et l'éditeur d'étiquettes a besoin de la couleur en plus du nom.
+ */
+export async function listFaqCategories(clientId: string): Promise<FaqCategory[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("faq_categories")
+    .select("*")
+    .eq("client_id", clientId)
+    .order("position");
+  return (data ?? []) as unknown as FaqCategory[];
+}
+
+/**
+ * Les fils de discussion de toute la FAQ d'un client, d'un coup.
+ *
+ * Un appel par ligne ouverte ferait autant de requêtes que de clics : le
+ * tableau charge tout, chaque ligne pioche le sien en mémoire — soixante-huit
+ * entrées et quelques messages tiennent largement.
+ */
+export async function listFaqComments(clientId: string): Promise<FaqComment[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("faq_comments")
+    .select("*")
+    .eq("client_id", clientId)
+    .order("created_at")
+    .limit(1000);
+  return (data ?? []) as unknown as FaqComment[];
 }
 
 export async function listFaqEntries(clientId: string): Promise<FaqEntry[]> {

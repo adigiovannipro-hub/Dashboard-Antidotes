@@ -853,14 +853,12 @@ export function BoardTabs({
   const { active: activeId, select } = useOptimisticPill(current.id);
   const { listRef, box, measured } = usePillIndicator<HTMLUListElement>(activeId);
 
-  // La FAQ d'abord, puis les années dans l'ordre : la FAQ est un repère fixe,
-  // les millésimes défilent à sa droite — et le « + » de l'année suivante
-  // ferme la rangée.
-  const ordered = [...boards].sort(
-    (a, b) =>
-      (a.kind === "faq" ? 0 : 1) - (b.kind === "faq" ? 0 : 1) ||
-      (a.year ?? 0) - (b.year ?? 0),
-  );
+  // Les millésimes dans l'ordre, et le « + » de l'année suivante ferme la
+  // rangée. La FAQ n'y figure plus : elle a sa page dans le menu de l'espace
+  // depuis le 11/09, et son ancien board `kind = 'faq'` redirige.
+  const ordered = [...boards]
+    .filter((board) => board.kind !== "faq")
+    .sort((a, b) => (a.year ?? 0) - (b.year ?? 0));
 
   // Volontairement plus léger que les onglets de section, juste au-dessus :
   // deux rangées de pastilles identiques donneraient le même poids à deux

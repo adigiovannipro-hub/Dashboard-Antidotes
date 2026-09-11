@@ -3,12 +3,17 @@
  *
  * La migration 20260830 ouvre trois lectures aux membres d'un espace — les
  * entrées FAQ, leurs catégories et la ligne du client de modération rattaché —
- * et rien d'autre : l'inbox reste un outil interne. Ces tests le prouvent dans
- * la base, en vraies sessions contre l'API REST, dans les deux sens : le
- * client lit bien sa FAQ (une politique trop stricte casserait la page
- * `/espace/[workspace]/faq-moderation`), et il ne lit ni celle du voisin, ni
- * les conversations, ni ne pose lui-même son verdict en écriture directe —
- * `setFaqClientReview` passe par une action serveur à garde applicative.
+ * et rien d'autre : l'inbox reste un outil interne. 20260912b-c y ajoutent le
+ * fil de discussion d'un élément de langage, la seule table du module où le
+ * rôle client **écrit**.
+ *
+ * Ces tests le prouvent dans la base, en vraies sessions contre l'API REST,
+ * dans les deux sens : le client lit bien sa FAQ (une politique trop stricte
+ * casserait la page `/espace/[workspace]/faq`) et pose un message dans son
+ * fil, mais il ne lit ni la FAQ ni le fil du voisin, ne lit pas les
+ * conversations, ne pose pas son verdict en écriture directe —
+ * `setFaqClientReview` passe par une action serveur à garde applicative — et
+ * personne, pas même l'owner, ne réécrit un message déjà posté.
  *
  * Comme les suites sœurs : jeu éphémère préfixé `zz-faqm-`, nettoyé à la fin.
  */
@@ -21,8 +26,9 @@ const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 const configured = Boolean(SUPABASE_URL && ANON_KEY && SERVICE_KEY);
 
-/* La migration 20260830 part avec le push sur `main` : tant qu'elle n'est pas
-   appliquée, la base n'a ni `client_review` ni les politiques à prouver, et la
+/* Ces migrations partent avec le push sur `main` : tant qu'elles ne sont pas
+   appliquées, la base n'a ni `client_review`, ni `faq_comments`, ni les
+   politiques à prouver, et la
    suite se saute **en le disant** — un rouge structurel bloquerait la porte des
    quatre commandes pour une cause qui se résout au merge, un vert silencieux
    ferait croire à une preuve. Sonde à la collecte, comme l'autorise Vitest. */
@@ -35,9 +41,14 @@ const migrated = configured
         .from("faq_entries")
         .select("client_review")
         .limit(1);
-      if (error) {
+      const { error: threadError } = await probe
+        .from("faq_comments")
+        .select("id")
+        .limit(1);
+      const missing = error ?? threadError;
+      if (missing) {
         console.warn(
-          `[faq-moderation-isolation] suite sautée : migration 20260830 non appliquée (${error.message}). À rejouer après le push sur main.`,
+          `[faq-moderation-isolation] suite sautée : migrations 20260830 / 20260912b-c non appliquées (${missing.message}). À rejouer après le push sur main.`,
         );
         return false;
       }
@@ -68,6 +79,8 @@ suite("isolation de la FAQ Modération (RLS)", () => {
     entryA: "",
     entryB: "",
     categoryA: "",
+    commentA: "",
+    commentB: "",
     conversationA: "",
   };
   const userIds: string[] = [];
@@ -123,11 +136,26 @@ suite("isolation de la FAQ Modération (RLS)", () => {
       .single();
     if (entryError) throw new Error(`Migration 20260830 appliquée ? ${entryError.message}`);
 
+    const { data: comment, error: commentError } = await admin
+      .from("faq_comments")
+      .insert({
+        client_id: modClient.id,
+        entry_id: entry.id,
+        author_name: "Agence",
+        body: `Autorisation demandée à ${name}`,
+      })
+      .select("id")
+      .single();
+    if (commentError) {
+      throw new Error(`Migration 20260912b appliquée ? ${commentError.message}`);
+    }
+
     return {
       workspaceId: workspace.id,
       modClientId: modClient.id,
       entryId: entry.id,
       categoryId: category!.id,
+      commentId: comment.id,
     };
   }
 
@@ -150,9 +178,11 @@ suite("isolation de la FAQ Modération (RLS)", () => {
     ids.modClientA = a.modClientId;
     ids.entryA = a.entryId;
     ids.categoryA = a.categoryId;
+    ids.commentA = a.commentId;
     ids.workspaceB = b.workspaceId;
     ids.modClientB = b.modClientId;
     ids.entryB = b.entryId;
+    ids.commentB = b.commentId;
 
     // L'inbox du client A : ce que la FAQ ouverte ne doit PAS entraîner.
     const { data: conversation } = await admin
@@ -285,6 +315,74 @@ suite("isolation de la FAQ Modération (RLS)", () => {
         } as never)
         .select("id");
       expect(data ?? []).toEqual([]);
+    });
+  });
+
+  describe("le fil d'un élément de langage", () => {
+    it("un client lit le fil de sa FAQ", async () => {
+      const { data } = await clients.clientA
+        .from("faq_comments")
+        .select("id, body")
+        .in("id", [ids.commentA, ids.commentB]);
+      expect(data?.map((row) => row.id)).toEqual([ids.commentA]);
+    });
+
+    it("un client écrit dans le fil de sa FAQ", async () => {
+      const { data, error } = await clients.clientA
+        .from("faq_comments")
+        .insert({
+          client_id: ids.modClientA,
+          entry_id: ids.entryA,
+          body: "C'est d'accord pour nous.",
+        } as never)
+        .select("id");
+      expect(error).toBeNull();
+      expect(data ?? []).toHaveLength(1);
+    });
+
+    it("un client ne lit pas le fil du voisin, même en ciblant son id", async () => {
+      const { data } = await clients.clientA
+        .from("faq_comments")
+        .select("id, body")
+        .eq("id", ids.commentB);
+      expect(data).toEqual([]);
+    });
+
+    it("un client n'écrit pas dans le fil du voisin", async () => {
+      const { data } = await clients.clientA
+        .from("faq_comments")
+        .insert({
+          client_id: ids.modClientB,
+          entry_id: ids.entryB,
+          body: "Message intrus",
+        } as never)
+        .select("id");
+      expect(data ?? []).toEqual([]);
+    });
+
+    it("personne ne réécrit ni n'efface un message posté, pas même l'owner", async () => {
+      for (const session of [clients.clientA, clients.owner]) {
+        const { data: rewritten } = await session
+          .from("faq_comments")
+          .update({ body: "Message falsifié" })
+          .eq("id", ids.commentA)
+          .select("id");
+        expect(rewritten ?? []).toEqual([]);
+
+        const { data: removed } = await session
+          .from("faq_comments")
+          .delete()
+          .eq("id", ids.commentA)
+          .select("id");
+        expect(removed ?? []).toEqual([]);
+      }
+
+      const { data: after } = await admin
+        .from("faq_comments")
+        .select("body")
+        .eq("id", ids.commentA)
+        .single();
+      expect(after?.body).toBe("Autorisation demandée à Client A");
     });
   });
 

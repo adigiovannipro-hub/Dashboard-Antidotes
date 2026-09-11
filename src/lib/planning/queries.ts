@@ -69,6 +69,26 @@ export async function getBoard(
 }
 
 /**
+ * Le tableau de FAQ d'un espace, cherché par son genre et non par son slug.
+ *
+ * Il n'a plus d'URL à lui depuis que la FAQ est une page du menu : la page en
+ * a besoin pour le repli des espaces sans client de modération, et rien ne
+ * garantit que le tableau s'appelle « faq » chez tout le monde.
+ */
+export async function getFaqBoard(workspaceId: string): Promise<PlanningBoard | null> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("planning_boards")
+    .select("*")
+    .eq("workspace_id", workspaceId)
+    .eq("kind", "faq")
+    .limit(1)
+    .maybeSingle();
+
+  return data ? toBoard(data) : null;
+}
+
+/**
  * Contenu complet d'un tableau : mois → couloirs → publications, plus les
  * archives et la corbeille — tirés de la même lecture.
  *

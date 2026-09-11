@@ -4,10 +4,9 @@ import { requireModerationClient } from "@/lib/moderation/access";
 import { createClient } from "@/lib/supabase/server";
 
 /**
- * La FAQ vit dans le Planning de l'espace, à côté du planning éditorial —
- * comme le board Monday d'origine. Cette route ne sert plus qu'à rediriger
- * les anciens liens, `?entree=` compris : le fil de modération pointe ici,
- * et l'entrée s'ouvre là-bas.
+ * La FAQ vit dans l'espace du client, page du menu depuis le 11/09. Cette
+ * route ne sert plus qu'à rediriger les anciens liens, `?entree=` compris :
+ * le fil de modération pointe ici, et l'entrée s'ouvre là-bas.
  */
 export default async function FaqPage({
   params,
@@ -30,17 +29,7 @@ export default async function FaqPage({
     .maybeSingle();
   if (!workspace) notFound();
 
-  const { data: board } = await supabase
-    .from("planning_boards")
-    .select("slug")
-    .eq("workspace_id", client.workspace_id)
-    .eq("kind", "faq")
-    .maybeSingle();
-  if (!board) notFound();
-
   redirect(
-    `/espace/${(workspace as { slug: string }).slug}/planning/${(board as { slug: string }).slug}${
-      entree ? `?entree=${entree}` : ""
-    }`,
+    `/espace/${(workspace as { slug: string }).slug}/faq${entree ? `?entree=${entree}` : ""}`,
   );
 }

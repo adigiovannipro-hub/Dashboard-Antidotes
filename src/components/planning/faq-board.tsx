@@ -8,41 +8,33 @@ import {
   updateFaqEntry,
 } from "@/app/actions/planning";
 import { DeleteRowButton, TextCell, useCellAction } from "@/components/planning/cells";
-import { BoardTabs } from "@/components/planning/planning-board";
 import type { Scope } from "@/components/planning/subject-row";
 import type { FaqEntry, PlanningBoard } from "@/lib/planning/types";
 import { cn } from "@/lib/utils";
 
 /**
- * Le second tableau de la section : la FAQ du client.
+ * Le repli de la page FAQ, pour un espace sans client de modération rattaché.
  *
- * Il vit à côté du planning sans rien partager avec lui, exactement comme les
- * deux boards Monday. Le module Modération l'enrichit à chaque correction — une
- * entrée marquée `moderation` vient de là — mais rien de la Modération n'est
- * visible ici : le client voit sa FAQ, pas la boîte de réception qui l'alimente.
+ * Il lit `planning_faq_entries`, la table d'avant la bascule sur la FAQ de la
+ * Modération. Aucun onglet de tableau ici : depuis le 11/09, la FAQ est une
+ * page du menu de l'espace et non plus un board de la section Planning.
  */
 const FAQ_GRID =
   "grid grid-cols-[minmax(200px,1.2fr)_140px_minmax(260px,2fr)_90px_28px] items-start gap-x-2";
 
 export function FaqBoardView({
   scope,
-  boards,
   board,
   entries,
-  workspaceSlug,
 }: {
   scope: Scope;
-  boards: PlanningBoard[];
   board: PlanningBoard;
   entries: FaqEntry[];
-  workspaceSlug: string;
 }) {
   const { run, pending } = useCellAction();
 
   return (
     <div className="min-w-0 flex-1 p-4 md:p-6">
-      <BoardTabs boards={boards} current={board} workspaceSlug={workspaceSlug} />
-
       <div className="border-border overflow-hidden rounded-md border">
         <div
           className={cn(

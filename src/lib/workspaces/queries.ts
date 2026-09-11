@@ -4,6 +4,7 @@ import { createAdminClient, createClient } from "@/lib/supabase/server";
 import type { WorkspaceRole } from "@/lib/supabase/database.types";
 
 import {
+  FAQ_PAGE_KEY,
   PLANNING_PAGE_KEY,
   type WorkspacePage,
   type WorkspacePageGrant,
@@ -38,20 +39,41 @@ function isPlanningLike(name: string): boolean {
 export async function listWorkspacePages(workspaceId: string): Promise<WorkspacePage[]> {
   const supabase = await createClient();
 
-  const [{ data: boards }, { data: dashboards }] = await Promise.all([
-    supabase.from("planning_boards").select("id").eq("workspace_id", workspaceId).limit(1),
-    supabase
-      .from("dashboards")
-      .select("slug, name")
-      .eq("workspace_id", workspaceId)
-      .order("position"),
-  ]);
+  const [{ data: boards }, { data: moderationClients }, { data: dashboards }] =
+    await Promise.all([
+      supabase
+        .from("planning_boards")
+        .select("kind")
+        .eq("workspace_id", workspaceId)
+        .limit(100),
+      supabase
+        .from("moderation_clients")
+        .select("id")
+        .eq("workspace_id", workspaceId)
+        .limit(1),
+      supabase
+        .from("dashboards")
+        .select("slug, name")
+        .eq("workspace_id", workspaceId)
+        .order("position"),
+    ]);
 
   const pages: WorkspacePage[] = [];
+  const kinds = (boards ?? []) as unknown as { kind: string }[];
+
+  // La FAQ ouvre le menu, juste après le Contexte : c'est le contrat de parole
+  // du client, et c'est là qu'on va chercher une formule avant de rédiger.
+  // Elle existe dès qu'un client de modération est rattaché — ses entrées
+  // vivent là — ou qu'un vieux tableau `kind = 'faq'` traîne encore.
+  if ((moderationClients ?? []).length > 0 || kinds.some((board) => board.kind === "faq")) {
+    pages.push({ key: FAQ_PAGE_KEY, name: "FAQ" });
+  }
 
   // Le planning passe avant le reporting : on prépare le mois en cours bien
-  // plus souvent qu'on ne relit les chiffres du mois dernier.
-  if ((boards ?? []).length > 0) {
+  // plus souvent qu'on ne relit les chiffres du mois dernier. Un tableau de
+  // FAQ ne compte plus pour lui depuis qu'elle a sa page : l'entrée mènerait
+  // à un planning sans aucun mois.
+  if (kinds.some((board) => board.kind !== "faq")) {
     pages.push({ key: PLANNING_PAGE_KEY, name: "Planning Éditorial" });
   }
 
@@ -77,21 +99,50 @@ export async function listPagesByWorkspace(
   if (workspaceIds.length === 0) return pages;
 
   const supabase = await createClient();
-  const [{ data: boards }, { data: dashboards }] = await Promise.all([
-    supabase.from("planning_boards").select("workspace_id").in("workspace_id", workspaceIds),
-    supabase
-      .from("dashboards")
-      .select("workspace_id, slug, name")
-      .in("workspace_id", workspaceIds)
-      .order("position")
-      .limit(500),
-  ]);
+  const [{ data: boards }, { data: moderationClients }, { data: dashboards }] =
+    await Promise.all([
+      supabase
+        .from("planning_boards")
+        .select("workspace_id, kind")
+        .in("workspace_id", workspaceIds)
+        .limit(500),
+      supabase
+        .from("moderation_clients")
+        .select("workspace_id")
+        .in("workspace_id", workspaceIds)
+        .limit(200),
+      supabase
+        .from("dashboards")
+        .select("workspace_id, slug, name")
+        .in("workspace_id", workspaceIds)
+        .order("position")
+        .limit(500),
+    ]);
 
-  const withBoard = new Set(
-    ((boards ?? []) as unknown as { workspace_id: string }[]).map((row) => row.workspace_id),
-  );
+  const withEditorial = new Set<string>();
+  const withFaq = new Set<string>();
+  for (const board of (boards ?? []) as unknown as {
+    workspace_id: string;
+    kind: string;
+  }[]) {
+    if (board.kind === "faq") withFaq.add(board.workspace_id);
+    else withEditorial.add(board.workspace_id);
+  }
+  for (const client of (moderationClients ?? []) as unknown as {
+    workspace_id: string | null;
+  }[]) {
+    if (client.workspace_id) withFaq.add(client.workspace_id);
+  }
+
+  // Même règle exactement que `listWorkspacePages()` : deux listes qui
+  // divergeraient laisseraient un onglet du rail rendre 404.
   for (const id of workspaceIds) {
-    pages.set(id, withBoard.has(id) ? [{ key: PLANNING_PAGE_KEY, name: "Planning Éditorial" }] : []);
+    const entries: WorkspacePage[] = [];
+    if (withFaq.has(id)) entries.push({ key: FAQ_PAGE_KEY, name: "FAQ" });
+    if (withEditorial.has(id)) {
+      entries.push({ key: PLANNING_PAGE_KEY, name: "Planning Éditorial" });
+    }
+    pages.set(id, entries);
   }
 
   for (const dashboard of (dashboards ?? []) as unknown as {
