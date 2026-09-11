@@ -64,6 +64,11 @@ describe("parseProposal", () => {
       formats: [],
       angles: [],
       frequence: "",
+      // Deux clés depuis 20260913c : absentes de la sortie du modèle, elles
+      // valent vide plutôt que `undefined` — un pilier reste comparable au
+      // diff quel que soit l'âge de la proposition qui l'a produit.
+      objectif_business: "",
+      cta_autorises: [],
     });
   });
 

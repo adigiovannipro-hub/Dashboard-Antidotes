@@ -13,6 +13,13 @@ import { CONTEXT_MODEL } from "./extraction";
  * documents cochés et du brief actuel. Elle ne s'applique jamais seule — la
  * proposition passe par le diff champ par champ, et c'est l'utilisateur qui
  * accepte ou refuse chaque champ.
+ *
+ * Ce que le schéma **ne porte pas** est aussi une décision : ni exemples
+ * validés, ni retours du client, ni faits sourcés, ni livrables. Ce sont des
+ * saisies humaines — un modèle qui proposerait de réécrire un verbatim client
+ * ou de redater un fait vérifié fabriquerait une preuve. `ContextProposal` et
+ * `FIELD_KEYS` encodent cette limite, la régénération ne peut donc pas les
+ * écraser même par accident.
  */
 
 /**
@@ -25,17 +32,14 @@ const PROPOSAL_SCHEMA = {
   additionalProperties: false,
   required: [
     "contexte_principal",
-    "positionnement",
     "cibles",
     "tone_of_voice",
     "piliers",
-    "mentions",
     "interdits",
     "plateformes",
   ],
   properties: {
     contexte_principal: { type: "string" },
-    positionnement: { type: "string" },
     cibles: { type: "string" },
     tone_of_voice: { type: "string" },
     piliers: {
@@ -43,17 +47,26 @@ const PROPOSAL_SCHEMA = {
       items: {
         type: "object",
         additionalProperties: false,
-        required: ["nom", "description", "formats", "angles", "frequence"],
+        required: [
+          "nom",
+          "description",
+          "formats",
+          "angles",
+          "frequence",
+          "objectif_business",
+          "cta_autorises",
+        ],
         properties: {
           nom: { type: "string" },
           description: { type: "string" },
           formats: { type: "array", items: { type: "string" } },
           angles: { type: "array", items: { type: "string" } },
           frequence: { type: "string" },
+          objectif_business: { type: "string" },
+          cta_autorises: { type: "array", items: { type: "string" } },
         },
       },
     },
-    mentions: { type: "string" },
     interdits: { type: "string" },
     plateformes: {
       type: "object",

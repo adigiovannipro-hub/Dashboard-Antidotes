@@ -83,14 +83,13 @@ S'il n'y a aucun précédent — nouveau client, historique vide, connecteur pas
 
 ## Données fournies
 
-BRIEF ÉDITORIAL DU CLIENT :
-{{client_context}}
-
-RÉSUMÉS DES DOCUMENTS DE RÉFÉRENCE :
-{{client_assets_summaries}}
-
-RÈGLES DE PLATEFORME APPLICABLES :
-{{platform_rules}}
+CONTEXTE CLIENT INJECTÉ :
+Une section par bloc du Contexte, dans l'ordre où il faut les lire : la marque
+et ses documents, les piliers, les livrables dus, les règles par réseau, les
+interdits, les exemples validés, les retours du client, les faits sourcés, les
+accroches déjà utilisées — interdites de reprise —, puis le pilotage du moment.
+Les dernières sections tranchent sur les premières quand elles se contredisent.
+{{contexte_injecte}}
 
 SUJET À TRAITER :
 Réseau : {{reseau}}
@@ -126,9 +125,6 @@ FORMULES À RETIRER (mesurées comme contre-performantes, à ne rejouer sous auc
 SYNTHÈSES DES DERNIERS MOIS (mécaniques retenues et mécaniques à retirer) :
 Chaque bloc nomme le mois qu'il analyse, qui n'est pas celui que tu rédiges.
 {{syntheses_precedentes}}
-
-30 DERNIÈRES ACCROCHES DÉJÀ PUBLIÉES POUR CE CLIENT (interdiction de les réutiliser ou de les paraphraser) :
-{{accroches_historique}}
 
 ## Format de sortie
 

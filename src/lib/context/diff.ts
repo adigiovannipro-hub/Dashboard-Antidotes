@@ -27,6 +27,10 @@ export function renderPillarsText(pillars: ContextPillar[]): string {
     .map((pillar) => {
       const details = [
         pillar.description,
+        pillar.objectif_business ? `Objectif business : ${pillar.objectif_business}` : "",
+        pillar.cta_autorises && pillar.cta_autorises.length > 0
+          ? `CTA autorisés : ${pillar.cta_autorises.join(", ")}`
+          : "",
         pillar.formats.length > 0 ? `Formats : ${pillar.formats.join(", ")}` : "",
         pillar.angles.length > 0 ? `Angles : ${pillar.angles.join(", ")}` : "",
         pillar.frequence ? `Fréquence : ${pillar.frequence}` : "",
@@ -61,11 +65,9 @@ function comparable(context: ClientContext | null): Pick<ContextProposal, Contex
   if (!context) return null;
   return {
     main_context: context.main_context ?? "",
-    positioning: context.positioning ?? "",
     audience: context.audience ?? "",
     tone_of_voice: context.tone_of_voice ?? "",
     pillars: context.pillars,
-    mentions: context.mentions ?? "",
     restrictions: context.restrictions ?? "",
     platforms: context.platforms,
   };
@@ -102,11 +104,9 @@ export function mergeProposal(
 ): ContextProposal {
   const base = comparable(current) ?? {
     main_context: "",
-    positioning: "",
     audience: "",
     tone_of_voice: "",
     pillars: [],
-    mentions: "",
     restrictions: "",
     platforms: {},
   };
@@ -117,11 +117,9 @@ export function mergeProposal(
 
   return {
     main_context: pick("main_context"),
-    positioning: pick("positioning"),
     audience: pick("audience"),
     tone_of_voice: pick("tone_of_voice"),
     pillars: pick("pillars"),
-    mentions: pick("mentions"),
     restrictions: pick("restrictions"),
     platforms: pick("platforms"),
   };

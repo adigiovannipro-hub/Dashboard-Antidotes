@@ -107,7 +107,10 @@ type PhaseOutcome = {
   phaseDone: boolean;
 };
 
-export async function runGenerationJob(jobId: string): Promise<void> {
+export async function runGenerationJob(
+  jobId: string,
+  options: { adjustment?: string | null } = {},
+): Promise<void> {
   const supabase = createAdminClient();
 
   const { data, error } = await supabase
@@ -132,7 +135,7 @@ export async function runGenerationJob(jobId: string): Promise<void> {
 
   let outcome: PhaseOutcome;
   try {
-    outcome = await runPhase(supabase, job);
+    outcome = await runPhase(supabase, job, options.adjustment ?? null);
   } catch (caught) {
     outcome = {
       status: "error",
@@ -206,16 +209,26 @@ async function isCancelled(supabase: SupabaseAdmin, jobId: string): Promise<bool
   return (data as { status: GenerationJobStatus } | null)?.status === "cancelled";
 }
 
-function runPhase(supabase: SupabaseAdmin, job: GenerationJob): Promise<PhaseOutcome> {
+/**
+ * `adjustment` est l'« ajustement à chaud » saisi au lancement : une consigne
+ * d'une ligne qui ne vaut que pour cette exécution. Elle traverse le worker en
+ * argument et **n'est jamais écrite** — ce n'est pas un réglage, et la ranger
+ * en base la ferait repartir au passage suivant sans que personne s'en doute.
+ */
+function runPhase(
+  supabase: SupabaseAdmin,
+  job: GenerationJob,
+  adjustment: string | null,
+): Promise<PhaseOutcome> {
   switch (job.phase) {
     case "intentions":
-      return runIntentions(supabase, job);
+      return runIntentions(supabase, job, adjustment);
     case "wording":
-      return runWording(supabase, job);
+      return runWording(supabase, job, adjustment);
     case "programmation":
       return runProgrammation(supabase, job);
     case "reporting":
-      return runReporting(supabase, job);
+      return runReporting(supabase, job, adjustment);
   }
 }
 
@@ -411,22 +424,6 @@ async function getDeliverables(
     return EMPTY_DELIVERABLES;
   }
   return normalizeDeliverables((data as { deliverables?: unknown } | null)?.deliverables);
-}
-
-/** Les 30 dernières accroches publiées, numérotées — la liste anti-répétition. */
-async function recentHooks(
-  supabase: SupabaseAdmin,
-  workspaceId: string,
-): Promise<string> {
-  const { data } = await supabase
-    .from("wording_history")
-    .select("hook")
-    .eq("workspace_id", workspaceId)
-    .order("published_at", { ascending: false, nullsFirst: false })
-    .limit(30);
-  return ((data ?? []) as unknown as { hook: string }[])
-    .map((row, index) => `${index + 1}. ${row.hook}`)
-    .join("\n");
 }
 
 /**
@@ -648,13 +645,18 @@ const FORMAT_BY_LABEL: Record<string, PlanningFormat> = {
 async function runIntentions(
   supabase: SupabaseAdmin,
   job: GenerationJob,
+  adjustment: string | null,
 ): Promise<PhaseOutcome> {
   const board = await getEditorialBoard(supabase, job.workspace_id);
   if (!board) {
     return failure("Aucun planning éditorial pour cet espace : créer le tableau d'abord.");
   }
 
-  const context = await getClientContext({ workspaceId: job.workspace_id });
+  const context = await getClientContext({
+    workspaceId: job.workspace_id,
+    targetMonth: job.target_month,
+    adjustment,
+  });
 
   // L'historique des trois mois précédant le mois cible, tel qu'exigé par le
   // prompt : sujets, formats, dates — la matière de la rotation des templates.
@@ -715,11 +717,10 @@ async function runIntentions(
   // le contrat, pas repartir de zéro et livrer le double.
   const targetMonths = await getMonths(supabase, board.id, [job.target_month]);
   const targetMonthIds = targetMonths.map((month) => month.id);
-  const [targetSubjects, targetLanes, deliverables, hooks] = await Promise.all([
+  const [targetSubjects, targetLanes, deliverables] = await Promise.all([
     getSubjects(supabase, targetMonthIds),
     getLanePlatforms(supabase, targetMonthIds),
     getDeliverables(supabase, job.workspace_id),
-    recentHooks(supabase, job.workspace_id),
   ]);
 
   const existing: ExistingPublication[] = targetSubjects.map((subject) => ({
@@ -749,17 +750,13 @@ async function runIntentions(
   const syntheses = await readPreviousReports(supabase, job.workspace_id, job.target_month);
 
   const system = renderPrompt("intentions", {
-    client_context: context.client_context,
-    client_assets_summaries: context.client_assets_summaries,
+    contexte_injecte: context.injected,
     historique,
     target_month: fullMonthLabel(job.target_month),
     deja_planifie: renderExisting(existing),
     reste_a_produire: renderQuotas(quotas),
-    accroches_historique: hooks,
     syntheses_precedentes: syntheses,
     top_posts_mesures: renderTopPostsSummary(mesuresPassees),
-    contraintes: context.contraintes,
-    marronniers: context.marronniers,
   });
 
   const attendu =
@@ -934,8 +931,8 @@ async function runIntentions(
 /**
  * Ce que la performance passée dit à la rédaction, en quatre blocs.
  *
- * Calculés **une fois par phase** et passés à `produceWording`, comme `hooks`
- * et `previous` le sont déjà : `runWording` traite par lots de quatre, et tout
+ * Calculés **une fois par phase** et passés à `produceWording`, comme
+ * `previous` l'est déjà : `runWording` traite par lots de quatre, et tout
  * ce qui se recalcule par sujet est payé douze à quinze fois par mois et par
  * client — en lectures comme en jetons d'entrée.
  */
@@ -1022,7 +1019,6 @@ async function produceWording(
     workspaceId: string;
     intentionColumnId: string | null;
     context: Awaited<ReturnType<typeof getClientContext>>;
-    hooks: string;
     /** Les derniers wordings validés, rendus pour le prompt — le registre. */
     previous: string;
     /** Ce que la performance passée dit — calculé une fois pour toute la phase. */
@@ -1038,9 +1034,7 @@ async function produceWording(
   const brief = (subject.wording ?? "").trim();
 
   const system = renderPrompt("wording", {
-    client_context: input.context.client_context,
-    client_assets_summaries: input.context.client_assets_summaries,
-    platform_rules: input.context.platform_rules,
+    contexte_injecte: input.context.injected,
     reseau: platformLabelOf(input.platform),
     type: formatLabelOf(subject.format),
     template: subject.name,
@@ -1049,7 +1043,6 @@ async function produceWording(
     brief_existant: brief,
     consigne_format: formatInstruction(format),
     wordings_precedents: input.previous,
-    accroches_historique: input.hooks,
     wordings_mesures: input.performance.wordings_mesures,
     hooks_performants: input.performance.hooks_performants,
     cta_performants: input.performance.cta_performants,
@@ -1160,9 +1153,8 @@ export async function generateWordingForSubject(
     const targetMonth =
       (subjectMonth as { month: string } | null)?.month ?? "9999-12-01";
 
-    const [context, hooks, intentionColumnId, previous, performance] = await Promise.all([
-      getClientContext({ workspaceId: subject.workspace_id }),
-      recentHooks(supabase, subject.workspace_id),
+    const [context, intentionColumnId, previous, performance] = await Promise.all([
+      getClientContext({ workspaceId: subject.workspace_id, targetMonth }),
       ensureIntentionColumn(supabase, subject.board_id, subject.workspace_id),
       previousWordings(supabase, subject.workspace_id, subject.board_id, targetMonth),
       readPerformanceBlocks(supabase, subject.workspace_id, targetMonth),
@@ -1175,7 +1167,6 @@ export async function generateWordingForSubject(
       workspaceId: subject.workspace_id,
       intentionColumnId,
       context,
-      hooks,
       previous,
       performance,
     });
@@ -1191,6 +1182,7 @@ export async function generateWordingForSubject(
 async function runWording(
   supabase: SupabaseAdmin,
   job: GenerationJob,
+  adjustment: string | null,
 ): Promise<PhaseOutcome> {
   const board = await getEditorialBoard(supabase, job.workspace_id);
   if (!board) {
@@ -1222,10 +1214,13 @@ async function runWording(
     };
   }
 
-  const [context, lanePlatforms, hooks, previous, performance] = await Promise.all([
-    getClientContext({ workspaceId: job.workspace_id }),
+  const [context, lanePlatforms, previous, performance] = await Promise.all([
+    getClientContext({
+      workspaceId: job.workspace_id,
+      targetMonth: job.target_month,
+      adjustment,
+    }),
     getLanePlatforms(supabase, months.map((month) => month.id)),
-    recentHooks(supabase, job.workspace_id),
     previousWordings(supabase, job.workspace_id, board.id, job.target_month),
     // Une fois pour toute la phase : `WORDING_BATCH_SIZE` vaut 4, et ces blocs
     // sont identiques d'un sujet à l'autre.
@@ -1254,7 +1249,6 @@ async function runWording(
       workspaceId: job.workspace_id,
       intentionColumnId,
       context,
-      hooks,
       previous,
       performance,
     });
@@ -1562,6 +1556,7 @@ async function readReportingFacts(
 async function runReporting(
   supabase: SupabaseAdmin,
   job: GenerationJob,
+  adjustment: string | null,
 ): Promise<PhaseOutcome> {
   const monthKey = job.target_month.slice(0, 7);
   const previousKey = `${shiftMonth(monthKey, -1)}-01`;
@@ -1647,10 +1642,14 @@ async function runReporting(
       .join("\n")
       .trim() || "Aucune publication publiée ce mois.";
 
-  const context = await getClientContext({ workspaceId: job.workspace_id });
+  const context = await getClientContext({
+    workspaceId: job.workspace_id,
+    targetMonth: job.target_month,
+    adjustment,
+  });
 
   const system = renderPrompt("reporting", {
-    client_context: context.client_context,
+    contexte_injecte: context.injected,
     target_month: fullMonthLabel(job.target_month),
     metrics: renderReportingFacts(facts),
     posts_data: postsData,

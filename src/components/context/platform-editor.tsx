@@ -42,7 +42,9 @@ export function PlatformEditor({
   const keys = useMemo(() => {
     const declared = reseaux.map((name) => networkKey(name));
     const orphans = Object.entries(platforms)
-      .filter(([key, rule]) => !declared.includes(key) && rule.trim().length > 0)
+      .filter(
+        ([key, rule]) => !declared.includes(key) && rule.trim().length > 0,
+      )
       .map(([key]) => key)
       .sort();
     return [...declared, ...orphans];
@@ -58,7 +60,9 @@ export function PlatformEditor({
   const [drafts, setDrafts] = useState<ContextPlatformRules>(() =>
     Object.fromEntries(keys.map((key) => [key, platforms[key] ?? ""])),
   );
-  const [savedJson, setSavedJson] = useState(() => JSON.stringify(clean(drafts)));
+  const [savedJson, setSavedJson] = useState(() =>
+    JSON.stringify(clean(drafts)),
+  );
   const [, startSave] = useTransition();
 
   function persist() {
@@ -80,44 +84,39 @@ export function PlatformEditor({
   }
 
   return (
-    <section
-      className={cn("rounded-lg border border-border bg-surface shadow-card", className)}
-    >
-      <div className="border-b border-border px-5 py-4">
-        <h3 className="type-h3">Règles par plateforme</h3>
-        <p className="type-caption mt-0.5 text-text-secondary">
-          Format d&apos;écriture, longueur, emojis, hashtags, tutoiement ou vouvoiement,
-          mentions obligatoires, réseau par réseau.
+    <div className={cn("grid grid-cols-1 gap-4 p-5 md:grid-cols-2", className)}>
+      {keys.length === 0 ? (
+        <p className="type-body text-text-secondary md:col-span-2">
+          {readOnly
+            ? "Aucun réseau dans cette version."
+            : "Aucun réseau déclaré : coche ceux du client dans les livrables mensuels, juste au-dessus, et une rangée apparaîtra ici pour chacun."}
         </p>
-      </div>
-
-      <div className="grid grid-cols-1 gap-4 p-5 md:grid-cols-2">
-        {keys.length === 0 ? (
-          <p className="type-body text-text-secondary md:col-span-2">
-            {readOnly
-              ? "Aucun réseau dans cette version."
-              : "Aucun réseau déclaré : coche ceux du client dans les livrables mensuels, juste au-dessus, et une rangée apparaîtra ici pour chacun."}
-          </p>
-        ) : (
-          keys.map((key) => (
-            <label key={key} className="flex flex-col gap-1.5">
-              <span className="type-overline text-text-secondary">{labels[key] ?? key}</span>
-              <textarea
-                value={drafts[key] ?? ""}
-                disabled={readOnly}
-                rows={3}
-                placeholder={readOnly ? "—" : `Règles d'écriture pour ${labels[key] ?? key}.`}
-                onChange={(event) =>
-                  setDrafts((current) => ({ ...current, [key]: event.target.value }))
-                }
-                onBlur={persist}
-                className="focus-visible:ring-ring w-full resize-y rounded-md border border-border-line bg-surface px-3 py-2 type-caption text-text-primary focus-visible:ring-2 focus-visible:outline-none"
-              />
-            </label>
-          ))
-        )}
-      </div>
-    </section>
+      ) : (
+        keys.map((key) => (
+          <label key={key} className="flex flex-col gap-1.5">
+            <span className="type-overline text-text-secondary">
+              {labels[key] ?? key}
+            </span>
+            <textarea
+              value={drafts[key] ?? ""}
+              disabled={readOnly}
+              rows={3}
+              placeholder={
+                readOnly ? "—" : `Règles d'écriture pour ${labels[key] ?? key}.`
+              }
+              onChange={(event) =>
+                setDrafts((current) => ({
+                  ...current,
+                  [key]: event.target.value,
+                }))
+              }
+              onBlur={persist}
+              className="focus-visible:ring-ring w-full resize-y rounded-md border border-border-line bg-surface px-3 py-2 type-caption text-text-primary focus-visible:ring-2 focus-visible:outline-none"
+            />
+          </label>
+        ))
+      )}
+    </div>
   );
 }
 

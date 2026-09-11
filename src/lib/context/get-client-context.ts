@@ -1,67 +1,70 @@
 import "server-only";
 
+import { buildContextSections, renderContextSections, totalContextTokens } from "./injected-context";
+import type { ContextSection } from "./injected-context";
 import {
-  extractPlatformRules,
-  renderAssetSummaries,
-  renderBrief,
-} from "./injected-context";
-import { getActiveContext, listAssets } from "./queries";
+  getActiveContext,
+  getGenerationSettings,
+  listAssets,
+  listRecentAccroches,
+} from "./queries";
 
 /**
- * Contexte éditorial d'un client — la matière première des prompts.
+ * Le contexte éditorial d'un client — la matière première des prompts.
  *
- * Le contrat est celui qu'attend `src/lib/production/generate.ts` : cinq
- * champs texte, vides plutôt qu'inventés. Il était rempli par un bouchon en
- * attendant que le module Contexte existe ; il l'est maintenant pour de vrai,
- * depuis le brief actif et les documents cochés de l'espace.
+ * **Une seule chaîne d'assemblage, partagée avec l'écran.** Cette fonction
+ * rendait auparavant cinq champs séparés (`client_context`,
+ * `client_assets_summaries`, `platform_rules`, `contraintes`, `marronniers`)
+ * interpolés à la main dans trois markdown : deux d'entre eux ne recevaient
+ * jamais les règles de plateforme, et les deux derniers champs valaient `""`
+ * depuis toujours. Elle rend maintenant le **même tableau de sections** que la
+ * modale « Voir le prompt injecté », plus son `join`. Le compteur de l'écran
+ * et le texte du modèle ne peuvent donc plus diverger.
  *
- * Deux champs restent vides parce que **rien ne les alimente aujourd'hui** :
- * le Contexte décrit la marque, pas le mois. Les prompts affichent alors
- * « Non renseigné. » et le modèle sait qu'il travaille sans cette matière —
- * c'est la règle de la maison, une source absente se dit, elle ne s'invente
- * pas. Les accroches déjà publiées ne passent pas non plus par ici : la
- * génération lit `wording_history` elle-même, au moment où elle en a besoin.
- *
- * `objectifs` a été **retiré** : il valait `""` depuis toujours, et le prompt
- * de reporting promettait pourtant une comparaison à des objectifs chiffrés
- * qu'aucune donnée n'alimentait. Une section qui promet ce qu'elle n'a pas est
- * pire qu'une section absente.
+ * `objectifs` a été retiré bien avant, pour la même raison : une section qui
+ * promet ce qu'elle n'a pas est pire qu'une section absente.
  */
-
-export type ClientContext = {
-  /** Brief éditorial du client — ligne, ton, thématiques. */
-  client_context: string;
-  /** Résumés des documents de référence fournis par le client. */
-  client_assets_summaries: string;
-  /** Règles de rédaction par plateforme, propres au client. */
-  platform_rules: string;
-  /** Contraintes particulières du mois (événement, lancement, pause). */
-  contraintes: string;
-  /** Marronniers et événements sectoriels identifiés. */
-  marronniers: string;
+export type ClientContextBundle = {
+  /** Les sections, dans l'ordre où le modèle les lit. */
+  sections: ContextSection[];
+  /** Le texte exact envoyé au modèle. */
+  injected: string;
+  /** Son poids estimé — le même chiffre que celui affiché à l'écran. */
+  tokens: number;
 };
 
 export async function getClientContext(options: {
   workspaceId: string;
-}): Promise<ClientContext> {
-  const [brief, assets] = await Promise.all([
+  /**
+   * Mois visé par la génération (`YYYY-MM-01`). C'est lui qui décide si la
+   * consigne du mois part : une consigne d'août n'a rien à faire dans une
+   * génération d'octobre, et aucun trigger ne l'efface pour nous.
+   */
+  targetMonth?: string | null;
+  /** Ajustement à chaud saisi au lancement. Jamais persisté. */
+  adjustment?: string | null;
+  /** Plafond d'accroches injectées en négatif. */
+  accrochesLimit?: number;
+}): Promise<ClientContextBundle> {
+  const [brief, assets, settings, accroches] = await Promise.all([
     getActiveContext(options.workspaceId),
     listAssets(options.workspaceId),
+    getGenerationSettings(options.workspaceId),
+    listRecentAccroches(options.workspaceId, { limit: options.accrochesLimit ?? 30 }),
   ]);
 
-  const platformRules = Object.entries(extractPlatformRules(brief))
-    .map(([platform, rule]) => `- ${platform} : ${rule}`)
-    .join("\n");
+  const sections = buildContextSections({
+    brief,
+    assets,
+    settings,
+    accroches: accroches.map((entry) => entry.hook),
+    targetMonth: options.targetMonth ?? null,
+    adjustment: options.adjustment ?? null,
+  });
 
   return {
-    // Le brief entier : contexte principal, positionnement, cibles, ton,
-    // piliers, livrables mensuels, mentions et interdits.
-    client_context: renderBrief(brief),
-    // Seuls les documents cochés : la case de la page Contexte est ce qui
-    // décide de ce qui part dans les prompts.
-    client_assets_summaries: renderAssetSummaries(assets),
-    platform_rules: platformRules,
-    contraintes: "",
-    marronniers: "",
+    sections,
+    injected: renderContextSections(sections),
+    tokens: totalContextTokens(sections),
   };
 }

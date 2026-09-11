@@ -131,9 +131,9 @@ les 4 200 tokens qui partent, pas une estimation parallèle.
 
 ## 5. Fichiers de migration
 
-- `20260913a_contexte_v2_schema.sql` — les trois colonnes, la table de
+- `20260913c_contexte_v2_schema.sql` — les trois colonnes, la table de
   pilotage, la reprise de `positioning` et `mentions`, les deux `drop column`.
-- `20260913b_contexte_v2_rls.sql` — politiques et `revoke` de la table de
+- `20260913d_contexte_v2_rls.sql` — politiques et `revoke` de la table de
   pilotage.
 
 Schéma et RLS en deux fichiers, comme 0032/0033. Rejeu sur un Postgres 16

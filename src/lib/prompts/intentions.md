@@ -103,11 +103,13 @@ Pour l'angle lui-même (`intention`), 1 à 3 phrases suffisent.
 
 ## Données fournies
 
-BRIEF ÉDITORIAL DU CLIENT :
-{{client_context}}
-
-RÉSUMÉS DES DOCUMENTS DE RÉFÉRENCE :
-{{client_assets_summaries}}
+CONTEXTE CLIENT INJECTÉ :
+Une section par bloc du Contexte, dans l'ordre où il faut les lire : la marque
+et ses documents, les piliers, les livrables dus, les règles par réseau, les
+interdits, les exemples validés, les retours du client, les faits sourcés, les
+accroches déjà utilisées — interdites de reprise —, puis le pilotage du moment.
+Les dernières sections tranchent sur les premières quand elles se contredisent.
+{{contexte_injecte}}
 
 HISTORIQUE DES 3 DERNIERS MOIS (sujets, formats, dates, templates) :
 Les lignes dont la publication a pu être rapprochée de sa mesure portent leur
@@ -130,13 +132,6 @@ DÉJÀ PLANIFIÉ SUR LE MOIS CIBLE (lignes saisies à la main, à ne pas redoubl
 
 RESTE À PRODUIRE (décompte contractuel moins l'existant, fait autorité) :
 {{reste_a_produire}}
-
-30 DERNIÈRES ACCROCHES DÉJÀ PUBLIÉES POUR CE CLIENT (aucune intention ne doit conduire à les réécrire) :
-{{accroches_historique}}
-
-CONTRAINTES PARTICULIÈRES : {{contraintes}}
-
-MARRONNIERS ET ÉVÉNEMENTS SECTORIELS IDENTIFIÉS : {{marronniers}}
 
 ## Format de sortie
 

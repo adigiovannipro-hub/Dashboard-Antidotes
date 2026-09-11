@@ -66,6 +66,14 @@ export type ContextPillar = {
   formats: string[];
   angles: string[];
   frequence: string;
+  /**
+   * Ce que le pilier doit produire côté business, et les seuls appels à
+   * l'action autorisés dessus. Optionnels : `pillars` est un `jsonb` peuplé
+   * depuis 0032, et les piliers déjà écrits doivent rester valides sans
+   * backfill — c'est pour ça que 20260913c n'ajoute aucune colonne.
+   */
+  objectif_business?: string;
+  cta_autorises?: string[];
 };
 
 /**
@@ -158,22 +166,28 @@ export function networkKey(name: string): string {
     .replace(/\s+/g, "-");
 }
 
-/** Les six champs texte du brief, éditables en place. */
+/**
+ * Les champs texte du brief, éditables en place.
+ *
+ * `positioning` et `mentions` ont été retirés par 20260913c, sans rien perdre :
+ * le positionnement décrivait la même chose que le contexte principal en deux
+ * cartes, il est recopié à la fin de « La marque » ; les mentions sont une
+ * règle d'écriture, elles sont recopiées dans la règle de chaque réseau
+ * déclaré. `client_feedback` arrive avec la même migration.
+ */
 export type ContextTextField =
   | "main_context"
-  | "positioning"
   | "audience"
   | "tone_of_voice"
-  | "mentions"
-  | "restrictions";
+  | "restrictions"
+  | "client_feedback";
 
 export const TEXT_FIELD_LABELS: Record<ContextTextField, string> = {
-  main_context: "Contexte principal",
-  positioning: "Positionnement",
+  main_context: "La marque",
   audience: "Cibles",
   tone_of_voice: "Tone of voice",
-  mentions: "Mentions",
   restrictions: "Interdits",
+  client_feedback: "Retours du client",
 };
 
 export const TEXT_FIELDS = Object.keys(TEXT_FIELD_LABELS) as ContextTextField[];
@@ -182,16 +196,80 @@ export function isContextTextField(value: string): value is ContextTextField {
   return value in TEXT_FIELD_LABELS;
 }
 
-/** Tous les champs comparés par le diff de régénération. */
-export type ContextFieldKey = ContextTextField | "pillars" | "platforms";
+/**
+ * Les champs comparés par le diff de régénération — donc les seuls que la
+ * consolidation a le droit de proposer.
+ *
+ * `client_feedback` n'en fait pas partie, et c'est la règle de la maison :
+ * les retours du client sont une saisie humaine, comme les livrables
+ * contractuels, les exemples validés et les faits sourcés. Un modèle qui
+ * proposerait de réécrire ce que le client a dit fabriquerait un faux verbatim.
+ */
+export type ContextFieldKey =
+  | "main_context"
+  | "audience"
+  | "tone_of_voice"
+  | "restrictions"
+  | "pillars"
+  | "platforms";
 
 export const FIELD_LABELS: Record<ContextFieldKey, string> = {
-  ...TEXT_FIELD_LABELS,
+  main_context: TEXT_FIELD_LABELS.main_context,
+  audience: TEXT_FIELD_LABELS.audience,
+  tone_of_voice: TEXT_FIELD_LABELS.tone_of_voice,
+  restrictions: TEXT_FIELD_LABELS.restrictions,
   pillars: "Piliers de contenu",
   platforms: "Règles par plateforme",
 };
 
 export const FIELD_KEYS = Object.keys(FIELD_LABELS) as ContextFieldKey[];
+
+// --- Matière humaine : exemples validés et faits sourcés ---------------------
+
+/**
+ * Une publication réellement parue et approuvée par le client, collée brute.
+ * Injectée **entière** dans les prompts : c'est le registre à reproduire, un
+ * résumé n'apprendrait rien au modèle sur la façon d'écrire.
+ */
+export type ValidatedExample = {
+  /** Réseau, tel que l'agence l'écrit — même vocabulaire que les livrables. */
+  reseau: string;
+  texte: string;
+};
+
+/**
+ * Un fait vérifiable et sa preuve. `verifie_le` est une date ISO et jamais un
+ * texte : l'écran marque en ambre ce qui dépasse six mois, et « septembre » ne
+ * se compare pas.
+ */
+export type SourcedFact = {
+  fait: string;
+  source: string;
+  /** `YYYY-MM-DD`. */
+  verifie_le: string;
+};
+
+/** 3 à 5 exemples : au-delà, le registre se dilue et le budget de tokens part. */
+export const VALIDATED_EXAMPLES_TARGET = { min: 3, max: 5 } as const;
+
+// --- Pilotage de la génération (non versionné) --------------------------------
+
+/**
+ * La ligne de `client_generation_settings` (20260913c) : ce qui décrit le
+ * **moment** et non la marque, donc ce qui n'a rien à faire dans un brief
+ * versionné. Une ligne par espace, owner-only.
+ */
+export type ClientGenerationSettings = {
+  workspace_id: string;
+  permanent_instructions: string | null;
+  monthly_instruction: string | null;
+  /** `YYYY-MM-01` : le mois que la consigne vise, jamais l'un sans l'autre. */
+  monthly_instruction_month: string | null;
+  temporal_context: string | null;
+  temporal_context_at: string | null;
+  updated_at: string;
+  updated_by: string | null;
+};
 
 // --- Lignes de base ----------------------------------------------------------
 
@@ -201,14 +279,15 @@ export type ClientContext = {
   version: number;
   is_active: boolean;
   main_context: string | null;
-  positioning: string | null;
   audience: string | null;
   tone_of_voice: string | null;
   pillars: ContextPillar[];
-  mentions: string | null;
   restrictions: string | null;
   platforms: ContextPlatformRules;
   deliverables: ContextDeliverables;
+  validated_examples: ValidatedExample[];
+  client_feedback: string | null;
+  sourced_facts: SourcedFact[];
   created_at: string;
   created_by: string | null;
 };
@@ -246,11 +325,9 @@ export type { WordingHistoryEntry } from "@/lib/production/types";
  */
 export type ContextProposal = {
   main_context: string;
-  positioning: string;
   audience: string;
   tone_of_voice: string;
   pillars: ContextPillar[];
-  mentions: string;
   restrictions: string;
   platforms: ContextPlatformRules;
 };
