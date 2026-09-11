@@ -5,7 +5,6 @@ import { AppShell } from "@/components/ds/app-shell";
 import { FilterPills, type FilterOption } from "@/components/ds/filter-pills";
 import { StatCard, StatGrid } from "@/components/ds/stat-card";
 import { SectionHeader } from "@/components/ds/surface";
-import { ArchiveSection } from "@/components/mon-travail/archive-section";
 import { ClientCard } from "@/components/mon-travail/client-card";
 import { PublicationsSection } from "@/components/mon-travail/publications-section";
 import { TasksSection } from "@/components/mon-travail/tasks-section";
@@ -27,11 +26,9 @@ import {
   type WorkspaceStats,
 } from "@/lib/mon-travail/overview";
 import {
-  listArchivedTasks,
   listNextPublications,
   listOpenTasks,
   listPublicationsToDo,
-  listPublishedOn,
 } from "@/lib/mon-travail/queries";
 import type { TaskWorkspace } from "@/lib/mon-travail/types";
 import { formatMoney } from "@/lib/finance/money";
@@ -47,7 +44,7 @@ type SearchParams = Promise<Record<string, string | string[] | undefined>>;
  *
  * Quatre étages, du général au particulier — la bande de mesures pour savoir
  * en un regard si la journée tient, ce qui doit partir aujourd'hui, les
- * tâches, puis les espaces clients. L'archivé attend en bas de page.
+ * tâches, puis les espaces clients.
  *
  * Un client, lui, ne voit que ses espaces. Le module n'existe pas pour lui —
  * ni section vide, ni mention.
@@ -102,10 +99,6 @@ export default async function HubPage({
          alors que c'est en sortant de l'appel qu'on veut ses actions. */
       actions={travail ? <WorkSyncButton /> : undefined}
     >
-      {/* `pb-16` : l'archivé s'allume en montant dans la fenêtre, et la
-          dernière ligne d'une page ne finit jamais d'y entrer — elle serait
-          restée à 0,83 d'opacité, donc sous le seuil de contraste. Soixante
-          pixels de fond de page lui laissent terminer sa course. */}
       <div className="space-y-8 pb-16">
         {travail ? (
           <>
@@ -275,15 +268,6 @@ export default async function HubPage({
             </div>
           </section>
         ) : null}
-
-        {travail ? (
-          <ArchiveSection
-            tasks={travail.archivedTasks}
-            publications={travail.published}
-            workspacesById={travail.workspacesById}
-            clientWorkspaces={travail.clientWorkspaces}
-          />
-        ) : null}
       </div>
     </AppShell>
   );
@@ -312,13 +296,11 @@ async function loadTravail(
   today: string,
   workspaceId: string | null,
 ) {
-  const [toPublish, published, next, openTasks, archivedTasks, overview, production] =
+  const [toPublish, next, openTasks, overview, production] =
     await Promise.all([
       listPublicationsToDo({ until: today, workspaceId }),
-      listPublishedOn({ day: today, workspaceId }),
       listNextPublications({ after: today, workspaceId, limit: 3 }),
       listOpenTasks({ until: addDays(today, UPCOMING_DAYS), workspaceId }),
-      listArchivedTasks({ workspaceId }),
       getOverview({
         today,
         isOwner: true,
@@ -345,17 +327,12 @@ async function loadTravail(
     production,
     byWorkspace: overview.byWorkspace as Map<string, WorkspaceStats>,
     groups: organizeTasks(openTasks, today),
-    // Deux lectures distinctes plutôt qu'un tri en mémoire : « à publier »
-    // remonte les retards des jours d'avant, l'archivé ne montre que la
-    // journée — mélanger les deux ramenait tout l'historique publié.
     toPublish,
-    published,
     // Compté une fois ici, affiché par la bande de mesures et par le panneau.
     late: toPublish.filter(
       (row) => row.subject.scheduled_on !== null && row.subject.scheduled_on < today,
     ).length,
     next,
-    archivedTasks,
     workspacesById: Object.fromEntries(
       workspaces.map((workspace) => [workspace.id, asTaskWorkspace(workspace)]),
     ),

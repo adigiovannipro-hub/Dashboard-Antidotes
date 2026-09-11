@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { Check, ExternalLink, Trash2, Users } from "lucide-react";
+import { toast } from "sonner";
 
 import { deleteTask, toggleTask, updateTask } from "@/app/actions/mon-travail";
 import { TextCell, useCellAction } from "@/components/planning/cells";
@@ -11,7 +12,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { shortDate } from "@/lib/mon-travail/dates";
 import {
   WORK_SOURCE_LABELS,
   type TaskWorkspace,
@@ -23,8 +23,9 @@ import { cn } from "@/lib/utils";
  * Une tâche : coche ronde, libellé, client, source, échéance.
  *
  * Tout s'édite en place — y compris les tâches générées, rien n'est
- * verrouillé. La coche archive ; l'archive garde la coche, pour ressusciter
- * une tâche fermée trop vite.
+ * verrouillé. La coche ferme la tâche, qui quitte la liste au retour du
+ * serveur : la rubrique « Archivé » n'existant plus, c'est le toast d'après-coup
+ * qui porte la sortie de secours d'une coche trop rapide.
  *
  * Les quatre informations sont en colonnes alignées et titrées. Elles vivaient
  * en vrac sur une seconde ligne, où rien ne disait laquelle était le client et
@@ -33,13 +34,13 @@ import { cn } from "@/lib/utils";
 
 /** Gabarit partagé par l'en-tête et les lignes. */
 const TASK_GRID =
-  "md:grid md:grid-cols-[1.25rem_minmax(0,1fr)_9rem_7rem_8rem_1.75rem] md:items-center md:gap-x-3";
+  "md:grid md:grid-cols-[1rem_minmax(0,1fr)_9rem_7rem_8rem_1.75rem] md:items-center md:gap-x-3";
 
 export function TaskHeader() {
   return (
     <div
       className={cn(
-        "type-overline hidden border-b border-border bg-surface-sunken px-3 py-1.5 text-text-secondary",
+        "type-overline hidden border-b border-border bg-surface-sunken px-3 py-1 text-text-secondary",
         TASK_GRID,
       )}
     >
@@ -69,7 +70,7 @@ export function TaskRowView({
   task: WorkTask;
   workspace: TaskWorkspace | null;
   clientWorkspaces: TaskWorkspace[];
-  variant?: "normal" | "overdue" | "archived";
+  variant?: "normal" | "overdue";
 }) {
   const { run, pending } = useCellAction();
   // La tâche vient d'être cochée : elle s'affiche validée **sur place**, à sa
@@ -81,8 +82,6 @@ export function TaskRowView({
   // « Validé » écrit en dessous ajoutait une ligne à la hauteur du rang, ce qui
   // faisait sauter toutes les suivantes au moment même du clic.
   const [justValidated, setJustValidated] = useState(false);
-  const archived = variant === "archived";
-  const validated = archived || justValidated;
   const overdue = variant === "overdue" && !justValidated;
 
   return (
@@ -91,7 +90,11 @@ export function TaskRowView({
         // L'opacité entre dans la transition : le voile d'attente s'installait
         // d'un coup, ce qui se lit comme un défaut d'affichage et non comme
         // « c'est parti ». Les couleurs y étaient déjà.
-        "group/row flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-border/60 px-3 py-2 transition-[background-color,border-color,color,opacity] duration-(--motion-duration) ease-standard motion-reduce:transition-none md:py-1.5",
+        // Au doigt, la ligne garde son air : c'est la coche qu'on vise, et
+        // vingt pixels sont déjà le minimum. À la souris, la ligne n'a plus de
+        // padding propre — c'est la cellule de saisie qui la dimensionne, et
+        // le rang tombe de 36 à 28 px.
+        "group/row flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-border/60 px-3 py-2 transition-[background-color,border-color,color,opacity] duration-(--motion-duration) ease-standard motion-reduce:transition-none md:py-0",
         "hover:bg-muted/40",
         TASK_GRID,
         // Pas de voile pendant la validation : la ligne doit rester lisible
@@ -102,34 +105,51 @@ export function TaskRowView({
       <button
         type="button"
         aria-label={
-          validated
+          justValidated
             ? `Rouvrir « ${task.title} »`
             : `Marquer « ${task.title} » comme faite`
         }
-        aria-pressed={validated}
+        aria-pressed={justValidated}
         onClick={() => {
-          setJustValidated(!validated);
-          run(() => toggleTask({ taskId: task.id, done: !validated }));
+          const done = !justValidated;
+          setJustValidated(done);
+          run(() => toggleTask({ taskId: task.id, done })).then((result) => {
+            // Cocher fait sortir la tâche de la liste au retour du serveur :
+            // sans ce toast, une coche posée sur la mauvaise ligne serait sans
+            // retour. C'est ce que l'ancienne rubrique « Archivé » assurait.
+            if (!done || !result.ok) return;
+            toast.success("Tâche faite.", {
+              action: {
+                label: "Annuler",
+                onClick: () => {
+                  setJustValidated(false);
+                  run(() => toggleTask({ taskId: task.id, done: false }));
+                },
+              },
+            });
+          });
         }}
         className={cn(
-          "focus-visible:ring-ring flex size-5 shrink-0 items-center justify-center rounded-full border-2 outline-none focus-visible:ring-2",
+          "focus-visible:ring-ring flex size-5 shrink-0 items-center justify-center rounded-full border-2 outline-none focus-visible:ring-2 md:size-4 md:border",
           // Encre du texte, pas vert de marque : `--accent-ink` passe au vert
           // clair en mode sombre, et la coche blanche y tombait à 1,6:1. Le
           // couple primaire/surface se retourne proprement dans les deux
           // thèmes, et « fait » n'a pas à être une couleur de marque.
-          validated
+          justValidated
             ? "border-text-primary bg-text-primary text-surface"
             : overdue
               ? "border-danger hover:bg-danger-subtle"
               : "border-border-strong hover:border-text-secondary",
         )}
       >
-        {validated ? <Check className="size-3" strokeWidth={3} aria-hidden /> : null}
+        {justValidated ? <Check className="size-3" strokeWidth={3} aria-hidden /> : null}
       </button>
 
       <div className="min-w-0 flex-1">
-        {validated ? (
-          <p className="type-body truncate text-text-secondary line-through">
+        {justValidated ? (
+          /* `py-1` : la hauteur de la boîte de `TextCell`, pour que la ligne
+             ne se rétracte pas au moment même où on la coche. */
+          <p className="type-body truncate py-1 text-text-secondary line-through">
             {task.title}
           </p>
         ) : (
@@ -142,11 +162,6 @@ export function TaskRowView({
             }
           />
         )}
-        {overdue ? (
-          <p className="type-caption px-0 font-semibold tracking-wide text-danger-ink uppercase">
-            En retard — {shortDate(task.due_date)}
-          </p>
-        ) : null}
       </div>
 
       {/* Rupture de ligne au téléphone : sans elle, le libellé partageait sa
@@ -160,7 +175,6 @@ export function TaskRowView({
           task={task}
           workspace={workspace}
           clientWorkspaces={clientWorkspaces}
-          disabled={archived}
           onSelect={(workspaceId) =>
             run(() =>
               updateTask({
@@ -178,19 +192,15 @@ export function TaskRowView({
       </div>
 
       <div className="type-caption text-text-secondary">
-        {archived ? (
-          <span className="tabular-nums">{shortDate(task.due_date)}</span>
-        ) : (
-          <DueDateCell
-            value={task.due_date}
-            overdue={overdue}
-            onCommit={(next) =>
-              run(() =>
-                updateTask({ taskId: task.id, field: "due_date", value: next }),
-              )
-            }
-          />
-        )}
+        <DueDateCell
+          value={task.due_date}
+          overdue={overdue}
+          onCommit={(next) =>
+            run(() =>
+              updateTask({ taskId: task.id, field: "due_date", value: next }),
+            )
+          }
+        />
       </div>
 
       <button
@@ -208,10 +218,10 @@ export function TaskRowView({
 /**
  * L'échéance, éditable.
  *
- * Le clic sur les **chiffres** ouvre le calendrier, pas seulement le clic sur
- * la petite icône : viser une cible de douze pixels pour changer une date est
- * une punition. `showPicker()` n'existe pas partout — sans lui, le champ garde
- * son comportement natif, qui reste éditable au clavier.
+ * Le clic sur les **chiffres** ouvre le calendrier : viser une cible de douze
+ * pixels pour changer une date est une punition, et l'icône native est donc
+ * masquée. `showPicker()` n'existe pas partout — sans lui, le champ garde son
+ * comportement natif, qui reste éditable au clavier.
  */
 function DueDateCell({
   value,
@@ -242,6 +252,12 @@ function DueDateCell({
         onCommit(event.target.value);
       }}
       className={cn(
+        // Le pictogramme natif du champ de date, retiré : douze lignes le
+        // répétaient à droite de chaque échéance alors que le clic sur les
+        // chiffres ouvre déjà le calendrier. `hidden` ne suffit pas partout
+        // (WebKit garde une gouttière), d'où l'opacité en ceinture ;
+        // `showPicker()` ne dépend pas de son affichage.
+        "[&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:opacity-0",
         "focus-visible:ring-brand w-full cursor-pointer rounded-sm bg-transparent tabular-nums outline-none focus-visible:ring-2",
         overdue && "text-danger-ink",
       )}
@@ -254,19 +270,13 @@ function WorkspaceSelect({
   task,
   workspace,
   clientWorkspaces,
-  disabled,
   onSelect,
 }: {
   task: WorkTask;
   workspace: TaskWorkspace | null;
   clientWorkspaces: TaskWorkspace[];
-  disabled: boolean;
   onSelect: (workspaceId: string | null) => void;
 }) {
-  if (disabled) {
-    return workspace ? <WorkspaceDot workspace={workspace} /> : null;
-  }
-
   return (
     <DropdownMenu>
       <DropdownMenuTrigger

@@ -144,27 +144,6 @@ export async function listPublicationsToDo(options: {
   }));
 }
 
-/** Les publications parties dans la journée — la section « Archivé ». */
-export async function listPublishedOn(options: {
-  day: string;
-  workspaceId?: string | null;
-  limit?: number;
-}): Promise<PublicationRow[]> {
-  const supabase = await createClient();
-
-  let query = supabase
-    .from("planning_subjects")
-    .select("*")
-    .eq("scheduled_on", options.day)
-    .in("status", DONE_STATUSES);
-
-  if (options.workspaceId) query = query.eq("workspace_id", options.workspaceId);
-
-  const { data } = await query.limit(options.limit ?? 50);
-
-  return byNetwork(await decorate(visibleOnBoard(data)));
-}
-
 /**
  * Écarte l'archivé et le supprimé du planning (migration 0031). En mémoire et
  * non dans la requête : sur une base où la colonne n'existe pas encore, un
@@ -177,13 +156,16 @@ function visibleOnBoard(data: unknown): PlanningSubject[] {
 }
 
 /**
- * Tri par date, puis par réseau, puis par client, puis par sujet.
+ * Tri par date, puis par réseau, puis par sujet.
  *
  * La date d'abord parce que le retard passe devant : ce qui aurait dû partir
  * hier se traite avant ce qui doit partir ce soir. À date égale, on publie
  * réseau par réseau — on ouvre Instagram, on vérifie tout ce qui devait y
- * partir, on passe à LinkedIn. Trier par client obligeait à revenir trois fois
- * sur le même onglet.
+ * partir, on passe à LinkedIn.
+ *
+ * Le client ne départage plus : à réseau égal, les lignes s'entremêlent, et
+ * c'est voulu — on ouvre l'onglet Instagram une fois, pas une fois par client.
+ * La colonne « Client » reste la seule à dire de qui vient chaque ligne.
  */
 function byNetwork(rows: PublicationRow[]): PublicationRow[] {
   return [...rows].sort((a, b) => {
@@ -192,9 +174,6 @@ function byNetwork(rows: PublicationRow[]): PublicationRow[] {
     if (dateA !== dateB) return dateA.localeCompare(dateB);
     if (a.lane_name !== b.lane_name) {
       return a.lane_name.localeCompare(b.lane_name, "fr");
-    }
-    if (a.workspace.name !== b.workspace.name) {
-      return a.workspace.name.localeCompare(b.workspace.name, "fr");
     }
     return a.subject.name.localeCompare(b.subject.name, "fr");
   });
@@ -265,29 +244,6 @@ export async function listOpenTasks(options: {
     .order("due_date")
     .order("created_at")
     .limit(options.limit ?? 200);
-
-  return withoutDailyTasks((data ?? []) as unknown as WorkTask[]);
-}
-
-/**
- * Les dernières tâches faites, pour la section « Archivé » en bas de page.
- *
- * Même masquage qu'en lecture ouverte : une ligne quotidienne cochée hier n'a
- * pas plus à figurer dans l'archivé que dans le reste.
- */
-export async function listArchivedTasks(options: {
-  workspaceId?: string | null;
-  limit?: number;
-}): Promise<WorkTask[]> {
-  const supabase = await createClient();
-
-  let query = supabase.from("work_tasks").select("*").eq("status", "done");
-
-  if (options.workspaceId) query = query.eq("workspace_id", options.workspaceId);
-
-  const { data } = await query
-    .order("done_at", { ascending: false })
-    .limit(options.limit ?? 40);
 
   return withoutDailyTasks((data ?? []) as unknown as WorkTask[]);
 }

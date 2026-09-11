@@ -4,7 +4,7 @@ import { QuickAdd } from "@/components/mon-travail/quick-add";
 import { TaskHeader, TaskRowView } from "@/components/mon-travail/task-row";
 import { Panel, PanelHeader, PanelRows } from "@/components/ds/surface";
 import { StatusPill } from "@/components/ds/status-pill";
-import { dayLabel, upcomingDayLabel } from "@/lib/mon-travail/dates";
+import { upcomingDayLabel } from "@/lib/mon-travail/dates";
 import type { OrganizedTasks } from "@/lib/mon-travail/organize";
 import type { TaskWorkspace, WorkTask } from "@/lib/mon-travail/types";
 
@@ -37,10 +37,12 @@ export function TasksSection({
 
   return (
     <Panel>
+      {/* « Tâches » et non « Mon travail » : c'est déjà le titre de la page,
+          deux lignes plus haut, et la date qui servait de description répétait
+          le sous-titre de la barre. */}
       <PanelHeader
-        title="Mon travail"
+        title="Tâches"
         count={todayCount}
-        description={dayLabel(today)}
         action={
           groups.overdue.length > 0 ? (
             <StatusPill tone="danger">{groups.overdue.length} en retard</StatusPill>
