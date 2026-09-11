@@ -4,6 +4,7 @@ import { useState } from "react";
 import { ChevronRight, Plus, Trash2 } from "lucide-react";
 
 import { createLane, deleteMonth, renameMonth } from "@/app/actions/planning";
+import { ConfirmDialog } from "@/components/ds/confirm-dialog";
 import { FeedPreviewButton } from "@/components/planning/feed-preview";
 import { PlatformIcon } from "@/components/planning/platform-icon";
 import { TextCell, useCellAction } from "@/components/planning/cells";
@@ -81,6 +82,7 @@ export function MonthGroup({
   workspaceId: string;
 }) {
   const [open, setOpen] = useState(defaultOpen);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
   const { run, pending } = useCellAction();
   const effectiveOpen = forceOpen || open;
 
@@ -250,7 +252,7 @@ export function MonthGroup({
 
           <button
             type="button"
-            onClick={() => run(() => deleteMonth(scope, { monthId: month.id }))}
+            onClick={() => setConfirmingDelete(true)}
             aria-label={`Supprimer le mois ${month.label}`}
             className="text-muted-foreground hover:text-danger-ink focus-visible:ring-ring rounded p-1 focus-visible:ring-2 focus-visible:outline-none"
           >
@@ -258,6 +260,21 @@ export function MonthGroup({
           </button>
         </div>
       </header>
+
+      <ConfirmDialog
+        open={confirmingDelete}
+        onOpenChange={setConfirmingDelete}
+        title={`Supprimer ${month.label}`}
+        description={
+          subjects.length > 0
+            ? `${month.label} part à la corbeille avec ses ${subjects.length} publication${subjects.length > 1 ? "s" : ""}, ses réseaux et leurs visuels. Restaurable depuis la corbeille de l’en-tête.`
+            : `${month.label} part à la corbeille. Restaurable depuis la corbeille de l’en-tête.`
+        }
+        confirmLabel="Supprimer le mois"
+        onConfirm={async () => {
+          await run(() => deleteMonth(scope, { monthId: month.id }));
+        }}
+      />
 
       {effectiveOpen ? (
         // `space-y-5` : deux réseaux empilés respirent — collés, leurs

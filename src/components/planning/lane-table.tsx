@@ -10,6 +10,7 @@ import {
   renameLane,
   updateColumn,
 } from "@/app/actions/planning";
+import { ConfirmDialog } from "@/components/ds/confirm-dialog";
 import { TextCell, useCellAction } from "@/components/planning/cells";
 import { AddColumnMenu, ColumnHeaderMenu } from "@/components/planning/column-menus";
 import { sortSubjects, sortableKey } from "@/lib/planning/sort";
@@ -73,6 +74,7 @@ export function LaneTable({
   canGenerateWording: boolean;
 }) {
   const [open, setOpen] = useState(defaultOpen);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [dropTarget, setDropTarget] = useState<{
     subjectId: string;
     after: boolean;
@@ -194,13 +196,30 @@ export function LaneTable({
 
         <button
           type="button"
-          onClick={() => run(() => deleteLane(scope, { laneId: lane.id }))}
+          onClick={() => setConfirmingDelete(true)}
           aria-label={`Supprimer le réseau ${lane.name}`}
           className="text-muted-foreground hover:text-danger-ink focus-visible:ring-ring ml-auto rounded p-1 focus-visible:ring-2 focus-visible:outline-none"
         >
           <Trash2 className="size-3.5" aria-hidden />
         </button>
       </header>
+
+      {/* La suppression d'un couloir emporte ses publications en cascade, et
+          sans corbeille : c'est ce que la boîte dit avant le clic. */}
+      <ConfirmDialog
+        open={confirmingDelete}
+        onOpenChange={setConfirmingDelete}
+        title={`Supprimer ${lane.name}`}
+        description={
+          lane.subjects.length > 0
+            ? `Le réseau ${lane.name} part définitivement, avec ses ${lane.subjects.length} publication${lane.subjects.length > 1 ? "s" : ""} et leurs visuels. Rien ne se restaure.`
+            : `Le réseau ${lane.name} part définitivement de ce mois.`
+        }
+        confirmLabel="Supprimer le réseau"
+        onConfirm={async () => {
+          await run(() => deleteLane(scope, { laneId: lane.id }));
+        }}
+      />
 
       {open ? (
         // Le tableau déborde à droite plutôt que d'écraser ses colonnes : le

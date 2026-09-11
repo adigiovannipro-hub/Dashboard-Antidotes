@@ -5,6 +5,7 @@ import { CalendarDays, Check, Loader2, Paperclip, Pencil, Trash2 } from "lucide-
 import { toast } from "sonner";
 
 import type { PlanningResult } from "@/app/actions/planning";
+import { ConfirmDialog } from "@/components/ds/confirm-dialog";
 import { VisualLightbox } from "@/components/planning/lightbox";
 import { GenerateWordingButton } from "@/components/planning/wording-generation";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -941,6 +942,11 @@ export function VisualsCell({
 
 // --- Suppression de ligne -------------------------------------------------------
 
+/**
+ * La poubelle d'une ligne — et sa confirmation, portée ici plutôt qu'à chaque
+ * appelant : une corbeille qui apparaît au survol est trop facile à toucher
+ * par accident pour agir sans rien demander.
+ */
 export function DeleteRowButton({
   label,
   onDelete,
@@ -948,14 +954,27 @@ export function DeleteRowButton({
   label: string;
   onDelete: () => void;
 }) {
+  const [confirming, setConfirming] = useState(false);
+
   return (
-    <button
-      type="button"
-      onClick={onDelete}
-      aria-label={`Supprimer ${label}`}
-      className="text-muted-foreground hover:text-danger-ink focus-visible:ring-ring rounded p-1 opacity-0 transition group-hover/row:opacity-100 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:outline-none"
-    >
-      <Trash2 className="size-3.5" aria-hidden />
-    </button>
+    <>
+      <button
+        type="button"
+        onClick={() => setConfirming(true)}
+        aria-label={`Supprimer ${label}`}
+        className="text-muted-foreground hover:text-danger-ink focus-visible:ring-ring rounded p-1 opacity-0 transition group-hover/row:opacity-100 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:outline-none"
+      >
+        <Trash2 className="size-3.5" aria-hidden />
+      </button>
+
+      <ConfirmDialog
+        open={confirming}
+        onOpenChange={setConfirming}
+        title={`Supprimer ${label}`}
+        description={`${label} part du tableau.`}
+        confirmLabel="Supprimer"
+        onConfirm={onDelete}
+      />
+    </>
   );
 }

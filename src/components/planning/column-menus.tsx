@@ -8,6 +8,7 @@ import {
   removeColumn,
   updateColumn,
 } from "@/app/actions/planning";
+import { ConfirmDialog } from "@/components/ds/confirm-dialog";
 import { useCellAction } from "@/components/planning/cells";
 import type { Scope } from "@/components/planning/subject-row";
 import { Button } from "@/components/ui/button";
@@ -55,6 +56,7 @@ export function ColumnHeaderMenu({
   const { run } = useCellAction();
   const [renaming, setRenaming] = useState(false);
   const [labelsOpen, setLabelsOpen] = useState(false);
+  const [confirmingRemove, setConfirmingRemove] = useState(false);
   const [draft, setDraft] = useState(column.label);
 
   const commitRename = () => {
@@ -139,9 +141,7 @@ export function ColumnHeaderMenu({
           ) : null}
 
           {column.removable ? (
-            <DropdownMenuItem
-              onClick={() => run(() => removeColumn(scope, { columnId: column.id }))}
-            >
+            <DropdownMenuItem onClick={() => setConfirmingRemove(true)}>
               <Trash2 className="size-3.5" aria-hidden />
               Supprimer
             </DropdownMenuItem>
@@ -157,6 +157,19 @@ export function ColumnHeaderMenu({
           onOpenChange={setLabelsOpen}
         />
       ) : null}
+
+      {/* Une colonne emporte ses valeurs sur toutes les lignes du tableau, et
+          il n'y a pas de corbeille pour ça. */}
+      <ConfirmDialog
+        open={confirmingRemove}
+        onOpenChange={setConfirmingRemove}
+        title={`Supprimer la colonne ${column.label}`}
+        description={`La colonne ${column.label} part du tableau avec ce qu’elle porte sur chaque publication. Rien ne se restaure.`}
+        confirmLabel="Supprimer la colonne"
+        onConfirm={async () => {
+          await run(() => removeColumn(scope, { columnId: column.id }));
+        }}
+      />
     </>
   );
 }
