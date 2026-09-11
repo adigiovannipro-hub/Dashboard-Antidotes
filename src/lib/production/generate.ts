@@ -28,13 +28,28 @@ import {
 } from "./previous-wordings";
 import {
   EMPTY_FACTS,
+  ORGANIC_LABELS,
   hasAnything,
   hasRealData,
+  renderOrganicPosts,
   renderReportingFacts,
+  rendersPostClicks,
   type OrganicFacts,
   type OrganicPlatform,
   type ReportingFacts,
 } from "./reporting-facts";
+import {
+  MAX_COLLECTED_CAPTION_CHARS,
+  matchByCaption,
+  pickWorst,
+  rankByEngagement,
+  renderFormulasToDrop,
+  renderMeasuredWordings,
+  renderTopPostsSummary,
+  renderWinningCtas,
+  renderWinningHooks,
+  type MeasuredPost,
+} from "./wording-performance";
 import { sumRawMetrics } from "@/lib/metrics/aggregate";
 import type { RawMetrics } from "@/lib/metrics/types";
 import {
@@ -54,6 +69,8 @@ import type {
 import { schedulePublications, type SchedulablePost } from "@/lib/scheduling/publish";
 import { createAdminClient } from "@/lib/supabase/server";
 import { monthLabelLower, shiftMonth } from "./phases";
+import { listRecentClientReports } from "./queries";
+import { renderRecentReports } from "./report-markdown";
 import { renderPrompt } from "./prompts";
 import type {
   GenerationJob,
@@ -527,6 +544,64 @@ function intentionOf(subject: SubjectRow, columnId: string | null): string {
   return subject.name;
 }
 
+// --- La boucle : ce qui a été publié, ce qu'il a donné ------------------------
+
+/** Trois mois : assez pour dégager une mécanique, pas assez pour noyer le prompt. */
+const PERFORMANCE_WINDOW_MONTHS = 3;
+
+/**
+ * Les publications mesurées des derniers mois, tous réseaux confondus.
+ *
+ * Lues ici et passées aux prompts d'intentions comme de rédaction : c'est le
+ * seul endroit du module qui sache ce qu'un texte publié a produit. Un espace
+ * sans connecteur branché rend une liste vide, et les blocs correspondants
+ * restent vides — le prompt le dit plutôt que de faire semblant.
+ */
+async function readMeasuredPosts(
+  supabase: SupabaseAdmin,
+  workspaceId: string,
+  beforeMonth: string,
+): Promise<MeasuredPost[]> {
+  const from = `${shiftMonth(beforeMonth.slice(0, 7), -PERFORMANCE_WINDOW_MONTHS)}-01`;
+  const { data } = await supabase
+    .from("social_posts")
+    .select("*")
+    .eq("workspace_id", workspaceId)
+    .gte("published_at", `${from}T00:00:00Z`)
+    .lt("published_at", `${beforeMonth}T00:00:00Z`)
+    .order("published_at", { ascending: false })
+    .limit(300);
+
+  return ((data ?? []) as unknown as SocialPost[])
+    .filter((post) => isOrganicPlatform(post.platform) && (post.caption ?? "").trim() !== "")
+    .map((post) => toMeasuredPost(post, post.platform as OrganicPlatform));
+}
+
+/**
+ * Les dernières synthèses mensuelles, rendues pour un prompt.
+ *
+ * Le mois analysé est nommé dans chaque bloc : la phase Reporting analyse M−1
+ * quand les Intentions visent M+1, et sans étiquette le modèle daterait les
+ * enseignements du mois qu'il prépare.
+ */
+async function readPreviousReports(
+  supabase: SupabaseAdmin,
+  workspaceId: string,
+  beforeMonth: string,
+): Promise<string> {
+  const reports = await listRecentClientReports({
+    workspaceId,
+    before: beforeMonth,
+    client: supabase,
+  });
+  return renderRecentReports(
+    reports.map((report) => ({
+      monthLabel: fullMonthLabel(report.target_month),
+      report: report.report,
+    })),
+  );
+}
+
 // --- Phase : intentions ------------------------------------------------------
 
 /** Ce que le modèle doit rendre pour chaque intention. */
@@ -595,16 +670,41 @@ async function runIntentions(
     historyMonths.map((month) => month.id),
   );
 
+  /* L'historique portait quatre champs — date, réseau, format, nom du sujet —
+     et pas un chiffre : la rotation des templates s'y jouait donc à la
+     mécanique pure (semaine 1, deux occurrences, absence de deux mois), sans
+     jamais savoir lequel avait porté. Les mesures s'y raccrochent par le
+     **texte publié** : `planning_publications.external_id` ne suit pas
+     l'identifiant que Meta rend pour une vidéo, la caption si. Une
+     correspondance ambiguë ne produit rien — imputer les chiffres d'une
+     publication au sujet d'à côté serait pire que le silence. */
+  const mesuresPassees = await readMeasuredPosts(supabase, job.workspace_id, job.target_month);
+
   const historique = historyMonths
     .sort((a, b) => a.month.localeCompare(b.month))
     .map((month) => {
       const rows = historySubjects
         .filter((subject) => subject.month_id === month.id)
         .sort((a, b) => (a.scheduled_on ?? "").localeCompare(b.scheduled_on ?? ""))
-        .map(
-          (subject) =>
-            `- ${subject.scheduled_on ?? "sans date"} · ${platformLabelOf(lanePlatforms.get(subject.lane_id))} · ${formatLabelOf(subject.format)} · « ${subject.name} »`,
-        );
+        .map((subject) => {
+          const line = `- ${subject.scheduled_on ?? "sans date"} · ${platformLabelOf(lanePlatforms.get(subject.lane_id))} · ${formatLabelOf(subject.format)} · « ${subject.name} »`;
+          const mesure = matchByCaption(mesuresPassees, subject.wording);
+          if (!mesure) return line;
+          const base = mesure.reach > 0 ? mesure.reach : mesure.impressions;
+          const interactions =
+            mesure.likes + mesure.comments + mesure.shares + mesure.saves;
+          const taux =
+            base > 0 ? `${((interactions / base) * 100).toFixed(2).replace(".", ",")} %` : "—";
+          // Des impressions ne se présentent jamais comme une portée : le
+          // dénominateur du taux est dit pour ce qu'il est.
+          const volume =
+            mesure.reach > 0
+              ? `portée ${mesure.reach}`
+              : mesure.impressions > 0
+                ? `impressions ${mesure.impressions} (portée non rendue)`
+                : "aucune mesure rendue";
+          return `${line} — ${volume}, ${interactions} interactions, engagement ${taux}`;
+        });
       return `### ${fullMonthLabel(month.month)}\n${rows.join("\n") || "- (aucune publication)"}`;
     })
     .join("\n\n");
@@ -646,6 +746,8 @@ async function runIntentions(
     };
   }
 
+  const syntheses = await readPreviousReports(supabase, job.workspace_id, job.target_month);
+
   const system = renderPrompt("intentions", {
     client_context: context.client_context,
     client_assets_summaries: context.client_assets_summaries,
@@ -654,6 +756,8 @@ async function runIntentions(
     deja_planifie: renderExisting(existing),
     reste_a_produire: renderQuotas(quotas),
     accroches_historique: hooks,
+    syntheses_precedentes: syntheses,
+    top_posts_mesures: renderTopPostsSummary(mesuresPassees),
     contraintes: context.contraintes,
     marronniers: context.marronniers,
   });
@@ -827,11 +931,48 @@ async function runIntentions(
   };
 }
 
+/**
+ * Ce que la performance passée dit à la rédaction, en quatre blocs.
+ *
+ * Calculés **une fois par phase** et passés à `produceWording`, comme `hooks`
+ * et `previous` le sont déjà : `runWording` traite par lots de quatre, et tout
+ * ce qui se recalcule par sujet est payé douze à quinze fois par mois et par
+ * client — en lectures comme en jetons d'entrée.
+ */
+type PerformanceBlocks = {
+  /** Les textes publiés les plus engageants, avec leurs chiffres. */
+  wordings_mesures: string;
+  hooks_performants: string;
+  cta_performants: string;
+  formules_a_retirer: string;
+  syntheses_precedentes: string;
+};
+
+async function readPerformanceBlocks(
+  supabase: SupabaseAdmin,
+  workspaceId: string,
+  beforeMonth: string,
+): Promise<PerformanceBlocks> {
+  const [posts, syntheses] = await Promise.all([
+    readMeasuredPosts(supabase, workspaceId, beforeMonth),
+    readPreviousReports(supabase, workspaceId, beforeMonth),
+  ]);
+  return {
+    wordings_mesures: renderMeasuredWordings(posts),
+    hooks_performants: renderWinningHooks(posts),
+    cta_performants: renderWinningCtas(posts),
+    formules_a_retirer: renderFormulasToDrop(posts),
+    syntheses_precedentes: syntheses,
+  };
+}
+
 // --- Phase : wording ---------------------------------------------------------
 
 type GeneratedWording = {
   wording?: string;
   accroche?: string;
+  /** L'appel à l'action final, historisé à part depuis 20260912d. */
+  cta?: string | null;
 };
 
 /** Les sujets passent par lots de quatre : un échec n'arrête pas les autres. */
@@ -852,7 +993,7 @@ function formatInstruction(format: PlanningFormat): string {
       return [
         "Ce sujet est une STORY : il n'y a aucune légende à écrire.",
         "Mets dans `wording` le texte affiché à l'écran, écran par écran — court, lisible en une seconde, interaction comprise si l'intention en prévoit une. La créa de chaque écran est déjà définie dans l'intention : ne la redécris pas.",
-        "`accroche` vaut null : une story n'alimente pas l'historique des accroches.",
+        "`accroche` et `cta` valent null : une story n'alimente pas l'historique des accroches.",
       ].join("\n");
     case "carousel":
       return "Ce sujet est un CARROUSEL : ses slides sont déjà définies dans l'intention et n'ont pas à être réécrites. Produis uniquement la légende qui l'accompagne, dans `wording`.";
@@ -884,6 +1025,8 @@ async function produceWording(
     hooks: string;
     /** Les derniers wordings validés, rendus pour le prompt — le registre. */
     previous: string;
+    /** Ce que la performance passée dit — calculé une fois pour toute la phase. */
+    performance: PerformanceBlocks;
   },
 ): Promise<string> {
   const { subject } = input;
@@ -907,6 +1050,11 @@ async function produceWording(
     consigne_format: formatInstruction(format),
     wordings_precedents: input.previous,
     accroches_historique: input.hooks,
+    wordings_mesures: input.performance.wordings_mesures,
+    hooks_performants: input.performance.hooks_performants,
+    cta_performants: input.performance.cta_performants,
+    formules_a_retirer: input.performance.formules_a_retirer,
+    syntheses_precedentes: input.performance.syntheses_precedentes,
   });
 
   const text = await callClaude({
@@ -940,8 +1088,15 @@ async function produceWording(
       workspace_id: input.workspaceId,
       subject_id: subject.id,
       hook: generated.accroche.trim(),
-      full_wording: generated.wording.trim(),
+      // L'appel à l'action est rangé à part (20260912d) : l'anti-répétition
+      // porte sur le hook, le corps **et** le CTA, et un CTA noyé dans
+      // `full_wording` devrait être réextrait à chaque lecture.
+      cta: typeof generated.cta === "string" && generated.cta.trim() !== ""
+        ? generated.cta.trim()
+        : null,
+      full_wording: wording,
       platform: input.platform ?? null,
+      format,
       published_at: subject.scheduled_on,
     } as never);
   }
@@ -1005,11 +1160,12 @@ export async function generateWordingForSubject(
     const targetMonth =
       (subjectMonth as { month: string } | null)?.month ?? "9999-12-01";
 
-    const [context, hooks, intentionColumnId, previous] = await Promise.all([
+    const [context, hooks, intentionColumnId, previous, performance] = await Promise.all([
       getClientContext({ workspaceId: subject.workspace_id }),
       recentHooks(supabase, subject.workspace_id),
       ensureIntentionColumn(supabase, subject.board_id, subject.workspace_id),
       previousWordings(supabase, subject.workspace_id, subject.board_id, targetMonth),
+      readPerformanceBlocks(supabase, subject.workspace_id, targetMonth),
     ]);
 
     const wording = await produceWording(supabase, {
@@ -1021,6 +1177,7 @@ export async function generateWordingForSubject(
       context,
       hooks,
       previous,
+      performance,
     });
     return { ok: true, wording };
   } catch (caught) {
@@ -1065,11 +1222,14 @@ async function runWording(
     };
   }
 
-  const [context, lanePlatforms, hooks, previous] = await Promise.all([
+  const [context, lanePlatforms, hooks, previous, performance] = await Promise.all([
     getClientContext({ workspaceId: job.workspace_id }),
     getLanePlatforms(supabase, months.map((month) => month.id)),
     recentHooks(supabase, job.workspace_id),
     previousWordings(supabase, job.workspace_id, board.id, job.target_month),
+    // Une fois pour toute la phase : `WORDING_BATCH_SIZE` vaut 4, et ces blocs
+    // sont identiques d'un sujet à l'autre.
+    readPerformanceBlocks(supabase, job.workspace_id, job.target_month),
   ]);
 
   const intentionColumnId = await ensureIntentionColumn(
@@ -1096,6 +1256,7 @@ async function runWording(
       context,
       hooks,
       previous,
+      performance,
     });
   };
 
@@ -1217,6 +1378,44 @@ function monthEnd(month: string): string {
   return new Date(Date.UTC(year!, index!, 0)).toISOString().slice(0, 10);
 }
 
+const ORGANIC_PLATFORMS = Object.keys(ORGANIC_LABELS) as OrganicPlatform[];
+
+function isOrganicPlatform(value: string): value is OrganicPlatform {
+  return (ORGANIC_PLATFORMS as string[]).includes(value);
+}
+
+const MEDIA_KIND_LABELS: Record<SocialPost["media_kind"], string> = {
+  image: "Publication fixe",
+  carousel: "Carrousel",
+  video: "Reel ou vidéo",
+};
+
+/**
+ * Une ligne de `social_posts` telle que l'analyse éditoriale la lit.
+ *
+ * La légende passe **entière** (bornée à 600 caractères) : c'est elle qui porte
+ * le hook et l'appel à l'action, et c'est le seul pont fiable entre un texte
+ * écrit ici et ce qu'il a produit là-bas.
+ */
+function toMeasuredPost(post: SocialPost, platform: OrganicPlatform): MeasuredPost {
+  return {
+    caption: (post.caption ?? "").slice(0, MAX_COLLECTED_CAPTION_CHARS),
+    publishedAt: post.published_at.slice(0, 10),
+    platform: ORGANIC_LABELS[platform],
+    mediaKind: MEDIA_KIND_LABELS[post.media_kind] ?? "Publication",
+    reach: Number(post.reach),
+    impressions: Number(post.impressions),
+    likes: Number(post.likes),
+    comments: Number(post.comments),
+    shares: Number(post.shares),
+    saves: Number(post.saves),
+    // `null`, et jamais `0`, quand le réseau ne rend pas les clics : c'est
+    // toute la différence entre « personne n'a cliqué » et « on ne sait pas ».
+    clicks: rendersPostClicks(platform) ? Number(post.clicks ?? 0) : null,
+    permalink: post.permalink,
+  };
+}
+
 /**
  * Ce que les régies ont réellement mesuré, pour le mois analysé et le mois
  * d'avant — la comparaison se calcule ici, pas dans la tête du modèle.
@@ -1325,14 +1524,10 @@ async function readReportingFacts(
 
   const platforms = new Set<OrganicPlatform>();
   for (const post of posts) {
-    if (post.platform === "instagram" || post.platform === "facebook") {
-      platforms.add(post.platform);
-    }
+    if (isOrganicPlatform(post.platform)) platforms.add(post.platform);
   }
   for (const row of followers) {
-    if (row.platform === "instagram" || row.platform === "facebook") {
-      platforms.add(row.platform);
-    }
+    if (isOrganicPlatform(row.platform)) platforms.add(row.platform);
   }
 
   const organic: OrganicFacts[] = [...platforms].map((platform) => {
@@ -1346,6 +1541,8 @@ async function readReportingFacts(
     const beforeLast =
       mineFollowers.filter((row) => row.date < from).at(-1) ?? null;
 
+    const measured = current.map((post) => toMeasuredPost(post, platform));
+
     return {
       platform,
       posts: current.length,
@@ -1354,15 +1551,8 @@ async function readReportingFacts(
       previousTotal: sumPosts(before),
       followers: last ? last.followers_count : null,
       previousFollowers: beforeLast ? beforeLast.followers_count : null,
-      top: [...current]
-        .sort((a, b) => b.reach - a.reach || b.video_views - a.video_views)
-        .slice(0, 5)
-        .map((post) => ({
-          name: post.caption ? post.caption.slice(0, 80) : "sans légende",
-          publishedAt: post.published_at.slice(0, 10),
-          reach: post.reach,
-          engagement: post.likes + post.comments + post.shares + post.saves,
-        })),
+      top: rankByEngagement(measured, { limit: 5 }),
+      flop: pickWorst(measured, 3),
     };
   });
 
@@ -1436,14 +1626,11 @@ async function runReporting(
     .sort((a, b) => (a.scheduled_on ?? "").localeCompare(b.scheduled_on ?? ""));
 
   /* Le détail publication par publication vient des réseaux quand ils l'ont
-     rendu — c'est là que se lisent les tops et les flops que le prompt demande.
-     Le planning ne sert qu'à nommer ce que les réseaux ne nomment pas. */
-  const mesuresParPost = facts.organic.flatMap((entry) =>
-    entry.top.map(
-      (post) =>
-        `- ${post.publishedAt} · ${entry.platform === "instagram" ? "Instagram" : "Facebook"} · « ${post.name} » : ${post.reach > 0 ? `${post.reach} de portée` : "portée non rendue"}, ${post.engagement} interactions`,
-    ),
-  );
+     rendu — c'est là que se lisent les tops et les flops que le prompt demande,
+     avec le texte publié entier : sans le CTA, qui vit à la fin d'une légende,
+     il n'y a rien à analyser. Le planning ne sert qu'à nommer ce que les
+     réseaux ne nomment pas. */
+  const mesuresParPost = renderOrganicPosts(facts);
 
   const lignesPlanning = publishedRows.map(
     (subject) =>
@@ -1452,9 +1639,7 @@ async function runReporting(
 
   const postsData =
     [
-      ...(mesuresParPost.length > 0
-        ? ["Mesuré par les réseaux :", ...mesuresParPost]
-        : []),
+      ...(mesuresParPost !== "" ? ["Mesuré par les réseaux :", mesuresParPost] : []),
       ...(lignesPlanning.length > 0
         ? ["", "Au planning éditorial (sujets, sans mesure individuelle) :", ...lignesPlanning]
         : []),
@@ -1469,7 +1654,6 @@ async function runReporting(
     target_month: fullMonthLabel(job.target_month),
     metrics: renderReportingFacts(facts),
     posts_data: postsData,
-    objectifs: context.objectifs,
   });
 
   const report = await callClaude({

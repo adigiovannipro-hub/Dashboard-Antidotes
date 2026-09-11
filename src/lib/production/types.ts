@@ -6,7 +6,7 @@
  * premiers, et postgrest-js en a besoin pour inférer les résultats de requête.
  */
 
-import type { PlanningPlatform } from "@/lib/planning/types";
+import type { PlanningFormat, PlanningPlatform } from "@/lib/planning/types";
 
 /** Les quatre phases du cycle, dans l'ordre strict du mois. */
 export type ProductionPhase =
@@ -160,7 +160,15 @@ export type WordingHistoryEntry = {
   subject_id: string | null;
   hook: string;
   full_wording: string | null;
+  /**
+   * L'appel à l'action final (20260912d). `null` quand la caption n'en portait
+   * aucun — une story, ou un texte qui s'arrête sur un constat : c'est une
+   * absence constatée, jamais un champ à combler.
+   */
+  cta: string | null;
   platform: PlanningPlatform | null;
+  /** Le format du sujet, pour croiser une mécanique et un format (20260912d). */
+  format: PlanningFormat | null;
   published_at: string | null;
   created_at: string;
 };

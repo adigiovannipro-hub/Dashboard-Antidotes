@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vitest";
 
-import { firstSentence, parseReport, parseSpans, summaryParagraph } from "./report-markdown";
+import {
+  REPORT_SECTION_KEPT,
+  extractReportSection,
+  firstSentence,
+  parseReport,
+  parseSpans,
+  renderRecentReports,
+  summaryParagraph,
+} from "./report-markdown";
 
 describe("parseSpans", () => {
   it("isole le gras et laisse le reste en texte", () => {
@@ -82,5 +90,65 @@ describe("summaryParagraph", () => {
 
   it("rend une chaîne vide quand il n'y a aucun paragraphe", () => {
     expect(summaryParagraph("### Titre seul\n- une puce")).toBe("");
+  });
+});
+
+describe("extractReportSection", () => {
+  const rapport = [
+    "### 1. Synthèse",
+    "Le mois a porté.",
+    "",
+    "### 6. Mécaniques retenues",
+    "- Question courte + « essayez en boutique » — 6,4 % d'engagement.",
+    "- Chiffre en ouverture, en carrousel.",
+    "",
+    "### 7. Mécaniques à retirer",
+    "- Accroche en affirmation molle — 0,9 %.",
+  ].join("\n");
+
+  it("rend le corps de la section demandée, titre numéroté compris", () => {
+    // Le modèle numérote ses titres : « 6. Mécaniques retenues ».
+    const section = extractReportSection(rapport, REPORT_SECTION_KEPT);
+    expect(section).toContain("essayez en boutique");
+    expect(section).toContain("Chiffre en ouverture");
+  });
+
+  it("s'arrête au titre suivant", () => {
+    expect(extractReportSection(rapport, REPORT_SECTION_KEPT)).not.toContain("affirmation molle");
+  });
+
+  it("ignore les accents et la casse du titre", () => {
+    expect(extractReportSection("### MECANIQUES RETENUES\n- Une.", REPORT_SECTION_KEPT)).toBe(
+      "- Une.",
+    );
+  });
+
+  it("rend une chaîne vide quand la section n'existe pas", () => {
+    // Un compte rendu antérieur à cette structure ne doit rien faire échouer.
+    expect(extractReportSection("### Synthèse\nRien.", REPORT_SECTION_KEPT)).toBe("");
+  });
+});
+
+describe("renderRecentReports", () => {
+  it("nomme le mois analysé de chaque synthèse", () => {
+    // La phase Reporting analyse M−1 quand les Intentions visent M+1 : sans
+    // étiquette, le modèle daterait les enseignements du mois qu'il prépare.
+    const rendu = renderRecentReports([
+      { monthLabel: "juillet 2026", report: "### Mécaniques retenues\n- La question courte." },
+    ]);
+    expect(rendu).toContain("--- Analyse du mois de juillet 2026 ---");
+    expect(rendu).toContain("La question courte.");
+  });
+
+  it("retombe sur le résumé d'un compte rendu sans sections normalisées, et le dit", () => {
+    const rendu = renderRecentReports([
+      { monthLabel: "juin 2026", report: "### Synthèse\nLa portée a doublé." },
+    ]);
+    expect(rendu).toContain("antérieur aux sections normalisées");
+    expect(rendu).toContain("La portée a doublé.");
+  });
+
+  it("ne rend rien quand il n'y a aucune synthèse", () => {
+    expect(renderRecentReports([])).toBe("");
   });
 });

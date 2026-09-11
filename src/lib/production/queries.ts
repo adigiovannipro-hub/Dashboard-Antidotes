@@ -1,6 +1,6 @@
 import "server-only";
 
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient, createClient } from "@/lib/supabase/server";
 import { EXCLUDED_STATUSES } from "@/lib/planning/types";
 import { shiftMonth, type PhaseSlice } from "./phases";
 import { AHEAD_MONTHS, EMPTY_AHEAD, type ProductionSnapshot } from "./card-model";
@@ -77,6 +77,36 @@ export async function getClientReport(options: {
     .eq("target_month", options.month)
     .maybeSingle();
   return (data as unknown as ClientReport | null) ?? null;
+}
+
+/**
+ * Les dernières synthèses d'un espace, **avant** un mois donné.
+ *
+ * C'est ce qui ferme la boucle : jusqu'ici `client_reports` n'était lu que par
+ * l'écran, et aucune phase de génération ne relisait ce que le mois précédent
+ * avait conclu. Les intentions repartaient donc chaque mois de zéro, et la
+ * rédaction choisissait ses précédents par récence, pas par performance.
+ *
+ * Le worker de génération n'a pas de session — il tourne après la réponse HTTP,
+ * comme un cron — et passe donc son propre client admin. Depuis une page, le
+ * client par défaut suffit.
+ */
+export async function listRecentClientReports(options: {
+  workspaceId: string;
+  /** Mois exclu, `YYYY-MM-01` : celui qu'on prépare n'a rien à s'apprendre. */
+  before: string;
+  limit?: number;
+  client?: ReturnType<typeof createAdminClient>;
+}): Promise<ClientReport[]> {
+  const supabase = options.client ?? (await createClient());
+  const { data } = await supabase
+    .from("client_reports")
+    .select("*")
+    .eq("workspace_id", options.workspaceId)
+    .lt("target_month", options.before)
+    .order("target_month", { ascending: false })
+    .limit(options.limit ?? 3);
+  return (data ?? []) as unknown as ClientReport[];
 }
 
 export async function getProductionSnapshots(options: {

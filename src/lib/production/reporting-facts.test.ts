@@ -5,10 +5,29 @@ import {
   delta,
   hasAnything,
   hasRealData,
+  renderOrganicPosts,
   renderReportingFacts,
+  rendersPostClicks,
   type OrganicFacts,
   type ReportingFacts,
 } from "./reporting-facts";
+import type { MeasuredPost } from "./wording-performance";
+
+const post = (overrides: Partial<MeasuredPost> = {}): MeasuredPost => ({
+  caption: "Nos nouveaux verres arrivent.\n\nEn trois teintes.\n\nRéservez votre essayage.",
+  publishedAt: "2026-07-08",
+  platform: "Instagram",
+  mediaKind: "Reel",
+  reach: 1000,
+  impressions: 1200,
+  likes: 40,
+  comments: 5,
+  shares: 3,
+  saves: 2,
+  clicks: null,
+  permalink: null,
+  ...overrides,
+});
 
 const metrics = (overrides: Partial<RawMetrics> = {}): RawMetrics => ({
   ...EMPTY_RAW_METRICS,
@@ -24,6 +43,7 @@ const organic = (overrides: Partial<OrganicFacts> = {}): OrganicFacts => ({
   followers: null,
   previousFollowers: null,
   top: [],
+  flop: [],
   ...overrides,
 });
 
@@ -152,5 +172,77 @@ describe("renderReportingFacts", () => {
       facts({ organic: [organic({ posts: 2, total: metrics({ likes: 3 }) })] }),
     );
     expect(rendu).toContain("Portée : —");
+  });
+});
+
+describe("rendersPostClicks", () => {
+  it("n'accorde les clics par publication qu'à LinkedIn", () => {
+    // `social_posts.clicks` reste à zéro sur Meta : c'est une absence de
+    // mesure, pas une absence de clic.
+    expect(rendersPostClicks("linkedin")).toBe(true);
+    expect(rendersPostClicks("instagram")).toBe(false);
+    expect(rendersPostClicks("facebook")).toBe(false);
+    expect(rendersPostClicks("tiktok")).toBe(false);
+  });
+});
+
+describe("renderOrganicPosts", () => {
+  it("rend la légende entière, son accroche et son appel à l'action", () => {
+    const rendu = renderOrganicPosts(facts({ organic: [organic({ posts: 1, top: [post()] })] }));
+    expect(rendu).toContain("accroche : « Nos nouveaux verres arrivent. »");
+    expect(rendu).toContain("appel à l'action : « Réservez votre essayage. »");
+    expect(rendu).toContain("légende publiée :");
+  });
+
+  it("dit que les clics ne sont pas rendus plutôt que d'écrire zéro", () => {
+    const rendu = renderOrganicPosts(facts({ organic: [organic({ posts: 1, top: [post()] })] }));
+    expect(rendu).toContain("clics non rendus");
+    expect(rendu).not.toContain("clics 0");
+  });
+
+  it("sépare les plus engageantes des moins engageantes", () => {
+    const rendu = renderOrganicPosts(
+      facts({
+        organic: [
+          organic({
+            platform: "linkedin",
+            posts: 2,
+            top: [post({ platform: "LinkedIn", clicks: 60 })],
+            flop: [post({ caption: "Accroche molle.", platform: "LinkedIn", clicks: 1, likes: 1, comments: 0, shares: 0, saves: 0 })],
+          }),
+        ],
+      }),
+    );
+    expect(rendu).toContain("Les plus engageantes sur LinkedIn :");
+    expect(rendu).toContain("Les moins engageantes sur LinkedIn (mesurées) :");
+    expect(rendu).toContain("clics 60");
+  });
+
+  it("ne rend rien quand aucun réseau n'a de publication mesurée", () => {
+    expect(renderOrganicPosts(facts({ organic: [organic()] }))).toBe("");
+  });
+});
+
+describe("renderReportingFacts (clics par publication)", () => {
+  it("nomme le réseau qui ne rend pas les clics au lieu d'afficher zéro", () => {
+    const rendu = renderReportingFacts(facts({ organic: [organic({ posts: 3 })] }));
+    expect(rendu).toContain("Clics par publication : non rendus par ce réseau");
+  });
+
+  it("affiche les clics de LinkedIn, seule source qui les rende", () => {
+    const rendu = renderReportingFacts(
+      facts({
+        organic: [
+          organic({
+            platform: "linkedin",
+            posts: 3,
+            total: metrics({ reach: 1000, clicks: 120 }),
+            previousTotal: metrics({ reach: 800, clicks: 100 }),
+          }),
+        ],
+      }),
+    );
+    expect(rendu).toContain("## Organique — LinkedIn");
+    expect(rendu).toContain("Clics : 120 (+20,0\u202f%)");
   });
 });

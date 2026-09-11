@@ -10,17 +10,22 @@ import { getActiveContext, listAssets } from "./queries";
 /**
  * Contexte éditorial d'un client — la matière première des prompts.
  *
- * Le contrat est celui qu'attend `src/lib/production/generate.ts` : six
+ * Le contrat est celui qu'attend `src/lib/production/generate.ts` : cinq
  * champs texte, vides plutôt qu'inventés. Il était rempli par un bouchon en
  * attendant que le module Contexte existe ; il l'est maintenant pour de vrai,
  * depuis le brief actif et les documents cochés de l'espace.
  *
- * Trois champs restent vides parce que **rien ne les alimente aujourd'hui** :
+ * Deux champs restent vides parce que **rien ne les alimente aujourd'hui** :
  * le Contexte décrit la marque, pas le mois. Les prompts affichent alors
  * « Non renseigné. » et le modèle sait qu'il travaille sans cette matière —
  * c'est la règle de la maison, une source absente se dit, elle ne s'invente
  * pas. Les accroches déjà publiées ne passent pas non plus par ici : la
  * génération lit `wording_history` elle-même, au moment où elle en a besoin.
+ *
+ * `objectifs` a été **retiré** : il valait `""` depuis toujours, et le prompt
+ * de reporting promettait pourtant une comparaison à des objectifs chiffrés
+ * qu'aucune donnée n'alimentait. Une section qui promet ce qu'elle n'a pas est
+ * pire qu'une section absente.
  */
 
 export type ClientContext = {
@@ -34,8 +39,6 @@ export type ClientContext = {
   contraintes: string;
   /** Marronniers et événements sectoriels identifiés. */
   marronniers: string;
-  /** Objectifs chiffrés fixés avec le client. */
-  objectifs: string;
 };
 
 export async function getClientContext(options: {
@@ -60,6 +63,5 @@ export async function getClientContext(options: {
     platform_rules: platformRules,
     contraintes: "",
     marronniers: "",
-    objectifs: "",
   };
 }

@@ -3,6 +3,8 @@ import "server-only";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 
+import { fillTemplate } from "./prompt-template";
+
 /**
  * Chargement des prompts système depuis `src/lib/prompts/*.md`.
  *
@@ -30,15 +32,13 @@ function loadTemplate(name: "intentions" | "wording" | "reporting"): string {
 /**
  * Remplit les variables `{{nom}}` d'un template.
  *
- * Une variable absente des valeurs devient une mention explicite plutôt qu'un
- * trou : le modèle doit savoir qu'une donnée manque, pas deviner.
+ * La substitution elle-même vit dans `prompt-template.ts`, module pur : c'est
+ * le seul moyen de la tester, ce fichier-ci ne pouvant pas s'importer hors du
+ * serveur.
  */
 export function renderPrompt(
   name: "intentions" | "wording" | "reporting",
   values: Record<string, string>,
 ): string {
-  return loadTemplate(name).replace(/\{\{(\w+)\}\}/g, (_match, key: string) => {
-    const value = values[key];
-    return value !== undefined && value.trim() !== "" ? value : "Non renseigné.";
-  });
+  return fillTemplate(loadTemplate(name), values);
 }
