@@ -795,7 +795,9 @@ export function ConversationThread({
               <p className="type-caption ml-auto text-text-secondary">
                 {windowClosed
                   ? "Sept jours après le dernier message, Meta refuse toute réponse. Rien ne partira d'ici."
-                  : "Part sous le commentaire, sans passer par la FAQ."}
+                  : conversation.kind === "dm"
+                    ? "Part en message privé, sans passer par la FAQ."
+                    : "Part sous le commentaire, sans passer par la FAQ."}
               </p>
               <Button
                 type="button"

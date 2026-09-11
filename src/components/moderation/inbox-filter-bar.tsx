@@ -230,6 +230,7 @@ function NetworkToggle({
     <Link
       href={href}
       aria-pressed={active}
+      aria-label={label}
       role="button"
       className={cn(
         "type-caption focus-visible:ring-ring inline-flex items-center gap-1.5 rounded-pill border px-2.5 py-1 font-medium transition-colors duration-(--motion-duration) ease-standard focus-visible:ring-2 focus-visible:outline-none",
@@ -239,8 +240,11 @@ function NetworkToggle({
       )}
     >
       {platform ? <PlatformIcon platform={platform} className="size-4" /> : null}
+      {/* Le nom disparaît sous `sm`, où trois libellés complets ne tiennent
+          pas : le logo suffit, et `aria-label` porte le nom au lecteur
+          d'écran dans les deux cas — un second nœud en `sr-only` le lui
+          ferait entendre deux fois au-dessus de `sm`. */}
       <span className={platform ? "hidden sm:inline" : undefined}>{label}</span>
-      {platform ? <span className="sr-only sm:hidden">{label}</span> : null}
       {count === undefined ? null : (
         <span className="tabular-nums">{count}</span>
       )}
