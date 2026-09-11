@@ -7,9 +7,19 @@ import { z } from "zod";
 import { getViewer } from "@/lib/auth";
 import { explainMetaError } from "@/lib/connectors/meta/errors";
 import { getModerationContext } from "@/lib/moderation/access";
+import {
+  listUnreadConversations,
+  type InboxFilters,
+} from "@/lib/moderation/queries";
 import { can } from "@/lib/moderation/permissions";
 import { markSeenOnPlatform, sendReply } from "@/lib/moderation/send";
-import type { Conversation } from "@/lib/moderation/types";
+import {
+  isInboxView,
+  isStatusGroup,
+  type Conversation,
+  type InboxView,
+  type StatusGroup,
+} from "@/lib/moderation/types";
 import { createAdminClient, createClient } from "@/lib/supabase/server";
 import { DeterministicEmbeddings, toPgVector } from "@/lib/moderation/embeddings";
 import { planLearning, recordCorrection, recordDirectValidation } from "@/lib/moderation/learning";
@@ -25,6 +35,22 @@ export type ModerationResult =
  * pas une option : envoi, refus, ignorance, mise en attente, modification de
  * FAQ, tout laisse une trace immuable.
  */
+
+/**
+ * Ce qu'il faut réinvalider après un geste qui change l'état d'une
+ * conversation — statut ou lecture.
+ *
+ * La seconde ligne n'est pas une précaution. La pastille du rail est calculée
+ * par `getNavBadges()` dans `AppShell`, monté par le **layout** de la
+ * Modération : elle vit donc au-dessus du segment que
+ * `revalidatePath("/moderation")` rafraîchit. Sans elle, le compteur gardait sa
+ * valeur jusqu'au rechargement complet de la page, et le geste paraissait sans
+ * effet — c'est la moitié du « le compteur ne bouge pas ».
+ */
+function revalidateModeration(): void {
+  revalidatePath("/moderation");
+  revalidatePath("/", "layout");
+}
 
 async function requireOperator(clientId: string) {
   const viewer = await getViewer();
@@ -132,7 +158,7 @@ async function deliverReply(options: {
       after: { error: message },
     });
 
-    revalidatePath("/moderation");
+    revalidateModeration();
     return { ok: false, error: message };
   }
 }
@@ -229,7 +255,7 @@ export async function validateDraft(
       after: { draft_id: draft.id, sent },
     });
 
-    revalidatePath("/moderation");
+    revalidateModeration();
     return {
       ok: true,
       message: sent
@@ -282,7 +308,7 @@ export async function setConversationStatus(
       after: { status: parsed.data.status },
     });
 
-    revalidatePath("/moderation");
+    revalidateModeration();
     const labels = {
       ignored: "Conversation ignorée. Elle reste consultable et réouvrable.",
       snoozed: "Mise en attente.",
@@ -504,7 +530,7 @@ export async function submitCorrection(
       },
     });
 
-    revalidatePath("/moderation");
+    revalidateModeration();
 
     const suffix =
       plan.action === "create"
@@ -647,7 +673,7 @@ export async function applyInboxGesture(input: {
       });
     }
 
-    revalidatePath("/moderation");
+    revalidateModeration();
     const labels = GESTURE_LABELS[parsed.data.gesture];
     return {
       ok: true,
@@ -655,6 +681,132 @@ export async function applyInboxGesture(input: {
         targets.length > 1
           ? `${targets.length} conversations — ${labels.many.toLowerCase()}`
           : labels.one,
+    };
+  } catch (error) {
+    return { ok: false, error: (error as Error).message };
+  }
+}
+
+/**
+ * Le miroir « vu » vers la plateforme, plafonné.
+ *
+ * Meta veut un appel Graph par conversation : le faire pour quatre cents fils
+ * d'un coup, en série, prend des minutes et n'apporte rien d'urgent — l'état de
+ * lecture d'ici est déjà juste. On en poste donc cinquante par passage, comme
+ * le rattrapage d'avatars, et les suivants attendent le prochain geste. Rien
+ * n'est perdu : seule la Boîte de réception Meta reste en retard d'un cran.
+ */
+const MARK_SEEN_CAP = 50;
+
+/** Postgres accepte de longues listes, mais pas infinies : on écrit par lots. */
+const READ_BATCH = 500;
+
+const markAllReadInput = z.object({
+  view: z.string().optional(),
+  clientSlug: z.string().optional(),
+  statusGroup: z.string().optional(),
+  unreadOnly: z.boolean().optional(),
+  highPriorityOnly: z.boolean().optional(),
+  search: z.string().optional(),
+});
+
+/**
+ * « Tout lire » : toutes les conversations non lues du filtre courant.
+ *
+ * Pas une variante de `applyInboxGesture` — celui-ci reçoit une liste
+ * d'identifiants plafonnée à deux cents, et la case « Tout sélectionner » ne
+ * coche de toute façon que les quatre cents lignes affichées. Ici le serveur
+ * relit lui-même le filtre et travaille sur **tout** ce qu'il désigne : c'est
+ * la seule façon de vider une boîte de plusieurs milliers de messages.
+ *
+ * Le journal d'audit reçoit une ligne par client et non par conversation : mille
+ * lignes d'audit pour un seul clic diraient moins que « a marqué 1 243
+ * conversations comme lues ».
+ */
+export async function markFilterAsRead(input: {
+  view?: string;
+  clientSlug?: string;
+  statusGroup?: string;
+  unreadOnly?: boolean;
+  highPriorityOnly?: boolean;
+  search?: string;
+}): Promise<ModerationResult> {
+  const parsed = markAllReadInput.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Requête incomplète." };
+
+  try {
+    const { clients } = await getModerationContext();
+    if (clients.length === 0) return { ok: false, error: "Action indisponible." };
+
+    const client = parsed.data.clientSlug
+      ? clients.find((candidate) => candidate.slug === parsed.data.clientSlug)
+      : undefined;
+    if (parsed.data.clientSlug && !client) {
+      return { ok: false, error: "Action indisponible." };
+    }
+
+    const filters: InboxFilters = {
+      view: isInboxView(parsed.data.view ?? "") ? (parsed.data.view as InboxView) : "tout",
+      clientId: client?.id,
+      statusGroup: isStatusGroup(parsed.data.statusGroup ?? "")
+        ? (parsed.data.statusGroup as StatusGroup)
+        : undefined,
+      unreadOnly: true,
+      highPriorityOnly: parsed.data.highPriorityOnly,
+      search: parsed.data.search,
+    };
+
+    const targets = await listUnreadConversations({ filters });
+    if (targets.length === 0) {
+      return { ok: true, message: "Rien à lire — tout est déjà ouvert." };
+    }
+
+    // Une garde par client, comme le geste unitaire : une sélection qui
+    // traverse deux clients vérifie les deux.
+    const viewers = new Map<string, Awaited<ReturnType<typeof requireOperator>>>();
+    for (const clientId of new Set(targets.map((row) => row.client_id))) {
+      viewers.set(clientId, await requireOperator(clientId));
+    }
+
+    const supabase = await createClient();
+    for (let start = 0; start < targets.length; start += READ_BATCH) {
+      const batch = targets.slice(start, start + READ_BATCH);
+      const { error } = await supabase
+        .from("conversations")
+        .update({ unread: false } as never)
+        .in(
+          "id",
+          batch.map((row) => row.id),
+        );
+      if (error) return { ok: false, error: error.message };
+    }
+
+    for (const [clientId, viewer] of viewers) {
+      await audit({
+        actorId: viewer.viewer.user.id,
+        clientId,
+        action: "conversation.tout-lu",
+        after: {
+          count: targets.filter((row) => row.client_id === clientId).length,
+          filtre: { vue: filters.view, statut: filters.statusGroup ?? "toutes" },
+        },
+      });
+    }
+
+    const admin = createAdminClient();
+    after(async () => {
+      for (const row of targets.slice(0, MARK_SEEN_CAP)) {
+        await markSeenOnPlatform({ admin, conversation: row });
+      }
+    });
+
+    revalidateModeration();
+    return {
+      ok: true,
+      message:
+        targets.length > 1
+          ? `${targets.length} conversations marquées comme lues.`
+          : "Marquée comme lue.",
     };
   } catch (error) {
     return { ok: false, error: (error as Error).message };
@@ -721,7 +873,7 @@ export async function sendManualReply(input: {
       after: { sent: delivery.sent, length: parsed.data.body.length },
     });
 
-    revalidatePath("/moderation");
+    revalidateModeration();
     return {
       ok: true,
       message: delivery.sent

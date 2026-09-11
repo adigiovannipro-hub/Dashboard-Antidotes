@@ -80,6 +80,28 @@ export function isActionable(status: ConversationStatus): boolean {
   return ACTIONABLE_STATUSES.includes(status);
 }
 
+/**
+ * Ce qu'un **badge** annonce : à traiter *et* pas encore lu.
+ *
+ * La définition est unique, et elle doit le rester — la pastille du rail
+ * (`countModeration`) et les compteurs d'onglets de canal (`getInboxCounters`)
+ * s'en servent tous les deux. Le jour où l'une des deux compte autre chose, un
+ * badge promet ce que le clic ne montre pas : c'est la règle de la maison, et
+ * c'est déjà arrivé.
+ *
+ * Pourquoi l'état de lecture et pas la seule charge de travail : un badge de
+ * notification dit ce qu'on n'a pas encore regardé. La charge, elle, est déjà
+ * portée par le filtre de statut « À traiter », qui compte tout l'actionnable,
+ * lu ou non. Sans cette distinction, lire trois cents conversations ne faisait
+ * bouger aucun chiffre.
+ */
+export function countsAsPending(row: {
+  status: ConversationStatus;
+  unread: boolean;
+}): boolean {
+  return row.unread && ACTIONABLE_STATUSES.includes(row.status);
+}
+
 export type ConversationPriority = "normal" | "high";
 
 /**
@@ -197,6 +219,18 @@ export const FLAG_LABELS: Record<ModerationFlag, string> = {
   refund: "Remboursement",
   sensitive: "Question sensible",
 };
+
+/**
+ * Tous les drapeaux, dans l'ordre de la déclaration.
+ *
+ * Sert au filtre « Signalées », qui interroge la **présence d'un drapeau** et
+ * non la priorité : depuis que le spam est archivé sans monter en priorité, la
+ * priorité ne dit plus « signalé ». Le libellé du filtre, lui, n'a jamais
+ * parlé que des drapeaux.
+ */
+export const MODERATION_FLAGS: ModerationFlag[] = Object.keys(
+  FLAG_LABELS,
+) as ModerationFlag[];
 
 export type DraftStatus =
   | "proposed"

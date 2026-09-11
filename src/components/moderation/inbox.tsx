@@ -12,7 +12,11 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { AlertTriangle, Inbox as InboxIcon, Search } from "lucide-react";
 import { toast } from "sonner";
 
-import { applyInboxGesture, type InboxGesture } from "@/app/actions/moderation";
+import {
+  applyInboxGesture,
+  markFilterAsRead,
+  type InboxGesture,
+} from "@/app/actions/moderation";
 import { Panel } from "@/components/ds/surface";
 import { ConversationList } from "@/components/moderation/conversation-list";
 import { ConversationThread } from "@/components/moderation/conversation-thread";
@@ -50,6 +54,9 @@ import { COMPOSIO_TRANSITION_NOTE } from "@/lib/social/direct-connect";
  * Conçue pour traiter cent messages en dix minutes : le clavier fait tout, et
  * la navigation entre conversations ne recharge que le volet de droite.
  */
+/** Au-delà, « Tout lire » demande confirmation : c'est un geste irréversible. */
+const CONFIRM_READ_ABOVE = 25;
+
 export function Inbox({
   clients,
   role,
@@ -93,6 +100,7 @@ export function Inbox({
   const [search, setSearch] = useState(initialSearch);
   const [checked, setChecked] = useState<Set<string>>(new Set());
   const [gesturePending, startGesture] = useTransition();
+  const [readingAll, startReadingAll] = useTransition();
 
   /* La conversation ouverte, en avance sur le serveur.
      Le surlignage attendait la page rendue côté serveur : un clic restait
@@ -167,6 +175,50 @@ export function Inbox({
     );
   }, [thread.conversation, router]);
 
+  /* Combien de non-lus sont visibles : c'est ce qui décide d'offrir « Tout
+     lire ». Un décompte exact de la boîte entière demanderait une requête de
+     plus à chaque rendu, pour une information que le bouton donne lui-même
+     dans son message de retour. */
+  const unreadShown = conversations.filter((conversation) => conversation.unread).length;
+
+  const markAllRead = useCallback(() => {
+    /* La confirmation au-delà d'un écran de lignes : marquer quatre cents fils
+       comme lus ne se défait pas d'un Ctrl-Z, et le bouton est à deux
+       centimètres de « Tout sélectionner ». */
+    if (
+      unreadShown > CONFIRM_READ_ABOVE &&
+      !window.confirm(
+        `Marquer comme lues toutes les conversations non lues de ce filtre ? (${unreadShown} visibles, et celles qui suivent.)`,
+      )
+    ) {
+      return;
+    }
+
+    startReadingAll(async () => {
+      const result = await markFilterAsRead({
+        view,
+        clientSlug: clientSlug ?? undefined,
+        statusGroup,
+        highPriorityOnly,
+        search: initialSearch || undefined,
+      });
+      if (result.ok) {
+        toast.success(result.message);
+        router.refresh();
+      } else {
+        toast.error(result.error);
+      }
+    });
+  }, [
+    clientSlug,
+    highPriorityOnly,
+    initialSearch,
+    router,
+    statusGroup,
+    unreadShown,
+    view,
+  ]);
+
   const toggleChecked = useCallback((id: string, isChecked: boolean) => {
     setChecked((current) => {
       const next = new Set(current);
@@ -236,7 +288,13 @@ export function Inbox({
     router.push(`${pathname}?${next}`);
   }
 
-  // L'état du relevé : le plus récent passage, et les canaux en panne.
+  /* L'état du relevé. Un **avertissement** n'est pas une **erreur** : le
+     passage qui aboutit écrit quand même dans `last_error` ce qui lui a
+     manqué — un refus sur la messagerie, par exemple — alors que les
+     commentaires sont bien remontés. L'écran lisait ce champ seul et
+     remplaçait « Relevé il y a X » par « canal en erreur », ce qui donnait à
+     une boîte parfaitement à jour l'air d'une panne. Le juge est donc
+     `status`, et l'âge du relevé s'affiche **toujours**. */
   const lastPolledAt = connections.reduce<string | null>(
     (latest, connection) =>
       connection.last_polled_at && (!latest || connection.last_polled_at > latest)
@@ -244,7 +302,10 @@ export function Inbox({
         : latest,
     null,
   );
-  const failing = connections.filter((connection) => connection.last_error);
+  const failing = connections.filter((connection) => connection.status !== "connected");
+  const warned = connections.filter(
+    (connection) => connection.status === "connected" && connection.last_error,
+  );
 
   const selectedClient = thread.conversation
     ? clientById.get(thread.conversation.client_id)
@@ -285,6 +346,10 @@ export function Inbox({
         highPriorityOnly={highPriorityOnly}
         trailing={
           <>
+            <span className="type-caption hidden text-text-secondary lg:inline">
+              {lastPolledAt ? `Relevé ${relativeTime(lastPolledAt)}` : "Jamais relevé"}
+            </span>
+
             {failing.length > 0 ? (
               <span
                 className="type-caption inline-flex items-center gap-1 font-medium text-danger-ink"
@@ -295,9 +360,13 @@ export function Inbox({
                   ? `${failing.length} canaux en erreur`
                   : "canal en erreur"}
               </span>
-            ) : lastPolledAt ? (
-              <span className="type-caption hidden text-text-secondary lg:inline">
-                Relevé {relativeTime(lastPolledAt)}
+            ) : warned.length > 0 ? (
+              <span
+                className="type-caption inline-flex items-center gap-1 font-medium text-warning-ink"
+                title={warned[0]!.last_error ?? undefined}
+              >
+                <AlertTriangle className="size-3.5" strokeWidth={1.75} aria-hidden />
+                {warned.length > 1 ? `${warned.length} avertissements` : "avertissement"}
               </span>
             ) : null}
 
@@ -342,30 +411,47 @@ export function Inbox({
           )}
         >
           {conversations.length > 0 ? (
-            /* Tout sélectionner — la liste affichée entière, donc « tous les
-               messages d'un client » dès que le filtre client est posé : le
-               chemin direct vers le rangement ou la suppression en masse. */
-            <label className="border-border text-text-secondary hover:text-text-primary flex shrink-0 cursor-pointer items-center gap-2 border-b px-3 py-1.5 text-xs transition-colors">
-              <input
-                type="checkbox"
-                checked={
-                  checkedVisible.length === conversations.length &&
-                  conversations.length > 0
-                }
-                onChange={(event) =>
-                  setChecked(
-                    event.target.checked
-                      ? new Set(conversations.map((conversation) => conversation.id))
-                      : new Set(),
-                  )
-                }
-                className="accent-accent-ink size-3.5"
-                aria-label="Tout sélectionner"
-              />
-              {checkedVisible.length > 0
-                ? `${checkedVisible.length} sélectionnée(s)`
-                : "Tout sélectionner"}
-            </label>
+            <div className="type-caption flex shrink-0 items-center gap-2 border-b border-border px-3 py-1.5 text-text-secondary">
+              {/* Tout sélectionner — la liste affichée entière, donc « tous les
+                  messages d'un client » dès que le filtre client est posé : le
+                  chemin direct vers le rangement ou la suppression en masse. */}
+              <label className="hover:text-text-primary flex min-w-0 flex-1 cursor-pointer items-center gap-2 transition-colors duration-(--motion-duration) ease-standard">
+                <input
+                  type="checkbox"
+                  checked={
+                    checkedVisible.length === conversations.length &&
+                    conversations.length > 0
+                  }
+                  onChange={(event) =>
+                    setChecked(
+                      event.target.checked
+                        ? new Set(conversations.map((conversation) => conversation.id))
+                        : new Set(),
+                    )
+                  }
+                  className="accent-accent-ink size-3.5"
+                  aria-label="Tout sélectionner"
+                />
+                {checkedVisible.length > 0
+                  ? `${checkedVisible.length} sélectionnée(s)`
+                  : "Tout sélectionner"}
+              </label>
+
+              {/* « Tout lire » ne passe pas par la sélection : la case ci-contre
+                  ne coche que les lignes affichées, et le geste unitaire est
+                  plafonné à deux cents identifiants. Ici le serveur relit le
+                  filtre et marque **tout** ce qu'il désigne. */}
+              {unreadShown > 0 ? (
+                <button
+                  type="button"
+                  onClick={markAllRead}
+                  disabled={readingAll}
+                  className="focus-visible:ring-ring shrink-0 rounded-md px-1.5 py-0.5 font-medium text-accent-ink transition-colors duration-(--motion-duration) ease-standard hover:bg-accent-subtle focus-visible:ring-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Tout lire
+                </button>
+              ) : null}
+            </div>
           ) : null}
           <div className="min-h-0 flex-1 overflow-y-auto">
           <ConversationList

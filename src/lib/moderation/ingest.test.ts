@@ -276,3 +276,75 @@ describe("planThreadState — état de lecture de la plateforme", () => {
     expect(plan.unread).toBe(false);
   });
 });
+
+describe("planThreadState — le spam se range tout seul", () => {
+  const spam = (over: Partial<IngestedMessage> = {}): IngestedMessage =>
+    message({ body: "Free followers, check my bio !", ...over });
+
+  it("archive un fil dont tout l'entrant est du spam, sans monter la priorité", () => {
+    const plan = planThreadState({
+      existing: null,
+      thread: thread({ messages: [spam()] }),
+    });
+
+    // « Archivé » à l'écran : il sort de « À traiter » sans disparaître.
+    expect(plan.status).toBe("ignored");
+    expect(plan.unread).toBe(false);
+    expect(plan.priority).toBe("normal");
+    // Le drapeau reste : le filtre « Signalées » continue de le montrer.
+    expect(plan.flags).toContain("spam");
+  });
+
+  it("laisse à traiter un fil qui porte un autre drapeau que le spam", () => {
+    const plan = planThreadState({
+      existing: null,
+      thread: thread({
+        messages: [spam(), message({ externalId: "m2", body: "Je veux un remboursement." })],
+      }),
+    });
+
+    expect(plan.status).toBe("to_process");
+    expect(plan.priority).toBe("high");
+  });
+
+  it("rouvre le fil quand un message ordinaire suit le spam", () => {
+    /* La garde qui compte : un vrai client pris pour un spam ne doit pas être
+       perdu. Les drapeaux s'accumulent et ne se retirent jamais — la décision
+       se prend donc message par message, pas sur le drapeau du fil. */
+    const plan = planThreadState({
+      existing: existing({ status: "ignored", unread: false, flags: ["spam"] }),
+      thread: thread({
+        messages: [
+          spam(),
+          message({
+            externalId: "m2",
+            body: "Bonjour, ma commande n'est pas arrivée.",
+            sentAt: "2026-08-11T09:00:00.000Z",
+          }),
+        ],
+      }),
+    });
+
+    expect(plan.status).toBe("to_process");
+    expect(plan.unread).toBe(true);
+  });
+
+  it("n'archive pas un fil où la marque a déjà répondu", () => {
+    const plan = planThreadState({
+      existing: null,
+      thread: thread({
+        messages: [
+          spam(),
+          message({
+            externalId: "m2",
+            body: "Merci, bonne journée.",
+            fromBrand: true,
+            sentAt: "2026-08-10T11:00:00.000Z",
+          }),
+        ],
+      }),
+    });
+
+    expect(plan.status).toBe("answered_elsewhere");
+  });
+});

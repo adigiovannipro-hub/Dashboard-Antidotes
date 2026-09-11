@@ -132,6 +132,21 @@ export async function dispatchSyncWorkflow(): Promise<void> {
 }
 
 /**
+ * Le relevé de la Modération, à la demande — même workflow, autre portée.
+ *
+ * `portee: moderation` saute Finance, les Reçus et les envois : ouvrir l'inbox
+ * ne doit ni écrire à un prospect ni publier un planning. Ce qui reste est
+ * `pnpm sync:moderation`, quelques secondes par compte branché.
+ *
+ * Le travail ne part pas de l'hébergeur, et cette fois ce n'est pas Meta qui
+ * refuse — c'est le plafond de Vercel : le relevé complet dépasse la minute
+ * qu'une fonction Hobby a le droit de vivre, et se faisait couper en vol.
+ */
+export async function dispatchModerationWorkflow(): Promise<void> {
+  await dispatchWorkflow(SYNC_WORKFLOW_FILE, { portee: "moderation" });
+}
+
+/**
  * Le workflow des passages de sourcing du pôle Antidotes : « Lancer » depuis
  * l'écran de campagne pose un passage en file puis donne cet ordre — même
  * jeton, même mécanique que Finance, une autre file d'attente.

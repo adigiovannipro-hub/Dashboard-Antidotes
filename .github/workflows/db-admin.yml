@@ -90,6 +90,14 @@ on:
         description: "… depuis cette date (AAAA-MM-JJ), pour un rattrapage"
         type: string
         default: ""
+      diagnostic_meta:
+        description: "Ce que Composio voit de Meta, et jusqu'où porte son passage brut (« oui » pour lancer)"
+        type: string
+        default: ""
+      diagnostic_meta_sonde:
+        description: "… en sondant des objets réels : « idMédia,idPage,idCommentaire » (séparés par des virgules)"
+        type: string
+        default: ""
       diagnostic_tiktok:
         description: "Ce que Composio voit de TikTok (« oui » pour lancer)"
         type: string
@@ -257,6 +265,21 @@ jobs:
         run: >-
           pnpm diagnostic:linkedin
           ${{ inputs.diagnostic_linkedin_sonde != '' && format('--sonde "{0}"', inputs.diagnostic_linkedin_sonde) || '' }}
+        env:
+          COMPOSIO_API_KEY: ${{ secrets.COMPOSIO_API_KEY }}
+
+      # Ce que Composio voit de Meta. La question est celle de la Modération :
+      # si l'API directe refuse une portée — commentaires, messages privés —
+      # est-ce que la passerelle irait plus loin ? On ne peut pas l'écrire sans
+      # le savoir : la leçon LinkedIn dit qu'un outil pré-emballé n'est pas
+      # l'API, et qu'une forme de réponse ne se relit pas, elle se sonde.
+      # Lecture seule : les deux sondes d'écriture visent l'objet « 0 », qui
+      # n'existe pas — rien n'est publié.
+      - name: Diagnostic Meta
+        if: ${{ inputs.diagnostic_meta != '' }}
+        run: >-
+          pnpm diagnostic:meta
+          ${{ inputs.diagnostic_meta_sonde != '' && format('--sonde "{0}"', inputs.diagnostic_meta_sonde) || '' }}
         env:
           COMPOSIO_API_KEY: ${{ secrets.COMPOSIO_API_KEY }}
 

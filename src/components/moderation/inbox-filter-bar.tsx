@@ -113,6 +113,7 @@ export function InboxFilterBar({
                 href={buildHref({ client: client.slug })}
                 logoUrl={client.logoUrl}
                 name={client.name}
+                count={counters.byClient[client.id]}
               >
                 {client.name}
               </ClientLink>
@@ -125,12 +126,13 @@ export function InboxFilterBar({
           className="flex flex-wrap items-center gap-1 md:ml-auto"
         >
           {/* Un seul chiffre dans cette rangée : le reste à faire. Compter
-              aussi le traité et le total noyait la seule information utile. */}
+              aussi le traité et le total noyait la seule information utile.
+              « Toutes » est le défaut, donc la valeur absente de l'URL. */}
           {STATUS_GROUP_ORDER.map((group) => (
             <SmallFilterLink
               key={group}
               active={statusGroup === group}
-              href={buildHref({ statut: group === "a-traiter" ? null : group })}
+              href={buildHref({ statut: group === "toutes" ? null : group })}
               count={group === "a-traiter" ? counters.byStatusGroup[group] : undefined}
             >
               {STATUS_GROUP_LABELS[group]}

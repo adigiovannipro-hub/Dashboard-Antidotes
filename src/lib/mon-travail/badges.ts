@@ -72,7 +72,18 @@ export async function getNavBadges(): Promise<NavBadges> {
 }
 
 /**
- * Conversations actionnables, tous clients de modération confondus.
+ * Conversations à traiter **et non lues**, tous clients de modération
+ * confondus.
+ *
+ * C'est la traduction SQL de `countsAsPending` — la définition vit là-bas, et
+ * les compteurs d'onglets de l'inbox s'en servent aussi. Les deux doivent
+ * rester d'accord : un badge qui compte autre chose que ce que le clic montre
+ * est le piège que ce dépôt a déjà payé une fois.
+ *
+ * Pourquoi le non-lu : la pastille comptait tout l'actionnable, si bien que
+ * marquer trois cents conversations comme lues ne la faisait pas bouger d'un
+ * chiffre — le geste paraissait cassé alors qu'il avait bien eu lieu. La
+ * charge de travail, elle, reste lisible dans le filtre « À traiter ».
  *
  * `null` — et non zéro — quand le visiteur n'a aucun client : la pastille
  * disparaît alors, au lieu d'annoncer « 0 » sur un module qui n'existe pas
@@ -87,6 +98,7 @@ async function countModeration(): Promise<number | null> {
     .from("conversations")
     .select("id", { count: "exact", head: true })
     .is("deleted_at", null)
+    .eq("unread", true)
     .in("status", ACTIONABLE_STATUSES);
 
   return count ?? 0;

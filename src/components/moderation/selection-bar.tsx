@@ -43,7 +43,7 @@ export function SelectionBar({
       className="fixed bottom-4 left-1/2 z-30 flex max-w-[95vw] -translate-x-1/2 flex-row items-center gap-1 overflow-x-auto rounded-pill border border-border bg-surface px-2 py-1.5 shadow-lg lg:absolute lg:top-1/2 lg:bottom-auto lg:left-0 lg:-translate-x-[calc(100%+0.5rem)] lg:-translate-y-1/2 lg:flex-col lg:px-1 lg:py-2"
     >
       <span
-        className="flex size-6 shrink-0 items-center justify-center rounded-pill bg-primary text-xs font-bold text-primary-foreground tabular-nums lg:mb-0.5"
+        className="type-caption flex size-6 shrink-0 items-center justify-center rounded-pill bg-primary font-bold text-primary-foreground tabular-nums lg:mb-0.5"
         aria-label={`${count} conversation${count > 1 ? "s" : ""} sélectionnée${count > 1 ? "s" : ""}`}
       >
         {count}

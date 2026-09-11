@@ -202,15 +202,34 @@ export function planThreadState(options: {
 
   // Le tri couvre tous les messages entrants : un signalement posé au premier
   // message ne s'efface pas parce qu'un « ? » est arrivé ensuite.
+  const triaged = inbound.map((message) => triageMessage(message.body, fallback).flags);
   const flags: ModerationFlag[] = [];
-  for (const message of inbound) {
-    for (const flag of triageMessage(message.body, fallback).flags) {
+  for (const messageFlags of triaged) {
+    for (const flag of messageFlags) {
       if (!flags.includes(flag)) flags.push(flag);
     }
   }
   for (const flag of existing?.flags ?? []) {
     if (!flags.includes(flag)) flags.push(flag);
   }
+
+  /* Le spam ne fait pas la queue devant le vrai travail.
+     Un fil dont **chaque** message entrant est du spam, et sur lequel personne
+     n'a jamais répondu, se range tout seul — il arrivait en `to_process` et en
+     priorité haute, c'est-à-dire en tête de « À traiter ».
+
+     « Chaque message entrant » et non « le fil porte le drapeau spam » : les
+     drapeaux s'accumulent et ne se retirent jamais, si bien qu'un vrai client
+     dont le premier message a été pris pour du spam serait archivé pour
+     toujours. Sa deuxième phrase, elle, n'est pas du spam — la condition
+     retombe, et la règle habituelle (« un entrant nouveau rouvre le fil »)
+     le remet à traiter. */
+  const spamOnly =
+    triaged.length > 0 &&
+    triaged.every(
+      (messageFlags) =>
+        messageFlags.length > 0 && messageFlags.every((flag) => flag === "spam"),
+    );
 
   const locale = lastInbound
     ? triageMessage(lastInbound.body, fallback).locale
@@ -224,9 +243,13 @@ export function planThreadState(options: {
   let status: ConversationStatus;
   let unread: boolean;
 
+  // Aucune réponse humaine sur le fil : `lastBrandAt` couvre aussi bien une
+  // réponse faite depuis l'outil que depuis l'application Meta.
+  const autoArchive = spamOnly && lastBrandAt === 0;
+
   if (existing === null) {
-    status = brandAnswered ? "answered_elsewhere" : "to_process";
-    unread = !brandAnswered;
+    status = brandAnswered ? "answered_elsewhere" : autoArchive ? "ignored" : "to_process";
+    unread = !brandAnswered && !autoArchive;
   } else if (
     brandAnswered &&
     (newInbound || CLOSABLE_STATUSES.includes(existing.status))
@@ -234,8 +257,8 @@ export function planThreadState(options: {
     status = "answered_elsewhere";
     unread = false;
   } else if (newInbound) {
-    status = "to_process";
-    unread = true;
+    status = autoArchive ? "ignored" : "to_process";
+    unread = !autoArchive;
   } else {
     status = existing.status;
     unread = existing.unread;
@@ -246,9 +269,14 @@ export function planThreadState(options: {
   // pas — lire n'est pas répondre.
   if (thread.platformUnread === false) unread = false;
 
-  // La priorité ne redescend jamais : un signalement lu reste signalé.
+  /* La priorité ne redescend jamais : un signalement lu reste signalé. Le
+     spam archivé d'office fait exception — le monter en priorité le ferait
+     remonter en tête de la pile dont on vient de le sortir. Il garde son
+     drapeau, que le filtre « Signalées » lit. */
   const priority: ConversationPriority =
-    flags.length > 0 || existing?.priority === "high" ? "high" : "normal";
+    (!autoArchive && flags.length > 0) || existing?.priority === "high"
+      ? "high"
+      : "normal";
 
   return {
     status,
