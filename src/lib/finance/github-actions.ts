@@ -174,6 +174,18 @@ async function dispatchWorkflow(file: string, inputs: Record<string, string>): P
   if (response.status === 204) return;
 
   const detail = await response.text().catch(() => "");
+
+  /* GitHub valide les `inputs` d'un `workflow_dispatch` contre la version du
+     fichier de la **branche par défaut**, jamais contre celle qu'on cible. Une
+     portée ajoutée sur une branche est donc refusée en 422 tant qu'elle n'est
+     pas fusionnée — et le message brut, en anglais et en JSON, ne dit rien de
+     tout ça à qui lit l'écran. */
+  if (response.status === 422 && detail.includes("not in the list of allowed values")) {
+    throw new Error(
+      "Cette portée n'existe pas encore sur la branche par défaut : GitHub lit la liste des valeurs autorisées là-bas, pas sur la branche déployée. Elle marchera au prochain merge.",
+    );
+  }
+
   throw new Error(
     `GitHub a refusé le déclenchement (${response.status})${detail ? ` — ${detail.slice(0, 200)}` : ""}`,
   );

@@ -40,6 +40,7 @@ import type {
   ModerationRole,
   StatusGroup,
 } from "@/lib/moderation/types";
+import { CHANNEL_LABELS } from "@/lib/moderation/types";
 import { cn } from "@/lib/utils";
 import { COMPOSIO_TRANSITION_NOTE } from "@/lib/social/direct-connect";
 
@@ -363,7 +364,7 @@ export function Inbox({
             ) : warned.length > 0 ? (
               <span
                 className="type-caption inline-flex items-center gap-1 font-medium text-warning-ink"
-                title={warned[0]!.last_error ?? undefined}
+                title={detailDesAvertissements(warned)}
               >
                 <AlertTriangle className="size-3.5" strokeWidth={1.75} aria-hidden />
                 {warned.length > 1 ? `${warned.length} avertissements` : "avertissement"}
@@ -500,4 +501,28 @@ function relativeTime(iso: string): string {
   const hours = Math.round(minutes / 60);
   if (hours < 24) return `il y a ${hours} h`;
   return `il y a ${Math.round(hours / 24)} j`;
+}
+
+/**
+ * Le détail d'un avertissement de relevé, lisible.
+ *
+ * Le titre ne portait que le message du premier canal, brut — et Meta rend
+ * volontiers « An unknown error occurred », qui n'apprend rien et ne dit même
+ * pas de quel canal il s'agit. On nomme donc le canal et le compte, une ligne
+ * par avertissement, et on traduit le refus générique de Meta en ce qu'il
+ * signifie en pratique : réessayer au passage suivant.
+ */
+function detailDesAvertissements(warned: ChannelConnectionSummary[]): string {
+  return warned
+    .map((connection) => {
+      const canal = CHANNEL_LABELS[connection.channel] ?? connection.channel;
+      const compte = connection.display_name ? ` · ${connection.display_name}` : "";
+      const message = connection.last_error?.trim() ?? "";
+      const lisible =
+        message === "" || /unknown error/i.test(message)
+          ? "Meta n'a pas dit pourquoi. Le passage suivant réessaiera ; si l'avertissement revient, c'est une portée à rebrancher."
+          : message;
+      return `${canal}${compte} — ${lisible}`;
+    })
+    .join("\n");
 }

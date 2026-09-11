@@ -236,9 +236,9 @@ export function ConversationThread({
   const grounded = sources.length > 0;
 
   return (
-    <div className="flex min-w-0 flex-1 flex-col">
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col">
       {/* En-tête du fil */}
-      <div className="border-b border-border px-4 py-3.5 md:px-5">
+      <div className="border-b border-border shrink-0 px-4 py-3.5 md:px-5">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
           <button
             type="button"
@@ -370,11 +370,17 @@ export function ConversationThread({
         ))}
       </div>
 
-      {/* Zone de réponse */}
-      <div className="border-border border-t px-5 py-4">
+      {/* Zone de réponse.
+
+          `shrink-0` : c'est le fil au-dessus qui se comprime, jamais elle —
+          sans ça, une réponse longue poussait les boutons de validation hors
+          de l'écran et il n'y avait plus aucun moyen de valider quoi que ce
+          soit. Et la réponse elle-même défile dans sa boîte : une proposition
+          de quinze lignes ne doit pas repousser ce qui permet de l'accepter. */}
+      <div className="border-border shrink-0 border-t px-5 py-4">
         {current ? (
           <>
-            <div className="bg-card rounded-lg p-3">
+            <div className="bg-card max-h-44 overflow-y-auto rounded-lg p-3">
               <p className="type-body whitespace-pre-wrap">{current.body}</p>
             </div>
 
