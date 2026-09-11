@@ -1,0 +1,291 @@
+# Sondes et diagnostics — ce qu'on regarde avant d'écrire, et les opérations
+# qui parlent à un service extérieur.
+#
+# Séparé de « Base de données » parce que GitHub refuse plus de 25 `inputs` sur
+# un `workflow_dispatch` : à 35, le fichier ne se lançait plus du tout, sans
+# que rien ne le signale avant la tentative. Le découpage suit d'ailleurs une
+# vraie frontière — ici rien ne touche au schéma, on lit des services et on
+# rejoue des envois.
+#
+# Règle de la maison : « la forme d'une réponse ne se relit pas, elle se
+# sonde ». Ces étapes affichent les réponses **brutes**, et c'est le seul
+# moyen, sans terminal, de trancher un nom de champ ou une portée.
+
+name: Sondes et diagnostics
+
+on:
+  workflow_dispatch:
+    inputs:
+      diagnostic_finance:
+        description: "Diagnostic Finance (lecture seule) : statuts, soldes, dépenses"
+        type: boolean
+        default: false
+      diagnostic_billing:
+        description: "Diagnostic Échéances (lecture seule) : groupes, doublons, TVA"
+        type: boolean
+        default: false
+      diagnostic_schema:
+        description: "Diagnostic schéma (lecture seule) : colonnes réelles et privilèges d'API"
+        type: boolean
+        default: false
+      diagnostic_linkedin:
+        description: "Diagnostic LinkedIn (lecture seule) : pages entreprise vues par Composio"
+        type: boolean
+        default: false
+      diagnostic_linkedin_sonde:
+        description: "… en sondant en plus les statistiques d'une page (identifiant d'organisation)"
+        type: string
+        default: ""
+      sync_linkedin:
+        description: "Collecter LinkedIn maintenant (slug d'espace, ou « tout »)"
+        type: string
+        default: ""
+      sync_linkedin_depuis:
+        description: "… depuis cette date (AAAA-MM-JJ), pour un rattrapage"
+        type: string
+        default: ""
+      diagnostic_meta:
+        description: "Ce que Composio voit de Meta, et jusqu'où porte son passage brut (« oui » pour lancer)"
+        type: string
+        default: ""
+      diagnostic_meta_sonde:
+        description: "… en sondant des objets réels : « idMédia,idPage,idCommentaire » (séparés par des virgules)"
+        type: string
+        default: ""
+      diagnostic_tiktok:
+        description: "Ce que Composio voit de TikTok (« oui » pour lancer)"
+        type: string
+        default: ""
+      sonde_linkedin_rest:
+        description: "Sonder l'API REST LinkedIn en direct (identifiant d'organisation)"
+        type: string
+        default: ""
+      sonde_linkedin_publication:
+        description: "… sur ce mois (AAAA-MM)"
+        type: string
+        default: ""
+      sonde_meta:
+        description: "Sonder la Graph API de Meta (slug d'espace, vide = non)"
+        type: string
+        default: ""
+      sonde_meta_version:
+        description: "… sur cette version de Graph (v21.0 par défaut)"
+        type: string
+        default: ""
+      sonde_sourcing:
+        description: "Sonder les fournisseurs du sourcing pour une société (son nom)"
+        type: string
+        default: ""
+      sonde_sourcing_ville:
+        description: "… dans cette ville"
+        type: string
+        default: ""
+      sonde_sourcing_maps:
+        description: "… et sonder Google Maps avec ce mot-clé (3 lieux)"
+        type: string
+        default: ""
+      factures_menage:
+        description: "Factures : effacer le devis d'essai TEST FACTURATION AUTOMATIQUE (aperçu)"
+        type: boolean
+        default: false
+      factures_menage_ecrire:
+        description: "… et l'exécuter pour de bon"
+        type: boolean
+        default: false
+      renvoi_factures:
+        description: "Factures : renvoyer les N derniers envois (nombre, vide = non)"
+        type: string
+        default: ""
+      renvoi_factures_suffixe:
+        description: "… en ajoutant ceci à la fin de l'objet"
+        type: string
+        default: " (renvoi suite à bug réception mail)"
+      renvoi_factures_simulation:
+        description: "… en simulation : décide et affiche, n'envoie rien"
+        type: boolean
+        default: false
+      renvoi_factures_vers:
+        description: "… vers cette adresse à la place des clients, sans journal (test)"
+        type: string
+        default: ""
+
+jobs:
+  sonder:
+    name: Sondes, diagnostics et opérations externes
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.18.2
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Installation
+        run: pnpm install --frozen-lockfile
+
+      - name: Diagnostic Finance
+        if: ${{ inputs.diagnostic_finance }}
+        run: pnpm tsx scripts/diagnostic-finance.ts
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+
+      - name: Diagnostic Échéances
+        if: ${{ inputs.diagnostic_billing }}
+        run: pnpm diagnostic:billing
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+
+      # Ce que la base contient *vraiment*, colonne par colonne, avec les
+      # privilèges dont dépend le cache de PostgREST. Le seul moyen de
+      # distinguer « la colonne n'existe pas » de « l'API ne la voit pas »
+      # quand on n'a pas de terminal sur la base.
+      - name: Diagnostic schéma
+        if: ${{ inputs.diagnostic_schema }}
+        run: pnpm diagnostic:schema
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+
+      # Les pages entreprise que le compte LinkedIn connecté administre.
+      # L'API Composio n'est pas joignable depuis l'environnement de
+      # développement distant : ce runner est le seul endroit d'où la
+      # question se pose. Lecture seule, rien n'est écrit.
+      - name: Diagnostic LinkedIn
+        if: ${{ inputs.diagnostic_linkedin }}
+        run: >-
+          pnpm diagnostic:linkedin
+          ${{ inputs.diagnostic_linkedin_sonde != '' && format('--sonde "{0}"', inputs.diagnostic_linkedin_sonde) || '' }}
+        env:
+          COMPOSIO_API_KEY: ${{ secrets.COMPOSIO_API_KEY }}
+
+      # Ce que Composio voit de Meta. La question est celle de la Modération :
+      # si l'API directe refuse une portée — commentaires, messages privés —
+      # est-ce que la passerelle irait plus loin ? On ne peut pas l'écrire sans
+      # le savoir : la leçon LinkedIn dit qu'un outil pré-emballé n'est pas
+      # l'API, et qu'une forme de réponse ne se relit pas, elle se sonde.
+      # Lecture seule : les deux sondes d'écriture visent l'objet « 0 », qui
+      # n'existe pas — rien n'est publié.
+      - name: Diagnostic Meta
+        if: ${{ inputs.diagnostic_meta != '' }}
+        run: >-
+          pnpm diagnostic:meta
+          ${{ inputs.diagnostic_meta_sonde != '' && format('--sonde "{0}"', inputs.diagnostic_meta_sonde) || '' }}
+        env:
+          COMPOSIO_API_KEY: ${{ secrets.COMPOSIO_API_KEY }}
+
+      # La collecte LinkedIn à la main : le cron tourne à 5 h, et on ne veut
+      # pas attendre demain pour constater un branchement.
+      - name: Collecte LinkedIn
+        if: ${{ inputs.sync_linkedin != '' }}
+        run: >-
+          pnpm sync:linkedin
+          ${{ inputs.sync_linkedin != 'tout' && format('--espace "{0}"', inputs.sync_linkedin) || '' }}
+          ${{ inputs.sync_linkedin_depuis != '' && format('--depuis "{0}"', inputs.sync_linkedin_depuis) || '' }}
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          # `publicEnv` se valide au chargement du module : sans la clé anon,
+          # le script meurt à l'import, avant la moindre ligne utile.
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          COMPOSIO_API_KEY: ${{ secrets.COMPOSIO_API_KEY }}
+
+      # TikTok, avant d'écrire la moindre ligne de connecteur : quelle
+      # configuration d'authentification existe, quel compte est branché dans
+      # CE projet, ce que rendent les deux outils emballés, et jusqu'où porte
+      # le passage brut — la Display API et la Business API ne sont pas sur
+      # le même hôte, et c'est ce qui décide de la forme du connecteur.
+      - name: Diagnostic TikTok
+        if: ${{ inputs.diagnostic_tiktok != '' }}
+        run: pnpm diagnostic:tiktok
+        env:
+          COMPOSIO_API_KEY: ${{ secrets.COMPOSIO_API_KEY }}
+
+      # L'API REST de LinkedIn en direct, par le passage brut de Composio :
+      # ce que ses outils pré-emballés refusent de demander.
+      - name: Sonde LinkedIn REST
+        if: ${{ inputs.sonde_linkedin_rest != '' }}
+        run: >-
+          pnpm sonde:linkedin --organisation "${{ inputs.sonde_linkedin_rest }}"
+          ${{ inputs.sonde_linkedin_publication != '' && format('--mois "{0}"', inputs.sonde_linkedin_publication) || '' }}
+        env:
+          COMPOSIO_API_KEY: ${{ secrets.COMPOSIO_API_KEY }}
+
+      # Quels noms de métriques Meta sert encore, sur les comptes affectés à
+      # un espace : `views` contre `post_impressions` par publication,
+      # `page_media_view` contre `page_impressions` au grain jour. Réponses
+      # brutes, lecture seule — c'est la seule chose qui tranche, la
+      # documentation ne datant pas ses dépréciations par version.
+      - name: Sonde Meta
+        if: ${{ inputs.sonde_meta != '' }}
+        run: pnpm sonde:meta --espace "${{ inputs.sonde_meta }}"
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          CREDENTIALS_ENCRYPTION_KEY: ${{ secrets.CREDENTIALS_ENCRYPTION_KEY }}
+          META_GRAPH_VERSION: ${{ inputs.sonde_meta_version }}
+
+      # Ce que chaque fournisseur du sourcing répond vraiment pour une
+      # société — registre légal, Ad Library, recherche LinkedIn, site, et
+      # Google Maps si un mot-clé est donné. Lecture seule, réponses brutes :
+      # c'est ce qui tranche la forme d'un connecteur avant de s'y fier.
+      - name: Sonde du sourcing
+        if: ${{ inputs.sonde_sourcing != '' }}
+        run: >-
+          pnpm sonde:sourcing --societe "${{ inputs.sonde_sourcing }}"
+          ${{ inputs.sonde_sourcing_ville != '' && format('--ville "{0}"', inputs.sonde_sourcing_ville) || '' }}
+          ${{ inputs.sonde_sourcing_maps != '' && format('--maps "{0}"', inputs.sonde_sourcing_maps) || '' }}
+        env:
+          APIFY_TOKEN: ${{ secrets.APIFY_TOKEN }}
+          META_AD_LIBRARY_TOKEN: ${{ secrets.META_AD_LIBRARY_TOKEN }}
+          DROPCONTACT_API_KEY: ${{ secrets.DROPCONTACT_API_KEY }}
+          HUNTER_API_KEY: ${{ secrets.HUNTER_API_KEY }}
+
+      # Le ménage d'après essais. Le script existait depuis l'émission des
+      # premières factures et n'avait aucun chemin d'exécution : sans terminal,
+      # le devis d'essai restait à l'écran. Il annule chez Airwallex les
+      # factures nommées une par une — jamais par un filtre — et efface le
+      # devis `TEST FACTURATION AUTOMATIQUE`, mensualités et journal compris
+      # par la cascade. Sans « … et l'exécuter », il ne fait que lister.
+      - name: Ménage des factures d'essai
+        if: ${{ inputs.factures_menage }}
+        run: >-
+          pnpm factures:menage
+          ${{ inputs.factures_menage_ecrire && '--ecrire' || '' }}
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          AIRWALLEX_CLIENT_ID: ${{ secrets.AIRWALLEX_CLIENT_ID }}
+          AIRWALLEX_API_KEY: ${{ secrets.AIRWALLEX_API_KEY }}
+          AIRWALLEX_ENV: production
+
+      # Renvoyer les derniers envois de factures, tels quels, l'objet complété :
+      # pour le jour où un défaut d'affichage a touché ce qui est parti. Même
+      # modèle, même facture relue chez Airwallex, même destinataire ; la
+      # ligne du journal est mise à jour, jamais doublée. Airwallex refuse les
+      # IP de Vercel, d'où ce runner — comme pour l'émission.
+      - name: Renvoi des factures
+        if: ${{ inputs.renvoi_factures != '' }}
+        run: >-
+          pnpm factures:renvoi
+          --nombre "${{ inputs.renvoi_factures }}"
+          --suffixe "${{ inputs.renvoi_factures_suffixe }}"
+          ${{ inputs.renvoi_factures_simulation && '--simulation' || '' }}
+          ${{ inputs.renvoi_factures_vers != '' && format('--vers "{0}"', inputs.renvoi_factures_vers) || '' }}
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          AIRWALLEX_CLIENT_ID: ${{ secrets.AIRWALLEX_CLIENT_ID }}
+          AIRWALLEX_API_KEY: ${{ secrets.AIRWALLEX_API_KEY }}
+          AIRWALLEX_ENV: production
+          CREDENTIALS_ENCRYPTION_KEY: ${{ secrets.CREDENTIALS_ENCRYPTION_KEY }}
+          GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
+          GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
