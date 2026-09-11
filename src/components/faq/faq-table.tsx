@@ -10,7 +10,7 @@ import {
   setFaqEntryCategory,
   updateFaqEntryField,
 } from "@/app/actions/moderation";
-import { ConfirmDialog } from "@/components/faq/confirm-dialog";
+import { ConfirmDialog } from "@/components/ds/confirm-dialog";
 import { FaqCommentThread } from "@/components/faq/faq-comment-thread";
 import { ThemeChip, ThemeLabelsDialog, themeColor } from "@/components/faq/themes";
 import { StatusPill, type StatusTone } from "@/components/ds/status-pill";

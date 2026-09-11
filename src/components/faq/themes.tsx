@@ -9,7 +9,7 @@ import {
   renameFaqCategory,
   setFaqCategoryColor,
 } from "@/app/actions/moderation";
-import { ConfirmDialog } from "@/components/faq/confirm-dialog";
+import { ConfirmDialog } from "@/components/ds/confirm-dialog";
 import { chipInk, useCellAction } from "@/components/planning/cells";
 import { Button } from "@/components/ui/button";
 import {
