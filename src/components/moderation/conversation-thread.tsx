@@ -34,6 +34,7 @@ import { Button } from "@/components/ui/button";
 import {
   evaluateSendEligibility,
   formatWindow,
+  windowState,
 } from "@/lib/moderation/response-window";
 import { ATTACHMENT_LABELS } from "@/lib/moderation/ingest";
 import {
@@ -272,11 +273,22 @@ export function ConversationThread({
     .reverse()
     .find((message) => message.direction === "inbound");
 
+  const lastInboundAt = new Date(lastInbound?.sent_at ?? conversation.last_message_at);
   const eligibility = evaluateSendEligibility({
     channel: conversation.channel,
     kind: conversation.kind,
-    lastInboundAt: new Date(lastInbound?.sent_at ?? conversation.last_message_at),
+    lastInboundAt,
   });
+  /* Trois états et pas un de plus : ouverte, se ferme aujourd'hui, expirée.
+     Un commentaire public n'en a aucun — afficher « pas de limite » sur chaque
+     fil serait du bruit. Expirée, la plateforme refuse l'envoi : les champs se
+     verrouillent ici plutôt que de laisser écrire trois lignes pour rien. */
+  const replyWindow = windowState({
+    channel: conversation.channel,
+    kind: conversation.kind,
+    lastInboundAt,
+  });
+  const windowClosed = replyWindow === "expired";
 
   const sources = (current?.sources ?? []) as DraftSource[];
   // Le discriminant : une réponse qui cite une entrée FAQ vérifiable est une
@@ -318,15 +330,19 @@ export function ConversationThread({
               {STATUS_LABELS[conversation.status]}
             </span>
           </div>
-          <span
-            className={cn(
-              "type-caption ml-auto inline-flex items-center gap-1",
-              eligibility.canSend ? "text-text-secondary" : "text-danger-ink",
-            )}
-          >
-            <Clock className="size-3.5" aria-hidden />
-            {formatWindow(eligibility)}
-          </span>
+          {replyWindow === "none" ? null : (
+            <span
+              className={cn(
+                "type-caption rounded-pill ml-auto inline-flex items-center gap-1 px-2 py-0.5 font-medium",
+                replyWindow === "open" && "text-text-secondary",
+                replyWindow === "closing" && "bg-warning-subtle text-warning-ink",
+                windowClosed && "bg-danger-subtle text-danger-ink",
+              )}
+            >
+              <Clock className="size-3.5" aria-hidden />
+              {formatWindow(eligibility)}
+            </span>
+          )}
         </div>
 
         {conversation.flags.length > 0 ? (
@@ -574,7 +590,16 @@ export function ConversationThread({
                   conversationId={conversation.id}
                   clientSlug={clientSlug ?? ""}
                 />
-                <Button id="draft-validate" type="submit" disabled={validating}>
+                <Button
+                  id="draft-validate"
+                  type="submit"
+                  disabled={validating || windowClosed}
+                  title={
+                    windowClosed
+                      ? "La plateforme n'accepte plus de réponse sur ce fil."
+                      : undefined
+                  }
+                >
                   <Check className="size-4" aria-hidden />
                   Valider <Kbd>V</Kbd>
                 </Button>
@@ -640,6 +665,7 @@ export function ConversationThread({
               id="reponse-libre"
               ref={replyRef}
               value={reply}
+              disabled={windowClosed}
               onChange={(event) => setReply(event.target.value)}
               onKeyDown={(event) => {
                 // ⌘/Ctrl + Entrée envoie : la touche Entrée seule doit garder
@@ -650,18 +676,24 @@ export function ConversationThread({
                 }
               }}
               rows={2}
-              placeholder="Écrire une réponse…"
-              className="focus-visible:ring-ring type-body w-full resize-y rounded-md border border-border bg-surface px-3 py-2 text-text-primary placeholder:text-text-secondary focus-visible:ring-2 focus-visible:outline-none"
+              placeholder={
+                windowClosed
+                  ? "Fenêtre de réponse fermée."
+                  : "Écrire une réponse…"
+              }
+              className="focus-visible:ring-ring type-body w-full resize-y rounded-md border border-border bg-surface px-3 py-2 text-text-primary placeholder:text-text-secondary focus-visible:ring-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:bg-surface-sunken"
             />
             <div className="mt-2 flex items-center justify-between gap-3">
               <p className="type-caption text-text-secondary">
-                Part sous le commentaire, sans passer par la FAQ.
+                {windowClosed
+                  ? "Sept jours après le dernier message, Meta refuse toute réponse. Rien ne partira d'ici."
+                  : "Part sous le commentaire, sans passer par la FAQ."}
               </p>
               <Button
                 type="button"
                 size="sm"
                 onClick={submitReply}
-                disabled={replyPending || reply.trim().length === 0}
+                disabled={replyPending || windowClosed || reply.trim().length === 0}
               >
                 <Send className="size-4" strokeWidth={1.75} aria-hidden />
                 {replyPending ? "Envoi…" : "Envoyer"}

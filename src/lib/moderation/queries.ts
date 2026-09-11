@@ -2,6 +2,7 @@ import "server-only";
 
 import { createClient } from "@/lib/supabase/server";
 import { deriveCounters, type CounterRow, type InboxSelection } from "./counters";
+import { sortForSegment } from "./sorting";
 import { MODERATION_FLAGS, STATUS_GROUP_MEMBERS } from "./types";
 import type {
   Conversation,
@@ -98,7 +99,14 @@ export async function listConversations(options: {
     // de la vue « Tout » — les plus anciens disparaissaient sans un mot.
     .limit(options.limit ?? 400);
 
-  return (data ?? []) as unknown as Conversation[];
+  /* L'ordre final se pose en mémoire : « fenêtre qui ferme aujourd'hui »
+     mélange deux grandeurs — le canal et l'ancienneté — qu'un `order` SQL ne
+     sait pas croiser sans colonne calculée. Le tri porte sur les 400 lignes
+     déjà lues, ce qui est exactement ce que l'écran affiche. */
+  return sortForSegment(
+    (data ?? []) as unknown as Conversation[],
+    options.filters.statusGroup,
+  );
 }
 
 /** Le strict nécessaire pour marquer un fil lu et en prévenir la plateforme. */
