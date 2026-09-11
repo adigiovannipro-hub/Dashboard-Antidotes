@@ -49,7 +49,7 @@ export function ConversationList({
   showClient,
   selectedId,
   selectedIds,
-  emptyMessage,
+  empty,
   pending,
   onSelect,
   onToggle,
@@ -62,7 +62,8 @@ export function ConversationList({
   selectedId: string | null;
   /** Les lignes cochées — la sélection multiple, distincte de l'ouverture. */
   selectedIds: Set<string>;
-  emptyMessage: string;
+  /** Ce qui s'affiche quand la liste est vide — jamais la même phrase. */
+  empty: React.ReactNode;
   pending: boolean;
   onSelect: (id: string) => void;
   onToggle: (id: string, checked: boolean) => void;
@@ -76,13 +77,7 @@ export function ConversationList({
     selectedRef.current?.scrollIntoView({ block: "nearest" });
   }, [selectedId]);
 
-  if (conversations.length === 0) {
-    return (
-      <div className="type-body flex h-full items-center justify-center p-8 text-center text-text-secondary">
-        {emptyMessage}
-      </div>
-    );
-  }
+  if (conversations.length === 0) return <>{empty}</>;
 
   return (
     <ul aria-label="Conversations">

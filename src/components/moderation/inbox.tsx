@@ -32,6 +32,7 @@ import type { InboxCounters, InboxSelection } from "@/lib/moderation/counters";
 import type { InboxQuery } from "@/lib/moderation/filters";
 import type { ChannelConnectionSummary } from "@/lib/moderation/queries";
 import { isReactionOnly } from "@/lib/moderation/reactions";
+import { describeEmptyState, type EmptyState } from "@/lib/moderation/empty-state";
 import { statusGroupOf } from "@/lib/moderation/types";
 import type {
   Conversation,
@@ -299,6 +300,31 @@ export function Inbox({
     });
   }, []);
 
+  /* Pourquoi la liste est vide. Quatre raisons, quatre gestes — une seule
+     phrase pour les quatre ne disait jamais quoi faire. */
+  const filtered =
+    selection.networks.length > 0 ||
+    Boolean(selection.clientId) ||
+    selection.unreadOnly ||
+    selection.flaggedOnly ||
+    selection.dmOnly ||
+    Boolean(initialSearch);
+  const emptyState = describeEmptyState({
+    connections: connections.length,
+    everPolled: connections.some((connection) => connection.last_polled_at),
+    filtered,
+    segment: selection.statusGroup,
+  });
+
+  const resetFilters = useCallback(() => {
+    // Le segment reste : c'est le cadre de travail, pas un filtre qu'on a
+    // posé par mégarde.
+    const next = new URLSearchParams();
+    if (selection.statusGroup !== "a-traiter") next.set("statut", selection.statusGroup);
+    const query = next.toString();
+    router.push(query ? `${pathname}?${query}` : pathname);
+  }, [pathname, router, selection.statusGroup]);
+
   const closeThread = useCallback(() => {
     const next = new URLSearchParams(searchParams.toString());
     next.delete("conv");
@@ -495,7 +521,7 @@ export function Inbox({
             pending={gesturePending}
             onToggle={toggleChecked}
             onGesture={runGesture}
-            emptyMessage="Aucune conversation ne correspond à ces filtres."
+            empty={<EmptyList state={emptyState} isOwner={role === "owner"} onReset={resetFilters} />}
             onSelect={goTo}
           />
           </div>
@@ -537,7 +563,7 @@ export function Inbox({
                   pending={gesturePending}
                   onToggle={toggleChecked}
                   onGesture={runGesture}
-                  emptyMessage=""
+                  empty={null}
                   onSelect={goTo}
                 />
               </div>
@@ -566,6 +592,54 @@ export function Inbox({
           />
         </div>
       </Panel>
+    </div>
+  );
+}
+
+/**
+ * L'état vide, rendu.
+ *
+ * Une phrase, et **une sortie quand il y en a une**. Quand il n'y en a pas —
+ * une boîte à jour — l'absence de bouton est le message : ce n'est pas une
+ * panne, c'est fini.
+ */
+function EmptyList({
+  state,
+  isOwner,
+  onReset,
+}: {
+  state: EmptyState;
+  isOwner: boolean;
+  onReset: () => void;
+}) {
+  return (
+    <div className="flex h-full flex-col items-center justify-center gap-2 p-8 text-center">
+      <p className="type-label text-text-primary">{state.title}</p>
+      {state.hint ? (
+        <p className="type-caption max-w-xs text-text-secondary">{state.hint}</p>
+      ) : null}
+
+      {state.action === "reinitialiser" ? (
+        <button
+          type="button"
+          onClick={onReset}
+          className="focus-visible:ring-ring type-caption mt-1 rounded-md px-2 py-1 font-medium text-accent-ink transition-colors duration-(--motion-duration) ease-standard hover:bg-accent-subtle focus-visible:ring-2 focus-visible:outline-none"
+        >
+          Retirer les filtres
+        </button>
+      ) : null}
+
+      {state.action === "relever" && isOwner ? (
+        <div className="mt-1">
+          <ModerationSyncButton />
+        </div>
+      ) : null}
+
+      {state.action === "brancher" ? (
+        <p className="type-caption text-text-secondary">
+          {COMPOSIO_TRANSITION_NOTE}
+        </p>
+      ) : null}
     </div>
   );
 }
