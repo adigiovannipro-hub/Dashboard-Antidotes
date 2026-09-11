@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import {
   AlertTriangle,
   ArrowLeft,
+  BookOpen,
   Check,
   ChevronUp,
   Clock,
@@ -14,11 +15,13 @@ import {
   Reply,
   RefreshCw,
   Send,
+  Smile,
   Sparkles,
   X,
 } from "lucide-react";
 
 import {
+  addFaqEntryFromConversation,
   sendManualReply,
   setConversationStatus,
   validateDraft,
@@ -37,6 +40,8 @@ import {
   windowState,
 } from "@/lib/moderation/response-window";
 import { ATTACHMENT_LABELS } from "@/lib/moderation/ingest";
+import { standingOf } from "@/lib/moderation/confidence";
+import { isReactionOnly } from "@/lib/moderation/reactions";
 import {
   CHANNEL_LABELS,
   FLAG_LABELS,
@@ -45,7 +50,6 @@ import {
   STATUS_LABELS,
   type Conversation,
   type Draft,
-  type DraftSource,
   type ModerationMessage,
   type ModerationRole,
 } from "@/lib/moderation/types";
@@ -121,6 +125,11 @@ export function ConversationThread({
     null,
   );
   const asked = useRef(false);
+  /* Lu avant toute sortie anticipée : les effets ne peuvent pas vivre après
+     le `return` du fil vide. */
+  const lastInboundBody =
+    [...messages].reverse().find((message) => message.direction === "inbound")?.body ??
+    null;
   const scrollRef = useRef<HTMLDivElement>(null);
   const [expanded, setExpanded] = useState(false);
   const [replyPending, startReply] = useTransition();
@@ -159,6 +168,8 @@ export function ConversationThread({
    */
   async function askForDraft(force: boolean) {
     if (!conversation) return;
+    // Une réaction ne se répond pas : pas d'appel modèle, donc pas de facture.
+    if (isReactionOnly(lastInboundBody)) return;
     setGenerating(true);
     setFailure(null);
     let result: DraftGenerationResult;
@@ -187,6 +198,8 @@ export function ConversationThread({
     void askForDraft(false);
     // `askForDraft` est recréée à chaque rendu ; l'inclure relancerait la
     // génération en boucle — et chaque tour est un appel modèle facturé.
+    // `lastInboundBody` non plus : il est dérivé du fil, qui ne change pas
+    // sans que la conversation change.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conversation, draft, canAct]);
 
@@ -290,11 +303,19 @@ export function ConversationThread({
   });
   const windowClosed = replyWindow === "expired";
 
-  const sources = (current?.sources ?? []) as DraftSource[];
-  // Le discriminant : une réponse qui cite une entrée FAQ vérifiable est une
-  // citation, une réponse sans source est une proposition. Les deux se
-  // valident, elles ne se relisent pas de la même façon.
-  const grounded = sources.length > 0;
+  const standing = standingOf(current);
+  const { sources, grounded } = standing;
+  /* Sous le seuil, la proposition ne s'affiche pas : un texte plausible à
+     20 % de confiance n'aide pas, il se fait valider par réflexe. L'écran
+     montre alors ce qui manque — une entrée de FAQ — et le bouton pour
+     l'ajouter. Le seuil porte sur la **confiance seule** : beaucoup de
+     réponses légitimes n'ont aucune source, un message privé le premier, et
+     la consigne est que le modèle propose toujours dans ce cas. */
+  const belowThreshold = current !== null && !standing.proposable;
+
+  /* Une réaction — « ❤️ », « @sophie » — ne demande pas de réponse. Aucun
+     appel au modèle n'est fait pour elle, et le fil propose de la clore. */
+  const reactionOnly = isReactionOnly(lastInbound?.body);
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
@@ -474,7 +495,42 @@ export function ConversationThread({
           soit. Et la réponse elle-même défile dans sa boîte : une proposition
           de quinze lignes ne doit pas repousser ce qui permet de l'accepter. */}
       <div className="border-border shrink-0 border-t px-5 py-4">
-        {current ? (
+        {reactionOnly ? (
+          /* Une réaction : rien à rédiger, rien à valider. Un bouton la clôt,
+             et c'est aussi ce que fait le groupe « Réactions » de la liste. */
+          <form action={statusAction}>
+            <HiddenFields
+              clientId={conversation.client_id}
+              conversationId={conversation.id}
+              clientSlug={clientSlug ?? ""}
+            />
+            <input type="hidden" name="status" value="answered_elsewhere" />
+            <div className="border-border flex flex-wrap items-center gap-3 rounded-lg border border-dashed p-4">
+              <Smile
+                className="text-text-tertiary size-5 shrink-0"
+                strokeWidth={1.75}
+                aria-hidden
+              />
+              <p className="type-body min-w-0 flex-1 text-text-secondary">
+                Une réaction, pas une question. Aucune réponse n&apos;a été
+                demandée au modèle.
+              </p>
+              {canAct ? (
+                <Button type="submit" size="sm" disabled={changingStatus}>
+                  <Check className="size-4" strokeWidth={1.75} aria-hidden />
+                  Clore sans réponse
+                </Button>
+              ) : null}
+            </div>
+          </form>
+        ) : belowThreshold ? (
+          <FaqGapCard
+            clientId={conversation.client_id}
+            clientName={clientName}
+            question={lastInbound?.body ?? ""}
+            canAct={canAct}
+          />
+        ) : current ? (
           <>
             <div className="bg-card max-h-44 overflow-y-auto rounded-lg p-3">
               <p className="type-body whitespace-pre-wrap">{current.body}</p>
@@ -581,9 +637,9 @@ export function ConversationThread({
           </div>
         )}
 
-        {canAct ? (
+        {canAct && !reactionOnly ? (
           <div className="mt-3 flex flex-wrap items-center gap-2">
-            {current ? (
+            {current && !belowThreshold ? (
               <form action={validateAction}>
                 <HiddenFields
                   clientId={conversation.client_id}
@@ -715,6 +771,81 @@ export function ConversationThread({
         sources={sources}
         onDone={onAdvance}
       />
+    </div>
+  );
+}
+
+/**
+ * Ce qui s'affiche à la place d'une proposition trop incertaine.
+ *
+ * Pas « aucune réponse disponible » — c'est la formule qu'on s'est interdite,
+ * elle laisse l'opérateur devant un écran vide. On nomme ce qui manque, la
+ * FAQ du client, et on met le geste à portée : la question telle qu'elle est
+ * arrivée, la réponse à écrire une fois, et le prochain message du même genre
+ * trouvera son entrée.
+ */
+function FaqGapCard({
+  clientId,
+  clientName,
+  question,
+  canAct,
+}: {
+  clientId: string;
+  clientName: string | null;
+  question: string;
+  canAct: boolean;
+}) {
+  const [answer, setAnswer] = useState("");
+  const [saving, startSaving] = useTransition();
+
+  return (
+    <div className="border-border rounded-lg border border-dashed p-4">
+      <p className="type-label inline-flex items-center gap-1.5 text-warning-ink">
+        <BookOpen className="size-4 shrink-0" strokeWidth={1.75} aria-hidden />
+        Aucune source FAQ pour ce sujet
+      </p>
+      <p className="type-caption mt-1 text-text-secondary">
+        Le modèle n&apos;a rien trouvé d&apos;assez sûr. Écrivez la réponse une
+        fois : elle rejoint la FAQ{clientName ? ` de ${clientName}` : ""} et
+        servira la prochaine fois.
+      </p>
+
+      {canAct ? (
+        <>
+          <textarea
+            value={answer}
+            onChange={(event) => setAnswer(event.target.value)}
+            rows={3}
+            aria-label="Réponse à ajouter à la FAQ"
+            placeholder="La réponse de référence…"
+            className="focus-visible:ring-ring type-body mt-2 w-full resize-y rounded-md border border-border bg-surface px-3 py-2 text-text-primary placeholder:text-text-secondary focus-visible:ring-2 focus-visible:outline-none"
+          />
+          <Button
+            type="button"
+            size="sm"
+            className="mt-2"
+            disabled={saving || answer.trim().length < 3 || question.trim().length < 3}
+            onClick={() =>
+              startSaving(async () => {
+                const result = await addFaqEntryFromConversation({
+                  clientId,
+                  question,
+                  answer,
+                });
+                if (result.ok) {
+                  toast.success(result.message);
+                  setAnswer("");
+                } else {
+                  toast.error(result.error);
+                }
+              })
+            }
+          >
+            <BookOpen className="size-4" strokeWidth={1.75} aria-hidden />
+            {saving ? "Ajout…" : `Ajouter à la FAQ${clientName ? ` ${clientName}` : ""}`}
+          </Button>
+        </>
+      ) : null}
     </div>
   );
 }

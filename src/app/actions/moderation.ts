@@ -1099,6 +1099,71 @@ export async function createFaqEntry(input: {
   }
 }
 
+/**
+ * Ajoute à la FAQ le sujet d'une conversation qu'aucune entrée ne couvrait.
+ *
+ * C'est la sortie de l'écran « Aucune source FAQ pour ce sujet » : plutôt que
+ * de laisser l'opérateur écrire la même réponse pour la troisième fois, on
+ * pose la question telle qu'elle a été reçue et la réponse telle qu'il vient
+ * de l'écrire. Le prochain message du même genre trouvera son entrée.
+ *
+ * L'entrée naît **sans vecteur** (`embedding_source` nul) : le modèle
+ * d'embeddings ne charge pas sur Vercel, et `reindexFaqSearch` la rattrape au
+ * relevé horaire. Une entrée sans vecteur est invisible de la recherche
+ * sémantique jusque-là, jamais un blocage.
+ */
+export async function addFaqEntryFromConversation(input: {
+  clientId: string;
+  question: string;
+  answer: string;
+}): Promise<ModerationResult> {
+  const parsed = z
+    .object({
+      clientId: z.uuid(),
+      question: z.string().trim().min(3, "La question est trop courte.").max(2000),
+      answer: z.string().trim().min(3, "La réponse est trop courte.").max(4000),
+    })
+    .safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Requête incomplète." };
+  }
+
+  try {
+    const { viewer } = await requireOperator(parsed.data.clientId);
+    const supabase = await createClient();
+    const { data: row, error } = await supabase
+      .from("faq_entries")
+      .insert({
+        client_id: parsed.data.clientId,
+        /* Le titre est la question tronquée : la colonne « Sujet » du tableau
+           de FAQ est la première qu'on lit, et une ligne sans nom s'y perd.
+           Il se réécrit en place, comme toutes les cellules. */
+        title: parsed.data.question.slice(0, 80),
+        question_canonical: parsed.data.question,
+        answer_fr: parsed.data.answer,
+        variants: [],
+        created_by: viewer.user.id,
+      } as never)
+      .select("id")
+      .maybeSingle();
+    if (error) return { ok: false, error: error.message };
+
+    await audit({
+      actorId: viewer.user.id,
+      clientId: parsed.data.clientId,
+      faqEntryId: (row as { id?: string } | null)?.id,
+      action: "faq.cree-depuis-inbox",
+      after: { question: parsed.data.question },
+    });
+
+    revalidatePath("/espace", "layout");
+    revalidateModeration();
+    return { ok: true, message: "Entrée ajoutée à la FAQ du client." };
+  } catch (error) {
+    return { ok: false, error: (error as Error).message };
+  }
+}
+
 // --- Les thèmes ------------------------------------------------------------
 
 const HEX = /^#[0-9a-f]{6}$/i;

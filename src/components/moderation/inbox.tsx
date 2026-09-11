@@ -9,7 +9,7 @@ import {
   useTransition,
 } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { AlertTriangle, Inbox as InboxIcon, Search } from "lucide-react";
+import { AlertTriangle, Inbox as InboxIcon, Search, Smile } from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -31,6 +31,7 @@ import { Input } from "@/components/ui/input";
 import type { InboxCounters, InboxSelection } from "@/lib/moderation/counters";
 import type { InboxQuery } from "@/lib/moderation/filters";
 import type { ChannelConnectionSummary } from "@/lib/moderation/queries";
+import { isReactionOnly } from "@/lib/moderation/reactions";
 import { statusGroupOf } from "@/lib/moderation/types";
 import type {
   Conversation,
@@ -161,6 +162,27 @@ export function Inbox({
           statusGroupOf(conversation.status) === selection.statusGroup),
     );
   }, [conversations, overlay, selection.statusGroup]);
+
+  /* Les réactions se rangent à part.
+     « ❤️ », « 🔥 », « @sophie » : sur un compte qui marche, c'est la moitié du
+     volume, et ça n'appelle aucune réponse. Mêlées au reste, elles noient les
+     vraies questions ; regroupées en bas, elles se closent d'un geste. Seule
+     la charge de travail les sépare — dans « Traitées », elles ont déjà leur
+     place au fil de l'eau. */
+  const [reactions, questions] = useMemo(() => {
+    if (selection.statusGroup !== "a-traiter") {
+      return [[] as Conversation[], shown] as const;
+    }
+    const left: Conversation[] = [];
+    const right: Conversation[] = [];
+    for (const conversation of shown) {
+      (conversation.kind === "comment" && isReactionOnly(conversation.excerpt)
+        ? left
+        : right
+      ).push(conversation);
+    }
+    return [left, right] as const;
+  }, [shown, selection.statusGroup]);
 
   const selectedIndex = useMemo(
     () => shown.findIndex((conversation) => conversation.id === shownId),
@@ -495,7 +517,7 @@ export function Inbox({
           ) : null}
           <div className="min-h-0 flex-1 overflow-y-auto">
           <ConversationList
-            conversations={shown}
+            conversations={questions}
             clients={clientById}
             showClient={clientSlug === null && clients.length > 1}
             selectedId={shownId}
@@ -507,6 +529,50 @@ export function Inbox({
             onSelect={goTo}
           />
           </div>
+
+          {reactions.length > 0 ? (
+            <details className="border-border shrink-0 border-t">
+              <summary className="type-caption hover:bg-surface-sunken flex cursor-pointer items-center gap-2 px-3 py-2 text-text-secondary transition-colors duration-(--motion-duration) ease-standard">
+                <Smile className="size-3.5 shrink-0" strokeWidth={1.75} aria-hidden />
+                <span className="min-w-0 flex-1">
+                  Réactions seules · {reactions.length}
+                </span>
+              </summary>
+              <div className="px-3 pb-2">
+                <p className="type-caption text-text-secondary">
+                  Emojis et mentions, sans question. Aucune réponse ne leur a été
+                  demandée au modèle.
+                </p>
+                <button
+                  type="button"
+                  disabled={gesturePending}
+                  onClick={() =>
+                    runGesture(
+                      reactions.map((conversation) => conversation.id),
+                      "traitee",
+                    )
+                  }
+                  className="focus-visible:ring-ring mt-2 rounded-md px-1.5 py-0.5 type-caption font-medium text-accent-ink transition-colors duration-(--motion-duration) ease-standard hover:bg-accent-subtle focus-visible:ring-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Clore les {reactions.length} sans réponse
+                </button>
+              </div>
+              <div className="max-h-64 overflow-y-auto border-t border-border">
+                <ConversationList
+                  conversations={reactions}
+                  clients={clientById}
+                  showClient={clientSlug === null && clients.length > 1}
+                  selectedId={shownId}
+                  selectedIds={checked}
+                  pending={gesturePending}
+                  onToggle={toggleChecked}
+                  onGesture={runGesture}
+                  emptyMessage=""
+                  onSelect={goTo}
+                />
+              </div>
+            </details>
+          ) : null}
         </div>
 
         <div
