@@ -158,7 +158,15 @@ export function pagePostToPost(post: MetaPagePostRow): OrganicPostColumns | null
     thumbnail_url: post.full_picture ?? null,
     media_kind: pagePostKind(post),
     reach: insightValue(post.insights, "post_impressions_unique"),
-    impressions: insightValue(post.insights, "post_impressions"),
+    /* `views` d'abord, `post_impressions` en repli. Meta a déprécié la
+       seconde fin 2025 et ne rend plus que la première sur les versions
+       récentes — mais l'inverse reste vrai sur les Pages qui n'ont pas
+       basculé, et une publication collectée avant la bascule porte encore
+       l'ancienne. Prendre le nouveau nom d'abord sans jeter l'ancien évite
+       de réécrire à zéro un historique bien réel. */
+    impressions:
+      insightValue(post.insights, "views") ||
+      insightValue(post.insights, "post_impressions"),
     // Facebook compte les lectures à part des impressions — les déduire du
     // type de média donnerait un chiffre inventé.
     video_views: insightValue(post.insights, "post_video_views"),
@@ -184,8 +192,19 @@ export type PageDailyColumns = {
   video_views: number;
 };
 
-/** Ce que chaque métrique de Page alimente dans `social_page_daily`. */
+/**
+ * Ce que chaque métrique de Page alimente dans `social_page_daily`, **par
+ * ordre de préférence**.
+ *
+ * Deux noms alimentent les impressions : `page_media_view`, le nom vivant,
+ * et `page_impressions`, que Meta a déprécié. Les deux peuvent répondre pour
+ * la même journée — ce sont alors deux rendus de la même grandeur, pas deux
+ * parts à additionner. Le premier de la liste qui porte un point pour ce
+ * jour-là gagne ; sommer doublerait le chiffre en silence, et rien à
+ * l'écran ne le dirait.
+ */
 const PAGE_METRIC_COLUMNS: Record<string, keyof Omit<PageDailyColumns, "date">> = {
+  page_media_view: "impressions",
   page_impressions: "impressions",
   page_impressions_unique: "reach",
   page_post_engagements: "engagements",
@@ -193,6 +212,14 @@ const PAGE_METRIC_COLUMNS: Record<string, keyof Omit<PageDailyColumns, "date">> 
 };
 
 export const PAGE_DAILY_METRICS = Object.keys(PAGE_METRIC_COLUMNS);
+
+/** L'inverse : par colonne, les noms qui la nourrissent, préférence d'abord. */
+const PAGE_COLUMN_METRICS = Object.entries(PAGE_METRIC_COLUMNS).reduce<
+  Partial<Record<keyof Omit<PageDailyColumns, "date">, string[]>>
+>((byColumn, [name, column]) => {
+  (byColumn[column] ??= []).push(name);
+  return byColumn;
+}, {});
 
 /**
  * Les Page Insights vers des lignes journalières.
@@ -204,27 +231,45 @@ export const PAGE_DAILY_METRICS = Object.keys(PAGE_METRIC_COLUMNS);
  * jour qu'il clôture.
  */
 export function pageInsightsToDaily(rows: MetaPageInsightRow[]): PageDailyColumns[] {
-  const byDate = new Map<string, PageDailyColumns>();
+  /* Une valeur par (jour, **métrique**), et non par (jour, colonne) : deux
+     noms peuvent nourrir la même colonne, et les additionner doublerait la
+     journée. Le même nom rendu deux fois pour le même jour — deux tranches
+     de 90 jours qui se recouvrent — écrase au lieu de s'ajouter, pour la
+     même raison : c'est une seule mesure, rendue deux fois. */
+  const byDate = new Map<string, Map<string, number>>();
+
   for (const row of rows) {
-    const column = row.name ? PAGE_METRIC_COLUMNS[row.name] : undefined;
-    if (!column) continue;
+    if (!row.name || !PAGE_METRIC_COLUMNS[row.name]) continue;
     for (const point of row.values ?? []) {
       if (!point.end_time) continue;
       const closed = new Date(Date.parse(point.end_time) - 86_400_000);
       if (Number.isNaN(closed.getTime())) continue;
       const date = closed.toISOString().slice(0, 10);
-      const line = byDate.get(date) ?? {
+      const value =
+        typeof point.value === "number" ? point.value : toNumber(point.value);
+      const metrics = byDate.get(date) ?? new Map<string, number>();
+      metrics.set(row.name, Number.isFinite(value) ? value : 0);
+      byDate.set(date, metrics);
+    }
+  }
+
+  return [...byDate.entries()]
+    .map(([date, metrics]) => {
+      const line: PageDailyColumns = {
         date,
         impressions: 0,
         reach: 0,
         engagements: 0,
         video_views: 0,
       };
-      const value =
-        typeof point.value === "number" ? point.value : toNumber(point.value);
-      line[column] += Number.isFinite(value) ? value : 0;
-      byDate.set(date, line);
-    }
-  }
-  return [...byDate.values()].sort((a, b) => a.date.localeCompare(b.date));
+      // Premier nom qui porte un point pour ce jour-là, colonne par colonne.
+      for (const [column, names] of Object.entries(PAGE_COLUMN_METRICS)) {
+        const found = names.find((name) => metrics.has(name));
+        if (found === undefined) continue;
+        line[column as keyof Omit<PageDailyColumns, "date">] =
+          metrics.get(found) ?? 0;
+      }
+      return line;
+    })
+    .sort((a, b) => a.date.localeCompare(b.date));
 }

@@ -88,3 +88,21 @@ export function missingServerEnv(...keys: ServerEnvKey[]): ServerEnvKey[] {
     (key) => !serverSchema[key].safeParse(process.env[key]).success,
   );
 }
+
+/**
+ * La version de la Graph API que vise le connecteur Meta.
+ *
+ * Surchargeable par `META_GRAPH_VERSION` : la métrique `views` des
+ * publications de Page n'est servie que par les versions récentes, et cette
+ * bascule doit pouvoir se tenter depuis l'hébergeur plutôt qu'en
+ * recompilant. La même constante sert la Modération et la publication — une
+ * valeur mal formée ferait donc tomber *tout* Meta d'un coup, d'où le
+ * contrôle de forme et le repli silencieux sur le défaut.
+ */
+const GRAPH_VERSION_PAR_DEFAUT = "v21.0";
+const graphVersionSchema = z.string().regex(/^v\d+\.\d+$/);
+
+export function metaGraphVersion(): string {
+  const parsed = graphVersionSchema.safeParse(process.env.META_GRAPH_VERSION);
+  return parsed.success ? parsed.data : GRAPH_VERSION_PAR_DEFAUT;
+}

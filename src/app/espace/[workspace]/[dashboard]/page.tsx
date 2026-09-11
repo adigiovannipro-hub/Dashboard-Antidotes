@@ -4,6 +4,7 @@ import { PlugZap, TriangleAlert } from "lucide-react";
 
 import { EmptyState } from "@/components/ds/empty-state";
 import { AddReportingPage } from "@/components/viz/add-reporting-page";
+import { ConnexionsButton } from "@/components/viz/connexions-button";
 import { ConversionsMenu } from "@/components/viz/conversions-menu";
 import { MetaDashboard } from "@/components/viz/meta-dashboard";
 import { MonthlyReport } from "@/components/production/monthly-report";
@@ -43,7 +44,13 @@ import {
 import { WebDashboard } from "@/components/viz/web-dashboard";
 import { getWebData } from "@/lib/web/queries";
 import { getClientReport } from "@/lib/production/queries";
-import { listWorkspaceSocialLinks } from "@/lib/social/queries";
+import { normalizeDeliverables } from "@/lib/context/deliverables";
+import { metaConfigured } from "@/lib/social/meta";
+import {
+  listSocialAccounts,
+  listWorkspaceSocialLinks,
+} from "@/lib/social/queries";
+import { selectionFromLinks } from "@/lib/social/types";
 import { createClient } from "@/lib/supabase/server";
 import { requirePageAccess } from "@/lib/workspaces/access";
 import { COMPOSIO_TRANSITION_NOTE } from "@/lib/social/direct-connect";
@@ -98,11 +105,17 @@ export default async function DashboardPage({
   const { workspace, dashboard } = loaded;
   await requirePageAccess(workspace, dashboard.slug);
 
-  const [query, links, context, sources] = await Promise.all([
+  /* `isOwner` se calcule **avant** la lecture : l'inventaire de l'agence
+     porte le nom des comptes des autres clients et ne descend qu'au
+     propriétaire. Il était lu plus bas, après le `Promise.all`. */
+  const isOwner = workspace.role === "owner";
+
+  const [query, links, context, sources, socialAccounts] = await Promise.all([
     searchParams,
     listWorkspaceSocialLinks(workspace.id),
     getActiveContext(workspace.id),
     listReportingSources(workspace.id),
+    isOwner ? listSocialAccounts(workspace.org_id) : Promise.resolve([]),
   ]);
 
   // Les onglets se déduisent de ce qui est branché ; le Contexte sert à dire
@@ -163,7 +176,6 @@ export default async function DashboardPage({
           network === "site-web" ? yearComparison : monthLabel(previousMonth(month)),
       };
 
-  const isOwner = workspace.role === "owner";
   // Seules les sources de l'onglet ouvert : l'erreur du Site Web n'a rien à
   // dire sur des chiffres Meta complets. Sans onglet, tout se dit — il n'y a
   // pas de chiffres à accuser.
@@ -244,6 +256,22 @@ export default async function DashboardPage({
                     ? sameRangeLastYear(range).from
                     : previousRange(range).from
                 }
+              />
+            ) : null}
+            {/* Le branchement des comptes du client : c'est ici qu'un onglet
+                vide fait chercher le geste, donc ici que la boîte s'ouvre.
+                Bouton-icône — la rangée porte déjà quatre commandes. */}
+            {isOwner ? (
+              <ConnexionsButton
+                workspaceSlug={workspace.slug}
+                workspaceName={workspace.name}
+                accounts={socialAccounts}
+                selection={selectionFromLinks(links)}
+                networks={normalizeDeliverables(context?.deliverables).reseaux.map(
+                  (reseau) => reseau.nom,
+                )}
+                metaConfigured={metaConfigured()}
+                retour={`/espace/${workspace.slug}/${dashboard.slug}`}
               />
             ) : null}
             {/* Le lien public du rapport affiché — période figée au partage. */}

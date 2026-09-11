@@ -179,7 +179,7 @@ export async function GET(request: Request) {
         external_id: page.id,
         username: null,
         display_name: page.name,
-        avatar_url: null,
+        avatar_url: page.pictureUrl,
         biography: null,
         followers_count: null,
         media_count: null,
@@ -218,6 +218,8 @@ export async function GET(request: Request) {
         external_id: account.id,
         username: null,
         display_name: account.name,
+        // Un compte publicitaire n'a pas de photo : Meta n'en rend aucune, et
+        // ce n'est pas un profil. Les initiales tiennent la place.
         avatar_url: null,
         biography: null,
         followers_count: null,

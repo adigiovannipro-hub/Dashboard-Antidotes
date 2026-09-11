@@ -55,6 +55,7 @@ export function ConnexionsDialog({
   selection,
   networks,
   metaConfigured,
+  retour,
   open,
   onOpenChange,
 }: {
@@ -67,6 +68,9 @@ export function ConnexionsDialog({
   /** Les réseaux déclarés aux livrables du Contexte. */
   networks: string[];
   metaConfigured: boolean;
+  /** Où l'aller-retour OAuth ramène. La boîte s'ouvre depuis le Reporting :
+      elle ne peut plus supposer qu'on revient sur le planning. */
+  retour: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
@@ -78,7 +82,7 @@ export function ConnexionsDialog({
   const consentHref = (connector: "meta" | "youtube" | "linkedin") =>
     `/api/social/${connector}/connexion?espace=${encodeURIComponent(
       workspaceSlug,
-    )}&retour=${encodeURIComponent(`/espace/${workspaceSlug}/planning`)}`;
+    )}&retour=${encodeURIComponent(retour)}`;
   const connexionHref = consentHref("meta");
 
   // YouTube ne se branche que si le client en a un : proposer le bouton à
@@ -249,6 +253,12 @@ function ConnexionLine({
   // rafraîchissement.
   const [value, setValue] = useState(selected);
   const [pending, startTransition] = useTransition();
+  /* L'URL morte plutôt qu'un booléen : changer de compte doit rendre sa
+     chance à la photo suivante. Les URL du CDN Meta sont signées et datées —
+     périmée, l'image ne charge pas et `avatar_url` n'est pourtant pas `null`,
+     si bien que le repli initiales ne se déclenchait jamais et que l'écran
+     montrait un cadre vide, pire que des initiales. */
+  const [avatarCasse, setAvatarCasse] = useState<string | null>(null);
 
   const label = row.kind ? SOCIAL_ACCOUNT_LABELS[row.kind] : row.label;
   const chosen = accounts.find((account) => account.id === value) ?? null;
@@ -273,11 +283,13 @@ function ConnexionLine({
 
   return (
     <div className="flex items-center gap-3 px-3 py-2.5">
-      {chosen?.avatar_url ? (
+      {chosen?.avatar_url && chosen.avatar_url !== avatarCasse ? (
         // eslint-disable-next-line @next/next/no-img-element -- CDN Meta
         <img
           src={chosen.avatar_url}
           alt=""
+          referrerPolicy="no-referrer"
+          onError={() => setAvatarCasse(chosen.avatar_url)}
           className="size-8 shrink-0 rounded-full object-cover"
         />
       ) : (

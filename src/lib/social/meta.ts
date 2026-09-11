@@ -1,5 +1,7 @@
 import "server-only";
 
+import { metaGraphVersion } from "@/lib/env";
+
 /**
  * Client Meta — Facebook Login, Pages, comptes Instagram Professionnels.
  *
@@ -32,7 +34,11 @@ import "server-only";
  * lira le profil, on ne publiera pas chez un tiers.
  */
 
-const GRAPH_VERSION = "v21.0";
+/* Lue à l'import, côté serveur : `META_GRAPH_VERSION` la surcharge sans
+   redéploiement, ce dont la bascule des métriques de publication de Page a
+   besoin — `views` n'est servie que par les versions récentes de Graph, et la
+   même constante sert aussi la Modération et la publication. */
+const GRAPH_VERSION = metaGraphVersion();
 /** Exporté pour le connecteur Insights — une seule version de Graph partout. */
 export const GRAPH_API = `https://graph.facebook.com/${GRAPH_VERSION}`;
 const OAUTH_DIALOG = `https://www.facebook.com/${GRAPH_VERSION}/dialog/oauth`;
@@ -187,6 +193,9 @@ export type MetaPage = {
   name: string;
   /** Jeton **de Page** : c'est lui qui publie, pas celui de l'utilisateur. */
   accessToken: string;
+  /** Photo de profil. URL du CDN Meta, **signée et datée** : elle meurt en
+      quelques jours et se réécrit à chaque passage du connecteur. */
+  pictureUrl: string | null;
   instagram: MetaInstagramAccount | null;
 };
 
@@ -218,6 +227,7 @@ export async function listPages(userAccessToken: string): Promise<MetaPage[]> {
       id: string;
       name: string;
       access_token: string;
+      picture?: { data?: { url?: string } };
       instagram_business_account?: {
         id: string;
         username: string;
@@ -231,7 +241,7 @@ export async function listPages(userAccessToken: string): Promise<MetaPage[]> {
   }>("/me/accounts", {
     access_token: userAccessToken,
     fields:
-      "id,name,access_token,instagram_business_account{id,username,name,profile_picture_url,biography,followers_count,media_count}",
+      "id,name,access_token,picture{url},instagram_business_account{id,username,name,profile_picture_url,biography,followers_count,media_count}",
     limit: "100",
   });
 
@@ -239,6 +249,7 @@ export async function listPages(userAccessToken: string): Promise<MetaPage[]> {
     id: page.id,
     name: page.name,
     accessToken: page.access_token,
+    pictureUrl: page.picture?.data?.url ?? null,
     instagram: page.instagram_business_account
       ? {
           id: page.instagram_business_account.id,
@@ -273,6 +284,25 @@ export async function listAdAccounts(
   } catch {
     return [];
   }
+}
+
+/**
+ * La photo de profil d'une Page, redemandée seule.
+ *
+ * Même raison que `fetchInstagramProfile` : l'URL rendue au branchement est
+ * signée et datée, elle meurt en quelques jours. Le connecteur la réécrit à
+ * chaque passage — la fenêtre glissante fait le travail toute seule, comme
+ * pour les vignettes LinkedIn.
+ */
+export async function fetchPagePicture(options: {
+  pageId: string;
+  accessToken: string;
+}): Promise<string | null> {
+  const payload = await graph<{ picture?: { data?: { url?: string } } }>(
+    `/${options.pageId}`,
+    { access_token: options.accessToken, fields: "picture{url}" },
+  );
+  return payload.picture?.data?.url ?? null;
 }
 
 /** Rafraîchit la vitrine d'un compte Instagram — l'en-tête du feed. */

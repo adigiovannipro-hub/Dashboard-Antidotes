@@ -188,15 +188,22 @@ function ProfileHeader({
   plannedCount: number;
 }) {
   const publishedCount = profile?.media_count ?? null;
+  /* Une URL du CDN Instagram est signée et datée : périmée, l'image ne charge
+     pas et le repli initiales ne se déclenchait pas — `avatar_url` n'est pas
+     `null` pour autant. On garde l'URL fautive, pas un booléen, pour qu'une
+     photo réécrite au passage suivant retrouve sa chance. */
+  const [avatarCasse, setAvatarCasse] = useState<string | null>(null);
 
   return (
     <div className="border-border border-b px-4 py-4">
       <div className="flex items-center gap-4">
-        {profile?.avatar_url ? (
+        {profile?.avatar_url && profile.avatar_url !== avatarCasse ? (
           // eslint-disable-next-line @next/next/no-img-element -- CDN Instagram
           <img
             src={profile.avatar_url}
             alt=""
+            referrerPolicy="no-referrer"
+            onError={() => setAvatarCasse(profile.avatar_url)}
             className="size-16 shrink-0 rounded-full object-cover"
           />
         ) : (

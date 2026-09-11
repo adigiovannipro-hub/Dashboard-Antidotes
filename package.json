@@ -23,6 +23,7 @@
     "diagnostic:billing": "tsx scripts/diagnostic-billing.ts",
     "sync:linkedin": "tsx --conditions=react-server scripts/sync-linkedin.ts",
     "sonde:linkedin": "tsx scripts/sonde-linkedin-rest.ts",
+    "sonde:meta": "tsx --conditions=react-server scripts/sonde-meta.ts",
     "diagnostic:linkedin": "tsx scripts/diagnostic-linkedin.ts",
     "diagnostic:schema": "tsx scripts/diagnostic-schema.ts",
     "dedupe:billing": "tsx scripts/dedupe-billing.ts",

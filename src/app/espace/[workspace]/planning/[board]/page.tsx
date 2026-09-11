@@ -4,8 +4,6 @@ import { notFound, redirect } from "next/navigation";
 
 import { PlanningBoardView } from "@/components/planning/planning-board";
 import { getWorkspace } from "@/lib/auth";
-import { normalizeDeliverables } from "@/lib/context/deliverables";
-import { getActiveContext } from "@/lib/context/queries";
 import {
   flattenSubjects,
   getBoard,
@@ -13,13 +11,7 @@ import {
   listActivity,
   listBoards,
 } from "@/lib/planning/queries";
-import { metaConfigured } from "@/lib/social/meta";
-import {
-  getInstagramProfile,
-  listSocialAccounts,
-  listWorkspaceSocialLinks,
-} from "@/lib/social/queries";
-import { selectionFromLinks } from "@/lib/social/types";
+import { getInstagramProfile } from "@/lib/social/queries";
 import { parsePlanningView, planningViewCookie } from "@/lib/ui-preferences";
 import { requirePageAccess } from "@/lib/workspaces/access";
 import { PLANNING_PAGE_KEY } from "@/lib/workspaces/types";
@@ -75,25 +67,16 @@ export default async function PlanningBoardPage({
 
   const isOwner = workspace.role === "owner";
 
-  const [
-    { months, owners, columns, archived, trash },
-    query,
-    instagramProfile,
-    socialAccounts,
-    socialLinks,
-    context,
-  ] = await Promise.all([
-    getBoardContent(board),
-    searchParams,
-    getInstagramProfile(workspace.id),
-    // L'inventaire de l'agence ne descend qu'au propriétaire : il porte le nom
-    // des comptes des autres clients.
-    isOwner ? listSocialAccounts(workspace.org_id) : Promise.resolve([]),
-    listWorkspaceSocialLinks(workspace.id),
-    // Les réseaux déclarés aux livrables : c'est le contrat du client qui
-    // décide des lignes de l'écran des connexions, pas une liste en dur.
-    isOwner ? getActiveContext(workspace.id) : Promise.resolve(null),
-  ]);
+  /* L'inventaire, les affectations et les livrables ne se lisent plus ici :
+     le branchement des comptes a rejoint le Reporting, là où un onglet vide
+     fait chercher le geste. Le planning ne garde que la vitrine du compte
+     Instagram, dont son aperçu de feed a besoin. */
+  const [{ months, owners, columns, archived, trash }, query, instagramProfile] =
+    await Promise.all([
+      getBoardContent(board),
+      searchParams,
+      getInstagramProfile(workspace.id),
+    ]);
 
   // La publication ouverte vient de l'URL : un lien partagé rouvre le même
   // panneau, et le retour arrière le referme. Une ligne archivée ou à la
@@ -135,12 +118,6 @@ export default async function PlanningBoardPage({
       workspaceName={workspace.name}
       instagramProfile={instagramProfile}
       isOwner={isOwner}
-      socialAccounts={socialAccounts}
-      socialSelection={selectionFromLinks(socialLinks)}
-      socialNetworks={normalizeDeliverables(context?.deliverables).reseaux.map(
-        (reseau) => reseau.nom,
-      )}
-      metaConfigured={metaConfigured()}
       view={view}
     />
   );

@@ -321,14 +321,23 @@ export async function fetchPagePosts(options: {
       }),
     );
 
-  /* Impressions et portée **redemandées** (2 septembre 2026, à la demande du
-     client). Elles avaient été retirées de la liste parce qu'un refus de Meta
-     sur une seule métrique faisait tomber l'expansion entière — et donc les
-     vues vidéo avec. Le repli est désormais métrique par métrique
-     (`fetchPostInsights`) : ce que Meta refuse manque seul, ce qu'il rend
-     arrive. Une Page qui ne rend pas les impressions les laisse à 0, que
-     l'écran écrit « — ». */
-  const metrics = ["post_impressions", "post_impressions_unique", "post_video_views"];
+  /* `views` **d'abord**, les trois anciennes ensuite. Fin 2025, Meta a
+     déprécié `post_impressions`, `post_impressions_unique` et
+     `post_video_views` sur les publications de Page au profit de `views` —
+     la même bascule qu'Instagram a déjà faite. Les anciennes restent
+     demandées : elles répondent encore sur certaines Pages, et surtout
+     l'historique déjà collecté ne doit pas être réécrit à zéro le jour où
+     l'une des deux se tait.
+
+     Demander les quatre ne coûte rien : `fetchPostInsights` redemande
+     métrique par métrique dès que Meta refuse la liste en bloc, et garde ce
+     qui passe. Ce que Meta refuse manque seul. */
+  const metrics = [
+    "views",
+    "post_impressions",
+    "post_impressions_unique",
+    "post_video_views",
+  ];
 
   let rows: MetaPagePostRow[];
   try {

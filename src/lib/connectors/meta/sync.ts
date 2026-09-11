@@ -3,7 +3,11 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { decryptSecret } from "@/lib/moderation/crypto";
-import { MetaError } from "@/lib/social/meta";
+import {
+  fetchInstagramProfile,
+  fetchPagePicture,
+  MetaError,
+} from "@/lib/social/meta";
 import type { SocialAccountKind, SocialAccountRow } from "@/lib/social/types";
 import type { Database } from "@/lib/supabase/database.types";
 import {
@@ -619,6 +623,41 @@ async function syncOrganic(
         .filter(Boolean)
         .join(" — ");
     }
+  }
+
+  /* La photo de profil, **relue à chaque passage**.
+     Elle n'était écrite qu'au branchement, et les URL du CDN Meta sont
+     signées et datées : elles meurent en quelques jours, l'écran montrait
+     alors un cadre vide. Même mécanique que les vignettes LinkedIn — la
+     fenêtre glissante réécrit ce qui périme.
+
+     Un refus ne fait jamais tomber la synchronisation : l'avatar est de la
+     vitrine, pas de la mesure. */
+  let avatarUrl: string | null = null;
+  try {
+    avatarUrl =
+      account.kind === "instagram"
+        ? (
+            await fetchInstagramProfile({
+              igUserId: account.external_id,
+              accessToken,
+            })
+          ).profilePictureUrl
+        : await fetchPagePicture({ pageId: account.external_id, accessToken });
+  } catch (error) {
+    if (error instanceof MetaError && error.retryable) throw error;
+    warning = [warning, "Photo de profil non relue."].filter(Boolean).join(" — ");
+  }
+
+  if (avatarUrl !== null) {
+    const { error: avatarError } = await admin
+      .from("social_accounts")
+      .update({
+        avatar_url: avatarUrl,
+        updated_at: new Date().toISOString(),
+      } as never)
+      .eq("id", account.id);
+    if (avatarError) fail(`Photo de profil : ${avatarError.message}`);
   }
 
   const followers = await fetchFollowersCount({

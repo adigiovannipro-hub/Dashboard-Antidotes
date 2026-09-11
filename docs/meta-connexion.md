@@ -9,7 +9,7 @@ un compte Instagram et, à terme, publie à sa place.
 
 | Ce qui est écrit | Ce qui ne l'est pas |
 |---|---|
-| L'aller-retour d'autorisation avec Meta (bouton **Connexions** du tableau) | **La publication automatique.** Aucun code ne pousse encore un post |
+| L'aller-retour d'autorisation avec Meta (bouton **Connexions** du Reporting) | **La publication automatique.** Aucun code ne pousse encore un post |
 | La table `social_accounts` : Pages, comptes Instagram, comptes publicitaires, jetons chiffrés | La programmation à l'heure dite (le déclencheur) |
 | La lecture du profil (photo, bio, abonnés) pour l'en-tête du feed | Le rattrapage d'un envoi échoué |
 
@@ -167,8 +167,8 @@ Meta échoue à l'enregistrement.
 
 ## 10. Brancher, enfin
 
-24. Ouvrir le planning du client → bouton **Connexions** dans la barre du
-    tableau.
+24. Ouvrir le Reporting du client → bouton **Connexions** dans la barre de
+    page.
 25. **Connecter Meta** → Facebook demande quelles Pages partager → choisir
     celle du client → accepter les autorisations.
 26. Au retour, la boîte liste ce qui a été branché : la Page, le compte

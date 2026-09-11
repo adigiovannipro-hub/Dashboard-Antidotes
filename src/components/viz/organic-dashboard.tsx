@@ -17,6 +17,7 @@ import {
   HERO_METRIC,
   isUnmeasuredZero,
   KPI_SETS,
+  metricLabelFor,
 } from "@/lib/reporting/kpi-sets";
 import { REPORTING_NETWORK_LABELS } from "@/lib/reporting/networks";
 import type { SocialPost } from "@/lib/supabase/database.types";
@@ -79,6 +80,24 @@ export function OrganicDashboard({
   const networkName = REPORTING_NETWORK_LABELS[network];
   const hero = HERO_METRIC[network];
 
+  /* Un seul gabarit pour les quatre onglets : combien de publications, et ce
+     qui a été mesuré dessus. Chaque membre ne s'écrit que s'il porte un
+     chiffre — les publications collectées avant la bascule de Meta vers
+     `views` ont des impressions à zéro en base, et « 0 vues » accuserait un
+     contenu qu'on n'a simplement pas mesuré. */
+  const membres = aucuneMesure
+    ? []
+    : [
+        `${formatValue(posts.length, "integer")} publication${posts.length > 1 ? "s" : ""}`,
+        total.impressions > 0
+          ? `${formatMetric("impressions", total.impressions)} vues`
+          : null,
+        // La portée vient de la page : elle ne vaut que là où la page mesure.
+        !parPublication && total.reach > 0
+          ? `${formatMetric("reach", total.reach)} personnes atteintes`
+          : null,
+      ].filter((membre): membre is string => membre !== null);
+
   return (
     <div className="space-y-5">
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -86,23 +105,13 @@ export function OrganicDashboard({
           metric={hero}
           value={mesure(hero)}
           delta={delta(hero)}
+          label={metricLabelFor(network, hero)}
           /* Sans publication lue, « 0 vues » contredirait les tuiles à « — »
              juste à côté : on ne dit pas un chiffre qu'on n'a pas mesuré. */
           sentence={`${
-            aucuneMesure
-              ? "Aucune publication lue sur la période"
-              : !parPublication
-                ? /* LinkedIn : la page mesure les vues, le tableau compte les
-                     publications — la phrase dit les deux. */
-                  `${formatValue(posts.length, "integer")} publication${posts.length > 1 ? "s" : ""}, ${formatMetric("impressions", total.impressions)} vues, ${formatMetric("reach", total.reach)} personnes atteintes`
-                : /* Facebook : Meta ne rend plus les impressions par publication —
-                   annoncer « 0 vues » accuserait le contenu, on compte ce qui
-                   est mesuré. */
-                  `${formatValue(posts.length, "integer")} publication${posts.length > 1 ? "s" : ""}, ${
-                    network === "instagram"
-                      ? `${formatMetric("impressions", total.impressions)} vues`
-                      : `${formatMetric("interactions", total.likes + total.comments + total.saves + total.shares)} interactions`
-                  }`
+            membres.length > 0
+              ? membres.join(", ")
+              : "Aucune publication lue sur la période"
           }${
             followersNow !== null
               ? ` — ${formatValue(followersNow, "integer")} abonnés aujourd'hui`
@@ -117,10 +126,12 @@ export function OrganicDashboard({
             key={metric}
             metric={metric}
             /* Un zéro que la source ne mesure pas s'écrit « — », sans
-               variation : Meta ne rend ni impressions ni enregistrements
-               sur une Page. */
+               variation : Meta n'a jamais rendu les enregistrements sur une
+               Page. Les vues, elles, sont mesurées de nouveau — un zéro y
+               est une vraie contre-performance. */
             value={isUnmeasuredZero(network, metric, mesure(metric)) ? null : mesure(metric)}
             delta={isUnmeasuredZero(network, metric, mesure(metric)) ? undefined : delta(metric)}
+            label={metricLabelFor(network, metric)}
           />
         ))}
       </div>
@@ -139,8 +150,9 @@ export function OrganicDashboard({
         />
         <PanelBody>
           {/* Mêmes colonnes qu'Instagram : le client lit les deux tableaux
-              avec la même grille. Sur Facebook, impressions et
-              enregistrements restent à zéro tant que Meta ne les rend pas.
+              avec la même grille. Sur Facebook, les enregistrements restent
+              vides — une Page n'en a pas —, et une publication collectée
+              avant la bascule vers `views` garde 0 vue, donc « — » de taux.
               LinkedIn n'a pas d'enregistrement du tout, mais il compte les
               clics — la seule colonne qui lui soit propre. */}
           <PostsTable

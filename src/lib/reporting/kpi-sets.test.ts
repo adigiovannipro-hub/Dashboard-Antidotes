@@ -1,7 +1,14 @@
 import { describe, expect, it } from "vitest";
 
 import { METRIC_DEFINITIONS } from "@/lib/metrics/definitions";
-import { detailTitle, hasPersona, HERO_METRIC, isUnmeasuredZero, KPI_SETS } from "./kpi-sets";
+import {
+  detailTitle,
+  hasPersona,
+  HERO_METRIC,
+  isUnmeasuredZero,
+  KPI_SETS,
+  metricLabelFor,
+} from "./kpi-sets";
 import type { SocialReportingNetwork } from "./networks";
 
 // Les onglets sociaux seulement : le Site Web a ses propres mesures, hors du
@@ -52,13 +59,13 @@ describe("KPI_SETS", () => {
     expect(KPI_SETS.instagram).toContain("likes");
   });
 
-  it("compte les interactions en tête de Facebook, et porte la grille d'Instagram", () => {
-    // Fin 2025, Meta a retiré impressions et portée des publications de
-    // Page : sans dénominateur, le taux d'engagement afficherait « — » à
-    // perpétuité — les interactions restent le héros. Les tuiles, elles,
-    // suivent la grille d'Instagram à la demande du client ; ce que Meta ne
-    // mesure pas s'écrit « — » (isUnmeasuredZero), jamais un zéro.
-    expect(HERO_METRIC.facebook).toBe("interactions");
+  it("pose le même héros et la même grille sur Facebook que sur Instagram", () => {
+    /* Depuis la bascule de `post_impressions` vers `views`, Facebook a de
+       nouveau un dénominateur : le taux d'engagement y répond à la même
+       question qu'ailleurs, et un rapport se lit d'un réseau à l'autre sans
+       changer de grille. Ce que Meta ne mesure pas s'écrit « — »
+       (isUnmeasuredZero), jamais un zéro. */
+    expect(HERO_METRIC.facebook).toBe("engagementRate");
     expect(KPI_SETS.facebook).toEqual(KPI_SETS.instagram);
     expect(KPI_SETS.facebook).toContain("videoViews");
   });
@@ -81,14 +88,33 @@ describe("detailTitle", () => {
 
 describe("isUnmeasuredZero", () => {
   it("écrit « — » à la place d'un zéro que Facebook ne mesure pas", () => {
-    expect(isUnmeasuredZero("facebook", "impressions", 0)).toBe(true);
+    // Une Page n'a jamais eu d'enregistrement : zéro y est une absence.
     expect(isUnmeasuredZero("facebook", "saves", 0)).toBe(true);
   });
 
-  it("laisse passer une valeur mesurée, et les zéros des autres réseaux", () => {
-    // Le jour où Meta rend les impressions de Page, la tuile vit sans code.
+  it("laisse passer les vues, que Meta rend de nouveau", () => {
+    /* Les impressions sont sorties de la liste : `views` par publication et
+       `page_media_view` au grain jour les portent. Un zéro y est désormais
+       une vraie contre-performance, pas une mesure absente. */
+    expect(isUnmeasuredZero("facebook", "impressions", 0)).toBe(false);
     expect(isUnmeasuredZero("facebook", "impressions", 1200)).toBe(false);
     expect(isUnmeasuredZero("facebook", "likes", 0)).toBe(false);
     expect(isUnmeasuredZero("instagram", "impressions", 0)).toBe(false);
+  });
+});
+
+describe("metricLabelFor", () => {
+  it("dit « Vues » sur l'organique et laisse « Impressions » au payant", () => {
+    /* Même grandeur, deux vocabulaires : les réseaux disent « vues », et le
+       tableau des ad sets compte des impressions — un même écran vu
+       plusieurs fois — où « vues » se lirait comme des personnes. */
+    expect(metricLabelFor("facebook", "impressions")).toBe("Vues");
+    expect(metricLabelFor("instagram", "impressions")).toBe("Vues");
+    expect(metricLabelFor("meta-ads", "impressions")).toBeUndefined();
+  });
+
+  it("ne touche à aucune autre mesure", () => {
+    expect(metricLabelFor("instagram", "likes")).toBeUndefined();
+    expect(metricLabelFor("linkedin", "reach")).toBeUndefined();
   });
 });

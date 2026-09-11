@@ -20,7 +20,8 @@ Le lien expire vite — l'ouvrir tout de suite.
 
 ## Par client
 
-Dans le Planning, bouton **Connexions** (propriétaire seulement) :
+Dans le Reporting, bouton **Connexions** de la barre de page (propriétaire
+seulement) :
 
 1. « Ajouter les pages LinkedIn » remplit l'inventaire de l'agence depuis
    LinkedIn. Rien n'est affecté au passage.

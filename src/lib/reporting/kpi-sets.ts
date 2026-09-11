@@ -27,12 +27,12 @@ import { isPaidNetwork, type SocialReportingNetwork } from "./networks";
 export const HERO_METRIC: Record<SocialReportingNetwork, MetricId> = {
   "meta-ads": "roas",
   instagram: "engagementRate",
-  /* Fin 2025, Meta a retiré impressions et portée des publications de Page —
-     pour tout le monde, quelle que soit la version d'API (vérifié sur pièce :
-     `post_impressions` répond « not a valid insights metric » en v23). Sans
-     dénominateur, le taux d'engagement afficherait « — » à perpétuité : les
-     interactions deviennent le chiffre héros, c'est ce que Meta mesure encore. */
-  facebook: "interactions",
+  /* Même héros qu'Instagram depuis la bascule de `post_impressions` vers
+     `views` : un rapport se lit d'un réseau à l'autre sans changer de
+     question. Le dénominateur existe des deux côtés — la portée quand la
+     Page la rend, les vues sinon —, et quand il manque le taux s'affiche
+     « — » plutôt qu'un zéro, comme partout ailleurs. */
+  facebook: "engagementRate",
   /* LinkedIn a sa propre définition du taux d'engagement, et on la suit :
      clics compris, rapportés aux impressions. Vérifiée sur pièce contre les
      statistiques natives de LinkedIn (ANMF, août 2026 : 6,73 % calculé ici
@@ -85,11 +85,10 @@ export const KPI_SETS: Record<SocialReportingNetwork, MetricId[]> = {
      comme une absence de mesure. */
   instagram: ["impressions", "videoViews", "likes", "comments", "saves", "shares"],
   /* Même série qu'Instagram, à la demande du client — un rapport se lit
-     d'un réseau à l'autre sans changer de grille. Meta ne rend plus les
-     impressions par publication de Page (voir HERO_METRIC) et n'a jamais
-     rendu les enregistrements : ces deux tuiles affichent « — » tant que
+     d'un réseau à l'autre sans changer de grille. Meta n'a jamais rendu les
+     enregistrements sur une Page : cette tuile-là affiche « — » tant que
      rien n'est mesuré (`UNMEASURED_AT_ZERO`), jamais un zéro qui accuserait
-     le client. Si Meta les rend un jour, elles se remplissent sans code. */
+     le client. Si Meta la rend un jour, elle se remplit sans code. */
   facebook: ["impressions", "videoViews", "likes", "comments", "saves", "shares"],
   /* LinkedIn sert tout : impressions et portée de la page, clics,
      réactions, commentaires, partages. Pas d'enregistrement — il n'en a
@@ -127,7 +126,10 @@ export const KPI_SETS: Record<SocialReportingNetwork, MetricId[]> = {
  * rend, la tuile vit.
  */
 export const UNMEASURED_AT_ZERO: Partial<Record<SocialReportingNetwork, readonly MetricId[]>> = {
-  facebook: ["impressions", "saves"],
+  /* Les impressions en sont sorties : Meta les rend de nouveau, sous le nom
+     `views` par publication et `page_media_view` au grain jour. Les
+     enregistrements restent — une Page n'en a jamais eu. */
+  facebook: ["saves"],
 };
 
 export function isUnmeasuredZero(
@@ -148,6 +150,27 @@ export function hasPersona(network: SocialReportingNetwork): boolean {
 }
 
 
+
+/**
+ * Le libellé d'une mesure **sur l'onglet ouvert**.
+ *
+ * « Impressions » et « Vues » comptent la même chose — combien de fois un
+ * contenu s'est affiché — mais pas dans le même vocabulaire : le payant parle
+ * d'impressions (le tableau des ad sets le dit noir sur blanc, « vues » s'y
+ * lirait comme des personnes), l'organique parle de vues, qui est le mot des
+ * réseaux eux-mêmes depuis que Meta a renommé la métrique. Renommer
+ * globalement aurait cassé l'un pour réparer l'autre.
+ */
+const ORGANIC_LABEL_OVERRIDES: Partial<Record<MetricId, string>> = {
+  impressions: "Vues",
+};
+
+export function metricLabelFor(
+  network: SocialReportingNetwork,
+  metric: MetricId,
+): string | undefined {
+  return isPaidNetwork(network) ? undefined : ORGANIC_LABEL_OVERRIDES[metric];
+}
 
 /** Le tableau de détail : par ad set en payant, par publication en organique. */
 export function detailTitle(network: SocialReportingNetwork): string {
