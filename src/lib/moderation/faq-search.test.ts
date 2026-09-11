@@ -130,9 +130,10 @@ describe("recherche FAQ — correspondance", () => {
 });
 
 describe("recherche FAQ — absence de réponse", () => {
-  it("ne génère aucun brouillon sur une question hors FAQ", async () => {
-    // C'est le garde-fou qui empêche le modèle d'inventer : une question hors
-    // FAQ doit remonter à un humain, pas produire une réponse plausible.
+  it("ne se dit pas couverte sur une question hors FAQ", async () => {
+    // `answerable` ne bloque plus la génération — le modèle est appelé dans
+    // tous les cas — mais il commande le statut du brouillon : sourcé, ou
+    // proposition. Une question hors FAQ ne doit jamais passer pour sourcée.
     const result = await searchFaq({
       question: "Est-ce que vous recrutez des développeurs backend en CDI ?",
       entries,
@@ -274,5 +275,71 @@ describe("entrées à retravailler", () => {
     expect(needsRework({ usage_count: 2, correction_count: 2, confidence: 1 })).toBe(
       false,
     );
+  });
+});
+
+describe("recherche FAQ — repli lexical", () => {
+  /** Ce que rend un fournisseur d'embeddings qui ne charge pas — le cas Vercel. */
+  const indisponible = {
+    id: "absent",
+    embed: async () => {
+      throw new Error("Failed to load external module");
+    },
+    embedMany: async () => {
+      throw new Error("Failed to load external module");
+    },
+  };
+
+  it("retrouve l'entrée par recoupement de mots quand aucun vecteur n'est calculable", async () => {
+    const result = await searchFaq({
+      question: "quels sont les delais de livraison de ma commande",
+      entries,
+      channel: "instagram",
+      provider: indisponible,
+    });
+
+    expect(result.method).toBe("lexical");
+    expect(result.matches[0]?.entry.id).toBe("livraison");
+  });
+
+  it("bascule aussi en lexical quand les entrées n'ont pas de vecteur", async () => {
+    const result = await searchFaq({
+      question: "quels sont les delais de livraison de ma commande",
+      entries: entries.map((entry) => ({ ...entry, embedding: null })),
+      channel: "instagram",
+      provider,
+    });
+
+    expect(result.method).toBe("lexical");
+    expect(result.matches.length).toBeGreaterThan(0);
+  });
+
+  it("distingue une FAQ vide d'une FAQ qui ne couvre pas la demande", async () => {
+    const vide = await searchFaq({
+      question: "vous livrez en Belgique ?",
+      entries: [],
+      channel: "instagram",
+      provider,
+    });
+    expect(vide.answerable).toBe(false);
+    if (!vide.answerable) expect(vide.reason).toBe("no_entries");
+  });
+
+  it("rend les meilleures approches même sous le seuil de certitude", async () => {
+    // Elles partent dans le prompt comme pistes : le modèle doit savoir ce que
+    // la FAQ contient de plus proche, même quand ce n'est pas la réponse.
+    const result = await searchFaq({
+      question: "je voudrais retourner un article recu hier, comment faire le renvoi",
+      entries,
+      channel: "instagram",
+      provider,
+      maxSources: 4,
+    });
+
+    expect(result.answerable).toBe(false);
+    if (result.answerable) return;
+    expect(result.reason).toBe("below_threshold");
+    expect(result.matches.length).toBeGreaterThan(0);
+    expect(result.matches[0]!.similarity).toBeLessThan(ANSWERABLE_THRESHOLD);
   });
 });

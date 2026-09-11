@@ -471,6 +471,8 @@ export type FaqEntryRow = {
   usage_count: number;
   direct_validation_count: number;
   correction_count: number;
+  /* pgvector traverse PostgREST en chaîne (`[0.1,0.2,…]`), jamais en tableau. */
+  embedding: string | null;
   embedding_source: string | null;
   monday_item_id: string | null;
   created_by: string | null;

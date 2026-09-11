@@ -10,10 +10,11 @@ import {
   validateGeneration,
   type DraftGeneration,
 } from "./draft-prompt";
-import { searchFaq, type SearchableEntry } from "./faq-search";
+import { searchFaq, type FaqSearchMethod, type SearchableEntry } from "./faq-search";
 import type { EmbeddingProvider } from "./embeddings";
 import { CHANNEL_LABELS } from "./types";
 import type {
+  ConversationKind,
   DraftSource,
   ModerationChannel,
   SupportedLocale,
@@ -23,9 +24,14 @@ import type {
 /**
  * Génération d'un brouillon de réponse.
  *
- * La FAQ est cherchée **avant** tout appel au modèle. Si aucune entrée ne
- * franchit le seuil, on n'appelle pas Claude du tout : ni coût, ni latence, ni
- * risque d'invention. La conversation part en traitement manuel.
+ * La FAQ est cherchée d'abord, et **le modèle est appelé ensuite, toujours**.
+ * L'ancien court-circuit — pas d'entrée au-dessus du seuil, donc pas d'appel —
+ * économisait quelques centimes et laissait l'opérateur devant une page
+ * blanche pour 100 % des conversations réelles, faute d'une FAQ qui couvre tout.
+ *
+ * Ce qui reste de la garde vit ailleurs, et c'est le bon endroit : le prompt
+ * interdit d'affirmer un fait non documenté, et le brouillon porte son
+ * discriminant — appuyé sur des sources citées, ou proposition sans source.
  */
 
 export const DRAFT_MODEL = "claude-opus-5";
@@ -37,22 +43,27 @@ export type DraftOutcome =
       locale: SupportedLocale;
       confidence: number;
       sources: DraftSource[];
+      /** Sources FAQ réellement citées et vérifiées : c'est le discriminant. */
+      grounded: boolean;
+      /** Comment la FAQ a été approchée — l'écran doit pouvoir le dire. */
+      faqMethod: FaqSearchMethod;
+      /** Ce qui manque à la FAQ pour répondre sans extrapoler, s'il y a lieu. */
+      missingInformation: string | null;
       translatedFromFr: boolean;
       model: string;
       promptVersion: string;
     }
   | {
-      kind: "no_answer_available";
-      /** Ce qui manque dans la FAQ — alimente la box de correction. */
-      missingInformation: string;
-      /** Meilleures approches trouvées, même sous le seuil : aide l'opérateur. */
-      nearMisses: DraftSource[];
+      /** Le modèle n'a rien rendu d'exploitable — la cause, en français. */
+      kind: "refused";
+      reason: string;
     };
 
 export type GenerateDraftOptions = {
   question: string;
   conversationExcerpt: string;
   channel: ModerationChannel;
+  kind: ConversationKind;
   locale: SupportedLocale;
   clientName: string;
   tone: ToneSettings;
@@ -71,35 +82,24 @@ export async function generateDraft(
     provider: options.provider,
   });
 
-  if (!search.answerable) {
-    return {
-      kind: "no_answer_available",
-      missingInformation:
-        search.reason === "no_match"
-          ? "Aucune entrée FAQ ne se rapproche de cette demande."
-          : "Les entrées FAQ les plus proches ne couvrent pas la demande avec assez de certitude.",
-      nearMisses: search.matches.map((match) => ({
-        faq_entry_id: match.entry.id,
-        question: match.entry.question_canonical,
-        similarity: match.similarity,
-      })),
-    };
-  }
-
   const anthropic = options.client ?? new Anthropic();
 
   const system = buildSystemPrompt({
     clientName: options.clientName,
     tone: options.tone,
     locale: options.locale,
+    kind: options.kind,
   });
 
   const { faqBlock, questionBlock } = buildUserPrompt({
     matches: search.matches,
+    method: search.method,
+    answerable: search.answerable,
     locale: options.locale,
     conversationExcerpt: options.conversationExcerpt,
     question: options.question,
     channelLabel: CHANNEL_LABELS[options.channel],
+    kind: options.kind,
   });
 
   const response = await anthropic.messages.create({
@@ -116,17 +116,20 @@ export async function generateDraft(
     messages: [
       {
         role: "user",
-        content: [
-          // Les extraits FAQ sont stables d'un message à l'autre pour un même
-          // client : le point de cache est posé derrière eux, la question
-          // variable reste après.
-          {
-            type: "text",
-            text: faqBlock,
-            cache_control: { type: "ephemeral" },
-          },
-          { type: "text", text: questionBlock },
-        ],
+        content: faqBlock
+          ? [
+              // Les extraits FAQ sont stables d'un message à l'autre pour un
+              // même client : le point de cache est posé derrière eux, la
+              // question variable reste après.
+              {
+                type: "text",
+                text: faqBlock,
+                cache_control: { type: "ephemeral" },
+              },
+              { type: "text", text: questionBlock },
+            ]
+          : // Sans extrait, rien de stable à mettre en cache.
+            [{ type: "text", text: questionBlock }],
       },
     ],
   });
@@ -135,36 +138,35 @@ export async function generateDraft(
   // `content[0]` sans vérifier `stop_reason` planterait.
   if (response.stop_reason === "refusal") {
     return {
-      kind: "no_answer_available",
-      missingInformation:
-        "La génération a été refusée par les garde-fous du modèle. Ce message demande une réponse humaine.",
-      nearMisses: search.matches.map((match) => ({
-        faq_entry_id: match.entry.id,
-        question: match.entry.question_canonical,
-        similarity: match.similarity,
-      })),
+      kind: "refused",
+      reason:
+        "Les garde-fous du modèle ont refusé de rédiger cette réponse. À écrire à la main.",
     };
   }
 
   const textBlock = response.content.find((block) => block.type === "text");
   if (!textBlock || textBlock.type !== "text") {
-    throw new Error("Réponse du modèle sans bloc de texte exploitable.");
+    return {
+      kind: "refused",
+      reason: "Le modèle n'a rien renvoyé d'exploitable. Relancer la génération.",
+    };
   }
 
-  const generation = JSON.parse(textBlock.text) as DraftGeneration;
-  const validated = validateGeneration(generation, search.matches);
+  let generation: DraftGeneration;
+  try {
+    generation = JSON.parse(textBlock.text) as DraftGeneration;
+  } catch {
+    return {
+      kind: "refused",
+      reason: "La réponse du modèle est illisible. Relancer la génération.",
+    };
+  }
 
+  const validated = validateGeneration(generation, search.matches);
   if (!validated.usable) {
     return {
-      kind: "no_answer_available",
-      missingInformation:
-        generation.missing_information ||
-        "Le modèle n'a cité aucune source FAQ vérifiable.",
-      nearMisses: search.matches.map((match) => ({
-        faq_entry_id: match.entry.id,
-        question: match.entry.question_canonical,
-        similarity: match.similarity,
-      })),
+      kind: "refused",
+      reason: "Le modèle a rendu une réponse vide. Relancer la génération.",
     };
   }
 
@@ -182,6 +184,9 @@ export async function generateDraft(
     locale: generation.language,
     confidence: validated.confidence,
     sources: validated.sources,
+    grounded: validated.grounded,
+    faqMethod: search.method,
+    missingInformation: generation.missing_information.trim() || null,
     translatedFromFr,
     model: DRAFT_MODEL,
     promptVersion: PROMPT_VERSION,
