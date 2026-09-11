@@ -16,8 +16,8 @@ import { signLogoUrls } from "@/lib/workspaces/logos";
  * L'inbox croisée : tous les clients relevés, dans une seule boîte.
  *
  * Les filtres vivent dans l'URL en français — `?vue=`, `?client=`, `?statut=`,
- * `?nonlus=`, `?priorite=`, `?q=`, `?conv=` — et la vue par défaut est le
- * travail : tout ce qui attend une action, tous clients confondus.
+ * `?nonlus=`, `?priorite=`, `?q=`, `?conv=` — et l'URL nue ouvre la boîte
+ * entière, tous clients et tous statuts confondus.
  */
 
 type Search = Promise<Record<string, string | undefined>>;
@@ -34,8 +34,14 @@ export default async function ModerationInboxPage({
     (candidate) => candidate.slug === query.client,
   );
   const view = query.vue && isInboxView(query.vue) ? query.vue : "tout";
+  /* « Toutes » par défaut, comme l'onglet de canal l'est déjà : la boîte
+     s'ouvre sur son contenu entier. Le défaut « À traiter » masquait tout le
+     reste sans que rien dans l'URL ne le dise, ce qui se lit comme une boîte
+     vide. Trois endroits portent ce choix ensemble — ici, le défaut de
+     `filteredConversations`, et le lien qui décide quelle valeur est absente
+     de l'URL. */
   const statusGroup =
-    query.statut && isStatusGroup(query.statut) ? query.statut : "a-traiter";
+    query.statut && isStatusGroup(query.statut) ? query.statut : "toutes";
 
   const filters: InboxFilters = {
     view,

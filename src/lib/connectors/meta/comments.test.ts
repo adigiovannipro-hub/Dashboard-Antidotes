@@ -157,6 +157,56 @@ describe("igCommentsToThreads", () => {
   });
 });
 
+describe("igCommentsToThreads — photo de profil", () => {
+  it("lit `profile_picture_url`, la forme Instagram", () => {
+    const [thread] = igCommentsToThreads({
+      media: media(),
+      comments: [
+        igComment({
+          from: {
+            id: "u-claire",
+            username: "claire.d",
+            profile_picture_url: "https://cdn.example.com/claire.jpg",
+          },
+        }),
+      ],
+      brand: BRAND,
+    });
+
+    expect(thread!.participantAvatarUrl).toBe("https://cdn.example.com/claire.jpg");
+  });
+
+  it("rend null quand Instagram ne nomme pas l'auteur", () => {
+    const [thread] = igCommentsToThreads({
+      media: media(),
+      comments: [igComment({ from: undefined })],
+      brand: BRAND,
+    });
+
+    expect(thread!.participantAvatarUrl).toBeNull();
+  });
+});
+
+describe("pageCommentsToThreads — photo de profil", () => {
+  it("lit `picture.data.url`, la forme Facebook", () => {
+    const [thread] = pageCommentsToThreads({
+      post: pagePost(),
+      comments: [
+        pageComment({
+          from: {
+            id: "u-marc",
+            name: "Marc Petit",
+            picture: { data: { url: "https://cdn.example.com/marc.jpg" } },
+          },
+        }),
+      ],
+      brand: PAGE_BRAND,
+    });
+
+    expect(thread!.participantAvatarUrl).toBe("https://cdn.example.com/marc.jpg");
+  });
+});
+
 describe("pageCommentsToThreads — pièces jointes", () => {
   it("garde le GIF d'un commentaire sans texte", () => {
     const threads = pageCommentsToThreads({

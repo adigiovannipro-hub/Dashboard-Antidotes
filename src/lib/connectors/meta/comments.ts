@@ -19,11 +19,20 @@ import type {
  * fil supprimé) n'est pas une conversation à modérer.
  */
 
+/**
+ * L'auteur d'un commentaire, dans les **deux** formes de Graph.
+ *
+ * Facebook rend `picture{data{url}}` — un objet imbriqué. Instagram rend
+ * `profile_picture_url` — une chaîne plate. Ce n'est pas une redondance : un
+ * canal ne renseigne jamais le champ de l'autre, et lire la mauvaise forme
+ * revient à n'avoir aucune photo, ce qui était le cas d'Instagram.
+ */
 export type MetaCommentAuthor = {
   id?: string;
   name?: string;
   username?: string;
   picture?: { data?: { url?: string } };
+  profile_picture_url?: string;
 };
 
 /** Un commentaire Instagram, réponses imbriquées comprises. */
@@ -203,7 +212,10 @@ export function igCommentsToThreads(options: {
         externalId: row.id,
         authorExternalId: row.from?.id ?? null,
         authorHandle: row.username ?? row.from?.username ?? row.from?.name ?? null,
-        authorAvatarUrl: row.from?.picture?.data?.url ?? null,
+        // Forme Instagram d'abord, forme Facebook en repli : le même mapping
+        // sert les réponses imbriquées, qui viennent du même appel.
+        authorAvatarUrl:
+          row.from?.profile_picture_url ?? row.from?.picture?.data?.url ?? null,
         // Instagram ne rend pas de pièce jointe sur un commentaire : le GIF
         // d'un commentaire est un cas Facebook.
         attachments: [],

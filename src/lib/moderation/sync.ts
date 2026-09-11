@@ -243,8 +243,12 @@ async function upsertThreads(options: {
         kind: thread.kind,
         participant_external_id: thread.participantExternalId,
         participant_handle: sanitizeText(thread.participantHandle),
-        // Une photo déjà rattrapée survit à un passage qui n'en rapporte pas :
-        // Meta ne rend l'avatar qu'à certains appels, pas à tous.
+        /* La photo la plus fraîche gagne, et l'ancienne ne survit qu'à défaut :
+           les URL `scontent.*.fbcdn.net` et `lookaside.fbsbx.com` sont signées
+           et périment en quelques jours — c'est la fenêtre glissante du relevé
+           qui les renouvelle, en repassant sur les mêmes fils. Une photo déjà
+           rattrapée survit en revanche à un passage qui n'en rapporte pas :
+           Meta ne rend l'avatar qu'à certains appels, pas à tous. */
         participant_avatar_url:
           thread.participantAvatarUrl ?? existing?.participant_avatar_url ?? null,
         status: plan.status,
@@ -792,9 +796,14 @@ export async function syncModerationInbox(options: {
         const { error: doneError } = await admin
           .from("channel_connections")
           .update({
+            /* Le passage a abouti : `status` reste `connected`, et c'est lui
+               qui fait foi à l'écran. `last_error` porte alors un
+               **avertissement** — une portée refusée sur la messagerie, par
+               exemple — et non une panne : l'inbox lisait ce seul champ et
+               affichait « canal en erreur » à la place de l'âge du relevé,
+               donnant à une boîte à jour l'air d'une panne. */
             status: "connected",
             last_polled_at: new Date().toISOString(),
-            // Le passage a abouti — l'avertissement dit ce qui manquait.
             last_error: pulled.warning,
           } as never)
           .eq("id", connectionId);

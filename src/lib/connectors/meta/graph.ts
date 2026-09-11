@@ -483,10 +483,16 @@ export async function fetchInstagramComments(options: {
       access_token: options.accessToken,
       /* `username` **et** `from` : Instagram ne rend `from` que sur les
          comptes que l'app atteint, et `username` sur tous les autres — les
-         demander tous les deux est ce qui évite un fil « Inconnu ». */
+         demander tous les deux est ce qui évite un fil « Inconnu ».
+
+         `profile_picture_url` est la photo, et c'est la forme **Instagram** :
+         une chaîne plate sur l'utilisateur. Elle n'était pas demandée du tout,
+         et la lecture cherchait `picture{data{url}}`, qui est la forme
+         Facebook — structurellement absente ici. Les fils du canal le plus
+         volumineux n'ont donc jamais eu d'avatar, faute d'un champ. */
       fields: withReplies
-        ? "id,text,timestamp,username,from{id,username},replies{id,text,timestamp,username,from{id,username}}"
-        : "id,text,timestamp,username,from{id,username}",
+        ? "id,text,timestamp,username,from{id,username,profile_picture_url},replies{id,text,timestamp,username,from{id,username,profile_picture_url}}"
+        : "id,text,timestamp,username,from{id,username,profile_picture_url}",
       limit: String(options.limit ?? 50),
     }),
   );
