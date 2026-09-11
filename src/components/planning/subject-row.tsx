@@ -107,7 +107,7 @@ export function SubjectRowView({
   bulkTargets: string[] | null;
   /** Le stylo de la cellule Wording, réservé à l'agence. */
   canGenerateWording: boolean;
-  onToggleSelect: (subjectId: string) => void;
+  onToggleSelect: (subjectId: string, extendRange?: boolean) => void;
   onOpen: (subjectId: string, focusRetours?: boolean) => void;
   /** Ouvre l'éditeur d'étiquettes de la colonne cliquée. */
   onEditLabels: (column: ColumnDef) => void;
@@ -207,7 +207,18 @@ export function SubjectRowView({
           type="checkbox"
           checked={selected}
           aria-label={`Sélectionner ${row.name || "la publication"}`}
-          onChange={() => onToggleSelect(row.id)}
+          // Le `change` d'une case à cocher est un Event nu : il ne porte pas
+          // `shiftKey`. C'est donc le clic — émis avant lui, et par la barre
+          // d'espace au clavier aussi — qui coche, `onChange` restant branché
+          // à vide pour que React garde un champ contrôlé.
+          onClick={(event) => onToggleSelect(row.id, event.shiftKey)}
+          onChange={() => {}}
+          // Shift+clic surligne tout le texte entre les deux points de la
+          // page. La sélection naît au `mousedown` : l'empêcher là l'évite
+          // sans toucher au clic ni au clavier.
+          onMouseDown={(event) => {
+            if (event.shiftKey) event.preventDefault();
+          }}
           className="accent-brand size-3.5"
         />
       </span>

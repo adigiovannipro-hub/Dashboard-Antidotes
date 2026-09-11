@@ -62,7 +62,7 @@ export function MonthGroup({
   sort: PlanningSort;
   onSort: (column: SortableColumnKey) => void;
   selectedIds: Set<string>;
-  onToggleSelect: (subjectId: string) => void;
+  onToggleSelect: (subjectId: string, extendRange?: boolean) => void;
   onToggleLane: (subjectIds: string[], selected: boolean) => void;
   onOpenSubject: (subjectId: string, focusRetours?: boolean) => void;
   onEditLabels: (column: ColumnDef) => void;
