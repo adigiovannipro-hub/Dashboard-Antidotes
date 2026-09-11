@@ -23,6 +23,11 @@ import { cn } from "@/lib/utils";
  * Elle **glisse** d'une option à l'autre et part au clic : un filtre relance
  * une page rendue côté serveur, et sans ce déplacement rien ne bougeait entre
  * le clic et la réponse. Voir `ds/pill-indicator.tsx`.
+ *
+ * La rangée **défile chez elle** au lieu de pousser la page : cinq clients
+ * font 396 px, et la page d'accueil débordait de 22 px sur un téléphone de
+ * 390. Un tableau, un diagramme ou une rangée de filtres a le droit d'être
+ * plus large que l'écran — le corps de la page, jamais.
  */
 
 export type FilterOption = {
@@ -52,7 +57,7 @@ export function FilterPills({
       ref={listRef}
       aria-label={ariaLabel}
       className={cn(
-        "relative inline-flex items-center gap-1 rounded-pill bg-surface-sunken p-1",
+        "relative inline-flex max-w-full items-center gap-1 overflow-x-auto rounded-pill bg-surface-sunken p-1",
         className,
       )}
     >
