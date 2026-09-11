@@ -140,6 +140,26 @@
   --ordinal-2: #498316;
   --ordinal-3: #2e6100;
 
+  /* Rampe de répartition — les parts d'un camembert de catégories.
+
+     C'est la rampe ordinale ci-dessus, prolongée à sept pas : les diagrammes
+     du Reporting Site Web n'empilent que trois sources, un camembert de
+     dépenses découpe jusqu'à sept catégories. Les trois valeurs d'ANMF y
+     entrent **par leur jeton** (`--share-2/4/6`), jamais recopiées : on
+     prolonge une rampe, on n'en fabrique pas une seconde qui divergerait.
+
+     Les bornes sont fixées par le contraste, pas par le goût : plus clair que
+     #8ac25f, une part tombe sous 2:1 sur la surface blanche et se lit comme un
+     trou du camembert. Sept pas à ~1,4 d'écart de luminance tiennent entre
+     2,11:1 et 9,16:1 — au-delà, deux pas voisins ne se sépareraient plus. */
+  --share-1: #8ac25f;
+  --share-2: var(--ordinal-1);
+  --share-3: #5b962c;
+  --share-4: var(--ordinal-2);
+  --share-5: #3a7009;
+  --share-6: var(--ordinal-3);
+  --share-7: #275200;
+
   /* Rampe séquentielle pour la heatmap. Ici le pas le plus pâle a le droit de
      se fondre dans la surface, puisqu'il signifie « proche de zéro » — c'est
      exactement la menthe de la charte. */
@@ -176,6 +196,19 @@
   --ordinal-1: #b7e99b;
   --ordinal-2: #70ad47;
   --ordinal-3: #2e6100;
+
+  /* La rampe de répartition se retourne : sur la surface sombre, c'est le pas
+     le plus **foncé** qui disparaît. Elle remonte donc dans les clairs et
+     s'arrête au vert profond, qui tient tout juste (2,31:1 sur `#1c1c1a`) —
+     d'où son rang 7 ici contre 6 en clair, le plancher n'étant pas le même
+     des deux côtés. Les trois verts d'ANMF restent dans la rampe, par jeton. */
+  --share-1: #d9facf;
+  --share-2: var(--ordinal-1);
+  --share-3: #91c86e;
+  --share-4: var(--ordinal-2);
+  --share-5: #5b972d;
+  --share-6: #498316;
+  --share-7: var(--ordinal-3);
 
   --seq-0: #21460b;
   --seq-1: #2e6100;

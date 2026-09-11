@@ -25,15 +25,16 @@ describe("categoryColor", () => {
     expect(new Set(colors).size).toBe(slugs.length);
   });
 
-  it("emprunte ses verts à la rampe ordinale du Reporting, jetons compris", () => {
+  it("ne tire ses teintes que de la rampe de répartition, jamais d'un hexadécimal", () => {
     /* Le camembert et l'histogramme des sources de trafic partagent la même
-       rampe : deux gammes de verts voisines se liraient comme un défaut. */
-    for (const jeton of ["var(--ordinal-1)", "var(--ordinal-2)", "var(--ordinal-3)"]) {
-      expect(CATEGORY_PALETTE).toContain(jeton);
+       rampe verte : `--share-2/4/6` valent `--ordinal-1/2/3` dans la feuille
+       de style, une seule source pour la même teinte. Un hexadécimal posé ici
+       finirait par diverger, et ne s'inverserait pas en mode sombre. */
+    expect(CATEGORY_PALETTE).toHaveLength(7);
+    for (const teinte of CATEGORY_PALETTE) {
+      expect(teinte).toMatch(/^var\(--share-[1-7]\)$/);
     }
-    // Et aucun vert en dur à côté : deux sources pour la même teinte
-    // finiraient par diverger, et l'hexadécimal ne s'inverse pas en sombre.
-    expect(CATEGORY_PALETTE.filter((teinte) => teinte.startsWith("var("))).toHaveLength(3);
+    expect(new Set(CATEGORY_PALETTE).size).toBe(CATEGORY_PALETTE.length);
   });
 
   it("ne rend jamais autre chose qu'une teinte de la gamme", () => {
