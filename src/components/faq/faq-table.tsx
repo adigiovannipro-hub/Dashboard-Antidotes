@@ -28,7 +28,6 @@ import { StatusPill, type StatusTone } from "@/components/ds/status-pill";
 import {
   ChipSelect,
   LastUpdateCell,
-  TextCell,
   WordingCell,
   useCellAction,
   type ChipOption,
@@ -43,7 +42,9 @@ import { formatDayFr } from "@/lib/format";
 import type { FaqCategory, FaqComment, FaqEntry } from "@/lib/moderation/types";
 import type { PlanningOwner } from "@/lib/planning/types";
 import {
+  FAQ_COLUMN_MIN,
   PREFERENCE_MAX_AGE,
+  clampFaqColumnWidth,
   faqViewCookie,
   serializeFaqColumnWidths,
   type FaqColumnWidths,
@@ -74,24 +75,37 @@ import { cn } from "@/lib/utils";
  * `track` est la piste par défaut ; élargir une colonne la fige en pixels et
  * l'écrit dans le cookie. Une colonne jamais touchée continue de suivre la
  * largeur de l'écran.
+ *
+ * `min` est le plancher du geste : il double celui de la piste `minmax`, qui
+ * disparaît avec elle dès que la colonne passe en pixels.
  */
 const COLUMNS = [
-  { id: "title", track: "minmax(180px,1.3fr)", resizable: true },
-  { id: "thread", track: "44px", resizable: false },
-  { id: "theme", track: "132px", resizable: true },
-  { id: "question", track: "minmax(180px,1.3fr)", resizable: true },
-  { id: "answer", track: "minmax(200px,1.5fr)", resizable: true },
-  { id: "answerTiktok", track: "minmax(160px,1.1fr)", resizable: true },
-  { id: "review", track: "108px", resizable: false },
-  { id: "updated", track: "116px", resizable: true },
-  { id: "delete", track: "40px", resizable: false },
+  { id: "title", track: "minmax(180px,1.3fr)", min: 180, resizable: true },
+  { id: "thread", track: "44px", min: 44, resizable: false },
+  { id: "theme", track: "132px", min: 100, resizable: true },
+  { id: "question", track: "minmax(180px,1.3fr)", min: 180, resizable: true },
+  { id: "answer", track: "minmax(200px,1.5fr)", min: 200, resizable: true },
+  { id: "answerTiktok", track: "minmax(160px,1.1fr)", min: 160, resizable: true },
+  { id: "review", track: "108px", min: 108, resizable: false },
+  { id: "updated", track: "116px", min: 100, resizable: true },
+  { id: "delete", track: "40px", min: 40, resizable: false },
 ] as const;
+
+/**
+ * Une dixième piste, vide, en fin de rangée.
+ *
+ * Élargir une colonne fige les neuf autres en pixels (voir `freezeAll`) : sans
+ * ce tampon élastique, le tableau cesserait de remplir l'écran au premier
+ * redimensionnement et flotterait à gauche d'un blanc. C'est lui qui absorbe
+ * la place restante — et qui la rend quand on élargit.
+ */
+const BUFFER_TRACK = "minmax(0,1fr)";
 
 const GRID = "grid items-stretch";
 
-/** Les mêmes bornes que le cookie : la largeur ne se lit qu'à un endroit. */
-const MIN_WIDTH = 80;
-const MAX_WIDTH = 900;
+function minWidthOf(id: string): number {
+  return COLUMNS.find((column) => column.id === id)?.min ?? FAQ_COLUMN_MIN;
+}
 
 type SortKey = "title" | "theme" | "updated";
 
@@ -131,6 +145,16 @@ export function FaqTable({
   const { run, pending } = useCellAction();
   const [widths, setWidths] = useState<FaqColumnWidths>(initialWidths);
   const headerRefs = useRef<Record<string, HTMLElement | null>>({});
+  /**
+   * Les colonnes **réellement tirées**, celles qui partent au cookie.
+   *
+   * Un geste fige les neuf colonnes le temps du glissement ; les écrire toutes
+   * rouvrirait le tableau à la largeur de l'écran qui l'a réglé, sur toutes
+   * les machines — exactement ce que le commentaire de `ui-preferences` dit
+   * d'éviter. Amorcé du cookie relu : une colonne réglée hier reste mémorisée
+   * même si on en tire une autre aujourd'hui.
+   */
+  const touched = useRef<Set<string>>(new Set(Object.keys(initialWidths)));
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<{ key: SortKey; desc: boolean }>({
     key: "theme",
@@ -156,38 +180,64 @@ export function FaqTable({
 
   const template = useMemo(
     () =>
-      COLUMNS.map((column) =>
+      `${COLUMNS.map((column) =>
         widths[column.id] ? `${widths[column.id]}px` : column.track,
-      ).join(" "),
+      ).join(" ")} ${BUFFER_TRACK}`,
     [widths],
   );
 
   const persist = useCallback(
     (next: FaqColumnWidths) => {
+      const kept: FaqColumnWidths = {};
+      for (const id of touched.current) {
+        const width = next[id];
+        if (width) kept[id] = width;
+      }
       document.cookie = `${faqViewCookie(clientId)}=${serializeFaqColumnWidths(
-        next,
+        kept,
       )}; path=/; max-age=${PREFERENCE_MAX_AGE}; samesite=lax`;
     },
     [clientId],
   );
 
   /**
-   * Élargir une colonne : on part de la largeur **rendue** de l'en-tête, pas
-   * de la valeur mémorisée — une colonne encore en `fr` n'en a aucune, et la
-   * poignée ferait un saut au premier pixel.
+   * Mesure les neuf colonnes telles qu'elles sont rendues, et les fige.
+   *
+   * C'est le correctif de « ça s'étend des deux côtés » : tant qu'une piste
+   * reste en `fr`, figer une colonne en pixels retire sa largeur à l'espace
+   * libre, que les `fr` survivantes se repartagent — y compris celles **à
+   * gauche** de la poignée. Le bord gauche reculait donc pendant que le bord
+   * droit avançait. Plus aucune piste élastique ne subsiste après ce gel :
+   * seule la colonne tirée bouge, vers la droite. Le gel reste local au geste,
+   * `persist` n'écrivant que les colonnes réellement tirées.
    */
+  const freezeAll = useCallback((): FaqColumnWidths => {
+    const frozen: FaqColumnWidths = { ...widths };
+    for (const column of COLUMNS) {
+      const measured = headerRefs.current[column.id]?.getBoundingClientRect().width;
+      if (measured) frozen[column.id] = Math.round(measured);
+    }
+    return frozen;
+  }, [widths]);
+
   const startResize = useCallback(
     (id: string, clientX: number) => {
-      const cell = headerRefs.current[id];
-      const startWidth = cell ? cell.getBoundingClientRect().width : 160;
-      let latest: FaqColumnWidths = widths;
+      // Mesuré **avant** d'écouter le mouvement : `widths` vit dans la
+      // closure, et le premier `pointermove` repartirait de l'ancienne valeur
+      // si on lisait l'état React, qui n'a pas encore rendu.
+      const frozen = freezeAll();
+      const startWidth = frozen[id] ?? 160;
+      const min = minWidthOf(id);
+      let latest = frozen;
 
       const move = (event: PointerEvent) => {
-        const width = Math.min(
-          MAX_WIDTH,
-          Math.max(MIN_WIDTH, Math.round(startWidth + event.clientX - clientX)),
-        );
-        latest = { ...latest, [id]: width };
+        latest = {
+          ...latest,
+          [id]: clampFaqColumnWidth(startWidth + event.clientX - clientX, min),
+        };
+        // Marqué au mouvement, jamais au simple clic : un appui sans
+        // glissement ne doit rien mémoriser.
+        touched.current.add(id);
         setWidths(latest);
       };
       const stop = () => {
@@ -199,22 +249,22 @@ export function FaqTable({
       window.addEventListener("pointermove", move);
       window.addEventListener("pointerup", stop);
     },
-    [persist, widths],
+    [freezeAll, persist],
   );
 
-  /** Au clavier, la même colonne se règle par pas de 16 px. */
+  /** Au clavier, la même colonne se règle par pas de 16 px — même gel. */
   const nudge = useCallback(
     (id: string, delta: number) => {
-      const current =
-        widths[id] ?? Math.round(headerRefs.current[id]?.getBoundingClientRect().width ?? 160);
+      const frozen = freezeAll();
       const next = {
-        ...widths,
-        [id]: Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, current + delta)),
+        ...frozen,
+        [id]: clampFaqColumnWidth((frozen[id] ?? 160) + delta, minWidthOf(id)),
       };
+      touched.current.add(id);
       setWidths(next);
       persist(next);
     },
-    [persist, widths],
+    [freezeAll, persist],
   );
 
   const categoryById = useMemo(
@@ -380,8 +430,14 @@ export function FaqTable({
           >
             {headCell("title", "Sujet", header("title", "Sujet"))}
             {/* La bulle de retours n'a pas d'intitulé : elle vit collée au
-                sujet, et son nom est sur le bouton de chaque ligne. */}
-            <span />
+                sujet, et son nom est sur le bouton de chaque ligne. Elle porte
+                quand même une référence : le gel mesure les neuf colonnes, et
+                une largeur manquante laisserait sa piste en `fr`. */}
+            <span
+              ref={(element) => {
+                headerRefs.current.thread = element;
+              }}
+            />
             {headCell("theme", "Thème", <span className="w-full px-1.5 text-center">Thème</span>)}
             {headCell("question", "Question", <span className="px-1.5">Question</span>)}
             {headCell("answer", "Réponse", <span className="px-1.5">Réponse</span>)}
@@ -390,8 +446,20 @@ export function FaqTable({
               "Réponse TikTok",
               <span className="px-1.5">Réponse TikTok</span>,
             )}
-            <span className="px-1.5 text-center">Validation</span>
+            <span
+              ref={(element) => {
+                headerRefs.current.review = element;
+              }}
+              className="px-1.5 text-center"
+            >
+              Validation
+            </span>
             {headCell("updated", "Mise à jour", header("updated", "Mise à jour"))}
+            <span
+              ref={(element) => {
+                headerRefs.current.delete = element;
+              }}
+            />
             <span />
           </div>
 
@@ -417,28 +485,35 @@ export function FaqTable({
                       !entry.active && "opacity-55",
                     )}
                   >
-                    {isOwner ? (
-                      <TextCell
-                        value={entry.title ?? ""}
-                        ariaLabel="Sujet"
+                    {/* Sujet et Question en `WordingCell`, comme les deux
+                        réponses : l'`input` d'une ligne qu'ils portaient
+                        tronquait le texte sans infobulle, et un sujet long ne
+                        se lisait ni ne se relisait en entier. */}
+                    <span className="flex min-w-0 items-center font-medium">
+                      <WordingCell
+                        value={
+                          // Sans titre, le client lit la question — mais
+                          // l'agence édite bien un titre vide, pas la
+                          // question recopiée dans la cellule voisine.
+                          isOwner ? entry.title : entry.title || entry.question_canonical
+                        }
+                        subjectName={entry.title || entry.question_canonical}
+                        fieldName="Sujet"
                         placeholder="Nouveau sujet…"
-                        className="self-center font-medium"
+                        align="left"
+                        readOnly={!isOwner}
                         onCommit={(next) =>
                           run(() =>
                             updateFaqEntryField({
                               clientId,
                               entryId: entry.id,
                               field: "title",
-                              value: next,
+                              value: next ?? "",
                             }),
                           )
                         }
                       />
-                    ) : (
-                      <span className="self-center truncate px-1.5 font-medium">
-                        {entry.title || entry.question_canonical}
-                      </span>
-                    )}
+                    </span>
 
                     <span className="flex items-center justify-center">
                       <button
@@ -500,28 +575,28 @@ export function FaqTable({
                       </span>
                     )}
 
-                    {isOwner ? (
-                      <TextCell
+                    <span className="text-text-secondary flex min-w-0 items-center">
+                      <WordingCell
                         value={entry.question_canonical}
-                        ariaLabel="Question"
+                        subjectName={entry.title || entry.question_canonical}
+                        fieldName="Question"
                         placeholder="La question posée…"
-                        className="text-text-secondary self-center"
+                        align="left"
+                        readOnly={!isOwner}
                         onCommit={(next) =>
                           run(() =>
                             updateFaqEntryField({
                               clientId,
                               entryId: entry.id,
                               field: "question",
-                              value: next,
+                              // `question_canonical` est NOT NULL : une cellule
+                              // vidée s'écrit en chaîne vide, jamais en null.
+                              value: next ?? "",
                             }),
                           )
                         }
                       />
-                    ) : (
-                      <span className="text-text-secondary self-center truncate px-1.5">
-                        {entry.question_canonical || "—"}
-                      </span>
-                    )}
+                    </span>
 
                     <span className="flex min-w-0 items-center">
                       <WordingCell
@@ -529,6 +604,7 @@ export function FaqTable({
                         subjectName={entry.title || entry.question_canonical}
                         fieldName="Réponse"
                         placeholder="La réponse de référence."
+                        align="left"
                         readOnly={!isOwner}
                         onCommit={(next) =>
                           run(() =>
@@ -549,6 +625,7 @@ export function FaqTable({
                         subjectName={entry.title || entry.question_canonical}
                         fieldName="Réponse TikTok"
                         placeholder="La version courte, si elle diffère."
+                        align="left"
                         readOnly={!isOwner}
                         onCommit={(next) =>
                           run(() =>
@@ -591,6 +668,10 @@ export function FaqTable({
                         </button>
                       ) : null}
                     </span>
+
+                    {/* La piste tampon : sans cette cellule, la rangée compte
+                        une colonne de moins que l'en-tête. */}
+                    <span />
                   </div>
 
                   {open ? (

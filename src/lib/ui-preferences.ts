@@ -166,10 +166,25 @@ export function faqViewCookie(clientId: string): string {
 
 /** Bornes de sécurité : un cookie bricolé ne doit pas rendre une colonne
     invisible ni pousser le tableau à dix mille pixels. */
-const FAQ_COLUMN_MIN = 80;
-const FAQ_COLUMN_MAX = 900;
+export const FAQ_COLUMN_MIN = 80;
+export const FAQ_COLUMN_MAX = 900;
 
 export type FaqColumnWidths = Record<string, number>;
+
+/**
+ * Borne une largeur de colonne, avec un plancher **par colonne**.
+ *
+ * Tant qu'une colonne est en `minmax(180px, 1.3fr)`, c'est la piste qui tient
+ * le plancher ; élargir à la souris la fige en pixels et le plancher disparaît
+ * avec elle — la Question pouvait alors tomber à 80 px, sous la largeur d'un
+ * mot. Le plancher voyage donc avec le geste, et cette fonction est le seul
+ * endroit où une largeur se borne : le cookie et la poignée ne peuvent plus
+ * diverger.
+ */
+export function clampFaqColumnWidth(width: number, min: number = FAQ_COLUMN_MIN): number {
+  const floor = Math.max(FAQ_COLUMN_MIN, min);
+  return Math.min(FAQ_COLUMN_MAX, Math.max(floor, Math.round(width)));
+}
 
 export function parseFaqColumnWidths(raw: string | undefined): FaqColumnWidths {
   if (!raw) return {};
@@ -179,7 +194,7 @@ export function parseFaqColumnWidths(raw: string | undefined): FaqColumnWidths {
     const widths: FaqColumnWidths = {};
     for (const [key, value] of Object.entries(parsed as Record<string, unknown>)) {
       if (typeof value !== "number" || !Number.isFinite(value)) continue;
-      widths[key] = Math.min(FAQ_COLUMN_MAX, Math.max(FAQ_COLUMN_MIN, Math.round(value)));
+      widths[key] = clampFaqColumnWidth(value);
     }
     return widths;
   } catch {
