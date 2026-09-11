@@ -48,6 +48,7 @@
     "factures:passage": "node --conditions=react-server --import tsx scripts/recuperer-factures.ts passage",
     "diagnostic:tiktok": "tsx scripts/diagnostic-tiktok.ts",
     "factures:envoi": "node --conditions=react-server --import tsx scripts/factures-envoi.ts",
+    "factures:renvoi": "node --conditions=react-server --import tsx scripts/factures-renvoi.ts",
     "factures:fiches": "node --conditions=react-server --import tsx scripts/factures-fiches.ts",
     "factures:menage": "node --conditions=react-server --import tsx scripts/factures-menage.ts",
     "sourcing:passage": "node --conditions=react-server --import tsx scripts/sourcing-passage.ts",

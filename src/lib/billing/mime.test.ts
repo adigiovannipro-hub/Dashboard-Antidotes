@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import { buildInvoiceMime, type InvoiceMessage } from "./mime";
+import { SIGNATURE_HTML } from "./signature";
+import { SIGNATURE_IMAGES } from "./signature-assets";
 
 const message = (overrides: Partial<InvoiceMessage> = {}): InvoiceMessage => ({
   from: "a.digiovanni.pro@gmail.com",
@@ -90,5 +92,36 @@ describe("buildInvoiceMime", () => {
     const mime = buildInvoiceMime(message({ attachment: null }));
     expect(mime).toContain('Content-Type: text/plain; charset="UTF-8"');
     expect(mime).not.toContain("multipart/mixed");
+  });
+});
+
+describe("buildInvoiceMime — les images de la carte", () => {
+  const mime = buildInvoiceMime({
+    from: "agence@example.com",
+    to: "client@example.com",
+    cc: [],
+    bcc: null,
+    subject: "Facture",
+    body: "Le message",
+    bodyHtml: "<p>Le message</p>",
+    attachment: { filename: "facture.pdf", content: Buffer.from("%PDF-1.4") },
+    signature: { text: "La carte", html: SIGNATURE_HTML ?? "" },
+  });
+
+  it("range la carte et ses images dans un même `related`, après la facture", () => {
+    const pdf = mime.indexOf("Content-Type: application/pdf");
+    const related = mime.indexOf("Content-Type: multipart/related;");
+    const firstImage = mime.indexOf("Content-ID: <");
+    expect(pdf).toBeGreaterThan(-1);
+    expect(related).toBeGreaterThan(pdf);
+    expect(firstImage).toBeGreaterThan(related);
+  });
+
+  it("pose chaque image sous le Content-ID que le HTML appelle", () => {
+    expect(SIGNATURE_IMAGES.length).toBe(3);
+    for (const image of SIGNATURE_IMAGES) {
+      expect(mime).toContain(`Content-ID: <${image.cid}>`);
+      expect(SIGNATURE_HTML).toContain(`cid:${image.cid}`);
+    }
   });
 });
