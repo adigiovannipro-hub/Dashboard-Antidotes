@@ -11,6 +11,17 @@
  * Comme les autres synchronisations, `server-only` est neutralisé par la
  * condition `react-server` de Node — nous *sommes* le serveur.
  *
+ * Deux portées, choisies par `MODERATION_SCOPE` ou `--portee` :
+ *
+ *   • `jour` — ce que le passage horaire joue. Deux jours de conversations, et
+ *     les commentaires des seules publications dont le compteur a bougé.
+ *   • `complet` — le défaut, et ce que joue le créneau nocturne. Soixante
+ *     jours, photos de profil et auteurs masqués rattrapés.
+ *
+ * Le défaut est `complet` : une commande lancée à la main veut le passage
+ * entier, et un script qui ne dit rien doit faire le plus de travail, pas le
+ * moins.
+ *
  * Variables requises : NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY,
  * SUPABASE_SERVICE_ROLE_KEY, CREDENTIALS_ENCRYPTION_KEY.
  */
@@ -36,9 +47,19 @@ async function main() {
   const { reindexFaqSearch, syncModerationInbox } = await import(
     "../src/lib/moderation/sync"
   );
+  const { parseSyncScope, SYNC_SCOPE_LABELS } = await import(
+    "../src/lib/moderation/sync-scope"
+  );
+
+  const flag = process.argv.indexOf("--portee");
+  const scope =
+    parseSyncScope(flag >= 0 ? process.argv[flag + 1] : undefined) ??
+    parseSyncScope(process.env.MODERATION_SCOPE) ??
+    "complet";
 
   const admin = createAdminClient();
-  const reports = await syncModerationInbox({ admin });
+  console.log(`${SYNC_SCOPE_LABELS[scope]}…`);
+  const reports = await syncModerationInbox({ admin, scope });
 
   if (reports.length === 0) {
     console.log("Aucun compte Instagram ou Page affecté : rien à relever.");

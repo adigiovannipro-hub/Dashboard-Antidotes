@@ -24,6 +24,8 @@ import {
   type ContextDeliverables,
   type ContextFieldKey,
   type ContextProposal,
+  type SourcedFact,
+  type ValidatedExample,
 } from "@/lib/context/types";
 import {
   networksFromContextName,
@@ -84,6 +86,54 @@ async function getActiveRow(workspaceId: string): Promise<ClientContext | null> 
   return (data as unknown as ClientContext | null) ?? null;
 }
 
+/**
+ * Les champs que seul un humain écrit. Repris tels quels d'une version à
+ * l'autre : la consolidation ne les propose pas (ils ne sont pas dans
+ * `ContextProposal`), donc sans ce report une régénération les effacerait en
+ * silence — le pire des deux mondes, puisque l'écran promet de ne jamais
+ * écraser.
+ */
+function humanFields(row: ClientContext | null): {
+  validated_examples: ValidatedExample[];
+  client_feedback: string | null;
+  sourced_facts: SourcedFact[];
+} {
+  return {
+    validated_examples: row?.validated_examples ?? [],
+    client_feedback: row?.client_feedback ?? null,
+    sourced_facts: row?.sourced_facts ?? [],
+  };
+}
+
+/**
+ * Écrit un lot de colonnes sur la version active, ou crée la première version
+ * s'il n'y en a aucune. L'édition manuelle ne versionne jamais : le
+ * versionnage est réservé à la régénération et à la restauration, sinon
+ * chaque blur fabriquerait une version de plus.
+ */
+async function writeActiveFields(
+  workspaceId: string,
+  createdBy: string,
+  patch: Record<string, unknown>,
+): Promise<void> {
+  const supabase = await createClient();
+  const active = await getActiveRow(workspaceId);
+
+  if (active) {
+    const { error } = await supabase
+      .from("client_context")
+      .update(patch as never)
+      .eq("id", active.id);
+    if (error) throw new Error(error.message);
+    return;
+  }
+
+  const { error } = await supabase
+    .from("client_context")
+    .insert({ workspace_id: workspaceId, created_by: createdBy, ...patch } as never);
+  if (error) throw new Error(error.message);
+}
+
 // --- Brief : édition en place -------------------------------------------------
 
 const pillarSchema = z.object({
@@ -92,6 +142,12 @@ const pillarSchema = z.object({
   formats: z.array(z.string().max(100)).max(20),
   angles: z.array(z.string().max(300)).max(40),
   frequence: z.string().max(200),
+  /* Optionnels et non `.default("")` : `z.object` **retire** les clés qu'il
+     ne déclare pas, et un pilier sauvegardé sans elles perdrait son objectif
+     business au premier blur — le champ serait rempli à l'écran et absent de
+     la base. */
+  objectif_business: z.string().max(500).optional(),
+  cta_autorises: z.array(z.string().max(120)).max(12).optional(),
 });
 
 const textFieldSchema = z.object({
@@ -335,6 +391,168 @@ export async function addReportingNetwork(
     // Toute la surface de l'espace : la page Reporting lit cette déclaration.
     revalidatePath(`/espace/${scope.workspace}`, "layout");
     return { ok: true, message: `${label} ajouté au Reporting.` };
+  } catch (error) {
+    return fail(error);
+  }
+}
+
+// --- Exemples validés, faits sourcés ------------------------------------------
+
+const validatedExampleSchema = z.object({
+  reseau: z.string().max(60),
+  texte: z.string().max(10_000),
+});
+
+/**
+ * Les publications réellement parues et approuvées. Collées brutes : le
+ * modèle en tire un registre, et un résumé ne lui apprendrait rien sur la
+ * façon d'écrire de la marque.
+ */
+export async function saveValidatedExamples(
+  scope: Scope,
+  input: { examples: unknown },
+): Promise<ContextResult> {
+  const parsed = z.array(validatedExampleSchema).max(10).safeParse(input.examples);
+  if (!parsed.success) return { ok: false, error: "Exemples invalides." };
+
+  try {
+    const { viewer, workspace } = await guardOwner(scope);
+    // Une ligne sans texte n'est pas un exemple : elle n'a rien à apprendre au
+    // modèle et compterait pourtant dans la complétude.
+    const examples = parsed.data
+      .map((example) => ({ reseau: example.reseau.trim(), texte: example.texte.trim() }))
+      .filter((example) => example.texte.length > 0);
+
+    await writeActiveFields(workspace.id, viewer.user.id, {
+      validated_examples: examples,
+    });
+    revalidate(scope);
+    return OK;
+  } catch (error) {
+    return fail(error);
+  }
+}
+
+const sourcedFactSchema = z.object({
+  fait: z.string().max(2000),
+  source: z.string().max(2000),
+  // Date ISO et jamais un texte libre : c'est ce qui permet de comparer à six
+  // mois. Une chaîne vide reste acceptée — un fait peut être saisi avant
+  // d'être daté, et l'écran le dit « non daté » plutôt que de le refuser.
+  verifie_le: z.union([z.iso.date(), z.literal("")]),
+});
+
+export async function saveSourcedFacts(
+  scope: Scope,
+  input: { facts: unknown },
+): Promise<ContextResult> {
+  const parsed = z.array(sourcedFactSchema).max(50).safeParse(input.facts);
+  if (!parsed.success) return { ok: false, error: "Faits invalides." };
+
+  try {
+    const { viewer, workspace } = await guardOwner(scope);
+    const facts = parsed.data
+      .map((fact) => ({
+        fait: fact.fait.trim(),
+        source: fact.source.trim(),
+        verifie_le: fact.verifie_le,
+      }))
+      .filter((fact) => fact.fait.length > 0);
+
+    await writeActiveFields(workspace.id, viewer.user.id, { sourced_facts: facts });
+    revalidate(scope);
+    return OK;
+  } catch (error) {
+    return fail(error);
+  }
+}
+
+// --- Pilotage de la génération -------------------------------------------------
+
+const settingsSchema = z.object({
+  permanent_instructions: z.string().max(20_000).optional(),
+  monthly_instruction: z.string().max(8000).optional(),
+  /** `YYYY-MM-01` : le mois que la consigne vise. */
+  monthly_instruction_month: z.union([z.iso.date(), z.literal("")]).optional(),
+  temporal_context: z.string().max(4000).optional(),
+});
+
+/**
+ * Le pilotage vit dans `client_generation_settings`, pas dans le brief
+ * versionné : une consigne de deux lignes n'a pas à fabriquer une version de
+ * brief, et l'historique resterait illisible si elle le faisait.
+ *
+ * Seuls les champs transmis sont écrits — l'écran sauvegarde un champ au blur,
+ * il ne renvoie pas les trois.
+ */
+export async function saveGenerationSettings(
+  scope: Scope,
+  input: {
+    permanent_instructions?: string;
+    monthly_instruction?: string;
+    monthly_instruction_month?: string;
+    temporal_context?: string;
+  },
+): Promise<ContextResult> {
+  const parsed = settingsSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Réglage invalide." };
+
+  try {
+    const { viewer, workspace } = await guardOwner(scope);
+    const supabase = await createClient();
+
+    const patch: Record<string, unknown> = { updated_by: viewer.user.id };
+
+    if (parsed.data.permanent_instructions !== undefined) {
+      patch.permanent_instructions = parsed.data.permanent_instructions.trim() || null;
+    }
+
+    if (parsed.data.monthly_instruction !== undefined) {
+      const texte = parsed.data.monthly_instruction.trim() || null;
+      patch.monthly_instruction = texte;
+      /* Le couple, jamais l'un sans l'autre : une consigne sans mois n'a pas
+         de fin de vie, et `monthlyInstructionState` la traite en périmée — ce
+         qui se lirait comme une consigne ignorée sans raison. */
+      patch.monthly_instruction_month = texte
+        ? parsed.data.monthly_instruction_month || null
+        : null;
+    }
+
+    if (parsed.data.temporal_context !== undefined) {
+      const texte = parsed.data.temporal_context.trim() || null;
+      patch.temporal_context = texte;
+      // L'horodatage suit la saisie : c'est lui qui décide des trente jours.
+      patch.temporal_context_at = texte ? new Date().toISOString() : null;
+    }
+
+    const { error } = await supabase
+      .from("client_generation_settings")
+      .upsert({ workspace_id: workspace.id, ...patch } as never, {
+        onConflict: "workspace_id",
+      });
+    if (error) throw new Error(error.message);
+
+    revalidate(scope);
+    return OK;
+  } catch (error) {
+    return fail(error);
+  }
+}
+
+/** Le bouton « Effacer » d'une consigne périmée. Aucun cron ne le fait pour nous. */
+export async function clearMonthlyInstruction(scope: Scope): Promise<ContextResult> {
+  try {
+    const { workspace } = await guardOwner(scope);
+    const supabase = await createClient();
+
+    const { error } = await supabase
+      .from("client_generation_settings")
+      .update({ monthly_instruction: null, monthly_instruction_month: null } as never)
+      .eq("workspace_id", workspace.id);
+    if (error) throw new Error(error.message);
+
+    revalidate(scope);
+    return { ok: true, message: "Consigne du mois effacée." };
   } catch (error) {
     return fail(error);
   }
@@ -595,11 +813,9 @@ export async function proposeRegeneration(scope: Scope): Promise<ContextProposal
 
 const proposalSchema = z.object({
   main_context: z.string().max(20_000),
-  positioning: z.string().max(20_000),
   audience: z.string().max(20_000),
   tone_of_voice: z.string().max(20_000),
   pillars: z.array(pillarSchema).max(30),
-  mentions: z.string().max(20_000),
   restrictions: z.string().max(20_000),
   platforms: z.record(z.string().max(50), z.string().max(4000)),
 });
@@ -634,6 +850,7 @@ export async function applyRegeneration(
       // Les livrables suivent la version sans être touchés : la consolidation
       // ne les propose pas, elle ne doit pas non plus les faire disparaître.
       deliverables: normalizeDeliverables(current?.deliverables),
+      human: humanFields(current),
       createdBy: viewer.user.id,
     });
     if (!result.ok) return result;
@@ -677,16 +894,15 @@ export async function restoreVersion(
       current,
       content: {
         main_context: sourceRow.main_context ?? "",
-        positioning: sourceRow.positioning ?? "",
         audience: sourceRow.audience ?? "",
         tone_of_voice: sourceRow.tone_of_voice ?? "",
         pillars: sourceRow.pillars,
-        mentions: sourceRow.mentions ?? "",
         restrictions: sourceRow.restrictions ?? "",
         platforms: sourceRow.platforms,
       },
       // Restaurer une version, c'est restaurer son instantané entier.
       deliverables: normalizeDeliverables(sourceRow.deliverables),
+      human: humanFields(sourceRow),
       createdBy: viewer.user.id,
     });
     if (!result.ok) return result;
@@ -711,6 +927,12 @@ async function writeNewVersion(input: {
   current: ClientContext | null;
   content: ContextProposal;
   deliverables: ContextDeliverables;
+  /** Ce que seul un humain écrit : reporté tel quel d'une version à l'autre. */
+  human: {
+    validated_examples: ValidatedExample[];
+    client_feedback: string | null;
+    sourced_facts: SourcedFact[];
+  };
   createdBy: string;
 }): Promise<{ ok: true; version: number } | { ok: false; error: string }> {
   const supabase = await createClient();
@@ -729,16 +951,20 @@ async function writeNewVersion(input: {
     version: nextVersion,
     is_active: true,
     main_context: input.content.main_context.trim() || null,
-    positioning: input.content.positioning.trim() || null,
     audience: input.content.audience.trim() || null,
     tone_of_voice: input.content.tone_of_voice.trim() || null,
     pillars: input.content.pillars,
-    mentions: input.content.mentions.trim() || null,
     restrictions: input.content.restrictions.trim() || null,
     platforms: input.content.platforms,
     deliverables: input.deliverables,
+    /* Les saisies humaines suivent la version sans être touchées, exactement
+       comme les livrables : la consolidation ne les propose pas, elle ne doit
+       pas non plus les faire disparaître au changement de version. */
+    validated_examples: input.human.validated_examples,
+    client_feedback: input.human.client_feedback,
+    sourced_facts: input.human.sourced_facts,
     created_by: input.createdBy,
-  });
+  } as never);
 
   if (insertError) {
     if (input.current) {

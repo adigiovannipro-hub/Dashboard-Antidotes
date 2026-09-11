@@ -6,7 +6,7 @@ import { Plus, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { saveDeliverables } from "@/app/actions/context";
-import { normalizeDeliverables, totalPublications } from "@/lib/context/deliverables";
+import { normalizeDeliverables } from "@/lib/context/deliverables";
 import { safeAction } from "@/lib/context/safe-action";
 import { Button } from "@/components/ui/button";
 import {
@@ -15,7 +15,6 @@ import {
   networkKey,
   type ContextDeliverables,
 } from "@/lib/context/types";
-import { formatValue } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 /**
@@ -208,30 +207,9 @@ export function DeliverablesEditor({
   ];
 
   const courant = build({});
-  const total = totalPublications(courant);
 
   return (
-    <section
-      className={cn("rounded-lg border border-border bg-surface shadow-card", className)}
-    >
-      <div className="flex flex-wrap items-start justify-between gap-4 border-b border-border px-5 py-4">
-        <div className="min-w-0">
-          <h3 className="type-h3">Livrables mensuels</h3>
-          <p className="type-caption mt-0.5 text-text-secondary">
-            Les réseaux du client et ce qui est dû sur chacun, avec la date de livraison
-            des intentions. Tout part dans les prompts au même titre que le fond.
-          </p>
-        </div>
-        {total > 0 ? (
-          <p className="type-label shrink-0 text-text-primary">
-            <span className="tabular-nums">{formatValue(total, "integer")}</span>{" "}
-            <span className="font-normal text-text-secondary">
-              publication{total > 1 ? "s" : ""} par mois
-            </span>
-          </p>
-        ) : null}
-      </div>
-
+    <div className={className}>
       <datalist id="categories-de-publication">
         {DELIVERABLE_CATEGORIES.map((categorie) => (
           <option key={categorie} value={categorie} />
@@ -335,7 +313,7 @@ export function DeliverablesEditor({
           className={cn(FIELD_CLASS, "w-full min-w-0 flex-1 sm:w-auto")}
         />
       </label>
-    </section>
+    </div>
   );
 }
 

@@ -78,7 +78,7 @@ export function FaqCommentThread({
   return (
     <div className="space-y-3">
       {comments.length === 0 ? (
-        <p className="text-muted-foreground text-sm">Aucun message.</p>
+        <p className="text-muted-foreground text-sm">Aucun retour pour l&apos;instant.</p>
       ) : (
         <ul className="max-h-72 space-y-3 overflow-y-auto">
           {comments.map((comment) => (
@@ -127,8 +127,8 @@ export function FaqCommentThread({
             }}
             onFocus={() => setMentionOpen(false)}
             rows={3}
-            aria-label="Nouveau message"
-            placeholder="Ce qu'il faut savoir sur cet élément de langage. @ pour taguer une adresse."
+            aria-label="Votre retour"
+            placeholder="Votre retour. @ pour taguer une adresse."
             className="border-input bg-background focus-visible:ring-brand w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:outline-none"
           />
 
@@ -220,7 +220,7 @@ export function FaqCommentThread({
             ? "Envoi…"
             : recipients.length > 0
               ? `Envoyer (${recipients.length})`
-              : "Ajouter le message"}
+              : "Ajouter le retour"}
         </Button>
       </div>
     </div>

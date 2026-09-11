@@ -61,7 +61,7 @@ export function LaneTable({
   /** Un clic sur la flèche d'un en-tête : chrono, inverse, puis ordre manuel. */
   onSort: (column: SortableColumnKey) => void;
   selectedIds: Set<string>;
-  onToggleSelect: (subjectId: string) => void;
+  onToggleSelect: (subjectId: string, extendRange?: boolean) => void;
   onToggleLane: (subjectIds: string[], selected: boolean) => void;
   onOpenSubject: (subjectId: string, focusRetours?: boolean) => void;
   onEditLabels: (column: ColumnDef) => void;

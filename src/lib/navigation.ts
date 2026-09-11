@@ -167,7 +167,7 @@ export const getAppNavigation = cache(async (): Promise<NavGroup[]> => {
 
   const groups: NavGroup[] = [
     {
-      // La Modération monte juste sous « Mon travail » : c'est le deuxième
+      // L'Inbox monte juste sous « Mon travail » : c'est le deuxième
       // geste de la journée, pas un outil qu'on va chercher en bas du rail.
       title: "Aujourd'hui",
       entries: [
@@ -181,8 +181,8 @@ export const getAppNavigation = cache(async (): Promise<NavGroup[]> => {
         ...(isModerationVisible(moderation.access)
           ? ([
               {
-                href: "/moderation",
-                label: "Modération",
+                href: "/inbox",
+                label: "Inbox",
                 icon: "moderation",
                 match: "prefix",
                 badge: badges.moderation ?? undefined,

@@ -19,6 +19,7 @@ export async function AppShell({
   title,
   subtitle,
   actions,
+  hideOpenAccessBadge,
   wide,
   children,
 }: {
@@ -26,6 +27,16 @@ export async function AppShell({
   title: string;
   subtitle?: string;
   actions?: React.ReactNode;
+  /**
+   * Masque le bandeau « Accès public » sur cet écran.
+   *
+   * Une seule page s'en sert, l'Inbox : c'est un écran de travail dense où
+   * chaque pixel de la barre compte, et la mention y est du bruit permanent
+   * pour une information qui ne change jamais en cours de journée. Elle reste
+   * partout ailleurs — une application ouverte qu'on croit fermée est bien
+   * plus dangereuse qu'une application ouverte qu'on sait ouverte.
+   */
+  hideOpenAccessBadge?: boolean;
   /** Pleine largeur, pour les écrans en tableau — le planning éditorial. */
   wide?: boolean;
   children: React.ReactNode;
@@ -40,7 +51,7 @@ export async function AppShell({
       /* Le bandeau ne s'adresse qu'à l'agence : il dit « cette application
          est ouverte pendant la construction ». Affiché à une élève ou à un
          client, il annonce une faiblesse à quelqu'un qui n'a rien à en faire. */
-      openAccess={isOpenAccess() && viewer.isOwner}
+      openAccess={isOpenAccess() && viewer.isOwner && !hideOpenAccessBadge}
       title={title}
       subtitle={subtitle}
       actions={actions}

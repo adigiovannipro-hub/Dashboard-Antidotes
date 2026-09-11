@@ -114,7 +114,7 @@ export default async function HubPage({
                 icon={Send}
               />
               <StatCard
-                label="Modération"
+                label="Inbox"
                 value={travail.stats.moderation?.pending ?? null}
                 context={
                   travail.stats.moderation
@@ -132,7 +132,7 @@ export default async function HubPage({
                     : undefined
                 }
                 icon={MessagesSquare}
-                href={travail.stats.moderation ? "/moderation" : undefined}
+                href={travail.stats.moderation ? "/inbox" : undefined}
               />
               <StatCard
                 label="Tâches ouvertes"

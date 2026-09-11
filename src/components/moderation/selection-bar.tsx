@@ -1,6 +1,14 @@
 "use client";
 
-import { Archive, ArchiveRestore, Check, Mail, Trash2, X } from "lucide-react";
+import {
+  Archive,
+  ArchiveRestore,
+  CheckCheck,
+  Flag,
+  Mail,
+  Trash2,
+  X,
+} from "lucide-react";
 
 import type { InboxGesture } from "@/app/actions/moderation";
 import { cn } from "@/lib/utils";
@@ -49,24 +57,31 @@ export function SelectionBar({
         {count}
       </span>
 
+      {/* Les quatre gestes de la journée, dans l'ordre où on les fait :
+          régler, lire, ranger, mettre de côté pour y revenir. */}
       <BarButton
-        label="Marquer comme lues"
+        label="Marquer traitées"
         disabled={pending}
-        onClick={() => onGesture("lu")}
+        emphasis
+        onClick={() => onGesture("traitee")}
       >
-        <Check className="size-4" strokeWidth={1.75} aria-hidden />
+        <CheckCheck className="size-4" strokeWidth={1.75} aria-hidden />
       </BarButton>
 
       <BarButton
-        label="Marquer comme non lues"
+        label="Marquer lues"
         disabled={pending}
-        onClick={() => onGesture("non-lu")}
+        onClick={() => onGesture("lu")}
       >
         <Mail className="size-4" strokeWidth={1.75} aria-hidden />
       </BarButton>
 
-      <BarButton label="Archiver" disabled={pending} onClick={() => onGesture("archiver")}>
+      <BarButton label="Ignorer" disabled={pending} onClick={() => onGesture("archiver")}>
         <Archive className="size-4" strokeWidth={1.75} aria-hidden />
+      </BarButton>
+
+      <BarButton label="Signaler" disabled={pending} onClick={() => onGesture("signaler")}>
+        <Flag className="size-4" strokeWidth={1.75} aria-hidden />
       </BarButton>
 
       <BarButton
@@ -88,7 +103,9 @@ export function SelectionBar({
         <Trash2 className="size-4" strokeWidth={1.75} aria-hidden />
       </BarButton>
 
-      <BarButton label="Vider la sélection" disabled={false} onClick={onClear}>
+      {/* « Annuler » sort de la sélection sans rien défaire : il porte son mot
+          sur grand écran, où la place existe, et son icône seule en dessous. */}
+      <BarButton label="Annuler" disabled={false} onClick={onClear}>
         <X className="size-4" strokeWidth={1.75} aria-hidden />
       </BarButton>
     </div>
@@ -99,12 +116,16 @@ function BarButton({
   label,
   disabled,
   danger,
+  emphasis,
   onClick,
   children,
 }: {
   label: string;
   disabled: boolean;
   danger?: boolean;
+  /** Le geste principal en aplat : `bg-primary`, jamais l'encre d'accent —
+      elle s'inverse en sombre et le glyphe blanc y tombe à 1,39:1. */
+  emphasis?: boolean;
   onClick: () => void;
   children: React.ReactNode;
 }) {
@@ -117,9 +138,11 @@ function BarButton({
       onClick={onClick}
       className={cn(
         "focus-visible:ring-ring flex size-8 shrink-0 items-center justify-center rounded-pill transition-colors duration-(--motion-duration) ease-standard focus-visible:ring-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50",
-        danger
-          ? "text-text-secondary hover:bg-danger-subtle hover:text-danger-ink"
-          : "text-text-secondary hover:bg-surface-sunken hover:text-text-primary",
+        emphasis
+          ? "bg-primary text-primary-foreground hover:opacity-90"
+          : danger
+            ? "text-text-secondary hover:bg-danger-subtle hover:text-danger-ink"
+            : "text-text-secondary hover:bg-surface-sunken hover:text-text-primary",
       )}
     >
       {children}

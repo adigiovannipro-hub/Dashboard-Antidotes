@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { cookies } from "next/headers";
 import { notFound } from "next/navigation";
 
 import { FaqTable } from "@/components/faq/faq-table";
@@ -15,6 +16,7 @@ import {
   listWorkspaceMembers,
 } from "@/lib/planning/queries";
 import { createClient } from "@/lib/supabase/server";
+import { faqViewCookie, parseFaqColumnWidths } from "@/lib/ui-preferences";
 import { requirePageAccess } from "@/lib/workspaces/access";
 import { FAQ_PAGE_KEY } from "@/lib/workspaces/types";
 
@@ -81,11 +83,12 @@ export default async function FaqPage({
   const isOwner = workspace.role === "owner";
   const query = await searchParams;
 
-  const [entries, categories, comments, members] = await Promise.all([
+  const [entries, categories, comments, members, cookieStore] = await Promise.all([
     listModerationFaqEntries(clientId),
     listFaqCategories(clientId),
     listFaqComments(clientId),
     listWorkspaceMembers(workspace.id),
+    cookies(),
   ]);
 
   return (
@@ -97,6 +100,9 @@ export default async function FaqPage({
       members={members}
       isOwner={isOwner}
       openEntryId={query.entree ?? null}
+      initialWidths={parseFaqColumnWidths(
+        cookieStore.get(faqViewCookie(clientId))?.value,
+      )}
     />
   );
 }

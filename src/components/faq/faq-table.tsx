@@ -1,7 +1,18 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowDown, ArrowUp, MessageSquare, Plus, Search, Trash2 } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import {
+  ArrowDown,
+  ArrowUp,
+  Check,
+  CircleDashed,
+  MessageSquare,
+  MessageSquarePlus,
+  Plus,
+  Search,
+  Trash2,
+  X,
+} from "lucide-react";
 
 import {
   createFaqEntry,
@@ -17,7 +28,6 @@ import { StatusPill, type StatusTone } from "@/components/ds/status-pill";
 import {
   ChipSelect,
   LastUpdateCell,
-  TextCell,
   WordingCell,
   useCellAction,
   type ChipOption,
@@ -31,6 +41,14 @@ import {
 import { formatDayFr } from "@/lib/format";
 import type { FaqCategory, FaqComment, FaqEntry } from "@/lib/moderation/types";
 import type { PlanningOwner } from "@/lib/planning/types";
+import {
+  FAQ_COLUMN_MIN,
+  PREFERENCE_MAX_AGE,
+  clampFaqColumnWidth,
+  faqViewCookie,
+  serializeFaqColumnWidths,
+  type FaqColumnWidths,
+} from "@/lib/ui-preferences";
 import { cn } from "@/lib/utils";
 
 /**
@@ -46,11 +64,48 @@ import { cn } from "@/lib/utils";
  * correction validée dans l'inbox enrichit ce tableau toute seule.
  */
 
-/* Neuf colonnes : les sept du board Monday, plus le fil de discussion et la
-   suppression. La dernière reste posée pour le client — une colonne qui
-   apparaît et disparaît décalerait tout le tableau d'un rôle à l'autre. */
-const GRID =
-  "grid grid-cols-[minmax(180px,1.3fr)_132px_minmax(180px,1.3fr)_minmax(200px,1.5fr)_minmax(160px,1.1fr)_108px_124px_44px_40px] items-stretch";
+/**
+ * Neuf colonnes : les sept du board Monday, plus le fil de discussion et la
+ * suppression. La dernière reste posée pour le client — une colonne qui
+ * apparaît et disparaît décalerait tout le tableau d'un rôle à l'autre.
+ *
+ * La bulle de retours suit **le sujet**, comme sur le planning : c'est la
+ * ligne qu'on commente, et on la reconnaît à son nom.
+ *
+ * `track` est la piste par défaut ; élargir une colonne la fige en pixels et
+ * l'écrit dans le cookie. Une colonne jamais touchée continue de suivre la
+ * largeur de l'écran.
+ *
+ * `min` est le plancher du geste : il double celui de la piste `minmax`, qui
+ * disparaît avec elle dès que la colonne passe en pixels.
+ */
+const COLUMNS = [
+  { id: "title", track: "minmax(180px,1.3fr)", min: 180, resizable: true },
+  { id: "thread", track: "44px", min: 44, resizable: false },
+  { id: "theme", track: "132px", min: 100, resizable: true },
+  { id: "question", track: "minmax(180px,1.3fr)", min: 180, resizable: true },
+  { id: "answer", track: "minmax(200px,1.5fr)", min: 200, resizable: true },
+  { id: "answerTiktok", track: "minmax(160px,1.1fr)", min: 160, resizable: true },
+  { id: "review", track: "108px", min: 108, resizable: false },
+  { id: "updated", track: "116px", min: 100, resizable: true },
+  { id: "delete", track: "40px", min: 40, resizable: false },
+] as const;
+
+/**
+ * Une dixième piste, vide, en fin de rangée.
+ *
+ * Élargir une colonne fige les neuf autres en pixels (voir `freezeAll`) : sans
+ * ce tampon élastique, le tableau cesserait de remplir l'écran au premier
+ * redimensionnement et flotterait à gauche d'un blanc. C'est lui qui absorbe
+ * la place restante — et qui la rend quand on élargit.
+ */
+const BUFFER_TRACK = "minmax(0,1fr)";
+
+const GRID = "grid items-stretch";
+
+function minWidthOf(id: string): number {
+  return COLUMNS.find((column) => column.id === id)?.min ?? FAQ_COLUMN_MIN;
+}
 
 type SortKey = "title" | "theme" | "updated";
 
@@ -74,6 +129,7 @@ export function FaqTable({
   members,
   isOwner,
   openEntryId,
+  initialWidths,
 }: {
   clientId: string;
   entries: FaqEntry[];
@@ -83,8 +139,22 @@ export function FaqTable({
   isOwner: boolean;
   /** `?entree=` : le lien d'un fil de modération ou d'un e-mail ouvre son fil. */
   openEntryId: string | null;
+  /** Largeurs relues du cookie côté serveur : la première image est déjà la bonne. */
+  initialWidths: FaqColumnWidths;
 }) {
   const { run, pending } = useCellAction();
+  const [widths, setWidths] = useState<FaqColumnWidths>(initialWidths);
+  const headerRefs = useRef<Record<string, HTMLElement | null>>({});
+  /**
+   * Les colonnes **réellement tirées**, celles qui partent au cookie.
+   *
+   * Un geste fige les neuf colonnes le temps du glissement ; les écrire toutes
+   * rouvrirait le tableau à la largeur de l'écran qui l'a réglé, sur toutes
+   * les machines — exactement ce que le commentaire de `ui-preferences` dit
+   * d'éviter. Amorcé du cookie relu : une colonne réglée hier reste mémorisée
+   * même si on en tire une autre aujourd'hui.
+   */
+  const touched = useRef<Set<string>>(new Set(Object.keys(initialWidths)));
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<{ key: SortKey; desc: boolean }>({
     key: "theme",
@@ -107,6 +177,95 @@ export function FaqTable({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
+
+  const template = useMemo(
+    () =>
+      `${COLUMNS.map((column) =>
+        widths[column.id] ? `${widths[column.id]}px` : column.track,
+      ).join(" ")} ${BUFFER_TRACK}`,
+    [widths],
+  );
+
+  const persist = useCallback(
+    (next: FaqColumnWidths) => {
+      const kept: FaqColumnWidths = {};
+      for (const id of touched.current) {
+        const width = next[id];
+        if (width) kept[id] = width;
+      }
+      document.cookie = `${faqViewCookie(clientId)}=${serializeFaqColumnWidths(
+        kept,
+      )}; path=/; max-age=${PREFERENCE_MAX_AGE}; samesite=lax`;
+    },
+    [clientId],
+  );
+
+  /**
+   * Mesure les neuf colonnes telles qu'elles sont rendues, et les fige.
+   *
+   * C'est le correctif de « ça s'étend des deux côtés » : tant qu'une piste
+   * reste en `fr`, figer une colonne en pixels retire sa largeur à l'espace
+   * libre, que les `fr` survivantes se repartagent — y compris celles **à
+   * gauche** de la poignée. Le bord gauche reculait donc pendant que le bord
+   * droit avançait. Plus aucune piste élastique ne subsiste après ce gel :
+   * seule la colonne tirée bouge, vers la droite. Le gel reste local au geste,
+   * `persist` n'écrivant que les colonnes réellement tirées.
+   */
+  const freezeAll = useCallback((): FaqColumnWidths => {
+    const frozen: FaqColumnWidths = { ...widths };
+    for (const column of COLUMNS) {
+      const measured = headerRefs.current[column.id]?.getBoundingClientRect().width;
+      if (measured) frozen[column.id] = Math.round(measured);
+    }
+    return frozen;
+  }, [widths]);
+
+  const startResize = useCallback(
+    (id: string, clientX: number) => {
+      // Mesuré **avant** d'écouter le mouvement : `widths` vit dans la
+      // closure, et le premier `pointermove` repartirait de l'ancienne valeur
+      // si on lisait l'état React, qui n'a pas encore rendu.
+      const frozen = freezeAll();
+      const startWidth = frozen[id] ?? 160;
+      const min = minWidthOf(id);
+      let latest = frozen;
+
+      const move = (event: PointerEvent) => {
+        latest = {
+          ...latest,
+          [id]: clampFaqColumnWidth(startWidth + event.clientX - clientX, min),
+        };
+        // Marqué au mouvement, jamais au simple clic : un appui sans
+        // glissement ne doit rien mémoriser.
+        touched.current.add(id);
+        setWidths(latest);
+      };
+      const stop = () => {
+        window.removeEventListener("pointermove", move);
+        window.removeEventListener("pointerup", stop);
+        persist(latest);
+      };
+
+      window.addEventListener("pointermove", move);
+      window.addEventListener("pointerup", stop);
+    },
+    [freezeAll, persist],
+  );
+
+  /** Au clavier, la même colonne se règle par pas de 16 px — même gel. */
+  const nudge = useCallback(
+    (id: string, delta: number) => {
+      const frozen = freezeAll();
+      const next = {
+        ...frozen,
+        [id]: clampFaqColumnWidth((frozen[id] ?? 160) + delta, minWidthOf(id)),
+      };
+      touched.current.add(id);
+      setWidths(next);
+      persist(next);
+    },
+    [freezeAll, persist],
+  );
 
   const categoryById = useMemo(
     () => new Map(categories.map((category) => [category.id, category])),
@@ -192,6 +351,51 @@ export function FaqTable({
     </button>
   );
 
+  /**
+   * Une cellule d'en-tête, et sa poignée d'élargissement contre le filet de
+   * droite. La poignée est un `separator` focusable : au clavier, les flèches
+   * règlent la même largeur, sans quoi elle n'existerait qu'à la souris.
+   */
+  const headCell = (
+    id: string,
+    label: string,
+    node: ReactNode,
+    className?: string,
+  ) => (
+    <span
+      key={id}
+      ref={(element) => {
+        headerRefs.current[id] = element;
+      }}
+      className={cn("relative flex min-w-0 items-center", className)}
+    >
+      {node}
+      {COLUMNS.find((column) => column.id === id)?.resizable ? (
+        <span
+          role="separator"
+          aria-orientation="vertical"
+          aria-label={`Largeur de la colonne ${label}`}
+          tabIndex={0}
+          onPointerDown={(event) => {
+            event.preventDefault();
+            startResize(id, event.clientX);
+          }}
+          onKeyDown={(event) => {
+            if (event.key === "ArrowRight") {
+              event.preventDefault();
+              nudge(id, 16);
+            }
+            if (event.key === "ArrowLeft") {
+              event.preventDefault();
+              nudge(id, -16);
+            }
+          }}
+          className="hover:bg-accent-ink focus-visible:bg-accent-ink absolute inset-y-0 -right-1 z-10 w-2 cursor-col-resize rounded opacity-0 transition-opacity hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none"
+        />
+      ) : null}
+    </span>
+  );
+
   return (
     <div className="min-w-0 flex-1 space-y-4 p-4 md:p-6">
       <div className="flex flex-wrap items-center gap-2">
@@ -217,22 +421,45 @@ export function FaqTable({
       <div className="border-border-strong overflow-x-auto rounded-md border">
         <div className="min-w-[1160px]">
           <div
+            style={{ gridTemplateColumns: template }}
             className={cn(
               "border-border-strong bg-card/60 text-muted-foreground border-b px-2 py-1 text-[10px] font-medium tracking-wide uppercase",
               GRID,
               "items-center",
             )}
           >
-            {header("title", "Sujet")}
-            <span className="px-1.5 text-center">Thème</span>
-            <span className="px-1.5">Question</span>
-            <span className="px-1.5">Réponse</span>
-            <span className="px-1.5">Réponse TikTok</span>
-            <span className="px-1.5 text-center">Client</span>
-            {header("updated", "Mise à jour")}
-            {/* Deux colonnes d'actions : l'intitulé vit sur le bouton de
-                chaque ligne, où le lecteur d'écran le trouve. */}
-            <span />
+            {headCell("title", "Sujet", header("title", "Sujet"))}
+            {/* La bulle de retours n'a pas d'intitulé : elle vit collée au
+                sujet, et son nom est sur le bouton de chaque ligne. Elle porte
+                quand même une référence : le gel mesure les neuf colonnes, et
+                une largeur manquante laisserait sa piste en `fr`. */}
+            <span
+              ref={(element) => {
+                headerRefs.current.thread = element;
+              }}
+            />
+            {headCell("theme", "Thème", <span className="w-full px-1.5 text-center">Thème</span>)}
+            {headCell("question", "Question", <span className="px-1.5">Question</span>)}
+            {headCell("answer", "Réponse", <span className="px-1.5">Réponse</span>)}
+            {headCell(
+              "answerTiktok",
+              "Réponse TikTok",
+              <span className="px-1.5">Réponse TikTok</span>,
+            )}
+            <span
+              ref={(element) => {
+                headerRefs.current.review = element;
+              }}
+              className="px-1.5 text-center"
+            >
+              Validation
+            </span>
+            {headCell("updated", "Mise à jour", header("updated", "Mise à jour"))}
+            <span
+              ref={(element) => {
+                headerRefs.current.delete = element;
+              }}
+            />
             <span />
           </div>
 
@@ -251,34 +478,71 @@ export function FaqTable({
               return (
                 <div key={entry.id} className="border-border-strong border-b">
                   <div
+                    style={{ gridTemplateColumns: template }}
                     className={cn(
                       "hover:bg-muted/40 min-h-9 px-2 text-sm transition-colors",
                       GRID,
                       !entry.active && "opacity-55",
                     )}
                   >
-                    {isOwner ? (
-                      <TextCell
-                        value={entry.title ?? ""}
-                        ariaLabel="Sujet"
+                    {/* Sujet et Question en `WordingCell`, comme les deux
+                        réponses : l'`input` d'une ligne qu'ils portaient
+                        tronquait le texte sans infobulle, et un sujet long ne
+                        se lisait ni ne se relisait en entier. */}
+                    <span className="flex min-w-0 items-center font-medium">
+                      <WordingCell
+                        value={
+                          // Sans titre, le client lit la question — mais
+                          // l'agence édite bien un titre vide, pas la
+                          // question recopiée dans la cellule voisine.
+                          isOwner ? entry.title : entry.title || entry.question_canonical
+                        }
+                        subjectName={entry.title || entry.question_canonical}
+                        fieldName="Sujet"
                         placeholder="Nouveau sujet…"
-                        className="self-center font-medium"
+                        align="left"
+                        readOnly={!isOwner}
                         onCommit={(next) =>
                           run(() =>
                             updateFaqEntryField({
                               clientId,
                               entryId: entry.id,
                               field: "title",
-                              value: next,
+                              value: next ?? "",
                             }),
                           )
                         }
                       />
-                    ) : (
-                      <span className="self-center truncate px-1.5 font-medium">
-                        {entry.title || entry.question_canonical}
-                      </span>
-                    )}
+                    </span>
+
+                    <span className="flex items-center justify-center">
+                      <button
+                        type="button"
+                        onClick={() => setOpenThread(open ? null : entry.id)}
+                        aria-expanded={open}
+                        aria-label={`Retours sur ${entry.title || entry.question_canonical} (${thread.length})`}
+                        className={cn(
+                          "hover:bg-muted focus-visible:ring-brand relative flex size-7 items-center justify-center rounded-md outline-none focus-visible:ring-2",
+                          thread.length > 0 || open
+                            ? "text-foreground"
+                            : "text-muted-foreground",
+                        )}
+                      >
+                        {thread.length > 0 ? (
+                          <>
+                            <MessageSquare className="size-3.5" aria-hidden />
+                            {/* `bg-primary` et non `--accent-ink` : l'encre
+                                d'accent s'inverse en sombre et le blanc posé
+                                dessus tombe à 1,39:1. */}
+                            <span className="bg-primary text-primary-foreground absolute -top-0.5 -right-0.5 flex size-3 items-center justify-center rounded-full text-[8px] font-bold tabular-nums">
+                              {thread.length > 9 ? "9+" : thread.length}
+                            </span>
+                          </>
+                        ) : (
+                          <MessageSquarePlus className="size-3.5 opacity-40" aria-hidden />
+                        )}
+                      </button>
+                    </span>
 
                     {isOwner ? (
                       <ChipSelect
@@ -311,28 +575,28 @@ export function FaqTable({
                       </span>
                     )}
 
-                    {isOwner ? (
-                      <TextCell
+                    <span className="text-text-secondary flex min-w-0 items-center">
+                      <WordingCell
                         value={entry.question_canonical}
-                        ariaLabel="Question"
+                        subjectName={entry.title || entry.question_canonical}
+                        fieldName="Question"
                         placeholder="La question posée…"
-                        className="text-text-secondary self-center"
+                        align="left"
+                        readOnly={!isOwner}
                         onCommit={(next) =>
                           run(() =>
                             updateFaqEntryField({
                               clientId,
                               entryId: entry.id,
                               field: "question",
-                              value: next,
+                              // `question_canonical` est NOT NULL : une cellule
+                              // vidée s'écrit en chaîne vide, jamais en null.
+                              value: next ?? "",
                             }),
                           )
                         }
                       />
-                    ) : (
-                      <span className="text-text-secondary self-center truncate px-1.5">
-                        {entry.question_canonical || "—"}
-                      </span>
-                    )}
+                    </span>
 
                     <span className="flex min-w-0 items-center">
                       <WordingCell
@@ -340,6 +604,7 @@ export function FaqTable({
                         subjectName={entry.title || entry.question_canonical}
                         fieldName="Réponse"
                         placeholder="La réponse de référence."
+                        align="left"
                         readOnly={!isOwner}
                         onCommit={(next) =>
                           run(() =>
@@ -360,6 +625,7 @@ export function FaqTable({
                         subjectName={entry.title || entry.question_canonical}
                         fieldName="Réponse TikTok"
                         placeholder="La version courte, si elle diffère."
+                        align="left"
                         readOnly={!isOwner}
                         onCommit={(next) =>
                           run(() =>
@@ -391,29 +657,6 @@ export function FaqTable({
                     </span>
 
                     <span className="flex items-center justify-center">
-                      <button
-                        type="button"
-                        onClick={() => setOpenThread(open ? null : entry.id)}
-                        aria-expanded={open}
-                        aria-label={`Fil de ${entry.title || entry.question_canonical}`}
-                        className={cn(
-                          "hover:bg-muted focus-visible:ring-brand relative flex size-7 items-center justify-center rounded-md outline-none focus-visible:ring-2",
-                          open ? "text-foreground" : "text-muted-foreground",
-                        )}
-                      >
-                        <MessageSquare className="size-4" strokeWidth={1.75} aria-hidden />
-                        {thread.length > 0 ? (
-                          // `bg-primary` et non `--accent-ink` : l'encre
-                          // d'accent s'inverse en sombre et le blanc posé
-                          // dessus tombe à 1,39:1.
-                          <span className="bg-primary text-primary-foreground absolute -top-0.5 -right-0.5 flex size-3.5 items-center justify-center rounded-full text-[9px] font-bold tabular-nums">
-                            {thread.length > 9 ? "9+" : thread.length}
-                          </span>
-                        ) : null}
-                      </button>
-                    </span>
-
-                    <span className="flex items-center justify-center">
                       {isOwner ? (
                         <button
                           type="button"
@@ -425,6 +668,10 @@ export function FaqTable({
                         </button>
                       ) : null}
                     </span>
+
+                    {/* La piste tampon : sans cette cellule, la rangée compte
+                        une colonne de moins que l'en-tête. */}
+                    <span />
                   </div>
 
                   {open ? (
@@ -497,22 +744,47 @@ function ReviewCell({
   onVerdict,
 }: {
   review: FaqEntry["client_review"];
-  onVerdict: (verdict: "approved" | "rejected") => void;
+  onVerdict: (verdict: "approved" | "rejected" | "pending") => void;
 }) {
   const key = review ?? "pending";
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
-        aria-label="Validation du client"
+        aria-label={`Validation du client — ${REVIEW_LABELS[key]}`}
         className="focus-visible:ring-brand rounded-pill outline-none focus-visible:ring-2"
       >
         <StatusPill tone={REVIEW_TONES[key]}>{REVIEW_LABELS[key]}</StatusPill>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-40 min-w-40">
-        <DropdownMenuItem onClick={() => onVerdict("approved")}>Valider</DropdownMenuItem>
-        <DropdownMenuItem onClick={() => onVerdict("rejected")}>Refuser</DropdownMenuItem>
+      {/* Les trois verdicts à plat, chacun sous son icône et son encre : deux
+          lignes de texte nu ne disaient ni lequel est posé, ni ce que chacun
+          veut dire. La coche de gauche marque l'état courant — sans elle, le
+          menu s'ouvre identique quel que soit le verdict. */}
+      <DropdownMenuContent align="end" className="w-48 min-w-48">
+        {VERDICTS.map((verdict) => (
+          <DropdownMenuItem
+            key={verdict.value}
+            onClick={() => onVerdict(verdict.value)}
+            className="gap-2"
+          >
+            <verdict.icon
+              className={cn("size-4 shrink-0", verdict.ink)}
+              strokeWidth={1.75}
+              aria-hidden
+            />
+            <span className="flex-1">{verdict.label}</span>
+            {key === verdict.value ? (
+              <Check className="text-text-secondary size-3.5" aria-hidden />
+            ) : null}
+          </DropdownMenuItem>
+        ))}
       </DropdownMenuContent>
     </DropdownMenu>
   );
 }
+
+const VERDICTS = [
+  { value: "approved", label: "Validé", icon: Check, ink: "text-accent-ink" },
+  { value: "rejected", label: "Refusé", icon: X, ink: "text-danger-ink" },
+  { value: "pending", label: "À valider", icon: CircleDashed, ink: "text-warning-ink" },
+] as const;

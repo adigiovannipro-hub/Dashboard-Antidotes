@@ -1,7 +1,6 @@
 "use client";
 
-import { useState } from "react";
-import { Keyboard } from "lucide-react";
+import { useEffect, useState } from "react";
 
 import {
   Dialog,
@@ -12,10 +11,13 @@ import {
 } from "@/components/ui/dialog";
 
 /**
- * Aide-mémoire des raccourcis.
+ * Aide-mémoire des raccourcis, ouvert par « ? ».
  *
  * Un outil pensé pour le clavier doit dire lesquels : sans cette liste, seul
- * celui qui a écrit le code les connaît.
+ * celui qui a écrit le code les connaît. Mais une icône de clavier posée dans
+ * la barre occupait la place toute l'année pour un panneau qu'on ouvre deux
+ * fois — et personne ne la reconnaissait. « ? » est la convention de toutes
+ * les applications au clavier, et il est lui-même dans la liste.
  */
 const SHORTCUTS: { keys: string[]; label: string }[] = [
   { keys: ["J", "↓"], label: "Message suivant" },
@@ -24,26 +26,36 @@ const SHORTCUTS: { keys: string[]; label: string }[] = [
   { keys: ["R"], label: "Refuser — ouvre la correction" },
   { keys: ["I"], label: "Ignorer" },
   { keys: ["A"], label: "Mettre en attente" },
-  { keys: ["E"], label: "Éditer le brouillon" },
+  { keys: ["⌘", "Entrée"], label: "Envoyer la réponse écrite à la main" },
   { keys: ["/"], label: "Rechercher" },
   { keys: ["?"], label: "Cette aide" },
-  { keys: ["Échap"], label: "Quitter le champ courant" },
+  { keys: ["Échap"], label: "Quitter le champ, puis refermer le fil" },
 ];
 
 export function ShortcutsHint() {
   const [open, setOpen] = useState(false);
 
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key !== "?") return;
+      const target = event.target as HTMLElement | null;
+      // On tape « ? » dans une réponse : le panneau ne doit pas s'ouvrir.
+      if (
+        target?.tagName === "INPUT" ||
+        target?.tagName === "TEXTAREA" ||
+        target?.isContentEditable
+      ) {
+        return;
+      }
+      event.preventDefault();
+      setOpen(true);
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
+
   return (
     <>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        aria-label="Raccourcis clavier"
-        className="text-muted-foreground hover:text-foreground focus-visible:ring-brand rounded p-1 transition-colors focus-visible:ring-2 focus-visible:outline-none"
-      >
-        <Keyboard className="size-4" aria-hidden />
-      </button>
-
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
           <DialogHeader>

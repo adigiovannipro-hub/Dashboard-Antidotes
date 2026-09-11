@@ -8,31 +8,41 @@ import {
   readWorkflowState,
   syncDispatchUnavailable,
 } from "@/lib/finance/github-actions";
-import { decideSync, type SyncSnapshot } from "@/lib/finance/sync-state";
+import {
+  decideSync,
+  FRESH_WINDOW_MINUTES,
+  minutesSince,
+  type SyncSnapshot,
+} from "@/lib/finance/sync-state";
+import { parseSyncScope, type SyncScope } from "@/lib/moderation/sync-scope";
 import { reindexFaqSearch, syncModerationInbox } from "@/lib/moderation/sync";
 import { createAdminClient } from "@/lib/supabase/server";
 import { COMPOSIO_TRANSITION_NOTE } from "@/lib/social/direct-connect";
 
 /**
- * Le relevé de la Modération à la demande — ouverture de l'inbox et bouton
- * « Relever maintenant ».
+ * Le relevé de l'Inbox à la demande — ouverture de l'écran et boutons.
  *
- * Il ne s'exécute plus ici. Trois raisons, dans cet ordre :
+ * Deux chemins, parce qu'il y a deux relevés.
  *
- *   • le passage programmé est l'étape « Modération » d'un cron GitHub, et
- *     GitHub en laisse tomber près d'une exécution horaire sur deux ;
- *   • le seul déclencheur fréquent et fiable qui restait — l'ouverture de
- *     Finance — envoie `portee: finance`, qui **saute explicitement** la
- *     Modération. Autrement dit, rien ne la relevait de façon fiable ;
- *   • ce relevé appelle Meta compte par compte et dure plusieurs minutes,
- *     quand une fonction du plan Hobby vit soixante secondes. L'ancien
- *     `maxDuration = 300` était une intention que l'hébergeur ne tient pas :
- *     la fonction se faisait couper en vol, sans rien dire.
+ *   • **`jour`** — ce que l'ouverture de l'écran déclenche, exécuté **ici** et
+ *     tout de suite. Deux jours de conversations, les commentaires des seules
+ *     publications dont le compteur a bougé, aucun rattrapage de profil :
+ *     quelques appels par compte. Le chemin synchrone n'était intenable que
+ *     parce que le relevé rattrapait toute la vie du compte à chaque passage —
+ *     ce n'est plus le cas, et rien ne vaut de voir sa boîte à jour au moment
+ *     où on ouvre l'écran.
+ *   • **`complet`** — la passe de réparation. Elle dure des minutes et n'a
+ *     donc rien à faire dans une fonction qui vit soixante secondes : la route
+ *     donne l'ordre à GitHub (`portee: moderation-complet`) et rend la main,
+ *     exactement comme `/api/finance/sync`. Elle tourne aussi seule la nuit,
+ *     sur son propre créneau cron. Sans `GITHUB_SYNC_TOKEN`, elle retombe sur
+ *     l'exécution locale — imparfaite, elle peut être coupée, mais elle vaut
+ *     mieux qu'un bouton mort, et l'écran dit lequel des deux tourne.
  *
- * La route donne donc l'ordre à GitHub (`portee: moderation`) et rend la main,
- * exactement comme `/api/finance/sync`. Le chemin synchrone reste en repli
- * quand `GITHUB_SYNC_TOKEN` manque : il est imparfait — il peut être coupé —
- * mais il vaut mieux qu'un bouton mort, et l'écran dit lequel des deux tourne.
+ * Deux fenêtres de fraîcheur distinctes, et c'est la clé : le `jour` se juge
+ * sur le journal des canaux — ce que les données ont reçu — le `complet` sur
+ * la dernière exécution GitHub. Un relevé du jour tout frais ne doit jamais
+ * empêcher de lancer un relevé complet.
  *
  * Module interne : 404 pour qui n'est pas propriétaire, jamais 403.
  */
@@ -45,6 +55,8 @@ export const maxDuration = 60;
 const bodySchema = z.object({
   /** Le bouton : passe outre la fenêtre de fraîcheur, jamais une course en cours. */
   force: z.boolean().default(false),
+  /** `jour` (défaut) ou `complet` — voir `moderation/sync-scope.ts`. */
+  portee: z.string().optional(),
 });
 
 export async function GET() {
@@ -63,7 +75,32 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Requête invalide." }, { status: 400 });
   }
 
+  const scope: SyncScope = parseSyncScope(parsed.data.portee) ?? "jour";
   const state = await snapshot();
+
+  /* Le relevé du jour s'exécute **ici**, tout de suite.
+     Deux jours de conversations, les commentaires des seules publications dont
+     le compteur a bougé, aucun rattrapage de profil : quelques appels par
+     compte, loin sous les soixante secondes du plan Hobby. Passer par GitHub
+     lui coûterait une minute d'installation de dépendances pour un travail qui
+     en dure dix secondes — et l'utilisateur veut voir sa boîte à jour au
+     moment où il ouvre l'écran, pas deux minutes après. */
+  if (scope === "jour") {
+    /* La fraîcheur du jour se juge sur le **journal des canaux** — ce que les
+       données ont réellement reçu — et non sur la dernière exécution GitHub.
+       Deux compteurs distincts, et c'est voulu : un relevé du jour tout frais
+       ne doit jamais empêcher de lancer un relevé complet. */
+    const age = minutesSince(state.lastRunAt, new Date());
+    if (!parsed.data.force && age !== null && age < FRESH_WINDOW_MINUTES) {
+      return NextResponse.json({
+        decision: "skip",
+        reason: "fraiche",
+        message: "Relevé déjà à jour.",
+        snapshot: state,
+      });
+    }
+    return runHere(state, "jour");
+  }
 
   /* Sans jeton GitHub, on relève ici même — mais seulement sur demande
      explicite. Déclencher plusieurs minutes de travail au simple chargement
@@ -78,7 +115,7 @@ export async function POST(request: Request) {
         snapshot: state,
       });
     }
-    return runHere(state);
+    return runHere(state, "complet");
   }
 
   const decision = decideSync({ now: new Date(), snapshot: state, forced: parsed.data.force });
@@ -93,7 +130,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    await dispatchModerationWorkflow();
+    await dispatchModerationWorkflow("complet");
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     return NextResponse.json(
@@ -125,7 +162,7 @@ export async function POST(request: Request) {
  * avant la coupure reste en base (chaque compte est traité et clôturé à part),
  * le reste attendra le passage suivant.
  */
-async function runHere(state: SyncSnapshot) {
+async function runHere(state: SyncSnapshot, scope: SyncScope) {
   const missing = missingServerEnv(
     "SUPABASE_SERVICE_ROLE_KEY",
     "CREDENTIALS_ENCRYPTION_KEY",
@@ -145,7 +182,7 @@ async function runHere(state: SyncSnapshot) {
   // `createAdminClient` : la synchronisation écrit pour le compte du cron,
   // après une garde d'owner explicite.
   const admin = createAdminClient();
-  const reports = await syncModerationInbox({ admin });
+  const reports = await syncModerationInbox({ admin, scope });
   // Les entrées FAQ en attente d'indexation. Souvent muet ici : sur Vercel le
   // modèle d'embeddings ne charge pas, et le passage horaire s'en charge.
   const faq = await reindexFaqSearch({ admin });

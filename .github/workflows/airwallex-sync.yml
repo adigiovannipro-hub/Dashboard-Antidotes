@@ -43,8 +43,18 @@
 #
 #   • `finance` : ouvrir Finance ou Factures. Soldes, dépenses, factures, et le
 #     rapprochement des Échéances, qui est l'étape `billing`.
-#   • `moderation` : ouvrir l'inbox de Modération. Le seul relevé des
-#     commentaires Meta, quelques secondes par compte branché.
+#   • `moderation` : le relevé **du jour** de l'Inbox — deux jours de
+#     conversations, et les commentaires des seules publications dont le
+#     compteur a bougé. L'écran ne s'en sert plus qu'en repli : il l'exécute
+#     lui-même, c'est devenu assez court pour tenir dans une fonction Vercel.
+#   • `moderation-complet` : la passe de réparation — soixante jours,
+#     rattrapage des photos de profil et des auteurs masqués. Elle dure des
+#     minutes : c'est elle qui a besoin d'un runner, et c'est elle que le
+#     créneau nocturne `40 2 * * *` joue tout seul chaque nuit.
+#
+# Deux plannings sur le même workflow, donc, et une seule variable les
+# distingue : `github.event.schedule`. Sur un `schedule`, les `inputs` sont
+# vides — il n'y a rien d'autre à lire.
 #
 # Cette seconde portée n'est pas un confort. Jusqu'ici la Modération n'avait
 # qu'un déclencheur, le `schedule` ci-dessus, dont près d'une exécution sur deux
@@ -72,6 +82,13 @@ on:
     # Minute 17 et non 0 : les pics de la pleine heure sont les moments où
     # GitHub retarde le plus ses schedules.
     - cron: "17 * * * *"
+    # Le relevé complet de l'Inbox, une fois par nuit — 02h40 UTC, soit 04h40
+    # à Paris l'été, 03h40 l'hiver : personne n'ouvre son inbox à cette
+    # heure-là, et le passage a tout le temps de rattraper soixante jours.
+    # C'est `github.event.schedule` qui distingue les deux plannings du même
+    # workflow — sur un `schedule`, les `inputs` sont vides, il n'y a rien
+    # d'autre à lire.
+    - cron: "40 2 * * *"
   workflow_dispatch:
     inputs:
       portee:
@@ -81,7 +98,11 @@ on:
         options:
           - tout
           - finance
+          # Le relevé du jour de l'Inbox. L'écran ne s'en sert plus que sans
+          # jeton GitHub : il l'exécute lui-même, c'est devenu assez court.
           - moderation
+          # La passe de réparation, celle qui dure des minutes.
+          - moderation-complet
 
 concurrency:
   group: finance-sync
@@ -120,7 +141,7 @@ jobs:
       # Seuls les Reçus s'en servent : un passage `portee: finance` s'en passe.
       # Sur un schedule, `inputs.portee` est vide — la condition reste vraie.
       - name: Cache du navigateur
-        if: inputs.portee != 'finance' && inputs.portee != 'moderation'
+        if: inputs.portee != 'finance' && inputs.portee != 'moderation' && inputs.portee != 'moderation-complet'
         id: cache-navigateur
         uses: actions/cache@v4
         with:
@@ -128,11 +149,11 @@ jobs:
           key: playwright-chromium-${{ hashFiles('pnpm-lock.yaml') }}
 
       - name: Navigateur de rendu
-        if: inputs.portee != 'finance' && inputs.portee != 'moderation'
+        if: inputs.portee != 'finance' && inputs.portee != 'moderation' && inputs.portee != 'moderation-complet'
         run: pnpm exec playwright install ${{ steps.cache-navigateur.outputs.cache-hit == 'true' && 'chromium' || '--with-deps chromium' }}
 
       - name: Synchroniser Finance
-        if: inputs.portee != 'moderation'
+        if: inputs.portee != 'moderation' && inputs.portee != 'moderation-complet'
         run: pnpm sync:finance
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
@@ -158,7 +179,7 @@ jobs:
       # huit passages de 16h à minuit rattrapent, `planning_publications`
       # interdisant le doublon.
       - name: Publication automatique du Planning (à partir de 16h Paris)
-        if: always() && inputs.portee != 'finance' && inputs.portee != 'moderation'
+        if: always() && inputs.portee != 'finance' && inputs.portee != 'moderation' && inputs.portee != 'moderation-complet'
         run: pnpm publier:planning
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
@@ -171,7 +192,7 @@ jobs:
       # sont pris. Un post n'est publié que s'il est approuvé, et son statut
       # est relu juste avant l'envoi — rien ne part deux fois.
       - name: Publication des posts programmés (Antidotes)
-        if: always() && inputs.portee != 'finance' && inputs.portee != 'moderation'
+        if: always() && inputs.portee != 'finance' && inputs.portee != 'moderation' && inputs.portee != 'moderation-complet'
         run: pnpm studio:publier
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
@@ -187,7 +208,7 @@ jobs:
       # C'est la seule étape que `portee: moderation` joue, et c'est ce que
       # l'ouverture de l'inbox déclenche (`/api/moderation/sync`). `finance`
       # continue de la sauter : un écran de comptabilité n'a rien à relever ici.
-      - name: Synchroniser la Modération (commentaires Meta)
+      - name: Synchroniser l'Inbox (commentaires et messages Meta)
         if: always() && inputs.portee != 'finance'
         run: pnpm sync:moderation
         env:
@@ -195,6 +216,11 @@ jobs:
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           CREDENTIALS_ENCRYPTION_KEY: ${{ secrets.CREDENTIALS_ENCRYPTION_KEY }}
+          # Ce que le passage redemande. Le créneau nocturne et le « Run
+          # workflow » manuel font la passe complète ; le passage horaire et le
+          # bouton de l'écran font le relevé du jour, qui ne redescend que les
+          # publications dont le compteur de commentaires a bougé.
+          MODERATION_SCOPE: "${{ (github.event.schedule == '40 2 * * *' || inputs.portee == 'tout' || inputs.portee == 'moderation-complet') && 'complet' || 'jour' }}"
 
       # Les séquences de prospection du pôle Antidotes : relevé des fils
       # Gmail (réponses, rebonds), observations, envois dus. Même greffe
@@ -204,7 +230,7 @@ jobs:
       # quotidien vivent sur chaque séquence ; un tour à vide coûte une
       # seconde.
       - name: Séquences de prospection
-        if: always() && inputs.portee != 'finance' && inputs.portee != 'moderation'
+        if: always() && inputs.portee != 'finance' && inputs.portee != 'moderation' && inputs.portee != 'moderation-complet'
         run: pnpm sequences:passage
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
@@ -229,7 +255,7 @@ jobs:
       # qu'aucun devis ne porte d'adresse de destinataire, le passage ne fait
       # rien du tout — c'est l'interrupteur du dispositif.
       - name: Émettre et relancer les Factures
-        if: always() && inputs.portee != 'finance' && inputs.portee != 'moderation'
+        if: always() && inputs.portee != 'finance' && inputs.portee != 'moderation' && inputs.portee != 'moderation-complet'
         run: pnpm factures:envoi
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
@@ -243,7 +269,7 @@ jobs:
           GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
 
       - name: Synchroniser les Reçus
-        if: always() && inputs.portee != 'finance' && inputs.portee != 'moderation'
+        if: always() && inputs.portee != 'finance' && inputs.portee != 'moderation' && inputs.portee != 'moderation-complet'
         run: pnpm sync:recus
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}

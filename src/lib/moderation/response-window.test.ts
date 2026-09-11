@@ -5,6 +5,7 @@ import {
   evaluateSendEligibility,
   formatWindow,
   isWindowed,
+  windowState,
 } from "./response-window";
 
 const HOUR = 60 * 60 * 1000;
@@ -161,5 +162,38 @@ describe("libellés pour l'inbox", () => {
       now: at(100),
     });
     expect(formatWindow(result)).toBe("Pas de limite");
+  });
+});
+
+describe("windowState", () => {
+  const dm = (hoursAgo: number) =>
+    windowState({
+      channel: "instagram" as const,
+      kind: "dm" as const,
+      lastInboundAt: new Date(Date.now() - hoursAgo * 3_600_000),
+    });
+
+  it("ne dit rien d'un commentaire public", () => {
+    expect(
+      windowState({
+        channel: "facebook",
+        kind: "comment",
+        lastInboundAt: new Date("2020-01-01T00:00:00Z"),
+      }),
+    ).toBe("none");
+  });
+
+  it("ouverte tant qu'il reste plus d'une journée", () => {
+    expect(dm(2)).toBe("open");
+    expect(dm(100)).toBe("open");
+  });
+
+  it("se ferme dans les vingt-quatre dernières heures", () => {
+    // Sept jours font 168 h ; à 150 h écoulées, il en reste 18.
+    expect(dm(150)).toBe("closing");
+  });
+
+  it("expirée au-delà des sept jours", () => {
+    expect(dm(200)).toBe("expired");
   });
 });

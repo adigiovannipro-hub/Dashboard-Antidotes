@@ -5,17 +5,18 @@ import { requireViewer } from "@/lib/auth";
 import { requireModeration } from "@/lib/moderation/access";
 
 export const metadata: Metadata = {
-  title: "Modération",
+  title: "Inbox",
 };
 
 /**
- * Coquille du module Modération.
+ * Coquille du module Inbox — la Modération, renommée le 11/09 : ce qu'on
+ * ouvre le matin est une boîte de réception, pas un poste de police.
  *
  * `requireModeration` renvoie un 404 — et non un 403 — pour qui n'y a pas
  * accès : le module est interne, et un 403 révélerait son existence à un client
  * du dashboard de reporting.
  */
-export default async function ModerationLayout({
+export default async function InboxLayout({
   children,
 }: {
   children: React.ReactNode;
@@ -26,8 +27,9 @@ export default async function ModerationLayout({
   return (
     <AppShell
       viewer={viewer}
-      title="Modération"
-      subtitle="Commentaires et messages de tous les clients, réponses validées à la main"
+      hideOpenAccessBadge
+      title="Inbox"
+      subtitle="Commentaires et messages privés de tous les clients. Réponses validées manuellement."
     >
       <div className="flex min-h-0 flex-1 flex-col">{children}</div>
     </AppShell>

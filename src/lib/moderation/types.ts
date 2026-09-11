@@ -119,86 +119,18 @@ export function isSpam(flags: readonly string[] | null | undefined): boolean {
 export type ConversationPriority = "normal" | "high";
 
 /**
- * Les onglets de l'inbox croisée — le vocabulaire de la Boîte de réception
- * Meta, réduit à ce que l'outil ingère. Valeurs en français : elles vivent
- * dans l'URL (`?vue=`).
- */
-export type InboxView =
-  | "tout"
-  | "commentaires-instagram"
-  | "commentaires-facebook"
-  | "commentaires-youtube"
-  | "messages";
-
-export const VIEW_ORDER: InboxView[] = [
-  "tout",
-  "commentaires-instagram",
-  "commentaires-facebook",
-  "commentaires-youtube",
-  "messages",
-];
-
-export const VIEW_LABELS: Record<InboxView, string> = {
-  tout: "Tout",
-  "commentaires-instagram": "Commentaires Instagram",
-  "commentaires-facebook": "Commentaires Facebook",
-  "commentaires-youtube": "Commentaires YouTube",
-  messages: "Messages privés",
-};
-
-export function isInboxView(value: string): value is InboxView {
-  return value in VIEW_LABELS;
-}
-
-/** Un onglet est une contrainte (canal, type) — « tout » n'en porte aucune. */
-export function viewMatches(
-  view: InboxView,
-  channel: ModerationChannel,
-  kind: ConversationKind,
-): boolean {
-  switch (view) {
-    case "tout":
-      return true;
-    case "commentaires-instagram":
-      return channel === "instagram" && kind === "comment";
-    case "commentaires-facebook":
-      return channel === "facebook" && kind === "comment";
-    case "commentaires-youtube":
-      return channel === "youtube" && kind === "comment";
-    case "messages":
-      return kind === "dm";
-  }
-}
-
-/**
  * Les statuts, regroupés comme on travaille : ce qui attend une action, ce
  * qui est mis de côté, ce qui est classé. Valeurs en français — URL aussi
  * (`?statut=`).
+ *
+ * « Toutes » a disparu le 11/09 : un quatrième groupe qui contient les trois
+ * autres n'est pas un filtre, c'est leur absence — et l'écran s'ouvrait alors
+ * sur des centaines de fils classés où le travail du jour se noyait. Les
+ * libellés et l'ordre vivent dans `filters.ts`, avec la lecture de l'URL.
  */
-export type StatusGroup = "a-traiter" | "en-attente" | "traitees" | "toutes";
+export type StatusGroup = "a-traiter" | "en-attente" | "traitees";
 
-export const STATUS_GROUP_ORDER: StatusGroup[] = [
-  "a-traiter",
-  "en-attente",
-  "traitees",
-  "toutes",
-];
-
-export const STATUS_GROUP_LABELS: Record<StatusGroup, string> = {
-  "a-traiter": "À traiter",
-  "en-attente": "En attente",
-  traitees: "Traitées",
-  toutes: "Toutes",
-};
-
-export function isStatusGroup(value: string): value is StatusGroup {
-  return value in STATUS_GROUP_LABELS;
-}
-
-export const STATUS_GROUP_MEMBERS: Record<
-  Exclude<StatusGroup, "toutes">,
-  ConversationStatus[]
-> = {
+export const STATUS_GROUP_MEMBERS: Record<StatusGroup, ConversationStatus[]> = {
   // Aligné sur ACTIONABLE_STATUSES — un seul vocabulaire du « à gérer ».
   "a-traiter": ["to_process", "awaiting_validation", "send_failed"],
   "en-attente": ["snoozed"],
@@ -207,9 +139,7 @@ export const STATUS_GROUP_MEMBERS: Record<
   traitees: ["validated", "sent", "ignored", "answered_elsewhere"],
 };
 
-export function statusGroupOf(
-  status: ConversationStatus,
-): Exclude<StatusGroup, "toutes"> {
+export function statusGroupOf(status: ConversationStatus): StatusGroup {
   if (STATUS_GROUP_MEMBERS["a-traiter"].includes(status)) return "a-traiter";
   if (STATUS_GROUP_MEMBERS["en-attente"].includes(status)) return "en-attente";
   return "traitees";
@@ -224,9 +154,15 @@ export type ModerationFlag =
   | "insult"
   | "dispute"
   | "refund"
-  | "sensitive";
+  | "sensitive"
+  /* Posé à la main depuis l'Inbox, jamais par le triage. La colonne est un
+     `text[]` et non un enum : un drapeau de plus ne demande pas de migration.
+     Il fait entrer le fil dans « Signalées », qui est la seule liste où l'on
+     revient volontairement. */
+  | "manual";
 
 export const FLAG_LABELS: Record<ModerationFlag, string> = {
+  manual: "Signalée",
   spam: "Spam",
   insult: "Insulte",
   dispute: "Litige",
@@ -448,3 +384,42 @@ export type FaqComment = {
   mentions: string[];
   created_at: string;
 };
+
+/**
+ * Une réponse enregistrée : la formule qu'on retape dix fois par semaine.
+ *
+ * Distincte d'une entrée de FAQ, et pour une raison de fond : une entrée de
+ * FAQ répond à une **question** et nourrit la recherche sémantique comme la
+ * boucle de correction. Une réponse enregistrée est un bout de texte qu'on
+ * colle, sans question en face. Les mélanger remplirait la FAQ d'entrées sans
+ * question, invisibles de la recherche et nuisibles à l'apprentissage.
+ */
+export type SavedReply = {
+  id: string;
+  client_id: string;
+  title: string;
+  body: string;
+  tags: string[];
+  /** Vide = partout. Sinon, les types de fil où elle se propose. */
+  scope: ConversationKind[];
+  usage_count: number;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+/** Ce qu'une recherche dans la bibliothèque doit trouver : le nom, le corps,
+    les étiquettes. Pure, pour que la liste filtre sans aller-retour. */
+export function savedReplyMatches(reply: SavedReply, needle: string): boolean {
+  const query = needle.trim().toLowerCase();
+  if (!query) return true;
+  return [reply.title, reply.body, ...reply.tags]
+    .join(" ")
+    .toLowerCase()
+    .includes(query);
+}
+
+/** Une réponse ne se propose que sur les fils qu'elle sert. */
+export function savedReplyApplies(reply: SavedReply, kind: ConversationKind): boolean {
+  return reply.scope.length === 0 || reply.scope.includes(kind);
+}

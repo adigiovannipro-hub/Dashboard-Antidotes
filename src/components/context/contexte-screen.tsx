@@ -1,61 +1,73 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { CalendarCheck, FileText, Gauge, History, Lock, Quote, RefreshCw } from "lucide-react";
+import { History, Lock, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 
 import { proposeRegeneration, restoreVersion } from "@/app/actions/context";
 import { safeAction } from "@/lib/context/safe-action";
 import { PendingLabel } from "@/components/ds/pending-label";
-import { StatCard, StatGrid } from "@/components/ds/stat-card";
 import { StatusPill } from "@/components/ds/status-pill";
 import { Button } from "@/components/ui/button";
-import {
-  normalizeDeliverables,
-  summarizeDeliverables,
-  totalPublications,
-} from "@/lib/context/deliverables";
+import type { Completeness } from "@/lib/context/completeness";
 import type { ContextFieldDiff } from "@/lib/context/diff";
-import { INJECTED_CONTEXT_TOKEN_LIMIT } from "@/lib/context/token-estimate";
-import type { ClientAsset, ClientContext, ContextProposal } from "@/lib/context/types";
-import { formatDayFr, formatValue } from "@/lib/format";
+import type { ContextSection } from "@/lib/context/injected-context";
+import { totalContextTokens } from "@/lib/context/injected-context";
+import type {
+  ClientAsset,
+  ClientContext,
+  ClientGenerationSettings,
+  ContextProposal,
+} from "@/lib/context/types";
+import { formatDayFr } from "@/lib/format";
 
 import { BriefGrid } from "./brief-grid";
+import { CompletenessBar } from "./completeness-bar";
 import { DiffView } from "./diff-view";
 import { DocumentsPanel } from "./documents-panel";
+import { InjectedPromptDialog } from "./injected-prompt-dialog";
+import { PilotagePanel } from "./pilotage-panel";
 import { VersionHistory } from "./version-history";
 
 type VersionSummary = Pick<ClientContext, "id" | "version" | "is_active" | "created_at">;
 
 /**
- * L'écran Contexte : bande de mesures, brief éditorial en trois familles,
- * diff de régénération, documents, historique des versions. Tout ce qui s'y
- * voit est réservé à l'owner — la page a déjà rendu 404 à quiconque d'autre.
+ * L'écran Contexte : barre de complétude, brief en trois familles repliables,
+ * pilotage de la génération, documents. Tout ce qui s'y voit est réservé à
+ * l'owner — la page a déjà rendu 404 à quiconque d'autre.
  *
  * Aucun titre de page ici : l'onglet de navigation dit déjà « Contexte » et
  * le cadre porte le nom de l'espace. Le répéter le ferait lire trois fois.
  */
 export function ContexteScreen({
   workspaceSlug,
-  workspaceName,
   active,
   viewed,
   versions,
   assets,
   downloads,
-  tokenEstimate,
+  settings,
+  sections,
+  targetMonth,
+  targetMonthLabel,
+  completeness,
   accrochesCount,
 }: {
   workspaceSlug: string;
-  workspaceName: string;
   active: ClientContext | null;
   /** Version consultée en lecture seule, quand elle diffère de l'active. */
   viewed: ClientContext | null;
   versions: VersionSummary[];
   assets: ClientAsset[];
   downloads: Record<string, string>;
-  tokenEstimate: number;
+  settings: ClientGenerationSettings | null;
+  /** Les sections servies au modèle, produites par la même fonction que lui. */
+  sections: ContextSection[];
+  targetMonth: string;
+  /** « octobre » : le mois que la prochaine génération vise. */
+  targetMonthLabel: string;
+  completeness: Completeness;
   accrochesCount: number;
 }) {
   const router = useRouter();
@@ -66,25 +78,9 @@ export function ContexteScreen({
     proposal: ContextProposal;
     diff: ContextFieldDiff[];
   } | null>(null);
-  // « Modifier » ne change pas le comportement — chaque carte s'édite déjà au
-  // clic — il rend l'affordance visible : contours et crayons sur les cartes.
-  const [editHint, setEditHint] = useState(false);
 
   const shown = viewed ?? active;
   const readOnly = viewed !== null;
-
-  const includedCount = useMemo(
-    () => assets.filter((asset) => asset.include_in_context && asset.summary).length,
-    [assets],
-  );
-
-  // La bande de mesures décrit toujours l'état en vigueur, même en consultant
-  // une version passée : c'est le brief actif qui part dans les générations.
-  const deliverables = useMemo(
-    () => normalizeDeliverables(active?.deliverables),
-    [active?.deliverables],
-  );
-  const publicationsPerMonth = totalPublications(deliverables);
 
   // Tant qu'une analyse tourne, la page se rafraîchit toute seule : le spinner
   // de la liste devient un résumé sans que l'utilisateur recharge.
@@ -96,8 +92,6 @@ export function ContexteScreen({
     const timer = setInterval(() => router.refresh(), 4000);
     return () => clearInterval(timer);
   }, [analyzing, router]);
-
-  const overBudget = tokenEstimate > INJECTED_CONTEXT_TOKEN_LIMIT;
 
   function regenerate() {
     startRegen(async () => {
@@ -134,29 +128,30 @@ export function ContexteScreen({
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <StatusPill tone="warning" dot={false}>
-              <Lock aria-hidden strokeWidth={1.75} className="size-3" />
-              Interne
-            </StatusPill>
-            {active ? (
-              <p className="type-caption text-text-secondary">
-                Brief mis à jour le {formatDayFr(active.created_at.slice(0, 10))}.
-              </p>
-            ) : null}
-          </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <StatusPill tone="warning" dot={false}>
+            <Lock aria-hidden strokeWidth={1.75} className="size-3" />
+            Interne
+          </StatusPill>
+          {active ? (
+            <p className="type-caption text-text-secondary">
+              Brief mis à jour le {formatDayFr(active.created_at.slice(0, 10))}.
+            </p>
+          ) : null}
         </div>
 
         {!readOnly ? (
-          <div className="flex shrink-0 flex-wrap items-center gap-2">
-            <Button
-              variant="outline"
-              aria-pressed={editHint}
-              onClick={() => setEditHint((current) => !current)}
-            >
-              Modifier
-            </Button>
+          // Pas de `shrink-0` ici : sur un téléphone de 390 px, les deux
+          // boutons font 460 à eux deux, et un conteneur qui refuse de
+          // rétrécir est dimensionné sur son contenu — `flex-wrap` ne se
+          // déclenche donc jamais et c'est la page entière qui déborde
+          // (476 px mesurés). Le piège est déjà écrit dans CLAUDE.md ; il
+          // coûte un retour à la ligne, pas un débordement.
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            <InjectedPromptDialog
+              sections={sections}
+              targetMonthLabel={targetMonthLabel}
+            />
             <Button
               variant="default"
               disabled={regenPending}
@@ -181,45 +176,10 @@ export function ContexteScreen({
         ) : null}
       </div>
 
-      <StatGrid>
-        <StatCard
-          icon={CalendarCheck}
-          label="Publications par mois"
-          value={
-            publicationsPerMonth > 0 ? formatValue(publicationsPerMonth, "integer") : "—"
-          }
-          context={
-            publicationsPerMonth > 0
-              ? summarizeDeliverables(deliverables)
-              : "livrables mensuels à renseigner"
-          }
-        />
-        <StatCard
-          icon={Gauge}
-          label="Contexte injecté"
-          value={
-            tokenEstimate > 0 ? `≈ ${formatValue(tokenEstimate, "integer")} tokens` : "—"
-          }
-          valueTone={overBudget ? "warning" : undefined}
-          context={
-            overBudget
-              ? "au-delà des 6 000 conseillés : décocher des documents"
-              : "plafond conseillé : 6 000 tokens"
-          }
-        />
-        <StatCard
-          icon={FileText}
-          label="Documents injectés"
-          value={formatValue(includedCount, "integer")}
-          context={`sur ${formatValue(assets.length, "integer")} déposés pour ${workspaceName}`}
-        />
-        <StatCard
-          icon={Quote}
-          label="Accroches mémorisées"
-          value={formatValue(accrochesCount, "integer")}
-          context="jamais recyclées par la génération"
-        />
-      </StatGrid>
+      <CompletenessBar
+        completeness={completeness}
+        tokens={totalContextTokens(sections)}
+      />
 
       {readOnly && viewed ? (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-info bg-info-subtle px-5 py-3">
@@ -244,12 +204,7 @@ export function ContexteScreen({
         </div>
       ) : null}
 
-      <BriefGrid
-        workspaceSlug={workspaceSlug}
-        context={shown}
-        readOnly={readOnly}
-        editHint={editHint}
-      />
+      <BriefGrid workspaceSlug={workspaceSlug} context={shown} readOnly={readOnly} />
 
       {proposal && !readOnly ? (
         <DiffView
@@ -260,7 +215,26 @@ export function ContexteScreen({
         />
       ) : null}
 
+      {/* Le pilotage n'est pas le brief : il décrit le moment, pas la marque,
+          et vit dans une table non versionnée. Quatrième section, à part. */}
+      {!readOnly ? (
+        <PilotagePanel
+          workspaceSlug={workspaceSlug}
+          settings={settings}
+          targetMonth={targetMonth}
+          targetMonthLabel={targetMonthLabel}
+        />
+      ) : null}
+
       <DocumentsPanel workspaceSlug={workspaceSlug} assets={assets} downloads={downloads} />
+
+      {accrochesCount > 0 ? (
+        <p className="type-caption text-center text-text-secondary">
+          {accrochesCount} accroche{accrochesCount > 1 ? "s" : ""} déjà publiée
+          {accrochesCount > 1 ? "s" : ""}, injectée
+          {accrochesCount > 1 ? "s" : ""} en négatif.
+        </p>
+      ) : null}
 
       <VersionHistory
         versions={versions}

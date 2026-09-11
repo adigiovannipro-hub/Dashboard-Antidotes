@@ -22,7 +22,39 @@ const ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 const configured = Boolean(SUPABASE_URL && ANON_KEY && SERVICE_KEY);
-const suite = configured ? describe : describe.skip;
+
+/* 20260913c-d partent avec le push sur `main` : tant qu'elles ne sont pas
+   appliquées, la base n'a ni `client_generation_settings`, ni les trois
+   colonnes ajoutées à `client_context`, ni les politiques à prouver — et elle
+   porte encore `positioning`, que ces tests n'écrivent plus. La suite se saute
+   alors **en le disant** : un rouge structurel bloquerait la porte des quatre
+   commandes pour une cause qui se résout au merge, un vert silencieux ferait
+   croire à une preuve. Sonde à la collecte, comme l'autorise Vitest. */
+const migrated = configured
+  ? await (async () => {
+      const probe = createClient(SUPABASE_URL!, SERVICE_KEY!, {
+        auth: { persistSession: false, autoRefreshToken: false },
+      });
+      const { error: columnsError } = await probe
+        .from("client_context")
+        .select("validated_examples, client_feedback, sourced_facts")
+        .limit(1);
+      const { error: settingsError } = await probe
+        .from("client_generation_settings")
+        .select("workspace_id")
+        .limit(1);
+      const missing = columnsError ?? settingsError;
+      if (missing) {
+        console.warn(
+          `[contexte-isolation] suite sautée : migrations 20260913c-d non appliquées (${missing.message}). À rejouer après le push sur main.`,
+        );
+        return false;
+      }
+      return true;
+    })()
+  : false;
+
+const suite = configured && migrated ? describe : describe.skip;
 
 const RUN = `zz-ctx-${Date.now()}`;
 const PASSWORD = "Test!Contexte-2026";
@@ -101,6 +133,19 @@ suite("isolation du Contexte client (RLS)", () => {
       hook: `Accroche déjà publiée chez ${name}`,
     });
     if (hookError) throw new Error(`Migration 0037 non appliquée ? ${hookError.message}`);
+
+    const { error: settingsError } = await admin
+      .from("client_generation_settings")
+      .insert({
+        workspace_id: workspace.id,
+        permanent_instructions: `Instructions permanentes de ${name}`,
+        monthly_instruction: `Consigne du mois de ${name}`,
+        monthly_instruction_month: "2026-10-01",
+        temporal_context: `Temps forts de ${name}`,
+      });
+    if (settingsError) {
+      throw new Error(`Migration 20260913c non appliquée ? ${settingsError.message}`);
+    }
 
     return { workspaceId: workspace.id, contextId: context.id, assetId: asset!.id };
   }
@@ -291,10 +336,10 @@ suite("isolation du Contexte client (RLS)", () => {
     it("modifie un brief et retrouve sa valeur", async () => {
       const { data } = await clients.owner
         .from("client_context")
-        .update({ positioning: "Positionnement revu par l'owner" })
+        .update({ tone_of_voice: "Ton revu par l'owner" })
         .eq("id", ids.contextA)
-        .select("positioning");
-      expect(data?.[0]?.positioning).toBe("Positionnement revu par l'owner");
+        .select("tone_of_voice");
+      expect(data?.[0]?.tone_of_voice).toBe("Ton revu par l'owner");
     });
 
     it("coche et décoche l'injection d'un document", async () => {
@@ -313,6 +358,111 @@ suite("isolation du Contexte client (RLS)", () => {
         hook: "Nouvelle accroche validée par l'owner",
       });
       expect(error).toBeNull();
+    });
+  });
+
+  /**
+   * Le pilotage de la génération (20260913c-d). Il vit dans sa propre table
+   * plutôt qu'en colonnes de `workspaces` **pour cette raison exacte** : la
+   * RLS filtre des lignes et non des colonnes, et `workspaces` est lue par
+   * tout le monde — un client y aurait lu les consignes qu'on donne au modèle
+   * à son sujet. Les deux sens, comme partout.
+   */
+  describe("le pilotage de la génération est owner-only", () => {
+    it("reste invisible au client, y compris sur son propre espace", async () => {
+      const { data } = await clients.clientA
+        .from("client_generation_settings")
+        .select("workspace_id, permanent_instructions")
+        .in("workspace_id", [ids.workspaceA, ids.workspaceB]);
+      expect(data).toEqual([]);
+    });
+
+    it("n'accepte aucune écriture du client", async () => {
+      const { data } = await clients.clientA
+        .from("client_generation_settings")
+        .update({ permanent_instructions: "Injection" })
+        .eq("workspace_id", ids.workspaceA)
+        .select("workspace_id");
+      expect(data ?? []).toEqual([]);
+
+      const { error } = await clients.clientA
+        .from("client_generation_settings")
+        .insert({ workspace_id: ids.workspaceA, permanent_instructions: "Injection" });
+      expect(error).not.toBeNull();
+
+      const { data: after } = await admin
+        .from("client_generation_settings")
+        .select("permanent_instructions")
+        .eq("workspace_id", ids.workspaceA)
+        .single();
+      expect(after?.permanent_instructions).toContain("Client A");
+    });
+
+    it("reste invisible au contributeur : le Contexte lui est fermé depuis 0040", async () => {
+      const { data } = await clients.contributorA
+        .from("client_generation_settings")
+        .select("workspace_id")
+        .eq("workspace_id", ids.workspaceA);
+      expect(data ?? []).toEqual([]);
+    });
+
+    it("se lit et s'écrit pour l'owner, sur les deux espaces", async () => {
+      const { data: lues } = await clients.owner
+        .from("client_generation_settings")
+        .select("workspace_id")
+        .in("workspace_id", [ids.workspaceA, ids.workspaceB]);
+      expect(lues).toHaveLength(2);
+
+      const { data: ecrites } = await clients.owner
+        .from("client_generation_settings")
+        .update({ monthly_instruction: `Consigne posée par l'owner ${RUN}` })
+        .eq("workspace_id", ids.workspaceA)
+        .select("monthly_instruction");
+      expect(ecrites?.[0]?.monthly_instruction).toBe(`Consigne posée par l'owner ${RUN}`);
+    });
+
+    it("efface la consigne du mois sans toucher au reste, et sans cron", async () => {
+      const { data } = await clients.owner
+        .from("client_generation_settings")
+        .update({ monthly_instruction: null, monthly_instruction_month: null })
+        .eq("workspace_id", ids.workspaceA)
+        .select("monthly_instruction, permanent_instructions");
+      expect(data?.[0]?.monthly_instruction).toBeNull();
+      expect(data?.[0]?.permanent_instructions).toContain("Client A");
+    });
+  });
+
+  /**
+   * Les trois colonnes ajoutées à `client_context` par 20260913c. Elles sont
+   * couvertes par la politique `for all` de 0033 — la RLS filtre des lignes,
+   * pas des colonnes — mais le vérifier coûte deux appels et attrape le jour
+   * où quelqu'un croira devoir leur écrire une politique à part.
+   */
+  describe("la matière humaine du brief suit la même règle que le brief", () => {
+    it("n'est lue par aucun client", async () => {
+      const { data } = await clients.clientA
+        .from("client_context")
+        .select("validated_examples, client_feedback, sourced_facts")
+        .eq("id", ids.contextA);
+      expect(data).toEqual([]);
+    });
+
+    it("s'écrit et se relit pour l'owner", async () => {
+      const { data } = await clients.owner
+        .from("client_context")
+        .update({
+          validated_examples: [{ reseau: "instagram", texte: `Exemple ${RUN}` }],
+          client_feedback: "Ne jamais dire « iconique ».",
+          sourced_facts: [
+            { fait: "Atelier fondé en 1974.", source: "https://exemple.test", verifie_le: "2026-09-01" },
+          ],
+        })
+        .eq("id", ids.contextA)
+        .select("validated_examples, client_feedback, sourced_facts");
+
+      expect(data?.[0]?.client_feedback).toContain("iconique");
+      expect(data?.[0]?.validated_examples).toHaveLength(1);
+      expect(data?.[0]?.sourced_facts).toHaveLength(1);
     });
   });
 });

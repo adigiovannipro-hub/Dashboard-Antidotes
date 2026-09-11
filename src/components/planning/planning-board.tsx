@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
@@ -52,6 +52,7 @@ import {
 import type { ColumnDef } from "@/lib/planning/columns";
 import { applyWidths } from "@/lib/planning/columns";
 import { monthGroupLabel } from "@/lib/planning/monday-mapping";
+import { rangeBetween, visibleSubjectIds } from "@/lib/planning/flatten";
 import { countSubjects, filterMonths } from "@/lib/planning/search";
 import { sortSubjects } from "@/lib/planning/sort";
 import type { InstagramProfile } from "@/lib/social/types";
@@ -179,6 +180,19 @@ export function PlanningBoardView({
     [sort, setSort],
   );
 
+  // Largeurs en cours de drag : le tableau suit le pointeur sans attendre la
+  // base, qui reçoit la valeur finale au relâchement.
+  const [widthPreview, setWidthPreview] = useState<Record<string, number>>({});
+  // Mémoïsé : c'est une dépendance de l'ordre à plat du tableau, et un nouveau
+  // tableau à chaque rendu y ferait recalculer la liste sans raison. Déclaré
+  // **avant** `applySort`, qui le referme : une fermeture sur une constante
+  // déclarée plus bas empêche le compilateur React de conserver la
+  // mémoïsation, et le lint le refuse.
+  const effectiveColumns = useMemo(
+    () => applyWidths(columns, widthPreview),
+    [columns, widthPreview],
+  );
+
   /**
    * « Enregistrer » après un tri — le geste Monday : l'ordre affiché est
    * réécrit dans les positions du tableau, couloir par couloir, et devient
@@ -201,10 +215,6 @@ export function PlanningBoardView({
       return result;
     });
   };
-  // Largeurs en cours de drag : le tableau suit le pointeur sans attendre la
-  // base, qui reçoit la valeur finale au relâchement.
-  const [widthPreview, setWidthPreview] = useState<Record<string, number>>({});
-  const effectiveColumns = applyWidths(columns, widthPreview);
 
   // Les boîtes du tableau : étiquettes d'une colonne, déplacement, archives,
   // corbeille.
@@ -304,15 +314,6 @@ export function PlanningBoardView({
     [pathname, router, searchParams, raise, closeDrawer],
   );
 
-  const toggleSelect = useCallback((subjectId: string) => {
-    setSelectedIds((current) => {
-      const next = new Set(current);
-      if (next.has(subjectId)) next.delete(subjectId);
-      else next.add(subjectId);
-      return next;
-    });
-  }, []);
-
   const toggleLane = useCallback((subjectIds: string[], selected: boolean) => {
     setSelectedIds((current) => {
       const next = new Set(current);
@@ -332,8 +333,73 @@ export function PlanningBoardView({
   }).filter((month): month is string => month !== null);
 
   const searching = search.trim().length > 0;
-  const visibleMonths = filterMonths(months, search);
+  const visibleMonths = useMemo(() => filterMonths(months, search), [months, search]);
   const resultCount = searching ? countSubjects(visibleMonths) : 0;
+
+  // Une recherche rebascule sur la pile des mois : un résultat doit se montrer
+  // ligne à ligne, pas se deviner dans une case de calendrier.
+  const calendarMode =
+    savedView.mode === "calendrier" && board.kind === "editorial" && !searching;
+
+  /**
+   * L'ordre de l'écran mis à plat — la seule liste sur laquelle une plage a un
+   * sens. Elle tient compte des mois repliés, des couloirs fermés, de la
+   * recherche et du tri en cours : une plage plus large que ce que l'œil voit
+   * deviendrait une écriture de masse au premier clic dans une cellule, la
+   * modification d'une ligne sélectionnée se propageant à toute la sélection.
+   */
+  const visibleRowIds = useMemo(
+    () =>
+      visibleSubjectIds({
+        months: visibleMonths,
+        columns: effectiveColumns,
+        view: savedView,
+        currentMonthKey,
+        searching,
+        calendar: calendarMode,
+      }),
+    [
+      visibleMonths,
+      effectiveColumns,
+      savedView,
+      currentMonthKey,
+      searching,
+      calendarMode,
+    ],
+  );
+
+  /** La dernière ligne cochée sans Shift : le point de départ d'une plage. */
+  const rangeAnchor = useRef<string | null>(null);
+
+  const toggleSelect = useCallback(
+    (subjectId: string, extendRange = false) => {
+      const anchor = rangeAnchor.current;
+      // Ancre absente de l'écran — repliée, filtrée par la recherche, ou
+      // supprimée depuis le clic qui l'a posée : on se rabat sur la bascule
+      // simple plutôt que de cocher à l'aveugle.
+      const range =
+        extendRange && anchor !== null
+          ? rangeBetween(visibleRowIds, anchor, subjectId)
+          : [];
+
+      if (range.length > 0) {
+        // Union, jamais de retrait : `selectedIds` vaut pour le tableau entier
+        // et la barre d'actions agit sur tout le Set — décocher une plage
+        // emporterait une sélection posée trois mois plus haut.
+        setSelectedIds((current) => new Set([...current, ...range]));
+        return;
+      }
+
+      setSelectedIds((current) => {
+        const next = new Set(current);
+        if (next.has(subjectId)) next.delete(subjectId);
+        else next.add(subjectId);
+        return next;
+      });
+      rangeAnchor.current = subjectId;
+    },
+    [visibleRowIds],
+  );
 
   // La publication ouverte : l'état local prime, l'URL sert d'arrivée.
   const activeId = panel !== undefined ? panel.id : (drawer?.subject.id ?? null);
@@ -480,11 +546,7 @@ export function PlanningBoardView({
         <p className="type-body rounded-lg border border-dashed border-border p-10 text-center text-text-secondary">
           Ce tableau est vide. Ajoutez un mois pour commencer.
         </p>
-      ) : savedView.mode === "calendrier" &&
-        board.kind === "editorial" &&
-        !searching ? (
-        // Une recherche bascule sur la pile des mois : un résultat doit se
-        // montrer ligne à ligne, pas se deviner dans une case de calendrier.
+      ) : calendarMode ? (
         <CalendarView
           months={months}
           initialMonthKey={currentMonthKey}

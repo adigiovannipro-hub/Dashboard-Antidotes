@@ -6,7 +6,7 @@ import {
   igCommentsToThreads,
   pageCommentsToThreads,
 } from "@/lib/connectors/meta/comments";
-import { explainMetaError } from "@/lib/connectors/meta/errors";
+import { explainMetaError, isTransientMeta } from "@/lib/connectors/meta/errors";
 import { explainYouTubeError } from "@/lib/connectors/youtube/errors";
 import {
   fetchCommentAuthors,
@@ -43,6 +43,12 @@ import {
   toPgVector,
 } from "./embeddings";
 import { planThreadState, sanitizeText } from "./ingest";
+import {
+  backfillsProfiles,
+  conversationSince,
+  usesPostCursors,
+  type SyncScope,
+} from "./sync-scope";
 import type { IngestedThread } from "./ingest";
 import type { ModerationChannel, ModerationClient } from "./types";
 
@@ -57,6 +63,20 @@ import type { ModerationChannel, ModerationClient } from "./types";
  * Chemin du projet : plateforme → base → lecture locale. Upserts par
  * identifiant externe, rejouer un passage ne duplique rien, et **chaque
  * `error` Supabase est testé** — la règle des crons.
+ *
+ * Deux portées depuis le 14/09 (`sync-scope.ts`), et c'est ce qui rend le
+ * relevé supportable à l'ouverture d'un écran :
+ *
+ *   • `jour` — deux jours de conversations, les commentaires des seules
+ *     publications dont `comments_count` a bougé depuis le dernier passage
+ *     (`moderation_post_cursors`), aucun rattrapage de profil ni d'auteur
+ *     masqué. Quelques appels par compte.
+ *   • `complet` — soixante jours, tout redescendu, rattrapages compris. La
+ *     passe de réparation, jouée la nuit sur un runner GitHub.
+ *
+ * La liste des publications, elle, couvre soixante jours dans les deux cas :
+ * un commentaire arrive aujourd'hui sous un reel d'il y a six semaines, et la
+ * raccourcir reviendrait à ne jamais le voir.
  */
 
 type Admin = SupabaseClient<Database>;
@@ -77,6 +97,22 @@ function isTooMuchData(error: unknown): boolean {
     error instanceof Error &&
     error.message.toLowerCase().includes("reduce the amount of data")
   );
+}
+
+/**
+ * Les deux refus qui veulent dire « redemande plus petit ».
+ *
+ * L'escalier ne descendait que sur « reduce the amount of data ». Or la boîte
+ * privée d'Instagram ne renvoie pas ça : elle renvoie « long polling
+ * terminated due to timeout » ou un 504 — Meta n'assemble pas 50 fils × 25
+ * messages avec leurs pièces jointes dans son délai. Ce refus-là remontait tel
+ * quel dès le premier palier et finissait en avertissement muet : zéro DM
+ * Instagram en base depuis le premier jour, pendant que les commentaires
+ * passaient. Un timeout est le symptôme d'une demande trop lourde, il doit
+ * descendre l'escalier.
+ */
+function shouldStepDown(error: unknown): boolean {
+  return isTooMuchData(error) || isTransientMeta(error);
 }
 
 /** Combien de photos de profil d'interlocuteurs se rattrapent par passage. */
@@ -173,6 +209,92 @@ async function ensureModerationClient(
   return created as unknown as ModerationClient;
 }
 
+/**
+ * Les compteurs de commentaires vus au dernier passage réussi.
+ *
+ * `null` quand la table n'est pas là — la migration part au merge : le relevé
+ * redescend alors tout, exactement comme avant. Une passe longue vaut mieux
+ * qu'un canal en erreur.
+ */
+async function loadPostCursors(options: {
+  admin: Admin;
+  clientId: string;
+  channel: ModerationChannel;
+}): Promise<Map<string, number> | null> {
+  const { data, error } = await options.admin
+    .from("moderation_post_cursors")
+    .select("post_external_id, comments_count")
+    .eq("client_id", options.clientId)
+    .eq("channel", options.channel);
+  if (error) return null;
+
+  return new Map(
+    (
+      (data ?? []) as unknown as {
+        post_external_id: string;
+        comments_count: number;
+      }[]
+    ).map((row) => [row.post_external_id, row.comments_count]),
+  );
+}
+
+/**
+ * Les compteurs des publications **réellement descendues** pendant ce passage.
+ *
+ * Écrits après coup et jamais avant : une publication dont l'appel a été
+ * refusé ne doit pas passer pour vue, sinon son commentaire manquant ne
+ * reviendrait plus jamais. Un échec d'écriture se tait pour la même raison
+ * qu'il est sans danger — le passage suivant redescendra ce qu'il n'a pas su
+ * mémoriser.
+ */
+async function savePostCursors(options: {
+  admin: Admin;
+  clientId: string;
+  channel: ModerationChannel;
+  seen: Map<string, number>;
+}): Promise<void> {
+  if (options.seen.size === 0) return;
+  const now = new Date().toISOString();
+  await options.admin.from("moderation_post_cursors").upsert(
+    [...options.seen].map(([postExternalId, commentsCount]) => ({
+      client_id: options.clientId,
+      channel: options.channel,
+      post_external_id: postExternalId,
+      comments_count: commentsCount,
+      last_seen_at: now,
+    })) as never,
+    { onConflict: "client_id,channel,post_external_id" },
+  );
+}
+
+/**
+ * Les interlocuteurs dont la photo est déjà en base.
+ *
+ * `conversationToThread` pose `participantAvatarUrl: null` en dur — la photo
+ * ne vient pas du listing — et la collecte ne relisait jamais la base : chaque
+ * passage complet redemandait les cinquante mêmes personnes, une par une, pour
+ * réécrire ce qui était déjà là.
+ */
+async function avatarsAlreadyKnown(options: {
+  admin: Admin;
+  clientId: string;
+  channel: ModerationChannel;
+}): Promise<Set<string>> {
+  const { data } = await options.admin
+    .from("conversations")
+    .select("participant_external_id")
+    .eq("client_id", options.clientId)
+    .eq("channel", options.channel)
+    .not("participant_avatar_url", "is", null)
+    .limit(2000);
+
+  return new Set(
+    ((data ?? []) as unknown as { participant_external_id: string | null }[])
+      .map((row) => row.participant_external_id)
+      .filter((id): id is string => Boolean(id)),
+  );
+}
+
 /** Écrit les fils d'un passage : conversations puis messages, en upsert. */
 async function upsertThreads(options: {
   admin: Admin;
@@ -187,7 +309,7 @@ async function upsertThreads(options: {
   const { data: existingRows, error: existingError } = await admin
     .from("conversations")
     .select(
-      "id, external_thread_id, status, unread, priority, flags, last_message_at, deleted_at, participant_avatar_url",
+      "id, external_thread_id, status, unread, priority, flags, last_message_at, deleted_at, participant_avatar_url, message_count",
     )
     .eq("client_id", client.id)
     .eq("channel", channel)
@@ -209,6 +331,7 @@ async function upsertThreads(options: {
         last_message_at: string;
         deleted_at: string | null;
         participant_avatar_url: string | null;
+        message_count: number | null;
       }[]
     ).map((row) => [row.external_thread_id, row]),
   );
@@ -261,7 +384,13 @@ async function upsertThreads(options: {
         post_permalink: thread.post?.permalink ?? null,
         post_excerpt: sanitizeText(thread.post?.excerpt ?? null),
         post_thumbnail_url: thread.post?.thumbnailUrl ?? null,
-        message_count: plan.message_count,
+        /* Jamais moins que ce qui est déjà en base. `planThreadState` compte
+           les messages **que ce passage a vus**, et le palier réduit de la
+           messagerie n'en demande que dix : sans ce plancher, un fil qui en
+           portait vingt-cinq verrait son compteur reculer à chaque relevé —
+           une régression visible à l'écran, pour une donnée que Meta n'a
+           simplement pas redite. */
+        message_count: Math.max(plan.message_count, existing?.message_count ?? 0),
         last_message_at: plan.last_message_at,
       },
     ];
@@ -322,15 +451,30 @@ async function upsertThreads(options: {
  * commentaires des seules publications qui en portent.
  */
 async function pullThreads(options: {
+  admin: Admin;
+  clientId: string;
   account: SocialAccountRow;
   accessToken: string;
   channel: "instagram" | "facebook" | "youtube";
+  scope: SyncScope;
 }): Promise<{ threads: IngestedThread[]; warning: string | null }> {
-  const { account, accessToken, channel } = options;
+  const { admin, clientId, account, accessToken, channel, scope } = options;
+  /* La liste des publications garde ses soixante jours dans les deux portées,
+     et ce n'est pas une négligence : un commentaire arrive aujourd'hui sous un
+     reel d'il y a six semaines. Ce que la portée « jour » raccourcit, ce n'est
+     pas la liste — Meta la rend en un ou deux appels — c'est ce qu'on
+     **descend** derrière, tranché par les curseurs. */
   const since = sinceDate();
+  /* Les conversations, elles, se bornent vraiment : deux jours à l'ouverture
+     de l'écran, soixante la nuit. */
+  const conversationsSince = conversationSince(scope, new Date());
   const threads: IngestedThread[] = [];
 
   const withAuthors = async (collected: IngestedThread[]) => {
+    // Un appel par fil orphelin : c'est le rattrapage de la nuit, pas ce
+    // qu'on fait attendre à quelqu'un qui vient d'ouvrir son inbox.
+    if (!backfillsProfiles(scope)) return collected;
+
     // Les fils dont Meta n'a pas nommé l'auteur : un appel direct sur le
     // commentaire le rend parfois. Ceux qu'il ne rend toujours pas sont
     // masqués par Meta, et l'écran le dira.
@@ -413,8 +557,11 @@ async function pullThreads(options: {
          et ce refus, rangé en avertissement, s'affichait comme « canal en
          erreur » alors que les commentaires passaient. */
       let conversations = null;
+      /* On **part** du palier réduit et on ne monte jamais : 50 fils × 25
+         messages avec pièces jointes est précisément ce que Meta ne sait pas
+         assembler, et c'est le premier appel qui tombait. Une boîte se traite
+         au jour le jour ; ce qu'une page ne rend pas, la suivante le rendra. */
       const ladders = [
-        {},
         { pageSize: 20, messageLimit: 10 },
         { pageSize: 10, messageLimit: 5, withAttachments: false },
       ] as const;
@@ -424,12 +571,12 @@ async function pullThreads(options: {
             pageId,
             accessToken,
             platform: channel === "instagram" ? "instagram" : "messenger",
-            since,
+            since: conversationsSince,
             ...step,
           });
           break;
         } catch (error) {
-          if (!isTooMuchData(error)) throw error;
+          if (!shouldStepDown(error)) throw error;
         }
       }
       if (!conversations) {
@@ -453,12 +600,12 @@ async function pullThreads(options: {
               pageId,
               accessToken,
               platform,
-              since,
+              since: conversationsSince,
               ...step,
             });
             break;
           } catch (error) {
-            if (!isTooMuchData(error)) throw error;
+            if (!shouldStepDown(error)) throw error;
           }
         }
         if (!headers) {
@@ -474,7 +621,8 @@ async function pullThreads(options: {
         const recent = headers
           .filter(
             (header) =>
-              !header.updated_time || header.updated_time.slice(0, 10) >= since,
+              !header.updated_time ||
+              header.updated_time.slice(0, 10) >= conversationsSince,
           )
           .slice(0, 30);
         conversations = [];
@@ -486,7 +634,7 @@ async function pullThreads(options: {
               accessToken,
             });
           } catch (error) {
-            if (!isTooMuchData(error)) throw error;
+            if (!shouldStepDown(error)) throw error;
             messages = await fetchConversationMessages({
               conversationId: header.id,
               accessToken,
@@ -521,14 +669,27 @@ async function pullThreads(options: {
          l'API de profil oui — plafonnée par passage, en meilleur effort.
          L'upsert préserve les photos déjà posées, donc chaque passage n'a à
          demander que les nouvelles têtes. */
-      const missing = [
-        ...new Set(
-          dmThreads
-            .filter((thread) => !thread.participantAvatarUrl)
-            .map((thread) => thread.participantExternalId)
-            .filter((id): id is string => Boolean(id)),
-        ),
-      ].slice(0, AVATAR_BACKFILL_CAP);
+      /* Uniquement la nuit, et uniquement les têtes qu'on n'a pas déjà. Deux
+         défauts distincts réparés ici : ce rattrapage coûte jusqu'à cinquante
+         appels un par un — hors de question de le faire attendre à qui ouvre
+         son écran — et il redemandait **les mêmes personnes** à chaque
+         passage, `conversationToThread` posant toujours `null` et la collecte
+         ne relisant jamais la base. */
+      const known = backfillsProfiles(scope)
+        ? await avatarsAlreadyKnown({ admin, clientId, channel })
+        : null;
+      const missing = known
+        ? [
+            ...new Set(
+              dmThreads
+                .filter((thread) => !thread.participantAvatarUrl)
+                .map((thread) => thread.participantExternalId)
+                .filter((id): id is string => Boolean(id)),
+            ),
+          ]
+            .filter((id) => !known.has(id))
+            .slice(0, AVATAR_BACKFILL_CAP)
+        : [];
       let avatarWarning: string | null = null;
       if (missing.length > 0) {
         const { profiles, failure } = await fetchMessagingProfiles({
@@ -609,11 +770,25 @@ async function pullThreads(options: {
        palier refuse encore, le média est passé avec un avertissement nommé :
        un seul reel viral ne doit plus faire tomber le canal entier — c'est
        exactement ce qui laissait Bondet à « demande trop lourde ». */
+    /* Le curseur de chaque publication : Meta rend `comments_count` gratuitement
+       dans ce listing, et c'est lui qui dit ce qui a bougé. En portée « jour »,
+       une publication dont le compteur n'a pas changé ne coûte plus un appel —
+       c'est ce qui rend le relevé court **sans** raccourcir la fenêtre, donc
+       sans manquer le commentaire posé aujourd'hui sous un reel d'il y a six
+       semaines. La nuit, tout redescend et les curseurs sont simplement remis
+       à jour. */
+    const cursors = usesPostCursors(scope)
+      ? await loadPostCursors({ admin, clientId, channel })
+      : null;
+    const seen = new Map<string, number>();
+
     let skippedMedia = 0;
     for (const item of media ?? []) {
       // Une story ne reçoit pas de commentaires ; zéro commentaire, zéro appel.
       if (item.media_product_type === "STORY") continue;
-      if (!item.comments_count) continue;
+      const commentsCount = item.comments_count ?? 0;
+      if (!commentsCount) continue;
+      if (cursors?.get(item.id) === commentsCount) continue;
       let comments = null;
       for (const attempt of [
         {},
@@ -636,7 +811,12 @@ async function pullThreads(options: {
         continue;
       }
       threads.push(...igCommentsToThreads({ media: item, comments, brand }));
+      // Après la descente, jamais avant : une publication refusée doit être
+      // retentée au passage suivant, pas classée comme vue.
+      seen.set(item.id, commentsCount);
     }
+    await savePostCursors({ admin, clientId, channel, seen });
+
     const volumeWarning =
       skippedMedia > 0
         ? `${skippedMedia} publication(s) trop commentée(s) pour Meta : leurs commentaires n'ont pas pu être relevés ce passage.`
@@ -657,11 +837,20 @@ async function pullThreads(options: {
   });
   const brand = { externalId: account.external_id };
 
+  const pageCursors = usesPostCursors(scope)
+    ? await loadPostCursors({ admin, clientId, channel })
+    : null;
+  const pageSeen = new Map<string, number>();
+
   for (const post of posts) {
-    if (!post.comments?.summary?.total_count) continue;
+    const commentsCount = post.comments?.summary?.total_count ?? 0;
+    if (!commentsCount) continue;
+    if (pageCursors?.get(post.id) === commentsCount) continue;
     const comments = await fetchPageComments({ postId: post.id, accessToken });
     threads.push(...pageCommentsToThreads({ post, comments, brand }));
+    pageSeen.set(post.id, commentsCount);
   }
+  await savePostCursors({ admin, clientId, channel, seen: pageSeen });
 
   const direct = await pullDirectMessages();
   threads.push(...direct.threads);
@@ -670,8 +859,14 @@ async function pullThreads(options: {
 
 export async function syncModerationInbox(options: {
   admin: Admin;
+  /**
+   * Ce que le passage redemande. `complet` par défaut — un appel qui ne dit
+   * rien veut le comportement d'avant, et c'est la portée nocturne.
+   */
+  scope?: SyncScope;
 }): Promise<ModerationSyncReport[]> {
   const { admin } = options;
+  const scope: SyncScope = options.scope ?? "complet";
   const reports: ModerationSyncReport[] = [];
 
   const { data: links, error: linksError } = await admin
@@ -783,7 +978,14 @@ export async function syncModerationInbox(options: {
       const connectionId = (connection as unknown as { id: string }).id;
 
       try {
-        const pulled = await pullThreads({ account, accessToken, channel });
+        const pulled = await pullThreads({
+          admin,
+          clientId: client.id,
+          account,
+          accessToken,
+          channel,
+          scope,
+        });
         report.messagesWarning = pulled.warning;
         report.threads = await upsertThreads({
           admin,

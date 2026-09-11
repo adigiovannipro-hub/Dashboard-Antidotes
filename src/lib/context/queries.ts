@@ -1,7 +1,12 @@
 import "server-only";
 
 import { createClient } from "@/lib/supabase/server";
-import type { ClientAsset, ClientContext, WordingHistoryEntry } from "./types";
+import type {
+  ClientAsset,
+  ClientContext,
+  ClientGenerationSettings,
+  WordingHistoryEntry,
+} from "./types";
 import { ASSETS_BUCKET } from "./storage";
 
 /**
@@ -56,6 +61,25 @@ export async function listContextVersions(
     ClientContext,
     "id" | "version" | "is_active" | "created_at"
   >[];
+}
+
+/**
+ * Le pilotage de la génération : instructions permanentes, consigne du mois,
+ * contexte temporel. Absent tant que personne n'a rien écrit — une ligne n'est
+ * posée qu'à la première sauvegarde, et `null` est la bonne réponse, pas une
+ * panne.
+ */
+export async function getGenerationSettings(
+  workspaceId: string,
+): Promise<ClientGenerationSettings | null> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("client_generation_settings")
+    .select("*")
+    .eq("workspace_id", workspaceId)
+    .maybeSingle();
+
+  return (data as unknown as ClientGenerationSettings | null) ?? null;
 }
 
 export async function listAssets(workspaceId: string): Promise<ClientAsset[]> {

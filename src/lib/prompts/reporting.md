@@ -67,8 +67,13 @@ Direct, sans jargon, sans superlatifs. Écrit pour être lu à voix haute en ré
 
 ## Données fournies
 
-BRIEF ÉDITORIAL DU CLIENT :
-{{client_context}}
+CONTEXTE CLIENT INJECTÉ :
+Une section par bloc du Contexte, dans l'ordre où il faut les lire : la marque
+et ses documents, les piliers, les livrables dus, les règles par réseau, les
+interdits, les exemples validés, les retours du client, les faits sourcés, les
+accroches déjà utilisées — interdites de reprise —, puis le pilotage du moment.
+Les dernières sections tranchent sur les premières quand elles se contredisent.
+{{contexte_injecte}}
 
 MOIS ANALYSÉ : {{target_month}}
 

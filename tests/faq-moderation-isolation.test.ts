@@ -5,7 +5,9 @@
  * entrées FAQ, leurs catégories et la ligne du client de modération rattaché —
  * et rien d'autre : l'inbox reste un outil interne. 20260912b-c y ajoutent le
  * fil de discussion d'un élément de langage, la seule table du module où le
- * rôle client **écrit**.
+ * rôle client **écrit**. 20260913a-b (les réponses enregistrées) et 20260914a-b
+ * (les curseurs de publication du relevé du jour) referment la porte de l'autre
+ * côté : ce sont deux outils d'inbox, et aucun client n'en voit une ligne.
  *
  * Ces tests le prouvent dans la base, en vraies sessions contre l'API REST,
  * dans les deux sens : le client lit bien sa FAQ (une politique trop stricte
@@ -45,10 +47,18 @@ const migrated = configured
         .from("faq_comments")
         .select("id")
         .limit(1);
-      const missing = error ?? threadError;
+      const { error: repliesError } = await probe
+        .from("saved_replies")
+        .select("id")
+        .limit(1);
+      const { error: cursorError } = await probe
+        .from("moderation_post_cursors")
+        .select("post_external_id")
+        .limit(1);
+      const missing = error ?? threadError ?? repliesError ?? cursorError;
       if (missing) {
         console.warn(
-          `[faq-moderation-isolation] suite sautée : migrations 20260830 / 20260912b-c non appliquées (${missing.message}). À rejouer après le push sur main.`,
+          `[faq-moderation-isolation] suite sautée : migrations 20260830 / 20260912b-c / 20260913a-b / 20260914a-b non appliquées (${missing.message}). À rejouer après le push sur main.`,
         );
         return false;
       }
@@ -383,6 +393,136 @@ suite("isolation de la FAQ Modération (RLS)", () => {
         .eq("id", ids.commentA)
         .single();
       expect(after?.body).toBe("Autorisation demandée à Client A");
+    });
+  });
+
+  describe("les réponses enregistrées (20260913a-b)", () => {
+    /* La bibliothèque est un outil **interne** : elle vit sur `client_id` et
+       passe par `app.moderation_client_ids()`, comme les conversations. Un
+       client d'espace, qui lit pourtant la FAQ depuis 20260830, n'y a aucun
+       accès — c'est la limite qu'on vérifie dans les deux sens. */
+    let replyA = "";
+
+    it("l'owner enregistre une réponse chez son client", async () => {
+      const { data, error } = await clients.owner
+        .from("saved_replies")
+        .insert({
+          client_id: ids.modClientA,
+          title: `${RUN} accueil`,
+          body: "Bonjour, merci pour votre message.",
+          tags: ["accueil"],
+          scope: ["dm"],
+        })
+        .select("id")
+        .maybeSingle();
+      expect(error).toBeNull();
+      expect(data?.id).toBeTruthy();
+      replyA = (data as { id: string }).id;
+    });
+
+    it("l'owner la relit", async () => {
+      const { data } = await clients.owner
+        .from("saved_replies")
+        .select("id, title")
+        .eq("id", replyA);
+      expect(data).toHaveLength(1);
+    });
+
+    it("le client de l'espace ne la lit pas — la FAQ est ouverte, pas l'inbox", async () => {
+      const { data } = await clients.clientA
+        .from("saved_replies")
+        .select("id")
+        .eq("id", replyA);
+      expect(data ?? []).toHaveLength(0);
+    });
+
+    it("le client de l'espace n'en crée pas", async () => {
+      const { error } = await clients.clientA.from("saved_replies").insert({
+        client_id: ids.modClientA,
+        title: `${RUN} intrus`,
+        body: "Ne doit jamais entrer.",
+      });
+      expect(error).not.toBeNull();
+    });
+
+    it("le client voisin ne la lit pas davantage", async () => {
+      const { data } = await clients.clientB
+        .from("saved_replies")
+        .select("id")
+        .eq("id", replyA);
+      expect(data ?? []).toHaveLength(0);
+    });
+
+    it("l'owner la retire", async () => {
+      const { error } = await clients.owner
+        .from("saved_replies")
+        .delete()
+        .eq("id", replyA);
+      expect(error).toBeNull();
+    });
+  });
+
+  describe("les curseurs de publication (20260914a-b)", () => {
+    /* Le curseur dit « cette publication portait 12 commentaires au dernier
+       passage » : c'est ce qui permet au relevé du jour de ne redescendre que
+       ce qui a bougé. Rien d'un livrable client — il vit sur `client_id` et
+       passe par les mêmes helpers que les conversations. Le client d'espace,
+       qui lit pourtant la FAQ depuis 20260830, n'en voit aucun. */
+    const postId = `${RUN}-media-1`;
+
+    it("l'owner pose un curseur chez son client", async () => {
+      const { error } = await clients.owner.from("moderation_post_cursors").insert({
+        client_id: ids.modClientA,
+        channel: "instagram",
+        post_external_id: postId,
+        comments_count: 12,
+      });
+      expect(error).toBeNull();
+    });
+
+    it("l'owner le relit et le fait avancer", async () => {
+      const { data } = await clients.owner
+        .from("moderation_post_cursors")
+        .update({ comments_count: 14 })
+        .eq("client_id", ids.modClientA)
+        .eq("post_external_id", postId)
+        .select("comments_count");
+      expect(data?.[0]?.comments_count).toBe(14);
+    });
+
+    it("le client de l'espace n'en lit aucun", async () => {
+      const { data } = await clients.clientA
+        .from("moderation_post_cursors")
+        .select("post_external_id")
+        .eq("post_external_id", postId);
+      expect(data ?? []).toHaveLength(0);
+    });
+
+    it("le client de l'espace n'en pose pas", async () => {
+      const { error } = await clients.clientA.from("moderation_post_cursors").insert({
+        client_id: ids.modClientA,
+        channel: "instagram",
+        post_external_id: `${RUN}-intrus`,
+        comments_count: 1,
+      });
+      expect(error).not.toBeNull();
+    });
+
+    it("le client voisin ne le lit pas davantage", async () => {
+      const { data } = await clients.clientB
+        .from("moderation_post_cursors")
+        .select("post_external_id")
+        .eq("post_external_id", postId);
+      expect(data ?? []).toHaveLength(0);
+    });
+
+    it("l'owner le retire", async () => {
+      const { error } = await clients.owner
+        .from("moderation_post_cursors")
+        .delete()
+        .eq("client_id", ids.modClientA)
+        .eq("post_external_id", postId);
+      expect(error).toBeNull();
     });
   });
 

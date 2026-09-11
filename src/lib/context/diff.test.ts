@@ -9,14 +9,15 @@ const makeContext = (overrides: Partial<ClientContext> = {}): ClientContext => (
   version: 1,
   is_active: true,
   main_context: "Contexte initial.",
-  positioning: "Positionnement initial.",
   audience: null,
   tone_of_voice: "Sobre.",
   pillars: [],
-  mentions: null,
   restrictions: "Pas d'emoji.",
   platforms: {},
   deliverables: { intentions: "", reseaux: [], publications: [] },
+  validated_examples: [],
+  client_feedback: null,
+  sourced_facts: [],
   created_at: "2026-08-01T00:00:00Z",
   created_by: null,
   ...overrides,
@@ -24,11 +25,9 @@ const makeContext = (overrides: Partial<ClientContext> = {}): ClientContext => (
 
 const makeProposal = (overrides: Partial<ContextProposal> = {}): ContextProposal => ({
   main_context: "Contexte initial.",
-  positioning: "Positionnement enrichi.",
   audience: "Femmes 25-45 ans.",
   tone_of_voice: "Sobre.",
   pillars: [],
-  mentions: "",
   restrictions: "Pas d'emoji.",
   platforms: {},
   ...overrides,
@@ -41,7 +40,6 @@ describe("buildContextDiff", () => {
 
     expect(byKey.main_context!.changed).toBe(false);
     expect(byKey.tone_of_voice!.changed).toBe(false);
-    expect(byKey.positioning!.changed).toBe(true);
     expect(byKey.audience!.changed).toBe(true);
     expect(byKey.audience!.before).toBe("");
     expect(byKey.audience!.after).toBe("Femmes 25-45 ans.");
@@ -52,7 +50,8 @@ describe("buildContextDiff", () => {
     const changedKeys = diff.filter((entry) => entry.changed).map((entry) => entry.key);
 
     expect(changedKeys).toContain("main_context");
-    expect(changedKeys).not.toContain("mentions");
+    // Un champ proposé vide n'est pas un changement, même sur un brief absent.
+    expect(changedKeys).not.toContain("platforms");
   });
 
   it("rend les piliers lisibles dans les deux colonnes", () => {
@@ -66,6 +65,8 @@ describe("buildContextDiff", () => {
             formats: ["Reels"],
             angles: ["portrait"],
             frequence: "2 par mois",
+            objectif_business: "prises de rendez-vous",
+            cta_autorises: ["Prendre rendez-vous"],
           },
         ],
       }),
@@ -74,6 +75,8 @@ describe("buildContextDiff", () => {
 
     expect(pillars.changed).toBe(true);
     expect(pillars.after).toContain("Atelier");
+    expect(pillars.after).toContain("Objectif business : prises de rendez-vous");
+    expect(pillars.after).toContain("CTA autorisés : Prendre rendez-vous");
     expect(pillars.after).toContain("Formats : Reels");
     expect(pillars.after).toContain("Fréquence : 2 par mois");
   });
@@ -81,22 +84,22 @@ describe("buildContextDiff", () => {
 
 describe("mergeProposal", () => {
   it("applique la proposition sur les seuls champs acceptés", () => {
-    const merged = mergeProposal(makeContext(), makeProposal(), ["positioning"]);
+    const merged = mergeProposal(makeContext(), makeProposal(), ["audience"]);
 
-    expect(merged.positioning).toBe("Positionnement enrichi.");
-    // Refusé : la valeur actuelle reste, l'audience proposée est perdue.
-    expect(merged.audience).toBe("");
+    expect(merged.audience).toBe("Femmes 25-45 ans.");
+    // Refusé : la valeur actuelle reste, celle proposée est perdue.
+    expect(merged.tone_of_voice).toBe("Sobre.");
     expect(merged.main_context).toBe("Contexte initial.");
   });
 
   it("n'écrase jamais un champ refusé, même vide dans la proposition", () => {
     const merged = mergeProposal(
-      makeContext({ mentions: "Mention manuelle précieuse." }),
-      makeProposal({ mentions: "" }),
+      makeContext({ restrictions: "Interdit manuel précieux." }),
+      makeProposal({ restrictions: "" }),
       [],
     );
 
-    expect(merged.mentions).toBe("Mention manuelle précieuse.");
+    expect(merged.restrictions).toBe("Interdit manuel précieux.");
   });
 
   it("part d'un brief vide quand aucun n'existe", () => {

@@ -9,7 +9,7 @@ import {
   useTransition,
 } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { AlertTriangle, Inbox as InboxIcon, Search } from "lucide-react";
+import { Inbox as InboxIcon, Search, Smile } from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -24,23 +24,25 @@ import {
   InboxFilterBar,
   type ClientChip,
 } from "@/components/moderation/inbox-filter-bar";
-import { ShortcutsHint } from "@/components/moderation/shortcuts-hint";
 import { SelectionBar } from "@/components/moderation/selection-bar";
+import { ShortcutsHint } from "@/components/moderation/shortcuts-hint";
 import { ModerationSyncButton } from "@/components/moderation/sync-button";
+import { SyncPanel } from "@/components/moderation/sync-panel";
 import { Input } from "@/components/ui/input";
-import type {
-  ChannelConnectionSummary,
-  InboxCounters,
-} from "@/lib/moderation/queries";
+import type { InboxCounters, InboxSelection } from "@/lib/moderation/counters";
+import type { InboxQuery } from "@/lib/moderation/filters";
+import type { ChannelConnectionSummary } from "@/lib/moderation/queries";
+import { isReactionOnly } from "@/lib/moderation/reactions";
+import { describeEmptyState, type EmptyState } from "@/lib/moderation/empty-state";
+import { statusGroupOf } from "@/lib/moderation/types";
 import type {
   Conversation,
   Draft,
-  InboxView,
+  ModerationChannel,
   ModerationMessage,
   ModerationRole,
-  StatusGroup,
+  SavedReply,
 } from "@/lib/moderation/types";
-import { CHANNEL_LABELS } from "@/lib/moderation/types";
 import { cn } from "@/lib/utils";
 import { COMPOSIO_TRANSITION_NOTE } from "@/lib/social/direct-connect";
 
@@ -63,12 +65,12 @@ export function Inbox({
   role,
   conversations,
   counters,
+  networksShown,
   connections,
-  view,
-  statusGroup,
+  savedReplies,
+  selection,
+  query,
   clientSlug,
-  unreadOnly,
-  highPriorityOnly,
   search: initialSearch,
   selectedId,
   threadOpen,
@@ -78,12 +80,13 @@ export function Inbox({
   role: ModerationRole;
   conversations: Conversation[];
   counters: InboxCounters;
+  networksShown: ModerationChannel[];
   connections: ChannelConnectionSummary[];
-  view: InboxView;
-  statusGroup: StatusGroup;
+  savedReplies: SavedReply[];
+  selection: InboxSelection;
+  /** Les paramètres bruts de l'URL — « Tout lire » les relit comme la page. */
+  query: InboxQuery;
   clientSlug: string | null;
-  unreadOnly: boolean;
-  highPriorityOnly: boolean;
   search: string;
   selectedId: string | null;
   /** Vrai quand l'URL porte `?conv=` : sur mobile, le fil couvre la liste. */
@@ -101,6 +104,29 @@ export function Inbox({
   const [search, setSearch] = useState(initialSearch);
   const [checked, setChecked] = useState<Set<string>>(new Set());
   const [gesturePending, startGesture] = useTransition();
+
+  /* Le geste s'applique à l'écran avant le serveur.
+     Une action de masse sur trente lignes mettait deux secondes à se voir :
+     on recliquait, et le doute valait bien plus cher que le gain. La table
+     `overlay` porte le changement attendu, la liste le rend tout de suite, et
+     un échec **retire** l'entrée — la ligne redevient ce qu'elle était, avec
+     l'erreur en toast. Elle se vide dès que le serveur rend sa version. */
+  const [pendingOverlay, setPendingOverlay] = useState<{
+    base: Conversation[];
+    patch: Record<string, Partial<Conversation>>;
+  } | null>(null);
+  /* Dérivé au rendu, sans effet : l'overlay ne vaut que pour la liste sur
+     laquelle il a été posé. Dès que le serveur en rend une autre, l'identité
+     du tableau change et l'attendu s'efface tout seul — le même mécanisme que
+     le surlignage optimiste ci-dessous, et pour la même raison : un
+     `setState` dans un effet ferait un rendu de plus à chaque clic. */
+  const overlay = useMemo(
+    () =>
+      pendingOverlay && pendingOverlay.base === conversations
+        ? pendingOverlay.patch
+        : {},
+    [pendingOverlay, conversations],
+  );
   const [readingAll, startReadingAll] = useTransition();
 
   /* La conversation ouverte, en avance sur le serveur.
@@ -122,10 +148,53 @@ export function Inbox({
     () => new Map(clients.map((client) => [client.id, client])),
     [clients],
   );
+  const clientNames = useMemo(
+    () => new Map(clients.map((client) => [client.id, client.name])),
+    [clients],
+  );
+
+  /* La liste telle qu'elle doit se voir : l'attendu par-dessus le rendu, et
+     les lignes que le geste fait sortir du segment courant retirées. Sans ce
+     retrait, « Marquer traitées » laissait trente lignes en place avec un
+     nouveau libellé, ce qui ne ressemble pas à un rangement. */
+  const shown = useMemo(() => {
+    const rows = conversations.map((conversation) =>
+      overlay[conversation.id]
+        ? ({ ...conversation, ...overlay[conversation.id] } as Conversation)
+        : conversation,
+    );
+    return rows.filter(
+      (conversation) =>
+        !overlay[conversation.id] ||
+        (!overlay[conversation.id]?.deleted_at &&
+          statusGroupOf(conversation.status) === selection.statusGroup),
+    );
+  }, [conversations, overlay, selection.statusGroup]);
+
+  /* Les réactions se rangent à part.
+     « ❤️ », « 🔥 », « @sophie » : sur un compte qui marche, c'est la moitié du
+     volume, et ça n'appelle aucune réponse. Mêlées au reste, elles noient les
+     vraies questions ; regroupées en bas, elles se closent d'un geste. Seule
+     la charge de travail les sépare — dans « Traitées », elles ont déjà leur
+     place au fil de l'eau. */
+  const [reactions, questions] = useMemo(() => {
+    if (selection.statusGroup !== "a-traiter") {
+      return [[] as Conversation[], shown] as const;
+    }
+    const left: Conversation[] = [];
+    const right: Conversation[] = [];
+    for (const conversation of shown) {
+      (conversation.kind === "comment" && isReactionOnly(conversation.excerpt)
+        ? left
+        : right
+      ).push(conversation);
+    }
+    return [left, right] as const;
+  }, [shown, selection.statusGroup]);
 
   const selectedIndex = useMemo(
-    () => conversations.findIndex((conversation) => conversation.id === shownId),
-    [conversations, shownId],
+    () => shown.findIndex((conversation) => conversation.id === shownId),
+    [shown, shownId],
   );
 
   const goTo = useCallback(
@@ -140,6 +209,13 @@ export function Inbox({
 
   const runGesture = useCallback(
     (ids: string[], gesture: InboxGesture) => {
+      const expected = expectedPatch(gesture);
+      setPendingOverlay((current) => {
+        const patch = current?.base === conversations ? { ...current.patch } : {};
+        for (const id of ids) patch[id] = { ...patch[id], ...expected };
+        return { base: conversations, patch };
+      });
+
       startGesture(async () => {
         const result = await applyInboxGesture({ conversationIds: ids, gesture });
         if (result.ok) {
@@ -153,11 +229,18 @@ export function Inbox({
           });
           router.refresh();
         } else {
+          // Retour en arrière : la ligne reprend l'état que le serveur porte.
+          setPendingOverlay((current) => {
+            if (!current) return current;
+            const patch = { ...current.patch };
+            for (const id of ids) delete patch[id];
+            return { base: current.base, patch };
+          });
           toast.error(result.error);
         }
       });
     },
-    [router],
+    [conversations, router],
   );
 
   /* Ouvrir un fil le marque lu — le geste de toute boîte de réception — et
@@ -180,7 +263,7 @@ export function Inbox({
      lire ». Un décompte exact de la boîte entière demanderait une requête de
      plus à chaque rendu, pour une information que le bouton donne lui-même
      dans son message de retour. */
-  const unreadShown = conversations.filter((conversation) => conversation.unread).length;
+  const unreadShown = shown.filter((conversation) => conversation.unread).length;
 
   const markAllRead = useCallback(() => {
     /* La confirmation au-delà d'un écran de lignes : marquer quatre cents fils
@@ -197,11 +280,8 @@ export function Inbox({
 
     startReadingAll(async () => {
       const result = await markFilterAsRead({
-        view,
         clientSlug: clientSlug ?? undefined,
-        statusGroup,
-        highPriorityOnly,
-        search: initialSearch || undefined,
+        query,
       });
       if (result.ok) {
         toast.success(result.message);
@@ -210,15 +290,7 @@ export function Inbox({
         toast.error(result.error);
       }
     });
-  }, [
-    clientSlug,
-    highPriorityOnly,
-    initialSearch,
-    router,
-    statusGroup,
-    unreadShown,
-    view,
-  ]);
+  }, [clientSlug, query, router, unreadShown]);
 
   const toggleChecked = useCallback((id: string, isChecked: boolean) => {
     setChecked((current) => {
@@ -229,6 +301,31 @@ export function Inbox({
     });
   }, []);
 
+  /* Pourquoi la liste est vide. Quatre raisons, quatre gestes — une seule
+     phrase pour les quatre ne disait jamais quoi faire. */
+  const filtered =
+    selection.networks.length > 0 ||
+    Boolean(selection.clientId) ||
+    selection.unreadOnly ||
+    selection.flaggedOnly ||
+    selection.dmOnly ||
+    Boolean(initialSearch);
+  const emptyState = describeEmptyState({
+    connections: connections.length,
+    everPolled: connections.some((connection) => connection.last_polled_at),
+    filtered,
+    segment: selection.statusGroup,
+  });
+
+  const resetFilters = useCallback(() => {
+    // Le segment reste : c'est le cadre de travail, pas un filtre qu'on a
+    // posé par mégarde.
+    const next = new URLSearchParams();
+    if (selection.statusGroup !== "a-traiter") next.set("statut", selection.statusGroup);
+    const query = next.toString();
+    router.push(query ? `${pathname}?${query}` : pathname);
+  }, [pathname, router, selection.statusGroup]);
+
   const closeThread = useCallback(() => {
     const next = new URLSearchParams(searchParams.toString());
     next.delete("conv");
@@ -238,12 +335,12 @@ export function Inbox({
 
   const move = useCallback(
     (delta: number) => {
-      if (conversations.length === 0) return;
+      if (shown.length === 0) return;
       const base = selectedIndex === -1 ? 0 : selectedIndex;
-      const next = Math.min(Math.max(base + delta, 0), conversations.length - 1);
-      goTo(conversations[next]!.id);
+      const next = Math.min(Math.max(base + delta, 0), shown.length - 1);
+      goTo(shown[next]!.id);
     },
-    [conversations, goTo, selectedIndex],
+    [shown, goTo, selectedIndex],
   );
 
   // Raccourcis de navigation. Les actions (valider, refuser, ignorer, mettre
@@ -289,32 +386,13 @@ export function Inbox({
     router.push(`${pathname}?${next}`);
   }
 
-  /* L'état du relevé. Un **avertissement** n'est pas une **erreur** : le
-     passage qui aboutit écrit quand même dans `last_error` ce qui lui a
-     manqué — un refus sur la messagerie, par exemple — alors que les
-     commentaires sont bien remontés. L'écran lisait ce champ seul et
-     remplaçait « Relevé il y a X » par « canal en erreur », ce qui donnait à
-     une boîte parfaitement à jour l'air d'une panne. Le juge est donc
-     `status`, et l'âge du relevé s'affiche **toujours**. */
-  const lastPolledAt = connections.reduce<string | null>(
-    (latest, connection) =>
-      connection.last_polled_at && (!latest || connection.last_polled_at > latest)
-        ? connection.last_polled_at
-        : latest,
-    null,
-  );
-  const failing = connections.filter((connection) => connection.status !== "connected");
-  const warned = connections.filter(
-    (connection) => connection.status === "connected" && connection.last_error,
-  );
-
   const selectedClient = thread.conversation
     ? clientById.get(thread.conversation.client_id)
     : undefined;
 
   // Une conversation disparue de la liste (filtre changé, ligne archivée) ne
   // doit pas rester cochée en fantôme.
-  const visibleIds = new Set(conversations.map((conversation) => conversation.id));
+  const visibleIds = new Set(shown.map((conversation) => conversation.id));
   const checkedVisible = [...checked].filter((id) => visibleIds.has(id));
 
   if (clients.length === 0) {
@@ -337,39 +415,26 @@ export function Inbox({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4">
+      {/* Sans bouton : « ? » l'ouvre, et « ? » est dans la liste. */}
+      <ShortcutsHint />
+
       <InboxFilterBar
         clients={clients}
         counters={counters}
-        view={view}
-        statusGroup={statusGroup}
+        networks={networksShown}
+        selection={selection}
         clientSlug={clientSlug}
-        unreadOnly={unreadOnly}
-        highPriorityOnly={highPriorityOnly}
         trailing={
           <>
-            <span className="type-caption hidden text-text-secondary lg:inline">
-              {lastPolledAt ? `Relevé ${relativeTime(lastPolledAt)}` : "Jamais relevé"}
-            </span>
-
-            {failing.length > 0 ? (
-              <span
-                className="type-caption inline-flex items-center gap-1 font-medium text-danger-ink"
-                title={failing[0]!.last_error ?? undefined}
-              >
-                <AlertTriangle className="size-3.5" strokeWidth={1.75} aria-hidden />
-                {failing.length > 1
-                  ? `${failing.length} canaux en erreur`
-                  : "canal en erreur"}
-              </span>
-            ) : warned.length > 0 ? (
-              <span
-                className="type-caption inline-flex items-center gap-1 font-medium text-warning-ink"
-                title={detailDesAvertissements(warned)}
-              >
-                <AlertTriangle className="size-3.5" strokeWidth={1.75} aria-hidden />
-                {warned.length > 1 ? `${warned.length} avertissements` : "avertissement"}
-              </span>
-            ) : null}
+            {/* Un seul repère pour tout l'état du relevé : l'âge, les erreurs,
+                le détail par client et par réseau, l'échéance des jetons et le
+                bouton pour relever. Il en vivait trois dans cette barre, dont
+                deux ne disaient pas ce qui clochait. */}
+            <SyncPanel
+              connections={connections}
+              clientNames={clientNames}
+              isOwner={role === "owner"}
+            />
 
             <form onSubmit={submitSearch} className="relative">
               <Search
@@ -385,9 +450,6 @@ export function Inbox({
                 className="w-44 pl-9 xl:w-64"
               />
             </form>
-
-            {role === "owner" ? <ModerationSyncButton /> : null}
-            <ShortcutsHint />
           </>
         }
       />
@@ -411,7 +473,7 @@ export function Inbox({
             threadOpen ? "hidden md:flex" : "flex",
           )}
         >
-          {conversations.length > 0 ? (
+          {shown.length > 0 ? (
             <div className="type-caption flex shrink-0 items-center gap-2 border-b border-border px-3 py-1.5 text-text-secondary">
               {/* Tout sélectionner — la liste affichée entière, donc « tous les
                   messages d'un client » dès que le filtre client est posé : le
@@ -420,13 +482,12 @@ export function Inbox({
                 <input
                   type="checkbox"
                   checked={
-                    checkedVisible.length === conversations.length &&
-                    conversations.length > 0
+                    checkedVisible.length === shown.length && shown.length > 0
                   }
                   onChange={(event) =>
                     setChecked(
                       event.target.checked
-                        ? new Set(conversations.map((conversation) => conversation.id))
+                        ? new Set(shown.map((conversation) => conversation.id))
                         : new Set(),
                     )
                   }
@@ -435,7 +496,12 @@ export function Inbox({
                 />
                 {checkedVisible.length > 0
                   ? `${checkedVisible.length} sélectionnée(s)`
-                  : "Tout sélectionner"}
+                  : unreadShown > 0
+                    ? // Ce qu'on vient chercher en ouvrant l'Inbox se dit en
+                      // tête de liste, en clair. « Tout sélectionner » est un
+                      // geste, pas une information.
+                      `${unreadShown} non ${unreadShown > 1 ? "lues" : "lue"}`
+                    : "Tout sélectionner"}
               </label>
 
               {/* « Tout lire » ne passe pas par la sélection : la case ci-contre
@@ -456,7 +522,7 @@ export function Inbox({
           ) : null}
           <div className="min-h-0 flex-1 overflow-y-auto">
           <ConversationList
-            conversations={conversations}
+            conversations={questions}
             clients={clientById}
             showClient={clientSlug === null && clients.length > 1}
             selectedId={shownId}
@@ -464,10 +530,54 @@ export function Inbox({
             pending={gesturePending}
             onToggle={toggleChecked}
             onGesture={runGesture}
-            emptyMessage="Aucune conversation ne correspond à ces filtres."
+            empty={<EmptyList state={emptyState} isOwner={role === "owner"} onReset={resetFilters} />}
             onSelect={goTo}
           />
           </div>
+
+          {reactions.length > 0 ? (
+            <details className="border-border shrink-0 border-t">
+              <summary className="type-caption hover:bg-surface-sunken flex cursor-pointer items-center gap-2 px-3 py-2 text-text-secondary transition-colors duration-(--motion-duration) ease-standard">
+                <Smile className="size-3.5 shrink-0" strokeWidth={1.75} aria-hidden />
+                <span className="min-w-0 flex-1">
+                  Réactions seules · {reactions.length}
+                </span>
+              </summary>
+              <div className="px-3 pb-2">
+                <p className="type-caption text-text-secondary">
+                  Emojis et mentions, sans question. Aucune réponse ne leur a été
+                  demandée au modèle.
+                </p>
+                <button
+                  type="button"
+                  disabled={gesturePending}
+                  onClick={() =>
+                    runGesture(
+                      reactions.map((conversation) => conversation.id),
+                      "traitee",
+                    )
+                  }
+                  className="focus-visible:ring-ring mt-2 rounded-md px-1.5 py-0.5 type-caption font-medium text-accent-ink transition-colors duration-(--motion-duration) ease-standard hover:bg-accent-subtle focus-visible:ring-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Clore les {reactions.length} sans réponse
+                </button>
+              </div>
+              <div className="max-h-64 overflow-y-auto border-t border-border">
+                <ConversationList
+                  conversations={reactions}
+                  clients={clientById}
+                  showClient={clientSlug === null && clients.length > 1}
+                  selectedId={shownId}
+                  selectedIds={checked}
+                  pending={gesturePending}
+                  onToggle={toggleChecked}
+                  onGesture={runGesture}
+                  empty={null}
+                  onSelect={goTo}
+                />
+              </div>
+            </details>
+          ) : null}
         </div>
 
         <div
@@ -485,6 +595,7 @@ export function Inbox({
             conversation={thread.conversation}
             messages={thread.messages}
             draft={thread.draft}
+            savedReplies={savedReplies}
             onAdvance={() => move(1)}
             onBack={closeThread}
           />
@@ -494,35 +605,78 @@ export function Inbox({
   );
 }
 
-function relativeTime(iso: string): string {
-  const minutes = Math.round((Date.now() - new Date(iso).getTime()) / 60_000);
-  if (minutes < 1) return "à l'instant";
-  if (minutes < 60) return `il y a ${minutes} min`;
-  const hours = Math.round(minutes / 60);
-  if (hours < 24) return `il y a ${hours} h`;
-  return `il y a ${Math.round(hours / 24)} j`;
+/**
+ * L'état vide, rendu.
+ *
+ * Une phrase, et **une sortie quand il y en a une**. Quand il n'y en a pas —
+ * une boîte à jour — l'absence de bouton est le message : ce n'est pas une
+ * panne, c'est fini.
+ */
+function EmptyList({
+  state,
+  isOwner,
+  onReset,
+}: {
+  state: EmptyState;
+  isOwner: boolean;
+  onReset: () => void;
+}) {
+  return (
+    <div className="flex h-full flex-col items-center justify-center gap-2 p-8 text-center">
+      <p className="type-label text-text-primary">{state.title}</p>
+      {state.hint ? (
+        <p className="type-caption max-w-xs text-text-secondary">{state.hint}</p>
+      ) : null}
+
+      {state.action === "reinitialiser" ? (
+        <button
+          type="button"
+          onClick={onReset}
+          className="focus-visible:ring-ring type-caption mt-1 rounded-md px-2 py-1 font-medium text-accent-ink transition-colors duration-(--motion-duration) ease-standard hover:bg-accent-subtle focus-visible:ring-2 focus-visible:outline-none"
+        >
+          Retirer les filtres
+        </button>
+      ) : null}
+
+      {state.action === "relever" && isOwner ? (
+        <div className="mt-1">
+          <ModerationSyncButton />
+        </div>
+      ) : null}
+
+      {state.action === "brancher" ? (
+        <p className="type-caption text-text-secondary">
+          {COMPOSIO_TRANSITION_NOTE}
+        </p>
+      ) : null}
+    </div>
+  );
 }
 
 /**
- * Le détail d'un avertissement de relevé, lisible.
+ * Ce qu'un geste change, vu de l'écran.
  *
- * Le titre ne portait que le message du premier canal, brut — et Meta rend
- * volontiers « An unknown error occurred », qui n'apprend rien et ne dit même
- * pas de quel canal il s'agit. On nomme donc le canal et le compte, une ligne
- * par avertissement, et on traduit le refus générique de Meta en ce qu'il
- * signifie en pratique : réessayer au passage suivant.
+ * Le miroir de `patchOfGesture` côté serveur, réduit à ce que la liste
+ * affiche. Les deux doivent rester d'accord : une ligne qui se range
+ * autrement à l'écran que dans la base clignote au rafraîchissement suivant.
+ * `signaler` ne figure pas ici — le drapeau dépend de la ligne, et il se voit
+ * de toute façon au rendu suivant.
  */
-function detailDesAvertissements(warned: ChannelConnectionSummary[]): string {
-  return warned
-    .map((connection) => {
-      const canal = CHANNEL_LABELS[connection.channel] ?? connection.channel;
-      const compte = connection.display_name ? ` · ${connection.display_name}` : "";
-      const message = connection.last_error?.trim() ?? "";
-      const lisible =
-        message === "" || /unknown error/i.test(message)
-          ? "Meta n'a pas dit pourquoi. Le passage suivant réessaiera ; si l'avertissement revient, c'est une portée à rebrancher."
-          : message;
-      return `${canal}${compte} — ${lisible}`;
-    })
-    .join("\n");
+function expectedPatch(gesture: InboxGesture): Partial<Conversation> {
+  switch (gesture) {
+    case "lu":
+      return { unread: false };
+    case "non-lu":
+      return { unread: true };
+    case "traitee":
+      return { status: "answered_elsewhere", unread: false };
+    case "archiver":
+      return { status: "ignored", unread: false };
+    case "restaurer":
+      return { status: "to_process" };
+    case "supprimer":
+      return { deleted_at: new Date().toISOString() };
+    default:
+      return {};
+  }
 }

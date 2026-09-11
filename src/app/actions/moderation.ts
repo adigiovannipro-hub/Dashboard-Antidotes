@@ -7,6 +7,7 @@ import { z } from "zod";
 import { getViewer } from "@/lib/auth";
 import { explainMetaError } from "@/lib/connectors/meta/errors";
 import { getModerationContext } from "@/lib/moderation/access";
+import { parseInboxSelection, type InboxQuery } from "@/lib/moderation/filters";
 import {
   listUnreadConversations,
   type InboxFilters,
@@ -14,13 +15,7 @@ import {
 import { can } from "@/lib/moderation/permissions";
 import { markSeenOnPlatform, sendReply } from "@/lib/moderation/send";
 import { sendFaqCommentEmails } from "@/lib/moderation/faq-notify";
-import {
-  isInboxView,
-  isStatusGroup,
-  type Conversation,
-  type InboxView,
-  type StatusGroup,
-} from "@/lib/moderation/types";
+import { type Conversation } from "@/lib/moderation/types";
 import { createAdminClient, createClient } from "@/lib/supabase/server";
 import { DeterministicEmbeddings, toPgVector } from "@/lib/moderation/embeddings";
 import { planLearning, recordCorrection, recordDirectValidation } from "@/lib/moderation/learning";
@@ -43,13 +38,13 @@ export type ModerationResult =
  *
  * La seconde ligne n'est pas une précaution. La pastille du rail est calculée
  * par `getNavBadges()` dans `AppShell`, monté par le **layout** de la
- * Modération : elle vit donc au-dessus du segment que
- * `revalidatePath("/moderation")` rafraîchit. Sans elle, le compteur gardait sa
+ * l'Inbox : elle vit donc au-dessus du segment que
+ * `revalidatePath("/inbox")` rafraîchit. Sans elle, le compteur gardait sa
  * valeur jusqu'au rechargement complet de la page, et le geste paraissait sans
  * effet — c'est la moitié du « le compteur ne bouge pas ».
  */
 function revalidateModeration(): void {
-  revalidatePath("/moderation");
+  revalidatePath("/inbox");
   revalidatePath("/", "layout");
 }
 
@@ -565,11 +560,22 @@ export async function submitCorrection(
  * Rien n'est effacé chez Meta : le commentaire reste en ligne. C'est notre
  * boîte qu'on range, pas la page du client.
  */
-export type InboxGesture = "lu" | "non-lu" | "archiver" | "restaurer" | "supprimer";
+export type InboxGesture =
+  | "lu"
+  | "non-lu"
+  | "traitee"
+  | "archiver"
+  | "restaurer"
+  | "signaler"
+  | "ne-plus-signaler"
+  | "supprimer";
 
 const GESTURE_LABELS: Record<InboxGesture, { one: string; many: string }> = {
   lu: { one: "Marquée comme lue.", many: "Marquées comme lues." },
   "non-lu": { one: "Marquée comme non lue.", many: "Marquées comme non lues." },
+  traitee: { one: "Marquée comme traitée.", many: "Marquées comme traitées." },
+  signaler: { one: "Signalée.", many: "Signalées." },
+  "ne-plus-signaler": { one: "Signalement retiré.", many: "Signalements retirés." },
   archiver: { one: "Archivée.", many: "Archivées." },
   restaurer: { one: "Remise à traiter.", many: "Remises à traiter." },
   supprimer: {
@@ -580,10 +586,21 @@ const GESTURE_LABELS: Record<InboxGesture, { one: string; many: string }> = {
 
 function patchOfGesture(gesture: InboxGesture): Record<string, unknown> {
   switch (gesture) {
+    // Les deux gestes de drapeau se calculent ligne à ligne : voir
+    // `flagPatchOf`.
+    case "signaler":
+    case "ne-plus-signaler":
+      return {};
     case "lu":
       return { unread: false };
     case "non-lu":
       return { unread: true };
+    /* « Traitée » n'est pas « archivée » : le fil a été réglé, ici ou
+       ailleurs, et il rejoint les traitées sans passer par la corbeille de
+       rangement. `answered_elsewhere` porte exactement ce sens depuis
+       l'ingestion, qui l'écrit quand la marque a répondu depuis l'app. */
+    case "traitee":
+      return { status: "answered_elsewhere", unread: false };
     case "archiver":
       return { status: "ignored", unread: false };
     case "restaurer":
@@ -595,8 +612,36 @@ function patchOfGesture(gesture: InboxGesture): Record<string, unknown> {
 
 const gestureInput = z.object({
   conversationIds: z.array(z.uuid()).min(1).max(200),
-  gesture: z.enum(["lu", "non-lu", "archiver", "restaurer", "supprimer"]),
+  gesture: z.enum([
+    "lu",
+    "non-lu",
+    "traitee",
+    "archiver",
+    "restaurer",
+    "signaler",
+    "ne-plus-signaler",
+    "supprimer",
+  ]),
 });
+
+/**
+ * Les deux gestes qui touchent aux drapeaux ne se rangent pas dans
+ * `patchOfGesture` : la nouvelle valeur dépend de celle de chaque ligne, et un
+ * `update` unique ne peut pas porter deux tableaux différents. On regroupe donc
+ * les lignes par drapeaux identiques — en pratique un seul lot, la plupart des
+ * conversations n'en portant aucun.
+ */
+function flagPatchOf(gesture: InboxGesture, flags: string[]): string[] | null {
+  if (gesture === "signaler") {
+    return flags.includes("manual") ? null : [...flags, "manual"];
+  }
+  if (gesture === "ne-plus-signaler") {
+    return flags.includes("manual")
+      ? flags.filter((flag) => flag !== "manual")
+      : null;
+  }
+  return null;
+}
 
 /**
  * Un geste appliqué à une ou plusieurs conversations.
@@ -618,7 +663,7 @@ export async function applyInboxGesture(input: {
     const { data: rows } = await supabase
       .from("conversations")
       .select(
-        "id, client_id, status, unread, channel, kind, connection_id, participant_external_id",
+        "id, client_id, status, unread, flags, channel, kind, connection_id, participant_external_id",
       )
       .in("id", parsed.data.conversationIds);
 
@@ -627,6 +672,7 @@ export async function applyInboxGesture(input: {
       client_id: string;
       status: string;
       unread: boolean;
+      flags: string[];
       channel: Conversation["channel"];
       kind: Conversation["kind"];
       connection_id: string | null;
@@ -641,14 +687,47 @@ export async function applyInboxGesture(input: {
     }
 
     const patch = patchOfGesture(parsed.data.gesture);
-    const { error } = await supabase
-      .from("conversations")
-      .update(patch as never)
-      .in(
-        "id",
-        targets.map((row) => row.id),
-      );
-    if (error) return { ok: false, error: error.message };
+
+    if (Object.keys(patch).length > 0) {
+      const { error } = await supabase
+        .from("conversations")
+        .update(patch as never)
+        .in(
+          "id",
+          targets.map((row) => row.id),
+        );
+      if (error) return { ok: false, error: error.message };
+    } else {
+      /* Les drapeaux : la valeur dépend de la ligne, donc un `update` unique
+         ne suffit pas. On regroupe par tableau identique — en pratique un
+         seul lot, la plupart des conversations n'en portant aucun — plutôt
+         qu'une requête par ligne. */
+      const lots = new Map<string, { next: string[]; ids: string[] }>();
+      for (const row of targets) {
+        const next = flagPatchOf(parsed.data.gesture, row.flags ?? []);
+        if (!next) continue;
+        const key = next.join("|");
+        const lot = lots.get(key) ?? { next, ids: [] };
+        lot.ids.push(row.id);
+        lots.set(key, lot);
+      }
+      for (const lot of lots.values()) {
+        const { error } = await supabase
+          .from("conversations")
+          .update({ flags: lot.next } as never)
+          .in("id", lot.ids);
+        if (error) return { ok: false, error: error.message };
+      }
+      if (lots.size === 0) {
+        return {
+          ok: true,
+          message:
+            parsed.data.gesture === "signaler"
+              ? "Déjà signalée."
+              : "Aucun signalement à retirer.",
+        };
+      }
+    }
 
     for (const row of targets) {
       await audit({
@@ -703,12 +782,20 @@ const MARK_SEEN_CAP = 50;
 const READ_BATCH = 500;
 
 const markAllReadInput = z.object({
-  view: z.string().optional(),
   clientSlug: z.string().optional(),
-  statusGroup: z.string().optional(),
-  unreadOnly: z.boolean().optional(),
-  highPriorityOnly: z.boolean().optional(),
-  search: z.string().optional(),
+  /* Les paramètres de l'URL, tels quels : `parseInboxSelection` en fait la
+     même sélection que la page. Deux lectures séparées avaient fini par
+     diverger, et le bouton marquait alors des fils qu'on n'avait jamais vus. */
+  query: z
+    .object({
+      reseau: z.string().optional(),
+      statut: z.string().optional(),
+      nonlus: z.string().optional(),
+      signalees: z.string().optional(),
+      mp: z.string().optional(),
+      q: z.string().optional(),
+    })
+    .default({}),
 });
 
 /**
@@ -725,12 +812,8 @@ const markAllReadInput = z.object({
  * conversations comme lues ».
  */
 export async function markFilterAsRead(input: {
-  view?: string;
   clientSlug?: string;
-  statusGroup?: string;
-  unreadOnly?: boolean;
-  highPriorityOnly?: boolean;
-  search?: string;
+  query: InboxQuery;
 }): Promise<ModerationResult> {
   const parsed = markAllReadInput.safeParse(input);
   if (!parsed.success) return { ok: false, error: "Requête incomplète." };
@@ -747,14 +830,9 @@ export async function markFilterAsRead(input: {
     }
 
     const filters: InboxFilters = {
-      view: isInboxView(parsed.data.view ?? "") ? (parsed.data.view as InboxView) : "tout",
-      clientId: client?.id,
-      statusGroup: isStatusGroup(parsed.data.statusGroup ?? "")
-        ? (parsed.data.statusGroup as StatusGroup)
-        : undefined,
+      ...parseInboxSelection(parsed.data.query, client?.id),
       unreadOnly: true,
-      highPriorityOnly: parsed.data.highPriorityOnly,
-      search: parsed.data.search,
+      search: parsed.data.query.q,
     };
 
     const targets = await listUnreadConversations({ filters });
@@ -789,7 +867,7 @@ export async function markFilterAsRead(input: {
         action: "conversation.tout-lu",
         after: {
           count: targets.filter((row) => row.client_id === clientId).length,
-          filtre: { vue: filters.view, statut: filters.statusGroup ?? "toutes" },
+          filtre: { reseaux: filters.networks, statut: filters.statusGroup },
         },
       });
     }
@@ -947,7 +1025,7 @@ export async function updateFaqEntryField(input: {
       .eq("client_id", parsed.data.clientId);
     if (error) return { ok: false, error: error.message };
 
-    revalidatePath("/moderation");
+    revalidatePath("/inbox");
     revalidatePath("/espace", "layout");
     return { ok: true, message: "" };
   } catch (error) {
@@ -1018,6 +1096,182 @@ export async function createFaqEntry(input: {
     return { ok: true, message: "" };
   } catch (error) {
     return { ok: false, error: (error as Error).message };
+  }
+}
+
+/**
+ * Ajoute à la FAQ le sujet d'une conversation qu'aucune entrée ne couvrait.
+ *
+ * C'est la sortie de l'écran « Aucune source FAQ pour ce sujet » : plutôt que
+ * de laisser l'opérateur écrire la même réponse pour la troisième fois, on
+ * pose la question telle qu'elle a été reçue et la réponse telle qu'il vient
+ * de l'écrire. Le prochain message du même genre trouvera son entrée.
+ *
+ * L'entrée naît **sans vecteur** (`embedding_source` nul) : le modèle
+ * d'embeddings ne charge pas sur Vercel, et `reindexFaqSearch` la rattrape au
+ * relevé horaire. Une entrée sans vecteur est invisible de la recherche
+ * sémantique jusque-là, jamais un blocage.
+ */
+export async function addFaqEntryFromConversation(input: {
+  clientId: string;
+  question: string;
+  answer: string;
+}): Promise<ModerationResult> {
+  const parsed = z
+    .object({
+      clientId: z.uuid(),
+      question: z.string().trim().min(3, "La question est trop courte.").max(2000),
+      answer: z.string().trim().min(3, "La réponse est trop courte.").max(4000),
+    })
+    .safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Requête incomplète." };
+  }
+
+  try {
+    const { viewer } = await requireOperator(parsed.data.clientId);
+    const supabase = await createClient();
+    const { data: row, error } = await supabase
+      .from("faq_entries")
+      .insert({
+        client_id: parsed.data.clientId,
+        /* Le titre est la question tronquée : la colonne « Sujet » du tableau
+           de FAQ est la première qu'on lit, et une ligne sans nom s'y perd.
+           Il se réécrit en place, comme toutes les cellules. */
+        title: parsed.data.question.slice(0, 80),
+        question_canonical: parsed.data.question,
+        answer_fr: parsed.data.answer,
+        variants: [],
+        created_by: viewer.user.id,
+      } as never)
+      .select("id")
+      .maybeSingle();
+    if (error) return { ok: false, error: error.message };
+
+    await audit({
+      actorId: viewer.user.id,
+      clientId: parsed.data.clientId,
+      faqEntryId: (row as { id?: string } | null)?.id,
+      action: "faq.cree-depuis-inbox",
+      after: { question: parsed.data.question },
+    });
+
+    revalidatePath("/espace", "layout");
+    revalidateModeration();
+    return { ok: true, message: "Entrée ajoutée à la FAQ du client." };
+  } catch (error) {
+    return { ok: false, error: (error as Error).message };
+  }
+}
+
+// --- Les réponses enregistrées ---------------------------------------------
+
+const savedReplyInput = z.object({
+  clientId: z.uuid(),
+  title: z.string().trim().min(2, "Donnez-lui un nom.").max(120),
+  body: z.string().trim().min(2, "La réponse est vide.").max(4000),
+  tags: z.array(z.string().trim().min(1).max(40)).max(8).default([]),
+  scope: z.array(z.enum(["dm", "comment", "story_mention", "review"])).max(4).default([]),
+});
+
+/**
+ * Enregistre la réponse qu'on vient d'écrire.
+ *
+ * Le geste part du composeur, pas d'un écran de réglages : c'est au moment où
+ * l'on tape la même phrase pour la troisième fois qu'on décide de la garder,
+ * et un détour par une page d'administration fait renoncer.
+ */
+export async function createSavedReply(input: {
+  clientId: string;
+  title: string;
+  body: string;
+  tags?: string[];
+  scope?: ("dm" | "comment" | "story_mention" | "review")[];
+}): Promise<ModerationResult> {
+  const parsed = savedReplyInput.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Requête incomplète." };
+  }
+
+  try {
+    const { viewer } = await requireOperator(parsed.data.clientId);
+    const supabase = await createClient();
+    const { error } = await supabase.from("saved_replies").insert({
+      client_id: parsed.data.clientId,
+      title: parsed.data.title,
+      body: parsed.data.body,
+      tags: parsed.data.tags,
+      scope: parsed.data.scope,
+      created_by: viewer.user.id,
+    } as never);
+    if (error) {
+      // Le doublon de nom est le seul refus attendu : il se dit en français.
+      return {
+        ok: false,
+        error: error.code === "23505" ? "Ce nom est déjà pris." : error.message,
+      };
+    }
+
+    revalidateModeration();
+    return { ok: true, message: "Réponse enregistrée." };
+  } catch (error) {
+    return { ok: false, error: (error as Error).message };
+  }
+}
+
+export async function deleteSavedReply(input: {
+  clientId: string;
+  replyId: string;
+}): Promise<ModerationResult> {
+  const parsed = z
+    .object({ clientId: z.uuid(), replyId: z.uuid() })
+    .safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Requête incomplète." };
+
+  try {
+    await requireOperator(parsed.data.clientId);
+    const supabase = await createClient();
+    const { error } = await supabase
+      .from("saved_replies")
+      .delete()
+      .eq("id", parsed.data.replyId)
+      .eq("client_id", parsed.data.clientId);
+    if (error) return { ok: false, error: error.message };
+
+    revalidateModeration();
+    return { ok: true, message: "Réponse retirée de la bibliothèque." };
+  } catch (error) {
+    return { ok: false, error: (error as Error).message };
+  }
+}
+
+/**
+ * Compte une utilisation. Meilleur effort : le classement de la liste ne vaut
+ * pas de faire échouer une insertion de texte.
+ */
+export async function noteSavedReplyUse(input: {
+  clientId: string;
+  replyId: string;
+}): Promise<void> {
+  const parsed = z.object({ clientId: z.uuid(), replyId: z.uuid() }).safeParse(input);
+  if (!parsed.success) return;
+
+  try {
+    await requireOperator(parsed.data.clientId);
+    const supabase = await createClient();
+    const { data } = await supabase
+      .from("saved_replies")
+      .select("usage_count")
+      .eq("id", parsed.data.replyId)
+      .maybeSingle();
+    const count = (data as { usage_count?: number } | null)?.usage_count ?? 0;
+    await supabase
+      .from("saved_replies")
+      .update({ usage_count: count + 1 } as never)
+      .eq("id", parsed.data.replyId)
+      .eq("client_id", parsed.data.clientId);
+  } catch {
+    // Silencieux : voir l'en-tête.
   }
 }
 
@@ -1297,7 +1551,7 @@ export async function deleteFaqEntry(input: {
       .eq("client_id", parsed.data.clientId);
     if (error) return { ok: false, error: error.message };
 
-    revalidatePath("/moderation");
+    revalidatePath("/inbox");
     revalidatePath("/espace", "layout");
     return { ok: true, message: "Entrée supprimée." };
   } catch (error) {
@@ -1316,10 +1570,10 @@ export async function deleteFaqEntry(input: {
  */
 export async function setFaqClientReview(input: {
   entryId: string;
-  verdict: "approved" | "rejected";
+  verdict: "approved" | "rejected" | "pending";
 }): Promise<ModerationResult> {
   const parsed = z
-    .object({ entryId: z.uuid(), verdict: z.enum(["approved", "rejected"]) })
+    .object({ entryId: z.uuid(), verdict: z.enum(["approved", "rejected", "pending"]) })
     .safeParse(input);
   if (!parsed.success) return { ok: false, error: "Requête incomplète." };
 
@@ -1352,7 +1606,10 @@ export async function setFaqClientReview(input: {
       .from("faq_entries")
       .update({
         client_review: parsed.data.verdict,
-        client_reviewed_at: new Date().toISOString(),
+        // Revenir à « À valider » efface la date : elle daterait un verdict
+        // qui n'existe plus.
+        client_reviewed_at:
+          parsed.data.verdict === "pending" ? null : new Date().toISOString(),
       } as never)
       .eq("id", parsed.data.entryId);
     if (error) return { ok: false, error: error.message };
@@ -1363,7 +1620,9 @@ export async function setFaqClientReview(input: {
       message:
         parsed.data.verdict === "approved"
           ? "Élément de langage validé."
-          : "Élément de langage refusé — l'agence le retravaille.",
+          : parsed.data.verdict === "rejected"
+            ? "Élément de langage refusé — l'agence le retravaille."
+            : "Élément de langage remis à valider.",
     };
   } catch (error) {
     return { ok: false, error: (error as Error).message };

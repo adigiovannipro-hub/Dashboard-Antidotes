@@ -681,6 +681,7 @@ export function WordingCell({
   fieldName,
   placeholder,
   readOnly,
+  align = "center",
 }: {
   value: string | null;
   subjectName: string;
@@ -694,6 +695,10 @@ export function WordingCell({
   /** Le client lit la FAQ sans la réécrire : la bulle de survol reste, le
       cadre d'édition ne s'ouvre pas. */
   readOnly?: boolean;
+  /** Le texte au repos. Centré par défaut — la colonne Wording du planning
+      l'est depuis toujours ; à gauche dans la FAQ, dont les en-têtes le sont
+      et dont les cellules se lisent en colonne. */
+  align?: "left" | "center";
 }) {
   const anchorRef = useRef<HTMLButtonElement>(null);
   const [editor, setEditor] = useState<AnchoredBox | null>(null);
@@ -731,12 +736,14 @@ export function WordingCell({
     }, 350);
   };
 
-  const openEditor = () => {
+  /** `initial` : la frappe qui a ouvert la cellule. Sans elle, on repart du
+      texte déjà là, comme au clic. */
+  const openEditor = (initial?: string) => {
     if (readOnly) return;
     hideTip();
     const rect = anchorRef.current?.getBoundingClientRect();
     if (!rect) return;
-    setDraft(value ?? "");
+    setDraft(initial ?? value ?? "");
     setEditor(anchorBox(rect, 280, 280));
   };
 
@@ -768,12 +775,29 @@ export function WordingCell({
         ref={anchorRef}
         type="button"
         aria-label={label}
-        onClick={openEditor}
+        // Enveloppé : l'événement de clic passerait sinon pour la frappe
+        // d'ouverture et se retrouverait dans le brouillon.
+        onClick={() => openEditor()}
+        onKeyDown={(event) => {
+          // Le geste du tableur : on tape, la cellule s'ouvre sur ce
+          // caractère. Sans lui, passer la Question d'un `<input>` à cette
+          // cellule coûterait un clic de plus à chaque correction — Entrée et
+          // Espace continuent d'ouvrir sur le texte existant, par le clic
+          // natif du bouton.
+          if (readOnly || editor) return;
+          if (event.key.length !== 1 || event.key === " ") return;
+          if (event.metaKey || event.ctrlKey || event.altKey) return;
+          event.preventDefault();
+          openEditor(event.key);
+        }}
         onMouseEnter={showTip}
         onMouseLeave={scheduleTipClose}
         onFocus={showTip}
         onBlur={scheduleTipClose}
-        className="hover:bg-muted/60 focus-visible:ring-brand block w-full truncate rounded-sm px-1.5 py-1 text-center text-sm outline-none focus-visible:ring-2"
+        className={cn(
+          "hover:bg-muted/60 focus-visible:ring-brand block w-full truncate rounded-sm px-1.5 py-1 text-sm outline-none focus-visible:ring-2",
+          align === "left" ? "text-left" : "text-center",
+        )}
       >
         <span className={cn(!value && "text-muted-foreground")}>
           {value ? value.replace(/\s+/g, " ") : "—"}
@@ -799,7 +823,7 @@ export function WordingCell({
           style={tip}
           onMouseEnter={keepTipOpen}
           onMouseLeave={scheduleTipClose}
-          onClick={openEditor}
+          onClick={() => openEditor()}
           className="border-border bg-surface text-foreground fixed z-50 block max-h-80 max-w-[75vw] cursor-text overflow-y-auto rounded-md border p-3 text-sm whitespace-pre-wrap shadow-lg"
         >
           {value}

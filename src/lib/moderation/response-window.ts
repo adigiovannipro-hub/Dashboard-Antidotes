@@ -116,3 +116,44 @@ export function formatWindow(eligibility: SendEligibility): string {
   const days = Math.floor(eligibility.hoursOverdue / 24);
   return days >= 1 ? `Expiré depuis ${days} j` : "Fenêtre expirée";
 }
+
+/**
+ * Les trois états visibles d'une fenêtre de réponse.
+ *
+ * `none` : rien à dire — un commentaire public se répond un an plus tard, et
+ * afficher « pas de limite » sur chaque fil serait du bruit.
+ * `open` : la fenêtre court. `closing` : moins de 24 h, il faut traiter
+ * aujourd'hui. `expired` : l'envoi est refusé par la plateforme, pas par nous.
+ */
+export type WindowState = "none" | "open" | "closing" | "expired";
+
+/** En deçà, la fenêtre se ferme aujourd'hui. */
+export const CLOSING_HOURS = 24;
+
+/**
+ * L'état se lit sur la fenêtre **utilisable**, pas sur celle de 24 h.
+ *
+ * `evaluateSendEligibility` rend les 24 h standard tant qu'on est dedans, et
+ * ne parle des sept jours qu'au-delà — c'est juste pour décider du tag, faux
+ * pour l'écran : à deux heures d'un message, il reste six jours et non vingt-
+ * deux heures. L'état se calcule donc sur la vraie échéance, celle que
+ * `sendReply` sait atteindre en posant `human_agent`.
+ */
+export function windowState(options: {
+  channel: ModerationChannel;
+  kind: "dm" | "comment" | "story_mention" | "review";
+  lastInboundAt: Date;
+  now?: Date;
+}): WindowState {
+  if (!isWindowed(options.channel, options.kind)) return "none";
+
+  const now = options.now ?? new Date();
+  const elapsed = now.getTime() - options.lastInboundAt.getTime();
+  // WhatsApp ne connaît pas le tag : sa fenêtre reste celle des 24 h.
+  const span =
+    options.channel === "whatsapp" ? STANDARD_WINDOW_MS : HUMAN_AGENT_WINDOW_MS;
+  const remaining = (span - elapsed) / HOUR;
+
+  if (remaining <= 0) return "expired";
+  return remaining <= CLOSING_HOURS ? "closing" : "open";
+}

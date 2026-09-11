@@ -33,6 +33,8 @@ function asPillars(value: unknown): ContextPillar[] {
       formats: asTextArray(entry.formats),
       angles: asTextArray(entry.angles),
       frequence: asText(entry.frequence),
+      objectif_business: asText(entry.objectif_business),
+      cta_autorises: asTextArray(entry.cta_autorises),
     }))
     .filter((pillar) => pillar.nom.length > 0 || pillar.description.length > 0);
 }
@@ -59,11 +61,9 @@ export function parseProposal(value: unknown): ContextProposal | null {
 
   return {
     main_context: asText(raw.contexte_principal),
-    positioning: asText(raw.positionnement),
     audience: asText(raw.cibles),
     tone_of_voice: asText(raw.tone_of_voice),
     pillars: asPillars(raw.piliers),
-    mentions: asText(raw.mentions),
     restrictions: asText(raw.interdits),
     platforms: asPlatformRules(raw.plateformes),
   };

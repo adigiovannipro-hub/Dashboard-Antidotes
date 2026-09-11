@@ -2,55 +2,46 @@ import { Inbox } from "@/components/moderation/inbox";
 import type { ClientChip } from "@/components/moderation/inbox-filter-bar";
 import { requireViewer } from "@/lib/auth";
 import { requireModeration } from "@/lib/moderation/access";
+import { networksToShow } from "@/lib/moderation/counters";
+import { parseInboxSelection, type InboxQuery } from "@/lib/moderation/filters";
 import {
   getConversationThread,
   getInboxCounters,
   listChannelConnections,
   listConversations,
+  listSavedReplies,
   type InboxFilters,
 } from "@/lib/moderation/queries";
-import { isInboxView, isStatusGroup } from "@/lib/moderation/types";
 import { signLogoUrls } from "@/lib/workspaces/logos";
 
 /**
- * L'inbox croisée : tous les clients relevés, dans une seule boîte.
+ * L'Inbox croisée : tous les clients relevés, dans une seule boîte.
  *
- * Les filtres vivent dans l'URL en français — `?vue=`, `?client=`, `?statut=`,
- * `?nonlus=`, `?priorite=`, `?q=`, `?conv=` — et l'URL nue ouvre la boîte
- * entière, tous clients et tous statuts confondus.
+ * Les filtres vivent dans l'URL en français — `?reseau=`, `?client=`,
+ * `?statut=`, `?nonlus=`, `?signalees=`, `?mp=`, `?q=`, `?conv=` — et une
+ * seule fonction les lit (`parseInboxSelection`), partagée avec « Tout lire ».
  */
 
 type Search = Promise<Record<string, string | undefined>>;
 
-export default async function ModerationInboxPage({
-  searchParams,
-}: {
-  searchParams: Search;
-}) {
+export default async function InboxPage({ searchParams }: { searchParams: Search }) {
   const query = await searchParams;
   const [viewer, context] = await Promise.all([requireViewer(), requireModeration()]);
 
   const activeClient = context.clients.find(
     (candidate) => candidate.slug === query.client,
   );
-  const view = query.vue && isInboxView(query.vue) ? query.vue : "tout";
-  /* « Toutes » par défaut, comme l'onglet de canal l'est déjà : la boîte
-     s'ouvre sur son contenu entier. Le défaut « À traiter » masquait tout le
-     reste sans que rien dans l'URL ne le dise, ce qui se lit comme une boîte
-     vide. Trois endroits portent ce choix ensemble — ici, le défaut de
-     `filteredConversations`, et le lien qui décide quelle valeur est absente
-     de l'URL. */
-  const statusGroup =
-    query.statut && isStatusGroup(query.statut) ? query.statut : "toutes";
 
-  const filters: InboxFilters = {
-    view,
-    clientId: activeClient?.id,
-    statusGroup,
-    unreadOnly: query.nonlus === "1",
-    highPriorityOnly: query.priorite === "1",
-    search: query.q,
+  const inboxQuery: InboxQuery = {
+    reseau: query.reseau,
+    statut: query.statut,
+    nonlus: query.nonlus,
+    signalees: query.signalees,
+    mp: query.mp,
+    q: query.q,
   };
+  const selection = parseInboxSelection(inboxQuery, activeClient?.id);
+  const filters: InboxFilters = { ...selection, search: query.q };
 
   // L'identité visuelle d'un client vient de son espace : même logo que le
   // rail, signé en un seul appel pour tous.
@@ -67,14 +58,21 @@ export default async function ModerationInboxPage({
      la lenteur ressentie entre deux conversations — la liste et les compteurs
      d'abord, le fil seulement ensuite, soit deux allers-retours en série pour
      un clic qui ne change que le volet de droite. */
-  const [signedLogos, conversations, counters, connections, requestedThread] =
-    await Promise.all([
-      signLogoUrls(logoPaths),
-      listConversations({ filters }),
-      getInboxCounters({ view, clientId: activeClient?.id }),
-      listChannelConnections(),
-      query.conv ? getConversationThread(query.conv) : null,
-    ]);
+  const [
+    signedLogos,
+    conversations,
+    counters,
+    connections,
+    savedReplies,
+    requestedThread,
+  ] = await Promise.all([
+    signLogoUrls(logoPaths),
+    listConversations({ filters }),
+    getInboxCounters(selection),
+    listChannelConnections(),
+    listSavedReplies(),
+    query.conv ? getConversationThread(query.conv) : null,
+  ]);
 
   const clients: ClientChip[] = context.clients.map((client) => {
     const path = client.workspace_id
@@ -104,12 +102,25 @@ export default async function ModerationInboxPage({
       role={context.access.role}
       conversations={conversations}
       counters={counters}
+      /* Les réseaux affichés sont ceux que le module relève, plus ceux que les
+         données contiennent — calculés sur les conversations chargées, donc
+         jamais une icône qui n'a rien derrière. */
+      networksShown={networksToShow(
+        conversations.map((conversation) => ({
+          client_id: conversation.client_id,
+          channel: conversation.channel,
+          kind: conversation.kind,
+          status: conversation.status,
+          unread: conversation.unread,
+          flags: conversation.flags,
+          last_message_at: conversation.last_message_at,
+        })),
+      )}
       connections={connections}
-      view={view}
-      statusGroup={statusGroup}
+      savedReplies={savedReplies}
+      selection={selection}
+      query={inboxQuery}
       clientSlug={activeClient?.slug ?? null}
-      unreadOnly={filters.unreadOnly ?? false}
-      highPriorityOnly={filters.highPriorityOnly ?? false}
       search={query.q ?? ""}
       selectedId={selectedId}
       threadOpen={Boolean(query.conv)}
