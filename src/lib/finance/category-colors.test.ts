@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  assignCategoryColors,
   CATEGORY_PALETTE,
   categoryColor,
 } from "./category-colors";
@@ -45,5 +46,47 @@ describe("categoryColor", () => {
 
   it("est insensible à l'écriture — même slug, même couleur", () => {
     expect(categoryColor("Matériel")).toBe(categoryColor("materiel"));
+  });
+});
+
+describe("assignCategoryColors", () => {
+  it("ne rend jamais deux fois la même teinte dans un même camembert", () => {
+    /* « Voyage », « Autre » et « Transports » tombent tous les trois sur le
+       pas du hachage n° 1, celui que « Restauration » occupe en dur : quatre
+       parts du même vert sur le même écran, vues au navigateur. */
+    const couleurs = assignCategoryColors(["restauration", "voyage", "autre", "transports"]);
+    expect(new Set(couleurs.values()).size).toBe(4);
+  });
+
+  it("laisse la première servie sur son pas — c'est la suivante qui se décale", () => {
+    const couleurs = assignCategoryColors(["restauration", "voyage"]);
+    expect(couleurs.get("restauration")).toBe(categoryColor("restauration"));
+    expect(couleurs.get("voyage")).not.toBe(categoryColor("restauration"));
+  });
+
+  it("garde leur teinte aux sept catégories du plan, qui ne se disputent rien", () => {
+    const slugs = [
+      "virements",
+      "restauration",
+      "logiciels",
+      "marketing",
+      "transports",
+      "frais",
+      "voyages",
+    ];
+    const couleurs = assignCategoryColors(slugs);
+    for (const slug of slugs) expect(couleurs.get(slug)).toBe(categoryColor(slug));
+  });
+
+  it("rend la même chose à chaque appel pour un même jeu", () => {
+    const jeu = ["voyage", "autre", "materiel"];
+    expect([...assignCategoryColors(jeu).values()]).toEqual([...assignCategoryColors(jeu).values()]);
+  });
+
+  it("tolère plus de catégories que de pas sans boucler à l'infini", () => {
+    const trop = Array.from({ length: 12 }, (_, index) => `categorie-${index}`);
+    const couleurs = assignCategoryColors(trop);
+    expect(couleurs.size).toBe(12);
+    for (const teinte of couleurs.values()) expect(CATEGORY_PALETTE).toContain(teinte);
   });
 });

@@ -66,10 +66,53 @@ export const OTHER_COLOR = "var(--text-tertiary)";
 export const UNCATEGORIZED_COLOR = "var(--border-strong, #c8c6c0)";
 
 export function categoryColor(slugOrName: string): string {
+  return CATEGORY_PALETTE[preferredSlot(slugOrName)]!;
+}
+
+/**
+ * Les couleurs d'un jeu de catégories affichées **ensemble**, sans doublon.
+ *
+ * `categoryColor` seule ne suffit pas : le hachage d'une catégorie
+ * personnalisée peut tomber sur le pas d'une autre, et c'est arrivé du
+ * premier coup — « Voyage », « Autre » et « Restauration » portaient le même
+ * vert sur le même camembert, vu à l'écran. Trois parts de la même couleur ne
+ * se départagent plus, et la légende chiffrée ne rattrape pas ça.
+ *
+ * La règle : chacune demande son pas (fixe pour les sept du plan, haché
+ * sinon) ; si le pas est déjà pris par une part voisine, elle prend le
+ * suivant libre, en tournant. L'ordre de parcours est celui des parts, du
+ * plus gros au plus petit — la plus grosse garde donc sa teinte, et c'est la
+ * plus petite qui se décale.
+ *
+ * Conséquence assumée : la teinte d'une catégorie **personnalisée** peut
+ * bouger si l'entourage change d'un mois à l'autre. Une teinte qui se décale
+ * est un moindre mal devant deux parts jumelles, et les sept du plan, elles,
+ * ne bougent jamais tant qu'elles sont seules à demander leur pas.
+ */
+export function assignCategoryColors(slugsOrNames: readonly string[]): Map<string, string> {
+  const taken = new Set<number>();
+  const colors = new Map<string, string>();
+
+  for (const key of slugsOrNames) {
+    if (colors.has(key)) continue;
+    let slot = preferredSlot(key);
+    for (let step = 0; step < CATEGORY_PALETTE.length && taken.has(slot); step += 1) {
+      slot = (slot + 1) % CATEGORY_PALETTE.length;
+    }
+    taken.add(slot);
+    colors.set(key, CATEGORY_PALETTE[slot]!);
+  }
+
+  return colors;
+}
+
+/** Le pas que demande une catégorie : en dur pour les sept du plan, haché
+    sinon — déterministe, donc la même demande à chaque rendu. */
+function preferredSlot(slugOrName: string): number {
   const slug = slugifyCategoryName(slugOrName);
   const fixed = FIXED_SLOTS[slug];
-  if (fixed !== undefined) return CATEGORY_PALETTE[fixed]!;
-  return CATEGORY_PALETTE[hashSlug(slug) % CATEGORY_PALETTE.length]!;
+  if (fixed !== undefined) return fixed;
+  return hashSlug(slug) % CATEGORY_PALETTE.length;
 }
 
 /** FNV-1a 32 bits — déterministe et sans dépendance ; l'aléa cryptographique

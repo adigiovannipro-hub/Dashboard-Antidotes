@@ -4,7 +4,7 @@ import { useState } from "react";
 
 import type { BreakdownEntry } from "@/lib/finance/breakdown";
 import {
-  categoryColor,
+  assignCategoryColors,
   OTHER_COLOR,
   UNCATEGORIZED_COLOR,
 } from "@/lib/finance/category-colors";
@@ -78,6 +78,13 @@ export function CategoryDonut({
       : []),
   ];
 
+  /* Les teintes se distribuent sur le jeu entier, pas part par part : deux
+     catégories personnalisées peuvent demander le même pas de la rampe, et
+     trois parts du même vert ne se départagent plus. Vu à l'écran. */
+  const colorBySlug = assignCategoryColors(
+    folded.map((slice) => slice.slug).filter((slug): slug is string => slug !== null),
+  );
+
   // Décalages dérivés, jamais accumulés dans une variable réassignée.
   const segments = folded.map((slice, index) => {
     const share = slice.cents / totalCents;
@@ -97,7 +104,7 @@ export function CategoryDonut({
         slice.label === OTHER_LABEL
           ? OTHER_COLOR
           : slice.slug
-            ? categoryColor(slice.slug)
+            ? (colorBySlug.get(slice.slug) ?? UNCATEGORIZED_COLOR)
             : UNCATEGORIZED_COLOR,
       dash: Math.max(length - SURFACE_GAP, 0),
       offset: preceding * CIRCUMFERENCE,
