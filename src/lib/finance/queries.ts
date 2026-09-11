@@ -270,6 +270,14 @@ export async function getDailyFlows(options: {
 /**
  * Les factures ouvertes, plus les payées récentes : l'écran montre l'encours,
  * pas les archives — une facture soldée depuis six mois n'apprend rien.
+ *
+ * **Les annulées sont écartées ici, pas en base.** Une facture `void` reste
+ * une trace comptable et la synchronisation horaire la réécrit de toute
+ * façon : `listIssuedInvoices` pagine `/api/v1/invoices` sans filtre de
+ * statut, et `syncInvoices` l'upserte. L'effacer en base la ferait revenir à
+ * l'heure suivante — c'est l'affichage qui mentait, pas la base. Sans ce
+ * filtre, les quatre factures d'essai à 1 € annulées chez Airwallex
+ * formaient encore un groupe client dans un panneau qui annonce l'encours.
  */
 export async function listInvoices(orgId: string): Promise<FinanceInvoice[]> {
   const supabase = await createClient();
@@ -282,6 +290,7 @@ export async function listInvoices(orgId: string): Promise<FinanceInvoice[]> {
     .from("finance_invoices")
     .select("*")
     .eq("org_id", orgId)
+    .neq("status", "void")
     .or(`status.in.(draft,sent),issued_on.gte.${horizonDate}`)
     .order("due_on", { ascending: true, nullsFirst: false });
   if (error) throw new Error(`Lecture des factures : ${error.message}`);

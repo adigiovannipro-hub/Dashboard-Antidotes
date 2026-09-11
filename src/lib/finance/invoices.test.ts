@@ -103,4 +103,29 @@ describe("groupInvoicesByClient", () => {
       "2026-08-20",
     ]);
   });
+
+  it("ne forme aucun groupe pour un client dont toutes les factures sont annulées", () => {
+    /* Les quatre factures d'essai à 1 €, annulées chez Airwallex, formaient
+       encore un groupe client dans un panneau qui annonce l'encours. Les
+       effacer en base ne sert à rien : la synchronisation horaire les
+       réécrit. */
+    const groups = groupInvoicesByClient([
+      invoice({ client_name: "Bondet", amount_cents: 300_000 }),
+      invoice({ client_name: "TEST FACTURATION AUTOMATIQUE", status: "void", amount_cents: 100 }),
+      invoice({ client_name: "TEST FACTURATION AUTOMATIQUE", status: "void", amount_cents: 100 }),
+    ]);
+
+    expect(groups.map((group) => group.client_name)).toEqual(["Bondet"]);
+  });
+
+  it("garde le client quand une seule de ses factures est annulée", () => {
+    const groups = groupInvoicesByClient([
+      invoice({ client_name: "Silmo", amount_cents: 80_000, due_on: "2026-09-01" }),
+      invoice({ client_name: "Silmo", status: "void", amount_cents: 999_000 }),
+    ]);
+
+    expect(groups.length).toBe(1);
+    expect(groups[0]!.invoices.length).toBe(1);
+    expect(groups[0]!.open_totals).toEqual({ EUR: 80_000 });
+  });
 });

@@ -92,6 +92,12 @@ export type ClientInvoiceGroup = {
  * Regroupe par client, les clients au plus gros encours en premier. Les
  * factures d'un client se lisent de la plus proche échéance à la plus
  * lointaine — c'est l'ordre dans lequel on les relance.
+ *
+ * Une facture **annulée** ne forme jamais de groupe : le panneau annonce
+ * l'encours, et un client qui n'a plus qu'une facture `void` n'en a pas.
+ * `listInvoices` l'écarte déjà côté lecture ; la garde est ici en ceinture,
+ * parce que la synchronisation horaire réécrit ces lignes en base et qu'un
+ * appelant futur pourrait les repasser sans le savoir.
  */
 export function groupInvoicesByClient(
   invoices: readonly FinanceInvoice[],
@@ -99,6 +105,7 @@ export function groupInvoicesByClient(
   const groups = new Map<string, ClientInvoiceGroup>();
 
   for (const invoice of invoices) {
+    if (invoice.status === "void") continue;
     let group = groups.get(invoice.client_name);
     if (!group) {
       group = { client_name: invoice.client_name, invoices: [], open_totals: {} };
