@@ -2,13 +2,11 @@ import { redirect } from "next/navigation";
 import { ListChecks, MessagesSquare, Send, Wallet } from "lucide-react";
 
 import { AppShell } from "@/components/ds/app-shell";
-import { FilterPills, type FilterOption } from "@/components/ds/filter-pills";
 import { StatCard, StatGrid } from "@/components/ds/stat-card";
 import { SectionHeader } from "@/components/ds/surface";
 import { ClientCard } from "@/components/mon-travail/client-card";
 import { PublicationsSection } from "@/components/mon-travail/publications-section";
 import { TasksSection } from "@/components/mon-travail/tasks-section";
-import { WorkSyncButton } from "@/components/mon-travail/work-sync-button";
 import { WorkspaceCard } from "@/components/mon-travail/workspace-card";
 import { buildCardModel } from "@/lib/production/card-model";
 import { getProductionSnapshots } from "@/lib/production/queries";
@@ -94,17 +92,14 @@ export default async function HubPage({
       viewer={viewer}
       title={travail ? "Mon travail" : "Espaces"}
       subtitle={travail ? dayLabel(today) : `${viewer.workspaces.length} espaces accessibles`}
-      /* Relancer le passage quotidien à la demande. Le cron ne tourne qu'à
-         4 h du matin — une réunion de 10 h attendrait sinon le lendemain,
-         alors que c'est en sortant de l'appel qu'on veut ses actions. */
-      actions={travail ? <WorkSyncButton /> : undefined}
     >
       <div className="space-y-8 pb-16">
         {travail ? (
           <>
-            {/* La bande de mesures reste globale : elle répond à « la journée
-                tient-elle ? », tous clients confondus. Le filtre ci-dessous
-                cadre le travail lui-même. */}
+            {/* La bande de mesures est globale, tous clients confondus : elle
+                répond à « la journée tient-elle ? ». Le travail lui-même ne se
+                filtre plus par client — les lignes s'entremêlent, et c'est la
+                colonne Client de chaque tableau qui dit à qui elles sont. */}
             <StatGrid>
               <StatCard
                 label="À publier"
@@ -181,17 +176,6 @@ export default async function HubPage({
                 href={travail.stats.invoices ? "/entreprise/finance" : undefined}
               />
             </StatGrid>
-
-            {clientWorkspaces.length > 1 ? (
-              <div className="flex flex-wrap items-center gap-3">
-                <span className="type-overline text-text-secondary">Client</span>
-                <FilterPills
-                  ariaLabel="Filtrer le travail par client"
-                  current={selected?.slug ?? ""}
-                  options={clientFilterOptions(clientWorkspaces)}
-                />
-              </div>
-            ) : null}
 
             <PublicationsSection
               rows={travail.toPublish}
@@ -273,22 +257,6 @@ export default async function HubPage({
   );
 }
 
-/**
- * Les options du filtre client — un par espace, plus « Tous ».
- *
- * La liste se construit depuis les espaces accessibles : un client ajouté
- * demain apparaît sans qu'une constante soit touchée.
- */
-function clientFilterOptions(workspaces: WorkspaceAccess[]): FilterOption[] {
-  return [
-    { value: "", label: "Tous", href: "/" },
-    ...workspaces.map((workspace) => ({
-      value: workspace.slug,
-      label: workspace.name,
-      href: `/?${CLIENT_PARAM}=${encodeURIComponent(workspace.slug)}`,
-    })),
-  ];
-}
 
 /** Tout ce que les sections « Mon travail » consomment, chargé d'un bloc. */
 async function loadTravail(
