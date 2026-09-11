@@ -141,7 +141,13 @@ export function ContexteScreen({
         </div>
 
         {!readOnly ? (
-          <div className="flex shrink-0 flex-wrap items-center gap-2">
+          // Pas de `shrink-0` ici : sur un téléphone de 390 px, les deux
+          // boutons font 460 à eux deux, et un conteneur qui refuse de
+          // rétrécir est dimensionné sur son contenu — `flex-wrap` ne se
+          // déclenche donc jamais et c'est la page entière qui déborde
+          // (476 px mesurés). Le piège est déjà écrit dans CLAUDE.md ; il
+          // coûte un retour à la ligne, pas un débordement.
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
             <InjectedPromptDialog
               sections={sections}
               targetMonthLabel={targetMonthLabel}
