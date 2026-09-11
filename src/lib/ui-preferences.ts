@@ -148,3 +148,45 @@ function parseSort(raw: unknown): PlanningSort {
 export function serializePlanningView(view: PlanningView): string {
   return encodeURIComponent(JSON.stringify(view));
 }
+
+// --- FAQ : la largeur des colonnes ------------------------------------------
+
+/**
+ * Un cookie par client de modération : la largeur des colonnes qu'on a
+ * élargies à la main.
+ *
+ * Seules les colonnes retouchées y figurent — une colonne jamais touchée
+ * garde sa piste par défaut et suit donc la largeur de l'écran. Mémoriser
+ * toutes les largeurs figerait le tableau au format de la première machine
+ * qui l'a ouvert.
+ */
+export function faqViewCookie(clientId: string): string {
+  return `antidotes_faq_${clientId}`.replace(/[^\w]/g, "_");
+}
+
+/** Bornes de sécurité : un cookie bricolé ne doit pas rendre une colonne
+    invisible ni pousser le tableau à dix mille pixels. */
+const FAQ_COLUMN_MIN = 80;
+const FAQ_COLUMN_MAX = 900;
+
+export type FaqColumnWidths = Record<string, number>;
+
+export function parseFaqColumnWidths(raw: string | undefined): FaqColumnWidths {
+  if (!raw) return {};
+  try {
+    const parsed: unknown = JSON.parse(decodeURIComponent(raw));
+    if (typeof parsed !== "object" || parsed === null) return {};
+    const widths: FaqColumnWidths = {};
+    for (const [key, value] of Object.entries(parsed as Record<string, unknown>)) {
+      if (typeof value !== "number" || !Number.isFinite(value)) continue;
+      widths[key] = Math.min(FAQ_COLUMN_MAX, Math.max(FAQ_COLUMN_MIN, Math.round(value)));
+    }
+    return widths;
+  } catch {
+    return {};
+  }
+}
+
+export function serializeFaqColumnWidths(widths: FaqColumnWidths): string {
+  return encodeURIComponent(JSON.stringify(widths));
+}

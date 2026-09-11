@@ -1316,10 +1316,10 @@ export async function deleteFaqEntry(input: {
  */
 export async function setFaqClientReview(input: {
   entryId: string;
-  verdict: "approved" | "rejected";
+  verdict: "approved" | "rejected" | "pending";
 }): Promise<ModerationResult> {
   const parsed = z
-    .object({ entryId: z.uuid(), verdict: z.enum(["approved", "rejected"]) })
+    .object({ entryId: z.uuid(), verdict: z.enum(["approved", "rejected", "pending"]) })
     .safeParse(input);
   if (!parsed.success) return { ok: false, error: "Requête incomplète." };
 
@@ -1352,7 +1352,10 @@ export async function setFaqClientReview(input: {
       .from("faq_entries")
       .update({
         client_review: parsed.data.verdict,
-        client_reviewed_at: new Date().toISOString(),
+        // Revenir à « À valider » efface la date : elle daterait un verdict
+        // qui n'existe plus.
+        client_reviewed_at:
+          parsed.data.verdict === "pending" ? null : new Date().toISOString(),
       } as never)
       .eq("id", parsed.data.entryId);
     if (error) return { ok: false, error: error.message };
@@ -1363,7 +1366,9 @@ export async function setFaqClientReview(input: {
       message:
         parsed.data.verdict === "approved"
           ? "Élément de langage validé."
-          : "Élément de langage refusé — l'agence le retravaille.",
+          : parsed.data.verdict === "rejected"
+            ? "Élément de langage refusé — l'agence le retravaille."
+            : "Élément de langage remis à valider.",
     };
   } catch (error) {
     return { ok: false, error: (error as Error).message };

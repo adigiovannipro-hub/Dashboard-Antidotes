@@ -38,15 +38,21 @@ import type { FaqCategory } from "@/lib/moderation/types";
  */
 
 /* Palette de repli, celle de Monday : l'attribution par empreinte du nom rend
-   la teinte stable pour toujours, sans écriture en base. */
+   la teinte stable pour toujours, sans écriture en base.
+
+   Deux teintes ont été assombries d'un cran. Le rouge et le violet de Monday
+   plafonnaient à 4,3:1 avec la meilleure des deux encres — relevé à l'audit,
+   pas au papier : c'est le maximum atteignable sur ces fonds, l'encre n'y
+   pouvait rien. La teinte est la même, la marge ne l'est plus. Un thème dont
+   la couleur a été choisie à la main garde la sienne, elle vit en base. */
 const FALLBACK_TONES = [
   "#c4c4c4",
   "#ffcb00",
   "#fdab3d",
-  "#a25ddc",
+  "#8e4ac4",
   "#579bfc",
   "#00c875",
-  "#e2445c",
+  "#cd3550",
   "#66ccff",
   "#ff642e",
   "#7f5347",

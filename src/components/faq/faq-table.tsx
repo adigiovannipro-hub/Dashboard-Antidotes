@@ -1,7 +1,18 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowDown, ArrowUp, MessageSquare, Plus, Search, Trash2 } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import {
+  ArrowDown,
+  ArrowUp,
+  Check,
+  CircleDashed,
+  MessageSquare,
+  MessageSquarePlus,
+  Plus,
+  Search,
+  Trash2,
+  X,
+} from "lucide-react";
 
 import {
   createFaqEntry,
@@ -31,6 +42,12 @@ import {
 import { formatDayFr } from "@/lib/format";
 import type { FaqCategory, FaqComment, FaqEntry } from "@/lib/moderation/types";
 import type { PlanningOwner } from "@/lib/planning/types";
+import {
+  PREFERENCE_MAX_AGE,
+  faqViewCookie,
+  serializeFaqColumnWidths,
+  type FaqColumnWidths,
+} from "@/lib/ui-preferences";
 import { cn } from "@/lib/utils";
 
 /**
@@ -46,11 +63,35 @@ import { cn } from "@/lib/utils";
  * correction validée dans l'inbox enrichit ce tableau toute seule.
  */
 
-/* Neuf colonnes : les sept du board Monday, plus le fil de discussion et la
-   suppression. La dernière reste posée pour le client — une colonne qui
-   apparaît et disparaît décalerait tout le tableau d'un rôle à l'autre. */
-const GRID =
-  "grid grid-cols-[minmax(180px,1.3fr)_132px_minmax(180px,1.3fr)_minmax(200px,1.5fr)_minmax(160px,1.1fr)_108px_124px_44px_40px] items-stretch";
+/**
+ * Neuf colonnes : les sept du board Monday, plus le fil de discussion et la
+ * suppression. La dernière reste posée pour le client — une colonne qui
+ * apparaît et disparaît décalerait tout le tableau d'un rôle à l'autre.
+ *
+ * La bulle de retours suit **le sujet**, comme sur le planning : c'est la
+ * ligne qu'on commente, et on la reconnaît à son nom.
+ *
+ * `track` est la piste par défaut ; élargir une colonne la fige en pixels et
+ * l'écrit dans le cookie. Une colonne jamais touchée continue de suivre la
+ * largeur de l'écran.
+ */
+const COLUMNS = [
+  { id: "title", track: "minmax(180px,1.3fr)", resizable: true },
+  { id: "thread", track: "44px", resizable: false },
+  { id: "theme", track: "132px", resizable: true },
+  { id: "question", track: "minmax(180px,1.3fr)", resizable: true },
+  { id: "answer", track: "minmax(200px,1.5fr)", resizable: true },
+  { id: "answerTiktok", track: "minmax(160px,1.1fr)", resizable: true },
+  { id: "review", track: "108px", resizable: false },
+  { id: "updated", track: "116px", resizable: true },
+  { id: "delete", track: "40px", resizable: false },
+] as const;
+
+const GRID = "grid items-stretch";
+
+/** Les mêmes bornes que le cookie : la largeur ne se lit qu'à un endroit. */
+const MIN_WIDTH = 80;
+const MAX_WIDTH = 900;
 
 type SortKey = "title" | "theme" | "updated";
 
@@ -74,6 +115,7 @@ export function FaqTable({
   members,
   isOwner,
   openEntryId,
+  initialWidths,
 }: {
   clientId: string;
   entries: FaqEntry[];
@@ -83,8 +125,12 @@ export function FaqTable({
   isOwner: boolean;
   /** `?entree=` : le lien d'un fil de modération ou d'un e-mail ouvre son fil. */
   openEntryId: string | null;
+  /** Largeurs relues du cookie côté serveur : la première image est déjà la bonne. */
+  initialWidths: FaqColumnWidths;
 }) {
   const { run, pending } = useCellAction();
+  const [widths, setWidths] = useState<FaqColumnWidths>(initialWidths);
+  const headerRefs = useRef<Record<string, HTMLElement | null>>({});
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<{ key: SortKey; desc: boolean }>({
     key: "theme",
@@ -107,6 +153,69 @@ export function FaqTable({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
+
+  const template = useMemo(
+    () =>
+      COLUMNS.map((column) =>
+        widths[column.id] ? `${widths[column.id]}px` : column.track,
+      ).join(" "),
+    [widths],
+  );
+
+  const persist = useCallback(
+    (next: FaqColumnWidths) => {
+      document.cookie = `${faqViewCookie(clientId)}=${serializeFaqColumnWidths(
+        next,
+      )}; path=/; max-age=${PREFERENCE_MAX_AGE}; samesite=lax`;
+    },
+    [clientId],
+  );
+
+  /**
+   * Élargir une colonne : on part de la largeur **rendue** de l'en-tête, pas
+   * de la valeur mémorisée — une colonne encore en `fr` n'en a aucune, et la
+   * poignée ferait un saut au premier pixel.
+   */
+  const startResize = useCallback(
+    (id: string, clientX: number) => {
+      const cell = headerRefs.current[id];
+      const startWidth = cell ? cell.getBoundingClientRect().width : 160;
+      let latest: FaqColumnWidths = widths;
+
+      const move = (event: PointerEvent) => {
+        const width = Math.min(
+          MAX_WIDTH,
+          Math.max(MIN_WIDTH, Math.round(startWidth + event.clientX - clientX)),
+        );
+        latest = { ...latest, [id]: width };
+        setWidths(latest);
+      };
+      const stop = () => {
+        window.removeEventListener("pointermove", move);
+        window.removeEventListener("pointerup", stop);
+        persist(latest);
+      };
+
+      window.addEventListener("pointermove", move);
+      window.addEventListener("pointerup", stop);
+    },
+    [persist, widths],
+  );
+
+  /** Au clavier, la même colonne se règle par pas de 16 px. */
+  const nudge = useCallback(
+    (id: string, delta: number) => {
+      const current =
+        widths[id] ?? Math.round(headerRefs.current[id]?.getBoundingClientRect().width ?? 160);
+      const next = {
+        ...widths,
+        [id]: Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, current + delta)),
+      };
+      setWidths(next);
+      persist(next);
+    },
+    [persist, widths],
+  );
 
   const categoryById = useMemo(
     () => new Map(categories.map((category) => [category.id, category])),
@@ -192,6 +301,51 @@ export function FaqTable({
     </button>
   );
 
+  /**
+   * Une cellule d'en-tête, et sa poignée d'élargissement contre le filet de
+   * droite. La poignée est un `separator` focusable : au clavier, les flèches
+   * règlent la même largeur, sans quoi elle n'existerait qu'à la souris.
+   */
+  const headCell = (
+    id: string,
+    label: string,
+    node: ReactNode,
+    className?: string,
+  ) => (
+    <span
+      key={id}
+      ref={(element) => {
+        headerRefs.current[id] = element;
+      }}
+      className={cn("relative flex min-w-0 items-center", className)}
+    >
+      {node}
+      {COLUMNS.find((column) => column.id === id)?.resizable ? (
+        <span
+          role="separator"
+          aria-orientation="vertical"
+          aria-label={`Largeur de la colonne ${label}`}
+          tabIndex={0}
+          onPointerDown={(event) => {
+            event.preventDefault();
+            startResize(id, event.clientX);
+          }}
+          onKeyDown={(event) => {
+            if (event.key === "ArrowRight") {
+              event.preventDefault();
+              nudge(id, 16);
+            }
+            if (event.key === "ArrowLeft") {
+              event.preventDefault();
+              nudge(id, -16);
+            }
+          }}
+          className="hover:bg-accent-ink focus-visible:bg-accent-ink absolute inset-y-0 -right-1 z-10 w-2 cursor-col-resize rounded opacity-0 transition-opacity hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none"
+        />
+      ) : null}
+    </span>
+  );
+
   return (
     <div className="min-w-0 flex-1 space-y-4 p-4 md:p-6">
       <div className="flex flex-wrap items-center gap-2">
@@ -217,22 +371,27 @@ export function FaqTable({
       <div className="border-border-strong overflow-x-auto rounded-md border">
         <div className="min-w-[1160px]">
           <div
+            style={{ gridTemplateColumns: template }}
             className={cn(
               "border-border-strong bg-card/60 text-muted-foreground border-b px-2 py-1 text-[10px] font-medium tracking-wide uppercase",
               GRID,
               "items-center",
             )}
           >
-            {header("title", "Sujet")}
-            <span className="px-1.5 text-center">Thème</span>
-            <span className="px-1.5">Question</span>
-            <span className="px-1.5">Réponse</span>
-            <span className="px-1.5">Réponse TikTok</span>
-            <span className="px-1.5 text-center">Client</span>
-            {header("updated", "Mise à jour")}
-            {/* Deux colonnes d'actions : l'intitulé vit sur le bouton de
-                chaque ligne, où le lecteur d'écran le trouve. */}
+            {headCell("title", "Sujet", header("title", "Sujet"))}
+            {/* La bulle de retours n'a pas d'intitulé : elle vit collée au
+                sujet, et son nom est sur le bouton de chaque ligne. */}
             <span />
+            {headCell("theme", "Thème", <span className="w-full px-1.5 text-center">Thème</span>)}
+            {headCell("question", "Question", <span className="px-1.5">Question</span>)}
+            {headCell("answer", "Réponse", <span className="px-1.5">Réponse</span>)}
+            {headCell(
+              "answerTiktok",
+              "Réponse TikTok",
+              <span className="px-1.5">Réponse TikTok</span>,
+            )}
+            <span className="px-1.5 text-center">Validation</span>
+            {headCell("updated", "Mise à jour", header("updated", "Mise à jour"))}
             <span />
           </div>
 
@@ -251,6 +410,7 @@ export function FaqTable({
               return (
                 <div key={entry.id} className="border-border-strong border-b">
                   <div
+                    style={{ gridTemplateColumns: template }}
                     className={cn(
                       "hover:bg-muted/40 min-h-9 px-2 text-sm transition-colors",
                       GRID,
@@ -279,6 +439,35 @@ export function FaqTable({
                         {entry.title || entry.question_canonical}
                       </span>
                     )}
+
+                    <span className="flex items-center justify-center">
+                      <button
+                        type="button"
+                        onClick={() => setOpenThread(open ? null : entry.id)}
+                        aria-expanded={open}
+                        aria-label={`Retours sur ${entry.title || entry.question_canonical} (${thread.length})`}
+                        className={cn(
+                          "hover:bg-muted focus-visible:ring-brand relative flex size-7 items-center justify-center rounded-md outline-none focus-visible:ring-2",
+                          thread.length > 0 || open
+                            ? "text-foreground"
+                            : "text-muted-foreground",
+                        )}
+                      >
+                        {thread.length > 0 ? (
+                          <>
+                            <MessageSquare className="size-3.5" aria-hidden />
+                            {/* `bg-primary` et non `--accent-ink` : l'encre
+                                d'accent s'inverse en sombre et le blanc posé
+                                dessus tombe à 1,39:1. */}
+                            <span className="bg-primary text-primary-foreground absolute -top-0.5 -right-0.5 flex size-3 items-center justify-center rounded-full text-[8px] font-bold tabular-nums">
+                              {thread.length > 9 ? "9+" : thread.length}
+                            </span>
+                          </>
+                        ) : (
+                          <MessageSquarePlus className="size-3.5 opacity-40" aria-hidden />
+                        )}
+                      </button>
+                    </span>
 
                     {isOwner ? (
                       <ChipSelect
@@ -391,29 +580,6 @@ export function FaqTable({
                     </span>
 
                     <span className="flex items-center justify-center">
-                      <button
-                        type="button"
-                        onClick={() => setOpenThread(open ? null : entry.id)}
-                        aria-expanded={open}
-                        aria-label={`Fil de ${entry.title || entry.question_canonical}`}
-                        className={cn(
-                          "hover:bg-muted focus-visible:ring-brand relative flex size-7 items-center justify-center rounded-md outline-none focus-visible:ring-2",
-                          open ? "text-foreground" : "text-muted-foreground",
-                        )}
-                      >
-                        <MessageSquare className="size-4" strokeWidth={1.75} aria-hidden />
-                        {thread.length > 0 ? (
-                          // `bg-primary` et non `--accent-ink` : l'encre
-                          // d'accent s'inverse en sombre et le blanc posé
-                          // dessus tombe à 1,39:1.
-                          <span className="bg-primary text-primary-foreground absolute -top-0.5 -right-0.5 flex size-3.5 items-center justify-center rounded-full text-[9px] font-bold tabular-nums">
-                            {thread.length > 9 ? "9+" : thread.length}
-                          </span>
-                        ) : null}
-                      </button>
-                    </span>
-
-                    <span className="flex items-center justify-center">
                       {isOwner ? (
                         <button
                           type="button"
@@ -497,22 +663,47 @@ function ReviewCell({
   onVerdict,
 }: {
   review: FaqEntry["client_review"];
-  onVerdict: (verdict: "approved" | "rejected") => void;
+  onVerdict: (verdict: "approved" | "rejected" | "pending") => void;
 }) {
   const key = review ?? "pending";
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
-        aria-label="Validation du client"
+        aria-label={`Validation du client — ${REVIEW_LABELS[key]}`}
         className="focus-visible:ring-brand rounded-pill outline-none focus-visible:ring-2"
       >
         <StatusPill tone={REVIEW_TONES[key]}>{REVIEW_LABELS[key]}</StatusPill>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-40 min-w-40">
-        <DropdownMenuItem onClick={() => onVerdict("approved")}>Valider</DropdownMenuItem>
-        <DropdownMenuItem onClick={() => onVerdict("rejected")}>Refuser</DropdownMenuItem>
+      {/* Les trois verdicts à plat, chacun sous son icône et son encre : deux
+          lignes de texte nu ne disaient ni lequel est posé, ni ce que chacun
+          veut dire. La coche de gauche marque l'état courant — sans elle, le
+          menu s'ouvre identique quel que soit le verdict. */}
+      <DropdownMenuContent align="end" className="w-48 min-w-48">
+        {VERDICTS.map((verdict) => (
+          <DropdownMenuItem
+            key={verdict.value}
+            onClick={() => onVerdict(verdict.value)}
+            className="gap-2"
+          >
+            <verdict.icon
+              className={cn("size-4 shrink-0", verdict.ink)}
+              strokeWidth={1.75}
+              aria-hidden
+            />
+            <span className="flex-1">{verdict.label}</span>
+            {key === verdict.value ? (
+              <Check className="text-text-secondary size-3.5" aria-hidden />
+            ) : null}
+          </DropdownMenuItem>
+        ))}
       </DropdownMenuContent>
     </DropdownMenu>
   );
 }
+
+const VERDICTS = [
+  { value: "approved", label: "Validé", icon: Check, ink: "text-accent-ink" },
+  { value: "rejected", label: "Refusé", icon: X, ink: "text-danger-ink" },
+  { value: "pending", label: "À valider", icon: CircleDashed, ink: "text-warning-ink" },
+] as const;
