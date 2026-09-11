@@ -384,7 +384,10 @@ export function PlanningBoardView({
 
         {/* La recherche : sujets et wordings, accents et casse pliés. Puis
             les archives et la corbeille du tableau. */}
-        <div className="flex items-center gap-2 pb-2">
+        {/* `flex-wrap` : recherche, calendrier, archives et corbeille font
+            423 px, et poussaient le corps de la page sur un téléphone de
+            390. Elles se replient plutôt que de déborder. */}
+        <div className="flex flex-wrap items-center gap-2 pb-2">
           {searching ? (
             <span className="text-muted-foreground text-xs tabular-nums">
               {resultCount} résultat{resultCount > 1 ? "s" : ""}

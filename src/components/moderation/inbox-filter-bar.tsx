@@ -92,8 +92,13 @@ export function InboxFilterBar({
             count: counters.byView[entry],
           }))}
         />
+        {/* `flex-wrap` : la fraîcheur, la recherche et le relevé font 440 px à
+            elles trois, et poussaient le corps de la page de 66 px sur un
+            téléphone de 390. Elles se replient plutôt que de déborder. */}
         {trailing ? (
-          <div className="ml-auto flex items-center gap-2">{trailing}</div>
+          <div className="ml-auto flex min-w-0 flex-wrap items-center gap-2">
+            {trailing}
+          </div>
         ) : null}
       </div>
 
