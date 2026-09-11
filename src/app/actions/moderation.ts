@@ -7,6 +7,7 @@ import { z } from "zod";
 import { getViewer } from "@/lib/auth";
 import { explainMetaError } from "@/lib/connectors/meta/errors";
 import { getModerationContext } from "@/lib/moderation/access";
+import { parseInboxSelection, type InboxQuery } from "@/lib/moderation/filters";
 import {
   listUnreadConversations,
   type InboxFilters,
@@ -14,13 +15,7 @@ import {
 import { can } from "@/lib/moderation/permissions";
 import { markSeenOnPlatform, sendReply } from "@/lib/moderation/send";
 import { sendFaqCommentEmails } from "@/lib/moderation/faq-notify";
-import {
-  isInboxView,
-  isStatusGroup,
-  type Conversation,
-  type InboxView,
-  type StatusGroup,
-} from "@/lib/moderation/types";
+import { type Conversation } from "@/lib/moderation/types";
 import { createAdminClient, createClient } from "@/lib/supabase/server";
 import { DeterministicEmbeddings, toPgVector } from "@/lib/moderation/embeddings";
 import { planLearning, recordCorrection, recordDirectValidation } from "@/lib/moderation/learning";
@@ -43,13 +38,13 @@ export type ModerationResult =
  *
  * La seconde ligne n'est pas une précaution. La pastille du rail est calculée
  * par `getNavBadges()` dans `AppShell`, monté par le **layout** de la
- * Modération : elle vit donc au-dessus du segment que
- * `revalidatePath("/moderation")` rafraîchit. Sans elle, le compteur gardait sa
+ * l'Inbox : elle vit donc au-dessus du segment que
+ * `revalidatePath("/inbox")` rafraîchit. Sans elle, le compteur gardait sa
  * valeur jusqu'au rechargement complet de la page, et le geste paraissait sans
  * effet — c'est la moitié du « le compteur ne bouge pas ».
  */
 function revalidateModeration(): void {
-  revalidatePath("/moderation");
+  revalidatePath("/inbox");
   revalidatePath("/", "layout");
 }
 
@@ -703,12 +698,20 @@ const MARK_SEEN_CAP = 50;
 const READ_BATCH = 500;
 
 const markAllReadInput = z.object({
-  view: z.string().optional(),
   clientSlug: z.string().optional(),
-  statusGroup: z.string().optional(),
-  unreadOnly: z.boolean().optional(),
-  highPriorityOnly: z.boolean().optional(),
-  search: z.string().optional(),
+  /* Les paramètres de l'URL, tels quels : `parseInboxSelection` en fait la
+     même sélection que la page. Deux lectures séparées avaient fini par
+     diverger, et le bouton marquait alors des fils qu'on n'avait jamais vus. */
+  query: z
+    .object({
+      reseau: z.string().optional(),
+      statut: z.string().optional(),
+      nonlus: z.string().optional(),
+      signalees: z.string().optional(),
+      mp: z.string().optional(),
+      q: z.string().optional(),
+    })
+    .default({}),
 });
 
 /**
@@ -725,12 +728,8 @@ const markAllReadInput = z.object({
  * conversations comme lues ».
  */
 export async function markFilterAsRead(input: {
-  view?: string;
   clientSlug?: string;
-  statusGroup?: string;
-  unreadOnly?: boolean;
-  highPriorityOnly?: boolean;
-  search?: string;
+  query: InboxQuery;
 }): Promise<ModerationResult> {
   const parsed = markAllReadInput.safeParse(input);
   if (!parsed.success) return { ok: false, error: "Requête incomplète." };
@@ -747,14 +746,9 @@ export async function markFilterAsRead(input: {
     }
 
     const filters: InboxFilters = {
-      view: isInboxView(parsed.data.view ?? "") ? (parsed.data.view as InboxView) : "tout",
-      clientId: client?.id,
-      statusGroup: isStatusGroup(parsed.data.statusGroup ?? "")
-        ? (parsed.data.statusGroup as StatusGroup)
-        : undefined,
+      ...parseInboxSelection(parsed.data.query, client?.id),
       unreadOnly: true,
-      highPriorityOnly: parsed.data.highPriorityOnly,
-      search: parsed.data.search,
+      search: parsed.data.query.q,
     };
 
     const targets = await listUnreadConversations({ filters });
@@ -789,7 +783,7 @@ export async function markFilterAsRead(input: {
         action: "conversation.tout-lu",
         after: {
           count: targets.filter((row) => row.client_id === clientId).length,
-          filtre: { vue: filters.view, statut: filters.statusGroup ?? "toutes" },
+          filtre: { reseaux: filters.networks, statut: filters.statusGroup },
         },
       });
     }
@@ -947,7 +941,7 @@ export async function updateFaqEntryField(input: {
       .eq("client_id", parsed.data.clientId);
     if (error) return { ok: false, error: error.message };
 
-    revalidatePath("/moderation");
+    revalidatePath("/inbox");
     revalidatePath("/espace", "layout");
     return { ok: true, message: "" };
   } catch (error) {
@@ -1297,7 +1291,7 @@ export async function deleteFaqEntry(input: {
       .eq("client_id", parsed.data.clientId);
     if (error) return { ok: false, error: error.message };
 
-    revalidatePath("/moderation");
+    revalidatePath("/inbox");
     revalidatePath("/espace", "layout");
     return { ok: true, message: "Entrée supprimée." };
   } catch (error) {

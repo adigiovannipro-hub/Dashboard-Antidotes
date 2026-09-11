@@ -3,32 +3,36 @@
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 
-import { FilterPills } from "@/components/ds/filter-pills";
-import type { InboxCounters } from "@/lib/moderation/queries";
+import { PlatformIcon } from "@/components/planning/platform-icon";
+import type { InboxCounters, InboxSelection } from "@/lib/moderation/counters";
 import {
-  STATUS_GROUP_LABELS,
-  STATUS_GROUP_ORDER,
-  VIEW_LABELS,
-  VIEW_ORDER,
-  type InboxView,
-  type StatusGroup,
-} from "@/lib/moderation/types";
+  SEGMENT_LABELS,
+  SEGMENT_ORDER,
+  serializeNetworks,
+  toggleNetwork,
+} from "@/lib/moderation/filters";
+import { CHANNEL_LABELS, type ModerationChannel } from "@/lib/moderation/types";
+import type { PlanningPlatform } from "@/lib/planning/types";
 import { cn } from "@/lib/utils";
 
 /**
- * Les filtres de l'inbox croisée, tous dans l'URL en français.
+ * Les filtres de l'Inbox, tous dans l'URL en français.
  *
  * Deux rangées, deux niveaux qui ne se ressemblent pas :
  *
- *   • les **canaux** en pastilles pleines dans une gouttière — le vocabulaire
- *     de la Boîte de réception Meta (Tout, Commentaires Instagram,
- *     Commentaires Facebook, Messages privés), compteurs d'à-traiter compris ;
- *   • les **clients** en jetons bordés à vignette, et les **statuts** en liens
- *     compacts — la sélection s'y lit à la menthe et à l'encre verte, comme
- *     partout.
+ *   • les **réseaux** en logos cochables, plusieurs à la fois — on traite
+ *     souvent Instagram et Facebook ensemble, et l'ancien jeu d'onglets
+ *     obligeait à choisir. Chaque logo porte son compteur, **même à zéro** :
+ *     une icône qui disparaît décale la rangée et l'on clique à côté ;
+ *   • les **clients** en jetons à vignette, puis le **segment de statut** en
+ *     contrôle à trois positions — il y en a toujours une d'active, « Toutes »
+ *     n'existe plus.
+ *
+ * Non lus, Signalées et Messages privés sont des **bascules** : elles se
+ * cumulent avec tout le reste, et leur état se lit à l'encre verte.
  *
  * Les compteurs se répondent : un badge n'annonce jamais des conversations
- * que le clic ne montrera pas (voir `getInboxCounters`).
+ * que le clic ne montrera pas (voir `deriveCounters` et son invariant).
  */
 
 export type ClientChip = {
@@ -36,6 +40,17 @@ export type ClientChip = {
   slug: string;
   name: string;
   logoUrl: string | null;
+};
+
+/** Le canal d'une conversation vers le logo du planning, quand il existe. */
+const PLATFORM_OF: Record<ModerationChannel, PlanningPlatform> = {
+  instagram: "instagram",
+  facebook: "facebook",
+  youtube: "youtube",
+  linkedin: "linkedin",
+  tiktok: "tiktok",
+  whatsapp: "other",
+  google_reviews: "other",
 };
 
 function useHrefBuilder() {
@@ -59,21 +74,18 @@ function useHrefBuilder() {
 export function InboxFilterBar({
   clients,
   counters,
-  view,
-  statusGroup,
+  networks,
+  selection,
   clientSlug,
-  unreadOnly,
-  highPriorityOnly,
   trailing,
 }: {
   clients: ClientChip[];
   counters: InboxCounters;
-  view: InboxView;
-  statusGroup: StatusGroup;
+  /** Les réseaux à montrer, relevés ou présents dans les données. */
+  networks: ModerationChannel[];
+  selection: InboxSelection;
   clientSlug: string | null;
-  unreadOnly: boolean;
-  highPriorityOnly: boolean;
-  /** Recherche, relevé, aide-mémoire — portés par l'inbox. */
+  /** Recherche, relevé, aide-mémoire — portés par l'Inbox. */
   trailing?: React.ReactNode;
 }) {
   const buildHref = useHrefBuilder();
@@ -81,17 +93,32 @@ export function InboxFilterBar({
   return (
     <div className="flex flex-col gap-2.5">
       <div className="flex flex-wrap items-center gap-3">
-        <FilterPills
-          ariaLabel="Canaux"
-          current={view}
-          className="max-w-full overflow-x-auto"
-          options={VIEW_ORDER.map((entry) => ({
-            value: entry,
-            label: VIEW_LABELS[entry],
-            href: buildHref({ vue: entry === "tout" ? null : entry }),
-            count: counters.byView[entry],
-          }))}
-        />
+        <nav
+          aria-label="Réseaux"
+          className="flex max-w-full flex-wrap items-center gap-1.5"
+        >
+          <NetworkToggle
+            active={selection.networks.length === 0}
+            href={buildHref({ reseau: null })}
+            label="Tous les réseaux"
+          />
+          {networks.map((channel) => {
+            const active = selection.networks.includes(channel);
+            return (
+              <NetworkToggle
+                key={channel}
+                active={active}
+                href={buildHref({
+                  reseau: serializeNetworks(toggleNetwork(selection.networks, channel)),
+                })}
+                label={CHANNEL_LABELS[channel]}
+                platform={PLATFORM_OF[channel]}
+                count={counters.byNetwork[channel] ?? 0}
+              />
+            );
+          })}
+        </nav>
+
         {/* `flex-wrap` : la fraîcheur, la recherche et le relevé font 440 px à
             elles trois, et poussaient le corps de la page de 66 px sur un
             téléphone de 390. Elles se replient plutôt que de déborder. */}
@@ -118,7 +145,7 @@ export function InboxFilterBar({
                 href={buildHref({ client: client.slug })}
                 logoUrl={client.logoUrl}
                 name={client.name}
-                count={counters.byClient[client.id]}
+                count={counters.byClient[client.id] ?? 0}
               >
                 {client.name}
               </ClientLink>
@@ -126,41 +153,98 @@ export function InboxFilterBar({
           </nav>
         ) : null}
 
-        <nav
-          aria-label="Statuts"
-          className="flex flex-wrap items-center gap-1 md:ml-auto"
-        >
-          {/* Un seul chiffre dans cette rangée : le reste à faire. Compter
-              aussi le traité et le total noyait la seule information utile.
-              « Toutes » est le défaut, donc la valeur absente de l'URL. */}
-          {STATUS_GROUP_ORDER.map((group) => (
-            <SmallFilterLink
-              key={group}
-              active={statusGroup === group}
-              href={buildHref({ statut: group === "toutes" ? null : group })}
-              count={group === "a-traiter" ? counters.byStatusGroup[group] : undefined}
+        <div className="flex flex-wrap items-center gap-2 md:ml-auto">
+          {/* Le segment de statut : trois positions, une seule active. Un
+              quatrième onglet « Toutes » qui contient les trois autres n'est
+              pas un filtre — c'est leur absence, et le travail du jour s'y
+              noyait sous des centaines de fils classés. */}
+          <nav
+            aria-label="Statut"
+            className="flex items-center gap-0.5 rounded-pill bg-surface-sunken p-0.5"
+          >
+            {SEGMENT_ORDER.map((group) => (
+              <Link
+                key={group}
+                href={buildHref({ statut: group })}
+                aria-current={selection.statusGroup === group ? "true" : undefined}
+                className={cn(
+                  "type-caption focus-visible:ring-ring rounded-pill px-2.5 py-1 font-medium transition-colors duration-(--motion-duration) ease-standard focus-visible:ring-2 focus-visible:outline-none",
+                  selection.statusGroup === group
+                    ? "bg-surface text-text-primary shadow-card"
+                    : "text-text-secondary hover:text-text-primary",
+                )}
+              >
+                {SEGMENT_LABELS[group]}
+                <span className="ml-1 tabular-nums">
+                  {counters.byStatusGroup[group]}
+                </span>
+              </Link>
+            ))}
+          </nav>
+
+          <nav aria-label="Bascules" className="flex flex-wrap items-center gap-1">
+            <Toggle
+              active={selection.unreadOnly}
+              href={buildHref({ nonlus: selection.unreadOnly ? null : "1" })}
             >
-              {STATUS_GROUP_LABELS[group]}
-            </SmallFilterLink>
-          ))}
-
-          <span aria-hidden className="mx-1.5 h-4 w-px bg-border" />
-
-          <SmallFilterLink
-            active={unreadOnly}
-            href={buildHref({ nonlus: unreadOnly ? null : "1" })}
-          >
-            Non lus
-          </SmallFilterLink>
-          <SmallFilterLink
-            active={highPriorityOnly}
-            href={buildHref({ priorite: highPriorityOnly ? null : "1" })}
-          >
-            Signalées
-          </SmallFilterLink>
-        </nav>
+              Non lus
+            </Toggle>
+            <Toggle
+              active={selection.flaggedOnly}
+              href={buildHref({ signalees: selection.flaggedOnly ? null : "1" })}
+            >
+              Signalées
+            </Toggle>
+            <Toggle
+              active={selection.dmOnly}
+              href={buildHref({ mp: selection.dmOnly ? null : "1" })}
+            >
+              Messages privés
+            </Toggle>
+          </nav>
+        </div>
       </div>
     </div>
+  );
+}
+
+/**
+ * Un réseau cochable. Le logo porte l'identité, le compteur la charge ; le
+ * nom reste lisible au lecteur d'écran et disparaît sous `sm`, où trois
+ * libellés complets ne tiennent pas.
+ */
+function NetworkToggle({
+  active,
+  href,
+  label,
+  platform,
+  count,
+}: {
+  active: boolean;
+  href: string;
+  label: string;
+  platform?: PlanningPlatform;
+  count?: number;
+}) {
+  return (
+    <Link
+      href={href}
+      aria-pressed={active}
+      role="button"
+      className={cn(
+        "type-caption focus-visible:ring-ring inline-flex items-center gap-1.5 rounded-pill border px-2.5 py-1 font-medium transition-colors duration-(--motion-duration) ease-standard focus-visible:ring-2 focus-visible:outline-none",
+        active
+          ? "border-accent-ink/30 bg-accent-subtle text-accent-ink"
+          : "border-border bg-surface text-text-secondary hover:text-text-primary",
+      )}
+    >
+      {platform ? <PlatformIcon platform={platform} className="size-4" /> : null}
+      <span className={platform ? "hidden sm:inline" : undefined}>{label}</span>
+      {platform ? <span className="sr-only sm:hidden">{label}</span> : null}
+      {count === undefined ? null : (
+        <span className="tabular-nums">{count}</span>
+      )}
+    </Link>
   );
 }
 
@@ -205,35 +289,34 @@ function ClientLink({
         )
       ) : null}
       {children}
-      {count ? <span className="tabular-nums">{count}</span> : null}
+      {count === undefined ? null : <span className="tabular-nums">{count}</span>}
     </Link>
   );
 }
 
-function SmallFilterLink({
+/** Une bascule : elle s'ajoute au reste, elle ne remplace rien. */
+function Toggle({
   active,
   href,
-  count,
   children,
 }: {
   active: boolean;
   href: string;
-  count?: number;
   children: React.ReactNode;
 }) {
   return (
     <Link
       href={href}
-      aria-current={active ? "true" : undefined}
+      role="button"
+      aria-pressed={active}
       className={cn(
-        "type-caption focus-visible:ring-ring rounded-md px-2 py-1 font-medium transition-colors duration-(--motion-duration) ease-standard focus-visible:ring-2 focus-visible:outline-none",
+        "type-caption focus-visible:ring-ring rounded-pill border px-2.5 py-1 font-medium transition-colors duration-(--motion-duration) ease-standard focus-visible:ring-2 focus-visible:outline-none",
         active
-          ? "bg-accent-subtle text-accent-ink"
-          : "text-text-secondary hover:bg-surface-sunken hover:text-text-primary",
+          ? "border-accent-ink/30 bg-accent-subtle text-accent-ink"
+          : "border-transparent text-text-secondary hover:bg-surface-sunken hover:text-text-primary",
       )}
     >
       {children}
-      {count ? <span className="ml-1 tabular-nums">{count}</span> : null}
     </Link>
   );
 }

@@ -1,15 +1,8 @@
 import "server-only";
 
 import { createClient } from "@/lib/supabase/server";
-import {
-  ACTIONABLE_STATUSES,
-  countsAsPending,
-  isSpam,
-  MODERATION_FLAGS,
-  STATUS_GROUP_MEMBERS,
-  VIEW_ORDER,
-  viewMatches,
-} from "./types";
+import { deriveCounters, type CounterRow, type InboxSelection } from "./counters";
+import { MODERATION_FLAGS, STATUS_GROUP_MEMBERS } from "./types";
 import type {
   Conversation,
   ConversationKind,
@@ -18,11 +11,11 @@ import type {
   FaqCategory,
   FaqComment,
   FaqEntry,
-  InboxView,
   ModerationChannel,
   ModerationMessage,
-  StatusGroup,
 } from "./types";
+
+export type { InboxCounters } from "./counters";
 
 /**
  * Lectures de l'inbox croisée.
@@ -34,17 +27,14 @@ import type {
  * contributeur d'espace.
  */
 
-export type InboxFilters = {
-  /** Onglet courant — « tout » par défaut. */
-  view?: InboxView;
-  /** Filtre client, résolu du slug de l'URL vers l'identifiant. */
-  clientId?: string;
-  /** Groupe de statuts — « à traiter » par défaut, décidé par la page. */
-  statusGroup?: StatusGroup;
-  unreadOnly?: boolean;
-  highPriorityOnly?: boolean;
-  search?: string;
-};
+/**
+ * Ce que l'écran demande : la sélection des filtres, plus la recherche.
+ *
+ * La sélection est **exactement** celle du sélecteur de compteurs
+ * (`InboxSelection`) : une seule définition pour ce qu'on compte et pour ce
+ * qu'on liste, sinon un badge finit par annoncer autre chose que la liste.
+ */
+export type InboxFilters = InboxSelection & { search?: string };
 
 /**
  * La requête filtrée, colonnes au choix.
@@ -64,37 +54,22 @@ function filteredConversations(
 ) {
   let query = supabase.from("conversations").select(columns).is("deleted_at", null);
 
-  const view = filters.view ?? "tout";
-  if (view === "commentaires-instagram") {
-    query = query.eq("channel", "instagram").eq("kind", "comment");
-  } else if (view === "commentaires-facebook") {
-    query = query.eq("channel", "facebook").eq("kind", "comment");
-  } else if (view === "commentaires-youtube") {
-    query = query.eq("channel", "youtube").eq("kind", "comment");
-  } else if (view === "messages") {
-    query = query.eq("kind", "dm");
-  }
-
+  // Réseaux : une liste vide ne filtre rien — c'est « tous les réseaux »,
+  // l'état par défaut de la rangée d'icônes.
+  if (filters.networks.length > 0) query = query.in("channel", filters.networks);
+  if (filters.dmOnly) query = query.eq("kind", "dm");
   if (filters.clientId) query = query.eq("client_id", filters.clientId);
 
-  /* « Toutes » par défaut, et non « À traiter ».
-     Le défaut d'un onglet de canal est déjà « Tout » ; ouvrir la Modération
-     sur un sous-ensemble sans que rien dans l'URL ne le dise donnait une boîte
-     qui paraissait vide alors qu'elle ne l'était pas. « À traiter » est
-     désormais un paramètre explicite, « Toutes » l'URL nue. */
-  const group = filters.statusGroup ?? "toutes";
-  if (group !== "toutes") {
-    query = query.in("status", STATUS_GROUP_MEMBERS[group]);
-  }
+  query = query.in("status", STATUS_GROUP_MEMBERS[filters.statusGroup]);
 
   /* Le spam ne s'affiche pas dans « À traiter ».
      L'ingestion archive désormais un fil dont tous les entrants sont du spam,
      mais elle ne juge que ce qui arrive : les fils relevés avant la règle
      gardent leur statut, et c'est là que le panneau se remplissait de
      « check my profile for free followers ». Le filtre de lecture ferme les
-     deux cas d'un coup. Le fil n'est pas perdu — il reste sous « Toutes » et
-     sous « Signalées », qui est fait pour ça. */
-  if (group === "a-traiter" && !filters.highPriorityOnly) {
+     deux cas d'un coup. Le fil n'est pas perdu — « Signalées » est fait pour
+     ça, et le segment « Traitées » le garde une fois archivé. */
+  if (filters.statusGroup === "a-traiter" && !filters.flaggedOnly) {
     query = query.not("flags", "cs", "{spam}");
   }
 
@@ -102,7 +77,7 @@ function filteredConversations(
   /* « Signalées » lit les **drapeaux**, pas la priorité : le spam est archivé
      d'office sans monter en priorité, et il doit continuer de se retrouver
      ici. `overlaps` est le `&&` de Postgres — au moins un drapeau. */
-  if (filters.highPriorityOnly) query = query.overlaps("flags", MODERATION_FLAGS);
+  if (filters.flaggedOnly) query = query.overlaps("flags", MODERATION_FLAGS);
   if (filters.search) {
     query = query.or(
       `participant_handle.ilike.%${filters.search}%,excerpt.ilike.%${filters.search}%,post_excerpt.ilike.%${filters.search}%`,
@@ -161,126 +136,28 @@ export async function listUnreadConversations(options: {
   return (data ?? []) as unknown as UnreadConversationRow[];
 }
 
-export type InboxCounters = {
-  /** À gérer dans le périmètre courant (onglet + client). */
-  actionable: number;
-  unread: number;
-  /** Conversations portant au moins un drapeau — ce que « Signalées » montre. */
-  flagged: number;
-  /** Ancienneté du plus vieux message à gérer du périmètre, en heures. */
-  oldestActionableHours: number | null;
-  /** Badge de chaque onglet : le **non lu à traiter**, dans le client courant. */
-  byView: Record<InboxView, number>;
-  /** Badge de chaque client : le **non lu à traiter**, dans l'onglet courant. */
-  byClient: Record<string, number>;
-  /** Effectif de chaque groupe de statuts dans le périmètre courant. */
-  byStatusGroup: Record<StatusGroup, number>;
-};
-
 /**
- * Compteurs de l'inbox, en une seule requête.
+ * Les compteurs de l'Inbox, en une lecture et une seule fonction.
  *
- * Les badges se répondent : les onglets comptent dans le client choisi, les
- * clients comptent dans l'onglet choisi, les statuts comptent dans les deux.
- * C'est ce croisement qui rend la navigation honnête — un badge n'annonce
- * jamais des conversations que le clic ne montrera pas.
+ * La lecture rapporte les colonnes de tri ; tout le reste est calculé par
+ * `deriveCounters`, pur et testé, qui porte l'invariant : sans filtre posé, la
+ * somme des réseaux et celle des clients valent le total affiché.
  *
- * Onglets et clients comptent le **non lu à traiter** (`countsAsPending`), la
- * même définition que la pastille du rail : les deux doivent rester d'accord.
- * Les statuts, eux, comptent l'effectif exact de leur propre filtre — c'est
- * leur rôle, et « À traiter » vaut alors pour la charge de travail, lue ou non.
+ * La recherche plein texte est la seule dimension qui ne passe pas par là —
+ * elle porte sur des colonnes de texte que les compteurs n'embarquent pas. Une
+ * recherche active rend donc des badges qui parlent de la boîte, pas du
+ * résultat : l'écran les efface plutôt que de les laisser mentir.
  */
-export async function getInboxCounters(options: {
-  view?: InboxView;
-  clientId?: string;
-}): Promise<InboxCounters> {
+export async function getInboxCounters(
+  selection: InboxSelection,
+): Promise<import("./counters").InboxCounters> {
   const supabase = await createClient();
   const { data } = await supabase
     .from("conversations")
     .select("client_id, channel, kind, status, unread, flags, last_message_at")
     .is("deleted_at", null);
 
-  const rows = (data ?? []) as unknown as {
-    client_id: string;
-    channel: ModerationChannel;
-    kind: ConversationKind;
-    status: ConversationStatus;
-    unread: boolean;
-    flags: string[];
-    last_message_at: string;
-  }[];
-
-  const view = options.view ?? "tout";
-  const byView = Object.fromEntries(VIEW_ORDER.map((entry) => [entry, 0])) as Record<
-    InboxView,
-    number
-  >;
-  const byClient: Record<string, number> = {};
-  const byStatusGroup: Record<StatusGroup, number> = {
-    "a-traiter": 0,
-    "en-attente": 0,
-    traitees: 0,
-    toutes: 0,
-  };
-
-  let actionable = 0;
-  let unread = 0;
-  let flagged = 0;
-  let oldestActionable: number | null = null;
-
-  for (const row of rows) {
-    const actionableRow = ACTIONABLE_STATUSES.includes(row.status);
-    /* Les badges disent le **non lu à traiter** — la même définition que la
-       pastille du rail (`countsAsPending`). Sans l'état de lecture, marquer
-       trois cents conversations comme lues ne changeait aucun chiffre : rien
-       ne bougeait à l'écran, et le geste paraissait sans effet. */
-    const pending = countsAsPending(row);
-    const inView = viewMatches(view, row.channel, row.kind);
-    const inClient = !options.clientId || row.client_id === options.clientId;
-
-    if (pending && inClient) {
-      for (const candidate of VIEW_ORDER) {
-        if (viewMatches(candidate, row.channel, row.kind)) byView[candidate] += 1;
-      }
-    }
-    if (pending && inView) {
-      byClient[row.client_id] = (byClient[row.client_id] ?? 0) + 1;
-    }
-
-    if (!inView || !inClient) continue;
-
-    byStatusGroup.toutes += 1;
-    if (STATUS_GROUP_MEMBERS["a-traiter"].includes(row.status)) {
-      // Le spam n'entre pas dans « À traiter » — même règle qu'à la lecture,
-      // sinon l'onglet annonce des fils que le clic ne montre plus.
-      if (!isSpam(row.flags)) byStatusGroup["a-traiter"] += 1;
-    } else if (STATUS_GROUP_MEMBERS["en-attente"].includes(row.status)) {
-      byStatusGroup["en-attente"] += 1;
-    } else {
-      byStatusGroup.traitees += 1;
-    }
-
-    if (row.unread) unread += 1;
-    if (row.flags.length > 0) flagged += 1;
-    if (actionableRow) {
-      actionable += 1;
-      const at = new Date(row.last_message_at).getTime();
-      if (oldestActionable === null || at < oldestActionable) oldestActionable = at;
-    }
-  }
-
-  return {
-    actionable,
-    unread,
-    flagged,
-    oldestActionableHours:
-      oldestActionable === null
-        ? null
-        : (Date.now() - oldestActionable) / (60 * 60 * 1000),
-    byView,
-    byClient,
-    byStatusGroup,
-  };
+  return deriveCounters((data ?? []) as unknown as CounterRow[], selection);
 }
 
 export async function getConversationThread(conversationId: string): Promise<{

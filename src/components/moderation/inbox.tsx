@@ -28,17 +28,15 @@ import { ShortcutsHint } from "@/components/moderation/shortcuts-hint";
 import { SelectionBar } from "@/components/moderation/selection-bar";
 import { ModerationSyncButton } from "@/components/moderation/sync-button";
 import { Input } from "@/components/ui/input";
-import type {
-  ChannelConnectionSummary,
-  InboxCounters,
-} from "@/lib/moderation/queries";
+import type { InboxCounters, InboxSelection } from "@/lib/moderation/counters";
+import type { InboxQuery } from "@/lib/moderation/filters";
+import type { ChannelConnectionSummary } from "@/lib/moderation/queries";
 import type {
   Conversation,
   Draft,
-  InboxView,
+  ModerationChannel,
   ModerationMessage,
   ModerationRole,
-  StatusGroup,
 } from "@/lib/moderation/types";
 import { CHANNEL_LABELS } from "@/lib/moderation/types";
 import { cn } from "@/lib/utils";
@@ -63,12 +61,11 @@ export function Inbox({
   role,
   conversations,
   counters,
+  networksShown,
   connections,
-  view,
-  statusGroup,
+  selection,
+  query,
   clientSlug,
-  unreadOnly,
-  highPriorityOnly,
   search: initialSearch,
   selectedId,
   threadOpen,
@@ -78,12 +75,12 @@ export function Inbox({
   role: ModerationRole;
   conversations: Conversation[];
   counters: InboxCounters;
+  networksShown: ModerationChannel[];
   connections: ChannelConnectionSummary[];
-  view: InboxView;
-  statusGroup: StatusGroup;
+  selection: InboxSelection;
+  /** Les paramètres bruts de l'URL — « Tout lire » les relit comme la page. */
+  query: InboxQuery;
   clientSlug: string | null;
-  unreadOnly: boolean;
-  highPriorityOnly: boolean;
   search: string;
   selectedId: string | null;
   /** Vrai quand l'URL porte `?conv=` : sur mobile, le fil couvre la liste. */
@@ -197,11 +194,8 @@ export function Inbox({
 
     startReadingAll(async () => {
       const result = await markFilterAsRead({
-        view,
         clientSlug: clientSlug ?? undefined,
-        statusGroup,
-        highPriorityOnly,
-        search: initialSearch || undefined,
+        query,
       });
       if (result.ok) {
         toast.success(result.message);
@@ -210,15 +204,7 @@ export function Inbox({
         toast.error(result.error);
       }
     });
-  }, [
-    clientSlug,
-    highPriorityOnly,
-    initialSearch,
-    router,
-    statusGroup,
-    unreadShown,
-    view,
-  ]);
+  }, [clientSlug, query, router, unreadShown]);
 
   const toggleChecked = useCallback((id: string, isChecked: boolean) => {
     setChecked((current) => {
@@ -340,11 +326,9 @@ export function Inbox({
       <InboxFilterBar
         clients={clients}
         counters={counters}
-        view={view}
-        statusGroup={statusGroup}
+        networks={networksShown}
+        selection={selection}
         clientSlug={clientSlug}
-        unreadOnly={unreadOnly}
-        highPriorityOnly={highPriorityOnly}
         trailing={
           <>
             <span className="type-caption hidden text-text-secondary lg:inline">
