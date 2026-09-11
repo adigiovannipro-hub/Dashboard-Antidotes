@@ -273,13 +273,59 @@ export type ChannelConnectionSummary = {
   status: string;
   last_polled_at: string | null;
   last_error: string | null;
+  external_account_id?: string | null;
+  /** Échéance du jeton, lisible du seul owner — sinon `null`. */
+  token_expires_at?: string | null;
 };
 
 export async function listChannelConnections(): Promise<ChannelConnectionSummary[]> {
   const supabase = await createClient();
   const { data } = await supabase
     .from("channel_connections")
-    .select("id, client_id, channel, display_name, status, last_polled_at, last_error")
+    .select(
+      "id, client_id, channel, display_name, status, last_polled_at, last_error, external_account_id",
+    )
     .order("last_polled_at", { ascending: false });
-  return (data ?? []) as unknown as ChannelConnectionSummary[];
+  const connections = (data ?? []) as unknown as ChannelConnectionSummary[];
+
+  /* L'échéance du jeton, quand on a le droit de la lire.
+     `social_account_secrets` est owner-only par RLS : pour un opérateur, la
+     lecture rend simplement zéro ligne et le panneau n'affiche pas de
+     colonne. C'est le bon comportement — un opérateur n'a pas à connaître
+     l'état d'un jeton qu'il ne peut pas rebrancher. */
+  const externalIds = connections
+    .map((connection) => connection.external_account_id)
+    .filter((value): value is string => Boolean(value));
+  if (externalIds.length === 0) return connections;
+
+  const { data: accounts } = await supabase
+    .from("social_accounts")
+    .select("id, external_id")
+    .in("external_id", externalIds);
+  const rows = (accounts ?? []) as unknown as { id: string; external_id: string }[];
+  if (rows.length === 0) return connections;
+
+  const { data: secrets } = await supabase
+    .from("social_account_secrets")
+    .select("account_id, token_expires_at")
+    .in(
+      "account_id",
+      rows.map((row) => row.id),
+    );
+  const expiryByAccount = new Map(
+    ((secrets ?? []) as unknown as {
+      account_id: string;
+      token_expires_at: string | null;
+    }[]).map((row) => [row.account_id, row.token_expires_at]),
+  );
+  const expiryByExternal = new Map(
+    rows.map((row) => [row.external_id, expiryByAccount.get(row.id) ?? null]),
+  );
+
+  return connections.map((connection) => ({
+    ...connection,
+    token_expires_at: connection.external_account_id
+      ? (expiryByExternal.get(connection.external_account_id) ?? null)
+      : null,
+  }));
 }

@@ -9,7 +9,7 @@ import {
   useTransition,
 } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { AlertTriangle, Inbox as InboxIcon, Search, Smile } from "lucide-react";
+import { Inbox as InboxIcon, Search, Smile } from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -24,9 +24,9 @@ import {
   InboxFilterBar,
   type ClientChip,
 } from "@/components/moderation/inbox-filter-bar";
-import { ShortcutsHint } from "@/components/moderation/shortcuts-hint";
 import { SelectionBar } from "@/components/moderation/selection-bar";
 import { ModerationSyncButton } from "@/components/moderation/sync-button";
+import { SyncPanel } from "@/components/moderation/sync-panel";
 import { Input } from "@/components/ui/input";
 import type { InboxCounters, InboxSelection } from "@/lib/moderation/counters";
 import type { InboxQuery } from "@/lib/moderation/filters";
@@ -41,7 +41,6 @@ import type {
   ModerationRole,
   SavedReply,
 } from "@/lib/moderation/types";
-import { CHANNEL_LABELS } from "@/lib/moderation/types";
 import { cn } from "@/lib/utils";
 import { COMPOSIO_TRANSITION_NOTE } from "@/lib/social/direct-connect";
 
@@ -145,6 +144,10 @@ export function Inbox({
 
   const clientById = useMemo(
     () => new Map(clients.map((client) => [client.id, client])),
+    [clients],
+  );
+  const clientNames = useMemo(
+    () => new Map(clients.map((client) => [client.id, client.name])),
     [clients],
   );
 
@@ -356,25 +359,6 @@ export function Inbox({
     router.push(`${pathname}?${next}`);
   }
 
-  /* L'état du relevé. Un **avertissement** n'est pas une **erreur** : le
-     passage qui aboutit écrit quand même dans `last_error` ce qui lui a
-     manqué — un refus sur la messagerie, par exemple — alors que les
-     commentaires sont bien remontés. L'écran lisait ce champ seul et
-     remplaçait « Relevé il y a X » par « canal en erreur », ce qui donnait à
-     une boîte parfaitement à jour l'air d'une panne. Le juge est donc
-     `status`, et l'âge du relevé s'affiche **toujours**. */
-  const lastPolledAt = connections.reduce<string | null>(
-    (latest, connection) =>
-      connection.last_polled_at && (!latest || connection.last_polled_at > latest)
-        ? connection.last_polled_at
-        : latest,
-    null,
-  );
-  const failing = connections.filter((connection) => connection.status !== "connected");
-  const warned = connections.filter(
-    (connection) => connection.status === "connected" && connection.last_error,
-  );
-
   const selectedClient = thread.conversation
     ? clientById.get(thread.conversation.client_id)
     : undefined;
@@ -412,29 +396,15 @@ export function Inbox({
         clientSlug={clientSlug}
         trailing={
           <>
-            <span className="type-caption hidden text-text-secondary lg:inline">
-              {lastPolledAt ? `Relevé ${relativeTime(lastPolledAt)}` : "Jamais relevé"}
-            </span>
-
-            {failing.length > 0 ? (
-              <span
-                className="type-caption inline-flex items-center gap-1 font-medium text-danger-ink"
-                title={failing[0]!.last_error ?? undefined}
-              >
-                <AlertTriangle className="size-3.5" strokeWidth={1.75} aria-hidden />
-                {failing.length > 1
-                  ? `${failing.length} canaux en erreur`
-                  : "canal en erreur"}
-              </span>
-            ) : warned.length > 0 ? (
-              <span
-                className="type-caption inline-flex items-center gap-1 font-medium text-warning-ink"
-                title={detailDesAvertissements(warned)}
-              >
-                <AlertTriangle className="size-3.5" strokeWidth={1.75} aria-hidden />
-                {warned.length > 1 ? `${warned.length} avertissements` : "avertissement"}
-              </span>
-            ) : null}
+            {/* Un seul repère pour tout l'état du relevé : l'âge, les erreurs,
+                le détail par client et par réseau, l'échéance des jetons et le
+                bouton pour relever. Il en vivait trois dans cette barre, dont
+                deux ne disaient pas ce qui clochait. */}
+            <SyncPanel
+              connections={connections}
+              clientNames={clientNames}
+              isOwner={role === "owner"}
+            />
 
             <form onSubmit={submitSearch} className="relative">
               <Search
@@ -450,9 +420,6 @@ export function Inbox({
                 className="w-44 pl-9 xl:w-64"
               />
             </form>
-
-            {role === "owner" ? <ModerationSyncButton /> : null}
-            <ShortcutsHint />
           </>
         }
       />
@@ -629,37 +596,4 @@ function expectedPatch(gesture: InboxGesture): Partial<Conversation> {
     default:
       return {};
   }
-}
-
-function relativeTime(iso: string): string {
-  const minutes = Math.round((Date.now() - new Date(iso).getTime()) / 60_000);
-  if (minutes < 1) return "à l'instant";
-  if (minutes < 60) return `il y a ${minutes} min`;
-  const hours = Math.round(minutes / 60);
-  if (hours < 24) return `il y a ${hours} h`;
-  return `il y a ${Math.round(hours / 24)} j`;
-}
-
-/**
- * Le détail d'un avertissement de relevé, lisible.
- *
- * Le titre ne portait que le message du premier canal, brut — et Meta rend
- * volontiers « An unknown error occurred », qui n'apprend rien et ne dit même
- * pas de quel canal il s'agit. On nomme donc le canal et le compte, une ligne
- * par avertissement, et on traduit le refus générique de Meta en ce qu'il
- * signifie en pratique : réessayer au passage suivant.
- */
-function detailDesAvertissements(warned: ChannelConnectionSummary[]): string {
-  return warned
-    .map((connection) => {
-      const canal = CHANNEL_LABELS[connection.channel] ?? connection.channel;
-      const compte = connection.display_name ? ` · ${connection.display_name}` : "";
-      const message = connection.last_error?.trim() ?? "";
-      const lisible =
-        message === "" || /unknown error/i.test(message)
-          ? "Meta n'a pas dit pourquoi. Le passage suivant réessaiera ; si l'avertissement revient, c'est une portée à rebrancher."
-          : message;
-      return `${canal}${compte} — ${lisible}`;
-    })
-    .join("\n");
 }
