@@ -25,6 +25,7 @@ import {
   type ClientChip,
 } from "@/components/moderation/inbox-filter-bar";
 import { SelectionBar } from "@/components/moderation/selection-bar";
+import { ShortcutsHint } from "@/components/moderation/shortcuts-hint";
 import { ModerationSyncButton } from "@/components/moderation/sync-button";
 import { SyncPanel } from "@/components/moderation/sync-panel";
 import { Input } from "@/components/ui/input";
@@ -414,6 +415,9 @@ export function Inbox({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4">
+      {/* Sans bouton : « ? » l'ouvre, et « ? » est dans la liste. */}
+      <ShortcutsHint />
+
       <InboxFilterBar
         clients={clients}
         counters={counters}
