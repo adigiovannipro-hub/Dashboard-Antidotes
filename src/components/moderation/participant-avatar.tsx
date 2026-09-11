@@ -18,18 +18,31 @@ import { cn } from "@/lib/utils";
  * passage à l'autre, et un auteur masqué reste gris.
  */
 
-/** Les teintes d'initiales : la gamme chaude de la charte, jamais de rose. */
+/**
+ * Les teintes d'initiales : **les encres seulement**, jamais les teintes vives.
+ *
+ * Les initiales sont posées en `--surface` — le couple s'inverse donc
+ * ensemble : encre foncée et texte blanc en clair, encre claire et texte
+ * sombre en sombre. Les trois teintes vives qui vivaient ici portaient du
+ * blanc en dur : le vert de marque tombait à 2,71:1, et `--accent-ink`, qui
+ * devient un vert clair en mode sombre, à 1,39:1 — mesuré au navigateur, et
+ * c'est exactement le piège que la charte interdit (« jamais de blanc posé
+ * sur --accent-ink »).
+ *
+ * Quatre teintes au lieu de six : l'identité d'un interlocuteur ne repose pas
+ * sur la couleur de sa pastille, son nom est écrit juste à côté.
+ */
 const AVATAR_TONES = [
-  "var(--accent)",
-  "var(--warning)",
-  "var(--info)",
   "var(--accent-ink)",
   "var(--warning-ink)",
   "var(--info-ink)",
+  "var(--text-primary)",
 ];
 
 function toneOf(handle: string | null): string {
-  if (!handle) return "var(--border-strong)";
+  // Auteur masqué : gris, mais une encre — `--border-strong` est un filet, et
+  // les initiales posées dessus en `--surface` disparaissaient.
+  if (!handle) return "var(--text-secondary)";
   let hash = 0;
   for (const char of handle) hash = (hash * 31 + char.charCodeAt(0)) % 997;
   return AVATAR_TONES[hash % AVATAR_TONES.length]!;
@@ -145,11 +158,11 @@ export function ParticipantAvatar({
         <span
           aria-hidden
           className={cn(
-            "flex items-center justify-center rounded-pill font-semibold text-white",
-            size === "lg" ? "text-sm" : "text-xs",
+            "flex items-center justify-center rounded-pill font-semibold",
+            size === "lg" ? "type-label" : "type-caption",
             dimension,
           )}
-          style={{ backgroundColor: toneOf(handle) }}
+          style={{ backgroundColor: toneOf(handle), color: "var(--surface)" }}
         >
           {initialsOf(handle)}
         </span>

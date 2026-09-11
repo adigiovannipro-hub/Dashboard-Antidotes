@@ -12,7 +12,7 @@ describe("countsAsPending", () => {
   });
 
   it("ne compte pas un fil déjà traité, même non lu", () => {
-    expect(countsAsPending({ status: "answered", unread: true })).toBe(false);
+    expect(countsAsPending({ status: "sent", unread: true })).toBe(false);
   });
 
   it("ne compte pas un spam : il a quitté « À traiter », le badge le suit", () => {

@@ -35,6 +35,7 @@ import { DateField } from "@/components/ds/date-field";
 import { StatusPill, type StatusTone } from "@/components/ds/status-pill";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
 import {
   Table,
   TableBody,
@@ -393,12 +394,22 @@ function Merchant({ row }: { row: DisplayExpense }) {
     <div className="flex min-w-0 items-start gap-2.5">
       <span
         aria-hidden
-        className="border-border-line text-text-secondary type-caption flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-md border bg-white font-semibold"
+        className={cn(
+          "border-border-line type-caption flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-md border font-semibold",
+          /* Le fond blanc n'est là que pour le logo : un favicon est dessiné
+             pour un fond clair, et le forcer dans les deux modes est le bon
+             choix — pour lui. Les initiales, elles, tombaient à 2,39:1 en
+             sombre (encre secondaire claire sur ce blanc, mesuré au
+             navigateur). Sans logo, la case reprend donc la surface de la
+             page et son encre, qui s'inversent ensemble. */
+          row.logo_url
+            ? "text-text-secondary bg-white"
+            : "text-text-primary bg-surface-sunken",
+        )}
       >
         {/* Le vrai logo quand la synchronisation l'a trouvé ; sinon les
             initiales ; sinon une icône générique — jamais une lettre
-            inventée, jamais un carré vide. Fond blanc dans les deux modes :
-            un favicon est dessiné pour un fond clair. */}
+            inventée, jamais un carré vide. */}
         {row.logo_url ? (
           /* `img` nu et non `next/image` : l'URL est signée et expire dans
              l'heure — l'optimiseur la mettrait en cache au-delà de sa durée
