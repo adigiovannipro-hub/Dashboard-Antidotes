@@ -8,9 +8,12 @@ import {
   Check,
   Clock,
   ExternalLink,
+  Loader2,
   Pause,
   Reply,
+  RefreshCw,
   Send,
+  Sparkles,
   X,
 } from "lucide-react";
 
@@ -20,6 +23,10 @@ import {
   validateDraft,
   type ModerationResult,
 } from "@/app/actions/moderation";
+import {
+  generateConversationDraft,
+  type DraftGenerationResult,
+} from "@/app/actions/moderation-draft";
 import { CorrectionDialog } from "@/components/moderation/correction-dialog";
 import { ParticipantAvatar } from "@/components/moderation/participant-avatar";
 import { Button } from "@/components/ui/button";
@@ -73,6 +80,14 @@ export function ConversationThread({
 }) {
   const [correctionOpen, setCorrectionOpen] = useState(false);
   const [reply, setReply] = useState("");
+  // Le brouillon fraîchement généré prend la main sur celui passé en props :
+  // le serveur l'a écrit en base, mais la page n'a pas encore été relue.
+  const [generated, setGenerated] = useState<Draft | null>(null);
+  const [generating, setGenerating] = useState(false);
+  const [failure, setFailure] = useState<{ message: string; retryable: boolean } | null>(
+    null,
+  );
+  const asked = useRef(false);
   const [replyPending, startReply] = useTransition();
   const replyRef = useRef<HTMLTextAreaElement>(null);
 
@@ -100,6 +115,45 @@ export function ConversationThread({
   }, [validateState, statusState]);
 
   const canAct = role === "owner" || role === "operator";
+  const current = generated ?? draft;
+
+  /**
+   * Demande la réponse au modèle. Le résultat est écrit en base par l'action,
+   * donc un fil n'est payé qu'une fois : `force` n'est vrai que sur un clic
+   * humain de « Régénérer ».
+   */
+  async function askForDraft(force: boolean) {
+    if (!conversation) return;
+    setGenerating(true);
+    setFailure(null);
+    let result: DraftGenerationResult;
+    try {
+      result = await generateConversationDraft({
+        conversationId: conversation.id,
+        force,
+      });
+    } catch (error) {
+      result = { ok: false, error: (error as Error).message, cause: "error" };
+    }
+    setGenerating(false);
+    if (result.ok) {
+      setGenerated(result.draft);
+    } else {
+      setFailure({ message: result.error, retryable: result.cause !== "config" });
+    }
+  }
+
+  // À l'ouverture d'un fil sans brouillon : on en demande un, une seule fois.
+  // Le composant est remonté à chaque conversation (`key` côté inbox), donc le
+  // garde-fou se réarme tout seul.
+  useEffect(() => {
+    if (!conversation || draft || !canAct || asked.current) return;
+    asked.current = true;
+    void askForDraft(false);
+    // `askForDraft` est recréée à chaque rendu ; l'inclure relancerait la
+    // génération en boucle — et chaque tour est un appel modèle facturé.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conversation, draft, canAct]);
 
   useEffect(() => {
     if (!conversation || !canAct) return;
@@ -115,7 +169,7 @@ export function ConversationThread({
       }
 
       const key = event.key.toLowerCase();
-      if (key === "v" && draft) {
+      if (key === "v" && current) {
         event.preventDefault();
         document.getElementById("draft-validate")?.click();
       } else if (key === "r") {
@@ -132,14 +186,12 @@ export function ConversationThread({
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [conversation, draft, canAct]);
+  }, [conversation, current, canAct]);
 
   /** Met le pseudo de l'auteur dans la zone de saisie et y pose le curseur. */
   function mentionAuthor(handle: string | null) {
     const mention = handle ? `@${handle} ` : "";
-    setReply((current) =>
-      current.startsWith(mention) ? current : `${mention}${current}`,
-    );
+    setReply((value) => (value.startsWith(mention) ? value : `${mention}${value}`));
     replyRef.current?.focus();
   }
 
@@ -177,7 +229,11 @@ export function ConversationThread({
     lastInboundAt: new Date(lastInbound?.sent_at ?? conversation.last_message_at),
   });
 
-  const sources = (draft?.sources ?? []) as DraftSource[];
+  const sources = (current?.sources ?? []) as DraftSource[];
+  // Le discriminant : une réponse qui cite une entrée FAQ vérifiable est une
+  // citation, une réponse sans source est une proposition. Les deux se
+  // valident, elles ne se relisent pas de la même façon.
+  const grounded = sources.length > 0;
 
   return (
     <div className="flex min-w-0 flex-1 flex-col">
@@ -272,7 +328,7 @@ export function ConversationThread({
           <div
             key={message.id}
             className={cn(
-              "group/message max-w-[75%] rounded-lg px-3 py-2 text-sm",
+              "group/message type-body max-w-[75%] rounded-lg px-3 py-2",
               message.direction === "inbound"
                 ? "bg-card"
                 : "bg-brand-mint text-heading ml-auto",
@@ -285,7 +341,7 @@ export function ConversationThread({
             <MessageAttachments attachments={message.attachments} />
 
             <div className="mt-1 flex items-center gap-2">
-              <p className="text-muted-foreground text-[11px]">
+              <p className="text-muted-foreground type-micro">
                 {new Intl.DateTimeFormat("fr-FR", {
                   dateStyle: "short",
                   timeStyle: "short",
@@ -303,7 +359,7 @@ export function ConversationThread({
                 <button
                   type="button"
                   onClick={() => mentionAuthor(message.author_handle)}
-                  className="focus-visible:ring-ring text-muted-foreground hover:text-accent-ink inline-flex items-center gap-1 rounded-sm text-[11px] opacity-0 transition-opacity duration-(--motion-duration) ease-standard group-hover/message:opacity-100 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:outline-none"
+                  className="focus-visible:ring-ring text-muted-foreground hover:text-accent-ink type-micro inline-flex items-center gap-1 rounded-sm opacity-0 transition-opacity duration-(--motion-duration) ease-standard group-hover/message:opacity-100 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:outline-none"
                 >
                   <Reply className="size-3" strokeWidth={1.75} aria-hidden />
                   Répondre
@@ -316,32 +372,52 @@ export function ConversationThread({
 
       {/* Zone de réponse */}
       <div className="border-border border-t px-5 py-4">
-        {draft ? (
+        {current ? (
           <>
             <div className="bg-card rounded-lg p-3">
-              <p className="text-sm whitespace-pre-wrap">{draft.body}</p>
+              <p className="type-body whitespace-pre-wrap">{current.body}</p>
             </div>
 
-            <div className="text-muted-foreground mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
+            <div className="text-muted-foreground type-caption mt-2 flex flex-wrap items-center gap-x-4 gap-y-1">
               <span>
                 Confiance{" "}
                 <span className="text-foreground font-semibold tabular-nums">
-                  {draft.confidence === null
+                  {current.confidence === null
                     ? "—"
-                    : `${Math.round(draft.confidence * 100)} %`}
+                    : `${Math.round(current.confidence * 100)} %`}
                 </span>
               </span>
-              <span>Langue détectée : {draft.locale.toUpperCase()}</span>
-              {draft.translated_from_fr ? (
+              <span>Langue détectée : {current.locale.toUpperCase()}</span>
+              {current.translated_from_fr ? (
                 <span className="text-danger-ink">
                   Traduit depuis le français — réponse EN absente de la FAQ
                 </span>
               ) : null}
+              {canAct ? (
+                <button
+                  type="button"
+                  onClick={() => void askForDraft(true)}
+                  disabled={generating}
+                  /* La taille se repose sur le bouton : un contrôle de
+                     formulaire n'hérite pas de la casse ni de la graisse de
+                     son conteneur. */
+                  className="focus-visible:ring-ring type-caption ml-auto inline-flex items-center gap-1 rounded-sm text-accent-ink transition-colors duration-(--motion-duration) ease-standard hover:underline focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50"
+                >
+                  <RefreshCw
+                    className={cn("size-3.5", generating && "animate-spin")}
+                    strokeWidth={1.75}
+                    aria-hidden
+                  />
+                  {generating ? "Génération…" : "Régénérer"}
+                </button>
+              ) : null}
             </div>
 
-            {sources.length > 0 ? (
+            {grounded ? (
               <div className="mt-2">
-                <p className="text-muted-foreground text-xs">Sources FAQ utilisées :</p>
+                <p className="text-muted-foreground type-caption">
+                  Sources FAQ utilisées :
+                </p>
                 <ul className="mt-1 space-y-0.5">
                   {sources.map((source) => (
                     <li key={source.faq_entry_id}>
@@ -357,29 +433,55 @@ export function ConversationThread({
                           {source.question}
                         </span>
                       )}
-                      <span className="text-muted-foreground ml-2 text-[11px] tabular-nums">
+                      <span className="text-muted-foreground type-micro ml-2 tabular-nums">
                         {Math.round(source.similarity * 100)} %
                       </span>
                     </li>
                   ))}
                 </ul>
               </div>
-            ) : null}
+            ) : (
+              /* Sans entrée citée, ce n'est pas une citation de la FAQ mais une
+                 proposition : elle se relit mot à mot avant de partir. */
+              <p className="type-caption mt-2 inline-flex items-center gap-1.5 text-warning-ink">
+                <Sparkles className="size-3.5 shrink-0" strokeWidth={1.75} aria-hidden />
+                Proposition sans source FAQ
+              </p>
+            )}
           </>
-        ) : (
+        ) : generating ? (
+          <div className="border-border type-body flex items-center justify-center gap-2 rounded-lg border border-dashed p-4 text-text-secondary">
+            <Loader2 className="size-4 animate-spin" strokeWidth={1.75} aria-hidden />
+            Rédaction de la réponse…
+          </div>
+        ) : failure ? (
           <div className="border-border rounded-lg border border-dashed p-4 text-center">
-            <p className="text-sm font-medium">Sans réponse disponible</p>
-            <p className="text-muted-foreground mt-1 text-xs">
-              {conversation.flags.length > 0
-                ? "Message signalé : aucun brouillon n'est généré, la réponse doit être écrite à la main."
-                : "Aucune entrée FAQ ne couvre cette demande avec assez de certitude."}
+            <p className="type-label text-danger-ink">{failure.message}</p>
+            <p className="text-muted-foreground type-caption mt-1">
+              Écrivez la réponse à la main ci-dessous.
             </p>
+            {failure.retryable && canAct ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="mt-2"
+                onClick={() => void askForDraft(true)}
+              >
+                <RefreshCw className="size-4" strokeWidth={1.75} aria-hidden />
+                Réessayer
+              </Button>
+            ) : null}
+          </div>
+        ) : (
+          <div className="border-border type-body rounded-lg border border-dashed p-4 text-center text-text-secondary">
+            Aucune réponse proposée pour l&apos;instant.
           </div>
         )}
 
         {canAct ? (
           <div className="mt-3 flex flex-wrap items-center gap-2">
-            {draft ? (
+            {current ? (
               <form action={validateAction}>
                 <HiddenFields
                   clientId={conversation.client_id}
@@ -438,7 +540,7 @@ export function ConversationThread({
             </form>
           </div>
         ) : (
-          <p className="text-muted-foreground mt-3 text-xs">
+          <p className="text-muted-foreground type-caption mt-3">
             Votre rôle est en lecture seule sur cet espace.
           </p>
         )}
@@ -463,7 +565,7 @@ export function ConversationThread({
               }}
               rows={2}
               placeholder="Écrire une réponse…"
-              className="focus-visible:ring-ring w-full resize-y rounded-md border border-border bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-secondary focus-visible:ring-2 focus-visible:outline-none"
+              className="focus-visible:ring-ring type-body w-full resize-y rounded-md border border-border bg-surface px-3 py-2 text-text-primary placeholder:text-text-secondary focus-visible:ring-2 focus-visible:outline-none"
             />
             <div className="mt-2 flex items-center justify-between gap-3">
               <p className="type-caption text-text-secondary">
@@ -490,8 +592,8 @@ export function ConversationThread({
         clientSlug={clientSlug ?? ""}
         conversationId={conversation.id}
         incomingMessage={lastInbound?.body ?? ""}
-        draftBody={draft?.body ?? ""}
-        locale={draft?.locale ?? conversation.detected_locale ?? "fr"}
+        draftBody={current?.body ?? ""}
+        locale={current?.locale ?? conversation.detected_locale ?? "fr"}
         sources={sources}
         onDone={onAdvance}
       />

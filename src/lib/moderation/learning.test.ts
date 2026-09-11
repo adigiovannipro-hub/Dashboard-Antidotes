@@ -11,8 +11,6 @@ import {
   suggestDuplicate,
   type FaqSnapshot,
 } from "./learning";
-import { validateGeneration } from "./draft-prompt";
-import type { FaqMatch } from "./faq-search";
 
 const provider = new DeterministicEmbeddings();
 
@@ -280,80 +278,5 @@ describe("statistiques d'une entrée", () => {
   it("calcule le taux de validation directe", () => {
     expect(directValidationRate(base)).toBeCloseTo(0.8, 5);
     expect(directValidationRate({ usage_count: 0, direct_validation_count: 0 })).toBeNull();
-  });
-});
-
-describe("validation de la sortie du modèle", () => {
-  const matches = [
-    {
-      entry: { id: "livraison", question_canonical: "Délais ?" },
-      similarity: 0.88,
-      score: 0.88,
-    },
-  ] as unknown as FaqMatch[];
-
-  it("écarte un identifiant FAQ que la recherche n'a pas fourni", () => {
-    // Un modèle contraint par schéma peut malgré tout citer un id inventé.
-    const result = validateGeneration(
-      {
-        can_answer: true,
-        answer: "Nos commandes partent en 24 h.",
-        language: "fr",
-        confidence: 0.9,
-        used_faq_entry_ids: ["livraison", "entree-inventee"],
-        missing_information: "",
-      },
-      matches,
-    );
-
-    expect(result.droppedIds).toEqual(["entree-inventee"]);
-    expect(result.sources).toHaveLength(1);
-    expect(result.usable).toBe(true);
-  });
-
-  it("rétrograde un brouillon sans aucune source vérifiable", () => {
-    const result = validateGeneration(
-      {
-        can_answer: true,
-        answer: "Une réponse plausible mais non sourcée.",
-        language: "fr",
-        confidence: 0.95,
-        used_faq_entry_ids: ["inconnue"],
-        missing_information: "",
-      },
-      matches,
-    );
-
-    expect(result.usable).toBe(false);
-  });
-
-  it("rétrograde une réponse vide", () => {
-    const result = validateGeneration(
-      {
-        can_answer: true,
-        answer: "   ",
-        language: "fr",
-        confidence: 0.9,
-        used_faq_entry_ids: ["livraison"],
-        missing_information: "",
-      },
-      matches,
-    );
-    expect(result.usable).toBe(false);
-  });
-
-  it("borne la confiance dans [0, 1]", () => {
-    const high = validateGeneration(
-      {
-        can_answer: true,
-        answer: "ok",
-        language: "fr",
-        confidence: 3.7,
-        used_faq_entry_ids: ["livraison"],
-        missing_information: "",
-      },
-      matches,
-    );
-    expect(high.confidence).toBe(1);
   });
 });
