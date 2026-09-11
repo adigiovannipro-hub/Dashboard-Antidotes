@@ -98,8 +98,22 @@ export function isActionable(status: ConversationStatus): boolean {
 export function countsAsPending(row: {
   status: ConversationStatus;
   unread: boolean;
+  flags?: readonly string[] | null;
 }): boolean {
-  return row.unread && ACTIONABLE_STATUSES.includes(row.status);
+  return row.unread && ACTIONABLE_STATUSES.includes(row.status) && !isSpam(row.flags);
+}
+
+/**
+ * Le spam quitte « À traiter », et donc les badges.
+ *
+ * L'ingestion archive déjà un fil dont tous les entrants sont du spam, mais
+ * elle ne juge que ce qui arrive : un fil relevé avant la règle garde son
+ * statut. Le prédicat vaut donc aussi à la **lecture**, du filtre SQL jusqu'au
+ * compteur — sans quoi un badge annoncerait des conversations que le clic ne
+ * montre plus. Rien n'est perdu : « Toutes » et « Signalées » les gardent.
+ */
+export function isSpam(flags: readonly string[] | null | undefined): boolean {
+  return (flags ?? []).includes("spam");
 }
 
 export type ConversationPriority = "normal" | "high";

@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import {
   ACTIONABLE_STATUSES,
   countsAsPending,
+  isSpam,
   MODERATION_FLAGS,
   STATUS_GROUP_MEMBERS,
   VIEW_ORDER,
@@ -84,6 +85,17 @@ function filteredConversations(
   const group = filters.statusGroup ?? "toutes";
   if (group !== "toutes") {
     query = query.in("status", STATUS_GROUP_MEMBERS[group]);
+  }
+
+  /* Le spam ne s'affiche pas dans « À traiter ».
+     L'ingestion archive désormais un fil dont tous les entrants sont du spam,
+     mais elle ne juge que ce qui arrive : les fils relevés avant la règle
+     gardent leur statut, et c'est là que le panneau se remplissait de
+     « check my profile for free followers ». Le filtre de lecture ferme les
+     deux cas d'un coup. Le fil n'est pas perdu — il reste sous « Toutes » et
+     sous « Signalées », qui est fait pour ça. */
+  if (group === "a-traiter" && !filters.highPriorityOnly) {
+    query = query.not("flags", "cs", "{spam}");
   }
 
   if (filters.unreadOnly) query = query.eq("unread", true);
@@ -239,7 +251,9 @@ export async function getInboxCounters(options: {
 
     byStatusGroup.toutes += 1;
     if (STATUS_GROUP_MEMBERS["a-traiter"].includes(row.status)) {
-      byStatusGroup["a-traiter"] += 1;
+      // Le spam n'entre pas dans « À traiter » — même règle qu'à la lecture,
+      // sinon l'onglet annonce des fils que le clic ne montre plus.
+      if (!isSpam(row.flags)) byStatusGroup["a-traiter"] += 1;
     } else if (STATUS_GROUP_MEMBERS["en-attente"].includes(row.status)) {
       byStatusGroup["en-attente"] += 1;
     } else {

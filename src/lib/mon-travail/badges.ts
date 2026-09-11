@@ -99,7 +99,11 @@ async function countModeration(): Promise<number | null> {
     .select("id", { count: "exact", head: true })
     .is("deleted_at", null)
     .eq("unread", true)
-    .in("status", ACTIONABLE_STATUSES);
+    .in("status", ACTIONABLE_STATUSES)
+    // Le spam quitte « À traiter » et donc la pastille : même règle qu'à la
+    // lecture de l'inbox, sinon le rail annonce des fils que le clic ne
+    // montre plus.
+    .not("flags", "cs", "{spam}");
 
   return count ?? 0;
 }
