@@ -7,6 +7,7 @@ import { getViewer, getWorkspace } from "@/lib/auth";
 import { defaultLabelsFor } from "@/lib/planning/columns";
 import type { ColumnType } from "@/lib/planning/columns";
 import { monthGroupLabel } from "@/lib/planning/monday-mapping";
+import { evaluateMonthSlot, type MonthSlotRow } from "@/lib/planning/month-slot";
 import {
   MAX_VISUAL_BYTES,
   VISUALS_BUCKET,
@@ -119,6 +120,25 @@ export async function createMonth(
   try {
     const { workspace } = await guard(scope);
     const supabase = await createClient();
+    const label = monthGroupLabel(parsed.data.month);
+
+    // La corbeille laisse la ligne en place et l'unicité `(board_id, month)`
+    // ne la distingue pas : sans ce coup d'œil, recréer un mois supprimé se
+    // heurte au 23505 et le mois ne revient jamais.
+    const { data: row } = await supabase
+      .from("planning_months")
+      .select("id, deleted_at")
+      .eq("board_id", parsed.data.boardId)
+      .eq("month", parsed.data.month)
+      .maybeSingle();
+
+    const slot = evaluateMonthSlot(row as unknown as MonthSlotRow | null);
+
+    if (slot.action === "keep") {
+      // Le tableau de l'appelant est simplement en retard : on le rafraîchit.
+      revalidate(scope);
+      return { ok: true, message: `${label} est déjà au tableau.` };
+    }
 
     const { data: last } = await supabase
       .from("planning_months")
@@ -127,20 +147,37 @@ export async function createMonth(
       .order("position", { ascending: false })
       .limit(1)
       .maybeSingle();
+    const position = (last?.position ?? -1) + 1;
+
+    if (slot.action === "restore") {
+      // Libellé et position repris du menu : c'est le mois que l'écran a
+      // proposé, pas celui qu'on avait renommé avant de le jeter.
+      const { error } = await supabase
+        .from("planning_months")
+        .update({ deleted_at: null, label, position })
+        .eq("id", slot.monthId);
+      if (error) throw new Error(error.message);
+
+      revalidate(scope);
+      return { ok: true, message: `${label} sorti de la corbeille.` };
+    }
 
     const { error } = await supabase.from("planning_months").insert({
       board_id: parsed.data.boardId,
       workspace_id: workspace.id,
-      label: monthGroupLabel(parsed.data.month),
+      label,
       month: parsed.data.month,
-      position: (last?.position ?? -1) + 1,
+      position,
     });
 
-    // Le mois existe déjà : ce n'est pas une erreur, c'est un double clic.
-    if (error && !error.message.includes("duplicate")) throw new Error(error.message);
+    // Seuls deux clics partis en même temps peuvent encore buter sur
+    // l'unicité, et le mois est alors bien là. Tout autre refus remonte :
+    // l'avaler sur le mot « duplicate » rendait un toast vert sur une
+    // création qui n'avait pas eu lieu.
+    if (error && error.code !== "23505") throw new Error(error.message);
 
     revalidate(scope);
-    return OK;
+    return { ok: true, message: `${label} ajouté.` };
   } catch (error) {
     return fail(error);
   }

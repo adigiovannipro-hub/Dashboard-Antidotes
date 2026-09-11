@@ -4,6 +4,7 @@ import { useState } from "react";
 import { ChevronRight, Plus, Trash2 } from "lucide-react";
 
 import { createLane, deleteMonth, renameMonth } from "@/app/actions/planning";
+import { ConfirmDialog } from "@/components/ds/confirm-dialog";
 import { FeedPreviewButton } from "@/components/planning/feed-preview";
 import { PlatformIcon } from "@/components/planning/platform-icon";
 import { TextCell, useCellAction } from "@/components/planning/cells";
@@ -81,6 +82,7 @@ export function MonthGroup({
   workspaceId: string;
 }) {
   const [open, setOpen] = useState(defaultOpen);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
   const { run, pending } = useCellAction();
   const effectiveOpen = forceOpen || open;
 
@@ -117,10 +119,25 @@ export function MonthGroup({
     >
       <header
         className={cn(
-          "group/mois flex items-center gap-2.5 px-3 transition-colors",
+          "group/mois flex cursor-pointer items-center gap-2.5 px-3 transition-colors",
           // Un mois ouvert prend de la hauteur ; replié, il reste un rang.
           effectiveOpen ? "bg-surface-sunken py-3" : "py-2 hover:bg-surface-sunken/60",
         )}
+        // Toute la barre plie et déplie le mois : viser un chevron de 16 px
+        // pour ouvrir un bloc large de toute la page est un geste d'orfèvre.
+        // La garde est indispensable — la barre porte le nom du mois en champ
+        // éditable, deux menus, le bouton feed et la poubelle, qu'un handler
+        // posé à l'aveugle avalerait.
+        onClick={(event) => {
+          if (
+            (event.target as HTMLElement).closest(
+              "button, input, a, select, textarea, [role=menuitem]",
+            )
+          ) {
+            return;
+          }
+          toggle(!open);
+        }}
         // Survoler un mois replié avec une ligne en main l'ouvre : on peut
         // déposer dans n'importe quel mois sans lâcher.
         onDragOver={(event) => {
@@ -250,7 +267,7 @@ export function MonthGroup({
 
           <button
             type="button"
-            onClick={() => run(() => deleteMonth(scope, { monthId: month.id }))}
+            onClick={() => setConfirmingDelete(true)}
             aria-label={`Supprimer le mois ${month.label}`}
             className="text-muted-foreground hover:text-danger-ink focus-visible:ring-ring rounded p-1 focus-visible:ring-2 focus-visible:outline-none"
           >
@@ -258,6 +275,21 @@ export function MonthGroup({
           </button>
         </div>
       </header>
+
+      <ConfirmDialog
+        open={confirmingDelete}
+        onOpenChange={setConfirmingDelete}
+        title={`Supprimer ${month.label}`}
+        description={
+          subjects.length > 0
+            ? `${month.label} part à la corbeille avec ses ${subjects.length} publication${subjects.length > 1 ? "s" : ""}, ses réseaux et leurs visuels. Restaurable depuis la corbeille de l’en-tête.`
+            : `${month.label} part à la corbeille. Restaurable depuis la corbeille de l’en-tête.`
+        }
+        confirmLabel="Supprimer le mois"
+        onConfirm={async () => {
+          await run(() => deleteMonth(scope, { monthId: month.id }));
+        }}
+      />
 
       {effectiveOpen ? (
         // `space-y-5` : deux réseaux empilés respirent — collés, leurs

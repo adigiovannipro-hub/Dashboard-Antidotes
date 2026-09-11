@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { Archive, Copy, FolderInput, Trash2, X } from "lucide-react";
 
 import {
@@ -9,6 +10,7 @@ import {
   bulkUpdateSubjects,
   type EditableField,
 } from "@/app/actions/planning";
+import { ConfirmDialog } from "@/components/ds/confirm-dialog";
 import {
   ChipSelect,
   DateCell,
@@ -48,6 +50,7 @@ export function BulkBar({
   onRequestMove: () => void;
 }) {
   const { run, pending } = useCellAction();
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   if (selectedIds.size === 0) return null;
 
@@ -156,18 +159,28 @@ export function BulkBar({
       <button
         type="button"
         disabled={pending}
-        onClick={() =>
-          run(async () => {
-            const result = await bulkDeleteSubjects(scope, { subjectIds: ids });
-            if (result.ok) onClear();
-            return result;
-          })
-        }
+        onClick={() => setConfirmingDelete(true)}
         className="text-muted-foreground hover:text-danger-ink flex shrink-0 items-center gap-1 text-xs"
       >
         <Trash2 className="size-3.5" aria-hidden />
         Supprimer
       </button>
+
+      <ConfirmDialog
+        open={confirmingDelete}
+        onOpenChange={setConfirmingDelete}
+        title={`Supprimer ${ids.length} publication${ids.length > 1 ? "s" : ""}`}
+        description={`${ids.length} publication${ids.length > 1 ? "s" : ""} ${
+          ids.length > 1 ? "partent" : "part"
+        } à la corbeille. Restaurable${ids.length > 1 ? "s" : ""} depuis la corbeille de l’en-tête.`}
+        confirmLabel="Supprimer"
+        onConfirm={async () => {
+          const result = await run(() =>
+            bulkDeleteSubjects(scope, { subjectIds: ids }),
+          );
+          if (result.ok) onClear();
+        }}
+      />
 
       <button
         type="button"
