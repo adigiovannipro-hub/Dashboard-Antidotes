@@ -119,10 +119,25 @@ export function MonthGroup({
     >
       <header
         className={cn(
-          "group/mois flex items-center gap-2.5 px-3 transition-colors",
+          "group/mois flex cursor-pointer items-center gap-2.5 px-3 transition-colors",
           // Un mois ouvert prend de la hauteur ; replié, il reste un rang.
           effectiveOpen ? "bg-surface-sunken py-3" : "py-2 hover:bg-surface-sunken/60",
         )}
+        // Toute la barre plie et déplie le mois : viser un chevron de 16 px
+        // pour ouvrir un bloc large de toute la page est un geste d'orfèvre.
+        // La garde est indispensable — la barre porte le nom du mois en champ
+        // éditable, deux menus, le bouton feed et la poubelle, qu'un handler
+        // posé à l'aveugle avalerait.
+        onClick={(event) => {
+          if (
+            (event.target as HTMLElement).closest(
+              "button, input, a, select, textarea, [role=menuitem]",
+            )
+          ) {
+            return;
+          }
+          toggle(!open);
+        }}
         // Survoler un mois replié avec une ligne en main l'ouvre : on peut
         // déposer dans n'importe quel mois sans lâcher.
         onDragOver={(event) => {

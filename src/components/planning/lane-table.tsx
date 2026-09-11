@@ -134,7 +134,21 @@ export function LaneTable({
           Alterner surface et creux fait ressortir l'emboîtement mois → réseau
           → colonnes. */}
       <header
-        className="border-border-strong bg-surface flex items-center gap-2 border-b px-2 py-2"
+        className="border-border-strong bg-surface flex cursor-pointer items-center gap-2 border-b px-2 py-2"
+        // Toute la barre plie et déplie le couloir, pas seulement le chevron.
+        // La garde est indispensable : la barre porte le nom du réseau en
+        // champ éditable et la poubelle, qu'un handler posé à l'aveugle
+        // avalerait.
+        onClick={(event) => {
+          if (
+            (event.target as HTMLElement).closest(
+              "button, input, a, select, textarea, [role=menuitem]",
+            )
+          ) {
+            return;
+          }
+          toggle(!open);
+        }}
         onDragOver={(event) => {
           if (![...event.dataTransfer.types].includes(SUBJECT_DRAG_TYPE)) return;
           event.preventDefault();
