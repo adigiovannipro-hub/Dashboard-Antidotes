@@ -27,6 +27,7 @@ export default async function InboxLayout({
   return (
     <AppShell
       viewer={viewer}
+      hideOpenAccessBadge
       title="Inbox"
       subtitle="Commentaires et messages privés de tous les clients. Réponses validées manuellement."
     >
