@@ -22,7 +22,7 @@ import { signLogoUrls } from "@/lib/workspaces/logos";
 
 type Search = Promise<Record<string, string | undefined>>;
 
-export default async function ModerationInboxPage({
+export default async function InboxPage({
   searchParams,
 }: {
   searchParams: Search;

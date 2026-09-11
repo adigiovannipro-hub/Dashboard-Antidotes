@@ -429,7 +429,7 @@ export function ConversationThread({
                     <li key={source.faq_entry_id}>
                       {clientSlug ? (
                         <a
-                          href={`/moderation/${clientSlug}/faq?entree=${source.faq_entry_id}`}
+                          href={`/inbox/${clientSlug}/faq?entree=${source.faq_entry_id}`}
                           className="type-caption text-accent-ink underline-offset-2 hover:underline"
                         >
                           {source.question}

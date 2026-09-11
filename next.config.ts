@@ -12,6 +12,21 @@ const nextConfig: NextConfig = {
         destination: "/entreprise/factures",
         permanent: true,
       },
+      /* « Modération » est devenue « Inbox » le 11/09/2026 : ce qu'on ouvre
+         le matin est une boîte de réception, pas un poste de police. Les
+         anciens liens — signets, messages partagés, `?client=` compris —
+         restent valables. Le joker couvre `/moderation/<client>` et sa FAQ,
+         qui redirigent à leur tour. */
+      {
+        source: "/moderation",
+        destination: "/inbox",
+        permanent: true,
+      },
+      {
+        source: "/moderation/:path*",
+        destination: "/inbox/:path*",
+        permanent: true,
+      },
     ];
   },
   // Les prompts de génération sont des fichiers markdown lus au runtime

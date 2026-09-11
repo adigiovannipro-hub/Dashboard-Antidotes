@@ -4,7 +4,7 @@ import { Skeleton } from "@/components/ui/skeleton";
  * Silhouette de l'inbox croisée : les onglets de canaux et leurs filtres,
  * puis les deux volets — liste, fil — dans un panneau unique.
  */
-export default function ModerationLoading() {
+export default function InboxLoading() {
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center gap-3">

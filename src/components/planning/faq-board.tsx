@@ -135,11 +135,11 @@ function FaqRow({ scope, entry }: { scope: Scope; entry: FaqEntry }) {
         className="text-muted-foreground px-1.5 py-1 text-[11px]"
         title={
           entry.source === "moderation"
-            ? "Créée par la boucle de correction de la Modération"
+            ? "Créée par la boucle de correction de l'Inbox"
             : "Saisie à la main"
         }
       >
-        {entry.source === "moderation" ? "Modération" : "Manuelle"}
+        {entry.source === "moderation" ? "Inbox" : "Manuelle"}
       </span>
 
       <DeleteRowButton

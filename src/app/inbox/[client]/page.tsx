@@ -5,11 +5,11 @@ import { permanentRedirect } from "next/navigation";
  * filtre. Les anciens liens — favoris, messages partagés — atterrissent au
  * bon endroit. La FAQ, elle, reste par client (`./faq`).
  */
-export default async function ModerationClientPage({
+export default async function InboxClientPage({
   params,
 }: {
   params: Promise<{ client: string }>;
 }) {
   const { client } = await params;
-  permanentRedirect(`/moderation?client=${encodeURIComponent(client)}`);
+  permanentRedirect(`/inbox?client=${encodeURIComponent(client)}`);
 }

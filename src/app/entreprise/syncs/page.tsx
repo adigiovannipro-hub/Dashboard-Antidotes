@@ -131,7 +131,7 @@ export default async function SyncsPage() {
           emptyMessage="Aucun passage de synchronisation enregistré."
         />
         <SyncPanel
-          title="Modération — canaux relevés"
+          title="Inbox — canaux relevés"
           rows={moderationRows}
           emptyMessage="Aucun canal branché."
         />
