@@ -20,12 +20,16 @@ import type {
  */
 
 /**
- * L'auteur d'un commentaire, dans les **deux** formes de Graph.
+ * L'auteur d'un commentaire.
  *
- * Facebook rend `picture{data{url}}` — un objet imbriqué. Instagram rend
- * `profile_picture_url` — une chaîne plate. Ce n'est pas une redondance : un
- * canal ne renseigne jamais le champ de l'autre, et lire la mauvaise forme
- * revient à n'avoir aucune photo, ce qui était le cas d'Instagram.
+ * Facebook rend `picture{data{url}}` — un objet imbriqué — quand la
+ * confidentialité de l'auteur le permet. **Instagram ne rend rien** :
+ * demander `from{…,profile_picture_url}` fait répondre Meta « (#100) Tried
+ * accessing nonexisting field » et fait tomber le canal entier (vécu en
+ * production le 11/09). Le champ n'existe que sur un compte qu'on possède.
+ * La forme plate reste lue, au cas où une version future la rendrait — mais
+ * elle n'est plus **demandée**, et c'est la différence entre un avatar absent
+ * et un canal mort.
  */
 export type MetaCommentAuthor = {
   id?: string;

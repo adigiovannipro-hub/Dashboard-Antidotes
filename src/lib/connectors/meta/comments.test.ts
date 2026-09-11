@@ -158,7 +158,12 @@ describe("igCommentsToThreads", () => {
 });
 
 describe("igCommentsToThreads — photo de profil", () => {
-  it("lit `profile_picture_url`, la forme Instagram", () => {
+  /* La forme plate reste lue si Meta la rendait un jour — mais elle n'est plus
+     demandée : `from{…,profile_picture_url}` fait tomber le canal Instagram
+     entier avec « (#100) Tried accessing nonexisting field », vécu en
+     production. Ce test dit ce que le mapping sait faire, pas ce que l'API
+     donne. */
+  it("lirait `profile_picture_url` si Meta la rendait — la forme Instagram", () => {
     const [thread] = igCommentsToThreads({
       media: media(),
       comments: [

@@ -485,14 +485,18 @@ export async function fetchInstagramComments(options: {
          comptes que l'app atteint, et `username` sur tous les autres — les
          demander tous les deux est ce qui évite un fil « Inconnu ».
 
-         `profile_picture_url` est la photo, et c'est la forme **Instagram** :
-         une chaîne plate sur l'utilisateur. Elle n'était pas demandée du tout,
-         et la lecture cherchait `picture{data{url}}`, qui est la forme
-         Facebook — structurellement absente ici. Les fils du canal le plus
-         volumineux n'ont donc jamais eu d'avatar, faute d'un champ. */
+         **Pas de photo de profil ici, et ce n'est pas un oubli.** Demander
+         `from{…,profile_picture_url}` fait répondre Meta
+         « (#100) Tried accessing nonexisting field (profile_picture_url) » et
+         fait tomber le canal **entier** — constaté en production le 11/09 sur
+         les trois comptes Instagram, dans le même passage où Facebook
+         remontait 219 fils. Le champ existe sur un `IGUser` qu'on possède, pas
+         sur l'auteur d'un commentaire. Écrit sur la documentation, démenti par
+         l'API : l'avatar d'un commentateur Instagram n'est pas accessible, et
+         ce sont les initiales qui le remplacent. */
       fields: withReplies
-        ? "id,text,timestamp,username,from{id,username,profile_picture_url},replies{id,text,timestamp,username,from{id,username,profile_picture_url}}"
-        : "id,text,timestamp,username,from{id,username,profile_picture_url}",
+        ? "id,text,timestamp,username,from{id,username},replies{id,text,timestamp,username,from{id,username}}"
+        : "id,text,timestamp,username,from{id,username}",
       limit: String(options.limit ?? 50),
     }),
   );
