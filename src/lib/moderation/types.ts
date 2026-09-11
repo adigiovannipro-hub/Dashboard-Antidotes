@@ -384,3 +384,42 @@ export type FaqComment = {
   mentions: string[];
   created_at: string;
 };
+
+/**
+ * Une réponse enregistrée : la formule qu'on retape dix fois par semaine.
+ *
+ * Distincte d'une entrée de FAQ, et pour une raison de fond : une entrée de
+ * FAQ répond à une **question** et nourrit la recherche sémantique comme la
+ * boucle de correction. Une réponse enregistrée est un bout de texte qu'on
+ * colle, sans question en face. Les mélanger remplirait la FAQ d'entrées sans
+ * question, invisibles de la recherche et nuisibles à l'apprentissage.
+ */
+export type SavedReply = {
+  id: string;
+  client_id: string;
+  title: string;
+  body: string;
+  tags: string[];
+  /** Vide = partout. Sinon, les types de fil où elle se propose. */
+  scope: ConversationKind[];
+  usage_count: number;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+/** Ce qu'une recherche dans la bibliothèque doit trouver : le nom, le corps,
+    les étiquettes. Pure, pour que la liste filtre sans aller-retour. */
+export function savedReplyMatches(reply: SavedReply, needle: string): boolean {
+  const query = needle.trim().toLowerCase();
+  if (!query) return true;
+  return [reply.title, reply.body, ...reply.tags]
+    .join(" ")
+    .toLowerCase()
+    .includes(query);
+}
+
+/** Une réponse ne se propose que sur les fils qu'elle sert. */
+export function savedReplyApplies(reply: SavedReply, kind: ConversationKind): boolean {
+  return reply.scope.length === 0 || reply.scope.includes(kind);
+}

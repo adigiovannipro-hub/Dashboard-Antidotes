@@ -45,10 +45,14 @@ const migrated = configured
         .from("faq_comments")
         .select("id")
         .limit(1);
-      const missing = error ?? threadError;
+      const { error: repliesError } = await probe
+        .from("saved_replies")
+        .select("id")
+        .limit(1);
+      const missing = error ?? threadError ?? repliesError;
       if (missing) {
         console.warn(
-          `[faq-moderation-isolation] suite sautée : migrations 20260830 / 20260912b-c non appliquées (${missing.message}). À rejouer après le push sur main.`,
+          `[faq-moderation-isolation] suite sautée : migrations 20260830 / 20260912b-c / 20260913a-b non appliquées (${missing.message}). À rejouer après le push sur main.`,
         );
         return false;
       }
@@ -383,6 +387,72 @@ suite("isolation de la FAQ Modération (RLS)", () => {
         .eq("id", ids.commentA)
         .single();
       expect(after?.body).toBe("Autorisation demandée à Client A");
+    });
+  });
+
+  describe("les réponses enregistrées (20260913a-b)", () => {
+    /* La bibliothèque est un outil **interne** : elle vit sur `client_id` et
+       passe par `app.moderation_client_ids()`, comme les conversations. Un
+       client d'espace, qui lit pourtant la FAQ depuis 20260830, n'y a aucun
+       accès — c'est la limite qu'on vérifie dans les deux sens. */
+    let replyA = "";
+
+    it("l'owner enregistre une réponse chez son client", async () => {
+      const { data, error } = await clients.owner
+        .from("saved_replies")
+        .insert({
+          client_id: ids.modClientA,
+          title: `${RUN} accueil`,
+          body: "Bonjour, merci pour votre message.",
+          tags: ["accueil"],
+          scope: ["dm"],
+        })
+        .select("id")
+        .maybeSingle();
+      expect(error).toBeNull();
+      expect(data?.id).toBeTruthy();
+      replyA = (data as { id: string }).id;
+    });
+
+    it("l'owner la relit", async () => {
+      const { data } = await clients.owner
+        .from("saved_replies")
+        .select("id, title")
+        .eq("id", replyA);
+      expect(data).toHaveLength(1);
+    });
+
+    it("le client de l'espace ne la lit pas — la FAQ est ouverte, pas l'inbox", async () => {
+      const { data } = await clients.clientA
+        .from("saved_replies")
+        .select("id")
+        .eq("id", replyA);
+      expect(data ?? []).toHaveLength(0);
+    });
+
+    it("le client de l'espace n'en crée pas", async () => {
+      const { error } = await clients.clientA.from("saved_replies").insert({
+        client_id: ids.modClientA,
+        title: `${RUN} intrus`,
+        body: "Ne doit jamais entrer.",
+      });
+      expect(error).not.toBeNull();
+    });
+
+    it("le client voisin ne la lit pas davantage", async () => {
+      const { data } = await clients.clientB
+        .from("saved_replies")
+        .select("id")
+        .eq("id", replyA);
+      expect(data ?? []).toHaveLength(0);
+    });
+
+    it("l'owner la retire", async () => {
+      const { error } = await clients.owner
+        .from("saved_replies")
+        .delete()
+        .eq("id", replyA);
+      expect(error).toBeNull();
     });
   });
 

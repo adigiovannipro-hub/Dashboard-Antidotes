@@ -9,6 +9,7 @@ import {
   getInboxCounters,
   listChannelConnections,
   listConversations,
+  listSavedReplies,
   type InboxFilters,
 } from "@/lib/moderation/queries";
 import { signLogoUrls } from "@/lib/workspaces/logos";
@@ -57,14 +58,21 @@ export default async function InboxPage({ searchParams }: { searchParams: Search
      la lenteur ressentie entre deux conversations — la liste et les compteurs
      d'abord, le fil seulement ensuite, soit deux allers-retours en série pour
      un clic qui ne change que le volet de droite. */
-  const [signedLogos, conversations, counters, connections, requestedThread] =
-    await Promise.all([
-      signLogoUrls(logoPaths),
-      listConversations({ filters }),
-      getInboxCounters(selection),
-      listChannelConnections(),
-      query.conv ? getConversationThread(query.conv) : null,
-    ]);
+  const [
+    signedLogos,
+    conversations,
+    counters,
+    connections,
+    savedReplies,
+    requestedThread,
+  ] = await Promise.all([
+    signLogoUrls(logoPaths),
+    listConversations({ filters }),
+    getInboxCounters(selection),
+    listChannelConnections(),
+    listSavedReplies(),
+    query.conv ? getConversationThread(query.conv) : null,
+  ]);
 
   const clients: ClientChip[] = context.clients.map((client) => {
     const path = client.workspace_id
@@ -109,6 +117,7 @@ export default async function InboxPage({ searchParams }: { searchParams: Search
         })),
       )}
       connections={connections}
+      savedReplies={savedReplies}
       selection={selection}
       query={inboxQuery}
       clientSlug={activeClient?.slug ?? null}

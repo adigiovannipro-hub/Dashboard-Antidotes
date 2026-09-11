@@ -32,6 +32,10 @@ import {
   type DraftGenerationResult,
 } from "@/app/actions/moderation-draft";
 import { CorrectionDialog } from "@/components/moderation/correction-dialog";
+import {
+  SaveReplyButton,
+  SavedRepliesButton,
+} from "@/components/moderation/saved-replies";
 import { ParticipantAvatar } from "@/components/moderation/participant-avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -52,6 +56,7 @@ import {
   type Draft,
   type ModerationMessage,
   type ModerationRole,
+  type SavedReply,
 } from "@/lib/moderation/types";
 import { cn } from "@/lib/utils";
 
@@ -101,6 +106,7 @@ export function ConversationThread({
   conversation,
   messages,
   draft,
+  savedReplies,
   onAdvance,
   onBack,
 }: {
@@ -111,6 +117,8 @@ export function ConversationThread({
   conversation: Conversation | null;
   messages: ModerationMessage[];
   draft: Draft | null;
+  /** Toute la bibliothèque : le composeur filtre sur le client du fil. */
+  savedReplies: SavedReply[];
   onAdvance: () => void;
   /** Mobile : referme le fil et rend la liste. */
   onBack: () => void;
@@ -739,8 +747,22 @@ export function ConversationThread({
               }
               className="focus-visible:ring-ring type-body w-full resize-y rounded-md border border-border bg-surface px-3 py-2 text-text-primary placeholder:text-text-secondary focus-visible:ring-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:bg-surface-sunken"
             />
-            <div className="mt-2 flex items-center justify-between gap-3">
-              <p className="type-caption text-text-secondary">
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <SavedRepliesButton
+                clientId={conversation.client_id}
+                kind={conversation.kind}
+                replies={savedReplies}
+                onInsert={(body) => {
+                  setReply((current) => (current.trim() ? `${current}\n${body}` : body));
+                  replyRef.current?.focus();
+                }}
+              />
+              <SaveReplyButton
+                clientId={conversation.client_id}
+                kind={conversation.kind}
+                body={reply}
+              />
+              <p className="type-caption ml-auto text-text-secondary">
                 {windowClosed
                   ? "Sept jours après le dernier message, Meta refuse toute réponse. Rien ne partira d'ici."
                   : "Part sous le commentaire, sans passer par la FAQ."}
@@ -748,6 +770,7 @@ export function ConversationThread({
               <Button
                 type="button"
                 size="sm"
+                className="shrink-0"
                 onClick={submitReply}
                 disabled={replyPending || windowClosed || reply.trim().length === 0}
               >

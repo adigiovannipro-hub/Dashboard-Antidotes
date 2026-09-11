@@ -14,6 +14,7 @@ import type {
   FaqEntry,
   ModerationChannel,
   ModerationMessage,
+  SavedReply,
 } from "./types";
 
 export type { InboxCounters } from "./counters";
@@ -241,6 +242,23 @@ export async function listFaqEntries(clientId: string): Promise<FaqEntry[]> {
     .is("deleted_at", null)
     .order("question_canonical");
   return (data ?? []) as unknown as FaqEntry[];
+}
+
+/**
+ * La bibliothèque de réponses enregistrées, tous clients atteints confondus.
+ *
+ * Une seule lecture pour toute l'Inbox : le composeur filtre en mémoire sur le
+ * client du fil ouvert. Un appel par ouverture de fil ferait une requête par
+ * clic pour une liste qui bouge une fois par semaine.
+ */
+export async function listSavedReplies(): Promise<SavedReply[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("saved_replies")
+    .select("*")
+    .order("usage_count", { ascending: false })
+    .limit(500);
+  return (data ?? []) as unknown as SavedReply[];
 }
 
 /**

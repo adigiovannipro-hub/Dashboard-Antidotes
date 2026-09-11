@@ -452,6 +452,20 @@ export type DraftRow = {
   created_at: string;
 }
 
+/** Les réponses enregistrées de l'Inbox — 20260913a. */
+export type SavedReplyRow = {
+  id: string;
+  client_id: string;
+  title: string;
+  body: string;
+  tags: string[];
+  scope: ("dm" | "comment" | "story_mention" | "review")[];
+  usage_count: number;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 export type FaqEntryRow = {
   id: string;
   client_id: string;
@@ -951,6 +965,7 @@ export type Database = {
       messages: Table<ModerationMessageRow>;
       drafts: Table<DraftRow>;
       faq_entries: Table<FaqEntryRow>;
+      saved_replies: Table<SavedReplyRow>;
       faq_categories: Table<FaqCategoryRow>;
       faq_comments: Table<FaqCommentRow>;
       faq_entry_versions: Table<FaqEntryVersionRow>;

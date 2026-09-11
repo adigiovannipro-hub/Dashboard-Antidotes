@@ -1164,6 +1164,117 @@ export async function addFaqEntryFromConversation(input: {
   }
 }
 
+// --- Les réponses enregistrées ---------------------------------------------
+
+const savedReplyInput = z.object({
+  clientId: z.uuid(),
+  title: z.string().trim().min(2, "Donnez-lui un nom.").max(120),
+  body: z.string().trim().min(2, "La réponse est vide.").max(4000),
+  tags: z.array(z.string().trim().min(1).max(40)).max(8).default([]),
+  scope: z.array(z.enum(["dm", "comment", "story_mention", "review"])).max(4).default([]),
+});
+
+/**
+ * Enregistre la réponse qu'on vient d'écrire.
+ *
+ * Le geste part du composeur, pas d'un écran de réglages : c'est au moment où
+ * l'on tape la même phrase pour la troisième fois qu'on décide de la garder,
+ * et un détour par une page d'administration fait renoncer.
+ */
+export async function createSavedReply(input: {
+  clientId: string;
+  title: string;
+  body: string;
+  tags?: string[];
+  scope?: ("dm" | "comment" | "story_mention" | "review")[];
+}): Promise<ModerationResult> {
+  const parsed = savedReplyInput.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Requête incomplète." };
+  }
+
+  try {
+    const { viewer } = await requireOperator(parsed.data.clientId);
+    const supabase = await createClient();
+    const { error } = await supabase.from("saved_replies").insert({
+      client_id: parsed.data.clientId,
+      title: parsed.data.title,
+      body: parsed.data.body,
+      tags: parsed.data.tags,
+      scope: parsed.data.scope,
+      created_by: viewer.user.id,
+    } as never);
+    if (error) {
+      // Le doublon de nom est le seul refus attendu : il se dit en français.
+      return {
+        ok: false,
+        error: error.code === "23505" ? "Ce nom est déjà pris." : error.message,
+      };
+    }
+
+    revalidateModeration();
+    return { ok: true, message: "Réponse enregistrée." };
+  } catch (error) {
+    return { ok: false, error: (error as Error).message };
+  }
+}
+
+export async function deleteSavedReply(input: {
+  clientId: string;
+  replyId: string;
+}): Promise<ModerationResult> {
+  const parsed = z
+    .object({ clientId: z.uuid(), replyId: z.uuid() })
+    .safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Requête incomplète." };
+
+  try {
+    await requireOperator(parsed.data.clientId);
+    const supabase = await createClient();
+    const { error } = await supabase
+      .from("saved_replies")
+      .delete()
+      .eq("id", parsed.data.replyId)
+      .eq("client_id", parsed.data.clientId);
+    if (error) return { ok: false, error: error.message };
+
+    revalidateModeration();
+    return { ok: true, message: "Réponse retirée de la bibliothèque." };
+  } catch (error) {
+    return { ok: false, error: (error as Error).message };
+  }
+}
+
+/**
+ * Compte une utilisation. Meilleur effort : le classement de la liste ne vaut
+ * pas de faire échouer une insertion de texte.
+ */
+export async function noteSavedReplyUse(input: {
+  clientId: string;
+  replyId: string;
+}): Promise<void> {
+  const parsed = z.object({ clientId: z.uuid(), replyId: z.uuid() }).safeParse(input);
+  if (!parsed.success) return;
+
+  try {
+    await requireOperator(parsed.data.clientId);
+    const supabase = await createClient();
+    const { data } = await supabase
+      .from("saved_replies")
+      .select("usage_count")
+      .eq("id", parsed.data.replyId)
+      .maybeSingle();
+    const count = (data as { usage_count?: number } | null)?.usage_count ?? 0;
+    await supabase
+      .from("saved_replies")
+      .update({ usage_count: count + 1 } as never)
+      .eq("id", parsed.data.replyId)
+      .eq("client_id", parsed.data.clientId);
+  } catch {
+    // Silencieux : voir l'en-tête.
+  }
+}
+
 // --- Les thèmes ------------------------------------------------------------
 
 const HEX = /^#[0-9a-f]{6}$/i;

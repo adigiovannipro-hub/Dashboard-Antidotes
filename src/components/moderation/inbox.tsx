@@ -39,6 +39,7 @@ import type {
   ModerationChannel,
   ModerationMessage,
   ModerationRole,
+  SavedReply,
 } from "@/lib/moderation/types";
 import { CHANNEL_LABELS } from "@/lib/moderation/types";
 import { cn } from "@/lib/utils";
@@ -65,6 +66,7 @@ export function Inbox({
   counters,
   networksShown,
   connections,
+  savedReplies,
   selection,
   query,
   clientSlug,
@@ -79,6 +81,7 @@ export function Inbox({
   counters: InboxCounters;
   networksShown: ModerationChannel[];
   connections: ChannelConnectionSummary[];
+  savedReplies: SavedReply[];
   selection: InboxSelection;
   /** Les paramètres bruts de l'URL — « Tout lire » les relit comme la page. */
   query: InboxQuery;
@@ -590,6 +593,7 @@ export function Inbox({
             conversation={thread.conversation}
             messages={thread.messages}
             draft={thread.draft}
+            savedReplies={savedReplies}
             onAdvance={() => move(1)}
             onBack={closeThread}
           />
