@@ -93,6 +93,9 @@ export function detectLanguage(
  * pour attraper « rembourser » comme « remboursé » ou « rembourse ».
  */
 const FLAG_PATTERNS: Record<ModerationFlag, RegExp[]> = {
+  // Posé à la main depuis l'Inbox : aucun motif ne le déclenche, et la liste
+  // vide le dit mieux qu'une absence de clé, qui se lirait comme un oubli.
+  manual: [],
   refund: [
     /\brembours/i,
     /\bavoir\b.*\bcommande\b/i,

@@ -31,6 +31,7 @@ import { Input } from "@/components/ui/input";
 import type { InboxCounters, InboxSelection } from "@/lib/moderation/counters";
 import type { InboxQuery } from "@/lib/moderation/filters";
 import type { ChannelConnectionSummary } from "@/lib/moderation/queries";
+import { statusGroupOf } from "@/lib/moderation/types";
 import type {
   Conversation,
   Draft,
@@ -98,6 +99,29 @@ export function Inbox({
   const [search, setSearch] = useState(initialSearch);
   const [checked, setChecked] = useState<Set<string>>(new Set());
   const [gesturePending, startGesture] = useTransition();
+
+  /* Le geste s'applique à l'écran avant le serveur.
+     Une action de masse sur trente lignes mettait deux secondes à se voir :
+     on recliquait, et le doute valait bien plus cher que le gain. La table
+     `overlay` porte le changement attendu, la liste le rend tout de suite, et
+     un échec **retire** l'entrée — la ligne redevient ce qu'elle était, avec
+     l'erreur en toast. Elle se vide dès que le serveur rend sa version. */
+  const [pendingOverlay, setPendingOverlay] = useState<{
+    base: Conversation[];
+    patch: Record<string, Partial<Conversation>>;
+  } | null>(null);
+  /* Dérivé au rendu, sans effet : l'overlay ne vaut que pour la liste sur
+     laquelle il a été posé. Dès que le serveur en rend une autre, l'identité
+     du tableau change et l'attendu s'efface tout seul — le même mécanisme que
+     le surlignage optimiste ci-dessous, et pour la même raison : un
+     `setState` dans un effet ferait un rendu de plus à chaque clic. */
+  const overlay = useMemo(
+    () =>
+      pendingOverlay && pendingOverlay.base === conversations
+        ? pendingOverlay.patch
+        : {},
+    [pendingOverlay, conversations],
+  );
   const [readingAll, startReadingAll] = useTransition();
 
   /* La conversation ouverte, en avance sur le serveur.
@@ -120,9 +144,27 @@ export function Inbox({
     [clients],
   );
 
+  /* La liste telle qu'elle doit se voir : l'attendu par-dessus le rendu, et
+     les lignes que le geste fait sortir du segment courant retirées. Sans ce
+     retrait, « Marquer traitées » laissait trente lignes en place avec un
+     nouveau libellé, ce qui ne ressemble pas à un rangement. */
+  const shown = useMemo(() => {
+    const rows = conversations.map((conversation) =>
+      overlay[conversation.id]
+        ? ({ ...conversation, ...overlay[conversation.id] } as Conversation)
+        : conversation,
+    );
+    return rows.filter(
+      (conversation) =>
+        !overlay[conversation.id] ||
+        (!overlay[conversation.id]?.deleted_at &&
+          statusGroupOf(conversation.status) === selection.statusGroup),
+    );
+  }, [conversations, overlay, selection.statusGroup]);
+
   const selectedIndex = useMemo(
-    () => conversations.findIndex((conversation) => conversation.id === shownId),
-    [conversations, shownId],
+    () => shown.findIndex((conversation) => conversation.id === shownId),
+    [shown, shownId],
   );
 
   const goTo = useCallback(
@@ -137,6 +179,13 @@ export function Inbox({
 
   const runGesture = useCallback(
     (ids: string[], gesture: InboxGesture) => {
+      const expected = expectedPatch(gesture);
+      setPendingOverlay((current) => {
+        const patch = current?.base === conversations ? { ...current.patch } : {};
+        for (const id of ids) patch[id] = { ...patch[id], ...expected };
+        return { base: conversations, patch };
+      });
+
       startGesture(async () => {
         const result = await applyInboxGesture({ conversationIds: ids, gesture });
         if (result.ok) {
@@ -150,11 +199,18 @@ export function Inbox({
           });
           router.refresh();
         } else {
+          // Retour en arrière : la ligne reprend l'état que le serveur porte.
+          setPendingOverlay((current) => {
+            if (!current) return current;
+            const patch = { ...current.patch };
+            for (const id of ids) delete patch[id];
+            return { base: current.base, patch };
+          });
           toast.error(result.error);
         }
       });
     },
-    [router],
+    [conversations, router],
   );
 
   /* Ouvrir un fil le marque lu — le geste de toute boîte de réception — et
@@ -177,7 +233,7 @@ export function Inbox({
      lire ». Un décompte exact de la boîte entière demanderait une requête de
      plus à chaque rendu, pour une information que le bouton donne lui-même
      dans son message de retour. */
-  const unreadShown = conversations.filter((conversation) => conversation.unread).length;
+  const unreadShown = shown.filter((conversation) => conversation.unread).length;
 
   const markAllRead = useCallback(() => {
     /* La confirmation au-delà d'un écran de lignes : marquer quatre cents fils
@@ -224,12 +280,12 @@ export function Inbox({
 
   const move = useCallback(
     (delta: number) => {
-      if (conversations.length === 0) return;
+      if (shown.length === 0) return;
       const base = selectedIndex === -1 ? 0 : selectedIndex;
-      const next = Math.min(Math.max(base + delta, 0), conversations.length - 1);
-      goTo(conversations[next]!.id);
+      const next = Math.min(Math.max(base + delta, 0), shown.length - 1);
+      goTo(shown[next]!.id);
     },
-    [conversations, goTo, selectedIndex],
+    [shown, goTo, selectedIndex],
   );
 
   // Raccourcis de navigation. Les actions (valider, refuser, ignorer, mettre
@@ -300,7 +356,7 @@ export function Inbox({
 
   // Une conversation disparue de la liste (filtre changé, ligne archivée) ne
   // doit pas rester cochée en fantôme.
-  const visibleIds = new Set(conversations.map((conversation) => conversation.id));
+  const visibleIds = new Set(shown.map((conversation) => conversation.id));
   const checkedVisible = [...checked].filter((id) => visibleIds.has(id));
 
   if (clients.length === 0) {
@@ -395,7 +451,7 @@ export function Inbox({
             threadOpen ? "hidden md:flex" : "flex",
           )}
         >
-          {conversations.length > 0 ? (
+          {shown.length > 0 ? (
             <div className="type-caption flex shrink-0 items-center gap-2 border-b border-border px-3 py-1.5 text-text-secondary">
               {/* Tout sélectionner — la liste affichée entière, donc « tous les
                   messages d'un client » dès que le filtre client est posé : le
@@ -404,13 +460,12 @@ export function Inbox({
                 <input
                   type="checkbox"
                   checked={
-                    checkedVisible.length === conversations.length &&
-                    conversations.length > 0
+                    checkedVisible.length === shown.length && shown.length > 0
                   }
                   onChange={(event) =>
                     setChecked(
                       event.target.checked
-                        ? new Set(conversations.map((conversation) => conversation.id))
+                        ? new Set(shown.map((conversation) => conversation.id))
                         : new Set(),
                     )
                   }
@@ -440,7 +495,7 @@ export function Inbox({
           ) : null}
           <div className="min-h-0 flex-1 overflow-y-auto">
           <ConversationList
-            conversations={conversations}
+            conversations={shown}
             clients={clientById}
             showClient={clientSlug === null && clients.length > 1}
             selectedId={shownId}
@@ -476,6 +531,34 @@ export function Inbox({
       </Panel>
     </div>
   );
+}
+
+/**
+ * Ce qu'un geste change, vu de l'écran.
+ *
+ * Le miroir de `patchOfGesture` côté serveur, réduit à ce que la liste
+ * affiche. Les deux doivent rester d'accord : une ligne qui se range
+ * autrement à l'écran que dans la base clignote au rafraîchissement suivant.
+ * `signaler` ne figure pas ici — le drapeau dépend de la ligne, et il se voit
+ * de toute façon au rendu suivant.
+ */
+function expectedPatch(gesture: InboxGesture): Partial<Conversation> {
+  switch (gesture) {
+    case "lu":
+      return { unread: false };
+    case "non-lu":
+      return { unread: true };
+    case "traitee":
+      return { status: "answered_elsewhere", unread: false };
+    case "archiver":
+      return { status: "ignored", unread: false };
+    case "restaurer":
+      return { status: "to_process" };
+    case "supprimer":
+      return { deleted_at: new Date().toISOString() };
+    default:
+      return {};
+  }
 }
 
 function relativeTime(iso: string): string {

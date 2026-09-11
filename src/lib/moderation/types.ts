@@ -154,9 +154,15 @@ export type ModerationFlag =
   | "insult"
   | "dispute"
   | "refund"
-  | "sensitive";
+  | "sensitive"
+  /* Posé à la main depuis l'Inbox, jamais par le triage. La colonne est un
+     `text[]` et non un enum : un drapeau de plus ne demande pas de migration.
+     Il fait entrer le fil dans « Signalées », qui est la seule liste où l'on
+     revient volontairement. */
+  | "manual";
 
 export const FLAG_LABELS: Record<ModerationFlag, string> = {
+  manual: "Signalée",
   spam: "Spam",
   insult: "Insulte",
   dispute: "Litige",

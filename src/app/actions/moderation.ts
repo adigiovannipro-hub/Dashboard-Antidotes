@@ -560,11 +560,22 @@ export async function submitCorrection(
  * Rien n'est effacé chez Meta : le commentaire reste en ligne. C'est notre
  * boîte qu'on range, pas la page du client.
  */
-export type InboxGesture = "lu" | "non-lu" | "archiver" | "restaurer" | "supprimer";
+export type InboxGesture =
+  | "lu"
+  | "non-lu"
+  | "traitee"
+  | "archiver"
+  | "restaurer"
+  | "signaler"
+  | "ne-plus-signaler"
+  | "supprimer";
 
 const GESTURE_LABELS: Record<InboxGesture, { one: string; many: string }> = {
   lu: { one: "Marquée comme lue.", many: "Marquées comme lues." },
   "non-lu": { one: "Marquée comme non lue.", many: "Marquées comme non lues." },
+  traitee: { one: "Marquée comme traitée.", many: "Marquées comme traitées." },
+  signaler: { one: "Signalée.", many: "Signalées." },
+  "ne-plus-signaler": { one: "Signalement retiré.", many: "Signalements retirés." },
   archiver: { one: "Archivée.", many: "Archivées." },
   restaurer: { one: "Remise à traiter.", many: "Remises à traiter." },
   supprimer: {
@@ -575,10 +586,21 @@ const GESTURE_LABELS: Record<InboxGesture, { one: string; many: string }> = {
 
 function patchOfGesture(gesture: InboxGesture): Record<string, unknown> {
   switch (gesture) {
+    // Les deux gestes de drapeau se calculent ligne à ligne : voir
+    // `flagPatchOf`.
+    case "signaler":
+    case "ne-plus-signaler":
+      return {};
     case "lu":
       return { unread: false };
     case "non-lu":
       return { unread: true };
+    /* « Traitée » n'est pas « archivée » : le fil a été réglé, ici ou
+       ailleurs, et il rejoint les traitées sans passer par la corbeille de
+       rangement. `answered_elsewhere` porte exactement ce sens depuis
+       l'ingestion, qui l'écrit quand la marque a répondu depuis l'app. */
+    case "traitee":
+      return { status: "answered_elsewhere", unread: false };
     case "archiver":
       return { status: "ignored", unread: false };
     case "restaurer":
@@ -590,8 +612,36 @@ function patchOfGesture(gesture: InboxGesture): Record<string, unknown> {
 
 const gestureInput = z.object({
   conversationIds: z.array(z.uuid()).min(1).max(200),
-  gesture: z.enum(["lu", "non-lu", "archiver", "restaurer", "supprimer"]),
+  gesture: z.enum([
+    "lu",
+    "non-lu",
+    "traitee",
+    "archiver",
+    "restaurer",
+    "signaler",
+    "ne-plus-signaler",
+    "supprimer",
+  ]),
 });
+
+/**
+ * Les deux gestes qui touchent aux drapeaux ne se rangent pas dans
+ * `patchOfGesture` : la nouvelle valeur dépend de celle de chaque ligne, et un
+ * `update` unique ne peut pas porter deux tableaux différents. On regroupe donc
+ * les lignes par drapeaux identiques — en pratique un seul lot, la plupart des
+ * conversations n'en portant aucun.
+ */
+function flagPatchOf(gesture: InboxGesture, flags: string[]): string[] | null {
+  if (gesture === "signaler") {
+    return flags.includes("manual") ? null : [...flags, "manual"];
+  }
+  if (gesture === "ne-plus-signaler") {
+    return flags.includes("manual")
+      ? flags.filter((flag) => flag !== "manual")
+      : null;
+  }
+  return null;
+}
 
 /**
  * Un geste appliqué à une ou plusieurs conversations.
@@ -613,7 +663,7 @@ export async function applyInboxGesture(input: {
     const { data: rows } = await supabase
       .from("conversations")
       .select(
-        "id, client_id, status, unread, channel, kind, connection_id, participant_external_id",
+        "id, client_id, status, unread, flags, channel, kind, connection_id, participant_external_id",
       )
       .in("id", parsed.data.conversationIds);
 
@@ -622,6 +672,7 @@ export async function applyInboxGesture(input: {
       client_id: string;
       status: string;
       unread: boolean;
+      flags: string[];
       channel: Conversation["channel"];
       kind: Conversation["kind"];
       connection_id: string | null;
@@ -636,14 +687,47 @@ export async function applyInboxGesture(input: {
     }
 
     const patch = patchOfGesture(parsed.data.gesture);
-    const { error } = await supabase
-      .from("conversations")
-      .update(patch as never)
-      .in(
-        "id",
-        targets.map((row) => row.id),
-      );
-    if (error) return { ok: false, error: error.message };
+
+    if (Object.keys(patch).length > 0) {
+      const { error } = await supabase
+        .from("conversations")
+        .update(patch as never)
+        .in(
+          "id",
+          targets.map((row) => row.id),
+        );
+      if (error) return { ok: false, error: error.message };
+    } else {
+      /* Les drapeaux : la valeur dépend de la ligne, donc un `update` unique
+         ne suffit pas. On regroupe par tableau identique — en pratique un
+         seul lot, la plupart des conversations n'en portant aucun — plutôt
+         qu'une requête par ligne. */
+      const lots = new Map<string, { next: string[]; ids: string[] }>();
+      for (const row of targets) {
+        const next = flagPatchOf(parsed.data.gesture, row.flags ?? []);
+        if (!next) continue;
+        const key = next.join("|");
+        const lot = lots.get(key) ?? { next, ids: [] };
+        lot.ids.push(row.id);
+        lots.set(key, lot);
+      }
+      for (const lot of lots.values()) {
+        const { error } = await supabase
+          .from("conversations")
+          .update({ flags: lot.next } as never)
+          .in("id", lot.ids);
+        if (error) return { ok: false, error: error.message };
+      }
+      if (lots.size === 0) {
+        return {
+          ok: true,
+          message:
+            parsed.data.gesture === "signaler"
+              ? "Déjà signalée."
+              : "Aucun signalement à retirer.",
+        };
+      }
+    }
 
     for (const row of targets) {
       await audit({
