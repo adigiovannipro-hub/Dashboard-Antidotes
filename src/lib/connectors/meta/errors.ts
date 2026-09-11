@@ -17,6 +17,74 @@ export type MetaDiagnosis = {
 
 const RECONNECT = "Rebrancher le compte depuis Connexions, sur le Planning.";
 
+/**
+ * Les mots par lesquels Meta dit « j'ai renoncé », et non « je refuse ».
+ *
+ * « long polling terminated due to timeout », un 504 de passerelle, un
+ * « temporarily unavailable » : ce sont des refus **de charge**, pas de droits.
+ * Les reconnaître est ce qui a réparé les messages privés d'Instagram — le
+ * premier appel demandait 50 fils × 25 messages avec leurs pièces jointes, Meta
+ * n'assemblait pas la réponse dans son délai, et l'escalier de repli ne
+ * descendait que sur « reduce the amount of data ». Un timeout partait donc
+ * en avertissement muet, et zéro DM Instagram n'est jamais entré en base.
+ */
+const TRANSIENT_MARKERS = [
+  "long polling",
+  "timeout",
+  "timed out",
+  "gateway",
+  "temporarily unavailable",
+] as const;
+
+/**
+ * Les codes Graph d'un incident passager : 1 (« An unknown error occurred »),
+ * 2 (« An unexpected error has occurred ») et −1 (erreur interne).
+ */
+const TRANSIENT_CODES = new Set([1, 2, -1]);
+
+/**
+ * Le numéro d'un refus Graph, `(#10)` → 10.
+ *
+ * Extrait plutôt que cherché en sous-chaîne : `"(#10)".includes("(#1)")` est
+ * vrai, et confondre le refus de portée `pages_read_user_content` avec un
+ * incident passager ferait redescendre l'escalier pour rien — quinze appels
+ * pour le même refus.
+ */
+export function metaErrorCode(raw: string): number | null {
+  const match = /\(#(-?\d+)\)/.exec(raw);
+  return match ? Number(match[1]) : null;
+}
+
+/**
+ * Vrai quand le refus vaut la peine d'être redemandé — plus petit, ou plus
+ * tard. C'est le prédicat que l'escalier de volume de la messagerie consulte
+ * au même titre que « reduce the amount of data » : un timeout est le symptôme
+ * d'une demande trop lourde, pas une fin de non-recevoir.
+ *
+ * `MetaError.retryable` sans importer `MetaError` : ce module est **pur** et
+ * testé, quand le transport porte `server-only`.
+ */
+function saysTransient(raw: string): boolean {
+  const code = metaErrorCode(raw);
+  if (code !== null && TRANSIENT_CODES.has(code)) return true;
+
+  const text = raw.toLowerCase();
+  return TRANSIENT_MARKERS.some((marker) => text.includes(marker));
+}
+
+export function isTransientMeta(error: unknown): boolean {
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "retryable" in error &&
+    (error as { retryable?: unknown }).retryable === true
+  ) {
+    return true;
+  }
+  if (!(error instanceof Error)) return false;
+  return saysTransient(error.message);
+}
+
 export function explainMetaError(raw: string): MetaDiagnosis {
   const text = raw.toLowerCase();
 
@@ -103,6 +171,17 @@ export function explainMetaError(raw: string): MetaDiagnosis {
       // Rien à faire, et surtout pas rebrancher : le quota se recharge seul.
       message:
         "Meta a plafonné le nombre d'appels pour cette heure. La synchronisation reprendra au prochain passage, sans rien perdre.",
+      reconnect: false,
+    };
+  }
+
+  if (saysTransient(raw)) {
+    return {
+      /* Rien à rebrancher : Meta a renoncé à assembler la réponse. Le passage
+         suivant repart du palier réduit, et c'est ce découpage — pas un geste
+         de l'utilisateur — qui fait passer la boîte. */
+      message:
+        "Meta n'a pas répondu à temps sur cette boîte. Le passage suivant redemande par tranches plus petites.",
       reconnect: false,
     };
   }

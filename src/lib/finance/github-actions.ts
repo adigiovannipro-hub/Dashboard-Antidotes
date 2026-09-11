@@ -132,18 +132,30 @@ export async function dispatchSyncWorkflow(): Promise<void> {
 }
 
 /**
- * Le relevé de la Modération, à la demande — même workflow, autre portée.
+ * Le relevé de l'Inbox, à la demande — même workflow, autre portée.
  *
- * `portee: moderation` saute Finance, les Reçus et les envois : ouvrir l'inbox
- * ne doit ni écrire à un prospect ni publier un planning. Ce qui reste est
- * `pnpm sync:moderation`, quelques secondes par compte branché.
+ * `portee: moderation` et `moderation-complet` sautent Finance, les Reçus et
+ * les envois : ouvrir l'inbox ne doit ni écrire à un prospect ni publier un
+ * planning. Ce qui reste est `pnpm sync:moderation`.
  *
- * Le travail ne part pas de l'hébergeur, et cette fois ce n'est pas Meta qui
- * refuse — c'est le plafond de Vercel : le relevé complet dépasse la minute
- * qu'une fonction Hobby a le droit de vivre, et se faisait couper en vol.
+ * Les deux portées désignent la même étape et diffèrent par ce qu'elle
+ * redemande : `moderation` relève le jour, `moderation-complet` la passe de
+ * réparation. C'est cette dernière qui a besoin d'un runner — elle dure des
+ * minutes, quand une fonction Hobby vit soixante secondes et se faisait couper
+ * en vol. Le relevé du jour, lui, ne passe plus par ici du tout : la route
+ * l'exécute elle-même.
+ *
+ * Piège connu, déjà payé deux fois : GitHub valide les valeurs autorisées d'un
+ * `workflow_dispatch` contre la **branche par défaut**. `moderation-complet`
+ * répondra donc 422 tant que le fichier n'est pas fusionné, et
+ * `dispatchWorkflow` le dit en français plutôt qu'en JSON.
  */
-export async function dispatchModerationWorkflow(): Promise<void> {
-  await dispatchWorkflow(SYNC_WORKFLOW_FILE, { portee: "moderation" });
+export async function dispatchModerationWorkflow(
+  scope: "jour" | "complet" = "jour",
+): Promise<void> {
+  await dispatchWorkflow(SYNC_WORKFLOW_FILE, {
+    portee: scope === "complet" ? "moderation-complet" : "moderation",
+  });
 }
 
 /**

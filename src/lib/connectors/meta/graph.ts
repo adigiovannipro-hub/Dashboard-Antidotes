@@ -1,6 +1,7 @@
 import "server-only";
 
 import { GRAPH_API, MetaError } from "@/lib/social/meta";
+import { isTransientMeta } from "./errors";
 import type {
   MetaIgCommentRow,
   MetaIgMediaLite,
@@ -41,6 +42,29 @@ type PagedPayload<T> = GraphErrorPayload & {
 const MAX_PAGES = 60;
 
 /**
+ * Le même garde-fou sur la messagerie, mais dix fois plus bas.
+ *
+ * Une boîte se traite au jour le jour : soixante pages de conversations, ce
+ * n'est pas de la pagination, c'est le rattrapage de toute la vie du compte à
+ * chaque passage — et c'est ce qui faisait renoncer Meta avant la fin. Ce qui
+ * dépasse dix pages attendra le passage suivant, qui repartira des fils les
+ * plus récents.
+ */
+const MESSAGING_MAX_PAGES = 10;
+
+/**
+ * Le palier de départ de la messagerie, et non son plein régime.
+ *
+ * 50 fils × 25 messages avec leurs pièces jointes est exactement la réponse
+ * que Meta ne sait pas assembler : la boîte Instagram de tous les comptes
+ * tombait dessus au **premier** appel, et rien n'en est jamais remonté. On
+ * part donc du palier réduit et on ne monte jamais — ce qu'une page ne rend
+ * pas, la page suivante le rend.
+ */
+const MESSAGING_DEFAULT_PAGE_SIZE = 20;
+const MESSAGING_DEFAULT_MESSAGE_LIMIT = 10;
+
+/**
  * Combien de publications au plus voient leurs statistiques redemandées une
  * par une, en un passage.
  *
@@ -53,8 +77,50 @@ const MAX_PAGES = 60;
  */
 const MAX_INSIGHT_RECOVERIES = 150;
 
-async function fetchGraph<T>(url: string): Promise<T> {
-  const response = await fetch(url, { cache: "no-store" });
+/**
+ * Le budget d'un appel Graph. Le timeout doit être **le nôtre** : celui de
+ * Meta laisse la connexion pendue — « long polling terminated due to timeout »
+ * arrive après des minutes, et pendant ce temps la fonction Vercel épuise ses
+ * soixante secondes sans rien avoir écrit.
+ */
+const GRAPH_TIMEOUT_MS = 45_000;
+
+/**
+ * Les attentes entre deux tentatives. Deux reprises suffisent à absorber un
+ * 504 isolé — au-delà, ce n'est plus un incident mais une demande trop lourde,
+ * et c'est l'escalier de repli de l'appelant qui a la réponse : redemander
+ * plus petit, jamais à l'identique.
+ */
+const GRAPH_RETRY_DELAYS_MS = [1_000, 4_000];
+
+function wait(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function askGraph<T>(url: string): Promise<T> {
+  const controller = new AbortController();
+  const budget = setTimeout(() => controller.abort(), GRAPH_TIMEOUT_MS);
+
+  let response: Response;
+  try {
+    response = await fetch(url, { cache: "no-store", signal: controller.signal });
+  } catch (error) {
+    /* Un `AbortError` n'est pas une `MetaError` : sans cette traduction il
+       remonterait en « This operation was aborted », que ni l'escalier de
+       repli ni la traduction des refus ne reconnaissent. Le mot « timeout » y
+       est posé exprès — c'est lui que `isTransientMeta` lit. */
+    if (controller.signal.aborted) {
+      throw new MetaError(
+        `Meta n'a pas répondu en ${GRAPH_TIMEOUT_MS / 1000} s (timeout).`,
+        504,
+        true,
+      );
+    }
+    throw error;
+  } finally {
+    clearTimeout(budget);
+  }
+
   const payload = (await response.json().catch(() => ({}))) as T &
     GraphErrorPayload;
 
@@ -67,6 +133,24 @@ async function fetchGraph<T>(url: string): Promise<T> {
   }
 
   return payload;
+}
+
+async function fetchGraph<T>(url: string): Promise<T> {
+  let last: unknown;
+  for (let attempt = 0; attempt <= GRAPH_RETRY_DELAYS_MS.length; attempt += 1) {
+    try {
+      return await askGraph<T>(url);
+    } catch (error) {
+      // Un refus de droits, de portée ou de volume ne changera pas d'avis :
+      // le rejouer coûterait deux appels pour le même message.
+      if (!isTransientMeta(error)) throw error;
+      last = error;
+      const delay = GRAPH_RETRY_DELAYS_MS[attempt];
+      if (delay === undefined) break;
+      await wait(delay);
+    }
+  }
+  throw last;
 }
 
 /** Toutes les pages d'un listing Graph, dans l'ordre où Meta les rend. */
@@ -575,9 +659,9 @@ export async function fetchConversations(options: {
   platform: "messenger" | "instagram";
   /** Borne basse `YYYY-MM-DD` : on s'arrête dès qu'une page est plus ancienne. */
   since: string;
+  /** Défaut : le palier réduit. Ne jamais remonter — voir la constante. */
   messageLimit?: number;
-  /** Réduit sur un refus de volume : 50 fils × 25 messages avec pièces
-      jointes est exactement le genre de réponse que Meta refuse d'assembler. */
+  /** Réduit encore sur un refus de volume ou un renoncement de Meta. */
   pageSize?: number;
   /** Dernier palier du même refus : l'expansion des pièces jointes est le
       champ gras — la lâcher garde le texte des messages, pas leurs médias. */
@@ -588,7 +672,7 @@ export async function fetchConversations(options: {
      ouvert là-bas ne doit pas re-sonner ici. */
   const fields =
     "id,updated_time,unread_count,participants,messages.limit(" +
-    String(options.messageLimit ?? 25) +
+    String(options.messageLimit ?? MESSAGING_DEFAULT_MESSAGE_LIMIT) +
     ((options.withAttachments ?? true)
       ? "){id,message,created_time,from,to,attachments{mime_type,name,image_data{url,preview_url},video_data{url,preview_url},file_url}}"
       : "){id,message,created_time,from,to}");
@@ -598,10 +682,10 @@ export async function fetchConversations(options: {
     access_token: options.accessToken,
     platform: options.platform,
     fields,
-    limit: String(options.pageSize ?? 50),
+    limit: String(options.pageSize ?? MESSAGING_DEFAULT_PAGE_SIZE),
   });
 
-  for (let page = 0; url && page < MAX_PAGES; page += 1) {
+  for (let page = 0; url && page < MESSAGING_MAX_PAGES; page += 1) {
     const payload: PagedPayload<MetaConversationRow> =
       await fetchGraph<PagedPayload<MetaConversationRow>>(url);
     const items = payload.data ?? [];
@@ -646,7 +730,7 @@ export async function fetchConversationHeaders(options: {
     limit: String(options.pageSize ?? 50),
   });
 
-  for (let page = 0; url && page < MAX_PAGES; page += 1) {
+  for (let page = 0; url && page < MESSAGING_MAX_PAGES; page += 1) {
     const payload: PagedPayload<MetaConversationRow> =
       await fetchGraph<PagedPayload<MetaConversationRow>>(url);
     const items = payload.data ?? [];

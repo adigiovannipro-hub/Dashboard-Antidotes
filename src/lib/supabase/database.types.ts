@@ -452,6 +452,20 @@ export type DraftRow = {
   created_at: string;
 }
 
+/**
+ * Le compteur de commentaires d'une publication au dernier relevé réussi —
+ * 20260914a. C'est lui qui permet au relevé du jour de ne redescendre que ce
+ * qui a bougé.
+ */
+export type ModerationPostCursorRow = {
+  client_id: string;
+  /** `moderation_channel` — `string` comme les colonnes sœurs du module. */
+  channel: string;
+  post_external_id: string;
+  comments_count: number;
+  last_seen_at: string;
+};
+
 /** Les réponses enregistrées de l'Inbox — 20260913a. */
 export type SavedReplyRow = {
   id: string;
@@ -795,9 +809,14 @@ import type { WorkCycle, WorkCycleStep, WorkTask } from "@/lib/mon-travail/types
 export type {
   ClientContext as ClientContextRow,
   ClientAsset as ClientAssetRow,
+  ClientGenerationSettings as ClientGenerationSettingsRow,
 } from "@/lib/context/types";
 
-import type { ClientAsset, ClientContext } from "@/lib/context/types";
+import type {
+  ClientAsset,
+  ClientContext,
+  ClientGenerationSettings,
+} from "@/lib/context/types";
 
 /* --- Droits par page, à l'intérieur d'un espace --------------------------- */
 export type { WorkspacePageGrant as WorkspacePageGrantRow } from "@/lib/workspaces/types";
@@ -966,6 +985,7 @@ export type Database = {
       drafts: Table<DraftRow>;
       faq_entries: Table<FaqEntryRow>;
       saved_replies: Table<SavedReplyRow>;
+      moderation_post_cursors: Table<ModerationPostCursorRow>;
       faq_categories: Table<FaqCategoryRow>;
       faq_comments: Table<FaqCommentRow>;
       faq_entry_versions: Table<FaqEntryVersionRow>;
@@ -1007,6 +1027,7 @@ export type Database = {
       work_tasks: Table<WorkTask>;
       client_context: Table<ClientContext>;
       client_assets: Table<ClientAsset>;
+      client_generation_settings: Table<ClientGenerationSettings>;
       workspace_page_grants: Table<WorkspacePageGrant>;
       client_phases: Table<ClientPhase>;
       client_reports: Table<ClientReport>;
