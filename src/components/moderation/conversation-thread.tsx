@@ -32,6 +32,7 @@ import {
   type DraftGenerationResult,
 } from "@/app/actions/moderation-draft";
 import { CorrectionDialog } from "@/components/moderation/correction-dialog";
+import { EmojiPicker } from "@/components/moderation/emoji-picker";
 import {
   SaveReplyButton,
   SavedRepliesButton,
@@ -45,6 +46,7 @@ import {
 } from "@/lib/moderation/response-window";
 import { ATTACHMENT_LABELS } from "@/lib/moderation/ingest";
 import { standingOf } from "@/lib/moderation/confidence";
+import { characterLimit } from "@/lib/moderation/limits";
 import { isReactionOnly } from "@/lib/moderation/reactions";
 import {
   CHANNEL_LABELS,
@@ -237,12 +239,16 @@ export function ConversationThread({
       } else if (key === "a") {
         event.preventDefault();
         document.getElementById("conversation-snooze")?.click();
+      } else if (event.key === "Escape") {
+        // Échap referme le fil : on revient à la liste sans viser la croix.
+        event.preventDefault();
+        onBack();
       }
     }
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [conversation, current, canAct]);
+  }, [conversation, current, canAct, onBack]);
 
   /* Le fil s'ouvre sur son dernier message, comme toute messagerie. Sans
      ancrage, une conversation longue s'ouvrait en haut et il fallait dérouler
@@ -304,6 +310,9 @@ export function ConversationThread({
      Un commentaire public n'en a aucun — afficher « pas de limite » sur chaque
      fil serait du bruit. Expirée, la plateforme refuse l'envoi : les champs se
      verrouillent ici plutôt que de laisser écrire trois lignes pour rien. */
+  const limit = characterLimit(conversation.channel, conversation.kind);
+  const tooLong = limit !== null && reply.length > limit;
+
   const replyWindow = windowState({
     channel: conversation.channel,
     kind: conversation.kind,
@@ -762,6 +771,27 @@ export function ConversationThread({
                 kind={conversation.kind}
                 body={reply}
               />
+              <EmojiPicker
+                onPick={(emoji) => {
+                  setReply((current) => current + emoji);
+                  replyRef.current?.focus();
+                }}
+              />
+              {/* Pas de bouton de pièce jointe : `sendReply` ne poste que du
+                  texte sur les trois canaux branchés. Un bouton grisé
+                  promettrait une fonctionnalité qui n'existe pas, et on
+                  cliquerait dessus toutes les semaines en croyant à une
+                  panne (`acceptsAttachments`). */}
+              {limit !== null ? (
+                <span
+                  className={cn(
+                    "type-caption tabular-nums",
+                    tooLong ? "text-danger-ink font-medium" : "text-text-secondary",
+                  )}
+                >
+                  {reply.length} / {limit}
+                </span>
+              ) : null}
               <p className="type-caption ml-auto text-text-secondary">
                 {windowClosed
                   ? "Sept jours après le dernier message, Meta refuse toute réponse. Rien ne partira d'ici."
@@ -772,7 +802,9 @@ export function ConversationThread({
                 size="sm"
                 className="shrink-0"
                 onClick={submitReply}
-                disabled={replyPending || windowClosed || reply.trim().length === 0}
+                disabled={
+                  replyPending || windowClosed || tooLong || reply.trim().length === 0
+                }
               >
                 <Send className="size-4" strokeWidth={1.75} aria-hidden />
                 {replyPending ? "Envoi…" : "Envoyer"}
