@@ -2,16 +2,18 @@
 
 import { useActionState, useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { ExternalLink, Plus, Radio, Trash2 } from "lucide-react";
+import { ExternalLink, Plus, Radio, RotateCcw, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import {
   addRadarAccount,
   deleteRadarAccount,
+  resumeRadarAccount,
   saveInboundThresholds,
   type InboundResult,
 } from "@/app/actions/antidotes-inbound";
 import { PlatformChip } from "@/components/antidotes/inbound-chips";
+import { StatusPill } from "@/components/ds/status-pill";
 import { PendingLabel } from "@/components/ds/pending-label";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -149,10 +151,14 @@ function AccountRow({ account, missing }: { account: RadarAccount; missing: stri
     <div className="flex items-center gap-3 px-4 py-3">
       <PlatformChip platform={account.platform} />
       <div className="min-w-0 flex-1">
-        <p className="type-label truncate text-text-primary">
-          {account.label || account.handle}
+        <p className="type-label flex min-w-0 items-center gap-2 text-text-primary">
+          <span className="truncate">{account.label || account.handle}</span>
+          {/* En pause : le relevé n'ira plus le chercher. Sans cette
+              pastille, la ligne serait identique à une ligne veillée et la
+              pause serait muette — le contraire de ce qu'on cherche. */}
+          {account.is_active ? null : <StatusPill tone="neutral">En pause</StatusPill>}
           {account.followers !== null ? (
-            <span className="type-caption ml-2 text-text-secondary tabular-nums">
+            <span className="type-caption shrink-0 text-text-secondary tabular-nums">
               {account.followers.toLocaleString("fr-FR")} abonnés
             </span>
           ) : null}
@@ -180,6 +186,23 @@ function AccountRow({ account, missing }: { account: RadarAccount; missing: stri
           <ExternalLink className="size-4" strokeWidth={1.75} aria-hidden />
         </a>
       ) : null}
+      {account.is_active ? null : (
+        <button
+          type="button"
+          disabled={pending}
+          aria-label={`Remettre ${account.label || account.handle} dans la veille`}
+          onClick={() => {
+            startTransition(async () => {
+              const result = await resumeRadarAccount({ accountId: account.id });
+              if (result.ok) router.refresh();
+              else toast.error(result.error);
+            });
+          }}
+          className="focus-visible:ring-ring rounded-sm p-1.5 text-text-secondary hover:text-accent-ink focus-visible:ring-2 focus-visible:outline-none disabled:opacity-40"
+        >
+          <RotateCcw className="size-4" strokeWidth={1.75} aria-hidden />
+        </button>
+      )}
       <button
         type="button"
         disabled={pending}
