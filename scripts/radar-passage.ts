@@ -61,7 +61,20 @@ async function main() {
     );
     for (const skipped of report.skipped) console.log(`    · ${skipped.account} ignoré — ${skipped.reason}`);
     for (const error of report.errors) console.log(`    ⚠ ${error.account} — ${error.message}`);
-    failures += report.errors.length;
+    for (const paused of report.paused) {
+      console.log(`    ⏸ ${paused.account} mis en pause : le réseau ne le connaît plus. Corriger le pseudo dans Comptes pour le rouvrir.`);
+    }
+    /* Le passage n'échoue que sur une **panne** : aucun compte relevé alors
+       qu'il y en avait, et aucun d'eux mis en pause. Un compte qui refuse
+       est un état du compte, pas du passage — il s'affiche sur sa ligne et
+       le radar continue ; un compte que le réseau ne connaît plus s'est mis
+       en pause et ne reviendra pas demander la même chose. Un rouge chaque
+       nuit pour une cause qu'on ne peut pas régler depuis Actions est un
+       rouge qu'on cesse de lire, et le jour où c'est vraiment cassé
+       personne ne regarde. */
+    if (report.accounts > 0 && report.errors.length === report.accounts && report.paused.length === 0) {
+      failures += 1;
+    }
   }
 
   /* Les scripts avant les vecteurs : un reel vectorisé sur sa légende ne
@@ -79,7 +92,10 @@ async function main() {
     console.log("OPENAI_API_KEY absente : pas de vecteurs, le studio rapproche par recoupement lexical.");
   }
 
-  if (failures > 0) process.exit(1);
+  if (failures > 0) {
+    console.error(`${failures} organisation(s) n'ont rien pu relever : tous leurs comptes ont refusé.`);
+    process.exit(1);
+  }
 }
 
 main().catch((error: unknown) => {

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { RadarAccount } from "../types";
-import { collectRadar, type RadarStore } from "./collect";
+import { collectRadar, isUnknownAccount, pausedReason, type RadarStore } from "./collect";
 
 const account = (overrides: Partial<RadarAccount>): RadarAccount => ({
   id: "a1",
@@ -92,5 +92,118 @@ describe("les seuils du relevé", () => {
     expect(report.collected).toBe(2);
     expect(report.belowThreshold).toBe(1);
     expect(kept).toEqual(["https://i/1", "https://i/3"]);
+  });
+});
+
+describe("isUnknownAccount", () => {
+  it("reconnaît le refus de Meta sur un profil qui n'existe pas", () => {
+    expect(
+      isUnknownAccount(
+        'Instagram : 400 {"error":{"message":"Invalid user id","type":"OAuthException","code":110,"error_subcode":2207013}}',
+      ),
+    ).toBe(true);
+  });
+
+  it("reconnaît les formulations des autres réseaux", () => {
+    expect(isUnknownAccount("Channel not found")).toBe(true);
+    expect(isUnknownAccount("Ce compte est introuvable")).toBe(true);
+    expect(isUnknownAccount("This account does not exist")).toBe(true);
+  });
+
+  it("ne prend pas un jeton expiré ou un plafond pour un compte disparu", () => {
+    // Ils se réparent en rebranchant, et touchent tous les comptes d'un
+    // coup : les mettre en pause éteindrait le radar entier.
+    expect(isUnknownAccount("Le jeton a expiré, rebrancher le compte")).toBe(false);
+    expect(isUnknownAccount('{"error":{"code":4,"message":"Application request limit reached"}}')).toBe(false);
+    expect(isUnknownAccount("502 Bad Gateway")).toBe(false);
+  });
+});
+
+describe("la mise en pause d'un compte que le réseau ne connaît plus", () => {
+  const storeWith = (
+    accounts: RadarAccount[],
+    collectors: Record<string, () => Promise<never> | Promise<{ posts: []; followers: null }>>,
+    saved: Record<string, Partial<RadarAccount>>,
+  ) => ({
+    store: {
+      async listActiveAccounts() {
+        return accounts;
+      },
+      async upsertPosts() {
+        return 0;
+      },
+      async saveAccount(id: string, patch: Partial<RadarAccount>) {
+        saved[id] = { ...saved[id], ...patch };
+      },
+    } satisfies RadarStore,
+    providers: { collectors, missing: {} } as never,
+  });
+
+  it("met en pause le compte introuvable et laisse les autres tourner", async () => {
+    const saved: Record<string, Partial<RadarAccount>> = {};
+    const { store, providers } = storeWith(
+      [account({ id: "vivant" }), account({ id: "disparu", platform: "instagram", handle: "agence.lumen" })],
+      {
+        linkedin: async () => ({ posts: [], followers: null }),
+        instagram: async () => {
+          throw new Error('{"error":{"message":"Invalid user id","code":110}}');
+        },
+      },
+      saved,
+    );
+
+    const report = await collectRadar({ store, providers, now: () => new Date("2026-09-12T00:00:00Z") });
+
+    expect(report.paused).toHaveLength(1);
+    expect(report.paused[0]?.account).toBe("instagram:agence.lumen");
+    expect(saved.disparu?.is_active).toBe(false);
+    expect(saved.vivant?.is_active).toBeUndefined();
+    // La ligne porte une phrase, jamais la charge utile du réseau.
+    expect(saved.disparu?.last_error).toBe(pausedReason("agence.lumen"));
+    expect(saved.disparu?.last_error).not.toContain("{");
+    // Le message brut, lui, reste au rapport — donc au journal du passage.
+    expect(report.paused[0]?.message).toContain("Invalid user id");
+  });
+
+  it("met en pause le compte unique du radar : « tous » ne veut rien dire à un", async () => {
+    // Le cas réel du 12/09 : un seul compte relevable, celui-là même que
+    // Meta ne connaît pas. Le garde-fou ci-dessous ne doit pas l'attraper.
+    const saved: Record<string, Partial<RadarAccount>> = {};
+    const { store, providers } = storeWith(
+      [account({ id: "seul", platform: "instagram", handle: "agence.lumen" })],
+      {
+        instagram: async () => {
+          throw new Error('{"error":{"message":"Invalid user id","code":110}}');
+        },
+      },
+      saved,
+    );
+
+    const report = await collectRadar({ store, providers, now: () => new Date("2026-09-12T00:00:00Z") });
+
+    expect(report.paused).toHaveLength(1);
+    expect(saved.seul?.is_active).toBe(false);
+  });
+
+  it("ne met rien en pause quand PLUSIEURS comptes répondent tous la même chose", async () => {
+    // Plusieurs comptes ne disparaissent pas la même nuit : c'est notre
+    // appel qui est faux, et éteindre le radar entier serait la pire
+    // réponse.
+    const saved: Record<string, Partial<RadarAccount>> = {};
+    const { store, providers } = storeWith(
+      [account({ id: "a1", platform: "instagram" }), account({ id: "a2", platform: "instagram" })],
+      {
+        instagram: async () => {
+          throw new Error("404 not found");
+        },
+      },
+      saved,
+    );
+
+    const report = await collectRadar({ store, providers, now: () => new Date("2026-09-12T00:00:00Z") });
+
+    expect(report.errors).toHaveLength(2);
+    expect(report.paused).toHaveLength(0);
+    expect(saved.a1?.is_active).toBeUndefined();
   });
 });

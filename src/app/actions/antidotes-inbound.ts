@@ -342,6 +342,35 @@ export async function renameRadarAccount(input: { accountId: string; label: stri
   }
 }
 
+/**
+ * Rouvrir un compte que le relevé a mis en pause.
+ *
+ * Le relevé met en pause ce que le réseau déclare introuvable — un pseudo
+ * changé, un compte supprimé — pour ne pas redemander la même chose chaque
+ * nuit. Sans ce geste, la pause serait un aller sans retour et la seule
+ * sortie serait de supprimer la ligne puis de la recoller.
+ */
+export async function resumeRadarAccount(input: { accountId: string }): Promise<InboundResult> {
+  const parsed = z.object({ accountId: z.uuid() }).safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Compte invalide." };
+  try {
+    const { orgId } = await guardOwner();
+    const supabase = await createClient();
+    // L'erreur part avec la pause : la garder afficherait en rouge un refus
+    // qu'on vient justement de décider de rejouer.
+    const { error } = await supabase
+      .from("antidotes_radar_accounts")
+      .update({ is_active: true, last_error: null } as never)
+      .eq("org_id", orgId)
+      .eq("id", parsed.data.accountId);
+    if (error) throw new Error(error.message);
+    revalidatePath(RADAR_PATH);
+    return { ok: true, message: "Compte remis dans la veille." };
+  } catch (error) {
+    return fail(error);
+  }
+}
+
 export async function deleteRadarAccount(input: { accountId: string }): Promise<InboundResult> {
   const parsed = z.object({ accountId: z.uuid() }).safeParse(input);
   if (!parsed.success) return { ok: false, error: "Compte invalide." };
