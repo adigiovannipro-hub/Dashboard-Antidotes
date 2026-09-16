@@ -35,11 +35,12 @@ export const SYNC_SCOPE_LABELS: Record<SyncScope, string> = {
 /**
  * La fenêtre des **conversations privées**, en jours.
  *
- * Deux jours et non un : le passage horaire est un cron GitHub, qui laisse
- * tomber près d'une exécution sur deux ; le relevé tourne en UTC quand la
- * boîte vit à Paris ; et Meta antidate parfois `updated_time` d'un fil réveillé
- * par un accusé de lecture. Un seul jour laisserait un trou que rien ne
- * viendrait combler avant la nuit.
+ * Deux jours et non un : le relevé du jour part à l'ouverture de l'écran,
+ * donc à des heures irrégulières, et la passe nocturne est un cron GitHub qui
+ * saute parfois sa fenêtre ; le relevé tourne en UTC quand la boîte vit à
+ * Paris ; et Meta antidate parfois `updated_time` d'un fil réveillé par un
+ * accusé de lecture. Un seul jour laisserait un trou que rien ne viendrait
+ * combler avant la nuit.
  *
  * Les **publications**, elles, gardent leur fenêtre de soixante jours dans les
  * deux portées : un commentaire arrive aujourd'hui sous un reel d'il y a six
@@ -78,6 +79,27 @@ export function usesPostCursors(scope: SyncScope): boolean {
  */
 export function backfillsProfiles(scope: SyncScope): boolean {
   return scope === "complet";
+}
+
+/**
+ * Combien de paliers l'escalier des **messages privés** a le droit de
+ * descendre avant de déclarer la boîte indisponible.
+ *
+ * Chaque palier coûte au plus un appel de 45 s — le timeout maison ne se
+ * rejoue plus (`graph.ts`). Cinq paliers rejoués trois fois faisaient 700 s
+ * par Page refusée, et le relevé horaire y passait 750 s sur 872. Un seul
+ * palier à l'ouverture de l'écran : la route Vercel a soixante secondes, et
+ * c'est le palier réduit, celui qui passe quand la boîte passe. Trois la
+ * nuit : le passage de réparation a le temps d'essayer les en-têtes, pas
+ * celui de s'enliser.
+ */
+const DIRECT_MESSAGE_STEP_BUDGET: Record<SyncScope, number> = {
+  jour: 1,
+  complet: 3,
+};
+
+export function directMessageStepBudget(scope: SyncScope): number {
+  return DIRECT_MESSAGE_STEP_BUDGET[scope];
 }
 
 /**

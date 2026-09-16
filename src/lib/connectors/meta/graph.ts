@@ -1,7 +1,7 @@
 import "server-only";
 
 import { GRAPH_API, MetaError } from "@/lib/social/meta";
-import { isTransientMeta } from "./errors";
+import { isMetaTimeout, isTransientMeta, saysMetaTimeout } from "./errors";
 import type {
   MetaIgCommentRow,
   MetaIgMediaLite,
@@ -82,24 +82,60 @@ const MAX_INSIGHT_RECOVERIES = 150;
  * Meta laisse la connexion pendue — « long polling terminated due to timeout »
  * arrive après des minutes, et pendant ce temps la fonction Vercel épuise ses
  * soixante secondes sans rien avoir écrit.
+ *
+ * Exporté : c'est l'unité dont l'appelant raisonne quand il compte ce qu'il
+ * lui reste — une route de soixante secondes ne peut pas offrir 45 s à
+ * chacune de six boîtes en série.
  */
-const GRAPH_TIMEOUT_MS = 45_000;
+export const GRAPH_TIMEOUT_MS = 45_000;
+
+/**
+ * Ce qu'un appel peut recevoir en plus de son URL. `timeoutMs` **réduit** le
+ * budget par défaut, jamais ne l'étend : un appelant qui n'a plus que 20 s
+ * les donne, plutôt que d'en promettre 45 qu'il n'a pas.
+ */
+export type GraphCallOptions = {
+  timeoutMs?: number;
+};
 
 /**
  * Les attentes entre deux tentatives. Deux reprises suffisent à absorber un
- * 504 isolé — au-delà, ce n'est plus un incident mais une demande trop lourde,
- * et c'est l'escalier de repli de l'appelant qui a la réponse : redemander
- * plus petit, jamais à l'identique.
+ * 504 isolé ou un 429 — au-delà, ce n'est plus un incident mais une demande
+ * trop lourde, et c'est l'escalier de repli de l'appelant qui a la réponse :
+ * redemander plus petit, jamais à l'identique.
+ *
+ * Elles ne valent que pour un refus **rendu par Meta**. Le timeout maison
+ * (`MetaTimeoutError`) n'est jamais rejoué ici : le rejouer deux fois faisait
+ * 135 s par palier, et l'escalier de la messagerie en compte plusieurs —
+ * 750 s sur un seul passage horaire, mesurés sur les boîtes Instagram de
+ * Bondet et d'I-WAY. C'est à l'escalier de redemander plus petit.
  */
 const GRAPH_RETRY_DELAYS_MS = [1_000, 4_000];
+
+/**
+ * Le timeout de **notre** AbortController, distingué d'un 504 de Meta.
+ *
+ * `retryable` reste vrai — rejouer plus tard, plus petit, a une chance — et
+ * `timedOut` dit à `fetchGraph` de ne pas rejouer à l'identique. Le mot
+ * « timeout » est posé dans le message exprès : c'est lui que
+ * `explainMetaError` lit pour traduire le renoncement.
+ */
+class MetaTimeoutError extends MetaError {
+  readonly timedOut = true;
+
+  constructor(budgetMs: number) {
+    super(`Meta n'a pas répondu en ${Math.round(budgetMs / 1000)} s (timeout).`, 504, true);
+    this.name = "MetaTimeoutError";
+  }
+}
 
 function wait(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function askGraph<T>(url: string): Promise<T> {
+async function askGraph<T>(url: string, timeoutMs: number): Promise<T> {
   const controller = new AbortController();
-  const budget = setTimeout(() => controller.abort(), GRAPH_TIMEOUT_MS);
+  const budget = setTimeout(() => controller.abort(), timeoutMs);
 
   let response: Response;
   try {
@@ -107,15 +143,8 @@ async function askGraph<T>(url: string): Promise<T> {
   } catch (error) {
     /* Un `AbortError` n'est pas une `MetaError` : sans cette traduction il
        remonterait en « This operation was aborted », que ni l'escalier de
-       repli ni la traduction des refus ne reconnaissent. Le mot « timeout » y
-       est posé exprès — c'est lui que `isTransientMeta` lit. */
-    if (controller.signal.aborted) {
-      throw new MetaError(
-        `Meta n'a pas répondu en ${GRAPH_TIMEOUT_MS / 1000} s (timeout).`,
-        504,
-        true,
-      );
-    }
+       repli ni la traduction des refus ne reconnaissent. */
+    if (controller.signal.aborted) throw new MetaTimeoutError(timeoutMs);
     throw error;
   } finally {
     clearTimeout(budget);
@@ -135,15 +164,29 @@ async function askGraph<T>(url: string): Promise<T> {
   return payload;
 }
 
-async function fetchGraph<T>(url: string): Promise<T> {
+async function fetchGraph<T>(url: string, options: GraphCallOptions = {}): Promise<T> {
+  const timeoutMs = Math.max(
+    1,
+    Math.min(GRAPH_TIMEOUT_MS, options.timeoutMs ?? GRAPH_TIMEOUT_MS),
+  );
   let last: unknown;
   for (let attempt = 0; attempt <= GRAPH_RETRY_DELAYS_MS.length; attempt += 1) {
     try {
-      return await askGraph<T>(url);
+      return await askGraph<T>(url, timeoutMs);
     } catch (error) {
       // Un refus de droits, de portée ou de volume ne changera pas d'avis :
-      // le rejouer coûterait deux appels pour le même message.
-      if (!isTransientMeta(error)) throw error;
+      // le rejouer coûterait deux appels pour le même message. Et un délai
+      // dépassé ne se rejoue pas à l'identique — le nôtre (`timedOut`) comme
+      // celui que Meta rend en toutes lettres (« long polling terminated due
+      // to timeout ») : 45 s de plus pour la même demande, quand l'escalier
+      // de l'appelant sait la réduire. Seuls restent le 504 nu et le 429.
+      if (
+        !isTransientMeta(error) ||
+        isMetaTimeout(error) ||
+        (error instanceof Error && saysMetaTimeout(error.message))
+      ) {
+        throw error;
+      }
       last = error;
       const delay = GRAPH_RETRY_DELAYS_MS[attempt];
       if (delay === undefined) break;
@@ -666,6 +709,8 @@ export async function fetchConversations(options: {
   /** Dernier palier du même refus : l'expansion des pièces jointes est le
       champ gras — la lâcher garde le texte des messages, pas leurs médias. */
   withAttachments?: boolean;
+  /** Ce que l'appelant peut encore attendre, quand c'est moins que 45 s. */
+  timeoutMs?: number;
 }): Promise<MetaConversationRow[]> {
   /* `unread_count` : l'état de lecture de la boîte **chez Meta**. C'est lui
      qui aligne l'inbox d'ici sur la Boîte de réception Meta — un fil déjà
@@ -687,7 +732,9 @@ export async function fetchConversations(options: {
 
   for (let page = 0; url && page < MESSAGING_MAX_PAGES; page += 1) {
     const payload: PagedPayload<MetaConversationRow> =
-      await fetchGraph<PagedPayload<MetaConversationRow>>(url);
+      await fetchGraph<PagedPayload<MetaConversationRow>>(url, {
+        timeoutMs: options.timeoutMs,
+      });
     const items = payload.data ?? [];
     rows.push(...items);
 
@@ -718,6 +765,7 @@ export async function fetchConversationHeaders(options: {
   /** Dernier palier : même `participants` peut faire refuser la page — ils
       se récupèrent alors fil par fil, avec les messages. */
   withParticipants?: boolean;
+  timeoutMs?: number;
 }): Promise<MetaConversationRow[]> {
   const rows: MetaConversationRow[] = [];
   let url: string | undefined = buildUrl(`/${options.pageId}/conversations`, {
@@ -732,7 +780,9 @@ export async function fetchConversationHeaders(options: {
 
   for (let page = 0; url && page < MESSAGING_MAX_PAGES; page += 1) {
     const payload: PagedPayload<MetaConversationRow> =
-      await fetchGraph<PagedPayload<MetaConversationRow>>(url);
+      await fetchGraph<PagedPayload<MetaConversationRow>>(url, {
+        timeoutMs: options.timeoutMs,
+      });
     const items = payload.data ?? [];
     rows.push(...items);
     const oldest = items.at(-1)?.updated_time;
@@ -747,6 +797,7 @@ export async function fetchConversationHeaders(options: {
 export async function fetchConversationParticipants(options: {
   conversationId: string;
   accessToken: string;
+  timeoutMs?: number;
 }): Promise<MetaConversationRow["participants"]> {
   const payload = await fetchGraph<{
     participants?: MetaConversationRow["participants"];
@@ -755,6 +806,7 @@ export async function fetchConversationParticipants(options: {
       access_token: options.accessToken,
       fields: "participants",
     }),
+    { timeoutMs: options.timeoutMs },
   );
   return payload.participants;
 }
@@ -765,6 +817,7 @@ export async function fetchConversationMessages(options: {
   accessToken: string;
   limit?: number;
   withAttachments?: boolean;
+  timeoutMs?: number;
 }): Promise<{ data?: unknown[] }> {
   const payload = await fetchGraph<{ data?: unknown[] }>(
     buildUrl(`/${options.conversationId}/messages`, {
@@ -775,6 +828,7 @@ export async function fetchConversationMessages(options: {
           : "id,message,created_time,from,to",
       limit: String(options.limit ?? 10),
     }),
+    { timeoutMs: options.timeoutMs },
   );
   return payload;
 }

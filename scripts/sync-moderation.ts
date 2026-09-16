@@ -4,7 +4,7 @@
  *
  *   pnpm sync:moderation
  *
- * Greffée sur le workflow horaire `airwallex-sync.yml`, comme la publication
+ * Greffée sur le workflow `airwallex-sync.yml` (passe nocturne), comme la publication
  * du Planning : les deux créneaux cron de Vercel sont pris. Meta accepte les
  * IP GitHub, et le passage coûte quelques secondes par compte affecté.
  *
@@ -13,7 +13,7 @@
  *
  * Deux portées, choisies par `MODERATION_SCOPE` ou `--portee` :
  *
- *   • `jour` — ce que le passage horaire joue. Deux jours de conversations, et
+ *   • `jour` — ce que l'ouverture de l'écran joue, dans la route. Deux jours de conversations, et
  *     les commentaires des seules publications dont le compteur a bougé.
  *   • `complet` — le défaut, et ce que joue le créneau nocturne. Soixante
  *     jours, photos de profil et auteurs masqués rattrapés.
@@ -65,20 +65,30 @@ async function main() {
     console.log("Aucun compte Instagram ou Page affecté : rien à relever.");
   }
 
+  // Le temps par canal, sur chaque ligne : c'est la sonde qui manquait —
+  // 750 s partis dans une boîte refusée, sans qu'une ligne du journal le dise.
+  const seconds = (ms: number) => `${Math.round(ms / 1000)} s`;
+  const timing = (report: (typeof reports)[number]) =>
+    report.directMessagesMs > 0
+      ? `${seconds(report.elapsedMs)} (dont messages privés ${seconds(report.directMessagesMs)})`
+      : seconds(report.elapsedMs);
+
   for (const report of reports) {
     if (report.error) {
       console.error(
-        `  ✗ ${report.workspace} · ${report.channel} · ${report.account} — ${report.error}`,
+        `  ✗ ${report.workspace} · ${report.channel} · ${report.account} — ${report.error} · ${timing(report)}`,
       );
     } else {
       console.log(
-        `  ✓ ${report.workspace} · ${report.channel} · ${report.account} — ${report.threads} fil(s)`,
+        `  ✓ ${report.workspace} · ${report.channel} · ${report.account} — ${report.threads} fil(s) · ${timing(report)}`,
       );
       if (report.messagesWarning) {
         console.warn(`    ⚠ messages privés : ${report.messagesWarning}`);
       }
     }
   }
+  const total = reports.reduce((sum, report) => sum + report.elapsedMs, 0);
+  if (reports.length > 0) console.log(`  Σ ${seconds(total)} sur ${reports.length} canal(aux)`);
 
   // Les entrées FAQ écrites sans vecteur — les corrections se font sur
   // Vercel, où le modèle d'embeddings ne charge pas — s'indexent ici, sur une

@@ -19,6 +19,7 @@ import {
   fetchMessagingProfiles,
   fetchPageComments,
   fetchPagePostsLite,
+  GRAPH_TIMEOUT_MS,
 } from "@/lib/connectors/meta/graph";
 import {
   conversationsToThreads,
@@ -37,6 +38,13 @@ import type { SocialAccountRow } from "@/lib/social/types";
 import type { Database } from "@/lib/supabase/database.types";
 import { decryptSecret } from "./crypto";
 import {
+  DM_DEFERRED_WARNING,
+  dmHeadersOnlyNote,
+  dmUnavailableWarning,
+  shouldPullDirectMessages,
+  startsAtHeaders,
+} from "./dm-availability";
+import {
   faqEmbeddingText,
   getEmbeddingProvider,
   pendingEmbeddingFilter,
@@ -46,6 +54,7 @@ import { planThreadState, sanitizeText } from "./ingest";
 import {
   backfillsProfiles,
   conversationSince,
+  directMessageStepBudget,
   usesPostCursors,
   type SyncScope,
 } from "./sync-scope";
@@ -77,6 +86,21 @@ import type { ModerationChannel, ModerationClient } from "./types";
  * La liste des publications, elle, couvre soixante jours dans les deux cas :
  * un commentaire arrive aujourd'hui sous un reel d'il y a six semaines, et la
  * raccourcir reviendrait à ne jamais le voir.
+ *
+ * Et depuis le 16/09, la **boîte privée est budgétée** : un palier de repli à
+ * l'ouverture de l'écran, trois la nuit, chacun au prix d'un seul appel — et
+ * une boîte refusée la veille ne se retente qu'au passage complet
+ * (`dm-availability.ts`). Le relevé horaire passait 750 s sur 872 dans deux
+ * boîtes Instagram que Meta refusait, palier après palier, reprise après
+ * reprise. Le temps passé par canal est désormais dans le rapport.
+ *
+ * Le budget se compte en **temps**, pas seulement en paliers, et il se
+ * partage : `DM_BUDGET_MS` borne une boîte de bout en bout, et l'appelant
+ * peut poser une **échéance** sur le passage entier (`deadline`) — la route
+ * Vercel n'a que soixante secondes pour tous les canaux, en série, et 45 s
+ * par boîte auraient fait couper la fonction au deuxième canal, avant que sa
+ * mémoire soit écrite. Chaque appel reçoit ce qui reste ; une boîte qu'on
+ * n'a plus le temps de demander est **reportée**, pas déclarée refusée.
  */
 
 type Admin = SupabaseClient<Database>;
@@ -118,6 +142,66 @@ function shouldStepDown(error: unknown): boolean {
 /** Combien de photos de profil d'interlocuteurs se rattrapent par passage. */
 const AVATAR_BACKFILL_CAP = 50;
 
+/**
+ * L'escalier de la boîte privée, du palier réduit au strict minimum.
+ *
+ * Deux formes, dans cet ordre : le listing avec ses messages développés — on
+ * **part** du palier réduit et on ne monte jamais, 50 fils × 25 messages avec
+ * pièces jointes étant précisément ce que Meta ne sait pas assembler — puis
+ * les en-têtes nus, fil par fil ensuite, chaque appel de taille bornée. Le
+ * palier « 50 en-têtes avec participants » a disparu : Meta le refusait sur
+ * la Page Bondet, et trente fils suffisent au relevé (`DM_HEADERS_CAP`).
+ *
+ * C'est `directMessageStepBudget` qui dit combien de ces paliers un passage
+ * peut descendre : un à l'ouverture de l'écran, trois la nuit.
+ */
+type DirectMessageStep =
+  | {
+      kind: "conversations";
+      pageSize: number;
+      messageLimit: number;
+      withAttachments?: boolean;
+    }
+  | { kind: "headers"; pageSize: number; withParticipants?: boolean };
+
+const DIRECT_MESSAGE_LADDER: readonly DirectMessageStep[] = [
+  { kind: "conversations", pageSize: 20, messageLimit: 10 },
+  { kind: "conversations", pageSize: 10, messageLimit: 5, withAttachments: false },
+  { kind: "headers", pageSize: 10 },
+  { kind: "headers", pageSize: 5, withParticipants: false },
+];
+
+/** Combien de fils au plus se redemandent un par un après le listing d'en-têtes. */
+const DM_HEADERS_CAP = 30;
+
+/**
+ * Le temps qu'un canal peut passer dans sa boîte privée, **paliers et fils
+ * compris**, compté depuis le premier appel. Une seule borne, vérifiée avant
+ * chaque appel : l'ancienne — deux minutes sur les seuls fils, testée en tête
+ * de boucle — laissait deux paliers en timeout (90 s) puis un fil entamé à
+ * 119 s coûter encore deux appels de 45 s, soit cinq minutes par canal avant
+ * même les commentaires. Ce qui reste attend le passage suivant, qui repart
+ * des fils les plus récents.
+ */
+const DM_BUDGET_MS = 180_000;
+
+/**
+ * En dessous, on ne demande plus rien : un appel qu'on coupera à coup sûr
+ * n'apprend rien sur la boîte, et coûterait sa mémoire — un timeout sur
+ * trois secondes de budget n'est pas un refus de Meta. Dix secondes, c'est
+ * plus que ce qu'une boîte qui **répond** met à rendre son palier réduit
+ * (Messenger : deux à cinq secondes mesurées) : ce qui dépasse ce seuil sans
+ * répondre est bien la boîte qui renonce.
+ */
+const DM_MIN_CALL_MS = 10_000;
+
+/**
+ * Un canal que le passage n'a pas eu le temps d'entamer. Rien n'est écrit en
+ * base — son journal garde le relevé précédent — et le rapport le dit.
+ */
+const CHANNEL_DEFERRED_WARNING =
+  "Canal reporté au passage suivant : le relevé n'avait plus le temps de l'entamer.";
+
 export type ModerationSyncReport = {
   workspace: string;
   channel: ModerationChannel;
@@ -131,6 +215,13 @@ export type ModerationSyncReport = {
    * pas faire tomber le reste — il devient un avertissement.
    */
   messagesWarning?: string | null;
+  /**
+   * Le temps passé sur ce canal, et la part des messages privés dedans. La
+   * sonde qui manquait : 750 s sur 872 sont partis dans une boîte refusée
+   * sans qu'une ligne du journal le dise.
+   */
+  elapsedMs: number;
+  directMessagesMs: number;
 };
 
 function fail(message: string): never {
@@ -457,8 +548,17 @@ async function pullThreads(options: {
   accessToken: string;
   channel: "instagram" | "facebook" | "youtube";
   scope: SyncScope;
-}): Promise<{ threads: IngestedThread[]; warning: string | null }> {
-  const { admin, clientId, account, accessToken, channel, scope } = options;
+  /** `channel_connections.last_error` du passage précédent — la mémoire du refus. */
+  lastError: string | null;
+  /** L'instant (ms epoch) au-delà duquel l'appelant sera coupé — la route Vercel. */
+  deadline?: number;
+}): Promise<{
+  threads: IngestedThread[];
+  warning: string | null;
+  directMessagesMs: number;
+}> {
+  const { admin, clientId, account, accessToken, channel, scope, lastError, deadline } =
+    options;
   /* La liste des publications garde ses soixante jours dans les deux portées,
      et ce n'est pas une négligence : un commentaire arrive aujourd'hui sous un
      reel d'il y a six semaines. Ce que la portée « jour » raccourcit, ce n'est
@@ -534,6 +634,7 @@ async function pullThreads(options: {
         brandChannelId: account.external_id,
       }),
       warning: null,
+      directMessagesMs: 0,
     };
   }
 
@@ -551,105 +652,141 @@ async function pullThreads(options: {
       };
     }
 
+    /* La mémoire du refus. Une boîte refusée jusqu'au minimum au passage
+       précédent ne se retente pas à l'ouverture de l'écran : 45 s pour le
+       même refus, dans une route qui n'en a que soixante. L'avertissement
+       reste écrit — il n'a pas été redemandé, il n'a pas disparu — et c'est
+       le passage complet qui retente. */
+    if (!shouldPullDirectMessages({ scope, lastError })) {
+      return { threads: [], warning: dmUnavailableWarning(channel) };
+    }
+
+    /* Le budget de la boîte, borné deux fois : `DM_BUDGET_MS` de bout en
+       bout, et l'échéance de l'appelant quand il en a une. Chaque appel
+       reçoit ce qui reste — jamais plus que les 45 s du transport — et rien
+       ne part sous `DM_MIN_CALL_MS`. */
+    const dmStartedAt = Date.now();
+    const dmDeadline = Math.min(
+      dmStartedAt + DM_BUDGET_MS,
+      deadline ?? Number.POSITIVE_INFINITY,
+    );
+    const remaining = () => Math.min(GRAPH_TIMEOUT_MS, dmDeadline - Date.now());
+    const canCall = () => remaining() >= DM_MIN_CALL_MS;
+
     try {
-      /* Le même escalier de volume que partout : 50 fils × 25 messages avec
-         pièces jointes est une réponse que Meta refuse parfois d'assembler —
-         et ce refus, rangé en avertissement, s'affichait comme « canal en
-         erreur » alors que les commentaires passaient. */
-      let conversations = null;
-      /* On **part** du palier réduit et on ne monte jamais : 50 fils × 25
-         messages avec pièces jointes est précisément ce que Meta ne sait pas
-         assembler, et c'est le premier appel qui tombait. Une boîte se traite
-         au jour le jour ; ce qu'une page ne rend pas, la suivante le rendra. */
-      const ladders = [
-        { pageSize: 20, messageLimit: 10 },
-        { pageSize: 10, messageLimit: 5, withAttachments: false },
-      ] as const;
-      for (const step of ladders) {
-        try {
-          conversations = await fetchConversations({
-            pageId,
-            accessToken,
-            platform: channel === "instagram" ? "instagram" : "messenger",
-            since: conversationsSince,
-            ...step,
-          });
+      /* Le même escalier de volume que partout, mais **budgété** : chaque
+         palier coûte au plus un appel — aucun délai dépassé ne se rejoue —
+         et la portée dit combien de paliers on descend. Ce refus, rangé en
+         avertissement, s'affichait autrefois comme « canal en erreur » alors
+         que les commentaires passaient.
+
+         Le palier de **départ** vient de la mémoire : une boîte que Meta ne
+         sert qu'aux en-têtes (la Page Bondet) démarre là le jour, où un
+         seul palier est permis — sinon elle échouait sur le listing
+         développé, se déclarait refusée, et n'était plus relue qu'à la nuit. */
+      const platform = channel === "instagram" ? "instagram" : "messenger";
+      const start = startsAtHeaders({ scope, lastError })
+        ? DIRECT_MESSAGE_LADDER.findIndex((step) => step.kind === "headers")
+        : 0;
+      const steps = DIRECT_MESSAGE_LADDER.slice(
+        start,
+        start + directMessageStepBudget(scope),
+      );
+      let conversations: MetaConversationRow[] | null = null;
+      let headers: MetaConversationRow[] | null = null;
+      let deferred = false;
+      for (const step of steps) {
+        if (!canCall()) {
+          deferred = true;
           break;
-        } catch (error) {
-          if (!shouldStepDown(error)) throw error;
         }
-      }
-      if (!conversations) {
-        /* Dernier recours, vécu sur la boîte de la Page Bondet : même 10
-           fils × 5 messages sans pièces jointes débordent. On passe alors au
-           schéma des commentaires — en-têtes minuscules, puis les messages
-           fil par fil, chaque appel de taille bornée. Le listing d'en-têtes
-           a ses propres paliers (jusqu'à trois champs nus, participants
-           récupérés fil par fil) : sur cette Page, Meta refusait même les
-           en-têtes à 50 avec participants. */
-        const platform = channel === "instagram" ? "instagram" : "messenger";
-        let headers = null;
-        const headerLadders = [
-          {},
-          { pageSize: 10 },
-          { pageSize: 5, withParticipants: false },
-        ] as const;
-        for (const step of headerLadders) {
-          try {
+        try {
+          if (step.kind === "conversations") {
+            conversations = await fetchConversations({
+              pageId,
+              accessToken,
+              platform,
+              since: conversationsSince,
+              pageSize: step.pageSize,
+              messageLimit: step.messageLimit,
+              withAttachments: step.withAttachments,
+              timeoutMs: remaining(),
+            });
+          } else {
             headers = await fetchConversationHeaders({
               pageId,
               accessToken,
               platform,
               since: conversationsSince,
-              ...step,
+              pageSize: step.pageSize,
+              withParticipants: step.withParticipants,
+              timeoutMs: remaining(),
             });
-            break;
-          } catch (error) {
-            if (!shouldStepDown(error)) throw error;
           }
+          break;
+        } catch (error) {
+          if (!shouldStepDown(error)) throw error;
         }
-        if (!headers) {
-          /* Meta refuse jusqu'au minimum : il n'y a plus rien à découper.
-             La boîte se dit indisponible en clair — les commentaires du
-             canal, eux, sont passés. */
-          return {
-            threads: [],
-            warning:
-              "Messages privés indisponibles : Meta refuse de servir la boîte de cette Page, même réduite au minimum. Les commentaires, eux, remontent normalement.",
-          };
-        }
+      }
+      if (!conversations && !headers) {
+        /* Rien demandé faute de temps : rien appris, la boîte est reportée
+           et le relevé suivant la redemande. Sinon, Meta refuse jusqu'au
+           dernier palier du budget : il n'y a plus rien à découper ce
+           passage. La boîte se dit indisponible en clair — les commentaires
+           du canal, eux, sont passés — et ce texte est ce que le relevé du
+           jour relira pour ne pas retenter. */
+        if (deferred) return { threads: [], warning: DM_DEFERRED_WARNING };
+        return { threads: [], warning: dmUnavailableWarning(channel) };
+      }
+      let headersNote: string | null = null;
+      if (!conversations && headers) {
+        /* Le schéma des commentaires — en-têtes minuscules, puis les messages
+           fil par fil, chaque appel de taille bornée — vécu sur la boîte de
+           la Page Bondet, où même 10 fils × 5 messages sans pièces jointes
+           débordaient. Borné dans le temps avant **chaque** appel, repli
+           compris : ce qui n'est pas relu attend le passage suivant. La note
+           écrite en base fait démarrer le relevé du jour ici directement. */
+        headersNote = dmHeadersOnlyNote();
         const recent = headers
           .filter(
             (header) =>
               !header.updated_time ||
               header.updated_time.slice(0, 10) >= conversationsSince,
           )
-          .slice(0, 30);
+          .slice(0, DM_HEADERS_CAP);
         conversations = [];
         for (const header of recent) {
+          if (!canCall()) break;
           let messages: { data?: unknown[] } = {};
           try {
             messages = await fetchConversationMessages({
               conversationId: header.id,
               accessToken,
+              timeoutMs: remaining(),
             });
           } catch (error) {
             if (!shouldStepDown(error)) throw error;
-            messages = await fetchConversationMessages({
-              conversationId: header.id,
-              accessToken,
-              limit: 3,
-              withAttachments: false,
-            }).catch(() => ({}));
+            if (canCall()) {
+              messages = await fetchConversationMessages({
+                conversationId: header.id,
+                accessToken,
+                limit: 3,
+                withAttachments: false,
+                timeoutMs: remaining(),
+              }).catch(() => ({}));
+            }
           }
           // Le palier nu du listing a laissé les participants : sans eux, le
           // fil n'a pas d'interlocuteur — ils se redemandent fil par fil.
           const participants =
             header.participants ??
-            (await fetchConversationParticipants({
-              conversationId: header.id,
-              accessToken,
-            }).catch(() => undefined));
+            (canCall()
+              ? await fetchConversationParticipants({
+                  conversationId: header.id,
+                  accessToken,
+                  timeoutMs: remaining(),
+                }).catch(() => undefined)
+              : undefined);
           conversations.push({
             ...header,
             participants,
@@ -658,7 +795,7 @@ async function pullThreads(options: {
         }
       }
       const dmThreads = conversationsToThreads({
-        conversations,
+        conversations: conversations ?? [],
         channel,
         // Les deux identités de la marque : Meta nomme l'expéditeur par la
         // Page sur Messenger, par le compte Instagram sur Instagram.
@@ -720,7 +857,10 @@ async function pullThreads(options: {
         }
       }
 
-      return { threads: dmThreads, warning: avatarWarning };
+      /* Deux notes peuvent cohabiter ; c'est le préfixe de chacune que le
+         passage suivant relit, pas sa position. */
+      const warning = [headersNote, avatarWarning].filter(Boolean).join(" ");
+      return { threads: dmThreads, warning: warning || null };
     } catch (error) {
       return {
         threads: [],
@@ -822,11 +962,14 @@ async function pullThreads(options: {
         ? `${skippedMedia} publication(s) trop commentée(s) pour Meta : leurs commentaires n'ont pas pu être relevés ce passage.`
         : null;
 
+    const directStartedAt = Date.now();
     const direct = await pullDirectMessages();
+    const directMessagesMs = Date.now() - directStartedAt;
     threads.push(...direct.threads);
     return {
       threads: await withAuthors(threads),
       warning: [volumeWarning, direct.warning].filter(Boolean).join(" ") || null,
+      directMessagesMs,
     };
   }
 
@@ -852,9 +995,15 @@ async function pullThreads(options: {
   }
   await savePostCursors({ admin, clientId, channel, seen: pageSeen });
 
+  const directStartedAt = Date.now();
   const direct = await pullDirectMessages();
+  const directMessagesMs = Date.now() - directStartedAt;
   threads.push(...direct.threads);
-  return { threads: await withAuthors(threads), warning: direct.warning };
+  return {
+    threads: await withAuthors(threads),
+    warning: direct.warning,
+    directMessagesMs,
+  };
 }
 
 export async function syncModerationInbox(options: {
@@ -864,8 +1013,15 @@ export async function syncModerationInbox(options: {
    * rien veut le comportement d'avant, et c'est la portée nocturne.
    */
   scope?: SyncScope;
+  /**
+   * L'instant (ms epoch) au-delà duquel l'appelant sera coupé. La route
+   * Vercel le pose ; le script GitHub ne le pose pas. Chaque canal en tient
+   * compte dans sa boîte privée, et un canal entamé après l'échéance est
+   * reporté sans rien écrire — mieux qu'une coupure au milieu de son journal.
+   */
+  deadline?: number;
 }): Promise<ModerationSyncReport[]> {
-  const { admin } = options;
+  const { admin, deadline } = options;
   const scope: SyncScope = options.scope ?? "complet";
   const reports: ModerationSyncReport[] = [];
 
@@ -911,8 +1067,16 @@ export async function syncModerationInbox(options: {
       account: link.account_id,
       threads: 0,
       error: null,
+      elapsedMs: 0,
+      directMessagesMs: 0,
     };
     reports.push(report);
+    const startedAt = Date.now();
+
+    if (deadline !== undefined && startedAt >= deadline) {
+      report.messagesWarning = CHANNEL_DEFERRED_WARNING;
+      continue;
+    }
 
     try {
       const client = await ensureModerationClient(admin, workspace);
@@ -958,7 +1122,9 @@ export async function syncModerationInbox(options: {
       }
 
       // Le journal de passage du canal : une ligne par (client, canal,
-      // compte), le même rôle que `data_sources` au Reporting.
+      // compte), le même rôle que `data_sources` au Reporting. L'upsert ne
+      // touche pas `last_error` : on relit celui du passage précédent, c'est
+      // la mémoire d'une boîte privée refusée (`dm-availability.ts`).
       const { data: connection, error: connectionError } = await admin
         .from("channel_connections")
         .upsert(
@@ -972,10 +1138,11 @@ export async function syncModerationInbox(options: {
           } as never,
           { onConflict: "client_id,channel,external_account_id" },
         )
-        .select("id")
+        .select("id, last_error")
         .single();
       if (connectionError) fail(`Connexion du canal : ${connectionError.message}`);
-      const connectionId = (connection as unknown as { id: string }).id;
+      const { id: connectionId, last_error: lastError } =
+        connection as unknown as { id: string; last_error: string | null };
 
       try {
         const pulled = await pullThreads({
@@ -985,8 +1152,11 @@ export async function syncModerationInbox(options: {
           accessToken,
           channel,
           scope,
+          lastError,
+          deadline,
         });
         report.messagesWarning = pulled.warning;
+        report.directMessagesMs = pulled.directMessagesMs;
         report.threads = await upsertThreads({
           admin,
           client,
@@ -1028,6 +1198,8 @@ export async function syncModerationInbox(options: {
         link.kind === "youtube"
           ? explainYouTubeError(raw).message
           : explainMetaError(raw).message;
+    } finally {
+      report.elapsedMs = Date.now() - startedAt;
     }
   }
 
@@ -1036,7 +1208,7 @@ export async function syncModerationInbox(options: {
 
 // --- Indexation sémantique de la FAQ -----------------------------------------
 
-/** Bornent un passage — l'horaire suivant reprend ce qui dépasse. */
+/** Bornent un passage — le suivant reprend ce qui dépasse. */
 const REINDEX_BATCH = 100;
 const EMBED_CHUNK = 16;
 
@@ -1044,7 +1216,7 @@ export type FaqReindexReport = {
   /** Entrées sans vecteur, sans source, ou vectorisées par un autre fournisseur. */
   pending: number;
   indexed: number;
-  /** Le modèle n'a pas pu tourner ici — le passage horaire s'en chargera. */
+  /** Le modèle n'a pas pu tourner ici — la passe nocturne s'en chargera. */
   note: string | null;
 };
 
@@ -1054,7 +1226,7 @@ export type FaqReindexReport = {
  * Les corrections n'embarquent plus le modèle dans le clic : 25 Mo à charger,
  * et son binaire ONNX ne charge pas sur Vercel — l'échec emportait la réponse
  * avec lui. Les entrées s'écrivent donc sans vecteur, et ce passage — greffé
- * au relevé horaire, qui tourne sur une machine complète — les indexe. Il fait
+ * à la passe nocturne, qui tourne sur une machine complète — les indexe. Il fait
  * aussi converger les vecteurs d'un autre fournisseur (la démonstration a été
  * amorcée en `deterministic`) : deux sources ne se comparent pas.
  *

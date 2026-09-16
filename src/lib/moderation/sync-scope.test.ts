@@ -4,9 +4,23 @@ import {
   backfillsProfiles,
   conversationSince,
   conversationWindowDays,
+  directMessageStepBudget,
   parseSyncScope,
   usesPostCursors,
 } from "./sync-scope";
+
+describe("directMessageStepBudget", () => {
+  it("n'accorde qu'un palier au relevé du jour — la route Vercel a soixante secondes", () => {
+    // Un palier vaut au plus un appel de 45 s, et c'est le palier réduit,
+    // celui qui passe quand la boîte passe.
+    expect(directMessageStepBudget("jour")).toBe(1);
+  });
+
+  it("en accorde trois au relevé complet, jamais cinq", () => {
+    // Cinq paliers rejoués trois fois faisaient 700 s par Page refusée.
+    expect(directMessageStepBudget("complet")).toBe(3);
+  });
+});
 
 describe("conversationWindowDays", () => {
   it("donne deux jours au relevé du jour, pas un", () => {
