@@ -25,7 +25,7 @@
  *     comptable, pas de la démonstration : la synchronisation s'en sert pour
  *     ranger les vraies dépenses ;
  *   • le journal `finance_sync_runs` — les trois fausses lignes que le seed y
- *     écrivait sont désormais noyées par les passages horaires réels, et
+ *     écrivait sont désormais noyées par les passages réels, et
  *     l'amorçage n'en écrit plus (une synchronisation qui n'a pas eu lieu n'a
  *     pas à laisser de trace de réussite).
  *

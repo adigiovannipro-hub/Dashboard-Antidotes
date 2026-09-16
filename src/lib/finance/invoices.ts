@@ -96,7 +96,7 @@ export type ClientInvoiceGroup = {
  * Une facture **annulée** ne forme jamais de groupe : le panneau annonce
  * l'encours, et un client qui n'a plus qu'une facture `void` n'en a pas.
  * `listInvoices` l'écarte déjà côté lecture ; la garde est ici en ceinture,
- * parce que la synchronisation horaire réécrit ces lignes en base et qu'un
+ * parce que la synchronisation Airwallex réécrit ces lignes en base et qu'un
  * appelant futur pourrait les repasser sans le savoir.
  */
 export function groupInvoicesByClient(

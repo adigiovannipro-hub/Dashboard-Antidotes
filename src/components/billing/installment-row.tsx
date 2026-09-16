@@ -206,7 +206,7 @@ export function InstallmentRow({
 
 /**
  * Une facture Airwallex sans devis, dans les mêmes colonnes. Aucune action :
- * son statut EST celui d'Airwallex, la synchronisation horaire le tient à
+ * son statut EST celui d'Airwallex, la synchronisation Airwallex le tient à
  * jour — et le jour où un devis correspondant est saisi, le rapprochement la
  * déplacera sur sa mensualité.
  *
@@ -263,7 +263,7 @@ export function InvoiceRow({
 /**
  * Le filet manuel, calibré par groupe : chaque étape n'offre que les gestes
  * qui ont un sens depuis elle. En temps normal, personne ne clique — le
- * rapprochement horaire fait avancer les lignes tout seul.
+ * rapprochement Airwallex fait avancer les lignes tout seul.
  */
 function RowActions({ line, stage }: { line: InstallmentLine; stage: InstallmentStage }) {
   switch (stage) {

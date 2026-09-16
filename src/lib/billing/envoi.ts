@@ -39,7 +39,7 @@ import type { BillingEmailKind } from "./types";
  * les adresses IP de Vercel, et c'est déjà pour cette raison que toute la
  * synchronisation Finance vit là-bas. Il est aussi **absent du déclenchement
  * depuis l'écran** — ouvrir une page ne doit pas envoyer de mail à un client.
- * Seul le passage horaire le lance.
+ * Seul le passage programmé (portée `quotidien`) le lance.
  *
  * L'interrupteur du dispositif n'est pas une variable d'environnement : c'est
  * l'adresse du destinataire sur le devis. Sans elle, la mensualité reste à
@@ -272,7 +272,7 @@ export async function runInvoiceDispatch(options: {
 
   /* Le jeton n'est demandé qu'une fois, et seulement s'il y a du travail :
      rafraîchir un jeton OAuth pour ne rien envoyer serait un appel de plus
-     chez Google à chaque heure de la journée. */
+     chez Google à chaque passage. */
   let mailbox: { accessToken: string; from: string } | null = null;
 
   let sent = 0;

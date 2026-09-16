@@ -34,7 +34,7 @@ const REQUIRED = [
 
 /* Les secrets propres aux Reçus. Absents, le module n'est simplement pas
    encore configuré : l'étape se saute en l'annonçant, sortie zéro — un
-   workflow horaire rouge pour une configuration à venir noierait les vrais
+   workflow rouge pour une configuration à venir noierait les vrais
    échecs. Les secrets du socle, eux, restent bloquants : leur absence est
    une erreur, pas un état. */
 const RECEIPTS_SETUP = [

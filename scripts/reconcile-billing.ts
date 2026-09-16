@@ -4,7 +4,7 @@
  *   pnpm reconcile:billing            applique
  *   pnpm reconcile:billing --dry-run  montre ce qui changerait, n'écrit rien
  *
- * Le même rapprochement tourne toutes les heures dans le sync Finance, mais
+ * Le même rapprochement tourne à chaque passage du sync Finance, mais
  * **depuis `main`** : tant qu'un chantier n'est pas mergé, la vraie base ne
  * voit jamais ses liens se poser, et l'écran affiche donc en double la
  * mensualité et la facture qui la représente. Ce script existe pour ce cas,

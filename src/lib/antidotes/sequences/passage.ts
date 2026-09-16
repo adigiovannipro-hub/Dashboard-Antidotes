@@ -1,5 +1,5 @@
 /**
- * Le passage des séquences — ce que le workflow horaire exécute, et ce que
+ * Le passage des séquences — ce que la portée `sequences` du workflow exécute, et ce que
  * le bouton « Passer maintenant » rejoue à la demande.
  *
  * Orchestration **pure** : la persistance (`PassageStore`), la boîte mail
@@ -119,7 +119,7 @@ export async function runSequencesPassage(options: {
   siteUrl: string;
   now: () => Date;
   uuid: () => string;
-  /** Pour un passage à la demande, plus court que le passage horaire. */
+  /** Pour un passage à la demande, plus court que le passage programmé. */
   limits?: { threads?: number; personalize?: number; send?: number };
 }): Promise<PassageReport> {
   const report: PassageReport = {

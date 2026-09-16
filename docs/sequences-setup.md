@@ -15,9 +15,10 @@ prospect) ; son **canal est figé à l'inscription** :
 
 ## Le passage
 
-`pnpm sequences:passage` tourne dans le workflow horaire
-(`airwallex-sync.yml`, jamais sur la portée `finance`), et le bouton
-« Passer maintenant » de l'écran le rejoue à la demande. Trois temps :
+`pnpm sequences:passage` ne tourne que sur demande — portée `sequences` de
+`airwallex-sync.yml`, jamais sur un schedule ni dans `tout` tant que le jeu de
+démonstration est en base —, et le bouton « Passer maintenant » de l'écran le
+joue avec la même garde anti-démo. Trois temps :
 
 1. **Relever les fils Gmail** des inscriptions ayant reçu un envoi : une
    réponse arrête la séquence et passe le prospect en « A répondu » ; un

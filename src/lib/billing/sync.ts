@@ -11,7 +11,7 @@ import {
 /**
  * L'application du rapprochement : lit l'état, laisse `reconcile` décider,
  * écrit les décisions. Branchée comme étape `billing` du passage de
- * synchronisation Finance — elle tourne donc toutes les heures depuis le
+ * synchronisation Finance — elle tourne donc à chaque passage Finance depuis le
  * runner GitHub, juste après la resynchronisation des factures qu'elle
  * consomme.
  *

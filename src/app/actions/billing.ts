@@ -34,7 +34,7 @@ import { createClient } from "@/lib/supabase/server";
  * la même comptabilité, un droit distinct ne protégerait rien de plus.
  *
  * Les statuts, eux, avancent normalement tout seuls — rapprochement Airwallex
- * horaire. Les actions de statut sont le filet manuel quand une facture sort
+ * à chaque passage Finance. Les actions de statut sont le filet manuel quand une facture sort
  * du cadre : montant groupé, client renommé, avoir.
  */
 
