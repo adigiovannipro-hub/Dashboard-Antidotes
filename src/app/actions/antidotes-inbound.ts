@@ -391,12 +391,19 @@ export async function deleteRadarAccount(input: { accountId: string }): Promise<
   }
 }
 
-/** « Relever maintenant » : l'ordre part à GitHub, le relevé s'y exécute. */
+/**
+ * « Relever maintenant » : l'ordre part à GitHub, le relevé s'y exécute.
+ *
+ * C'est le seul déclencheur : `radar.yml` n'a plus de `schedule` — il relevait
+ * des comptes de démonstration chaque nuit. Sans jeton, il reste « Run
+ * workflow » depuis l'onglet Actions de GitHub, et le message ne promet plus
+ * un relevé quotidien qui n'a plus lieu.
+ */
 export async function collectRadarNow(): Promise<InboundResult> {
   try {
     await guardOwner();
     const unavailable = syncDispatchUnavailable();
-    if (unavailable) return { ok: false, error: `Relevé à la demande indisponible : ${unavailable}. Le relevé quotidien continue.` };
+    if (unavailable) return { ok: false, error: `Relevé à la demande indisponible : ${unavailable}. À lancer depuis l'onglet Actions de GitHub.` };
     await dispatchRadarWorkflow();
     return { ok: true, message: "Relevé lancé sur GitHub — quelques minutes, puis rechargez." };
   } catch (error) {
@@ -804,9 +811,10 @@ export async function updateReferencePost(input: {
 }
 
 /**
- * La date d'un brouillon. Un post LinkedIn approuvé part tout seul à cette
- * date (`pnpm studio:publier`, passage horaire) ; un script de reel n'a pas
- * de publication, sa date est un repère dans le calendrier.
+ * La date d'un brouillon. Un post LinkedIn approuvé part à cette date par
+ * `pnpm studio:publier` — portée `studio` du workflow, sur demande explicite
+ * seulement, plus aucun schedule ne l'exécute ; un script de reel n'a pas de
+ * publication, sa date est un repère dans le calendrier.
  */
 export async function scheduleDraft(input: { postId: string; scheduledAt: string | null }): Promise<InboundResult> {
   const parsed = z

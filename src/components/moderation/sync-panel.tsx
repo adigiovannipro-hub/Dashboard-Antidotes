@@ -4,7 +4,10 @@ import { useState } from "react";
 import { AlertTriangle, Check } from "lucide-react";
 
 import { StatusPill, type StatusTone } from "@/components/ds/status-pill";
-import { ModerationSyncButton } from "@/components/moderation/sync-button";
+import {
+  ModerationSyncButton,
+  useModerationSync,
+} from "@/components/moderation/sync-button";
 import {
   Dialog,
   DialogContent,
@@ -31,6 +34,11 @@ import { cn } from "@/lib/utils";
  * quand même dans `last_error` ce qui lui a manqué — un refus sur la
  * messagerie, par exemple — alors que les commentaires sont bien remontés. Le
  * juge est donc `status`, et l'âge du relevé s'affiche toujours.
+ *
+ * C'est aussi **ici que l'ouverture de l'écran relève** : la pastille est le
+ * seul composant du relevé monté sur l'Inbox normale, le bouton vivant dans le
+ * dialogue fermé. `useModerationSync` demande le relevé du jour au serveur,
+ * qui juge la fraîcheur, et la pastille dit « en cours » pendant qu'il tourne.
  */
 export function SyncPanel({
   connections,
@@ -42,23 +50,33 @@ export function SyncPanel({
   isOwner: boolean;
 }) {
   const [open, setOpen] = useState(false);
+  const { snapshot, running } = useModerationSync({ canTrigger: isOwner });
 
+  /* Le plus récent des deux : les lignes rendues par le serveur, ou ce que le
+     relevé vient de répondre — la page se relit juste après, mais la pastille
+     n'a pas à mentir d'ici là. */
   const lastPolledAt = connections.reduce<string | null>(
     (latest, connection) =>
       connection.last_polled_at && (!latest || connection.last_polled_at > latest)
         ? connection.last_polled_at
         : latest,
-    null,
+    snapshot?.lastRunAt ?? null,
   );
   const failing = connections.filter((connection) => connection.status !== "connected");
   const warned = connections.filter(
     (connection) => connection.status === "connected" && connection.last_error,
   );
 
-  const tone: StatusTone =
-    failing.length > 0 ? "danger" : warned.length > 0 ? "warning" : "neutral";
-  const summary =
-    failing.length > 0
+  const tone: StatusTone = running
+    ? "info"
+    : failing.length > 0
+      ? "danger"
+      : warned.length > 0
+        ? "warning"
+        : "neutral";
+  const summary = running
+    ? "Relevé en cours…"
+    : failing.length > 0
       ? failing.length > 1
         ? `${failing.length} canaux en erreur`
         : "1 canal en erreur"
@@ -154,14 +172,7 @@ export function SyncPanel({
             </ul>
           )}
 
-          {isOwner ? (
-            <div className="flex items-center gap-2">
-              <ModerationSyncButton />
-              <p className="type-caption text-text-secondary">
-                Le relevé tourne aussi à l&apos;heure, depuis GitHub.
-              </p>
-            </div>
-          ) : null}
+          {isOwner ? <ModerationSyncButton /> : null}
         </DialogContent>
       </Dialog>
     </>

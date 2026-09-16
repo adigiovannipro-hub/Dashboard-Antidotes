@@ -1,5 +1,6 @@
 /**
- * Les brouillons dus : ce que le passage horaire doit publier maintenant.
+ * Les brouillons dus : ce que `pnpm studio:publier` doit publier maintenant —
+ * un passage lancé à la demande (portée `studio`), plus aucun schedule.
  *
  * Pur et testé, parce que c'est la règle qui décide d'un envoi public — et
  * qu'une règle qui décide d'un envoi public ne se relit pas, elle se teste.

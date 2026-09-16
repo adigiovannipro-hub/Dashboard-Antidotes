@@ -272,7 +272,7 @@ export async function getDailyFlows(options: {
  * pas les archives — une facture soldée depuis six mois n'apprend rien.
  *
  * **Les annulées sont écartées ici, pas en base.** Une facture `void` reste
- * une trace comptable et la synchronisation horaire la réécrit de toute
+ * une trace comptable et la synchronisation Airwallex la réécrit de toute
  * façon : `listIssuedInvoices` pagine `/api/v1/invoices` sans filtre de
  * statut, et `syncInvoices` l'upserte. L'effacer en base la ferait revenir à
  * l'heure suivante — c'est l'affichage qui mentait, pas la base. Sans ce

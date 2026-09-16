@@ -10,7 +10,7 @@ import type { ReceiptSource } from "@/lib/recus/types";
  * Le passage régulier du module Reçus.
  *
  * **Cette route n'est plus planifiée.** Le passage part d'une machine GitHub,
- * toutes les heures — étape « Synchroniser les Reçus » de
+ * quatre fois par jour et à l'ouverture de l'écran Finance — étape « Synchroniser les Reçus » de
  * `.github/workflows/airwallex-sync.yml`, qui exécute `pnpm sync:recus` —
  * parce qu'Airwallex refuse les adresses IP de Vercel : d'ici, la
  * synchronisation des dépenses et la vérification d'accrochage recevraient un

@@ -8,13 +8,12 @@
 # sauve son avancement quand son budget est épuisé, et le tour suivant
 # reprend.
 #
-# Deux déclencheurs :
-#   • « Lancer » depuis l'écran de campagne — un `workflow_dispatch`, comme la
-#     synchronisation Finance à la demande (`GITHUB_SYNC_TOKEN`) ;
-#   • un filet toutes les trois heures, pour les passages restés en file quand
-#     le déclenchement n'a pas pu partir, et pour les passages interrompus.
-#     Pas horaire : un tour à vide coûte ~40 s d'installation, et rien ne
-#     presse — le sourcing n'est pas une attente d'écran.
+# Un seul déclencheur : « Lancer » depuis l'écran de campagne — un
+# `workflow_dispatch`, comme la synchronisation Finance à la demande
+# (`GITHUB_SYNC_TOKEN`). Plus de passage automatique tant que le module n'est
+# pas en service réel : les campagnes en base sont le jeu de démonstration, et
+# le filet de trois heures a tourné dix-huit fois à vide en septembre 2026. Un
+# passage interrompu se reprend au « Lancer » suivant, il est résumable.
 #
 # Un workflow à part, et non une étape de `airwallex-sync.yml` : son job est
 # borné à dix minutes, un seul appel Apify peut en prendre cinq.
@@ -26,8 +25,6 @@
 name: Sourcing Antidotes
 
 on:
-  schedule:
-    - cron: "41 */3 * * *"
   workflow_dispatch:
 
 concurrency:

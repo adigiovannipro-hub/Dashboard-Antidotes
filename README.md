@@ -228,16 +228,16 @@ déploiement demandant mieux qu'un cron quotidien. Ses clés se posent dans
 *Settings → Secrets and variables → Actions* — la liste est en tête du
 workflow.
 
-Elle a **deux déclencheurs**. Un passage programmé toutes les heures, qui fait
+Elle a **deux déclencheurs**. Un passage programmé quatre fois par jour, qui fait
 le fond ; et **l'ouverture de Finance ou de Factures**, qui la relance quand
 la dernière remonte à plus de dix minutes. Le second n'est pas un confort : un
 `cron` GitHub est une intention, pas une garantie — près d'une exécution
-horaire sur deux n'a jamais lieu, avec des trous de plusieurs heures, et rien
+programmée sur deux n'a jamais lieu, avec des trous de plusieurs heures, et rien
 ne le signale. L'en-tête des deux écrans dit l'âge des chiffres en clair,
-passe en ambre au-delà de quatre-vingt-dix minutes, et porte un bouton
+passe en ambre au-delà de sept heures, et porte un bouton
 « Synchroniser » pour ne pas attendre les dix minutes.
 
-Le passage horaire porte aussi **l'émission des factures et leurs relances**
+Le passage programmé porte aussi **l'émission des factures et leurs relances**
 (`pnpm factures:envoi`, `src/lib/billing/envoi.ts`). Quand un mois de
 prestation est terminé, la facture se crée chez Airwallex à l'image de la
 précédente, part au client par la boîte Gmail déjà connectée aux Reçus — PDF
@@ -257,7 +257,7 @@ qu'elle n'est pas payée. Trois précisions qui comptent :
 
 Ce déclenchement demande un jeton GitHub à portée fine — `GITHUB_SYNC_TOKEN`,
 droit *Actions : read and write* sur ce seul dépôt — posé sur Vercel. Sans
-lui, le passage horaire continue et l'écran dit que la relance est
+lui, le passage programmé continue et l'écran dit que la relance est
 indisponible plutôt que d'offrir un bouton mort.
 
 Le dépôt s'administre **sans terminal** : le workflow *Base de données*

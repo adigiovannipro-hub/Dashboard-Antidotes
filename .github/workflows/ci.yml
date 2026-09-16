@@ -1,6 +1,10 @@
-# Vérification automatique des quatre commandes qui décident qu'un chantier
-# tient debout. Elles existaient déjà, mais rien ne les lançait : jusqu'ici,
-# seul ce qu'on pensait à taper à la main était vérifié.
+# Les quatre commandes qui décident qu'un chantier tient debout — et quand
+# elles tournent ici. Une branche sans pull request n'a plus de CI
+# automatique : Claude joue les quatre avant de pousser, et Vercel construit
+# la preview. Une PR en a une par push, `main` en a une plus les migrations,
+# et « Run workflow » vérifie n'importe quelle branche à la demande. Raison :
+# 373 exécutions en trente jours, dont 88 commits vérifiés deux fois (push
+# puis PR) — 1 800 des 2 000 minutes gratuites, pour le même verdict.
 #
 # Ce que cette CI ne prouve pas, et qu'il ne faut pas lui faire dire :
 # les tests d'isolation RLS ont besoin d'un vrai projet Supabase et se sautent
@@ -11,7 +15,12 @@ name: CI
 
 on:
   push:
+    branches: [main]
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
   pull_request:
+  workflow_dispatch:
 
 # Un push qui en remplace un autre annule la course précédente : sur un plan
 # gratuit, les minutes se dépensent une seule fois.

@@ -620,7 +620,8 @@ export type GeneratedPost = {
   error: string | null;
   /** Post LinkedIn ou script de reel (20260911a) : deux formes du même sujet. */
   format: GeneratedPostFormat;
-  /** Un post approuvé part à cette date par le passage horaire ; nul, il part au clic. */
+  /** La date visée par un post approuvé — publiée par `pnpm studio:publier`, qui ne
+      tourne que sur demande (portée `studio` du workflow) ; nul, il part au clic. */
   scheduled_at: string | null;
 };
 

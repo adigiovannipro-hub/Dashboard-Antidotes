@@ -516,7 +516,7 @@ export function DraftEditor({
         <div className="grid gap-2 rounded-md border border-border bg-surface p-4">
           <Label htmlFor={`date-${draft.id}`} className="type-caption text-text-secondary">
             <CalendarClock className="mr-1 inline size-3.5" strokeWidth={1.75} aria-hidden />
-            {linkedin ? "Part tout seul à cette date, une fois approuvé" : "Repère dans le calendrier"}
+            {linkedin ? "Date de publication prévue" : "Repère dans le calendrier"}
           </Label>
           <div className="flex flex-wrap items-center gap-2">
             <Input

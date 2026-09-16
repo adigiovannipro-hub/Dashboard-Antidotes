@@ -34,10 +34,12 @@ import { COMPOSIO_TRANSITION_NOTE } from "@/lib/social/direct-connect";
  *   • **`complet`** — la passe de réparation. Elle dure des minutes et n'a
  *     donc rien à faire dans une fonction qui vit soixante secondes : la route
  *     donne l'ordre à GitHub (`portee: moderation-complet`) et rend la main,
- *     exactement comme `/api/finance/sync`. Elle tourne aussi seule la nuit,
- *     sur son propre créneau cron. Sans `GITHUB_SYNC_TOKEN`, elle retombe sur
- *     l'exécution locale — imparfaite, elle peut être coupée, mais elle vaut
- *     mieux qu'un bouton mort, et l'écran dit lequel des deux tourne.
+ *     exactement comme `/api/finance/sync`. Elle tourne aussi seule la nuit
+ *     (02:10 et 04:10 UTC) — le seul passage programmé de l'Inbox
+ *     depuis que le cron horaire n'existe plus. Sans `GITHUB_SYNC_TOKEN`,
+ *     elle retombe sur l'exécution locale — imparfaite, elle peut être
+ *     coupée, mais elle vaut mieux qu'un bouton mort, et l'écran dit lequel
+ *     des deux tourne.
  *
  * Deux fenêtres de fraîcheur distinctes, et c'est la clé : le `jour` se juge
  * sur le journal des canaux — ce que les données ont reçu — le `complet` sur
@@ -52,6 +54,17 @@ export const dynamic = "force-dynamic";
    pas, et une valeur qu'on n'obtient pas ne protège de rien. */
 export const maxDuration = 60;
 
+/**
+ * Ce que le relevé exécuté ici a le droit de durer, avec cinq secondes de
+ * marge sur `maxDuration` pour clôturer les journaux. Passé à la
+ * synchronisation comme **échéance** : les canaux sont relevés en série, et
+ * 45 s de boîte privée par canal auraient fait couper la fonction au
+ * deuxième — avant que la mémoire du refus soit écrite, donc avant que le
+ * passage suivant sache l'éviter. Avec l'échéance, chaque boîte reçoit ce
+ * qui reste, et celle qu'on n'a plus le temps de demander est reportée.
+ */
+const ROUTE_BUDGET_MS = 55_000;
+
 const bodySchema = z.object({
   /** Le bouton : passe outre la fenêtre de fraîcheur, jamais une course en cours. */
   force: z.boolean().default(false),
@@ -63,7 +76,7 @@ export async function GET() {
   const viewer = await getViewer();
   if (!viewer?.isOwner) return new NextResponse(null, { status: 404 });
 
-  return NextResponse.json(await snapshot());
+  return NextResponse.json(await snapshot({ workflow: true }));
 }
 
 export async function POST(request: Request) {
@@ -76,15 +89,20 @@ export async function POST(request: Request) {
   }
 
   const scope: SyncScope = parseSyncScope(parsed.data.portee) ?? "jour";
-  const state = await snapshot();
+  /* Le jour ne regarde pas GitHub : il s'exécute ici, et interroger l'API
+     pour rien à chaque ouverture d'écran coûterait un aller-retour de plus
+     sur les soixante secondes de la fonction. */
+  const state = await snapshot({ workflow: scope === "complet" });
 
   /* Le relevé du jour s'exécute **ici**, tout de suite.
      Deux jours de conversations, les commentaires des seules publications dont
-     le compteur a bougé, aucun rattrapage de profil : quelques appels par
-     compte, loin sous les soixante secondes du plan Hobby. Passer par GitHub
-     lui coûterait une minute d'installation de dépendances pour un travail qui
-     en dure dix secondes — et l'utilisateur veut voir sa boîte à jour au
-     moment où il ouvre l'écran, pas deux minutes après. */
+     le compteur a bougé, aucun rattrapage de profil, et **aucune boîte privée
+     refusée au passage précédent** (`dm-availability.ts`) : quelques appels
+     par compte, sous les soixante secondes du plan Hobby. Passer par GitHub
+     lui coûterait une minute d'installation de dépendances pour un travail
+     qui en dure dix secondes — et l'utilisateur veut voir sa boîte à jour au
+     moment où il ouvre l'écran, pas deux minutes après. C'est ce chemin, et
+     lui seul, qui remplace le relevé horaire d'avant. */
   if (scope === "jour") {
     /* La fraîcheur du jour se juge sur le **journal des canaux** — ce que les
        données ont réellement reçu — et non sur la dernière exécution GitHub.
@@ -182,9 +200,13 @@ async function runHere(state: SyncSnapshot, scope: SyncScope) {
   // `createAdminClient` : la synchronisation écrit pour le compte du cron,
   // après une garde d'owner explicite.
   const admin = createAdminClient();
-  const reports = await syncModerationInbox({ admin, scope });
+  const reports = await syncModerationInbox({
+    admin,
+    scope,
+    deadline: Date.now() + ROUTE_BUDGET_MS,
+  });
   // Les entrées FAQ en attente d'indexation. Souvent muet ici : sur Vercel le
-  // modèle d'embeddings ne charge pas, et le passage horaire s'en charge.
+  // modèle d'embeddings ne charge pas, et la passe nocturne s'en charge.
   const faq = await reindexFaqSearch({ admin });
 
   const failed = reports.filter((report) => report.error);
@@ -215,9 +237,10 @@ async function runHere(state: SyncSnapshot, scope: SyncScope) {
  *
  * Un refus de GitHub ne fait pas tomber la route : il devient le message
  * `unavailable`, que l'écran montre — et qui bascule le bouton sur le relevé
- * direct.
+ * direct. `workflow: false` s'en passe entièrement : le relevé du jour n'a
+ * pas besoin de savoir ce que GitHub fait.
  */
-async function snapshot(): Promise<SyncSnapshot> {
+async function snapshot(options: { workflow: boolean }): Promise<SyncSnapshot> {
   const admin = createAdminClient();
   /* L'`error` est lu, pas seulement le `data` : une table absente rendrait une
      liste vide, donc « jamais relevé », donc un relevé relancé à chaque
@@ -247,7 +270,7 @@ async function snapshot(): Promise<SyncSnapshot> {
     unavailable: error ? `Journal des canaux illisible : ${error.message}` : syncDispatchUnavailable(),
   };
 
-  if (base.unavailable) return base;
+  if (base.unavailable || !options.workflow) return base;
 
   try {
     const workflow = await readWorkflowState();

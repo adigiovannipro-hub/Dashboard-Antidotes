@@ -9,8 +9,8 @@
  * abonnés. Idempotent par (client, titre) : rejouer ne duplique rien, et une
  * réponse retouchée dans le fichier écrase la précédente.
  *
- * Les entrées s'écrivent **sans vecteur** : l'indexation sémantique passe au
- * relevé horaire (`reindexFaqSearch`), sur une machine qui sait charger le
+ * Les entrées s'écrivent **sans vecteur** : l'indexation sémantique passe à la
+ * passe nocturne de l'Inbox (`reindexFaqSearch`), sur une machine qui sait charger le
  * modèle. Une entrée sans réponse est importée inactive — un titre sans
  * élément de langage n'a rien à proposer à la génération.
  *
@@ -175,7 +175,7 @@ async function main() {
   console.log(
     DRY_RUN
       ? `Dry-run : ${file.entrees.length} entrées prêtes.`
-      : `${created} créées, ${updated} mises à jour — vecteurs au prochain relevé horaire.`,
+      : `${created} créées, ${updated} mises à jour — vecteurs à la prochaine passe nocturne de l'Inbox.`,
   );
 }
 

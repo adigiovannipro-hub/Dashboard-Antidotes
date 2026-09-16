@@ -256,5 +256,9 @@ publication programmée à 10 h 30 partirait à 11 h 00. Si la minute exacte
 compte pour Instagram, il faudra passer au plan payant — dis-le-moi, c'est un
 arbitrage produit, pas technique.
 
+*(Depuis le 16/09/2026, le workflow n'est plus horaire — il consommait 4,7 fois
+le quota mensuel. La publication garde quatre créneaux dans la fenêtre
+16h–minuit de Paris : voir l'en-tête d'`airwallex-sync.yml`.)*
+
 Pour Facebook, la question ne se pose pas : la programmation native de la Page
 sort le post à la minute demandée, même si Antidotes l'a déposé la veille.

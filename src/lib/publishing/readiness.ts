@@ -134,11 +134,12 @@ export const PUBLISH_HOUR_PARIS = 16;
  *
  * L'exactitude coûtait des journées entières. Le seul déclencheur est un
  * `schedule` GitHub, qui n'a qu'une chance par jour de tomber dans l'heure 16
- * de Paris — et GitHub laisse tomber près d'une exécution horaire sur deux,
- * sans ligne rouge ni notification. Une fenêtre sautée à 14h17 UTC, et rien
- * ne partait de la journée.
+ * de Paris — et GitHub laisse tomber près d'une exécution programmée sur
+ * deux, sans ligne rouge ni notification. Une fenêtre sautée à 14h17 UTC, et
+ * rien ne partait de la journée.
  *
- * Ouverte de 16h à minuit, il faudrait que les huit passages soient sautés
+ * Ouverte de 16h à minuit, il faudrait que les quatre passages qui y tombent
+ * (15h40, 17h40, 19h40 et 21h40 UTC — `airwallex-sync.yml`) soient sautés
  * d'affilée pour perdre le jour. La borne haute n'a pas à s'écrire : à
  * minuit, la date de Paris avance et les sujets du jour deviennent des
  * retards, que le passage refuse déjà de publier.

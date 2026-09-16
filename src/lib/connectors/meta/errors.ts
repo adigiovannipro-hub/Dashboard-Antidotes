@@ -73,6 +73,7 @@ function saysTransient(raw: string): boolean {
 }
 
 export function isTransientMeta(error: unknown): boolean {
+  if (isMetaTimeout(error)) return true;
   if (
     typeof error === "object" &&
     error !== null &&
@@ -83,6 +84,47 @@ export function isTransientMeta(error: unknown): boolean {
   }
   if (!(error instanceof Error)) return false;
   return saysTransient(error.message);
+}
+
+/**
+ * Vrai quand c'est **notre** budget de 45 s qui a coupé l'appel, et non Meta
+ * qui a répondu.
+ *
+ * La distinction compte pour le transport : un 504 isolé de Meta mérite une
+ * reprise à l'identique, un timeout maison non — rejouer deux fois la même
+ * demande de 45 s coûtait 135 s par palier, et l'escalier de la messagerie en
+ * compte plusieurs : c'est ce qui a fait passer le relevé horaire de deux à
+ * treize minutes. Un timeout reste **transitoire** (`isTransientMeta`) : il
+ * dit « redemande plus petit », jamais « redemande pareil ».
+ *
+ * Lu en duck typing, comme `retryable` : le transport porte `server-only`.
+ */
+export function isMetaTimeout(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "timedOut" in error &&
+    (error as { timedOut?: unknown }).timedOut === true
+  );
+}
+
+/**
+ * Les mots par lesquels Meta dit qu'il a **renoncé en cours de route** — le
+ * sous-ensemble des marqueurs transitoires qui désigne un délai dépassé.
+ *
+ * « long polling terminated due to timeout » est rendu par Meta lui-même,
+ * sans le champ `timedOut` : `isMetaTimeout` ne le voyait pas, et le
+ * transport le rejouait deux fois à l'identique. Or si Meta a mis 40 s à
+ * renoncer, trois tentatives font 125 s pour un seul palier — plus que la
+ * route entière. Un délai dépassé, qu'il soit le nôtre ou celui de Meta, se
+ * redemande plus petit, jamais pareil. Le 504 nu (« Appel Meta refusé
+ * (504). »), lui, n'en fait pas partie et garde ses reprises.
+ */
+const TIMEOUT_MARKERS = ["long polling", "timeout", "timed out"] as const;
+
+export function saysMetaTimeout(raw: string): boolean {
+  const text = raw.toLowerCase();
+  return TIMEOUT_MARKERS.some((marker) => text.includes(marker));
 }
 
 export function explainMetaError(raw: string): MetaDiagnosis {

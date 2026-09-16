@@ -13,18 +13,29 @@ import { missingServerEnv, serverEnv } from "@/lib/env";
  * état. Le travail se fait toujours là où il peut se faire ; seule la
  * commande change de point de départ.
  *
- * Ce qui règle le vrai problème du passage programmé : `cron: "17 * * * *"`
- * est une intention, pas une garantie. GitHub laisse tomber près d'une
- * exécution horaire sur deux et creuse des trous de plusieurs heures — les
- * chiffres de l'écran dataient de six heures un matin de semaine. Le
- * chargement d'une page devient donc le déclencheur principal, et le passage
- * horaire le filet de sécurité.
+ * Ce qui règle le vrai problème du passage programmé : un `cron` GitHub est
+ * une intention, pas une garantie. GitHub laisse tomber près d'une exécution
+ * sur deux et creuse des trous de plusieurs heures — les chiffres de l'écran
+ * dataient de six heures un matin de semaine. Le chargement d'une page est
+ * donc le déclencheur principal, et le fond de tâche le filet de sécurité.
+ *
+ * Ce fond de tâche n'est plus horaire depuis le 16/09/2026 : un cron horaire
+ * dont chaque passage avait grimpé de 2 à 13 minutes valait 4,7 fois le
+ * quota mensuel d'Actions à cadence nominale. Il reste **quatre passages par jour**
+ * (`40 5,11,15,19 * * *` UTC, portée `quotidien` : Finance, publication du
+ * Planning, Factures, Reçus), **deux passages de publication seule** (17:40 et
+ * 21:40 UTC) pour que la fenêtre 16h–minuit Paris ne tienne pas à un créneau
+ * que GitHub saute, et **une passe de réparation de l'Inbox** à 02:10 ou
+ * 04:10 UTC (`moderation-complet`, deux créneaux pour la même raison). Tout
+ * ce qui doit être frais à l'ouverture d'un écran se relève depuis l'écran.
  */
 
 /**
- * Le workflow qui porte la chaîne horaire : Finance, Planning, Modération,
- * Reçus. L'écran, lui, ne déclenche que la portée `finance` — voir
- * `dispatchSyncWorkflow`.
+ * Le workflow qui porte le fond de tâche — Finance, Reçus, Planning, Factures,
+ * Inbox — et que les écrans déclenchent par portée : `finance` (Finance et
+ * Factures), `moderation` / `moderation-complet` (Inbox). Le nom du fichier
+ * est un contrat : l'API GitHub le cherche sur la branche par défaut, et le
+ * renommer rendrait 404 à tous les écrans jusqu'à la fusion.
  */
 export const SYNC_WORKFLOW_FILE = "airwallex-sync.yml";
 
@@ -120,12 +131,13 @@ export async function readWorkflowState(): Promise<WorkflowState> {
  * Lance une exécution. Rend la main dès que GitHub a accepté l'ordre — la
  * synchronisation, elle, dure environ une minute.
  *
- * `portee: finance` : l'écran n'attend que la collecte Airwallex — soldes,
- * dépenses, factures, et le rapprochement des Échéances, qui en est l'étape
- * `billing`. La chaîne complète (navigateur de rendu, Planning, Modération,
- * Reçus) prenait 4 à 6 min 30, ce qui est une cadence de fond, pas une
- * attente d'écran : elle reste au passage horaire et au déclenchement manuel
- * depuis GitHub, dont le défaut est `tout`.
+ * `portee: finance` : ce que l'écran Finance montre, et rien de plus — la
+ * collecte Airwallex (soldes, dépenses, factures, le rapprochement des
+ * Échéances qui en est l'étape `billing`) **et les Reçus**, puisqu'une pièce
+ * en attente de transfert s'affiche sur le même écran. Ni publication, ni
+ * émission de facture, ni Inbox : ouvrir une page ne doit rien envoyer à
+ * personne. Ces étapes-là appartiennent aux quatre passages `quotidien` du
+ * fond de tâche, et à « Run workflow » depuis GitHub.
  */
 export async function dispatchSyncWorkflow(): Promise<void> {
   await dispatchWorkflow(SYNC_WORKFLOW_FILE, { portee: "finance" });
@@ -140,15 +152,15 @@ export async function dispatchSyncWorkflow(): Promise<void> {
  *
  * Les deux portées désignent la même étape et diffèrent par ce qu'elle
  * redemande : `moderation` relève le jour, `moderation-complet` la passe de
- * réparation. C'est cette dernière qui a besoin d'un runner — elle dure des
- * minutes, quand une fonction Hobby vit soixante secondes et se faisait couper
- * en vol. Le relevé du jour, lui, ne passe plus par ici du tout : la route
- * l'exécute elle-même.
+ * réparation — celle qui tourne seule la nuit et que « Tout relever »
+ * rejoue sans attendre la nuit. C'est elle qui a besoin d'un runner : elle
+ * dure des minutes, quand une fonction Hobby vit soixante secondes et se
+ * faisait couper en vol. Le relevé du jour, lui, ne passe par ici que si la
+ * route ne peut pas l'exécuter elle-même.
  *
- * Piège connu, déjà payé deux fois : GitHub valide les valeurs autorisées d'un
- * `workflow_dispatch` contre la **branche par défaut**. `moderation-complet`
- * répondra donc 422 tant que le fichier n'est pas fusionné, et
- * `dispatchWorkflow` le dit en français plutôt qu'en JSON.
+ * Les deux valeurs existent sur `main` : plus de fenêtre de 422 à attendre.
+ * La traduction du refus reste dans `dispatchWorkflow`, pour la prochaine
+ * portée ajoutée sur une branche.
  */
 export async function dispatchModerationWorkflow(
   scope: "jour" | "complet" = "jour",
@@ -159,9 +171,15 @@ export async function dispatchModerationWorkflow(
 }
 
 /**
- * Le workflow des passages de sourcing du pôle Antidotes : « Lancer » depuis
- * l'écran de campagne pose un passage en file puis donne cet ordre — même
- * jeton, même mécanique que Finance, une autre file d'attente.
+ * Les workflows du pôle Antidotes : « Lancer » depuis l'écran de campagne pose
+ * un passage en file puis donne cet ordre — même jeton, même mécanique que
+ * Finance, une autre file d'attente ; « Relever maintenant » du radar, idem.
+ *
+ * Ni l'un ni l'autre n'a plus de `schedule` : dix-huit tours de sourcing à
+ * vide et un radar qui relevait des comptes de démonstration chaque nuit
+ * coûtaient des minutes d'Actions pour rien. Sans jeton, ou si l'ordre est
+ * refusé, un passage en file **attend** un lancement depuis l'onglet Actions
+ * de GitHub — aucun filet ne le ramasse tout seul, et les écrans le disent.
  */
 export const SOURCING_WORKFLOW_FILE = "sourcing.yml";
 export const RADAR_WORKFLOW_FILE = "radar.yml";
@@ -191,7 +209,9 @@ async function dispatchWorkflow(file: string, inputs: Record<string, string>): P
      fichier de la **branche par défaut**, jamais contre celle qu'on cible. Une
      portée ajoutée sur une branche est donc refusée en 422 tant qu'elle n'est
      pas fusionnée — et le message brut, en anglais et en JSON, ne dit rien de
-     tout ça à qui lit l'écran. */
+     tout ça à qui lit l'écran. Payé deux fois ; les portées envoyées
+     aujourd'hui (`finance`, `moderation`, `moderation-complet`) sont toutes
+     sur `main`, la garde sert à la suivante. */
   if (response.status === 422 && detail.includes("not in the list of allowed values")) {
     throw new Error(
       "Cette portée n'existe pas encore sur la branche par défaut : GitHub lit la liste des valeurs autorisées là-bas, pas sur la branche déployée. Elle marchera au prochain merge.",

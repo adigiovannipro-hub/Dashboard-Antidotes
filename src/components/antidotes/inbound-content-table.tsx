@@ -108,7 +108,7 @@ export function InboundContentTable({
             icon={contents.length === 0 ? Rss : Film}
             message={
               contents.length === 0
-                ? "Rien de relevé pour l'instant : ajoutez un compte, le relevé passe chaque nuit."
+                ? "Rien de relevé pour l'instant : ajoutez un compte, puis « Relever maintenant »."
                 : "Aucun contenu ne passe ces filtres. Élargissez la période ou baissez un seuil."
             }
           />

@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { explainMetaError, isTransientMeta, metaErrorCode } from "./errors";
+import {
+  explainMetaError,
+  isMetaTimeout,
+  isTransientMeta,
+  metaErrorCode,
+  saysMetaTimeout,
+} from "./errors";
 
 describe("explainMetaError", () => {
   it("renvoie un jeton sans pages_read_user_content vers Connexions", () => {
@@ -112,5 +118,59 @@ describe("isTransientMeta", () => {
   it("rend faux sur ce qui n'est pas une erreur", () => {
     expect(isTransientMeta("timeout")).toBe(false);
     expect(isTransientMeta(null)).toBe(false);
+  });
+
+  it("tient notre propre timeout pour transitoire — à redemander plus petit", () => {
+    // Le timeout maison doit faire descendre l'escalier de la messagerie,
+    // même sans `retryable` : c'est le champ `timedOut` qui le dit.
+    const error = Object.assign(new Error("Meta n'a pas répondu en 45 s (timeout)."), {
+      timedOut: true,
+    });
+    expect(isTransientMeta(error)).toBe(true);
+  });
+});
+
+describe("isMetaTimeout", () => {
+  it("reconnaît le timeout de notre AbortController", () => {
+    const error = Object.assign(new Error("Meta n'a pas répondu en 45 s (timeout)."), {
+      timedOut: true,
+      retryable: true,
+    });
+    expect(isMetaTimeout(error)).toBe(true);
+  });
+
+  it("ne prend pas un 504 rendu par Meta pour notre timeout", () => {
+    // Un 504 isolé de Meta mérite une reprise à l'identique ; notre timeout
+    // non — le mot « timeout » dans le message ne suffit pas, c'est le champ
+    // qui tranche.
+    const gateway = Object.assign(new Error("504 Gateway Time-out"), {
+      retryable: true,
+    });
+    expect(isMetaTimeout(gateway)).toBe(false);
+    expect(isMetaTimeout(new Error("long polling terminated due to timeout"))).toBe(
+      false,
+    );
+  });
+
+  it("rend faux sur ce qui n'est pas une erreur", () => {
+    expect(isMetaTimeout(null)).toBe(false);
+    expect(isMetaTimeout("timeout")).toBe(false);
+  });
+});
+
+describe("saysMetaTimeout", () => {
+  it("reconnaît le renoncement de Meta, rendu sans le champ timedOut", () => {
+    // Rendu par Meta lui-même : le transport ne doit pas le rejouer à
+    // l'identique — à 40 s par tentative, trois font plus que la route.
+    expect(saysMetaTimeout("long polling terminated due to timeout")).toBe(true);
+    expect(saysMetaTimeout("Request timed out")).toBe(true);
+    expect(saysMetaTimeout("Meta n'a pas répondu en 45 s (timeout).")).toBe(true);
+  });
+
+  it("laisse ses reprises au 504 nu", () => {
+    // Un 504 sans mot de délai est un incident isolé : rejouer a une chance.
+    expect(saysMetaTimeout("Appel Meta refusé (504).")).toBe(false);
+    expect(saysMetaTimeout("Service temporarily unavailable")).toBe(false);
+    expect(saysMetaTimeout("(#2) An unexpected error has occurred")).toBe(false);
   });
 });

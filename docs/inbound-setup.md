@@ -121,9 +121,11 @@ faut que sa configuration d'authentification porte `openid profile
 w_member_social` — comme il a fallu y ajouter `r_organization_admin` pour
 les pages. Jamais joué contre le vrai service.
 
-**Programmation** : un post approuvé et daté part tout seul à son heure.
-`pnpm studio:publier` est une étape du workflow horaire (`airwallex-sync.yml`,
-portée `tout`) : il prend ce qui est dû (`due-drafts.ts`, pur et testé —
+**Programmation** : un post approuvé et daté ne part que si l'on joue
+`pnpm studio:publier` — portée `studio` de `airwallex-sync.yml`, sur demande,
+jamais sur un schedule ni dans `tout` tant que la démonstration est en base et
+que le compte LinkedIn n'est pas rebranché (jeton révoqué le 15/09). Il prend
+ce qui est dû (`due-drafts.ts`, pur et testé —
 LinkedIn, approuvé, heure passée), **relit le statut juste avant l'envoi** et
 écrit le résultat sur la ligne. Un script de reel n'a pas de publication : sa
 date est un repère dans le calendrier, il se tourne.

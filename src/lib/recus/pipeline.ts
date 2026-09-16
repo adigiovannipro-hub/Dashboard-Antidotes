@@ -624,7 +624,7 @@ export type ForwardResult =
  *
  * Jamais bloquant : un rangement raté ne doit pas faire passer pour échoué un
  * transfert qui, lui, a réussi — la pièce repartirait une seconde fois. Le
- * mail reste alors en boîte, et le rattrapage horaire le reprendra.
+ * mail reste alors en boîte, et le passage suivant le reprendra.
  *
  * Le refus de Gmail se dit à voix haute plutôt que de se deviner. La version
  * précédente lisait `granted_scopes` et ne tentait rien quand le droit
@@ -668,7 +668,7 @@ async function archiveForwardedMail(
  *
  * Sans ce rattrapage, tout ce qui a été transféré jusqu'ici resterait en boîte
  * pour toujours : le rangement n'a lieu qu'au moment du transfert, et un
- * transfert ne se rejoue pas. Passage horaire, borné à trente jours — au-delà,
+ * transfert ne se rejoue pas. Passage programmé, borné à trente jours — au-delà,
  * le mail a de toute façon été rangé à la main.
  */
 export async function archivePendingMails(sourceId: string): Promise<{

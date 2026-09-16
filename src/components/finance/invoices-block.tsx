@@ -18,7 +18,7 @@ import {
  * Facturation à venir : l'encours réel, client par client.
  *
  * La source est `finance_invoices` — le miroir des factures émises chez
- * Airwallex, resynchronisé toutes les heures. C'est la réalité comptable : ce
+ * Airwallex, resynchronisé à chaque passage. C'est la réalité comptable : ce
  * qui a été émis, à qui, payé ou non. Le module Échéances, lié en bas de
  * bloc, porte l'autre moitié du sujet — ce qui **devra** être émis, mois par
  * mois, d'après les devis signés.
@@ -28,8 +28,7 @@ export function InvoicesBlock({ invoices }: { invoices: FinanceInvoice[] }) {
     return (
       <div className="space-y-3">
         <p className="type-body text-text-secondary">
-          Aucune facture synchronisée. Elles apparaissent au passage horaire de
-          la synchronisation Airwallex.
+          Aucune facture synchronisée.
         </p>
         <FacturesLink />
       </div>

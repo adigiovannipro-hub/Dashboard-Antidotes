@@ -986,7 +986,7 @@ const faqFieldInput = z.object({
 /**
  * Écrit une cellule de texte d'un élément de langage.
  *
- * Une question modifiée perd son vecteur : le relevé horaire la réindexe, et
+ * Une question modifiée perd son vecteur : la passe nocturne de l'Inbox la réindexe, et
  * d'ici là elle est simplement invisible de la recherche sémantique — jamais
  * un blocage de l'écriture, le modèle d'embeddings ne chargeant pas sur
  * Vercel.
@@ -1108,8 +1108,8 @@ export async function createFaqEntry(input: {
  * de l'écrire. Le prochain message du même genre trouvera son entrée.
  *
  * L'entrée naît **sans vecteur** (`embedding_source` nul) : le modèle
- * d'embeddings ne charge pas sur Vercel, et `reindexFaqSearch` la rattrape au
- * relevé horaire. Une entrée sans vecteur est invisible de la recherche
+ * d'embeddings ne charge pas sur Vercel, et `reindexFaqSearch` la rattrape à la
+ * passe nocturne de l'Inbox. Une entrée sans vecteur est invisible de la recherche
  * sémantique jusque-là, jamais un blocage.
  */
 export async function addFaqEntryFromConversation(input: {

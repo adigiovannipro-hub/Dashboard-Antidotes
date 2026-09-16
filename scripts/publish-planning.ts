@@ -4,11 +4,12 @@
  *   pnpm publier:planning            — ne publie qu'à 16h heure de Paris
  *   pnpm publier:planning --force    — publie maintenant, quelle que soit l'heure
  *
- * Le passage est greffé sur le workflow horaire `airwallex-sync.yml` : chaque
- * heure le script se réveille, regarde l'heure de Paris, et ne travaille qu'à
- * 16h — les autres passages coûtent une seconde. Les créneaux cron de Vercel
- * sont pleins (Mon travail à 4h, Reporting à 5h) ; la greffe GitHub est
- * gratuite et déjà cadencée.
+ * Le passage est greffé sur le workflow `airwallex-sync.yml` : quatre passages
+ * `quotidien` par jour plus deux passages `publication` (17h40 et 21h40 UTC),
+ * soit quatre créneaux dans la fenêtre 16h–minuit de Paris — le script
+ * regarde l'heure de Paris et ne travaille qu'à partir de 16h, les passages
+ * du matin coûtent une seconde. Les créneaux cron de Vercel sont pleins (Mon
+ * travail à 4h, Reporting à 5h) ; la greffe GitHub est gratuite.
  *
  * Comme les synchronisations, `server-only` est neutralisé par la condition
  * `react-server` de Node — nous *sommes* le serveur.

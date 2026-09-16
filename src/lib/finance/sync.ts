@@ -24,7 +24,7 @@ import type {
  * Cinq étapes indépendantes — soldes, dépenses, factures, grand livre, puis
  * le rapprochement des Échéances qui les consomme. Une étape en échec
  * n'annule pas les autres : perdre les factures ne doit pas priver la courbe
- * de son instantané horaire. Chaque étape écrit sa ligne au journal
+ * de son instantané de solde. Chaque étape écrit sa ligne au journal
  * `finance_sync_runs`, réussie ou non — l'écran affiche le dernier passage, et
  * un échec silencieux est le pire état possible.
  *

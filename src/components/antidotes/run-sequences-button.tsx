@@ -10,10 +10,10 @@ import { PendingLabel } from "@/components/ds/pending-label";
 import { Button } from "@/components/ui/button";
 
 /**
- * « Passer maintenant » — rejoue le passage horaire à la demande : relevé des
- * fils, observations, envois dus. Le fond de tâche reste le workflow ; le
- * bouton sert le jour où l'on veut voir partir le premier email sans
- * attendre l'heure.
+ * « Passer maintenant » — joue le passage à la demande : relevé des fils,
+ * observations, envois dus. Le workflow ne le joue plus tout seul (portée
+ * `sequences` sur demande) : ce bouton est le chemin normal, et sert le jour
+ * où l'on veut voir partir le premier email.
  */
 export function RunSequencesButton() {
   const router = useRouter();
