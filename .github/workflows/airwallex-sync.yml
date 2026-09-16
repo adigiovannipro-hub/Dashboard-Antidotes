@@ -1,72 +1,38 @@
-# Les synchronisations Airwallex — Finance et Reçus — exécutées ici et non
-# sur Vercel.
+# Le passage programmé d'Antidotes — Finance, Reçus, publications, Inbox —
+# exécuté ici et non sur Vercel : Airwallex refuse les adresses IP de
+# l'hébergeur (mêmes clés, un jeton depuis GitHub, « 403 Forbidden » depuis
+# une fonction Vercel — établi par sonde), et le plan Hobby plafonne une
+# fonction à 60 secondes.
 #
-# Deux raisons, dans cet ordre :
+# Trois schedules, et plus aucun cron horaire :
+#   • `40 5,11,15,19 * * *` — portée `quotidien` : Finance, publication du
+#     Planning, Factures, Reçus. Le passage de 15h40 UTC tombe dans la fenêtre
+#     de publication de 16h Paris, été comme hiver.
+#   • `40 17,21 * * *` — portée `publication`, dérivée du créneau et jamais
+#     offerte au bouton : la seule étape de publication du Planning, sans
+#     navigateur ni Finance, ~1 min. Avec 15h40 et 19h40, la fenêtre 16h–minuit
+#     Paris compte quatre passages ; avec deux, GitHub — qui livre à peine un
+#     schedule sur quatre ici (26 % mesurés du 31/08 au 16/09) — perdait la
+#     journée entière une fois sur deux, et un sujet daté d'hier ne part
+#     jamais.
+#   • `10 2,4 * * *` — portée `moderation-complet` : la passe de réparation de
+#     l'Inbox (soixante jours, profils, auteurs masqués) et la réindexation
+#     de la FAQ, à une heure où personne n'ouvre sa boîte. Deux créneaux pour
+#     la même raison : l'ancien créneau unique de 02h40 n'a été livré au plus
+#     qu'une nuit sur quatre. Le verrou d'unicité des fils absorbe le doublon.
 #
-#   • Airwallex refuse les adresses IP de Vercel. Mêmes clés, même appel : un
-#     jeton depuis une machine GitHub, une page « 403 Forbidden » depuis une
-#     fonction Vercel. La sonde `airwallex-probe.yml` l’a établi, avant d’être supprimée.
-#   • Le plan Hobby de Vercel rejette de toute façon tout cron plus fréquent
-#     que le quotidien, et plafonne les fonctions à 60 secondes.
+# Le reste part des écrans, par `workflow_dispatch` (`GITHUB_SYNC_TOKEN`) :
+# Finance et Factures envoient `finance` ; l'Inbox envoie `moderation` (le
+# relevé du jour, qu'elle exécute d'ailleurs elle-même sous 60 s — ce
+# workflow n'est que son repli) ou `moderation-complet` (« Tout relever »).
+# `tout` = les quatre passages du jour plus l'Inbox complète. `sequences` et
+# `studio` ne partent que sous leur propre portée, jamais dans `tout` : le jeu
+# de démonstration est encore en base, et un passage lancé par habitude ne
+# doit pas écrire à un prospect fictif.
 #
-# La route `/api/cron/sync-finance` reste en place et reste correcte — elle ne
-# peut simplement pas aboutir de là où elle s'exécute.
-#
-# Coût : le schedule tourne ~400 fois par mois (GitHub en laisse tomber la
-# moitié) à une minute l'unité — 56 s mesurées de bout en bout le 18/08/2026,
-# dont 16 s de Finance et 9 s de Reçus — sur les 2 000 minutes gratuites d'un
-# dépôt privé. Le navigateur de rendu ajoute une dizaine de secondes par
-# passage, cache restauré. Les déclenchements depuis l'écran s'ajoutent à ce
-# budget : la fenêtre de fraîcheur de dix minutes les plafonne à six par heure
-# d'utilisation réelle, soit quelques dizaines de minutes par mois — mais c'est
-# le poste à regarder en premier si la facture Actions se met à monter.
-#
-# Trois choses à savoir sur les schedules GitHub :
-#   • l'heure n'est pas garantie à la minute près — un décalage de quelques
-#     minutes est normal, et sans conséquence ici ;
-#   • GitHub suspend les schedules d'un dépôt inactif 60 jours — un simple
-#     commit les relance ;
-#   • surtout : **près d'une exécution horaire sur deux n'a jamais lieu**.
-#     Relevé sur ce dépôt le 18/08/2026 — 13 exécutions le 17 au lieu de 24,
-#     des trous de 2 h 30 en journée, et 6 h d'affilée le matin du 18. Le
-#     `cron` est une intention, pas une garantie, et rien ne le signale.
-#
-# C'est pourquoi ce workflow n'est plus le seul déclencheur : ouvrir Finance ou
-# Échéances lance un `workflow_dispatch` depuis l'application quand la dernière
-# exécution remonte à plus de dix minutes (`/api/finance/sync`, jeton
-# `GITHUB_SYNC_TOKEN`). Le passage programmé reste le filet de fond — c'est lui
-# qui relève les Reçus et publie le Planning quand personne n'ouvre l'écran.
-#
-# L'application déclenche avec une **portée**, jamais la chaîne entière : celle-ci
-# était devenue trop longue pour une attente d'écran — 4 à 6 min 30 relevées le
-# 31/08, contre 56 s à l'origine.
-#
-#   • `finance` : ouvrir Finance ou Factures. Soldes, dépenses, factures, et le
-#     rapprochement des Échéances, qui est l'étape `billing`.
-#   • `moderation` : le relevé **du jour** de l'Inbox — deux jours de
-#     conversations, et les commentaires des seules publications dont le
-#     compteur a bougé. L'écran ne s'en sert plus qu'en repli : il l'exécute
-#     lui-même, c'est devenu assez court pour tenir dans une fonction Vercel.
-#   • `moderation-complet` : la passe de réparation — soixante jours,
-#     rattrapage des photos de profil et des auteurs masqués. Elle dure des
-#     minutes : c'est elle qui a besoin d'un runner, et c'est elle que le
-#     créneau nocturne `40 2 * * *` joue tout seul chaque nuit.
-#
-# Deux plannings sur le même workflow, donc, et une seule variable les
-# distingue : `github.event.schedule`. Sur un `schedule`, les `inputs` sont
-# vides — il n'y a rien d'autre à lire.
-#
-# Cette seconde portée n'est pas un confort. Jusqu'ici la Modération n'avait
-# qu'un déclencheur, le `schedule` ci-dessus, dont près d'une exécution sur deux
-# n'a jamais lieu — et le seul déclencheur fréquent et fiable du dépôt,
-# l'ouverture de Finance, **excluait explicitement** la Modération par sa
-# condition. Autrement dit : rien ne la relevait de façon fiable, et la boîte
-# datait de la veille sans que rien ne le dise.
-#
-# Une portée ne doit jamais faire partir un message : ouvrir un écran ne relance
-# ni les séquences de prospection, ni les factures, ni la publication du
-# Planning. Le passage programmé et le bouton « Run workflow » de GitHub (défaut
-# `tout`) gardent la chaîne entière.
+# La leçon chiffrée, payée en septembre 2026 : un cron horaire dont chaque
+# passage avait grimpé de 2 à 13 minutes, c'est 4,7 fois le quota mensuel de
+# 2 000 minutes. Ce qui doit être frais à l'ouverture se relève de l'écran.
 #
 # Secrets requis (Settings → Secrets and variables → Actions) :
 #   NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY,
@@ -79,30 +45,25 @@ name: Synchronisation Airwallex
 
 on:
   schedule:
-    # Minute 17 et non 0 : les pics de la pleine heure sont les moments où
-    # GitHub retarde le plus ses schedules.
-    - cron: "17 * * * *"
-    # Le relevé complet de l'Inbox, une fois par nuit — 02h40 UTC, soit 04h40
-    # à Paris l'été, 03h40 l'hiver : personne n'ouvre son inbox à cette
-    # heure-là, et le passage a tout le temps de rattraper soixante jours.
-    # C'est `github.event.schedule` qui distingue les deux plannings du même
-    # workflow — sur un `schedule`, les `inputs` sont vides, il n'y a rien
-    # d'autre à lire.
-    - cron: "40 2 * * *"
+    # Minutes 40 et 10, jamais 0 : les pics de la pleine heure sont les
+    # moments où GitHub retarde le plus ses schedules.
+    - cron: "40 5,11,15,19 * * *"
+    - cron: "40 17,21 * * *"
+    - cron: "10 2,4 * * *"
   workflow_dispatch:
     inputs:
       portee:
         description: "Ce que le passage exécute"
         type: choice
-        default: tout
+        default: quotidien
         options:
+          - quotidien
           - tout
           - finance
-          # Le relevé du jour de l'Inbox. L'écran ne s'en sert plus que sans
-          # jeton GitHub : il l'exécute lui-même, c'est devenu assez court.
           - moderation
-          # La passe de réparation, celle qui dure des minutes.
           - moderation-complet
+          - sequences
+          - studio
 
 concurrency:
   group: finance-sync
@@ -110,9 +71,20 @@ concurrency:
 
 jobs:
   synchroniser:
-    name: Finance et Reçus
+    name: Passage
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    # Les passages du jour tiennent en deux minutes ; seule la passe nocturne
+    # de l'Inbox peut en approcher dix, et un job coupé en vol serait un rouge
+    # chaque nuit — celui qu'on apprend à ignorer.
+    timeout-minutes: 15
+
+    env:
+      # La portée, calculée une seule fois. Sur un `schedule`, `inputs.portee`
+      # est vide : c'est `github.event.schedule` qui distingue le créneau
+      # nocturne et les deux passages de publication des quatre passages du
+      # jour. Les chaînes comparées doivent rester identiques, caractère pour
+      # caractère, aux lignes `cron` ci-dessus.
+      PORTEE: ${{ inputs.portee || (github.event.schedule == '10 2,4 * * *' && 'moderation-complet') || (github.event.schedule == '40 17,21 * * *' && 'publication') || 'quotidien' }}
 
     steps:
       - uses: actions/checkout@v4
@@ -134,14 +106,16 @@ jobs:
       # d'où le rendu à la lecture du mail plutôt qu'au transfert.
       #
       # Mis en cache : le téléchargement coûte ~40 s, sa restauration ~10 s.
-      # Sur 720 exécutions mensuelles, l'écart pèse plus que tout le reste du
-      # job. `--with-deps` n'est posé qu'au premier passage, quand le cache est
+      # `--with-deps` n'est posé qu'au premier passage, quand le cache est
       # vide ; ensuite les bibliothèques système sont déjà là.
       #
-      # Seuls les Reçus s'en servent : un passage `portee: finance` s'en passe.
-      # Sur un schedule, `inputs.portee` est vide — la condition reste vraie.
+      # Seuls les Reçus s'en servent, et le navigateur suit donc leur portée,
+      # `finance` comprise : le PDF se rend à la lecture du mail, pas au
+      # transfert — sans Chromium, une pièce vue pour la première fois depuis
+      # l'écran garderait son PDF de texte pour toujours. Dix secondes de
+      # cache restauré contre une pièce fidèle chez Airwallex.
       - name: Cache du navigateur
-        if: inputs.portee != 'finance' && inputs.portee != 'moderation' && inputs.portee != 'moderation-complet'
+        if: contains(fromJSON('["quotidien","tout","finance"]'), env.PORTEE)
         id: cache-navigateur
         uses: actions/cache@v4
         with:
@@ -149,11 +123,13 @@ jobs:
           key: playwright-chromium-${{ hashFiles('pnpm-lock.yaml') }}
 
       - name: Navigateur de rendu
-        if: inputs.portee != 'finance' && inputs.portee != 'moderation' && inputs.portee != 'moderation-complet'
+        if: contains(fromJSON('["quotidien","tout","finance"]'), env.PORTEE)
         run: pnpm exec playwright install ${{ steps.cache-navigateur.outputs.cache-hit == 'true' && 'chromium' || '--with-deps chromium' }}
 
+      # Soldes, dépenses, factures, et le rapprochement des Échéances, qui en
+      # est l'étape `billing`. C'est ce qu'ouvrir Finance ou Factures attend.
       - name: Synchroniser Finance
-        if: inputs.portee != 'moderation' && inputs.portee != 'moderation-complet'
+        if: contains(fromJSON('["quotidien","tout","finance"]'), env.PORTEE)
         run: pnpm sync:finance
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
@@ -164,22 +140,17 @@ jobs:
           # Les vraies dépenses vivent en production ; le bac à sable est vide.
           AIRWALLEX_ENV: production
 
-      # Dans le même job que Finance : l'installation des dépendances coûte
-      # plus cher que les deux synchronisations réunies, la partager divise la
-      # consommation de minutes par deux. `if: always()` — un échec Finance ne
-      # doit pas priver les Reçus de leur passage, et réciproquement.
-      # Greffée sur le passage horaire : le script regarde l'heure de Paris et
-      # ne publie qu'**à partir de** 16h — les passages du matin coûtent une
-      # seconde. Les deux créneaux cron de Vercel sont pris (Mon travail,
-      # Reporting).
+      # Toutes les étapes suivantes portent `always()` : un échec ne doit pas
+      # priver les suivantes de leur passage. Elles partagent le job parce que
+      # l'installation coûte plus cher que le travail lui-même.
       #
-      # « À partir de » et non « à 16h pile » : l'heure exacte n'offrait qu'une
-      # chance par jour de tomber juste, et GitHub saute près d'une exécution
-      # horaire sur deux — une fenêtre manquée coûtait la journée entière. Les
-      # huit passages de 16h à minuit rattrapent, `planning_publications`
-      # interdisant le doublon.
+      # Le script regarde l'heure de Paris et ne publie qu'**à partir de**
+      # 16h : les deux passages du matin coûtent une seconde, celui de 15h40
+      # UTC publie (17h40 l'été, 16h40 l'hiver), et 17h40, 19h40 et 21h40
+      # rattrapent si les précédents ont été sautés — `planning_publications`
+      # interdit le doublon. La portée `publication` ne joue que cette étape.
       - name: Publication automatique du Planning (à partir de 16h Paris)
-        if: always() && inputs.portee != 'finance' && inputs.portee != 'moderation' && inputs.portee != 'moderation-complet'
+        if: always() && contains(fromJSON('["quotidien","tout","publication"]'), env.PORTEE)
         run: pnpm publier:planning
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
@@ -187,75 +158,14 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           CREDENTIALS_ENCRYPTION_KEY: ${{ secrets.CREDENTIALS_ENCRYPTION_KEY }}
 
-      # Les posts LinkedIn du pôle Antidotes programmés à une heure passée.
-      # Même greffe horaire, même raison : les deux créneaux cron de Vercel
-      # sont pris. Un post n'est publié que s'il est approuvé, et son statut
-      # est relu juste avant l'envoi — rien ne part deux fois.
-      - name: Publication des posts programmés (Antidotes)
-        if: always() && inputs.portee != 'finance' && inputs.portee != 'moderation' && inputs.portee != 'moderation-complet'
-        run: pnpm studio:publier
-        env:
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          COMPOSIO_API_KEY: ${{ secrets.COMPOSIO_API_KEY }}
-
-      # La Modération relève les commentaires Meta des comptes affectés dans
-      # Connexions — même greffe horaire que la publication, les créneaux cron
-      # de Vercel étant pris. Meta accepte les IP GitHub ; le passage coûte
-      # quelques secondes par compte branché.
-      #
-      # C'est la seule étape que `portee: moderation` joue, et c'est ce que
-      # l'ouverture de l'inbox déclenche (`/api/moderation/sync`). `finance`
-      # continue de la sauter : un écran de comptabilité n'a rien à relever ici.
-      - name: Synchroniser l'Inbox (commentaires et messages Meta)
-        if: always() && inputs.portee != 'finance'
-        run: pnpm sync:moderation
-        env:
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          CREDENTIALS_ENCRYPTION_KEY: ${{ secrets.CREDENTIALS_ENCRYPTION_KEY }}
-          # Ce que le passage redemande. Le créneau nocturne et le « Run
-          # workflow » manuel font la passe complète ; le passage horaire et le
-          # bouton de l'écran font le relevé du jour, qui ne redescend que les
-          # publications dont le compteur de commentaires a bougé.
-          MODERATION_SCOPE: "${{ (github.event.schedule == '40 2 * * *' || inputs.portee == 'tout' || inputs.portee == 'moderation-complet') && 'complet' || 'jour' }}"
-
-      # Les séquences de prospection du pôle Antidotes : relevé des fils
-      # Gmail (réponses, rebonds), observations, envois dus. Même greffe
-      # horaire, même boîte Gmail que les Reçus — et jamais sur
-      # `portee: finance` : ouvrir un écran ne doit pas envoyer un email à un
-      # prospect. La fenêtre d'envoi (jours et heures de Paris) et le plafond
-      # quotidien vivent sur chaque séquence ; un tour à vide coûte une
-      # seconde.
-      - name: Séquences de prospection
-        if: always() && inputs.portee != 'finance' && inputs.portee != 'moderation' && inputs.portee != 'moderation-complet'
-        run: pnpm sequences:passage
-        env:
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
-          NEXT_PUBLIC_SITE_URL: ${{ vars.NEXT_PUBLIC_SITE_URL || 'https://dashboard-antidotes-beta.vercel.app' }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          CREDENTIALS_ENCRYPTION_KEY: ${{ secrets.CREDENTIALS_ENCRYPTION_KEY }}
-          GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
-          GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-
-      # L'émission des factures et leurs relances. Greffée sur le passage
-      # horaire, et **jamais** sur `portee: finance` : ce dernier est ce que
-      # l'ouverture d'un écran déclenche, et ouvrir une page ne doit pas
-      # envoyer un mail à un client.
-      #
-      # Après la synchronisation Finance, et c'est un ordre voulu : le
-      # rapprochement vient de marquer payées les factures réglées, et une
-      # facture payée ne se relance pas.
-      #
-      # Coût : quelques secondes, un appel Airwallex par facture émise. Tant
-      # qu'aucun devis ne porte d'adresse de destinataire, le passage ne fait
-      # rien du tout — c'est l'interrupteur du dispositif.
+      # L'émission des factures et leurs relances — jamais sur `finance`, la
+      # portée des écrans : ouvrir une page ne doit pas envoyer un mail à un
+      # client. Après Finance, et c'est un ordre voulu : le rapprochement
+      # vient de marquer payées les factures réglées, et une facture payée ne
+      # se relance pas. Tant qu'aucun devis ne porte d'adresse de
+      # destinataire, le passage ne fait rien — c'est l'interrupteur.
       - name: Émettre et relancer les Factures
-        if: always() && inputs.portee != 'finance' && inputs.portee != 'moderation' && inputs.portee != 'moderation-complet'
+        if: always() && contains(fromJSON('["quotidien","tout"]'), env.PORTEE)
         run: pnpm factures:envoi
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
@@ -268,8 +178,10 @@ jobs:
           GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
           GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
 
+      # Les Reçus font partie de `finance` : l'écran Finance les montre, et
+      # une pièce en attente de transfert est une donnée financière.
       - name: Synchroniser les Reçus
-        if: always() && inputs.portee != 'finance' && inputs.portee != 'moderation' && inputs.portee != 'moderation-complet'
+        if: always() && contains(fromJSON('["quotidien","tout","finance"]'), env.PORTEE)
         run: pnpm sync:recus
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
@@ -282,6 +194,54 @@ jobs:
           GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
           GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+
+      # L'Inbox relève les commentaires et messages Meta des comptes affectés
+      # dans Connexions. Meta accepte les IP GitHub. Absente de `quotidien` :
+      # le relevé du jour se joue à l'ouverture de l'écran, sur Vercel, et
+      # c'est la passe nocturne qui répare — dont la réindexation de la FAQ.
+      - name: Synchroniser l'Inbox (commentaires et messages Meta)
+        if: always() && contains(fromJSON('["tout","moderation","moderation-complet"]'), env.PORTEE)
+        run: pnpm sync:moderation
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          CREDENTIALS_ENCRYPTION_KEY: ${{ secrets.CREDENTIALS_ENCRYPTION_KEY }}
+          # Ce que le passage redemande : `complet` pour la nuit, « Tout
+          # relever » et « Run workflow » en `tout` ; `jour` pour le repli de
+          # l'écran, qui ne redescend que les publications dont le compteur
+          # de commentaires a bougé et ne retente pas une boîte refusée.
+          MODERATION_SCOPE: ${{ contains(fromJSON('["tout","moderation-complet"]'), env.PORTEE) && 'complet' || 'jour' }}
+
+      # Les séquences de prospection du pôle Antidotes : relevé des fils Gmail
+      # (réponses, rebonds), observations, envois dus. Même boîte Gmail que
+      # les Reçus. Sur demande explicite seulement : elles écrivent à des
+      # prospects, et aucun schedule ne doit le faire tant que le pôle tourne
+      # sur son jeu de démonstration.
+      - name: Séquences de prospection
+        if: always() && env.PORTEE == 'sequences'
+        run: pnpm sequences:passage
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          NEXT_PUBLIC_SITE_URL: ${{ vars.NEXT_PUBLIC_SITE_URL || 'https://dashboard-antidotes-beta.vercel.app' }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          CREDENTIALS_ENCRYPTION_KEY: ${{ secrets.CREDENTIALS_ENCRYPTION_KEY }}
+          GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
+          GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+
+      # Les posts LinkedIn du pôle programmés à une heure passée — approuvés
+      # seulement, statut relu juste avant l'envoi. Même règle que les
+      # séquences : sur demande, jamais sur schedule.
+      - name: Publication des posts programmés (Antidotes)
+        if: always() && env.PORTEE == 'studio'
+        run: pnpm studio:publier
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          COMPOSIO_API_KEY: ${{ secrets.COMPOSIO_API_KEY }}
 
       # Le témoin de vie : un ping healthchecks.io en fin de passage, un ping
       # /fail sur échec. C'est le renversement qui manquait — jusqu'ici, un

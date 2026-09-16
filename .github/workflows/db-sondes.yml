@@ -72,6 +72,10 @@ on:
         description: "… sur cette version de Graph (v21.0 par défaut)"
         type: string
         default: ""
+      sonde_meta_messagerie:
+        description: "… en sondant aussi la boîte de messages privés de chaque Page (réponse brute, durée)"
+        type: boolean
+        default: false
       sonde_sourcing:
         description: "Sonder les fournisseurs du sourcing pour une société (son nom)"
         type: string
@@ -213,9 +217,14 @@ jobs:
       # `page_media_view` contre `page_impressions` au grain jour. Réponses
       # brutes, lecture seule — c'est la seule chose qui tranche, la
       # documentation ne datant pas ses dépréciations par version.
+      # `--messagerie` sonde en plus `/{page}/conversations`, la boîte que
+      # Meta refuse à certaines Pages : réponse brute et durée, avant de
+      # conclure quoi que ce soit sur les DM Instagram absents.
       - name: Sonde Meta
         if: ${{ inputs.sonde_meta != '' }}
-        run: pnpm sonde:meta --espace "${{ inputs.sonde_meta }}"
+        run: >-
+          pnpm sonde:meta --espace "${{ inputs.sonde_meta }}"
+          ${{ inputs.sonde_meta_messagerie && '--messagerie' || '' }}
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
