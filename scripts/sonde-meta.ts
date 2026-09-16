@@ -3,18 +3,34 @@
  *
  *   pnpm sonde:meta --espace i-way
  *   pnpm sonde:meta --espace i-way --version v23.0
+ *   pnpm sonde:meta --espace bondet --messagerie
  *
- * Elle répond à une seule question, et sur pièce : **quels noms de métriques
- * Meta sert encore**. Fin 2025, `post_impressions`, `post_impressions_unique`
- * et `post_video_views` ont été dépréciées au profit de `views` sur les
- * publications de Page, et `page_impressions` au profit de `page_media_view`
- * au grain jour — mais la date d'entrée en vigueur dépend de la version de
- * Graph, et une relecture de la documentation ne tranche pas. Un refus rendu
- * par l'API, si.
+ * Sans `--messagerie`, elle répond à une seule question, et sur pièce :
+ * **quels noms de métriques Meta sert encore**. Fin 2025, `post_impressions`,
+ * `post_impressions_unique` et `post_video_views` ont été dépréciées au
+ * profit de `views` sur les publications de Page, et `page_impressions` au
+ * profit de `page_media_view` au grain jour — mais la date d'entrée en
+ * vigueur dépend de la version de Graph, et une relecture de la
+ * documentation ne tranche pas. Un refus rendu par l'API, si.
+ *
+ * Avec `--messagerie`, elle sonde **la boîte des Pages à la place des
+ * métriques** : `/{page}/conversations` sur Messenger et sur Instagram, tel
+ * que le relevé de l'Inbox le demande — et tel que Meta le refuse à
+ * certaines Pages (Bondet, I-WAY) sans dire si c'est le volume ou la portée.
+ * Un compte Instagram se sonde par sa Page parente, la messagerie d'un compte
+ * professionnel passant par elle. Chaque appel est borné à 45 s et **jamais
+ * rejoué** ; le statut, le corps brut et la durée en millisecondes sont
+ * affichés, c'est tout ce qu'il faut pour trancher. `/me/permissions` dit ce
+ * que le jeton porte vraiment — on y cherche `pages_messaging` et
+ * `instagram_manage_messages` — et `/debug_token` le redit avec les portées
+ * granulaires quand `META_APP_ID` et `META_APP_SECRET` sont dans
+ * l'environnement.
  *
  * Tout est affiché **brut** : le corps de la réponse, ou le corps de l'erreur.
  * C'est la règle de la maison — la forme d'une réponse ne se relit pas, elle
- * se sonde. Aucun de nos parseurs n'intervient.
+ * se sonde. Aucun de nos parseurs n'intervient, et `graph.ts` n'est pas
+ * importé : ses reprises et son escalier de repli sont justement ce qu'on
+ * veut voir sans.
  *
  * Lecture seule : pas une écriture en base, pas un appel qui modifie quoi que
  * ce soit chez Meta. À jouer depuis l'étape « Sonde Meta » du workflow
@@ -39,6 +55,10 @@ function argValue(name: string): string | null {
   return index === -1 ? null : (process.argv[index + 1] ?? null);
 }
 
+function hasFlag(name: string): boolean {
+  return process.argv.includes(`--${name}`);
+}
+
 /** Les métriques d'une publication de Page, demandées **une par une**. */
 const POST_METRICS = [
   "views",
@@ -60,13 +80,25 @@ const PAGE_METRICS = [
 /** Les métriques d'un média Instagram — la bascule y est déjà faite. */
 const MEDIA_METRICS = ["views", "reach", "total_interactions"];
 
+/**
+ * Le même délai que `fetchGraph` : c'est au-delà qu'un « long polling
+ * terminated due to timeout » arrive, et c'est ce délai, rejoué deux fois
+ * par palier, qui coûtait 700 s par Page refusée.
+ */
+const SONDE_TIMEOUT_MS = 45_000;
+
+/** Ce qui ne s'affiche jamais : un jeton de Page publie, un secret d'app signe. */
+const SECRET_PARAMS = ["access_token", "input_token"];
+
 type Sonde = (path: string, params: Record<string, string>) => Promise<void>;
 
 /**
- * Un appel, et son corps affiché tel quel.
+ * Un appel, un seul — jamais rejoué, borné à 45 s — et son corps affiché
+ * tel quel, avec la durée. Un timeout se dit comme tel : c'est la réponse
+ * qu'on cherche quand on soupçonne le volume plutôt que le refus.
  *
- * Le jeton est retiré de l'URL affichée : la sortie d'un runner GitHub est
- * lisible par qui a accès au dépôt, et un jeton de Page publie.
+ * Les jetons sont retirés de l'URL affichée : la sortie d'un runner GitHub
+ * est lisible par qui a accès au dépôt.
  */
 function makeSonde(base: string, accessToken: string): Sonde {
   return async (path, params) => {
@@ -74,15 +106,82 @@ function makeSonde(base: string, accessToken: string): Sonde {
     for (const [key, value] of Object.entries(params)) {
       url.searchParams.set(key, value);
     }
+    if (!url.searchParams.has("access_token")) {
+      url.searchParams.set("access_token", accessToken);
+    }
     const affichee = new URL(url);
-    affichee.searchParams.delete("access_token");
+    for (const name of SECRET_PARAMS) affichee.searchParams.delete(name);
     console.log(`\n→ ${affichee.pathname}${affichee.search}`);
 
-    url.searchParams.set("access_token", accessToken);
-    const response = await fetch(url);
-    const body = await response.text();
-    console.log(`  ${response.status} ${body}`);
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), SONDE_TIMEOUT_MS);
+    const startedAt = Date.now();
+    try {
+      const response = await fetch(url, { signal: controller.signal });
+      const body = await response.text();
+      console.log(`  ${response.status} · ${Date.now() - startedAt} ms · ${body}`);
+    } catch (error) {
+      const ms = Date.now() - startedAt;
+      if ((error as { name?: string } | null)?.name === "AbortError") {
+        console.log(`  timeout après ${SONDE_TIMEOUT_MS / 1000} s · ${ms} ms`);
+      } else {
+        const detail =
+          error instanceof Error ? `${error.name} ${error.message}` : String(error);
+        console.log(`  erreur · ${ms} ms · ${detail}`);
+      }
+    } finally {
+      clearTimeout(timer);
+    }
   };
+}
+
+/**
+ * La boîte d'une Page, en cinq lectures. Les trois premières sont celles du
+ * relevé, réduites au minimum : un fil Messenger, un fil Instagram, cinq
+ * identifiants Instagram sans `since` ni participants — si celle-là tombe en
+ * timeout, ce n'est pas le volume. Puis le rattachement IG ↔ Page, et les
+ * portées que le jeton porte vraiment. La sonde n'interprète pas : elle
+ * montre.
+ */
+async function sondeMessagerie(
+  sonde: Sonde,
+  pageId: string,
+  accessToken: string,
+): Promise<void> {
+  await sonde(`/${pageId}/conversations`, {
+    platform: "messenger",
+    limit: "1",
+    fields: "id,updated_time",
+  });
+  await sonde(`/${pageId}/conversations`, {
+    platform: "instagram",
+    limit: "1",
+    fields: "id,updated_time",
+  });
+  await sonde(`/${pageId}/conversations`, {
+    platform: "instagram",
+    limit: "5",
+    fields: "id",
+  });
+  await sonde(`/${pageId}`, { fields: "instagram_business_account,name" });
+  await sonde("/me/permissions", {});
+
+  /* `/me/permissions` ne répond que sur un jeton d'utilisateur ; sur un jeton
+     de Page — ce que le branchement range pour les Pages et les comptes
+     Instagram — c'est `/debug_token` qui rend les portées, mais il demande
+     le jeton d'app. Facultatif : la sonde le dit plutôt que de le taire. */
+  const appId = process.env.META_APP_ID?.trim();
+  const appSecret = process.env.META_APP_SECRET?.trim();
+  if (appId && appSecret) {
+    await sonde("/debug_token", {
+      input_token: accessToken,
+      access_token: `${appId}|${appSecret}`,
+    });
+  } else {
+    console.log(
+      "\n→ /debug_token\n  (non sondé : META_APP_ID et META_APP_SECRET absents de l'environnement)",
+    );
+  }
 }
 
 async function main() {
@@ -94,9 +193,12 @@ async function main() {
 
   const label = argValue("espace");
   if (!label) {
-    console.error("Usage : pnpm sonde:meta --espace <slug> [--version v23.0]");
+    console.error(
+      "Usage : pnpm sonde:meta --espace <slug> [--version v23.0] [--messagerie]",
+    );
     process.exit(1);
   }
+  const messagerie = hasFlag("messagerie");
 
   /* `||` et non `??` : le workflow passe la variable vide quand le champ
      n'est pas rempli, et une chaîne vide fabriquerait une URL sans version. */
@@ -135,7 +237,9 @@ async function main() {
     process.exit(1);
   }
 
-  console.log(`Graph ${version} — espace ${workspace.slug} (${workspace.name})`);
+  console.log(
+    `Graph ${version} — espace ${workspace.slug} (${workspace.name})${messagerie ? " — messagerie" : ""}`,
+  );
 
   const { data: links, error: linksError } = await admin
     .from("workspace_social_accounts")
@@ -161,12 +265,13 @@ async function main() {
   for (const link of affectes) {
     const { data: account } = await admin
       .from("social_accounts")
-      .select("external_id, display_name")
+      .select("external_id, display_name, parent_external_id")
       .eq("id", link.account_id)
       .single();
     const compte = account as unknown as {
       external_id: string;
       display_name: string | null;
+      parent_external_id: string | null;
     } | null;
     if (!compte) {
       console.error(`\n${link.kind} : compte ${link.account_id} introuvable.`);
@@ -206,6 +311,11 @@ async function main() {
       else console.log("  (jeton de Page non obtenu — sonde avec le jeton du branchement)");
 
       const sonde = makeSonde(base, accessToken);
+
+      if (messagerie) {
+        await sondeMessagerie(sonde, compte.external_id, accessToken);
+        continue;
+      }
 
       // Une publication récente sert de cobaye : c'est sur elle que se lit le
       // refus, pas sur la Page.
@@ -257,6 +367,23 @@ async function main() {
     }
 
     const sonde = makeSonde(base, accessToken);
+
+    if (messagerie) {
+      /* Comme le relevé : la boîte d'un compte Instagram est celle de sa
+         Page, avec le jeton rangé sur le compte — un jeton de Page depuis le
+         branchement. Sans Page parente, il n'y a rien à sonder, et le relevé
+         le dit de la même façon. */
+      if (!compte.parent_external_id) {
+        console.log(
+          "  (aucune Page rattachée à ce compte Instagram — la messagerie passe par elle, rien à sonder)",
+        );
+        continue;
+      }
+      console.log(`  Page parente : ${compte.parent_external_id}`);
+      await sondeMessagerie(sonde, compte.parent_external_id, accessToken);
+      continue;
+    }
+
     const media = await fetch(
       `${base}/${compte.external_id}/media?limit=1&fields=id,timestamp,media_type&access_token=${encodeURIComponent(accessToken)}`,
     );
