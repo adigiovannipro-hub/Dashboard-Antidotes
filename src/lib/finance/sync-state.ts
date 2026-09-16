@@ -9,9 +9,11 @@
  * Pourquoi une décision et pas un simple bouton : la synchronisation ne part
  * pas de l'hébergeur — Airwallex refuse ses adresses IP — mais d'une machine
  * GitHub, déclenchée par l'application. Une exécution coûte une minute et
- * demie de quota Actions. Ouvrir Finance puis Échéances puis revenir ne doit
- * donc pas en lancer trois : la fenêtre de fraîcheur ci-dessous est ce qui
- * sépare « la page s'actualise toute seule » de « chaque F5 brûle du quota ».
+ * demie de quota Actions, et le fond de tâche n'est plus horaire — quatre
+ * passages par jour, le reste part des écrans. Ouvrir Finance puis Factures
+ * puis revenir ne doit donc pas en lancer trois : la fenêtre de fraîcheur
+ * ci-dessous est ce qui sépare « la page s'actualise toute seule » de
+ * « chaque F5 brûle du quota ».
  */
 
 /** En deçà, les données sont considérées fraîches : on ne relance rien. */
@@ -20,13 +22,14 @@ export const FRESH_WINDOW_MINUTES = 10;
 /**
  * Au-delà, l'âge s'affiche en encre d'avertissement.
  *
- * Le passage programmé est horaire sur le papier ; GitHub, lui, en laisse
- * tomber près d'un sur deux et creuse des trous de deux à six heures. Le seuil
- * est donc à 90 minutes : c'est le moment où « le fond de tâche n'a pas
- * suivi » devient vrai, et où l'écran doit le dire au lieu de promettre une
- * mise à jour horaire qui n'a pas lieu.
+ * Le fond de tâche passe quatre fois par jour (`40 5,11,15,19 * * *` UTC) :
+ * l'écart normal entre deux passages est de quatre à six heures, et GitHub
+ * peut encore en sauter un. Le seuil est donc à sept heures : c'est le moment
+ * où « le fond de tâche n'a pas suivi » devient vrai — et non un simple
+ * matin sans ouverture d'écran — et où l'écran doit le dire. Entre deux
+ * passages, c'est l'ouverture de la page qui rafraîchit, pas le seuil.
  */
-export const STALE_AFTER_MINUTES = 90;
+export const STALE_AFTER_MINUTES = 7 * 60;
 
 /** Ce que l'application décide de faire au chargement d'une page Finance. */
 export type SyncDecision =

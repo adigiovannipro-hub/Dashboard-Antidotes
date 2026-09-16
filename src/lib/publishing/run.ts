@@ -27,10 +27,10 @@ import {
  * (sujet, réseau) est une insertion sous contrainte d'unicité, deux passages
  * concurrents ne publieront jamais deux fois.
  *
- * « À partir de » et non « à 16h pile » : le passage horaire de GitHub saute
- * près d'une fenêtre sur deux, et l'heure exacte n'offrait qu'une chance par
- * jour — voir `isPublishWindow`. Les passages suivants rattrapent, le verrou
- * empêchant tout doublon.
+ * « À partir de » et non « à 16h pile » : un passage programmé de GitHub
+ * saute près d'une fenêtre sur deux, et l'heure exacte n'offrait qu'une
+ * chance par jour — voir `isPublishWindow`. Les passages suivants de la
+ * fenêtre (quatre par jour) rattrapent, le verrou empêchant tout doublon.
  *
  * Un sujet en retard ne part pas : publier le 20 un post prévu le 12 sans
  * qu'un humain l'ait décidé serait pire que le trou. Il reste en rouge dans

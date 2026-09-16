@@ -38,8 +38,8 @@ export function RescheduleLateButton({ rows }: { rows: PublicationRow[] }) {
       if (done > 0) {
         toast.success(
           done > 1
-            ? `${done} publications reprogrammées à aujourd'hui — elles partiront à 16 h.`
-            : "Publication reprogrammée à aujourd'hui — elle partira à 16 h.",
+            ? `${done} publications reprogrammées à aujourd'hui.`
+            : "Publication reprogrammée à aujourd'hui.",
         );
         router.refresh();
       }

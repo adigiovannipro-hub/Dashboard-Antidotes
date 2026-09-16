@@ -297,8 +297,11 @@ export async function saveCampaign(
 
 /**
  * Pose un passage en file, puis donne l'ordre à GitHub de l'exécuter. Sans
- * jeton — ou si GitHub refuse —, le passage reste en file : le tour
- * programmé le prendra, et le message le dit.
+ * jeton — ou si GitHub refuse —, le passage reste en file, et **rien ne le
+ * ramasse tout seul** : `sourcing.yml` n'a plus de `schedule` (dix-huit tours
+ * à vide en un mois). Il attend un lancement depuis l'onglet Actions de
+ * GitHub, et le message le dit plutôt que de promettre un tour qui n'a plus
+ * lieu.
  */
 export async function launchCampaign(input: { campaignId: string }): Promise<SourcingResult> {
   const parsed = z.object({ campaignId: z.uuid() }).safeParse(input);
@@ -340,13 +343,13 @@ export async function launchCampaign(input: { campaignId: string }): Promise<Sou
     revalidatePath(`${SOURCING_PATH}/${campaign.id}`);
 
     const unavailable = syncDispatchUnavailable();
-    if (unavailable) return { ok: true, message: "Passage en file — il partira au prochain tour programmé." };
+    if (unavailable) return { ok: true, message: "Passage en file — à lancer depuis l'onglet Actions de GitHub." };
     try {
       await dispatchSourcingWorkflow();
       return { ok: true, message: "Passage lancé." };
     } catch (error) {
       const detail = error instanceof Error ? error.message : String(error);
-      return { ok: true, message: `Passage en file — le déclenchement immédiat a échoué (${detail}).` };
+      return { ok: true, message: `Passage en file — le déclenchement a échoué (${detail}). À lancer depuis l'onglet Actions de GitHub.` };
     }
   } catch (error) {
     return fail(error);

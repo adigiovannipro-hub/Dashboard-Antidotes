@@ -5,6 +5,7 @@ import { StatusPill, type StatusTone } from "@/components/ds/status-pill";
 import { Panel, PanelHeader, SectionHeader } from "@/components/ds/surface";
 import { getViewer } from "@/lib/auth";
 import { readWorkflowState } from "@/lib/finance/github-actions";
+import { STALE_AFTER_MINUTES } from "@/lib/finance/sync-state";
 import { CHANNEL_LABELS, type ModerationChannel } from "@/lib/moderation/types";
 import { createAdminClient } from "@/lib/supabase/server";
 
@@ -20,8 +21,11 @@ export const dynamic = "force-dynamic";
  * Lecture en admin : vue d'exploitation transverse, après la garde owner.
  */
 
-/** Au-delà, une source se dit en retard — deux passages horaires manqués. */
-const STALE_AFTER_MS = 2 * 60 * 60 * 1000;
+/* Le même seuil que le badge de Finance : le fond de tâche passe quatre fois
+   par jour, donc six heures sans passage sont la règle, sept un retard. Une
+   seule constante pour les deux écrans, sinon l'un dirait « À jour » quand
+   l'autre dirait « En retard » sur la même donnée. */
+const STALE_AFTER_MS = STALE_AFTER_MINUTES * 60 * 1000;
 
 const PROVIDER_LABELS: Record<string, string> = {
   meta_ads: "Meta Ads",

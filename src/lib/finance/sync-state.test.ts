@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   FRESH_WINDOW_MINUTES,
+  STALE_AFTER_MINUTES,
   decideSync,
   formatSyncAge,
   isStale,
@@ -126,7 +127,17 @@ describe("isStale", () => {
     expect(isStale(20)).toBe(false);
   });
 
-  it("signale un retard de plusieurs heures", () => {
-    expect(isStale(360)).toBe(true);
+  it("ne s'alarme pas de l'écart normal entre deux passages du fond de tâche", () => {
+    // Quatre passages par jour : six heures sans passage, c'est la règle.
+    expect(isStale(6 * 60)).toBe(false);
+  });
+
+  it("signale un retard dès le seuil atteint, bord compris", () => {
+    expect(isStale(STALE_AFTER_MINUTES - 1)).toBe(false);
+    expect(isStale(STALE_AFTER_MINUTES)).toBe(true);
+  });
+
+  it("signale un retard d'une journée", () => {
+    expect(isStale(24 * 60)).toBe(true);
   });
 });
