@@ -228,13 +228,13 @@ déploiement demandant mieux qu'un cron quotidien. Ses clés se posent dans
 *Settings → Secrets and variables → Actions* — la liste est en tête du
 workflow.
 
-Elle a **deux déclencheurs**. Un passage programmé quatre fois par jour, qui fait
+Elle a **deux déclencheurs**. Un passage programmé deux fois par jour, qui fait
 le fond ; et **l'ouverture de Finance ou de Factures**, qui la relance quand
 la dernière remonte à plus de dix minutes. Le second n'est pas un confort : un
-`cron` GitHub est une intention, pas une garantie — près d'une exécution
-programmée sur deux n'a jamais lieu, avec des trous de plusieurs heures, et rien
-ne le signale. L'en-tête des deux écrans dit l'âge des chiffres en clair,
-passe en ambre au-delà de sept heures, et porte un bouton
+`cron` GitHub est une intention, pas une garantie — sur ce dépôt, il part
+quatre à sept heures en retard, une exécution est parfois sautée, et rien ne le
+signale. L'en-tête des deux écrans dit l'âge des chiffres en clair, passe en
+ambre au-delà de vingt-six heures, et porte un bouton
 « Synchroniser » pour ne pas attendre les dix minutes.
 
 Le passage programmé porte aussi **l'émission des factures et leurs relances**

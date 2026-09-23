@@ -138,9 +138,10 @@ export const PUBLISH_HOUR_PARIS = 16;
  * deux, sans ligne rouge ni notification. Une fenêtre sautée à 14h17 UTC, et
  * rien ne partait de la journée.
  *
- * Ouverte de 16h à minuit, il faudrait que les quatre passages qui y tombent
- * (15h40, 17h40, 19h40 et 21h40 UTC — `airwallex-sync.yml`) soient sautés
- * d'affilée pour perdre le jour. La borne haute n'a pas à s'écrire : à
+ * Ouverte de 16h à minuit, elle reçoit le passage du soir d'`airwallex-sync.yml`
+ * (programmé à 15h UTC, lancé par GitHub des heures plus tard — la fenêtre de
+ * huit heures absorbe le retard) et, souvent, celui du matin, qui rattrape.
+ * La borne haute n'a pas à s'écrire : à
  * minuit, la date de Paris avance et les sujets du jour deviennent des
  * retards, que le passage refuse déjà de publier.
  *

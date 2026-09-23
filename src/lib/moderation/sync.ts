@@ -1010,7 +1010,7 @@ export async function syncModerationInbox(options: {
   admin: Admin;
   /**
    * Ce que le passage redemande. `complet` par défaut — un appel qui ne dit
-   * rien veut le comportement d'avant, et c'est la portée nocturne.
+   * rien veut le comportement d'avant, et c'est la portée du matin.
    */
   scope?: SyncScope;
   /**
@@ -1216,7 +1216,7 @@ export type FaqReindexReport = {
   /** Entrées sans vecteur, sans source, ou vectorisées par un autre fournisseur. */
   pending: number;
   indexed: number;
-  /** Le modèle n'a pas pu tourner ici — la passe nocturne s'en chargera. */
+  /** Le modèle n'a pas pu tourner ici — le passage du matin s'en chargera. */
   note: string | null;
 };
 
@@ -1226,7 +1226,7 @@ export type FaqReindexReport = {
  * Les corrections n'embarquent plus le modèle dans le clic : 25 Mo à charger,
  * et son binaire ONNX ne charge pas sur Vercel — l'échec emportait la réponse
  * avec lui. Les entrées s'écrivent donc sans vecteur, et ce passage — greffé
- * à la passe nocturne, qui tourne sur une machine complète — les indexe. Il fait
+ * au passage du matin, qui tourne sur une machine complète — les indexe. Il fait
  * aussi converger les vecteurs d'un autre fournisseur (la démonstration a été
  * amorcée en `deterministic`) : deux sources ne se comparent pas.
  *

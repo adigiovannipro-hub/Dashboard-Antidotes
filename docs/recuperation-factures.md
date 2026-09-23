@@ -15,7 +15,7 @@ rien : tout tourne dans le cloud.
 |---|---|---|
 | Le lien du fournisseur | Dashboard, colonne Récupération | Une fois, à la main |
 | La connexion au fournisseur | Un vrai navigateur, sur un écran | Une fois, puis quand la session expire |
-| Le passage : chercher, envoyer, marquer | **GitHub Actions**, workflow « Récupération des factures » | Chaque jour à 9 h 23 (Paris) |
+| Le passage : chercher, envoyer, marquer | **GitHub Actions**, passage du matin de « Synchronisation Airwallex » (portée `matin`) | Chaque jour, avant ton lever |
 
 Rien ne tourne sur ton Mac en régime établi, et rien ne peut tourner sur
 Vercel : une fonction serverless n'a pas de navigateur, et rien n'y survit
@@ -93,8 +93,9 @@ ainsi de suite. Après un échec, il attend trois jours.
 Le navigateur ne s'ouvre que s'il y a quelque chose à faire : une journée vide
 coûte une requête à Supabase et quelques secondes de runner.
 
-Pour le lancer à la main sans attendre 9 h 23 : onglet **Actions** du dépôt →
-« Récupération des factures » → **Run workflow**. Le journal d'exécution dit,
+Pour le lancer à la main sans attendre le matin : onglet **Actions** du dépôt →
+« Récupération des factures » → **Run workflow** (champ `forcer` pour un seul
+fournisseur, hors calendrier). Le journal d'exécution dit,
 fournisseur par fournisseur, ce qui a été fait et pourquoi.
 
 ## Ce que le passage fait sur la page
@@ -108,8 +109,9 @@ qui suffit à l'ajuster.
 
 ## Coût et limites
 
-Une exécution par jour, deux à trois minutes navigateur compris, soit environ
-80 minutes par mois sur les 2 000 gratuites du dépôt privé. Aucun appel payant.
+Une étape du passage du matin depuis le 23/09/2026 : quelques secondes les
+jours sans rien à faire, une à deux minutes navigateur compris le jour d'une
+facture, sans installation de plus à payer. Aucun appel payant.
 
 **La limite à connaître** : la session est ouverte depuis chez toi et rejouée
 depuis un centre de données GitHub. Certains fournisseurs lient une session à
