@@ -13,14 +13,12 @@
 # fournisseur. Le passage ne se connecte jamais lui-même : un mot de passe,
 # une double authentification, un captcha ne s'automatisent pas.
 #
-# Son propre workflow et non une étape de `airwallex-sync.yml` : celui-ci tourne
-# toutes les heures, et ouvrir un navigateur vingt-quatre fois par jour pour un
-# travail mensuel serait absurde. Une fois par jour suffit — le script ne fait
-# rien tant que le prélèvement du mois n'a pas eu lieu, et rien non plus une
-# fois la facture récupérée.
-#
-# Coût : une exécution par jour, deux à trois minutes navigateur compris,
-# soit ~80 minutes par mois sur les 2 000 gratuites d'un dépôt privé.
+# Le passage quotidien est désormais une étape du matin d'`airwallex-sync.yml`
+# (portée `matin`) — depuis le 23/09/2026, deux passages programmés par jour et
+# pas un de plus : ce workflow en faisait un troisième, pour un travail qui ne
+# sert qu'une fois par mois et ne fait rien le reste du temps. Il reste pour
+# la main : forcer un fournisseur hors calendrier, ou rejouer un passage sans
+# attendre le matin. Plus aucun schedule.
 #
 # Secrets requis (Settings → Secrets and variables → Actions) :
 #   NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY,
@@ -31,10 +29,6 @@
 name: Récupération des factures
 
 on:
-  schedule:
-    # 7 h 23 UTC — 9 h 23 à Paris l'été, 8 h 23 l'hiver. Minute décalée : les
-    # pics de la pleine heure sont là où GitHub retarde le plus ses schedules.
-    - cron: "23 7 * * *"
   workflow_dispatch:
     inputs:
       forcer:

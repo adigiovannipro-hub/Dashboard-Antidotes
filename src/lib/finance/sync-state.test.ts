@@ -128,8 +128,9 @@ describe("isStale", () => {
   });
 
   it("ne s'alarme pas de l'écart normal entre deux passages du fond de tâche", () => {
-    // Quatre passages par jour : six heures sans passage, c'est la règle.
-    expect(isStale(6 * 60)).toBe(false);
+    // Deux passages par jour, rapprochés par le retard de GitHub : vingt-trois
+    // heures sans passage, c'est la règle.
+    expect(isStale(23 * 60)).toBe(false);
   });
 
   it("signale un retard dès le seuil atteint, bord compris", () => {
@@ -137,7 +138,7 @@ describe("isStale", () => {
     expect(isStale(STALE_AFTER_MINUTES)).toBe(true);
   });
 
-  it("signale un retard d'une journée", () => {
-    expect(isStale(24 * 60)).toBe(true);
+  it("signale une journée entière sans passage", () => {
+    expect(isStale(27 * 60)).toBe(true);
   });
 });
