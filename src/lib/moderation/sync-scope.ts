@@ -13,7 +13,7 @@
  *   • `jour` — ce que l'ouverture de l'écran déclenche. Deux jours de
  *     conversations, aucun rattrapage de profil, et les commentaires des
  *     seules publications dont le compteur a bougé (`moderation_post_cursors`).
- *   • `complet` — le passage nocturne. Soixante jours, rattrapages compris,
+ *   • `complet` — le passage du matin. Soixante jours, rattrapages compris,
  *     et les curseurs remis à jour sans être consultés : c'est la passe de
  *     réparation, elle doit voir ce que les passes courtes ont pu manquer.
  *
@@ -36,8 +36,9 @@ export const SYNC_SCOPE_LABELS: Record<SyncScope, string> = {
  * La fenêtre des **conversations privées**, en jours.
  *
  * Deux jours et non un : le relevé du jour part à l'ouverture de l'écran,
- * donc à des heures irrégulières, et la passe nocturne est un cron GitHub qui
- * saute parfois sa fenêtre ; le relevé tourne en UTC quand la boîte vit à
+ * donc à des heures irrégulières, et le passage du matin est un cron GitHub
+ * qui arrive des heures en retard, ou pas du tout ; le relevé tourne en UTC
+ * quand la boîte vit à
  * Paris ; et Meta antidate parfois `updated_time` d'un fil réveillé par un
  * accusé de lecture. Un seul jour laisserait un trou que rien ne viendrait
  * combler avant la nuit.
@@ -65,7 +66,7 @@ export function conversationSince(scope: SyncScope, now: Date): string {
 
 /**
  * Vrai quand le passage saute les publications dont le compteur de
- * commentaires n'a pas bougé. Le passage nocturne, lui, redescend tout :
+ * commentaires n'a pas bougé. Le passage complet, lui, redescend tout :
  * c'est lui qui répare ce qu'un compteur menteur aurait fait manquer.
  */
 export function usesPostCursors(scope: SyncScope): boolean {

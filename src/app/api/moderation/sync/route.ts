@@ -34,9 +34,9 @@ import { COMPOSIO_TRANSITION_NOTE } from "@/lib/social/direct-connect";
  *   • **`complet`** — la passe de réparation. Elle dure des minutes et n'a
  *     donc rien à faire dans une fonction qui vit soixante secondes : la route
  *     donne l'ordre à GitHub (`portee: moderation-complet`) et rend la main,
- *     exactement comme `/api/finance/sync`. Elle tourne aussi seule la nuit
- *     (02:10 et 04:10 UTC) — le seul passage programmé de l'Inbox
- *     depuis que le cron horaire n'existe plus. Sans `GITHUB_SYNC_TOKEN`,
+ *     exactement comme `/api/finance/sync`. Elle tourne aussi seule avec le
+ *     passage du matin d'`airwallex-sync.yml` (portée `matin`) — le seul
+ *     passage programmé de l'Inbox. Sans `GITHUB_SYNC_TOKEN`,
  *     elle retombe sur l'exécution locale — imparfaite, elle peut être
  *     coupée, mais elle vaut mieux qu'un bouton mort, et l'écran dit lequel
  *     des deux tourne.
@@ -206,7 +206,7 @@ async function runHere(state: SyncSnapshot, scope: SyncScope) {
     deadline: Date.now() + ROUTE_BUDGET_MS,
   });
   // Les entrées FAQ en attente d'indexation. Souvent muet ici : sur Vercel le
-  // modèle d'embeddings ne charge pas, et la passe nocturne s'en charge.
+  // modèle d'embeddings ne charge pas, et le passage du matin s'en charge.
   const faq = await reindexFaqSearch({ admin });
 
   const failed = reports.filter((report) => report.error);

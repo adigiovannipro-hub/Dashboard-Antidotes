@@ -29,7 +29,7 @@ const FINANCE_PATH = "/entreprise/finance";
    l'hébergeur, cette action se faisait renvoyer un « 403 Forbidden » à tous
    les coups, et son seul effet observable était d'inscrire trois échecs au
    journal. La synchronisation part d'une machine GitHub — voir
-   `.github/workflows/airwallex-sync.yml` — quatre fois par jour, et à
+   `.github/workflows/airwallex-sync.yml` — deux fois par jour, et à
    l'ouverture de l'écran. Le pipeline
    lui-même, `runFinanceSync`, n'a pas bougé d'une ligne. */
 

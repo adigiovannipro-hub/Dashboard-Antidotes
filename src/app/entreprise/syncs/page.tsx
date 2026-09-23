@@ -21,10 +21,11 @@ export const dynamic = "force-dynamic";
  * Lecture en admin : vue d'exploitation transverse, après la garde owner.
  */
 
-/* Le même seuil que le badge de Finance : le fond de tâche passe quatre fois
-   par jour, donc six heures sans passage sont la règle, sept un retard. Une
-   seule constante pour les deux écrans, sinon l'un dirait « À jour » quand
-   l'autre dirait « En retard » sur la même donnée. */
+/* Le même seuil que le badge de Finance : le fond de tâche passe deux fois
+   par jour, donc une journée sans passage est la règle, vingt-six heures un
+   retard — ce qui vaut aussi pour le cron quotidien du Reporting. Une seule
+   constante pour les deux écrans, sinon l'un dirait « À jour » quand l'autre
+   dirait « En retard » sur la même donnée. */
 const STALE_AFTER_MS = STALE_AFTER_MINUTES * 60 * 1000;
 
 const PROVIDER_LABELS: Record<string, string> = {

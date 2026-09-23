@@ -19,7 +19,7 @@ import { decideSync, type SyncDecision, type SyncSnapshot } from "@/lib/finance/
  * le même écran affiche. Une seule commande met donc les deux pages à jour,
  * d'où une seule route pour les deux. Le déclenchement est borné à cette
  * portée (`portee: finance`) : publication, émission de factures et Inbox
- * appartiennent aux quatre passages `quotidien` du fond de tâche — ouvrir une
+ * appartiennent aux deux passages programmés du fond de tâche — ouvrir une
  * page ne doit rien envoyer à personne, et la chaîne entière prenait
  * plusieurs minutes que l'écran passait à afficher « en cours ».
  *

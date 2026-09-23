@@ -21,13 +21,14 @@ import { missingServerEnv, serverEnv } from "@/lib/env";
  *
  * Ce fond de tâche n'est plus horaire depuis le 16/09/2026 : un cron horaire
  * dont chaque passage avait grimpé de 2 à 13 minutes valait 4,7 fois le
- * quota mensuel d'Actions à cadence nominale. Il reste **quatre passages par jour**
- * (`40 5,11,15,19 * * *` UTC, portée `quotidien` : Finance, publication du
- * Planning, Factures, Reçus), **deux passages de publication seule** (17:40 et
- * 21:40 UTC) pour que la fenêtre 16h–minuit Paris ne tienne pas à un créneau
- * que GitHub saute, et **une passe de réparation de l'Inbox** à 02:10 ou
- * 04:10 UTC (`moderation-complet`, deux créneaux pour la même raison). Tout
- * ce qui doit être frais à l'ouverture d'un écran se relève depuis l'écran.
+ * quota mensuel d'Actions à cadence nominale. Depuis le 23/09 il ne reste que
+ * **deux passages par jour** : le soir (`0 15 * * *` UTC, portée `quotidien` :
+ * Finance, publication du Planning, Factures, Reçus) et le matin
+ * (`40 16 * * *` UTC, portée `matin` : Finance, Reçus, Inbox complète,
+ * récupération des factures, seconde chance de publication) — heures choisies
+ * pour le retard de quatre à sept heures avec lequel GitHub lance les
+ * schedules de ce dépôt (voir l'en-tête du workflow). Tout ce qui doit être
+ * frais à l'ouverture d'un écran se relève depuis l'écran.
  */
 
 /**
@@ -136,7 +137,7 @@ export async function readWorkflowState(): Promise<WorkflowState> {
  * Échéances qui en est l'étape `billing`) **et les Reçus**, puisqu'une pièce
  * en attente de transfert s'affiche sur le même écran. Ni publication, ni
  * émission de facture, ni Inbox : ouvrir une page ne doit rien envoyer à
- * personne. Ces étapes-là appartiennent aux quatre passages `quotidien` du
+ * personne. Ces étapes-là appartiennent aux deux passages programmés du
  * fond de tâche, et à « Run workflow » depuis GitHub.
  */
 export async function dispatchSyncWorkflow(): Promise<void> {
@@ -152,8 +153,9 @@ export async function dispatchSyncWorkflow(): Promise<void> {
  *
  * Les deux portées désignent la même étape et diffèrent par ce qu'elle
  * redemande : `moderation` relève le jour, `moderation-complet` la passe de
- * réparation — celle qui tourne seule la nuit et que « Tout relever »
- * rejoue sans attendre la nuit. C'est elle qui a besoin d'un runner : elle
+ * réparation — celle que le passage du matin joue seul et que « Tout
+ * relever » rejoue sans attendre le matin. C'est elle qui a besoin d'un
+ * runner : elle
  * dure des minutes, quand une fonction Hobby vit soixante secondes et se
  * faisait couper en vol. Le relevé du jour, lui, ne passe par ici que si la
  * route ne peut pas l'exécuter elle-même.

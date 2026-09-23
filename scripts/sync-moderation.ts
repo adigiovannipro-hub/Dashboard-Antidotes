@@ -4,7 +4,7 @@
  *
  *   pnpm sync:moderation
  *
- * Greffée sur le workflow `airwallex-sync.yml` (passe nocturne), comme la publication
+ * Greffée sur le workflow `airwallex-sync.yml` (passage du matin), comme la publication
  * du Planning : les deux créneaux cron de Vercel sont pris. Meta accepte les
  * IP GitHub, et le passage coûte quelques secondes par compte affecté.
  *
@@ -15,7 +15,7 @@
  *
  *   • `jour` — ce que l'ouverture de l'écran joue, dans la route. Deux jours de conversations, et
  *     les commentaires des seules publications dont le compteur a bougé.
- *   • `complet` — le défaut, et ce que joue le créneau nocturne. Soixante
+ *   • `complet` — le défaut, et ce que joue le passage du matin. Soixante
  *     jours, photos de profil et auteurs masqués rattrapés.
  *
  * Le défaut est `complet` : une commande lancée à la main veut le passage
