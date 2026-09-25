@@ -1,6 +1,6 @@
 import "server-only";
 
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient, createClient } from "@/lib/supabase/server";
 import type {
   ClientAsset,
   ClientContext,
@@ -15,10 +15,19 @@ import { ASSETS_BUCKET } from "./storage";
  * Toutes passent par le client porteur de la session : la RLS de 0033 réserve
  * ces tables à l'owner, une liste vide est donc la bonne réponse pour tout
  * autre profil. Les filtres présents servent à cibler, pas à protéger.
+ *
+ * Les quatre lectures dont la génération a besoin acceptent un client déjà
+ * construit : un job qui tourne hors requête — script GitHub, `after()` — n'a
+ * pas de cookies, et `createClient()` les lit.
  */
 
-export async function getActiveContext(workspaceId: string): Promise<ClientContext | null> {
-  const supabase = await createClient();
+type Reader = ReturnType<typeof createAdminClient>;
+
+export async function getActiveContext(
+  workspaceId: string,
+  client?: Reader,
+): Promise<ClientContext | null> {
+  const supabase = client ?? (await createClient());
   const { data } = await supabase
     .from("client_context")
     .select("*")
@@ -71,8 +80,9 @@ export async function listContextVersions(
  */
 export async function getGenerationSettings(
   workspaceId: string,
+  client?: Reader,
 ): Promise<ClientGenerationSettings | null> {
-  const supabase = await createClient();
+  const supabase = client ?? (await createClient());
   const { data } = await supabase
     .from("client_generation_settings")
     .select("*")
@@ -82,8 +92,11 @@ export async function getGenerationSettings(
   return (data as unknown as ClientGenerationSettings | null) ?? null;
 }
 
-export async function listAssets(workspaceId: string): Promise<ClientAsset[]> {
-  const supabase = await createClient();
+export async function listAssets(
+  workspaceId: string,
+  client?: Reader,
+): Promise<ClientAsset[]> {
+  const supabase = client ?? (await createClient());
   const { data } = await supabase
     .from("client_assets")
     .select("*")
@@ -108,9 +121,9 @@ export async function getAsset(assetId: string): Promise<ClientAsset | null> {
 /** Les dernières accroches validées, la plus récente d'abord. */
 export async function listRecentAccroches(
   workspaceId: string,
-  options: { limit?: number } = {},
+  options: { limit?: number; client?: Reader } = {},
 ): Promise<WordingHistoryEntry[]> {
-  const supabase = await createClient();
+  const supabase = options.client ?? (await createClient());
   const { data } = await supabase
     .from("wording_history")
     .select("*")
