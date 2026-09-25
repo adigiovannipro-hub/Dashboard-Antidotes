@@ -256,6 +256,161 @@ export async function rematchPendingDocuments(orgId: string): Promise<{
   return { examined: documents.length, updated };
 }
 
+/**
+ * Redonner sa chance à l'automatisme sur les pièces restées en attente.
+ *
+ * L'auto-transfert ne se jugeait qu'à la lecture du mail, une seule fois. Tout
+ * ce qui changeait ensuite restait lettre morte, et la pièce attendait un clic
+ * pour toujours — trois cas constatés le 23/09 sur Grab : le plafond horaire
+ * atteint au milieu d'un rattrapage, la dépense carte arrivée après le mail, et
+ * un fournisseur réautorisé le lendemain de ses deux derniers reçus.
+ *
+ * Mêmes garde-fous qu'à la lecture, sans exception : `evaluateAutoForward`
+ * reste la seule porte. Un refus n'est pas rejournalisé — il l'a été à
+ * l'ingestion, le répéter à chaque passage noierait l'historique.
+ */
+export async function retryAutoForward(orgId: string): Promise<{
+  examined: number;
+  forwarded: number;
+  errors: string[];
+}> {
+  const admin = createAdminClient();
+  const report = { examined: 0, forwarded: 0, errors: [] as string[] };
+
+  const { data: sourceRows, error: sourceError } = await admin
+    .from("receipt_sources")
+    .select("id, settings")
+    .eq("org_id", orgId)
+    .eq("status", "connected");
+  if (sourceError) throw new Error(`Lecture des boîtes : ${sourceError.message}`);
+
+  const settingsBySource = new Map(
+    ((sourceRows ?? []) as unknown as Pick<ReceiptSource, "id" | "settings">[]).map(
+      (source) => [source.id, { ...DEFAULT_SOURCE_SETTINGS, ...source.settings }],
+    ),
+  );
+
+  const { data, error } = await admin
+    .from("receipt_documents")
+    .select(
+      "id, source_id, from_email, kind, classification_confidence, amount_cents, currency, document_date, received_at, merchant, status",
+    )
+    .eq("org_id", orgId)
+    .eq("status", "awaiting_validation")
+    .is("forwarded_at", null)
+    .order("received_at", { ascending: true });
+  if (error) throw new Error(`Lecture des pièces en attente : ${error.message}`);
+
+  const documents = (data ?? []) as unknown as Pick<
+    ReceiptDocument,
+    | "id"
+    | "source_id"
+    | "from_email"
+    | "kind"
+    | "classification_confidence"
+    | "amount_cents"
+    | "currency"
+    | "document_date"
+    | "received_at"
+    | "merchant"
+    | "status"
+  >[];
+  if (documents.length === 0) return report;
+
+  const { data: ruleRows, error: ruleError } = await admin
+    .from("receipt_merchant_rules")
+    .select("sender_domain, auto_forward")
+    .eq("org_id", orgId);
+  if (ruleError) throw new Error(`Lecture des fournisseurs : ${ruleError.message}`);
+
+  const trusted = new Map(
+    ((ruleRows ?? []) as { sender_domain: string; auto_forward: boolean }[]).map(
+      (rule) => [rule.sender_domain, rule.auto_forward],
+    ),
+  );
+
+  let forwardedLastHour = await countAutoForwardedLastHour(admin, orgId);
+
+  for (const document of documents) {
+    const settings = settingsBySource.get(document.source_id);
+    if (!settings) continue; // Boîte déconnectée : rien ne peut partir d'elle.
+
+    const domain = senderDomain(document.from_email);
+    /* Filtre bon marché avant la lecture des dépenses : l'écrasante majorité
+       des pièces en attente vient d'un fournisseur qu'on n'a pas automatisé. */
+    if (!trusted.get(domain)) continue;
+
+    report.examined += 1;
+
+    const around = new Date(document.document_date ?? document.received_at);
+    const expenses = await candidateExpenses(admin, orgId, around);
+    const match = matchDocument(
+      {
+        amount_cents: document.amount_cents,
+        currency: document.currency,
+        document_date: document.document_date,
+        received_at: document.received_at,
+        merchant: document.merchant,
+      },
+      expenses,
+    );
+
+    const matched = expenses.find((expense) => expense.id === match.best?.expense_id);
+    const billedEurCents =
+      matched?.billing_currency?.toUpperCase() === "EUR"
+        ? matched.billing_amount_cents
+        : null;
+
+    const decision = evaluateAutoForward({
+      settings: settings.auto_forward,
+      document: {
+        kind: document.kind,
+        classification_confidence: Number(document.classification_confidence),
+        amount_cents: document.amount_cents,
+        currency: document.currency,
+        status: document.status,
+      },
+      billedEurCents,
+      match,
+      rule: { auto_forward: true },
+      senderDomain: domain,
+      ignoredSenders: settings.ignored_senders,
+      autoForwardedLastHour: forwardedLastHour,
+    });
+    if (!decision.allowed) continue;
+
+    /* Le rapprochement retenu est celui du jugement, pas celui d'hier :
+       le transfert et la vérification lisent `expense_id` sur la ligne. */
+    const { error: updateError } = await admin
+      .from("receipt_documents")
+      .update({
+        expense_id: match.best?.expense_id ?? null,
+        match_confidence: match.best?.confidence ?? null,
+        match_method: match.best?.method ?? "none",
+        match_candidates: match.candidates as never,
+      } as never)
+      .eq("id", document.id);
+    if (updateError) {
+      report.errors.push(`${document.id} : ${updateError.message}`);
+      continue;
+    }
+
+    const result = await forwardDocument({
+      documentId: document.id,
+      actorId: null,
+      auto: true,
+    });
+    if (result.ok) {
+      report.forwarded += 1;
+      forwardedLastHour += 1;
+    } else {
+      report.errors.push(`${document.id} : ${result.error}`);
+    }
+  }
+
+  return report;
+}
+
 // --- Ingestion --------------------------------------------------------------
 
 export type IngestReport = {
