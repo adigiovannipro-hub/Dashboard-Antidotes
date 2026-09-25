@@ -1,0 +1,113 @@
+# Reprise d'un planning Monday 2026 dans Antidotes, visuels et vidéos compris.
+#
+# Deux déclencheurs, parce qu'un `workflow_dispatch` n'existe pour l'API
+# qu'une fois le fichier sur `main` (voir « Pièges connus ») :
+#
+#   • avant la fusion : un push sur la branche de travail qui modifie
+#     `scripts/data/reprise-monday/ordre.json` — l'ordre est versionné, donc
+#     relisible après coup ;
+#   • après la fusion : « Run workflow » depuis l'onglet Actions.
+#
+# Un espace par job, en parallèle : le réencodage des vidéos est le poste long,
+# et les deux clients ne partagent rien.
+
+name: Reprise Monday
+
+on:
+  push:
+    branches: [claude/laughing-bohr-bqx3ke]
+    paths: [scripts/data/reprise-monday/ordre.json]
+  workflow_dispatch:
+    inputs:
+      espace:
+        description: "Espace à reprendre"
+        type: choice
+        options: [anmf, bondet]
+      ecrire:
+        description: "Écrire en base (sinon aperçu)"
+        type: boolean
+        default: false
+      medias:
+        description: "Rapatrier visuels et vidéos"
+        type: boolean
+        default: false
+      budget_video:
+        description: "Budget vidéo en Mo (vide : 1 200 kbit/s)"
+        type: string
+        default: ""
+
+jobs:
+  ordre:
+    name: Lire l'ordre
+    runs-on: ubuntu-latest
+    outputs:
+      matrice: ${{ steps.lire.outputs.matrice }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: lire
+        env:
+          EVENEMENT: ${{ github.event_name }}
+          ESPACE: ${{ inputs.espace }}
+          ECRIRE: ${{ inputs.ecrire }}
+          MEDIAS: ${{ inputs.medias }}
+          BUDGET: ${{ inputs.budget_video }}
+        run: |
+          if [ "$EVENEMENT" = "workflow_dispatch" ]; then
+            matrice=$(jq -cn --arg e "$ESPACE" --arg w "$ECRIRE" --arg m "$MEDIAS" --arg b "$BUDGET" \
+              '[{espace: $e, ecrire: ($w == "true"), medias: ($m == "true"), budget: $b}]')
+          else
+            matrice=$(jq -c '[.espaces[] as $e | {espace: $e, ecrire: .ecrire, medias: .medias, budget: ((.budget_video[$e] // "") | tostring)}]' \
+              scripts/data/reprise-monday/ordre.json)
+          fi
+          echo "matrice=$matrice" >> "$GITHUB_OUTPUT"
+          echo "$matrice"
+
+  reprise:
+    name: Reprise ${{ matrix.espace }}
+    needs: ordre
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.ordre.outputs.matrice) }}
+    # Deux reprises du même espace ne doivent jamais se croiser, et une
+    # reprise coupée en plein vol laisserait le mois à moitié remplacé.
+    concurrency:
+      group: reprise-monday-${{ matrix.espace }}
+      cancel-in-progress: false
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.18.2
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Installation
+        run: pnpm install --frozen-lockfile
+
+      - name: ffmpeg
+        if: ${{ matrix.medias }}
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
+
+      - name: Reprise
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          MONDAY_API_TOKEN: ${{ secrets.MONDAY_API_TOKEN }}
+          ESPACE: ${{ matrix.espace }}
+          ECRIRE: ${{ matrix.ecrire }}
+          MEDIAS: ${{ matrix.medias }}
+          BUDGET: ${{ matrix.budget }}
+        run: |
+          args=(--espace "$ESPACE")
+          [ "$ECRIRE" = "true" ] && args+=(--ecrire)
+          [ "$MEDIAS" = "true" ] && args+=(--medias)
+          [ -n "$BUDGET" ] && args+=(--budget-video "$BUDGET")
+          pnpm reprise:monday "${args[@]}"
