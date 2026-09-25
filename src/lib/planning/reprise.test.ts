@@ -155,22 +155,47 @@ describe("planReprise", () => {
     expect(plan.deleteSubjectIds).toEqual([]);
   });
 
-  it("efface les essais vides et ce qui est déjà à la corbeille, met le contenu à la corbeille", () => {
+  it("efface les essais vides et met le contenu à la corbeille", () => {
     const plan = planReprise({
       snapshot: snapshot(),
       months: MONTHS,
       lanes: [{ id: "l-avril", month_id: "m-avril", external_id: null }],
       subjects: [
-        existing({ id: "vide" }),
-        existing({ id: "jete", name: "ddddd", deleted_at: "2026-08-20T00:00:00Z", visual_urls: ["ws/jete/a.png"] }),
+        existing({ id: "vide", visual_urls: [] }),
+        existing({ id: "jete-vide", deleted_at: "2026-08-20T00:00:00Z" }),
         existing({ id: "vrai", name: "RENTRÉE OPTIQUE", wording: "On reconnaît…" }),
       ],
     });
 
-    expect(plan.deleteSubjectIds.sort()).toEqual(["jete", "vide"]);
-    expect(plan.orphanVisualPaths).toEqual(["ws/jete/a.png"]);
-    expect(plan.trashSubjects).toEqual([{ id: "vrai", month: "2026-04-01" }]);
+    expect(plan.deleteSubjectIds.sort()).toEqual(["jete-vide", "vide"]);
+    expect(plan.trashSubjects).toEqual([
+      { id: "vrai", month: "2026-04-01", alreadyTrashed: false },
+    ]);
     expect(plan.deleteLaneIds).toEqual(["l-avril"]);
+  });
+
+  it("ne vide jamais une corbeille qui porte du contenu, même en seconde passe", () => {
+    const plan = planReprise({
+      snapshot: snapshot(),
+      months: MONTHS,
+      lanes: [{ id: "l-avril", month_id: "m-avril", external_id: null }],
+      subjects: [
+        existing({
+          id: "range",
+          name: "RENTRÉE OPTIQUE",
+          wording: "On reconnaît…",
+          visual_urls: ["ws/range/a.png"],
+          deleted_at: "2026-09-25T10:18:00Z",
+        }),
+      ],
+    });
+
+    expect(plan.deleteSubjectIds).toEqual([]);
+    expect(plan.orphanVisualPaths).toEqual([]);
+    // Elle suit un couloir Monday, sans quoi retirer le sien l'emporterait.
+    expect(plan.trashSubjects).toEqual([
+      { id: "range", month: "2026-04-01", alreadyTrashed: true },
+    ]);
   });
 
   it("relève un mois repris qui était à la corbeille", () => {

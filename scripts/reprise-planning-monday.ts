@@ -349,7 +349,8 @@ async function main() {
   );
   console.log(
     `Ménage : ${plan.deleteSubjectIds.length} essais effacés, ` +
-      `${plan.trashSubjects.length} lignes à la corbeille, ${plan.deleteLaneIds.length} couloirs retirés`,
+      `${plan.trashSubjects.filter((t) => !t.alreadyTrashed).length} lignes à la corbeille, ` +
+      `${plan.deleteLaneIds.length} couloirs retirés`,
   );
   if (plan.skippedGroups.length > 0) console.log(`Groupes ignorés : ${plan.skippedGroups.join(", ")}`);
   for (const warning of plan.warnings) console.log(`⚠ ${warning}`);
@@ -524,10 +525,13 @@ async function main() {
   }
   const trashedAt = new Date().toISOString();
   for (const entry of plan.trashSubjects) {
+    const lane = firstLaneOfMonth.get(entry.month)!;
     must(
       await admin
         .from("planning_subjects")
-        .update({ deleted_at: trashedAt, lane_id: firstLaneOfMonth.get(entry.month)! } as never)
+        .update(
+          (entry.alreadyTrashed ? { lane_id: lane } : { deleted_at: trashedAt, lane_id: lane }) as never,
+        )
         .eq("id", entry.id),
       "Mise à la corbeille",
     );

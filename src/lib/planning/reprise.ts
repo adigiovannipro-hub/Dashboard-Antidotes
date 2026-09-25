@@ -19,10 +19,12 @@
  *     exclu — l'exclusion est écrite dans l'instantané (octobre 2026, en
  *     préparation dans Antidotes, ne doit pas bouger) ;
  *   • dans un mois repris, ce qui ne vient pas de Monday part : une ligne vide
- *     ou déjà à la corbeille est effacée pour de bon (ce sont les essais), une
- *     ligne qui porte du contenu va à la corbeille — restaurable, jamais
- *     perdue — et suit le premier couloir Monday du mois, puisque son couloir
- *     d'origine disparaît ;
+ *     est effacée pour de bon (ce sont les essais), une ligne qui porte du
+ *     contenu va à la corbeille — restaurable, jamais perdue — et suit le
+ *     premier couloir Monday du mois, puisque son couloir d'origine
+ *     disparaît. Ce qui est déjà à la corbeille n'est touché que s'il est
+ *     vide : une première version effaçait toute la corbeille, et la seconde
+ *     passe de Bondet a ainsi effacé ce que la première venait d'y ranger ;
  *   • un mois repris à la corbeille est relevé : sans ça, l'upsert écrirait
  *     dans un mois invisible (le piège de `createMonth`) ;
  *   • les mois hors reprise ne sont jamais touchés, même vides.
@@ -134,10 +136,14 @@ export type ReprisePlan = {
   months: { month: string; existingId: string | null; restore: boolean }[];
   lanes: LaneDraft[];
   subjects: SubjectDraft[];
-  /** Essais et lignes déjà à la corbeille : effacés pour de bon. */
+  /** Essais vides : effacés pour de bon. */
   deleteSubjectIds: string[];
-  /** Contenu saisi hors Monday : à la corbeille, déplacé sur un couloir Monday. */
-  trashSubjects: { id: string; month: string }[];
+  /**
+   * Contenu saisi hors Monday : à la corbeille, déplacé sur un couloir Monday.
+   * `alreadyTrashed` : déjà à la corbeille, seul le couloir change — sa date
+   * de mise à la corbeille reste la sienne.
+   */
+  trashSubjects: { id: string; month: string; alreadyTrashed: boolean }[];
   /** Couloirs hors Monday des mois repris — vides une fois le ménage fait. */
   deleteLaneIds: string[];
   /** Fichiers au bucket des lignes effacées pour de bon. */
@@ -305,20 +311,27 @@ export function planReprise(input: {
   };
 
   const deleteSubjectIds: string[] = [];
-  const trashSubjects: { id: string; month: string }[] = [];
+  const trashSubjects: ReprisePlan["trashSubjects"] = [];
   const orphanVisualPaths: string[] = [];
 
   for (const subject of input.subjects) {
     if (subject.external_id !== null || !inReprise(subject.month_id)) continue;
 
-    if (subject.deleted_at !== null || isEmptySubject(subject)) {
+    if (isEmptySubject(subject)) {
       deleteSubjectIds.push(subject.id);
       orphanVisualPaths.push(
         ...subject.visual_urls.filter((entry) => !entry.startsWith("http")),
       );
     } else {
-      trashSubjects.push({ id: subject.id, month: monthKeyById.get(subject.month_id)! });
+      trashSubjects.push({
+        id: subject.id,
+        month: monthKeyById.get(subject.month_id)!,
+        alreadyTrashed: subject.deleted_at !== null,
+      });
     }
+    // Une ligne déjà à la corbeille et qui porte du contenu n'est jamais
+    // effacée : c'est la corbeille de quelqu'un — ou celle qu'une reprise
+    // précédente vient de remplir, et la rejouer ne doit pas la vider.
   }
 
   const deleteLaneIds = input.lanes
