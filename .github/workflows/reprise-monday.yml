@@ -1,12 +1,10 @@
 # Reprise d'un planning Monday 2026 dans Antidotes, visuels et vidéos compris.
 #
-# Deux déclencheurs, parce qu'un `workflow_dispatch` n'existe pour l'API
-# qu'une fois le fichier sur `main` (voir « Pièges connus ») :
-#
-#   • avant la fusion : un push sur la branche de travail qui modifie
-#     `scripts/data/reprise-monday/ordre.json` — l'ordre est versionné, donc
-#     relisible après coup ;
-#   • après la fusion : « Run workflow » depuis l'onglet Actions.
+# « Run workflow » depuis l'onglet Actions. La reprise d'ANMF et de Bondet
+# (25/09/2026) a tourné avant la fusion, par un push sur sa branche qui
+# modifiait un fichier d'ordre — un `workflow_dispatch` n'existe pour l'API
+# qu'une fois le fichier sur `main` (voir « Pièges connus »). Ce déclencheur
+# est retiré : il ne visait qu'une branche de travail.
 #
 # Un espace par job, en parallèle : le réencodage des vidéos est le poste long,
 # et les deux clients ne partagent rien.
@@ -14,9 +12,6 @@
 name: Reprise Monday
 
 on:
-  push:
-    branches: [claude/laughing-bohr-bqx3ke]
-    paths: [scripts/data/reprise-monday/ordre.json]
   workflow_dispatch:
     inputs:
       espace:
@@ -43,22 +38,15 @@ jobs:
     outputs:
       matrice: ${{ steps.lire.outputs.matrice }}
     steps:
-      - uses: actions/checkout@v4
       - id: lire
         env:
-          EVENEMENT: ${{ github.event_name }}
           ESPACE: ${{ inputs.espace }}
           ECRIRE: ${{ inputs.ecrire }}
           MEDIAS: ${{ inputs.medias }}
           BUDGET: ${{ inputs.budget_video }}
         run: |
-          if [ "$EVENEMENT" = "workflow_dispatch" ]; then
-            matrice=$(jq -cn --arg e "$ESPACE" --arg w "$ECRIRE" --arg m "$MEDIAS" --arg b "$BUDGET" \
-              '[{espace: $e, ecrire: ($w == "true"), medias: ($m == "true"), budget: $b}]')
-          else
-            matrice=$(jq -c '[.espaces[] as $e | {espace: $e, ecrire: .ecrire, medias: .medias, budget: ((.budget_video[$e] // "") | tostring)}]' \
-              scripts/data/reprise-monday/ordre.json)
-          fi
+          matrice=$(jq -cn --arg e "$ESPACE" --arg w "$ECRIRE" --arg m "$MEDIAS" --arg b "$BUDGET" \
+            '[{espace: $e, ecrire: ($w == "true"), medias: ($m == "true"), budget: $b}]')
           echo "matrice=$matrice" >> "$GITHUB_OUTPUT"
           echo "$matrice"
 
