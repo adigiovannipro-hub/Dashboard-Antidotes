@@ -643,6 +643,7 @@ async function runIntentions(
     workspaceId: job.workspace_id,
     targetMonth: job.target_month,
     adjustment,
+    client: supabase,
   });
 
   // L'historique des trois mois précédant le mois cible, tel qu'exigé par le
@@ -1131,7 +1132,7 @@ export async function generateWordingForSubject(
       (subjectMonth as { month: string } | null)?.month ?? "9999-12-01";
 
     const [context, legacyIntentionColumnId, previous, performance] = await Promise.all([
-      getClientContext({ workspaceId: subject.workspace_id, targetMonth }),
+      getClientContext({ workspaceId: subject.workspace_id, targetMonth, client: supabase }),
       findLegacyIntentionColumn(supabase, subject.board_id),
       previousWordings(supabase, subject.workspace_id, subject.board_id, targetMonth),
       readPerformanceBlocks(supabase, subject.workspace_id, targetMonth),
@@ -1196,6 +1197,7 @@ async function runWording(
       workspaceId: job.workspace_id,
       targetMonth: job.target_month,
       adjustment,
+      client: supabase,
     }),
     getLanePlatforms(supabase, months.map((month) => month.id)),
     previousWordings(supabase, job.workspace_id, board.id, job.target_month),
@@ -1619,6 +1621,7 @@ async function runReporting(
     workspaceId: job.workspace_id,
     targetMonth: job.target_month,
     adjustment,
+    client: supabase,
   });
 
   const system = renderPrompt("reporting", {

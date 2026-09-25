@@ -45,12 +45,17 @@ export async function getClientContext(options: {
   adjustment?: string | null;
   /** Plafond d'accroches injectées en négatif. */
   accrochesLimit?: number;
+  /** Le client du job appelant — un job sans requête n'a pas de cookies. */
+  client?: Parameters<typeof getActiveContext>[1];
 }): Promise<ClientContextBundle> {
   const [brief, assets, settings, accroches] = await Promise.all([
-    getActiveContext(options.workspaceId),
-    listAssets(options.workspaceId),
-    getGenerationSettings(options.workspaceId),
-    listRecentAccroches(options.workspaceId, { limit: options.accrochesLimit ?? 30 }),
+    getActiveContext(options.workspaceId, options.client),
+    listAssets(options.workspaceId, options.client),
+    getGenerationSettings(options.workspaceId, options.client),
+    listRecentAccroches(options.workspaceId, {
+      limit: options.accrochesLimit ?? 30,
+      client: options.client,
+    }),
   ]);
 
   const sections = buildContextSections({
