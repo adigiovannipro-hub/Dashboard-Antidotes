@@ -338,7 +338,6 @@ describe("wouldAutoPublish", () => {
     ok: false,
     ownerName: null,
     files: [],
-    updates: [],
     ...overrides,
   });
 

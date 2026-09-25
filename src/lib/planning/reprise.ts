@@ -45,11 +45,17 @@ import type { PlanningFormat, PlanningPlatform, PlanningStatus } from "./types";
 
 // --- Instantané ---------------------------------------------------------------
 
+/**
+ * Le fil Monday d'une publication. Capturé dans l'instantané pour mémoire,
+ * mais **pas repris** : décision du 25/09/2026, les échanges avec les
+ * clientes restent dans Monday.
+ */
 export type RepriseUpdate = {
   id: string;
   body: string;
   creator: string | null;
   createdAt: string | null;
+  replies?: RepriseUpdate[];
 };
 
 export type RepriseSubitem = RemoteSubitem & { updates?: RepriseUpdate[] };
@@ -121,7 +127,6 @@ export type SubjectDraft = {
   ok: boolean;
   ownerName: string | null;
   files: MondayFile[];
-  updates: RepriseUpdate[];
 };
 
 export type ReprisePlan = {
@@ -276,7 +281,6 @@ export function planReprise(input: {
         ok: valueOf(subitem, okColumn) !== null,
         ownerName: valueOf(subitem, mapping.owner),
         files: parseMondayFiles(valueOf(subitem, mapping.visual)),
-        updates: subitem.updates ?? [],
       });
     });
   }

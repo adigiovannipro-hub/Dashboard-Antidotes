@@ -515,35 +515,6 @@ async function main() {
   ) as { id: string; external_id: string; visual_urls: string[] }[];
   const subjectIdByExternal = new Map(subjectRows.map((row) => [row.external_id, row.id]));
 
-  // --- Fil de mises à jour Monday → retours ---
-  const withUpdates = plan.subjects.filter((s) => s.updates.length > 0);
-  if (withUpdates.length > 0) {
-    const ids = withUpdates.map((s) => subjectIdByExternal.get(s.externalId)!);
-    const present = must(
-      await admin.from("planning_comments").select("subject_id, body, created_at").in("subject_id", ids),
-      "Lecture des retours",
-    ) as { subject_id: string; body: string; created_at: string }[];
-    const seen = new Set(present.map((c) => `${c.subject_id}|${c.body}`));
-
-    const comments = withUpdates.flatMap((subject) => {
-      const subjectId = subjectIdByExternal.get(subject.externalId)!;
-      return subject.updates
-        .filter((update) => update.body.trim().length > 0)
-        .filter((update) => !seen.has(`${subjectId}|${update.body}`))
-        .map((update) => ({
-          subject_id: subjectId,
-          workspace_id: workspace.id,
-          author_id: ownerOf(update.creator),
-          body: update.body,
-          created_at: update.createdAt ?? undefined,
-        }));
-    });
-    if (comments.length > 0) {
-      must(await admin.from("planning_comments").insert(comments as never), "Écriture des retours");
-    }
-    console.log(`Retours repris : ${comments.length}`);
-  }
-
   // --- Ménage : corbeille d'abord, sinon la suppression des couloirs l'emporterait ---
   const firstLaneOfMonth = new Map<string, string>();
   for (const lane of [...plan.lanes].sort((a, b) => a.position - b.position)) {
@@ -637,7 +608,7 @@ async function migrateMedia(
   console.log(`Fichiers : ${jobs.length} au total, ${jobs.length - pending.length} déjà au bucket.`);
 
   // Téléchargement par lots : l'URL Monday ne vit qu'une heure.
-  type Local = { job: Job; file: string; kind: Kind; bytes: number };
+  type Local = { job: Job; file: string; kind: Kind; bytes: number; sha: string };
   const videos: (Local & { probe: VideoProbe })[] = [];
   let imageBytes = 0;
 
@@ -660,9 +631,20 @@ async function migrateMedia(
           if (!kind) throw new Error("type de fichier non reconnu");
 
           if (kind.video) {
-            const local = path.join(workDir, `${job.file.assetId}-${createHash("sha1").update(job.subjectId).digest("hex").slice(0, 8)}`);
-            writeFileSync(local, bytes);
-            videos.push({ job, file: local, kind, bytes: bytes.length, probe: probe(local) });
+            // Une vidéo recopiée d'un couloir à l'autre (META et TIKTOK) porte
+            // les mêmes octets : on ne l'écrit et ne la réencode qu'une fois.
+            const sha = createHash("sha256").update(bytes).digest("hex");
+            const local = path.join(workDir, sha);
+            const known = videos.find((video) => video.sha === sha);
+            if (!known) writeFileSync(local, bytes);
+            videos.push({
+              job,
+              file: local,
+              kind,
+              bytes: bytes.length,
+              sha,
+              probe: known?.probe ?? probe(local),
+            });
             continue;
           }
 
@@ -680,7 +662,8 @@ async function migrateMedia(
     }
     console.log(`Images déposées : ${(imageBytes / 1048576).toFixed(1)} Mo.`);
 
-    // Le débit se fixe sur l'ensemble : c'est le total qui doit tenir.
+    // Le débit se fixe sur l'ensemble : c'est le total déposé qui doit tenir,
+    // copies comprises — chacune occupe sa place au bucket.
     const totalSeconds = videos.reduce((sum, video) => sum + video.probe.durationSeconds, 0);
     const kbps = targetVideoKbps({ totalSeconds, budgetBytes });
     console.log(
@@ -689,19 +672,23 @@ async function migrateMedia(
     );
 
     let videoBytes = 0;
+    const encoded = new Set<string>();
     for (const video of videos) {
       const label = `${video.job.file.name} (${video.job.file.assetId})`;
       try {
         const output = `${video.file}.mp4`;
-        run(
-          "ffmpeg",
-          transcodeArgs({
-            source: video.file,
-            output,
-            probe: video.probe,
-            videoKbps: capForUploadLimit(kbps, video.probe.durationSeconds),
-          }),
-        );
+        if (!encoded.has(video.sha)) {
+          run(
+            "ffmpeg",
+            transcodeArgs({
+              source: video.file,
+              output,
+              probe: video.probe,
+              videoKbps: capForUploadLimit(kbps, video.probe.durationSeconds),
+            }),
+          );
+          encoded.add(video.sha);
+        }
         const size = statSync(output).size;
         if (size > MAX_UPLOAD_BYTES) throw new Error(`encore ${(size / 1048576).toFixed(0)} Mo après réencodage`);
 
@@ -714,8 +701,6 @@ async function migrateMedia(
         console.log(
           `  ✓ ${label} ${(video.bytes / 1048576).toFixed(1)} → ${(size / 1048576).toFixed(1)} Mo`,
         );
-        rmSync(video.file, { force: true });
-        rmSync(output, { force: true });
       } catch (cause) {
         failures.push(`${label} : ${(cause as Error).message}`);
       }
