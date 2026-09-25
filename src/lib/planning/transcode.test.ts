@@ -78,8 +78,20 @@ describe("transcodeArgs", () => {
       videoKbps: 900,
     });
     const filters = args[args.indexOf("-vf") + 1]!;
-    expect(filters.indexOf("tonemap")).toBeGreaterThan(-1);
+    expect(filters.indexOf("tonemap=tonemap=mobius")).toBeGreaterThan(-1);
     expect(filters.indexOf("tonemap")).toBeLessThan(filters.indexOf("scale=w="));
+    expect(filters).toContain("out_color_matrix=bt709");
+    expect(args.join(" ")).toContain("-colorspace bt709");
+  });
+
+  it("ne déclare aucune matrice sur une source SDR", () => {
+    const args = transcodeArgs({ source: "in.mp4", output: "out.mp4", probe: probe(), videoKbps: 900 });
+    expect(args.join(" ")).not.toContain("bt709");
+  });
+
+  it("retire les métadonnées de la source", () => {
+    const args = transcodeArgs({ source: "in.mov", output: "out.mp4", probe: probe(), videoKbps: 900 });
+    expect(args.join(" ")).toContain("-map_metadata -1");
   });
 
   it("n'ajoute pas de piste son à une vidéo muette", () => {

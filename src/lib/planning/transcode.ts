@@ -83,14 +83,20 @@ export function transcodeArgs(input: {
     `scale=w='if(gt(iw,ih),-2,min(${VIDEO_SHORT_EDGE},iw))'` +
     `:h='if(gt(iw,ih),min(${VIDEO_SHORT_EDGE},ih),-2)'`;
 
-  const filters = isHdr(input.probe)
+  // HDR : l'iPhone ne dit pas son pic de lumière, et `tonemap` en suppose
+  // alors un de 1 000 nits — l'image sortait 15 % trop sombre, un mur blanc
+  // gris. Blanc diffus HLG à 203 nits et courbe mobius : quasi identique à
+  // l'original sur un clip de contrôle. La matrice BT.709 n'est déclarée que
+  // là : sur une source SDR sans matrice, la forcer convertirait à tort.
+  const hdr = isHdr(input.probe);
+  const filters = hdr
     ? [
-        "zscale=t=linear:npl=100",
+        "zscale=t=linear:npl=203",
         "format=gbrpf32le",
         "zscale=p=bt709",
-        "tonemap=tonemap=hable:desat=0",
+        "tonemap=tonemap=mobius:param=0.3:desat=0:peak=4.93",
         "zscale=t=bt709:m=bt709:r=tv",
-        scale,
+        `${scale}:out_color_matrix=bt709:out_range=tv`,
         "format=yuv420p",
       ]
     : [scale, "format=yuv420p"];
@@ -107,6 +113,9 @@ export function transcodeArgs(input: {
     "-map",
     "0:v:0",
     ...(input.probe.hasAudio ? ["-map", "0:a:0"] : []),
+    // Ni GPS d'un rush de téléphone, ni piste de timecode d'un export DaVinci.
+    "-map_metadata",
+    "-1",
     "-vf",
     filters.join(","),
     "-fpsmax",
@@ -126,6 +135,9 @@ export function transcodeArgs(input: {
     ...(input.probe.hasAudio
       ? ["-c:a", "aac", "-b:a", `${AUDIO_KBPS}k`, "-ac", "2"]
       : ["-an"]),
+    ...(hdr
+      ? ["-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709", "-color_range", "tv"]
+      : []),
     "-movflags",
     "+faststart",
     input.output,

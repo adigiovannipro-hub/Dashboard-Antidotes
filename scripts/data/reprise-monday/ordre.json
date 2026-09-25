@@ -1,6 +1,6 @@
 {
-  "espaces": ["anmf", "bondet"],
+  "espaces": ["bondet"],
   "ecrire": true,
-  "medias": false,
+  "medias": true,
   "budget_video": {}
 }
