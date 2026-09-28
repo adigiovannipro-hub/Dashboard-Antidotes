@@ -56,11 +56,14 @@ export function parseGrabReceipt(email: {
 
   const haystack = [email.snippet ?? "", email.text].join("\n");
 
-  /* Le total d'en-tête et le « TOTAL (INCL. TAX) » du détail : les deux
-     doivent dire la même chose, sinon on ne sait pas lequel croire. Les
+  /* Le total d'en-tête et celui du détail — « TOTAL (INCL. TAX) » sur
+     GrabFood, « Total harga » puis « Total (Including tax) » sur GrabMart :
+     tous doivent dire la même chose, sinon on ne sait pas lequel croire. Les
      séparateurs du texte (tirets, barres de tableau) varient selon le rendu. */
   const totals = [
-    ...haystack.matchAll(/\bTOTAL(?:\s*\(INCL\.?\s*TAX\))?[\s|:]*Rp\s*([\d.,]+)/gi),
+    ...haystack.matchAll(
+      /\bTOTAL(?:\s+harga)?(?:\s*\((?:INCL\.?|Including)\s*tax\))?[\s|:]*Rp\s*([\d.,]+)/gi,
+    ),
   ].map((match) => rupiahCents(match[1]));
   if (totals.length === 0 || totals.some((total) => total === null)) return null;
   const amount = totals[0];

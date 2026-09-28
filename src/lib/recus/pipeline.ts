@@ -1198,7 +1198,45 @@ export async function verifyAttachments(orgId: string): Promise<VerifyReport> {
     }
   }
 
+  report.attached += await settleUnmatched(admin, orgId);
+
   return report;
+}
+
+/**
+ * Sortir de « non rapproché » ce qui a fini par être justifié.
+ *
+ * Six vérifications en quelques passages ne suffisent pas toujours : Airwallex
+ * accroche parfois plus tard, et une dépense peut aussi recevoir son reçu à la
+ * main. Le miroir des dépenses, rafraîchi en tête de chaque passage, le dit
+ * sans appel de plus.
+ */
+async function settleUnmatched(admin: Admin, orgId: string): Promise<number> {
+  const { data, error } = await admin
+    .from("receipt_documents")
+    .select("id, expense_id, receipt_expenses!inner(attachment_count)")
+    .eq("org_id", orgId)
+    .eq("status", "unmatched")
+    .gt("receipt_expenses.attachment_count", 0);
+  if (error) throw new Error(`Lecture des pièces non rapprochées : ${error.message}`);
+
+  const rows = (data ?? []) as unknown as { id: string; expense_id: string }[];
+  for (const row of rows) {
+    const { error: updateError } = await admin
+      .from("receipt_documents")
+      .update({ status: "attached", attached_at: new Date().toISOString() })
+      .eq("id", row.id);
+    if (updateError) {
+      throw new Error(`Rapprochement impossible : ${updateError.message}`);
+    }
+    await logEvent(admin, {
+      orgId,
+      documentId: row.id,
+      action: "document.attached",
+      after: { expense_id: row.expense_id, late: true },
+    });
+  }
+  return rows.length;
 }
 
 async function hasAttachmentLanded(
@@ -1230,8 +1268,13 @@ async function hasAttachmentLanded(
     })
     .eq("id", document.expense_id);
 
-  const baseline = document.expense_attachment_baseline ?? expense.attachment_count;
-  return fresh.attachment_count > baseline;
+  /* Ce qui compte, c'est que la dépense porte un justificatif — pas de savoir
+     si c'est le nôtre. Comparer au nombre relevé à l'envoi laissait en « non
+     rapproché » les dix courses Grab du 19 au 22/09 : déposées à la main
+     dans Airwallex pendant la panne des passages, elles portaient déjà leur
+     reçu quand le nôtre est parti, et la pastille rouge réclamait un geste
+     que plus personne n'avait à faire. */
+  return fresh.attachment_count > 0;
 }
 
 /** Candidats de rapprochement d'une pièce, relus depuis la base. */

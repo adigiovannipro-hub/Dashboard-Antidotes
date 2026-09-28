@@ -44,6 +44,24 @@ describe("parseGrabReceipt", () => {
     });
   });
 
+  it("lit le gabarit GrabMart", () => {
+    const result = parseGrabReceipt(
+      grab({
+        snippet:
+          "Terima kasih sudah memesan dari kami! Total harga Rp 292100 Diantar pada 27 Sep 26 17:59 +0800",
+        text: [
+          "| Total harga Rp 292100 | Diantar pada 27 Sep 26 17:59 +0800 |",
+          "| | Metode Pembayaran: Visa : Rp 292100 | |",
+          "| | Subtotal | Rp 257000 | |",
+          "| | Subtotal Biaya Pengiriman | Rp 10000 | |",
+          "| | Total (Including tax) | Rp 292100 | |",
+        ].join("\n"),
+      }),
+    );
+    expect(result?.amount_cents).toBe(29_210_000);
+    expect(result?.document_date).toBe("2026-09-27");
+  });
+
   it("lit les séparateurs de milliers et les mois indonésiens", () => {
     const result = parseGrabReceipt(
       grab({
