@@ -69,6 +69,7 @@ async function main() {
     archivePendingMails,
     ingestSource,
     rematchPendingDocuments,
+    retryAutoForward,
     syncExpenses,
     verifyAttachments,
   } = await import("../src/lib/recus/pipeline");
@@ -141,6 +142,19 @@ async function main() {
     } catch (error) {
       errors.push(`re-rapprochement ${orgId}`);
       console.error(`✗ re-rapprochement ${orgId} : ${message(error)}`);
+    }
+  }
+
+  /* Après le re-rapprochement : une pièce qui vient de trouver sa dépense, ou
+     dont le fournisseur a été automatisé depuis, part sans attendre un clic. */
+  for (const orgId of orgIds) {
+    try {
+      const report = await retryAutoForward(orgId);
+      console.log(`✓ envoi automatique ${orgId} : ${JSON.stringify(report)}`);
+      if (report.errors.length > 0) errors.push(`envoi automatique ${orgId}`);
+    } catch (error) {
+      errors.push(`envoi automatique ${orgId}`);
+      console.error(`✗ envoi automatique ${orgId} : ${message(error)}`);
     }
   }
 

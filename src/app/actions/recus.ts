@@ -118,10 +118,11 @@ export async function approveDocument(
  *
  * Un seul bouton, deux sens, que distingue ce qui s'est déjà passé :
  *
- * — une pièce **jamais partie** qu'on archive, c'est un refus. Le fournisseur
- *   perd son automatisme, parce que le cas n'était pas aussi routinier qu'il
- *   en avait l'air et que continuer à envoyer tout seul après un désaccord
- *   serait le contraire d'apprendre.
+ * — une pièce **jamais partie** qu'on archive, c'est un refus : il compte
+ *   contre le fournisseur, et retire la proposition de l'automatiser. Il ne
+ *   coupe **pas** un automatisme déjà accordé — archiver les restes d'un
+ *   rattrapage Grab le 23/09 l'avait fait en silence, et chaque course
+ *   suivante attendait un clic. Couper se fait au bouton, en le sachant.
  * — une pièce **déjà transférée** qu'on archive, c'est du rangement : Airwallex
  *   n'a pas su l'accrocher, on l'a fait à la main dans leur interface. Rien à
  *   reprocher à personne, le compteur du fournisseur ne bouge pas.
@@ -157,7 +158,7 @@ export async function archiveDocument(
       return { ok: false, error: `Archivage refusé : ${updateError.message}` };
     }
 
-    if (!sent) await bumpRule(document, { rejections: 1, disableAuto: true });
+    if (!sent) await bumpRule(document, { rejections: 1 });
 
     await audit({
       orgId: document.org_id,
@@ -361,7 +362,7 @@ export async function toggleEmergencyStop(
 
 async function bumpRule(
   document: ReceiptDocument,
-  change: { approvals?: number; rejections?: number; disableAuto?: boolean },
+  change: { approvals?: number; rejections?: number },
 ): Promise<void> {
   const admin = createAdminClient();
   const domain = senderDomain(document.from_email);
@@ -385,7 +386,6 @@ async function bumpRule(
       merchant: document.merchant,
       approvals: current.approvals + (change.approvals ?? 0),
       rejections: current.rejections + (change.rejections ?? 0),
-      ...(change.disableAuto ? { auto_forward: false } : {}),
       last_seen_at: new Date().toISOString(),
     } as never,
     { onConflict: "org_id,sender_domain" },
