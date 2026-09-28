@@ -39,6 +39,7 @@
     "sync:recus": "node --conditions=react-server --import tsx scripts/sync-recus.ts",
     "sync:moderation": "node --conditions=react-server --import tsx scripts/sync-moderation.ts",
     "publier:planning": "node --conditions=react-server --import tsx scripts/publish-planning.ts",
+    "production:generer": "node --conditions=react-server --import tsx scripts/generer-production.ts",
     "import:followers": "tsx scripts/import-followers.ts",
     "previews:planning": "tsx scripts/generate-visual-previews.ts",
     "connect:web": "tsx scripts/connect-web-analytics.ts",

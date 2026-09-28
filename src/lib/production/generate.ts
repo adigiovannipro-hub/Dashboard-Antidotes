@@ -19,6 +19,7 @@ import {
   renderQuotas,
   type ExistingPublication,
 } from "./quotas";
+import { historyLine } from "./history-line";
 import { needsContent } from "./wording-state";
 import {
   VALIDATED_WORDING_STATUSES,
@@ -642,6 +643,7 @@ async function runIntentions(
     workspaceId: job.workspace_id,
     targetMonth: job.target_month,
     adjustment,
+    client: supabase,
   });
 
   // L'historique des trois mois précédant le mois cible, tel qu'exigé par le
@@ -675,7 +677,17 @@ async function runIntentions(
         .filter((subject) => subject.month_id === month.id)
         .sort((a, b) => (a.scheduled_on ?? "").localeCompare(b.scheduled_on ?? ""))
         .map((subject) => {
-          const line = `- ${subject.scheduled_on ?? "sans date"} · ${platformLabelOf(lanePlatforms.get(subject.lane_id))} · ${formatLabelOf(subject.format)} · « ${subject.name} »`;
+          // Visuels et légende : c'est là que se lit la forme d'un format chez
+          // ce client, et donc ce que les intentions doivent reproduire.
+          const line = historyLine({
+            date: subject.scheduled_on,
+            platform: platformLabelOf(lanePlatforms.get(subject.lane_id)),
+            format: formatLabelOf(subject.format),
+            name: subject.name,
+            status: subject.status,
+            visuals: subject.visual_urls?.length ?? 0,
+            wording: subject.wording,
+          });
           const mesure = matchByCaption(mesuresPassees, subject.wording);
           if (!mesure) return line;
           const base = mesure.reach > 0 ? mesure.reach : mesure.impressions;
@@ -691,7 +703,9 @@ async function runIntentions(
               : mesure.impressions > 0
                 ? `impressions ${mesure.impressions} (portée non rendue)`
                 : "aucune mesure rendue";
-          return `${line} — ${volume}, ${interactions} interactions, engagement ${taux}`;
+          // La mesure suit la ligne du titre, pas la légende qui s'ajoute dessous.
+          const [head, ...rest] = line.split("\n");
+          return [`${head} — ${volume}, ${interactions} interactions, engagement ${taux}`, ...rest].join("\n");
         });
       return `### ${fullMonthLabel(month.month)}\n${rows.join("\n") || "- (aucune publication)"}`;
     })
@@ -1118,7 +1132,7 @@ export async function generateWordingForSubject(
       (subjectMonth as { month: string } | null)?.month ?? "9999-12-01";
 
     const [context, legacyIntentionColumnId, previous, performance] = await Promise.all([
-      getClientContext({ workspaceId: subject.workspace_id, targetMonth }),
+      getClientContext({ workspaceId: subject.workspace_id, targetMonth, client: supabase }),
       findLegacyIntentionColumn(supabase, subject.board_id),
       previousWordings(supabase, subject.workspace_id, subject.board_id, targetMonth),
       readPerformanceBlocks(supabase, subject.workspace_id, targetMonth),
@@ -1183,6 +1197,7 @@ async function runWording(
       workspaceId: job.workspace_id,
       targetMonth: job.target_month,
       adjustment,
+      client: supabase,
     }),
     getLanePlatforms(supabase, months.map((month) => month.id)),
     previousWordings(supabase, job.workspace_id, board.id, job.target_month),
@@ -1606,6 +1621,7 @@ async function runReporting(
     workspaceId: job.workspace_id,
     targetMonth: job.target_month,
     adjustment,
+    client: supabase,
   });
 
   const system = renderPrompt("reporting", {

@@ -77,6 +77,23 @@ on:
         description: "… et l'exécuter pour de bon"
         type: boolean
         default: false
+      generer_espace:
+        description: "Production : générer une phase pour cet espace (slug, vide = non)"
+        type: string
+        default: ""
+      generer_phase:
+        description: "… cette phase"
+        type: choice
+        options: [intentions, wording]
+        default: intentions
+      generer_mois:
+        description: "… de ce mois (AAAA-MM, vide = le mois prochain)"
+        type: string
+        default: ""
+      generer_remplacer:
+        description: "… en refaisant les intentions déjà posées (corbeille, restaurées en cas d'échec)"
+        type: boolean
+        default: false
       isolation_tests:
         description: "Lancer les tests d'isolation RLS contre la vraie base"
         type: boolean
@@ -204,6 +221,23 @@ jobs:
           AIRWALLEX_CLIENT_ID: ${{ secrets.AIRWALLEX_CLIENT_ID }}
           AIRWALLEX_API_KEY: ${{ secrets.AIRWALLEX_API_KEY }}
           AIRWALLEX_ENV: production
+
+      # Le même chemin que le bouton de la carte, sans passer par Vercel : un
+      # job, puis `runGenerationJob`. Le script relit ce qu'il a posé et
+      # l'affiche — les briefs se lisent dans le journal de l'exécution.
+      - name: Générer une phase de production
+        if: ${{ inputs.generer_espace != '' }}
+        run: >-
+          pnpm production:generer
+          --espace "${{ inputs.generer_espace }}"
+          --phase ${{ inputs.generer_phase }}
+          ${{ inputs.generer_mois != '' && format('--mois {0}', inputs.generer_mois) || '' }}
+          ${{ inputs.generer_remplacer && '--remplacer' || '' }}
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
 
       # Les suites d'isolation ouvrent de vraies sessions et écrivent des
       # données préfixées (zz-fin-…, nettoyées en fin de suite). C'est ici
