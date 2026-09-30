@@ -90,10 +90,6 @@ on:
         description: "… de ce mois (AAAA-MM, vide = le mois prochain)"
         type: string
         default: ""
-      generer_remplacer:
-        description: "… en refaisant les intentions déjà posées (corbeille, restaurées en cas d'échec)"
-        type: boolean
-        default: false
       isolation_tests:
         description: "Lancer les tests d'isolation RLS contre la vraie base"
         type: boolean
@@ -232,7 +228,6 @@ jobs:
           --espace "${{ inputs.generer_espace }}"
           --phase ${{ inputs.generer_phase }}
           ${{ inputs.generer_mois != '' && format('--mois {0}', inputs.generer_mois) || '' }}
-          ${{ inputs.generer_remplacer && '--remplacer' || '' }}
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}

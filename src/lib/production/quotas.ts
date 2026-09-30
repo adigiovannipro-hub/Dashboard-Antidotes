@@ -15,7 +15,6 @@
  */
 
 import {
-  FORMAT_LABELS,
   PLATFORM_LABELS,
   type PlanningFormat,
   type PlanningPlatform,
