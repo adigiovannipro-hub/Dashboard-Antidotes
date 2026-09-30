@@ -219,7 +219,7 @@ async function main() {
 
   const outcome = job as unknown as {
     status: string;
-    result: { summary?: string; created_subject_ids?: string[] } | null;
+    result: { summary?: string; created_subject_ids?: string[]; notes?: string } | null;
     error_message: string | null;
   };
   console.log(
@@ -251,6 +251,10 @@ async function main() {
       console.log(row.wording ?? "(brief vide)");
     }
   }
+
+  // Récapitulatif, rotation, points signalés, faits consommés : la fin de la
+  // réponse du modèle, qui ne vit nulle part ailleurs qu'ici et dans le job.
+  if (outcome.result?.notes) console.log(`\n${outcome.result.notes}`);
 }
 
 main().catch((error) => {

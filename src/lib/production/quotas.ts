@@ -312,16 +312,3 @@ export function renderQuotas(report: QuotaReport): string {
 
   return `${blocs.join("\n")}\n\nTOTAL À CRÉER : ${report.resteTotal} publication${report.resteTotal > 1 ? "s" : ""} (${report.duTotal} dues au contrat, ${report.dejaTotal} déjà au planning).`;
 }
-
-/** Les lignes déjà posées, telles que le prompt d'intentions les reçoit. */
-export function renderExisting(existing: ExistingPublication[]): string {
-  if (existing.length === 0) return "";
-  return existing
-    .slice()
-    .sort((a, b) => (a.scheduledOn ?? "9999").localeCompare(b.scheduledOn ?? "9999"))
-    .map(
-      (item) =>
-        `- ${item.scheduledOn ?? "sans date"} · ${platformLabel(item.platform)} · ${FORMAT_LABELS[item.format]} · « ${item.name} »`,
-    )
-    .join("\n");
-}

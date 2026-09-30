@@ -128,6 +128,9 @@ export type GenerationJobResult = {
   failed_subject_ids?: string[];
   /** Compte rendu lisible du worker, quel que soit le résultat. */
   summary?: string;
+  /** Rubriques de fin du prompt d'intentions : récapitulatif, rotation,
+      points signalés, faits consommés. */
+  notes?: string;
 };
 
 /**
