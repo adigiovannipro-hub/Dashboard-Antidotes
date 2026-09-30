@@ -5,7 +5,6 @@ import {
   computeQuotas,
   formatForCategory,
   platformForNetwork,
-  renderExisting,
   renderQuotas,
   type ExistingPublication,
 } from "./quotas";
@@ -212,24 +211,5 @@ describe("renderQuotas", () => {
       ),
     );
     expect(rendu).toContain("catégorie non rapprochée");
-  });
-});
-
-describe("renderExisting", () => {
-  it("liste les lignes déjà posées, les datées d'abord", () => {
-    const rendu = renderExisting([
-      publication({ name: "SANS DATE" }),
-      publication({ name: "LE 3", scheduledOn: "2026-09-03", format: "reel" }),
-      publication({ name: "LE 1", scheduledOn: "2026-09-01" }),
-    ]);
-    expect(rendu.split("\n")).toEqual([
-      "- 2026-09-01 · META · POST · « LE 1 »",
-      "- 2026-09-03 · META · REELS · « LE 3 »",
-      "- sans date · META · POST · « SANS DATE »",
-    ]);
-  });
-
-  it("rend une chaîne vide quand le mois est vierge", () => {
-    expect(renderExisting([])).toBe("");
   });
 });

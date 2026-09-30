@@ -12,8 +12,12 @@
 
 import { WORDING_PENDING_STATUSES } from "./wording-state";
 
-/** Assez pour lire l'intention d'une légende, pas assez pour noyer trois mois. */
-export const CAPTION_EXCERPT_LENGTH = 220;
+/**
+ * Assez pour lire une légende entière, CTA compris : le prompt d'intentions
+ * relève dans l'historique les questions, les chiffres et les tournures déjà
+ * servis, et une légende coupée à 220 caractères perdait justement sa fin.
+ */
+export const CAPTION_EXCERPT_LENGTH = 700;
 
 /** Une légende sur une ligne, coupée au mot, ou `null` si elle est vide. */
 export function captionExcerpt(
@@ -42,8 +46,8 @@ export type HistorySubject = {
  * La ligne d'un sujet passé, mesure exclue — elle se greffe derrière.
  *
  * La cellule d'un sujet encore en attente de rédaction porte un brief, pas
- * une légende : elle dirait ce qui était prévu, pas ce qui a été publié, et
- * n'entre donc pas.
+ * une légende : elle entre quand même, sous son nom — un sujet planifié en
+ * M-1, publié ou non, compte comme utilisé, et son angle ne doit pas revenir.
  */
 export function historyLine(subject: HistorySubject): string {
   const visuals =
@@ -52,6 +56,7 @@ export function historyLine(subject: HistorySubject): string {
       : "";
   const line = `- ${subject.date ?? "sans date"} · ${subject.platform} · ${subject.format} · « ${subject.name} »${visuals}`;
   const isBrief = (WORDING_PENDING_STATUSES as string[]).includes(subject.status);
-  const caption = isBrief ? null : captionExcerpt(subject.wording);
-  return caption ? `${line}\n  Légende : « ${caption} »` : line;
+  const text = captionExcerpt(subject.wording);
+  if (!text) return line;
+  return `${line}\n  ${isBrief ? "Brief" : "Légende"} : « ${text} »`;
 }

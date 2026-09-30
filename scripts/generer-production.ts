@@ -3,7 +3,6 @@
  *
  *   pnpm production:generer --espace bondet                       — intentions du mois prochain
  *   pnpm production:generer --espace bondet --mois 2026-10        — d'un mois donné
- *   pnpm production:generer --espace bondet --remplacer           — en refaisant les intentions posées
  *   pnpm production:generer --espace bondet --phase wording
  *
  * Le même chemin que le bouton de la carte — un `generation_job` puis
@@ -11,11 +10,10 @@
  * certains environnements de travail ne l'atteignent pas. Étape « Générer une
  * phase de production » de db-admin, où `ANTHROPIC_API_KEY` existe.
  *
- * `--remplacer` (intentions seulement) met à la corbeille, avant de générer,
- * les sujets du mois encore au stade d'intention : statut « — » ou « WORDING À
- * FAIRE », sans visuel. Tout le reste — rédigé, validé, illustré — reste et
- * compte dans le décompte du contrat. Si la génération échoue, les sujets mis
- * à la corbeille en ressortent : un mois ne se vide jamais pour rien.
+ * La génération ajoute, elle n'efface jamais : ce qui est déjà posé au mois
+ * cible reste tel quel et compte dans le décompte du contrat. Il n'existe pas
+ * d'option pour « refaire » un mois — un sujet à retirer se retire à la main,
+ * depuis le tableau, où il passe à la corbeille et se restaure.
  *
  * Variables requises : NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY,
  * SUPABASE_SERVICE_ROLE_KEY, ANTHROPIC_API_KEY.
@@ -58,12 +56,10 @@ async function main() {
   const slug = argument("--espace");
   const phase = argument("--phase") ?? "intentions";
   const month = targetMonth(argument("--mois"));
-  const replace = process.argv.includes("--remplacer");
 
   const { createAdminClient } = await import("../src/lib/supabase/server");
   const { runGenerationJob } = await import("../src/lib/production/generate");
   const { isProductionPhase } = await import("../src/lib/production/types");
-  const { WORDING_PENDING_STATUSES } = await import("../src/lib/production/wording-state");
 
   if (!slug) {
     console.error("Préciser l'espace : --espace <slug>.");
@@ -75,10 +71,6 @@ async function main() {
   }
   if (!month) {
     console.error("Mois illisible : --mois AAAA-MM.");
-    process.exit(1);
-  }
-  if (replace && phase !== "intentions") {
-    console.error("--remplacer ne vaut que pour la phase intentions.");
     process.exit(1);
   }
 
@@ -110,86 +102,6 @@ async function main() {
 
   console.log(`${workspace.name} · ${phase} · ${month}`);
 
-  // --- Les intentions à refaire, mises à la corbeille -----------------------
-  let trashed: string[] = [];
-  if (replace) {
-    const { data: board, error: boardError } = await admin
-      .from("planning_boards")
-      .select("id")
-      .eq("workspace_id", workspace.id)
-      .eq("kind", "editorial")
-      .order("position")
-      .limit(1)
-      .maybeSingle();
-    if (boardError) throw new Error(boardError.message);
-    if (!board) {
-      console.error("Aucun planning éditorial pour cet espace.");
-      process.exit(1);
-    }
-
-    const { data: months, error: monthsError } = await admin
-      .from("planning_months")
-      .select("id")
-      .eq("board_id", board.id)
-      .eq("month", month)
-      .is("deleted_at", null);
-    if (monthsError) throw new Error(monthsError.message);
-
-    const monthIds = (months ?? []).map((row) => row.id as string);
-    if (monthIds.length > 0) {
-      const { data: subjects, error: subjectsError } = await admin
-        .from("planning_subjects")
-        .select("id, name, status, visual_urls")
-        .in("month_id", monthIds)
-        .is("deleted_at", null)
-        .is("archived_at", null);
-      if (subjectsError) throw new Error(subjectsError.message);
-
-      const rows = (subjects ?? []) as unknown as {
-        id: string;
-        name: string;
-        status: string;
-        visual_urls: string[] | null;
-      }[];
-      const intentions = rows.filter(
-        (row) =>
-          (WORDING_PENDING_STATUSES as string[]).includes(row.status) &&
-          (row.visual_urls ?? []).length === 0,
-      );
-      const kept = rows.length - intentions.length;
-
-      if (intentions.length > 0) {
-        const { error: trashError } = await admin
-          .from("planning_subjects")
-          .update({ deleted_at: new Date().toISOString() } as never)
-          .in(
-            "id",
-            intentions.map((row) => row.id),
-          );
-        if (trashError) throw new Error(trashError.message);
-        trashed = intentions.map((row) => row.id);
-      }
-      console.log(
-        `Corbeille : ${intentions.length} intention${intentions.length > 1 ? "s" : ""}` +
-          (intentions.length > 0 ? ` (${intentions.map((row) => row.name).join(", ")})` : "") +
-          `. Gardés : ${kept}.`,
-      );
-    }
-  }
-
-  const restore = async () => {
-    if (trashed.length === 0) return;
-    const { error } = await admin
-      .from("planning_subjects")
-      .update({ deleted_at: null } as never)
-      .in("id", trashed);
-    console.log(
-      error
-        ? `Restauration impossible (${error.message}) : les sujets sont dans la corbeille du tableau.`
-        : `Les ${trashed.length} sujets mis à la corbeille ont été restaurés.`,
-    );
-  };
-
   // --- Le job, par le même chemin que la carte -------------------------------
   const { data: created, error: createError } = await admin
     .from("generation_jobs")
@@ -202,7 +114,6 @@ async function main() {
     .select("id")
     .single();
   if (createError || !created) {
-    await restore();
     throw new Error(createError?.message ?? "Job non créé.");
   }
 
@@ -219,7 +130,7 @@ async function main() {
 
   const outcome = job as unknown as {
     status: string;
-    result: { summary?: string; created_subject_ids?: string[] } | null;
+    result: { summary?: string; created_subject_ids?: string[]; notes?: string } | null;
     error_message: string | null;
   };
   console.log(
@@ -228,10 +139,7 @@ async function main() {
   );
 
   const ids = outcome.result?.created_subject_ids ?? [];
-  if (outcome.status === "error" || (replace && ids.length === 0)) {
-    await restore();
-    process.exit(outcome.status === "error" ? 1 : 0);
-  }
+  if (outcome.status === "error") process.exit(1);
 
   // Ce qui a été posé, relu en base : « ✓ » ne dit pas ce que le modèle a écrit.
   if (ids.length > 0) {
@@ -251,6 +159,10 @@ async function main() {
       console.log(row.wording ?? "(brief vide)");
     }
   }
+
+  // Récapitulatif, rotation, points signalés, faits consommés : la fin de la
+  // réponse du modèle, qui ne vit nulle part ailleurs qu'ici et dans le job.
+  if (outcome.result?.notes) console.log(`\n${outcome.result.notes}`);
 }
 
 main().catch((error) => {

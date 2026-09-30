@@ -46,10 +46,10 @@ describe("historyLine", () => {
     expect(historyLine(subject({ visuals: 1, wording: null }))).toContain("· 1 visuel");
   });
 
-  it("ne sert pas un brief pour une légende", () => {
-    expect(historyLine(subject({ status: "idea", wording: "Angle : montrer l'atelier." }))).not.toContain(
-      "Légende",
-    );
+  it("sert un brief sous son nom, jamais comme une légende", () => {
+    const line = historyLine(subject({ status: "idea", wording: "Montrer l'atelier." }));
+    expect(line).toContain("Brief : « Montrer l'atelier. »");
+    expect(line).not.toContain("Légende");
   });
 
   it("dit l'absence de date", () => {
