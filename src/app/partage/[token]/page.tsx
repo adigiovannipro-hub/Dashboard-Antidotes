@@ -103,6 +103,7 @@ export async function generateMetadata({
 
 const NETWORKS = [
   { key: "meta-ads", label: "Meta Ads" },
+  { key: "tiktok-ads", label: "TikTok Ads" },
   { key: "instagram", label: "Instagram" },
   { key: "facebook", label: "Facebook" },
   { key: "site-web", label: "Site Web" },
@@ -131,8 +132,14 @@ export default async function PartagePage({
 
   // Seuls les onglets qui portent des chiffres s'affichent : un rapport
   // partagé ne montre jamais un écran vide à expliquer.
-  const [ads, instagram, facebook, web] = await Promise.all([
+  const [ads, tiktokAds, instagram, facebook, web] = await Promise.all([
     getAdsData({ workspaceId: share.workspaceId, range, reader: admin }),
+    getAdsData({
+      workspaceId: share.workspaceId,
+      range,
+      provider: "tiktok_ads",
+      reader: admin,
+    }),
     getOrganicData({
       workspaceId: share.workspaceId,
       platform: "instagram",
@@ -151,6 +158,7 @@ export default async function PartagePage({
   const available: { key: ShareNetwork; label: string }[] = NETWORKS.filter(
     ({ key }) =>
       (key === "meta-ads" && ads.hasData) ||
+      (key === "tiktok-ads" && tiktokAds.hasData) ||
       (key === "instagram" && instagram.hasData) ||
       (key === "facebook" && facebook.hasData) ||
       (key === "site-web" && web.hasData),
@@ -209,6 +217,18 @@ export default async function PartagePage({
           gender={ads.gender}
           regions={ads.regions}
           followers={ads.followers}
+          period={period}
+        />
+      ) : network === "tiktok-ads" && tiktokAds.hasData ? (
+        <MetaDashboard
+          network="tiktok-ads"
+          adSets={tiktokAds.adSets}
+          total={tiktokAds.total}
+          previousTotal={tiktokAds.previousTotal}
+          age={tiktokAds.age}
+          gender={tiktokAds.gender}
+          regions={tiktokAds.regions}
+          followers={tiktokAds.followers}
           period={period}
         />
       ) : network === "instagram" && instagram.hasData ? (

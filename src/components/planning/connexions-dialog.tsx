@@ -15,6 +15,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { NETWORK_SUGGESTIONS, networkKey } from "@/lib/context/types";
 import { safeAction } from "@/lib/context/safe-action";
+import { AGENCY_TOOLKIT_LABELS, type AgencyToolkit } from "@/lib/composio/labels";
 import {
   COMPOSIO_TRANSITION_NOTE,
   isDirectConnectEnabled,
@@ -79,7 +80,7 @@ export function ConnexionsDialog({
     linked: Object.keys(selection) as SocialAccountKind[],
   });
 
-  const consentHref = (connector: "meta" | "youtube" | "linkedin") =>
+  const consentHref = (connector: "meta" | "youtube") =>
     `/api/social/${connector}/connexion?espace=${encodeURIComponent(
       workspaceSlug,
     )}&retour=${encodeURIComponent(retour)}`;
@@ -90,12 +91,20 @@ export function ConnexionsDialog({
   const wantsYouTube = rows.some((row) => row.kind === "youtube");
   const youtubeLinked = accounts.some((account) => account.kind === "youtube");
 
-  /* LinkedIn ne demande **aucun consentement ici** : l'autorisation vit chez
-     Composio, posée une fois pour toute l'agence. Le bouton ne fait
-     qu'importer les pages entreprise dans l'inventaire — d'où « Relever les
-     pages » plutôt que « Brancher ». */
-  const wantsLinkedin = rows.some((row) => row.kind === "linkedin");
-  const linkedinLinked = accounts.some((account) => account.kind === "linkedin");
+  /* LinkedIn et TikTok Ads passent par Composio, branchés une fois pour toute
+     l'agence. Le lien se demande **depuis l'application** — un branchement
+     fait sur le tableau de bord de Composio atterrit dans l'espace personnel,
+     invisible d'ici (vécu le 1/10/2026). */
+  const agencyHref = (route: "connexion" | "inventaire", reseau: AgencyToolkit) =>
+    `/api/social/composio/${route}?espace=${encodeURIComponent(
+      workspaceSlug,
+    )}&reseau=${reseau}&retour=${encodeURIComponent(retour)}`;
+  const agencyNetworks = (
+    [
+      { reseau: "linkedin", kind: "linkedin", relever: "Relever les pages" },
+      { reseau: "tiktok_ads", kind: "tiktok_ad_account", relever: "Relever les comptes" },
+    ] as const
+  ).filter((entry) => rows.some((row) => row.kind === entry.kind));
 
   const inventory = accounts.length;
 
@@ -130,29 +139,40 @@ export function ConnexionsDialog({
 
         <AddNetwork workspaceSlug={workspaceSlug} rows={rows} />
 
-        {/* LinkedIn est **hors** du branchement direct : son autorisation vit
-            chez Composio, pas dans un aller-retour OAuth d'ici. Le bouton
-            n'importe que les pages dans l'inventaire, et reste donc offert
-            quel que soit l'état des branchements directs. */}
-        {wantsLinkedin ? (
-          <Button
-            render={<a href={consentHref("linkedin")} />}
-            variant={linkedinLinked ? "outline" : "accent"}
-            size="sm"
-          >
-            {linkedinLinked ? (
-              <>
-                <RefreshCw className="size-3.5" strokeWidth={1.75} aria-hidden />
-                Relever les pages LinkedIn
-              </>
-            ) : (
-              <>
-                <Plug className="size-3.5" strokeWidth={1.75} aria-hidden />
-                Ajouter les pages LinkedIn
-              </>
-            )}
-          </Button>
-        ) : null}
+        {/* Hors du branchement direct : l'autorisation vit chez Composio, et
+            ces boutons restent offerts quel que soit l'état des branchements
+            directs. */}
+        {agencyNetworks.map((entry) => {
+          const linked = accounts.some((account) => account.kind === entry.kind);
+          const label = AGENCY_TOOLKIT_LABELS[entry.reseau];
+          return (
+            <div key={entry.reseau} className="flex flex-wrap gap-2">
+              <Button
+                render={<a href={agencyHref("connexion", entry.reseau)} />}
+                variant="outline"
+                size="sm"
+                className="min-w-0 flex-1"
+              >
+                {linked ? (
+                  <RefreshCw className="size-3.5" strokeWidth={1.75} aria-hidden />
+                ) : (
+                  <Plug className="size-3.5" strokeWidth={1.75} aria-hidden />
+                )}
+                {linked ? `Rebrancher ${label}` : `Brancher ${label}`}
+              </Button>
+              {linked ? (
+                <Button
+                  render={<a href={agencyHref("inventaire", entry.reseau)} />}
+                  variant="outline"
+                  size="sm"
+                  className="min-w-0 flex-1"
+                >
+                  {entry.relever}
+                </Button>
+              ) : null}
+            </div>
+          );
+        })}
 
         {isDirectConnectEnabled() ? (
           <>
@@ -205,11 +225,9 @@ export function ConnexionsDialog({
           {/* `--text-tertiary` est à 2,79:1 : réservé aux icônes, jamais au texte. */}
           <p className="type-caption text-text-secondary">
             Rebrancher met l&apos;inventaire à jour sans toucher aux affectations
-            déjà faites ici. Meta, YouTube et LinkedIn ont un connecteur : les
-            autres réseaux se déclarent, s&apos;affichent, et attendent le leur.
-            Pour TikTok, les démarches à engager sont listées dans{" "}
-            <code>docs/connecteurs-linkedin-tiktok.md</code> — ce sont les
-            validations qui prennent des semaines, pas le code.
+            déjà faites ici. Meta, YouTube, LinkedIn et TikTok Ads ont un
+            connecteur : les autres réseaux se déclarent, s&apos;affichent, et
+            attendent le leur.
           </p>
           </>
         ) : (

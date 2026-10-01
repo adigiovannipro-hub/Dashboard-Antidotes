@@ -83,38 +83,32 @@ export const META_KINDS: SocialAccountKind[] = [
 ];
 
 /**
- * Les réseaux qu'un connecteur sait réellement remplir aujourd'hui.
- *
- * Meta, et rien d'autre. Les sept autres se déclarent, s'affichent et
- * attendent leur connecteur — l'écran le dit en toutes lettres plutôt que de
- * montrer une liste de choix vide, qui laisserait croire à une panne.
- *
- * C'est la seule chose à changer le jour où LinkedIn arrive.
- */
-/**
  * Les réseaux qu'on sait réellement brancher.
  *
  * Meta d'un côté — un login, trois comptes —, YouTube de l'autre, qui demande
- * son propre aller-retour Google, LinkedIn en troisième, dont l'autorisation
- * vit chez Composio : les trois n'ont ni la même app, ni le même périmètre.
- * Le reste s'affiche sans bouton plutôt que d'offrir une liste vide qui se
- * lirait comme une panne.
+ * son propre aller-retour Google, puis LinkedIn et TikTok Ads, dont
+ * l'autorisation vit chez Composio, branchée une fois pour toute l'agence :
+ * aucun n'a ni la même app, ni le même périmètre. Le reste s'affiche sans
+ * bouton plutôt que d'offrir une liste vide qui se lirait comme une panne.
  */
 export const CONNECTABLE_KINDS: SocialAccountKind[] = [
   ...META_KINDS,
   "youtube",
   "linkedin",
+  "tiktok_ad_account",
 ];
 
-/** Par quel branchement passe un réseau — chaque famille a sa route OAuth. */
+/** Par quel branchement passe un réseau — chaque famille a sa route. */
 export function connectorOf(
   kind: SocialAccountKind,
-): "meta" | "youtube" | "linkedin" | null {
+): "meta" | "youtube" | "linkedin" | "tiktok_ads" | null {
   if (META_KINDS.includes(kind)) return "meta";
   if (kind === "youtube") return "youtube";
-  /* LinkedIn n'a pas d'aller-retour OAuth **ici** : la passerelle Composio
-     porte l'autorisation. La route ne fait qu'importer l'inventaire. */
+  /* LinkedIn et TikTok Ads n'ont pas d'aller-retour OAuth **ici** : la
+     passerelle Composio porte l'autorisation, et nos routes ne font que
+     demander le lien puis importer l'inventaire. */
   if (kind === "linkedin") return "linkedin";
+  if (kind === "tiktok_ad_account") return "tiktok_ads";
   return null;
 }
 

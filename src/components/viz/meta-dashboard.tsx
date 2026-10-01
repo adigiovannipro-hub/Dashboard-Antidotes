@@ -33,6 +33,7 @@ export function MetaDashboard({
   tableTotal,
   focus,
   drillable = false,
+  network = "meta-ads",
 }: {
   adSets: readonly MetricsTableRow[];
   total: RawMetrics;
@@ -48,6 +49,13 @@ export function MetaDashboard({
   focus?: { id: string; campaign: string | null; adSet: string } | null;
   /** Le partage public reste statique : le drill-down n'est offert qu'ici. */
   drillable?: boolean;
+  /**
+   * La régie de l'onglet. TikTok Ads reprend la charpente de Meta — mêmes
+   * tables, même tableau par groupe d'annonces —, mais pas sa question : pas
+   * de pixel d'achat à espérer par défaut, le coût du clic en héros, pas de
+   * région (TikTok ne la rend qu'en identifiants GeoNames).
+   */
+  network?: "meta-ads" | "tiktok-ads";
 }) {
   const mode = DEFAULT_CLICK_MODE;
   const router = useRouter();
@@ -61,6 +69,19 @@ export function MetaDashboard({
     else params.delete("adset");
     router.push(`?${params.toString()}`, { scroll: false });
   };
+
+  /* L'entonnoir et les colonnes d'achat n'ont de sens que là où des achats
+     se mesurent : toujours sur Meta, sur TikTok dès qu'un seul apparaît. Sur
+     un compte de notoriété, trois marches à zéro se liraient comme un
+     échec. */
+  const isTiktok = network === "tiktok-ads";
+  const tracksPurchases = !isTiktok || total.purchases > 0 || previousTotal.purchases > 0;
+  const columns = tracksPurchases
+    ? TOP_POSTS_COLUMNS
+    : TOP_POSTS_COLUMNS.filter(
+        (metric) => !["purchases", "earn", "cpa", "cpl", "saves"].includes(metric),
+      );
+  const unit = isTiktok ? "Groupe d'annonces" : "Ad set";
 
   const delta = (metric: MetricId) =>
     computeDelta(
@@ -105,7 +126,7 @@ export function MetaDashboard({
             title="Retirer le filtre"
           >
             <span className="max-w-[24rem] truncate">
-              Ad set&nbsp;: {focus.adSet}
+              {unit}&nbsp;: {focus.adSet}
               {focus.campaign ? ` · ${focus.campaign}` : ""}
             </span>
             <X className="size-3.5 shrink-0" strokeWidth={1.75} aria-hidden />
@@ -115,16 +136,21 @@ export function MetaDashboard({
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <HeroFigure
-          metric={HERO_METRIC["meta-ads"]}
-          value={computeMetric("roas", total, mode)}
-          delta={delta("roas")}
-          sentence={`${formatMetric("earn", total.purchaseValue)} générés pour ${formatMetric("spend", total.spend)} investis.`}
+          metric={HERO_METRIC[network]}
+          value={computeMetric(HERO_METRIC[network], total, mode)}
+          delta={delta(HERO_METRIC[network])}
+          sentence={
+            isTiktok
+              ? `${formatMetric("clicks", total.clicks)} clics pour ${formatMetric("spend", total.spend)} investis.`
+              : `${formatMetric("earn", total.purchaseValue)} générés pour ${formatMetric("spend", total.spend)} investis.`
+          }
           period={`${period.label} · comparé à ${period.comparison}`}
           /* Une seule case : le ROAS réduit fait entrer les deux tuiles
-             vidéo sans rangée orpheline (1 + 11 = 12 = 3 × 4). */
+             vidéo sans rangée orpheline (1 + 11 = 12 = 3 × 4) ; sur TikTok,
+             1 + 7 = deux rangées de quatre. */
         />
 
-        {KPI_SETS["meta-ads"].map((metric) => (
+        {KPI_SETS[network].map((metric) => (
           <StatTile
             key={metric}
             metric={metric}
@@ -134,21 +160,23 @@ export function MetaDashboard({
         ))}
       </div>
 
-      <Panel>
-        <PanelHeader
-          title="Conversion"
-          description="Du panier à l'achat, et ce qui se perd entre les deux."
-        />
-        <PanelBody>
-          <Funnel
-            steps={[
-              { label: "Ajouts au panier", value: total.addToCart },
-              { label: "Paiements initiés", value: total.initiatedCheckout },
-              { label: "Achats", value: total.purchases },
-            ]}
+      {tracksPurchases ? (
+        <Panel>
+          <PanelHeader
+            title="Conversion"
+            description="Du panier à l'achat, et ce qui se perd entre les deux."
           />
-        </PanelBody>
-      </Panel>
+          <PanelBody>
+            <Funnel
+              steps={[
+                { label: "Ajouts au panier", value: total.addToCart },
+                { label: "Paiements initiés", value: total.initiatedCheckout },
+                { label: "Achats", value: total.purchases },
+              ]}
+            />
+          </PanelBody>
+        </Panel>
+      ) : null}
 
       {/* Persona à gauche, abonnés à droite : on lit d'abord à qui l'on parle,
           ensuite combien ils sont. `items-stretch` par défaut de la grille —
@@ -160,7 +188,7 @@ export function MetaDashboard({
             title="Persona"
             description={
               focus
-                ? "Répartition des impressions du compte entier — Meta ne ventile pas par ad set."
+                ? `Répartition des impressions du compte entier — ${isTiktok ? "TikTok" : "Meta"} ne ventile pas par ${unit.toLowerCase()}.`
                 : "Répartition des impressions — qui a vu les campagnes."
             }
           />
@@ -171,37 +199,39 @@ export function MetaDashboard({
              * « Femmes » se réduisait à « Fe… ». Les barres portent le libellé
              * **et** la part sur la même ligne, à toute largeur.
              */}
-            <div className="grid gap-6 md:grid-cols-3">
+            <div className={isTiktok ? "grid gap-6 md:grid-cols-2" : "grid gap-6 md:grid-cols-3"}>
               <Breakdown title="Genre">
                 <BarList data={gender} />
               </Breakdown>
               <Breakdown title="Tranches d'âge">
                 <BarList data={age} ordinal />
               </Breakdown>
-              <Breakdown title="Régions">
-                <BarList data={foldedRegions} />
-              </Breakdown>
+              {isTiktok ? null : (
+                <Breakdown title="Régions">
+                  <BarList data={foldedRegions} />
+                </Breakdown>
+              )}
             </div>
           </PanelBody>
         </Panel>
 
-        <FollowersCard network="Instagram" data={followers} height={220} />
+        <FollowersCard network={isTiktok ? "TikTok" : "Instagram"} data={followers} height={220} />
       </div>
 
       <Panel>
         <PanelHeader
-          title={detailTitle("meta-ads")}
+          title={isTiktok ? "Performance par groupe d'annonces" : detailTitle("meta-ads")}
           count={adSets.length}
           description={
             drillable
-              ? "Cliquer une ligne filtre la page sur cet ad set ; un en-tête trie le tableau."
+              ? `Cliquer une ligne filtre la page sur ce ${isTiktok ? "groupe d'annonces" : "ad set"} ; un en-tête trie le tableau.`
               : "Cliquer un en-tête trie le tableau ; le total est recalculé sur les agrégats."
           }
         />
         <PanelBody>
           <MetricsTable
             rows={adSets}
-            columns={TOP_POSTS_COLUMNS}
+            columns={columns}
             total={tableTotal ?? total}
             mode={mode}
             selectedId={drillable ? (focus?.id ?? null) : undefined}

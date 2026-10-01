@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { syncWorkspaceWebAnalytics } from "@/lib/connectors/google-analytics/sync";
 import { syncWorkspaceLinkedin } from "@/lib/connectors/linkedin/sync";
 import { syncWorkspaceReporting } from "@/lib/connectors/meta/sync";
+import { syncWorkspaceTiktokAds } from "@/lib/connectors/tiktok-ads/sync";
 import { missingServerEnv, serverEnv } from "@/lib/env";
 import { createAdminClient } from "@/lib/supabase/server";
 
@@ -129,6 +130,35 @@ export async function GET(request: Request) {
     }
   }
 
+  /* TikTok Ads, sur ses propres affectations, comme LinkedIn. */
+  const { data: tiktokLinks, error: tiktokError } = await admin
+    .from("workspace_social_accounts")
+    .select("workspace_id")
+    .eq("kind", "tiktok_ad_account");
+  if (tiktokError) {
+    errors.push(`Lecture des affectations TikTok Ads : ${tiktokError.message}`);
+  }
+
+  const tiktokWorkspaceIds = [
+    ...new Set(
+      ((tiktokLinks ?? []) as { workspace_id: string }[]).map((link) => link.workspace_id),
+    ),
+  ];
+
+  for (const workspaceId of tiktokWorkspaceIds) {
+    try {
+      const source = await syncWorkspaceTiktokAds({ admin, workspaceId });
+      if (source) {
+        report[`tiktok-ads:${workspaceId}`] = source;
+        if (source.error) errors.push(`${source.account} : ${source.error}`);
+      }
+    } catch (error) {
+      errors.push(
+        `tiktok ads ${workspaceId} : ${error instanceof Error ? error.message : "erreur"}`,
+      );
+    }
+  }
+
   /* Le Site Web ensuite : les espaces qui ont une propriété GA rattachée.
      Même règle que pour Meta — l'`error` de la requête est testé, une table
      absente ne doit jamais ressembler à « rien à faire ». */
@@ -167,11 +197,12 @@ export async function GET(request: Request) {
   if (
     workspaceIds.length === 0 &&
     linkedinWorkspaceIds.length === 0 &&
+    tiktokWorkspaceIds.length === 0 &&
     webWorkspaceIds.length === 0
   ) {
     return NextResponse.json({
       ok: true,
-      note: "Aucun compte Meta ni LinkedIn affecté, aucune propriété GA rattachée.",
+      note: "Aucun compte Meta, LinkedIn ni TikTok Ads affecté, aucune propriété GA rattachée.",
     });
   }
 
