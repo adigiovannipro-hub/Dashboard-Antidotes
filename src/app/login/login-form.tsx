@@ -6,6 +6,7 @@ import { CheckCircle2, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { requestLoginLink } from "@/app/actions/login";
 import { createClient } from "@/lib/supabase/client";
 
 export function LoginForm({ next }: { next?: string }) {
@@ -18,24 +19,39 @@ export function LoginForm({ next }: { next?: string }) {
     setState("sending");
     setError(null);
 
-    const supabase = createClient();
-    /* L'origine réelle du navigateur, et non `NEXT_PUBLIC_SITE_URL` : cette
-       variable vaut `http://localhost:3000` par défaut, et un environnement où
-       elle n'est pas posée renvoyait le lien de connexion vers localhost. Le
-       lien doit ramener sur le domaine depuis lequel on l'a demandé — c'est
-       aussi le seul où le cookie de session sera lisible. */
-    const callback = new URL("/auth/callback", window.location.origin);
-    if (next) callback.searchParams.set("suivant", next);
+    // Le lien part par la boîte de l'agence : celle de Supabase ne délivre
+    // qu'à l'équipe du projet, et un client ne recevait jamais rien.
+    let result: Awaited<ReturnType<typeof requestLoginLink>>;
+    try {
+      result = await requestLoginLink({ email: email.trim(), next });
+    } catch {
+      result = { ok: true, fallback: true };
+    }
 
-    const { error: signInError } = await supabase.auth.signInWithOtp({
-      email: email.trim(),
-      options: { emailRedirectTo: callback.toString() },
-    });
-
-    if (signInError) {
-      setError(signInError.message);
+    if (!result.ok) {
+      setError(result.error);
       setState("idle");
       return;
+    }
+
+    if (result.fallback) {
+      // Boîte d'envoi indisponible : on repasse par Supabase, qui délivre au
+      // moins à l'agence — sans ce repli, une boîte Gmail déconnectée
+      // fermerait l'application à son propriétaire. `shouldCreateUser: false` :
+      // une adresse inconnue ne se crée pas de compte par ce chemin.
+      /* L'origine réelle du navigateur, et non `NEXT_PUBLIC_SITE_URL`, qui
+         vaut `http://localhost:3000` par défaut. */
+      const callback = new URL("/auth/callback", window.location.origin);
+      if (next) callback.searchParams.set("suivant", next);
+      const { error: signInError } = await createClient().auth.signInWithOtp({
+        email: email.trim(),
+        options: { emailRedirectTo: callback.toString(), shouldCreateUser: false },
+      });
+      if (signInError && !/signups? not allowed|user not found/i.test(signInError.message)) {
+        setError(signInError.message);
+        setState("idle");
+        return;
+      }
     }
 
     setState("sent");
@@ -45,10 +61,10 @@ export function LoginForm({ next }: { next?: string }) {
     return (
       <div className="border-border bg-card space-y-2 rounded-lg border p-6 text-center">
         <CheckCircle2 className="text-primary mx-auto size-6" aria-hidden />
-        <p className="font-medium">Lien envoyé</p>
+        <p className="font-medium">Vérifiez votre boîte</p>
         <p className="text-muted-foreground text-sm">
-          Ouvrez l&apos;email reçu à <span className="font-medium">{email}</span>{" "}
-          pour vous connecter. Le lien expire dans une heure.
+          Si <span className="font-medium">{email}</span> a un accès, un lien de
+          connexion vient d&apos;y partir. Il expire dans une heure.
         </p>
       </div>
     );

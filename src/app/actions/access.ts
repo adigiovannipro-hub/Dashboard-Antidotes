@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
+import { sendAccessLink, type AccessSendResult } from "@/lib/access/send-access";
+import { siteOrigin } from "@/lib/access/site-origin";
 import { requireOwner } from "@/lib/auth";
 import { createAdminClient, createClient } from "@/lib/supabase/server";
 
@@ -43,7 +45,26 @@ async function isManagedMember(userId: string, workspaceIds: string[]): Promise<
   return (data ?? []).length > 0;
 }
 
-export type ActionResult = { ok: true; message: string } | { ok: false; error: string };
+export type ActionResult =
+  /** `link` : le lien d'accès, quand le courriel n'a pas pu partir — à transmettre à la main. */
+  | { ok: true; message: string; link?: string }
+  | { ok: false; error: string };
+
+/**
+ * Le verdict d'un envoi de lien, en mots. L'accès, lui, est déjà écrit : un
+ * courriel qui ne part pas ne défait rien, il laisse le lien à transmettre.
+ */
+function sendVerdict(email: string, sent: AccessSendResult): ActionResult {
+  if (!sent.ok) {
+    return { ok: false, error: `Accès enregistré, mais le lien n'a pas pu être fabriqué : ${sent.error}` };
+  }
+  if (sent.sent) return { ok: true, message: `Accès envoyé à ${email}.` };
+  return {
+    ok: true,
+    message: `Accès enregistré, courriel non parti (${sent.reason ?? "boîte d'envoi indisponible"}). Lien à transmettre ci-dessous.`,
+    link: sent.link,
+  };
+}
 
 /**
  * Invite une adresse sur un espace.
@@ -80,7 +101,7 @@ export async function inviteToWorkspace(
   const supabase = await createClient();
   const { data: workspace } = await supabase
     .from("workspaces")
-    .select("id, org_id, name")
+    .select("id, org_id, name, slug")
     .eq("id", workspaceId)
     .maybeSingle();
 
@@ -135,13 +156,115 @@ export async function inviteToWorkspace(
     metadata: { role },
   });
 
+  // Le courriel, enfin. Jusqu'au 1/10/2026 l'invitation s'arrêtait à la ligne
+  // ci-dessus : le client ne recevait rien, et la page de connexion passait
+  // par une boîte d'envoi qui ne délivre qu'à l'équipe du projet Supabase.
+  const sent = await sendAccessLink({
+    kind: "invitation",
+    email,
+    firstName: firstName || null,
+    workspaceName: workspace.name,
+    destination: `/espace/${workspace.slug}`,
+    siteUrl: await siteOrigin(),
+  });
+
   revalidatePath("/admin/acces");
-  return {
-    ok: true,
-    message: profile
-      ? `${email} a désormais accès à ${workspace.name}.`
-      : `Invitation enregistrée pour ${email}. L'accès s'ouvrira à sa première connexion.`,
-  };
+  return sendVerdict(email, sent);
+}
+
+const resendSchema = z.object({
+  email: z.email("Adresse email invalide.").transform((value) => value.trim().toLowerCase()),
+  workspaceId: z.uuid("Espace invalide."),
+});
+
+/**
+ * Renvoie le lien d'accès d'une adresse déjà invitée — le bouton de chaque
+ * ligne de la gestion des accès. Un lien expire au bout d'une heure ; un
+ * client qui l'a laissé passer, ou qui ne l'a jamais reçu, en a besoin d'un
+ * neuf.
+ *
+ * Seulement pour une adresse qui a déjà un accès, ou une invitation en
+ * attente, sur un espace du propriétaire : le bouton ne sert pas à ouvrir un
+ * accès, c'est le formulaire qui le fait.
+ */
+export async function resendAccess(
+  _previous: ActionResult | null,
+  formData: FormData,
+): Promise<ActionResult> {
+  const viewer = await requireOwner();
+
+  const parsed = resendSchema.safeParse({
+    email: formData.get("email"),
+    workspaceId: formData.get("workspaceId"),
+  });
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Requête incomplète." };
+  }
+  const { email, workspaceId } = parsed.data;
+
+  const workspace = viewer.workspaces.find((candidate) => candidate.id === workspaceId);
+  if (!workspace || workspace.type === "personal") {
+    return { ok: false, error: "Espace introuvable." };
+  }
+
+  const admin = createAdminClient();
+  const [{ data: profile }, { data: invitation }] = await Promise.all([
+    admin.from("profiles").select("id, first_name").ilike("email", email).maybeSingle(),
+    admin
+      .from("invitations")
+      .select("id, first_name")
+      .ilike("email", email)
+      .eq("workspace_id", workspaceId)
+      .is("accepted_at", null)
+      .limit(1)
+      .maybeSingle(),
+  ]);
+
+  let invited = Boolean(invitation);
+  if (profile) {
+    const { data: membership } = await admin
+      .from("memberships")
+      .select("user_id")
+      .eq("user_id", (profile as { id: string }).id)
+      .eq("workspace_id", workspaceId)
+      .maybeSingle();
+    invited = invited || Boolean(membership);
+  }
+  if (!invited) return { ok: false, error: "Aucun accès à cet espace pour cette adresse." };
+
+  // Une invitation expire au bout de trente jours, et le trigger qui la
+  // change en accès à la création du compte ignore les expirées : renvoyer
+  // le lien sans la prolonger ouvrirait un compte sans espace.
+  if (invitation) {
+    await admin
+      .from("invitations")
+      .update({ expires_at: new Date(Date.now() + 30 * 24 * 3600 * 1000).toISOString() } as never)
+      .eq("id", (invitation as { id: string }).id);
+  }
+
+  const firstName =
+    (profile as { first_name: string | null } | null)?.first_name ??
+    (invitation as { first_name: string | null } | null)?.first_name ??
+    null;
+
+  const sent = await sendAccessLink({
+    kind: "invitation",
+    email,
+    firstName,
+    workspaceName: workspace.name,
+    destination: `/espace/${workspace.slug}`,
+    siteUrl: await siteOrigin(),
+  });
+
+  await admin.from("audit_log").insert({
+    actor_id: viewer.user.id,
+    workspace_id: workspaceId,
+    action: "access.resend",
+    target: email,
+  });
+
+  revalidatePath("/admin/acces");
+  return sendVerdict(email, sent);
 }
 
 export async function revokeAccess(

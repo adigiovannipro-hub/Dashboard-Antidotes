@@ -101,7 +101,7 @@ on:
         type: boolean
         default: false
       acces_test_vers:
-        description: "Courriel d'accès à un espace (invitation ANMF), par la vraie chaîne, vers cette adresse de test"
+        description: "Courriels d'accès (invitation ANMF + lien de connexion), par la vraie chaîne, vers cette adresse de test"
         type: string
         default: ""
       renvoi_factures_vers:
@@ -257,7 +257,11 @@ jobs:
       # un client. Le lien reçu connecte l'adresse — à n'envoyer qu'à soi.
       - name: Courriel d'accès
         if: ${{ inputs.acces_test_vers != '' }}
-        run: pnpm acces:test --vers "${{ inputs.acces_test_vers }}"
+        # Les deux courriels : l'invitation de la gestion des accès, puis le
+        # lien de connexion que demande la page /login.
+        run: |
+          pnpm acces:test --vers "${{ inputs.acces_test_vers }}"
+          pnpm acces:test --vers "${{ inputs.acces_test_vers }}" --connexion
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}

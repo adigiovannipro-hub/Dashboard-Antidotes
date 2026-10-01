@@ -9,10 +9,12 @@ import {
   attachAvatar,
   cancelInvitation,
   prepareAvatarUpload,
+  resendAccess,
   revokeAccess,
   updateMemberProfile,
   type ActionResult,
 } from "@/app/actions/access";
+import { AccessLinkFallback } from "./access-link-fallback";
 import { PendingLabel } from "@/components/ds/pending-label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -58,6 +60,7 @@ type InvitationRow = {
   id: string;
   email: string;
   fullName: string;
+  workspaceId: string;
   workspaceName: string;
   role: string;
   expiresAt: string;
@@ -146,10 +149,16 @@ export function AccessTable({
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <RevokeButton
-                        userId={member.userId}
-                        workspaceId={member.workspaceId}
-                      />
+                      <div className="flex items-center justify-end gap-1">
+                        <ResendButton
+                          email={member.email}
+                          workspaceId={member.workspaceId}
+                        />
+                        <RevokeButton
+                          userId={member.userId}
+                          workspaceId={member.workspaceId}
+                        />
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -196,7 +205,15 @@ export function AccessTable({
                       }).format(new Date(invitation.expiresAt))}
                     </TableCell>
                     <TableCell>
-                      <CancelButton invitationId={invitation.id} />
+                      <div className="flex items-center justify-end gap-1">
+                        {invitation.workspaceId ? (
+                          <ResendButton
+                            email={invitation.email}
+                            workspaceId={invitation.workspaceId}
+                          />
+                        ) : null}
+                        <CancelButton invitationId={invitation.id} />
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -364,6 +381,34 @@ function useActionToast(state: ActionResult | null) {
     if (state.ok) toast.success(state.message);
     else toast.error(state.error);
   }, [state]);
+}
+
+/**
+ * Renvoie un lien d'accès neuf. Il expire au bout d'une heure, et un client
+ * qui ne l'a jamais reçu — tous ceux invités avant le 1/10/2026 — en a besoin
+ * d'un. Si la boîte d'envoi est indisponible, le lien s'affiche à copier.
+ */
+function ResendButton({ email, workspaceId }: { email: string; workspaceId: string }) {
+  const [state, action, pending] = useActionState<ActionResult | null, FormData>(
+    resendAccess,
+    null,
+  );
+  useActionToast(state);
+
+  return (
+    <>
+      <form action={action}>
+        <input type="hidden" name="email" value={email} />
+        <input type="hidden" name="workspaceId" value={workspaceId} />
+        <Button type="submit" variant="ghost" size="sm" disabled={pending}>
+          <PendingLabel pending={pending} busy="Envoi…">
+            Renvoyer le lien
+          </PendingLabel>
+        </Button>
+      </form>
+      {state?.ok && state.link ? <AccessLinkFallback link={state.link} dialog /> : null}
+    </>
+  );
 }
 
 function RevokeButton({
