@@ -1,9 +1,13 @@
 /**
- * Accès ouvert.
+ * Accès ouvert — **refermé le 1/10/2026**, à la demande de l'utilisateur : des
+ * clients ont désormais un accès, et « ils doivent accéder à leur dossier
+ * uniquement, rien de plus ». Tant que l'application était ouverte, un client
+ * qui l'ouvrait sans session — autre navigateur, session expirée — voyait
+ * tout. Le lien de connexion part maintenant par la boîte Gmail de l'agence
+ * (`requestLoginLink`), ce qui rendait la fermeture vivable.
  *
- * L'application s'ouvre sans authentification pendant la construction : le
- * login par magic link ajoutait une marche avant même de pouvoir regarder
- * l'écran.
+ * Elle s'ouvrait sans authentification pendant la construction : le login par
+ * magic link ajoutait une marche avant même de pouvoir regarder l'écran.
  *
  * Ce que cela implique, sans détour : **toute personne qui a l'URL voit tout**.
  * Le planning, les budgets de sponsorisation, les captions, les chiffres de
@@ -19,12 +23,13 @@
  * l'application partout à la fois, et c'est le geste à faire avant le deuxième
  * client.
  */
-const OUVERT_PENDANT_LA_CONSTRUCTION = true;
+const OUVERT_PENDANT_LA_CONSTRUCTION = false;
 
 /**
- * `ANTIDOTES_OPEN_ACCESS` permet de trancher sans toucher au code — utile pour
- * refermer un environnement précis (`false`) sans redéployer les autres. Non
- * positionnée, c'est la constante ci-dessus qui décide.
+ * `ANTIDOTES_OPEN_ACCESS` permet de trancher sans toucher au code — c'est
+ * aussi la porte de secours : `true` sur Vercel rouvre l'application si plus
+ * personne ne pouvait s'y connecter. Non positionnée, c'est la constante
+ * ci-dessus qui décide.
  */
 export function isOpenAccess(): boolean {
   const choix = process.env.ANTIDOTES_OPEN_ACCESS;

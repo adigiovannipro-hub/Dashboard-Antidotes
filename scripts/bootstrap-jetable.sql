@@ -34,8 +34,16 @@ create table if not exists auth.users (
   created_at timestamptz not null default now()
 );
 
+-- Les deux formes, comme Supabase : PostgREST 12 ne pose plus que
+-- `request.jwt.claims` (JSON), et une simulation de session derrière lui
+-- rendait `auth.uid()` nul — toute politique répondait « rien ».
 create or replace function auth.uid() returns uuid
-language sql stable as $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
+language sql stable as $$
+  select coalesce(
+    nullif(current_setting('request.jwt.claim.sub', true), ''),
+    nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'sub'
+  )::uuid
+$$;
 
 create or replace function auth.jwt() returns jsonb
 language sql stable as $$ select coalesce(nullif(current_setting('request.jwt.claims', true), ''), '{}')::jsonb $$;
