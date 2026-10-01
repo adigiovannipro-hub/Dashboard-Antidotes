@@ -232,6 +232,7 @@ export function MetaDashboard({
           <MetricsTable
             rows={adSets}
             columns={columns}
+            unitLabel={unit}
             total={tableTotal ?? total}
             mode={mode}
             selectedId={drillable ? (focus?.id ?? null) : undefined}
