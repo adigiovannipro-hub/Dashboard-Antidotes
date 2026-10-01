@@ -49,6 +49,13 @@
   --color-surface: var(--surface);
   --color-surface-sunken: var(--surface-sunken);
   --color-border-strong: var(--border-strong);
+  --color-board-row: var(--board-row);
+  --color-board-lane: var(--board-lane);
+  --color-board-columns: var(--board-columns);
+  --color-board-hover: var(--board-hover);
+  --color-board-line: var(--board-line);
+  --color-selection-count: var(--selection-count);
+  --color-bulk-bar: var(--bulk-bar);
   --color-text-primary: var(--text-primary);
   --color-text-secondary: var(--text-secondary);
   --color-text-tertiary: var(--text-tertiary);
@@ -662,4 +669,50 @@
   .rail-remuer {
     animation: none;
   }
+}
+
+/* --- Les toasts, façon Monday ---------------------------------------------- */
+
+/* Un bandeau plein en haut de l'écran, plus grand que le toast de sonner :
+   c'est le retour d'un geste qu'on vient de faire, il doit se voir sans
+   chercher. La croix passe à droite, centrée, sans pastille — la pastille
+   ronde de sonner flottait sur le coin et se lisait comme un badge. Les
+   attributs sont doublés pour l'emporter sur les règles « rich colors » de
+   sonner, qui en portent quatre. */
+[data-sonner-toaster][data-sonner-toaster] {
+  font-family: var(--font-body-stack);
+}
+
+[data-sonner-toaster] [data-sonner-toast][data-styled="true"] {
+  min-height: 52px;
+  padding: 14px 52px 14px 18px;
+  gap: 10px;
+  font-size: 15px;
+  box-shadow: 0 10px 30px rgb(0 0 0 / 0.28);
+}
+
+[data-sonner-toaster] [data-sonner-toast][data-styled="true"] [data-title] {
+  font-weight: 500;
+}
+
+[data-sonner-toaster] [data-sonner-toast][data-sonner-toast] [data-close-button][data-close-button] {
+  top: 50%;
+  right: 14px;
+  left: auto;
+  width: 28px;
+  height: 28px;
+  transform: translateY(-50%);
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: inherit;
+}
+
+[data-sonner-toaster] [data-sonner-toast][data-sonner-toast] [data-close-button][data-close-button]:hover {
+  background: rgb(255 255 255 / 0.18);
+}
+
+[data-sonner-toaster] [data-sonner-toast] [data-close-button] svg {
+  width: 16px;
+  height: 16px;
 }

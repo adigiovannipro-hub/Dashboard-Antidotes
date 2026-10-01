@@ -54,7 +54,7 @@ export default function RootLayout({
       <body className="bg-background text-foreground flex min-h-full flex-col">
         <ThemeProvider>
           {children}
-          <Toaster position="bottom-right" />
+          <Toaster />
         </ThemeProvider>
       </body>
     </html>

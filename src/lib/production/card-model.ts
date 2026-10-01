@@ -70,6 +70,7 @@ export type ProductionSnapshot = {
    * que `target` : on ne calcule pas de fenêtre d'échéance pour un mois qui
    * n'est pas encore dû, et un mois à venir ne peut pas être en retard.
    */
+  /** Le mois en cours et les mois d'avance, par `YYYY-MM-01`. */
   ahead: Record<string, AheadStats>;
   /** Jobs récents de l'espace, du plus neuf au plus ancien. */
   jobs: GenerationJob[];
@@ -147,10 +148,16 @@ export type ProductionCardModel = {
   /** `false` quand les tables du module manquent : rien n'est modifiable. */
   moduleReady: boolean;
   /**
-   * Les mois sélectionnables, du mois par défaut aux deux suivants. La carte
-   * s'ouvre toujours sur le premier : un choix mémorisé cacherait un retard.
+   * Les mois sélectionnables, dans l'ordre du calendrier : le mois en cours
+   * (dont la production n'est pas forcément finie), le mois par défaut, puis
+   * deux mois d'avance.
    */
   views: CardMonthView[];
+  /**
+   * La vue sur laquelle la carte s'ouvre : toujours le mois par défaut, qui
+   * porte le cycle réel. Un choix mémorisé cacherait un retard.
+   */
+  defaultIndex: number;
   subtitle: string;
   segments: PhaseSegment[];
   lateBadge: string | null;
@@ -485,7 +492,19 @@ export function buildCardModel(options: {
     menu,
   };
 
-  const views: CardMonthView[] = [defaultView];
+  // Le mois en cours, à gauche du mois par défaut : sa production a pu ne pas
+  // finir à temps (vécu le 1er octobre — octobre n'était pas bouclé, et la
+  // carte ne proposait plus que novembre). Ses publications restent à
+  // compléter, rédiger ou envoyer en validation.
+  const views: CardMonthView[] = [
+    buildAheadView({
+      monthKey,
+      phases: snapshot.phases,
+      stats: snapshot.ahead[`${monthKey}-01`] ?? EMPTY_AHEAD,
+      kind: "current",
+    }),
+    defaultView,
+  ];
   for (let ahead = 1; ahead <= AHEAD_MONTHS; ahead += 1) {
     const key = shiftMonth(monthKey, 1 + ahead);
     views.push(
@@ -493,6 +512,7 @@ export function buildCardModel(options: {
         monthKey: key,
         phases: snapshot.phases,
         stats: snapshot.ahead[`${key}-01`] ?? EMPTY_AHEAD,
+        kind: "ahead",
       }),
     );
   }
@@ -500,6 +520,7 @@ export function buildCardModel(options: {
   return {
     moduleReady: true,
     views,
+    defaultIndex: 1,
     subtitle: view.subtitle,
     segments: view.segments,
     lateBadge: view.lateBadge,
@@ -528,6 +549,8 @@ function buildAheadView(options: {
   monthKey: string;
   phases: PhaseSlice[];
   stats: AheadStats;
+  /** `current` : le mois qu'on publie, dont la production peut rester à finir. */
+  kind: "ahead" | "current";
 }): CardMonthView {
   const targetMonth = `${options.monthKey}-01`;
   const label = monthLabel(options.monthKey);
@@ -614,7 +637,8 @@ function buildAheadView(options: {
       kind: (phase === "programmation" ? "validation" : "generate") as CardAction["kind"],
     };
     // Le reporting analyse un mois écoulé : il n'a rien à dire d'un mois qui
-    // n'a pas encore commencé, et le proposer ferait échouer un job pour rien.
+    // n'a pas encore commencé — ni de celui qu'on publie encore —, et le
+    // proposer ferait échouer un job pour rien.
     if (phase === "reporting") {
       return { ...entry, disabled: true, reason: "Le reporting analyse un mois écoulé" };
     }
@@ -627,18 +651,21 @@ function buildAheadView(options: {
     };
   });
 
+  const isCurrent = options.kind === "current";
   return {
     targetMonth,
     monthLabel: label,
-    badge: "En avance",
+    badge: isCurrent ? "En cours" : "En avance",
     subtitle: `${label} · ${current ? PHASE_LABELS[current] : "Cycle bouclé"}`,
     segments,
     lateBadge: null,
     currentPhase: current,
     metrics,
-    info: current
-      ? `${label} n'est pas encore dans la fenêtre. Rien n'est en retard.`
-      : `${label} est bouclé.`,
+    info: !current
+      ? `${label} est bouclé.`
+      : isCurrent
+        ? `${label} se publie : ses contenus restent modifiables.`
+        : `${label} n'est pas encore dans la fenêtre. Rien n'est en retard.`,
     action,
     menu,
   };
@@ -678,6 +705,7 @@ function buildUnavailableModel(options: {
     moduleReady: false,
     // Une seule vue : sans les tables du module, il n'y a pas de mois à
     // parcourir — le sélecteur n'aurait rien à montrer.
+    defaultIndex: 0,
     views: [
       {
         targetMonth: `${options.monthKey}-01`,

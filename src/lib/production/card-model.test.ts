@@ -179,7 +179,7 @@ describe("buildCardModel", () => {
     expect(model.action?.disabled).toBe(false);
     expect(model.action?.reason).toBeNull();
     expect(
-      model.views[0]!.menu.find((entry) => entry.phase === "reporting")!.disabled,
+      model.views[model.defaultIndex]!.menu.find((entry) => entry.phase === "reporting")!.disabled,
     ).toBe(false);
   });
 
@@ -238,17 +238,19 @@ describe("buildCardModel", () => {
     expect(model.progress?.label).toBe("Publié ce mois-ci");
   });
 
-  it("ouvre sur le mois par défaut et propose deux mois d'avance", () => {
+  it("ouvre sur le mois par défaut, le mois en cours à sa gauche, deux mois d'avance à sa droite", () => {
     const model = build({}, { today: "2026-08-18" });
-    expect(model.views).toHaveLength(3);
+    expect(model.views).toHaveLength(4);
     expect(model.views.map((vue) => vue.monthLabel)).toEqual([
+      "Août",
       "Septembre",
       "Octobre",
       "Novembre",
     ]);
+    expect(model.views[model.defaultIndex]!.monthLabel).toBe("Septembre");
     // La première vue est celle que la carte ouvre : elle porte le cycle réel.
-    expect(model.views[0]!.badge).toBeNull();
-    expect(model.views[0]!.subtitle).toBe(model.subtitle);
+    expect(model.views[model.defaultIndex]!.badge).toBeNull();
+    expect(model.views[model.defaultIndex]!.subtitle).toBe(model.subtitle);
   });
 
   it("ne met jamais un mois d'avance en retard", () => {
@@ -260,7 +262,7 @@ describe("buildCardModel", () => {
       },
       { today: "2026-08-24" },
     );
-    const octobre = model.views[1]!;
+    const octobre = model.views[model.defaultIndex + 1]!;
     expect(octobre.badge).toBe("En avance");
     expect(octobre.lateBadge).toBeNull();
     expect(octobre.segments.every((segment) => !segment.late)).toBe(true);
@@ -279,7 +281,7 @@ describe("buildCardModel", () => {
       },
       { today: "2026-08-18" },
     );
-    const octobre = model.views[1]!;
+    const octobre = model.views[model.defaultIndex + 1]!;
     expect(octobre.currentPhase).toBe("wording");
     expect(octobre.action?.label).toBe("Rédiger les 6 contenus restants");
     expect(octobre.metrics).toContainEqual({
@@ -288,9 +290,31 @@ describe("buildCardModel", () => {
     });
   });
 
+  it("garde le mois en cours ouvert à la production, sans retard ni reporting", () => {
+    // Le 1er octobre : la carte passe à novembre, mais octobre n'est pas fini.
+    const model = build(
+      {
+        phases: [
+          slice({ phase: "intentions", target_month: "2026-10-01", status: "done" }),
+        ],
+        ahead: { "2026-10-01": { total: 32, withWording: 20, validated: 4 } },
+      },
+      { today: "2026-10-01" },
+    );
+    const octobre = model.views[model.defaultIndex - 1]!;
+    expect(octobre.monthLabel).toBe("Octobre");
+    expect(octobre.badge).toBe("En cours");
+    expect(octobre.lateBadge).toBeNull();
+    expect(octobre.currentPhase).toBe("wording");
+    expect(octobre.action?.label).toBe("Rédiger les 12 contenus restants");
+    expect(octobre.action?.targetMonth).toBe("2026-10-01");
+    expect(octobre.menu.find((entry) => entry.phase === "intentions")!.disabled).toBe(false);
+    expect(octobre.menu.find((entry) => entry.phase === "reporting")!.disabled).toBe(true);
+  });
+
   it("marque la vue du reporting comme un bilan, pas comme un mois à produire", () => {
     const model = build({}, { today: "2026-08-03" });
-    expect(model.views[0]!.badge).toBe("Bilan");
+    expect(model.views[model.defaultIndex]!.badge).toBe("Bilan");
   });
 
   it("se tait sur le cycle quand les tables du module ne sont pas en base", () => {
@@ -306,7 +330,7 @@ describe("buildCardModel", () => {
     // Sans les tables, un clic sur un segment répondrait 500 : la carte le dit
     // au composant, qui rend les segments inertes.
     expect(model.moduleReady).toBe(false);
-    expect(model.views[0]!.menu).toEqual([]);
+    expect(model.views[model.defaultIndex]!.menu).toEqual([]);
     // Les mesures venues du planning restent : elles, sont vraies.
     expect(model.metrics).toContainEqual({
       label: "À publier sous 7 jours",
@@ -319,13 +343,13 @@ describe("buildCardModel", () => {
     // le job quand même, il échouait à la première ligne, et l'écran donnait
     // l'impression que le clic n'avait rien fait.
     const model = build({}, { today: "2026-08-03" });
-    const reporting = model.views[0]!.menu.find((entry) => entry.phase === "reporting")!;
+    const reporting = model.views[model.defaultIndex]!.menu.find((entry) => entry.phase === "reporting")!;
     expect(reporting.disabled).toBe(true);
     expect(reporting.reason).toBe(
       "Aucune donnée ni publication en juillet à analyser",
     );
 
-    const intentions = model.views[0]!.menu.find(
+    const intentions = model.views[model.defaultIndex]!.menu.find(
       (entry) => entry.phase === "intentions",
     )!;
     expect(intentions.disabled).toBe(false);
@@ -338,17 +362,17 @@ describe("buildCardModel", () => {
       target: { total: 12, withWording: 4, validated: 0, scheduled: 0, firstPublication: null },
       previous: { published: 8, total: 9, hasRealData: false },
     });
-    expect(model.views[0]!.menu.every((entry) => !entry.disabled)).toBe(true);
+    expect(model.views[model.defaultIndex]!.menu.every((entry) => !entry.disabled)).toBe(true);
     // La validation n'est pas un job : le menu doit le dire au composant,
     // sinon le clic part vers `/api/generate/programmation`.
     expect(
-      model.views[0]!.menu.find((entry) => entry.phase === "programmation")!.kind,
+      model.views[model.defaultIndex]!.menu.find((entry) => entry.phase === "programmation")!.kind,
     ).toBe("validation");
   });
 
   it("refuse le reporting d'un mois d'avance, qui n'est pas écoulé", () => {
     const model = build({ phases: upToWording }, { today: "2026-08-24" });
-    const octobre = model.views[1]!;
+    const octobre = model.views[model.defaultIndex + 1]!;
     const reporting = octobre.menu.find((entry) => entry.phase === "reporting")!;
     expect(reporting.disabled).toBe(true);
     expect(reporting.reason).toBe("Le reporting analyse un mois écoulé");
