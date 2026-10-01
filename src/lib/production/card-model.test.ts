@@ -312,6 +312,43 @@ describe("buildCardModel", () => {
     expect(octobre.menu.find((entry) => entry.phase === "reporting")!.disabled).toBe(true);
   });
 
+  it("remonte les mois passés qui portent quelque chose, jusqu'à un an", () => {
+    const model = build(
+      {
+        phases: [
+          slice({ phase: "intentions", target_month: "2026-07-01", status: "done" }),
+        ],
+        ahead: {
+          "2026-09-01": { total: 12, withWording: 12, validated: 12 },
+          "2025-11-01": { total: 8, withWording: 8, validated: 8 },
+          // Au-delà d'un an : hors de portée.
+          "2025-09-01": { total: 5, withWording: 5, validated: 5 },
+        },
+      },
+      { today: "2026-10-01" },
+    );
+    const labels = model.views.map((vue) => vue.monthLabel);
+    // Les mois vides entre deux ne font pas de cran : août n'apparaît pas.
+    expect(labels).toEqual([
+      "Novembre 2025",
+      "Juillet",
+      "Septembre",
+      "Octobre",
+      "Novembre",
+      "Décembre",
+      "Janvier 2027",
+    ]);
+    expect(model.views[model.defaultIndex]!.monthLabel).toBe("Novembre");
+
+    const septembre = model.views[2]!;
+    expect(septembre.badge).toBe("Passé");
+    expect(septembre.lateBadge).toBeNull();
+    expect(septembre.targetMonth).toBe("2026-09-01");
+    // Un mois écoulé s'analyse : le reporting est ouvert depuis sa vue.
+    expect(septembre.menu.find((entry) => entry.phase === "reporting")!.disabled).toBe(false);
+    expect(septembre.menu.find((entry) => entry.phase === "wording")!.disabled).toBe(false);
+  });
+
   it("marque la vue du reporting comme un bilan, pas comme un mois à produire", () => {
     const model = build({}, { today: "2026-08-03" });
     expect(model.views[model.defaultIndex]!.badge).toBe("Bilan");

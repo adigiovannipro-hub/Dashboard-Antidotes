@@ -3,9 +3,10 @@ import { redirect } from "next/navigation";
 
 import { Wordmark } from "@/components/wordmark";
 import { Button } from "@/components/ui/button";
+import { accessButtonLabel } from "@/lib/access/access-email";
 
 export const metadata: Metadata = {
-  title: "Entrer dans la formation",
+  title: "Connexion",
   robots: { index: false, follow: false },
 };
 
@@ -20,7 +21,8 @@ export const metadata: Metadata = {
  * Un robot suit un lien, il ne soumet pas un formulaire.
  *
  * Publique par nécessité (`PUBLIC_PATHS`) : la personne n'a pas encore de
- * session, c'est tout l'objet.
+ * session, c'est tout l'objet. Elle sert l'Academy, les invitations à un
+ * espace et les liens de connexion : le bouton dit où il mène.
  */
 export default async function AuthAccessPage({
   searchParams,
@@ -43,7 +45,7 @@ export default async function AuthAccessPage({
         <input type="hidden" name="type" value={type} />
         <input type="hidden" name="suivant" value={suivant ?? "/"} />
         <Button type="submit" className="w-full">
-          Entrer dans la formation
+          {accessButtonLabel(suivant)}
         </Button>
       </form>
     </main>
