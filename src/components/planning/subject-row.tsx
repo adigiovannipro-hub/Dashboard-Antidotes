@@ -17,6 +17,7 @@ import {
   updateCustomValue,
   updateSubject,
   type EditableField,
+  type PlanningResult,
 } from "@/app/actions/planning";
 import {
   CheckboxCell,
@@ -97,6 +98,7 @@ export function SubjectRowView({
   onRowDragLeave,
   onRowDrop,
   canGenerateWording,
+  focusName,
 }: {
   scope: Scope;
   row: Row;
@@ -116,18 +118,21 @@ export function SubjectRowView({
   onRowDragOver: (subjectId: string, after: boolean) => void;
   onRowDragLeave: () => void;
   onRowDrop: (subjectId: string, after: boolean, draggedId: string) => void;
+  /** La ligne vient de naître du clic sur « Ajouter » : le curseur est dans son sujet. */
+  focusName?: boolean;
 }) {
   const { run, pending } = useCellAction();
   const [dragging, setDragging] = useState(false);
 
+  // La promesse remonte jusqu'à la cellule : c'est elle qui décide si la
+  // valeur affichée par avance tient ou revient en arrière.
   const edit = (field: EditableField, value: unknown) => {
     if (bulkTargets && bulkTargets.length > 1 && BULK_FIELDS.includes(field)) {
-      run(() =>
+      return run(() =>
         bulkUpdateSubjects(scope, { subjectIds: bulkTargets, field, value }),
       );
-      return;
     }
-    run(() => updateSubject(scope, { subjectId: row.id, field, value }));
+    return run(() => updateSubject(scope, { subjectId: row.id, field, value }));
   };
 
   const isAfter = (event: React.DragEvent) => {
@@ -162,9 +167,8 @@ export function SubjectRowView({
         // Filets pleins et non estompés : sur le blanc du tableau, un
         // `border/50` disparaissait — les cellules flottaient sans grille et
         // l'œil perdait la ligne qu'il suivait.
-        "group/row border-border-strong [&>*+*]:border-border-strong grid cursor-pointer border-b px-2 transition-colors [&>*+*]:border-l",
-        selected ? "bg-brand-mint/50" : "hover:bg-surface-sunken",
-        pending && "opacity-60",
+        "group/row border-board-line [&>*+*]:border-board-line grid cursor-pointer border-b px-2 transition-colors [&>*+*]:border-l",
+        selected ? "bg-brand-mint/50" : "hover:bg-board-hover",
         // Pendant le drag, l'original s'estompe : c'est la copie sous le
         // curseur qui porte la ligne.
         dragging && "opacity-30",
@@ -237,6 +241,7 @@ export function SubjectRowView({
           onOpenSubject={() => onOpen(row.id)}
           onEditLabels={() => onEditLabels(column)}
           canGenerateWording={canGenerateWording}
+          focusName={focusName}
         />
       ))}
 
@@ -258,18 +263,20 @@ function Cell({
   onOpenSubject,
   onEditLabels,
   canGenerateWording,
+  focusName,
 }: {
   scope: Scope;
   column: ColumnDef;
   row: Row;
   owners: PlanningOwner[];
-  edit: (field: EditableField, value: unknown) => void;
+  edit: (field: EditableField, value: unknown) => Promise<PlanningResult>;
   run: ReturnType<typeof useCellAction>["run"];
   pending: boolean;
   onOpenRetours: () => void;
   onOpenSubject: () => void;
   onEditLabels: () => void;
   canGenerateWording: boolean;
+  focusName?: boolean;
 }) {
   // `flush` : la cellule ne met **aucune** marge autour de son contenu — c'est
   // le mode des étiquettes, dont l'aplat coloré remplit le rectangle entier,
@@ -298,6 +305,7 @@ function Cell({
               ariaLabel="Sujet de la publication"
               placeholder="Nouveau sujet…"
               className="font-medium"
+              autoFocus={focusName}
               onCommit={(next) => edit("name", next)}
             />,
           )}
@@ -498,9 +506,10 @@ function CommentsBadge({ row, onOpen }: { row: Row; onOpen: () => void }) {
       {row.comments.length > 0 ? (
         <>
           <MessageSquare className="size-3.5" aria-hidden />
-          {/* L'encre, pas la teinte vive : du blanc sur le vert de marque
-              tombe à 2,71:1 — illisible à 8 px. */}
-          <span className="bg-accent-ink absolute -top-0.5 -right-0.5 flex size-3 items-center justify-center rounded-full text-[8px] font-bold text-white tabular-nums">
+          {/* Le couple primaire, pas l'encre d'accent : du blanc sur le vert
+              de marque tombe à 2,71:1, et sur `--accent-ink` à 1,39:1 en
+              sombre, où l'encre devient un vert clair. */}
+          <span className="bg-primary text-primary-foreground absolute -top-0.5 -right-0.5 flex size-3 items-center justify-center rounded-full text-[8px] font-bold tabular-nums">
             {row.comments.length}
           </span>
         </>

@@ -120,6 +120,9 @@ export async function getProductionSnapshots(options: {
   const monthKey = options.today.slice(0, 7);
   const nextMonth = `${shiftMonth(monthKey, 1)}-01`;
   const previousMonth = `${shiftMonth(monthKey, -1)}-01`;
+  // Le mois qu'on publie : la carte le propose à gauche du mois par défaut,
+  // pour finir une production qui a débordé.
+  const currentMonth = `${monthKey}-01`;
   // Les mois d'avance proposés par le sélecteur de la carte. Deux lectures de
   // plus sur la même requête : le coût est nul et le sélecteur n'a plus besoin
   // d'un aller-retour réseau à chaque flèche.
@@ -164,7 +167,7 @@ export async function getProductionSnapshots(options: {
       .from("planning_months")
       .select("id, workspace_id, month")
       .in("board_id", boardIds)
-      .in("month", [previousMonth, nextMonth, ...aheadMonths])
+      .in("month", [previousMonth, currentMonth, nextMonth, ...aheadMonths])
       .is("deleted_at", null)
       .limit(200);
     months = (data ?? []) as unknown as MonthSlice[];
@@ -187,7 +190,7 @@ export async function getProductionSnapshots(options: {
       .from("client_phases")
       .select("workspace_id, phase, target_month, status, completed_at, due_start, due_end")
       .in("workspace_id", options.workspaceIds)
-      .in("target_month", [nextMonth, previousMonth])
+      .in("target_month", [previousMonth, currentMonth, nextMonth, ...aheadMonths])
       .limit(200)
       .then(({ data, error }) => ({
         rows: (data ?? []) as unknown as (PhaseSlice & { workspace_id: string })[],

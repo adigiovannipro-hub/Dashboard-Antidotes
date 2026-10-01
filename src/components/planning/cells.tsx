@@ -73,6 +73,44 @@ export function useCellAction() {
   return { run, pending };
 }
 
+/**
+ * La valeur qu'une cellule affiche après une écriture, avant que le serveur ne
+ * la confirme.
+ *
+ * Sans elle, le clic hors de la case semblait **annuler** la saisie : la
+ * valeur partait au serveur, mais la page rafraîchie par l'action précédente
+ * — la création de la ligne, par exemple — redescendait avec l'ancienne
+ * valeur, et la cellule s'y recalait. On tapait un sujet, on cliquait
+ * ailleurs, la case redevenait vide.
+ *
+ * La valeur écrite tient donc tant que le serveur renvoie l'**ancienne** :
+ * elle cède dès qu'une autre arrive (la confirmation, ou une écriture venue
+ * d'ailleurs), et revient en arrière si l'action échoue — `onCommit` rend la
+ * promesse de `useCellAction.run`, dont le verdict dit lequel des deux.
+ */
+export function useCommittedValue<T>(value: T): [T, (target: T, outcome: unknown) => void] {
+  const [pending, setPending] = useState<{ stale: T; target: T } | null>(null);
+
+  if (pending && !Object.is(value, pending.stale)) setPending(null);
+
+  const remember = (target: T, outcome: unknown) => {
+    const entry = { stale: value, target };
+    setPending(entry);
+    if (outcome instanceof Promise) {
+      void outcome.then((result: unknown) => {
+        const failed =
+          typeof result === "object" &&
+          result !== null &&
+          "ok" in result &&
+          (result as { ok: unknown }).ok === false;
+        if (failed) setPending((current) => (current === entry ? null : current));
+      });
+    }
+  };
+
+  return [pending && Object.is(value, pending.stale) ? pending.target : value, remember];
+}
+
 export function CellSpinner({ show }: { show: boolean }) {
   if (!show) return null;
   return (
@@ -91,29 +129,41 @@ export function TextCell({
   placeholder,
   className,
   ariaLabel,
+  autoFocus,
 }: {
   value: string;
-  onCommit: (next: string) => void;
+  /** Rend la promesse de l'écriture quand il y en a une : c'est elle qui dit
+      si la valeur saisie tient ou revient en arrière. */
+  onCommit: (next: string) => unknown;
   placeholder?: string;
   className?: string;
   ariaLabel: string;
+  /** Une ligne qu'on vient d'ajouter : le curseur y est déjà, comme sur Monday. */
+  autoFocus?: boolean;
 }) {
-  const [draft, setDraft] = useState(value);
-  const [synced, setSynced] = useState(value);
+  const [shown, remember] = useCommittedValue(value);
+  const [draft, setDraft] = useState(shown);
+  const [base, setBase] = useState(shown);
 
-  // Une écriture venue d'ailleurs — revalidation, autre onglet — doit reprendre
-  // la main. Pas pendant qu'on tape, en revanche : `draft === synced` dit
-  // précisément que le champ n'a pas été touché depuis la dernière écriture.
-  if (value !== synced && draft === synced) {
-    setSynced(value);
-    setDraft(value);
+  // Une écriture venue d'ailleurs — autre onglet, autre cellule — reprend la
+  // main. Pas pendant qu'on tape, en revanche : `draft === base` dit
+  // précisément que le champ n'a pas été touché depuis.
+  if (shown !== base && draft === base) {
+    setBase(shown);
+    setDraft(shown);
   }
 
+  // Sortir de la case **enregistre** : c'est le geste d'un tableur. Seul
+  // Échap annule.
   function commit() {
     const next = draft.trim();
-    if (next === synced) return;
-    setSynced(next);
-    onCommit(next);
+    if (next === base) {
+      setDraft(base);
+      return;
+    }
+    setBase(next);
+    setDraft(next);
+    remember(next, onCommit(next));
   }
 
   return (
@@ -121,13 +171,17 @@ export function TextCell({
       value={draft}
       aria-label={ariaLabel}
       placeholder={placeholder}
+      autoFocus={autoFocus}
       onChange={(event) => setDraft(event.target.value)}
       onBlur={commit}
       onKeyDown={(event) => {
         if (event.key === "Enter") event.currentTarget.blur();
         if (event.key === "Escape") {
-          setDraft(synced);
-          event.currentTarget.blur();
+          // Le blur part au tour suivant, une fois le brouillon remis à zéro :
+          // synchrone, il lirait encore la saisie et l'enregistrerait.
+          const input = event.currentTarget;
+          setDraft(base);
+          setTimeout(() => input.blur(), 0);
         }
       }}
       className={cn(
@@ -144,10 +198,11 @@ export function NumberCell({
   ariaLabel,
 }: {
   value: number | null;
-  onCommit: (next: number | null) => void;
+  onCommit: (next: number | null) => unknown;
   ariaLabel: string;
 }) {
-  const incoming = value === null ? "" : String(value);
+  const [shown, remember] = useCommittedValue(value);
+  const incoming = shown === null ? "" : String(shown);
   const [draft, setDraft] = useState(incoming);
   const [synced, setSynced] = useState(incoming);
   // Au repos la cellule montre le nombre mis en forme (« 1 200 ») ; dès qu'on
@@ -162,16 +217,21 @@ export function NumberCell({
 
   function commit() {
     if (draft === synced) return;
-    setSynced(draft);
     const trimmed = draft.trim().replace(",", ".");
-    if (trimmed === "") return onCommit(null);
+    if (trimmed === "") {
+      setSynced("");
+      remember(null, onCommit(null));
+      return;
+    }
     const parsed = Number(trimmed);
     if (!Number.isFinite(parsed) || parsed < 0) {
       toast.error("Montant invalide.");
-      setDraft(value === null ? "" : String(value));
+      setDraft(synced);
       return;
     }
-    onCommit(parsed);
+    setSynced(String(parsed));
+    setDraft(String(parsed));
+    remember(parsed, onCommit(parsed));
   }
 
   const parsedDraft = Number(draft.trim().replace(",", "."));
@@ -216,10 +276,11 @@ export function DateCell({
   late,
 }: {
   value: string | null;
-  onCommit: (next: string | null) => void;
+  onCommit: (next: string | null) => unknown;
   /** En retard — la date s'encre en rouge, sur « Mon travail ». */
   late?: boolean;
 }) {
+  const [shown, remember] = useCommittedValue(value);
   const inputRef = useRef<HTMLInputElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -242,12 +303,12 @@ export function DateCell({
     return () => document.removeEventListener("pointerdown", onPointerDown, true);
   }, [pickerOpen]);
 
-  const display = value
+  const display = shown
     ? new Intl.DateTimeFormat("fr-FR", {
         day: "numeric",
         month: "short",
         timeZone: "UTC",
-      }).format(new Date(`${value}T00:00:00Z`))
+      }).format(new Date(`${shown}T00:00:00Z`))
     : null;
 
   return (
@@ -255,11 +316,12 @@ export function DateCell({
       <input
         ref={inputRef}
         type="date"
-        value={value ?? ""}
+        value={shown ?? ""}
         tabIndex={-1}
         aria-hidden
         onChange={(event) => {
-          onCommit(event.target.value || null);
+          const next = event.target.value || null;
+          remember(next, onCommit(next));
           setPickerOpen(false);
         }}
         className="pointer-events-none absolute inset-0 opacity-0"
@@ -685,7 +747,7 @@ export function WordingCell({
 }: {
   value: string | null;
   subjectName: string;
-  onCommit: (next: string | null) => void;
+  onCommit: (next: string | null) => unknown;
   /** Posé par l'agence seulement : le stylo de génération apparaît au survol. */
   generateSubjectId?: string;
   /** Ce que la cellule contient — « Wording » par défaut, « Réponse » dans la
@@ -700,6 +762,7 @@ export function WordingCell({
       et dont les cellules se lisent en colonne. */
   align?: "left" | "center";
 }) {
+  const [shown, remember] = useCommittedValue(value);
   const anchorRef = useRef<HTMLButtonElement>(null);
   const [editor, setEditor] = useState<AnchoredBox | null>(null);
   const [draft, setDraft] = useState("");
@@ -727,7 +790,7 @@ export function WordingCell({
   };
 
   const showTip = () => {
-    if (!value || editor) return;
+    if (!shown || editor) return;
     keepTipOpen();
     if (tipTimer.current) clearTimeout(tipTimer.current);
     tipTimer.current = setTimeout(() => {
@@ -743,13 +806,13 @@ export function WordingCell({
     hideTip();
     const rect = anchorRef.current?.getBoundingClientRect();
     if (!rect) return;
-    setDraft(initial ?? value ?? "");
+    setDraft(initial ?? shown ?? "");
     setEditor(anchorBox(rect, 280, 280));
   };
 
   const save = () => {
     const next = draft.trim();
-    if (next !== (value ?? "").trim()) onCommit(next || null);
+    if (next !== (shown ?? "").trim()) remember(next || null, onCommit(next || null));
     setEditor(null);
   };
 
@@ -799,8 +862,8 @@ export function WordingCell({
           align === "left" ? "text-left" : "text-center",
         )}
       >
-        <span className={cn(!value && "text-muted-foreground")}>
-          {value ? value.replace(/\s+/g, " ") : "—"}
+        <span className={cn(!shown && "text-muted-foreground")}>
+          {shown ? shown.replace(/\s+/g, " ") : "—"}
         </span>
       </button>
 
@@ -826,7 +889,7 @@ export function WordingCell({
           onClick={() => openEditor()}
           className="border-border bg-surface text-foreground fixed z-50 block max-h-80 max-w-[75vw] cursor-text overflow-y-auto rounded-md border p-3 text-sm whitespace-pre-wrap shadow-lg"
         >
-          {value}
+          {shown}
         </span>
       ) : null}
 

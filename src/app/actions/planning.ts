@@ -65,14 +65,58 @@ function fail(error: unknown): PlanningResult {
   return { ok: false, error: (error as Error).message };
 }
 
+type ActivityEntry = {
+  subjectId: string;
+  field: string;
+  before?: unknown;
+  after?: unknown;
+};
+
 /**
- * Trace une modification au journal, et tamponne la ligne.
+ * Trace des modifications au journal, et tamponne les lignes.
+ *
+ * Une seule insertion pour toutes les lignes touchées, et le tampon dans le
+ * même aller-retour : la version précédente écrivait deux fois **par ligne**,
+ * l'une après l'autre — vingt publications cochées coûtaient quarante
+ * allers-retours avant que la barre groupée ne rende la main.
  *
  * En dehors de la transaction de la modification elle-même — Supabase JS n'en
  * offre pas — donc en tolérance d'échec : perdre une ligne de journal ne doit
  * jamais faire échouer la modification qu'elle décrit.
  */
-async function logActivity(input: {
+async function logActivities(input: {
+  supabase: Awaited<ReturnType<typeof createClient>>;
+  workspaceId: string;
+  actorId: string;
+  entries: ActivityEntry[];
+}) {
+  if (input.entries.length === 0) return;
+  const asText = (value: unknown): string | null =>
+    value === null || value === undefined || value === "" ? null : String(value);
+
+  try {
+    await Promise.all([
+      input.supabase.from("planning_activity").insert(
+        input.entries.map((entry) => ({
+          subject_id: entry.subjectId,
+          workspace_id: input.workspaceId,
+          actor_id: input.actorId,
+          field: entry.field,
+          before: asText(entry.before),
+          after: asText(entry.after),
+        })),
+      ),
+      input.supabase
+        .from("planning_subjects")
+        .update({ updated_by: input.actorId })
+        .in("id", [...new Set(input.entries.map((entry) => entry.subjectId))]),
+    ]);
+  } catch {
+    // Voir plus haut : le journal est un témoin, pas un verrou.
+  }
+}
+
+function logActivity(input: {
   supabase: Awaited<ReturnType<typeof createClient>>;
   subjectId: string;
   workspaceId: string;
@@ -81,25 +125,19 @@ async function logActivity(input: {
   before?: unknown;
   after?: unknown;
 }) {
-  const asText = (value: unknown): string | null =>
-    value === null || value === undefined || value === "" ? null : String(value);
-
-  try {
-    await input.supabase.from("planning_activity").insert({
-      subject_id: input.subjectId,
-      workspace_id: input.workspaceId,
-      actor_id: input.actorId,
-      field: input.field,
-      before: asText(input.before),
-      after: asText(input.after),
-    });
-    await input.supabase
-      .from("planning_subjects")
-      .update({ updated_by: input.actorId })
-      .eq("id", input.subjectId);
-  } catch {
-    // Voir plus haut : le journal est un témoin, pas un verrou.
-  }
+  return logActivities({
+    supabase: input.supabase,
+    workspaceId: input.workspaceId,
+    actorId: input.actorId,
+    entries: [
+      {
+        subjectId: input.subjectId,
+        field: input.field,
+        before: input.before,
+        after: input.after,
+      },
+    ],
+  });
 }
 
 // --- Structure ---------------------------------------------------------------
@@ -466,40 +504,54 @@ export async function deleteLane(
 
 // --- Publications -------------------------------------------------------------
 
+const createSubjectInput = z.object({
+  /** Né dans le navigateur : la ligne affichée par avance porte le même. */
+  subjectId: z.uuid().optional(),
+  laneId: z.uuid(),
+  monthId: z.uuid(),
+  boardId: z.uuid(),
+});
+
 export async function createSubject(
   scope: Scope,
-  input: { laneId: string; monthId: string; boardId: string },
+  input: z.infer<typeof createSubjectInput>,
 ): Promise<PlanningResult> {
-  try {
-    const { viewer, workspace } = await guard(scope);
-    const supabase = await createClient();
+  const parsed = createSubjectInput.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Publication invalide." };
 
-    const { data: last } = await supabase
-      .from("planning_subjects")
-      .select("position")
-      .eq("lane_id", input.laneId)
-      .order("position", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+  try {
+    const supabase = await createClient();
+    const [{ viewer, workspace }, { data: last }] = await Promise.all([
+      guard(scope),
+      supabase
+        .from("planning_subjects")
+        .select("position")
+        .eq("lane_id", parsed.data.laneId)
+        .order("position", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+    ]);
 
     // Créée vide : on tape directement dans la cellule, comme dans un tableur.
-    const { data: created } = await supabase
+    const { data: created, error } = await supabase
       .from("planning_subjects")
       .insert({
-        lane_id: input.laneId,
-        month_id: input.monthId,
-        board_id: input.boardId,
+        ...(parsed.data.subjectId ? { id: parsed.data.subjectId } : {}),
+        lane_id: parsed.data.laneId,
+        month_id: parsed.data.monthId,
+        board_id: parsed.data.boardId,
         workspace_id: workspace.id,
         name: "",
         position: (last?.position ?? -1) + 1,
-      })
+      } as never)
       .select("id")
       .single();
+    if (error) throw new Error(error.message);
 
     if (created) {
       await logActivity({
         supabase,
-        subjectId: created.id,
+        subjectId: (created as { id: string }).id,
         workspaceId: workspace.id,
         actorId: viewer.user.id,
         field: "created",
@@ -603,19 +655,24 @@ export async function updateSubject(
   }
 
   try {
-    const { viewer, workspace } = await guard(scope);
     const supabase = await createClient();
 
     // L'ancienne valeur, pour le journal : « À VALIDER → EN ATTENTE » ne se
-    // reconstruit pas après coup.
-    const { data: before } = await supabase
-      .from("planning_subjects")
-      .select(input.field)
-      .eq("id", input.subjectId)
-      .maybeSingle();
+    // reconstruit pas après coup. Lue en même temps que la garde : chaque
+    // aller-retour en série se paie à chaque cellule touchée.
+    const [{ viewer, workspace }, { data: before }] = await Promise.all([
+      guard(scope),
+      supabase
+        .from("planning_subjects")
+        .select(input.field)
+        .eq("id", input.subjectId)
+        .maybeSingle(),
+    ]);
 
     // La clé est dynamique mais bornée : `input.field` vient d'être validé
-    // contre `EDITABLE_FIELDS`, seule porte d'entrée de cette fonction.
+    // contre `EDITABLE_FIELDS`, seule porte d'entrée de cette fonction. Le
+    // tampon `updated_by` reste au journal, qui tolère l'échec : posé ici, un
+    // auteur sans profil ferait échouer la modification elle-même.
     const patch = { [input.field]: parsed.data } as Partial<PlanningSubjectRow>;
 
     const { error } = await supabase
@@ -675,16 +732,16 @@ export async function bulkUpdateSubjects(
 
     if (error) throw new Error(error.message);
 
-    for (const subjectId of input.subjectIds) {
-      await logActivity({
-        supabase,
+    await logActivities({
+      supabase,
+      workspaceId: workspace.id,
+      actorId: viewer.user.id,
+      entries: input.subjectIds.map((subjectId) => ({
         subjectId,
-        workspaceId: workspace.id,
-        actorId: viewer.user.id,
         field: input.field,
         after: parsed.data,
-      });
-    }
+      })),
+    });
 
     revalidate(scope);
     return {
@@ -735,15 +792,12 @@ export async function bulkDeleteSubjects(
     }
     if (error) throw new Error(error.message);
 
-    for (const subjectId of input.subjectIds) {
-      await logActivity({
-        supabase,
-        subjectId,
-        workspaceId: workspace.id,
-        actorId: viewer.user.id,
-        field: "deleted",
-      });
-    }
+    await logActivities({
+      supabase,
+      workspaceId: workspace.id,
+      actorId: viewer.user.id,
+      entries: input.subjectIds.map((subjectId) => ({ subjectId, field: "deleted" })),
+    });
 
     revalidate(scope);
     return {
@@ -784,15 +838,12 @@ export async function bulkArchiveSubjects(
     }
     if (error) throw new Error(error.message);
 
-    for (const subjectId of input.subjectIds) {
-      await logActivity({
-        supabase,
-        subjectId,
-        workspaceId: workspace.id,
-        actorId: viewer.user.id,
-        field: "archived",
-      });
-    }
+    await logActivities({
+      supabase,
+      workspaceId: workspace.id,
+      actorId: viewer.user.id,
+      entries: input.subjectIds.map((subjectId) => ({ subjectId, field: "archived" })),
+    });
 
     revalidate(scope);
     return {
@@ -826,15 +877,12 @@ export async function restoreSubjects(
       .in("id", input.subjectIds);
     if (error) throw new Error(error.message);
 
-    for (const subjectId of input.subjectIds) {
-      await logActivity({
-        supabase,
-        subjectId,
-        workspaceId: workspace.id,
-        actorId: viewer.user.id,
-        field: "restored",
-      });
-    }
+    await logActivities({
+      supabase,
+      workspaceId: workspace.id,
+      actorId: viewer.user.id,
+      entries: input.subjectIds.map((subjectId) => ({ subjectId, field: "restored" })),
+    });
 
     revalidate(scope);
     return { ok: true, message: "Restauré au tableau." };
@@ -1070,15 +1118,12 @@ export async function bulkDuplicateSubjects(
       .select("id");
     if (error) throw new Error(error.message);
 
-    for (const row of created ?? []) {
-      await logActivity({
-        supabase,
-        subjectId: row.id,
-        workspaceId: workspace.id,
-        actorId: viewer.user.id,
-        field: "created",
-      });
-    }
+    await logActivities({
+      supabase,
+      workspaceId: workspace.id,
+      actorId: viewer.user.id,
+      entries: (created ?? []).map((row) => ({ subjectId: row.id, field: "created" })),
+    });
 
     revalidate(scope);
     return {
@@ -1114,23 +1159,26 @@ export async function updateCustomValue(
   if (!parsed.success) return { ok: false, error: "Valeur invalide." };
 
   try {
-    const { viewer, workspace } = await guard(scope);
     const supabase = await createClient();
 
-    const { data: column } = await supabase
-      .from("planning_columns")
-      .select("id, label")
-      .eq("id", input.columnId)
-      .is("builtin_key", null)
-      .maybeSingle();
+    // Garde, colonne et ligne d'un seul aller-retour : rien ici ne dépend
+    // d'une autre lecture.
+    const [{ viewer, workspace }, { data: column }, { data: subject }] = await Promise.all([
+      guard(scope),
+      supabase
+        .from("planning_columns")
+        .select("id, label")
+        .eq("id", input.columnId)
+        .is("builtin_key", null)
+        .maybeSingle(),
+      supabase
+        .from("planning_subjects")
+        .select("custom")
+        .eq("id", input.subjectId)
+        .maybeSingle(),
+    ]);
 
     if (!column) return { ok: false, error: "Colonne inconnue." };
-
-    const { data: subject } = await supabase
-      .from("planning_subjects")
-      .select("custom")
-      .eq("id", input.subjectId)
-      .maybeSingle();
 
     const custom = {
       ...((subject?.custom ?? {}) as Record<string, unknown>),
