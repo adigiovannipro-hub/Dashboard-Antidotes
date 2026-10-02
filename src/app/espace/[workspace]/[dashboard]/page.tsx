@@ -138,10 +138,11 @@ export default async function DashboardPage({
   const range = customRange ?? monthBounds(month);
 
   const ads =
-    network === "meta-ads"
+    network === "meta-ads" || network === "tiktok-ads"
       ? await getAdsData({
           workspaceId: workspace.id,
           range,
+          provider: network === "tiktok-ads" ? "tiktok_ads" : "meta_ads",
           ...(query.adset ? { entityId: query.adset } : {}),
         })
       : null;
@@ -315,8 +316,9 @@ export default async function DashboardPage({
         <MonthlyReport report={report} monthLabel={monthLabel(month)} />
       ) : null}
 
-      {network === "meta-ads" && ads?.hasData ? (
+      {(network === "meta-ads" || network === "tiktok-ads") && ads?.hasData ? (
         <MetaDashboard
+          network={network}
           adSets={ads.adSets}
           total={ads.total}
           previousTotal={ads.previousTotal}

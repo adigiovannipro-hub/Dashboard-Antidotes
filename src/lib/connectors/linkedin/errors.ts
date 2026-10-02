@@ -18,7 +18,7 @@ const PATTERNS: { test: RegExp; explain: string }[] = [
        geste est de rebrancher contre « linkedin-pages ». */
     test: /r_organization_admin|organization ACLs/i,
     explain:
-      "Le compte LinkedIn connecté n'a pas les portées des pages entreprise. Rebrancher avec la configuration « linkedin-pages » (workflow « Composio — lien de connexion »).",
+      "Le compte LinkedIn connecté n'a pas les portées des pages entreprise. Rebrancher LinkedIn depuis Connexions (bouton « Rebrancher LinkedIn »), qui demande la configuration « linkedin-pages ».",
   },
   {
     // Le compte n'a pas le rôle administrateur sur cette page précise.
@@ -30,7 +30,7 @@ const PATTERNS: { test: RegExp; explain: string }[] = [
     // Jeton expiré ou révoqué côté LinkedIn.
     test: /invalid_grant|token.*(expired|revoked)|401|REVOKED_ACCESS_TOKEN/i,
     explain:
-      "L'accès LinkedIn a expiré ou a été révoqué. Rebrancher le compte (workflow « Composio — lien de connexion »).",
+      "L'accès LinkedIn a expiré ou a été révoqué. Rebrancher LinkedIn depuis Connexions (bouton « Rebrancher LinkedIn »).",
   },
   {
     /* Constaté sur les trois formes d'intervalle documentées : la passerelle
@@ -50,7 +50,7 @@ const PATTERNS: { test: RegExp; explain: string }[] = [
     // Composio n'a pas de compte LinkedIn dans le projet Platform.
     test: /no connected account|connected account not found|aucun compte/i,
     explain:
-      "Aucun compte LinkedIn n'est connecté dans le projet Composio. Brancher le compte par le workflow « Composio — lien de connexion », toolkit linkedin.",
+      "Aucun compte LinkedIn n'est branché dans le projet Composio de l'application. Le brancher depuis Connexions (bouton « Rebrancher LinkedIn »).",
   },
   {
     // La clé Composio manque ou n'est pas la bonne.

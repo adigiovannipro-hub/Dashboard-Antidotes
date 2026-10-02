@@ -54,9 +54,67 @@ export type AdsData = {
   followers: { label: string; value: number }[];
 };
 
+/** Les régies payantes qu'un onglet lit — chacune sous sa propre source. */
+export type AdsProvider = "meta_ads" | "tiktok_ads";
+
+const ADS_SOURCE: Record<
+  AdsProvider,
+  { accountKind: SocialAccountKind; followersPlatform: OrganicPlatform }
+> = {
+  meta_ads: { accountKind: "meta_ad_account", followersPlatform: "instagram" },
+  tiktok_ads: { accountKind: "tiktok_ad_account", followersPlatform: "tiktok" },
+};
+
+/**
+ * Les sources de données d'une régie pour cet espace, bornées au compte
+ * publicitaire **affecté** quand il y en a un.
+ *
+ * Les tables publicitaires n'étaient filtrées que par espace : tant que Meta
+ * était la seule régie, c'était la même chose. TikTok Ads écrit dans les
+ * mêmes tables — sans ce filtre, ses chiffres seraient tombés dans l'onglet
+ * Meta Ads d'ANMF, et ceux de Meta dans l'onglet TikTok.
+ */
+async function adsSourceIds(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  workspaceId: string,
+  provider: AdsProvider,
+): Promise<string[]> {
+  const [{ data: sources }, { data: link }] = await Promise.all([
+    supabase
+      .from("data_sources")
+      .select("id, external_account_id")
+      .eq("workspace_id", workspaceId)
+      .eq("provider", provider),
+    supabase
+      .from("workspace_social_accounts")
+      .select("account_id")
+      .eq("workspace_id", workspaceId)
+      .eq("kind", ADS_SOURCE[provider].accountKind)
+      .maybeSingle(),
+  ]);
+
+  const rows = (sources ?? []) as { id: string; external_account_id: string }[];
+  const accountId = (link as { account_id?: string } | null)?.account_id;
+  if (!accountId) return rows.map((row) => row.id);
+
+  const { data: account } = await supabase
+    .from("social_accounts")
+    .select("external_id")
+    .eq("id", accountId)
+    .maybeSingle();
+  const externalId = (account as { external_id?: string } | null)?.external_id;
+
+  /* Même prudence que pour l'organique : un rapprochement qui ne donne rien
+     ne doit pas effacer des chiffres qui existent. */
+  const assigned = rows.filter((row) => row.external_account_id === externalId);
+  return (assigned.length > 0 ? assigned : rows).map((row) => row.id);
+}
+
 export async function getAdsData(options: {
   workspaceId: string;
   range: DateRange;
+  /** La régie de l'onglet — Meta par défaut. */
+  provider?: AdsProvider;
   /** Drill-down : restreint chiffres, entonnoir et événements pixel à un seul
       ad set. Les ventilations Persona restent au compte entier — elles sont
       collectées à ce grain (voir le sync), et l'écran le dit. */
@@ -66,6 +124,11 @@ export async function getAdsData(options: {
 }): Promise<AdsData> {
   const supabase = options.reader ?? (await createClient());
   const previous = previousRange(options.range);
+  const provider = options.provider ?? "meta_ads";
+  const sourceIds = await adsSourceIds(supabase, options.workspaceId, provider);
+  /* `in` sur une liste vide ne filtrerait rien chez PostgREST : un
+     identifiant qui n'existe pas garantit zéro ligne. */
+  const scopedIds = sourceIds.length > 0 ? sourceIds : ["00000000-0000-4000-8000-000000000000"];
 
   const [entitiesQuery, metricsQuery, breakdownsQuery, followersQuery, customQuery] =
     await Promise.all([
@@ -73,6 +136,7 @@ export async function getAdsData(options: {
         .from("ad_entities")
         .select("*")
         .eq("workspace_id", options.workspaceId)
+        .in("data_source_id", scopedIds)
         .limit(2000),
       // Une seule requête couvre la période et sa comparaison : les lignes se
       // répartissent ensuite en mémoire sur la borne `from`.
@@ -80,6 +144,7 @@ export async function getAdsData(options: {
         .from("ad_metrics_daily")
         .select("*")
         .eq("workspace_id", options.workspaceId)
+        .in("data_source_id", scopedIds)
         .gte("date", previous.from)
         .lte("date", options.range.to)
         .limit(10000),
@@ -87,24 +152,27 @@ export async function getAdsData(options: {
         .from("ad_breakdowns_daily")
         .select("*")
         .eq("workspace_id", options.workspaceId)
+        .in("data_source_id", scopedIds)
         .gte("date", options.range.from)
         .lte("date", options.range.to)
         .limit(10000),
       /* La courbe d'abonnés de l'onglet payant lit la même table que
          l'organique, et se borne donc au **compte affecté** comme elle :
          l'inventaire de l'agence tient plusieurs comptes du même client. */
-      assignedSourceIds(supabase, options.workspaceId, "instagram").then(
-        (sourceIds) => {
+      assignedSourceIds(
+        supabase,
+        options.workspaceId,
+        ADS_SOURCE[provider].followersPlatform,
+      ).then((followerSources) => {
           const query = supabase
             .from("social_followers")
             .select("*")
             .eq("workspace_id", options.workspaceId)
-            .eq("platform", "instagram");
-          return (sourceIds ? query.in("data_source_id", sourceIds) : query)
+            .eq("platform", ADS_SOURCE[provider].followersPlatform);
+          return (followerSources ? query.in("data_source_id", followerSources) : query)
             .order("date")
             .limit(1000);
-        },
-      ),
+        }),
       /* Les événements pixel personnalisés — 0051. L'erreur est ignorée comme
          partout ici : la RLS est l'autorité, et une liste vide est la bonne
          réponse tant que la migration n'est pas passée. La fenêtre couvre la
@@ -115,6 +183,7 @@ export async function getAdsData(options: {
         .from("ad_custom_events_daily")
         .select("*")
         .eq("workspace_id", options.workspaceId)
+        .in("data_source_id", scopedIds)
         .gte("date", previous.from)
         .lte("date", options.range.to)
         .limit(10000),
@@ -153,7 +222,7 @@ export async function getAdsData(options: {
     .from("data_sources")
     .select("purchase_event_names, add_to_cart_event_names")
     .eq("workspace_id", options.workspaceId)
-    .eq("provider", "meta_ads");
+    .eq("provider", provider);
 
   const reglages = (sourceRows ?? []) as unknown as {
     purchase_event_names: string[] | null;

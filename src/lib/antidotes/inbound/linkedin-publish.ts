@@ -2,6 +2,7 @@ import "server-only";
 
 import { Composio } from "@composio/core";
 
+import { findAgencyAccount } from "@/lib/composio/agency";
 import { linkedinVersion } from "@/lib/connectors/linkedin/rest";
 import { serverEnv } from "@/lib/env";
 
@@ -22,8 +23,6 @@ import { serverEnv } from "@/lib/env";
  * documentation, jamais joué contre le vrai service.
  */
 
-const TOOLKIT = "linkedin";
-
 let cached: Composio | null = null;
 
 function client(): Composio {
@@ -35,11 +34,11 @@ export function publishAvailability(): string | null {
   return process.env.COMPOSIO_API_KEY?.trim() ? null : "COMPOSIO_API_KEY absente";
 }
 
+/** Le compte de l'agence, le plus récent — un rebranchement laisse l'ancien en place. */
 async function connectedAccountId(): Promise<string> {
-  const all = await client().connectedAccounts.list({ toolkitSlugs: [TOOLKIT], statuses: ["ACTIVE"] });
-  const active = all.items.filter((item) => !item.isDisabled);
-  if (active.length === 0) throw new Error("Aucun compte LinkedIn connecté chez Composio.");
-  return active[0]!.id;
+  const account = await findAgencyAccount("linkedin");
+  if ("error" in account) throw new Error(account.error);
+  return account.id;
 }
 
 type ProxyResponse = { status?: number | string; data?: unknown; headers?: Record<string, string> };

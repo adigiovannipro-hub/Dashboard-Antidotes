@@ -62,7 +62,10 @@ export function MetricsTable({
   mode,
   selectedId,
   onSelectRow,
+  unitLabel = "Ad set",
 }: {
+  /** Le nom du rang de la ligne : « Ad set » chez Meta, « Groupe d'annonces » chez TikTok. */
+  unitLabel?: string;
   rows: readonly MetricsTableRow[];
   columns: readonly MetricId[];
   total: RawMetrics;
@@ -136,8 +139,8 @@ export function MetricsTable({
         <Input
           value={query}
           onChange={(event) => setQuery(event.target.value)}
-          placeholder="Filtrer par campagne ou ad set"
-          aria-label="Filtrer par campagne ou ad set"
+          placeholder={`Filtrer par campagne ou ${unitLabel.toLowerCase()}`}
+          aria-label={`Filtrer par campagne ou ${unitLabel.toLowerCase()}`}
           className="pl-8"
         />
       </div>
@@ -145,7 +148,7 @@ export function MetricsTable({
       <div className="overflow-x-auto">
         <table className="w-full min-w-max text-xs">
           <caption className="sr-only">
-            Performance par ad set, triée par {columnLabel(sort.metric)}
+            Performance par {unitLabel.toLowerCase()}, triée par {columnLabel(sort.metric)}
             {sort.desc ? ", décroissant" : ", croissant"}.
           </caption>
           <thead>
@@ -154,7 +157,7 @@ export function MetricsTable({
                 Campagne
               </th>
               <th scope="col" className="px-2 pb-2 font-medium">
-                Ad set
+                {unitLabel}
               </th>
               {columns.map((metric) => {
                 const isSorted = sort.metric === metric;
