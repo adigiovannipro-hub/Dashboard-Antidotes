@@ -16,6 +16,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { formatPlainNumber } from "@/lib/format";
+import { caretOffsetAt, rawIndexFromCollapsed } from "@/lib/planning/caret";
 import type { PlanningOwner, ResolvedVisual } from "@/lib/planning/types";
 import { visualThumbUrl } from "@/lib/planning/types";
 import { cn } from "@/lib/utils";
@@ -766,6 +767,9 @@ export function WordingCell({
   const anchorRef = useRef<HTMLButtonElement>(null);
   const [editor, setEditor] = useState<AnchoredBox | null>(null);
   const [draft, setDraft] = useState("");
+  // Le rang du clic qui a ouvert la cellule : le curseur s'y pose, au lieu
+  // de filer au bout du texte. Null : au bout, comme à la frappe.
+  const caretRef = useRef<number | null>(null);
   const [tip, setTip] = useState<AnchoredBox | null>(null);
   const tipTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const tipCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -801,8 +805,9 @@ export function WordingCell({
 
   /** `initial` : la frappe qui a ouvert la cellule. Sans elle, on repart du
       texte déjà là, comme au clic. */
-  const openEditor = (initial?: string) => {
+  const openEditor = (initial?: string, caret: number | null = null) => {
     if (readOnly) return;
+    caretRef.current = initial === undefined ? caret : null;
     hideTip();
     const rect = anchorRef.current?.getBoundingClientRect();
     if (!rect) return;
@@ -849,7 +854,14 @@ export function WordingCell({
         aria-label={label}
         // Enveloppé : l'événement de clic passerait sinon pour la frappe
         // d'ouverture et se retrouverait dans le brouillon.
-        onClick={() => openEditor()}
+        onClick={(event) => {
+          // Au clavier (Entrée, Espace), `detail` vaut 0 : pas de point visé.
+          const at =
+            event.detail > 0 && shown
+              ? caretOffsetAt(event.currentTarget, event.clientX, event.clientY)
+              : null;
+          openEditor(undefined, at === null || !shown ? null : rawIndexFromCollapsed(shown, at));
+        }}
         onKeyDown={(event) => {
           // Le geste du tableur : on tape, la cellule s'ouvre sur ce
           // caractère. Sans lui, passer la Question d'un `<input>` à cette
@@ -895,7 +907,11 @@ export function WordingCell({
           style={tip}
           onMouseEnter={keepTipOpen}
           onMouseLeave={scheduleTipClose}
-          onClick={() => openEditor()}
+          onClick={(event) =>
+            // La bulle montre le texte brut (`pre-wrap`) : le rang lu est
+            // déjà celui du champ.
+            openEditor(undefined, caretOffsetAt(event.currentTarget, event.clientX, event.clientY))
+          }
           className="border-border bg-surface text-foreground fixed z-50 block max-h-80 max-w-[75vw] cursor-text overflow-y-auto rounded-md border p-3 text-sm whitespace-pre-wrap shadow-lg"
         >
           {shown}
@@ -910,10 +926,17 @@ export function WordingCell({
             onChange={(event) => setDraft(event.target.value)}
             onFocus={(event) => {
               const length = event.currentTarget.value.length;
-              event.currentTarget.setSelectionRange(length, length);
+              const at = Math.min(caretRef.current ?? length, length);
+              event.currentTarget.setSelectionRange(at, at);
             }}
             onBlur={save}
             onKeyDown={(event) => {
+              // ⌘+Entrée (Ctrl+Entrée ailleurs) enregistre et ferme.
+              if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+                event.preventDefault();
+                event.currentTarget.blur();
+                return;
+              }
               if (event.key === "Escape") {
                 event.stopPropagation();
                 setEditor(null);
