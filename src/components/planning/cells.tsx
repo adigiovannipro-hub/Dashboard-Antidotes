@@ -816,19 +816,28 @@ export function WordingCell({
     setEditor(null);
   };
 
-  // Un défilement pendant l'édition laisserait le cadre flotter à côté de sa
-  // cellule : on enregistre et on referme, comme un blur.
+  // Le cadre suit sa cellule quand la page défile, au lieu de se refermer :
+  // un défilement — souvent celui du texte même, dans le cadre — enregistrait
+  // et fermait l'édition en cours.
+  const editorOpen = editor !== null;
   useEffect(() => {
-    if (!editor) return;
-    const close = () => save();
-    window.addEventListener("scroll", close, true);
-    window.addEventListener("resize", close);
-    return () => {
-      window.removeEventListener("scroll", close, true);
-      window.removeEventListener("resize", close);
+    if (!editorOpen) return;
+    let frame = 0;
+    const follow = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        const rect = anchorRef.current?.getBoundingClientRect();
+        if (rect) setEditor(anchorBox(rect, 280, 280));
+      });
     };
-    // `save` change à chaque frappe ; réinscrire l'écouteur est sans coût.
-  });
+    window.addEventListener("scroll", follow, true);
+    window.addEventListener("resize", follow);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener("scroll", follow, true);
+      window.removeEventListener("resize", follow);
+    };
+  }, [editorOpen]);
 
   const label = `${fieldName ?? "Wording"} de ${subjectName || "la publication"}`;
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { memo, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   AtSign,
   Check,
@@ -81,7 +81,7 @@ export const SUBJECT_DRAG_TYPE = "text/x-antidotes-subject";
  * cellules portent leur propre hauteur (`py-1`, conteneur sans padding
  * vertical), sans quoi chaque filet s'arrêterait à 4 px du bord de sa ligne.
  */
-export function SubjectRowView({
+function SubjectRowInner({
   scope,
   row,
   columns,
@@ -121,7 +121,10 @@ export function SubjectRowView({
   /** La ligne vient de naître du clic sur « Ajouter » : le curseur est dans son sujet. */
   focusName?: boolean;
 }) {
-  const { run, pending } = useCellAction();
+  const { run } = useCellAction();
+  // L'envoi d'un fichier a sa propre transition : la roue de la cellule Visuel
+  // ne tourne que pour lui, plus pour chaque wording ou statut de la ligne.
+  const upload = useCellAction();
   const [dragging, setDragging] = useState(false);
 
   // La promesse remonte jusqu'à la cellule : c'est elle qui décide si la
@@ -236,7 +239,8 @@ export function SubjectRowView({
           owners={owners}
           edit={edit}
           run={run}
-          pending={pending}
+          runUpload={upload.run}
+          uploadPending={upload.pending}
           onOpenRetours={() => onOpen(row.id, true)}
           onOpenSubject={() => onOpen(row.id)}
           onEditLabels={() => onEditLabels(column)}
@@ -251,6 +255,84 @@ export function SubjectRowView({
   );
 }
 
+type SubjectRowProps = Parameters<typeof SubjectRowInner>[0];
+
+/**
+ * Empreinte d'un objet venu du serveur, calculée une fois par objet.
+ *
+ * Chaque écriture rafraîchit la page : le serveur renvoie des lignes neuves,
+ * égales en contenu mais pas en identité. Sans comparaison de contenu, chaque
+ * modification redessinait **toutes** les lignes ouvertes du tableau — le
+ * navigateur bloqué le temps du rendu laissait des pans entiers vides à
+ * l'écran (vécu sur ANMF, 150 publications depuis la reprise Monday).
+ */
+const fingerprints = new WeakMap<object, string>();
+function fingerprint(value: object): string {
+  let print = fingerprints.get(value);
+  if (print === undefined) {
+    print = JSON.stringify(value);
+    fingerprints.set(value, print);
+  }
+  return print;
+}
+
+function sameRowProps(a: SubjectRowProps, b: SubjectRowProps): boolean {
+  return (
+    a.selected === b.selected &&
+    a.dropIndicator === b.dropIndicator &&
+    a.canGenerateWording === b.canGenerateWording &&
+    a.focusName === b.focusName &&
+    a.gridTemplate === b.gridTemplate &&
+    a.scope.workspace === b.scope.workspace &&
+    a.scope.board === b.scope.board &&
+    (a.bulkTargets?.join(",") ?? null) === (b.bulkTargets?.join(",") ?? null) &&
+    (a.row === b.row || fingerprint(a.row) === fingerprint(b.row)) &&
+    (a.columns === b.columns || fingerprint(a.columns) === fingerprint(b.columns)) &&
+    (a.owners === b.owners || fingerprint(a.owners) === fingerprint(b.owners)) &&
+    a.onToggleSelect === b.onToggleSelect &&
+    a.onOpen === b.onOpen &&
+    a.onEditLabels === b.onEditLabels &&
+    a.onRowDragOver === b.onRowDragOver &&
+    a.onRowDragLeave === b.onRowDragLeave &&
+    a.onRowDrop === b.onRowDrop
+  );
+}
+
+const MemoRow = memo(SubjectRowInner, sameRowProps);
+
+/**
+ * La ligne, redessinée seulement quand ce qu'elle affiche change.
+ *
+ * Les rappels passés par le couloir sont recréés à chaque rendu — et certains
+ * referment l'état du moment (le tri, la sélection) : les comparer les ferait
+ * tous différer, les ignorer laisserait la ligne appeler une version périmée.
+ * Ils passent donc par des relais stables qui lisent la dernière version.
+ */
+export function SubjectRowView(props: SubjectRowProps) {
+  const latest = useRef(props);
+  useLayoutEffect(() => {
+    latest.current = props;
+  });
+
+  const relays = useMemo(
+    () => ({
+      onToggleSelect: (subjectId: string, extendRange?: boolean) =>
+        latest.current.onToggleSelect(subjectId, extendRange),
+      onOpen: (subjectId: string, focusRetours?: boolean) =>
+        latest.current.onOpen(subjectId, focusRetours),
+      onEditLabels: (column: ColumnDef) => latest.current.onEditLabels(column),
+      onRowDragOver: (subjectId: string, after: boolean) =>
+        latest.current.onRowDragOver(subjectId, after),
+      onRowDragLeave: () => latest.current.onRowDragLeave(),
+      onRowDrop: (subjectId: string, after: boolean, draggedId: string) =>
+        latest.current.onRowDrop(subjectId, after, draggedId),
+    }),
+    [],
+  );
+
+  return <MemoRow {...props} {...relays} />;
+}
+
 function Cell({
   scope,
   column,
@@ -258,7 +340,8 @@ function Cell({
   owners,
   edit,
   run,
-  pending,
+  runUpload,
+  uploadPending,
   onOpenRetours,
   onOpenSubject,
   onEditLabels,
@@ -271,7 +354,8 @@ function Cell({
   owners: PlanningOwner[];
   edit: (field: EditableField, value: unknown) => Promise<PlanningResult>;
   run: ReturnType<typeof useCellAction>["run"];
-  pending: boolean;
+  runUpload: ReturnType<typeof useCellAction>["run"];
+  uploadPending: boolean;
   onOpenRetours: () => void;
   onOpenSubject: () => void;
   onEditLabels: () => void;
@@ -354,13 +438,13 @@ function Cell({
         <VisualsCell
           visuals={row.visuals}
           subjectName={row.name}
-          uploading={pending}
+          uploading={uploadPending}
           onOpen={onOpenSubject}
           onUpload={(files) =>
-            run(() => uploadVisualsFromBrowser(scope, row.id, files))
+            runUpload(() => uploadVisualsFromBrowser(scope, row.id, files))
           }
           onRemove={(path) =>
-            run(() => removeVisual(scope, { subjectId: row.id, path }))
+            runUpload(() => removeVisual(scope, { subjectId: row.id, path }))
           }
         />,
       );
