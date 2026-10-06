@@ -13,6 +13,7 @@ import {
 import { ConfirmDialog } from "@/components/ds/confirm-dialog";
 import { TextCell, useCellAction } from "@/components/planning/cells";
 import { AddColumnMenu, ColumnHeaderMenu } from "@/components/planning/column-menus";
+import { useMoves } from "@/components/planning/move-context";
 import { sortSubjects, sortableKey } from "@/lib/planning/sort";
 import { PlatformIcon, platformColor } from "@/components/planning/platform-icon";
 import {
@@ -23,6 +24,7 @@ import {
 import type { ColumnDef } from "@/lib/planning/columns";
 import { gridTemplate } from "@/lib/planning/columns";
 import { draftSubject, nextPosition, withDrafts } from "@/lib/planning/draft-subject";
+import { applyMoves } from "@/lib/planning/moves";
 import type { LaneWithSubjects, PlanningOwner, SubjectRow } from "@/lib/planning/types";
 import { totalSponsoring } from "@/lib/planning/types";
 import type { PlanningSort, SortableColumnKey } from "@/lib/ui-preferences";
@@ -102,7 +104,11 @@ export function LaneTable({
   const template = gridTemplate(columns);
   // Les brouillons au bout, là où l'on a cliqué : le tri les rangera quand
   // le serveur les aura rendus.
-  const subjects = withDrafts(sortSubjects(lane.subjects, sort, columns), drafts);
+  const { moves, addMove, dragged } = useMoves();
+  const subjects = withDrafts(
+    applyMoves(lane.id, sortSubjects(lane.subjects, sort, columns), moves),
+    drafts,
+  );
   const live = subjects.filter((subject) => subject.status !== "dropped");
   const sponsoring = totalSponsoring(subjects);
 
@@ -122,9 +128,15 @@ export function LaneTable({
     // saisie : en descendant dans son propre couloir, elle se retire d'abord.
     const from = subjects.findIndex((subject) => subject.id === draggedId);
     const adjusted = from !== -1 && from < index ? index - 1 : index;
-    run(() =>
-      moveSubject(scope, { subjectId: draggedId, laneId: lane.id, index: adjusted }),
-    );
+    const held = dragged.get();
+    dragged.set(null);
+    if (from === adjusted) return;
+    const row = subjects[from] ?? (held?.id === draggedId ? held : null);
+    run(() => {
+      // La ligne se pose tout de suite : l'écriture suit, sans faire attendre.
+      if (row) addMove({ subjectId: draggedId, laneId: lane.id, index: adjusted, row });
+      return moveSubject(scope, { subjectId: draggedId, laneId: lane.id, index: adjusted });
+    });
   };
 
   return (

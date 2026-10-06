@@ -40,6 +40,7 @@ import type {
   PlanningOwner,
   SubjectRow as Row,
 } from "@/lib/planning/types";
+import { useDraggedRow } from "@/components/planning/move-context";
 import { cn } from "@/lib/utils";
 
 export type Scope = { workspace: string; board: string };
@@ -126,6 +127,7 @@ function SubjectRowInner({
   // ne tourne que pour lui, plus pour chaque wording ou statut de la ligne.
   const upload = useCellAction();
   const [dragging, setDragging] = useState(false);
+  const dragged = useDraggedRow();
 
   // La promesse remonte jusqu'à la cellule : c'est elle qui décide si la
   // valeur affichée par avance tient ou revient en arrière.
@@ -159,7 +161,13 @@ function SubjectRowInner({
         event.dataTransfer.dropEffect = "move";
         onRowDragOver(row.id, isAfter(event));
       }}
-      onDragLeave={onRowDragLeave}
+      // Passer d'une cellule à l'autre de la même ligne émet un `dragleave` :
+      // le filet de dépôt clignotait à chaque cellule traversée.
+      onDragLeave={(event) => {
+        const next = event.relatedTarget;
+        if (next instanceof Node && event.currentTarget.contains(next)) return;
+        onRowDragLeave();
+      }}
       onDrop={(event) => {
         const draggedId = event.dataTransfer.getData(SUBJECT_DRAG_TYPE);
         if (!draggedId) return;
@@ -190,6 +198,7 @@ function SubjectRowInner({
           draggable
           onDragStart={(event) => {
             event.dataTransfer.setData(SUBJECT_DRAG_TYPE, row.id);
+            dragged.set(row);
             event.dataTransfer.effectAllowed = "move";
             // C'est toute la ligne qui suit le curseur, pas la poignée seule.
             const rowElement = event.currentTarget.closest('[role="row"]');
