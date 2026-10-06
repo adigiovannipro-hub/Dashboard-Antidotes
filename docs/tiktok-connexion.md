@@ -178,13 +178,26 @@ arbitrage de **légitimité contre friction**, jamais de richesse de données.
 - **Import CSV** depuis TikTok Studio — zéro coût, zéro API, un geste manuel
   par mois. Le projet a déjà ce motif avec `pnpm import:followers`.
 
-## TikTok Ads — un autre chantier, une autre porte
+## TikTok Ads — branché le 1/10/2026
 
-À ne pas confondre avec ce qui précède. Le payant passe par la **Marketing
-API**, sur le portail `business-api.tiktok.com` : **une autre application,
-un autre compte développeur, une autre validation**. Rien de ce qui est
-décrit ci-dessus ne s'y réutilise, sauf les pages légales.
+Le payant passe par la **Marketing API** (`business-api.tiktok.com`), un
+autre toolkit Composio (`tiktok_ads`), avec l'OAuth que Composio gère : pas
+d'app à soi, pas de revue. Rien de ce qui précède ne s'y réutilise.
 
-L'onglet `tiktok-ads` du Reporting existe déjà (migration 0068) et attend sa
-source. À instruire à part, quand l'organique sera réglé — le sonder avant
-d'écrire, comme le reste.
+1. Reporting → Connexions (icône prise) → **« Brancher TikTok Ads »**. Le lien
+   est demandé avec la clé du projet de l'application : **ne pas brancher
+   depuis le tableau de bord de Composio**, la connexion y atterrit dans
+   l'espace personnel, invisible de l'application (vécu le 1/10/2026).
+2. Se connecter avec le compte TikTok for Business qui administre les
+   Business Centers des clients, accepter. Retour automatique dans
+   Connexions : les comptes publicitaires de tous les Business Centers
+   rejoignent l'inventaire.
+3. Ligne « Compte publicitaire TikTok » → choisir le compte du client
+   (ANMF : « Chasseurs de Graines · ANMF »).
+4. **Synchroniser** : un an d'historique au premier passage, puis 35 jours
+   glissants chaque matin avec le cron.
+
+Ce que le connecteur lit, sondé sur pièce : le rapport intégré au grain
+groupe d'annonces × jour (30 jours par appel au plus), et le rapport
+d'audience âge et genre. `pnpm diagnostic:tiktok` (« Sondes et
+diagnostics ») rejoue les mêmes appels et affiche les réponses brutes.

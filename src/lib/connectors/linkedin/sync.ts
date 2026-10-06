@@ -142,7 +142,7 @@ export async function importLinkedinInventory(options: {
   workspaceId: string;
   connectedBy: string | null;
 }): Promise<{ pages: number } | { error: string }> {
-  const account = await findLinkedinAccount(options.workspaceId);
+  const account = await findLinkedinAccount();
   if ("error" in account) return { error: account.error };
 
   let pages: LinkedinPage[];
@@ -214,7 +214,7 @@ export async function syncWorkspaceLinkedin(options: {
     const account = row as unknown as SocialAccountRow;
     report.account = account.display_name ?? account.external_id;
 
-    const connected = await findLinkedinAccount(workspaceId);
+    const connected = await findLinkedinAccount();
     if ("error" in connected) fail(connected.error);
     const rest = linkedinRest(connected.id);
 

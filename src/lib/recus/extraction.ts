@@ -11,6 +11,7 @@ import {
   type ExtractionResult,
 } from "./extraction-prompt";
 import { extractAmounts, likelyTotal, triageEmail } from "./heuristics";
+import { parseKnownReceipt } from "./known-receipts";
 
 export type { ExtractionResult };
 
@@ -85,6 +86,10 @@ export async function extractReceipt(
 
   // Écarté sans appel : ni coût, ni latence, ni risque d'invention.
   if (triage.verdict === "skip") return null;
+
+  // Gabarit connu : lu sans appel, donc sans coût et sans dépendre du crédit.
+  const known = parseKnownReceipt(email);
+  if (known) return known;
 
   if (!process.env.ANTHROPIC_API_KEY && !options.client) {
     return fromHeuristics(email);

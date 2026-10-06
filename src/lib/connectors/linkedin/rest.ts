@@ -1,8 +1,6 @@
 import "server-only";
 
-import { Composio } from "@composio/core";
-
-import { serverEnv } from "@/lib/env";
+import { composioClient, findAgencyAccount } from "@/lib/composio/agency";
 
 /**
  * L'API LinkedIn **en direct**, par le passage HTTP brut de Composio.
@@ -18,8 +16,6 @@ import { serverEnv } from "@/lib/env";
  * et rien de ce qui suit n'est supposé.
  */
 
-const TOOLKIT = "linkedin";
-
 /**
  * La version d'API des routes `/rest/`.
  *
@@ -33,16 +29,7 @@ export function linkedinVersion(): string {
   return process.env.LINKEDIN_API_VERSION ?? "202606";
 }
 
-let cached: Composio | null = null;
-
-function client(): Composio {
-  if (!cached) {
-    cached = new Composio({
-      apiKey: serverEnv("COMPOSIO_API_KEY").COMPOSIO_API_KEY,
-    });
-  }
-  return cached;
-}
+const client = composioClient;
 
 /**
  * Le nombre d'abonnés d'une page — par l'outil pré-emballé, et lui seul.
@@ -84,40 +71,15 @@ export type LinkedinRest = (
   options?: { version?: string | null },
 ) => Promise<unknown>;
 
-/** Le compte LinkedIn connecté chez Composio, ou la raison de son absence. */
-export async function findLinkedinAccount(
-  workspaceId: string,
-): Promise<{ id: string } | { error: string }> {
-  const composio = client();
-
-  // D'abord le compte rangé sous cet espace — le rangement nominal.
-  const scoped = await composio.connectedAccounts.list({
-    toolkitSlugs: [TOOLKIT],
-    statuses: ["ACTIVE"],
-    userIds: [workspaceId],
-  });
-  const scopedActive = scoped.items.filter((item) => !item.isDisabled);
-  if (scopedActive[0]) return { id: scopedActive[0].id };
-
-  /* À défaut, le compte unique de l'agence : un seul login LinkedIn atteint
-     les pages de tous les clients, comme un seul login Meta. Deux comptes
-     sans identifiant d'espace, en revanche, ne se départagent pas. */
-  const all = await composio.connectedAccounts.list({
-    toolkitSlugs: [TOOLKIT],
-    statuses: ["ACTIVE"],
-  });
-  const active = all.items.filter((item) => !item.isDisabled);
-  if (active.length === 1 && active[0]) return { id: active[0].id };
-
-  if (active.length === 0) {
-    return {
-      error:
-        "Aucun compte LinkedIn n'est connecté dans le projet Composio. Brancher le compte par le workflow « Composio — lien de connexion », toolkit linkedin.",
-    };
-  }
-  return {
-    error: `${active.length} comptes LinkedIn sont connectés chez Composio et aucun ne porte l'identifiant de cet espace : connecter le bon compte sous l'identifiant ${workspaceId}.`,
-  };
+/**
+ * Le compte LinkedIn de l'agence chez Composio, ou la raison de son absence.
+ *
+ * Le plus récent des comptes actifs : un rebranchement s'ajoute à côté de
+ * l'ancien, qui reste « actif » chez Composio même révoqué par LinkedIn.
+ * Voir `src/lib/composio/agency.ts`.
+ */
+export async function findLinkedinAccount(): Promise<{ id: string } | { error: string }> {
+  return findAgencyAccount("linkedin");
 }
 
 /**

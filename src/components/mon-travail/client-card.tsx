@@ -121,7 +121,7 @@ export function ClientCard({
   // s'ouvre sur le mois par défaut, sans quoi un choix d'hier cacherait le
   // retard d'aujourd'hui. `sens` ne sert qu'à faire entrer le contenu du bon
   // côté — la flèche et le mouvement doivent raconter la même chose.
-  const [moisIndex, setMoisIndex] = useState(0);
+  const [moisIndex, setMoisIndex] = useState(model.defaultIndex);
   const [sens, setSens] = useState<"suivant" | "precedent">("suivant");
   // Le verdict ne doit sonner qu'une fois, même si un rendu s'intercale.
   const settledJobId = useRef<string | null>(null);

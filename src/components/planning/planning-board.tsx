@@ -822,7 +822,9 @@ function HeaderIconButton({
     >
       {children}
       {count > 0 ? (
-        <span className="bg-accent-ink absolute -top-1 -right-1 flex size-4 items-center justify-center rounded-full text-[9px] font-bold text-white tabular-nums">
+        // `primary` et non `accent-ink` : en sombre l'encre d'accent devient
+        // un vert clair, et le blanc posé dessus tombait à 1,39:1.
+        <span className="bg-primary text-primary-foreground absolute -top-1 -right-1 flex size-4 items-center justify-center rounded-full text-[9px] font-bold tabular-nums">
           {count > 9 ? "9+" : count}
         </span>
       ) : null}

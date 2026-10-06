@@ -26,9 +26,10 @@ export default async function LoginPage({
 
         <LoginForm next={suivant} />
 
+        {/* Une adresse inconnue ne reçoit rien depuis le 1/10/2026
+            (`requestLoginLink`) : l'ancienne phrase promettait un lien. */}
         <p className="text-muted-foreground text-center text-xs leading-relaxed">
-          L&apos;accès est réservé aux adresses invitées. Si la vôtre ne l&apos;est
-          pas encore, le lien fonctionnera mais aucun espace ne sera visible.
+          Accès réservé aux adresses invitées.
         </p>
       </div>
     </main>

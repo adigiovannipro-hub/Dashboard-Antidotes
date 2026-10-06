@@ -9,8 +9,15 @@
 
 export const VISUALS_BUCKET = "planning-visuals";
 
-/** 50 Mo : une vidéo de reel passe, un rush brut non. */
+/**
+ * 50 Mo par fichier : le plafond du plan gratuit de Supabase, qui ne se lève
+ * pas. Une vidéo plus lourde est recompressée par le navigateur avant de
+ * partir (`video-compression.ts`) ; une image ou un PDF, eux, sont refusés.
+ */
 export const MAX_VISUAL_BYTES = 50 * 1024 * 1024;
+
+/** Le plafond d'une vidéo avant recompression : 2 Go couvrent tout master. */
+export const MAX_SOURCE_VIDEO_BYTES = 2 * 1024 * 1024 * 1024;
 
 export const ACCEPTED_VISUAL_TYPES = [
   "image/png",
@@ -28,6 +35,11 @@ export const ACCEPTED_VISUAL_TYPES = [
     sans type MIME, et le refuser pour ça perdait des fichiers valides. */
 const ACCEPTED_VISUAL_EXTENSIONS = /\.(png|jpe?g|webp|gif|avif|mp4|mov|webm|pdf)$/i;
 
+export function isVideoFile(file: { name: string; type: string }): boolean {
+  if (file.type) return file.type.startsWith("video/");
+  return /\.(mp4|mov|webm)$/i.test(file.name);
+}
+
 export function isAcceptedVisual(file: { name: string; type: string }): boolean {
   if (file.type) return ACCEPTED_VISUAL_TYPES.includes(file.type);
   return ACCEPTED_VISUAL_EXTENSIONS.test(file.name);
@@ -37,11 +49,18 @@ export function isAcceptedVisual(file: { name: string; type: string }): boolean 
  * Ce qui bloquerait cet envoi, en une phrase — ou rien si tout passe.
  *
  * Vérifié **avant** de partir. Pas de plafond de lot : chaque fichier part
- * seul, du navigateur vers le bucket.
+ * seul, du navigateur vers le bucket. Une vidéo au-delà de 50 Mo passe : elle
+ * sera recompressée avant l'envoi.
  */
-export function visualUploadError(files: File[]): string | null {
+export function visualUploadError(
+  files: { name: string; type: string; size: number }[],
+): string | null {
   for (const file of files) {
-    if (file.size > MAX_VISUAL_BYTES) {
+    if (isVideoFile(file)) {
+      if (file.size > MAX_SOURCE_VIDEO_BYTES) {
+        return `${file.name} : trop lourde (2 Go maximum par vidéo).`;
+      }
+    } else if (file.size > MAX_VISUAL_BYTES) {
       return `${file.name} : trop lourd (50 Mo maximum par fichier).`;
     }
     if (!isAcceptedVisual(file)) {

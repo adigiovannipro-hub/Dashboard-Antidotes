@@ -15,11 +15,21 @@ import {
 } from "@/lib/planning/types";
 import {
   computeQuotas,
-  renderExisting,
   renderQuotas,
   type ExistingPublication,
 } from "./quotas";
-import { needsContent } from "./wording-state";
+import { historyLine } from "./history-line";
+import {
+  formatFromLabel,
+  hasSignaledPoints,
+  lanePlatformFor,
+  parseIntentionsOutput,
+  renderCoquilles,
+  renderNotes,
+  subjectKey,
+  type ParsedIntention,
+} from "./intentions-output";
+import { WORDING_PENDING_STATUSES, needsContent } from "./wording-state";
 import {
   VALIDATED_WORDING_STATUSES,
   pickPreviousWordings,
@@ -495,16 +505,21 @@ function platformLabelOf(platform: PlanningPlatform | undefined): string {
 }
 
 /**
- * La colonne « Intention » du tableau : c'est là que la génération dépose
- * l'angle de chaque sujet — pas dans `wording`, qui reste la caption finale
- * et le compteur des « wordings restants ». Créée au premier besoin.
+ * L'ancienne colonne « Intention » du tableau, si elle existe — **jamais
+ * créée**.
+ *
+ * Jusqu'au 25/09/2026, la génération y déposait l'angle, le template et le
+ * contenu de créa de chaque sujet, et gardait `wording` pour la caption. Le
+ * brief vit désormais dans la cellule Wording elle-même, comme sur Monday :
+ * la rédaction se greffe sur ce brief et sur le titre du sujet, puis le
+ * remplace. La colonne n'est plus lue que pour les sujets posés avant la
+ * bascule, dont le brief n'existe que là.
  */
-async function ensureIntentionColumn(
+async function findLegacyIntentionColumn(
   supabase: SupabaseAdmin,
   boardId: string,
-  workspaceId: string,
 ): Promise<string | null> {
-  const { data: existing } = await supabase
+  const { data } = await supabase
     .from("planning_columns")
     .select("id")
     .eq("board_id", boardId)
@@ -512,33 +527,19 @@ async function ensureIntentionColumn(
     .is("builtin_key", null)
     .limit(1)
     .maybeSingle();
-  if (existing) return existing.id;
-
-  const { data: created, error } = await supabase
-    .from("planning_columns")
-    .insert({
-      board_id: boardId,
-      workspace_id: workspaceId,
-      builtin_key: null,
-      type: "text",
-      label: "Intention",
-      position: 90,
-    } as never)
-    .select("id")
-    .single();
-  if (error) {
-    console.error("[production] colonne Intention impossible :", error.message);
-    return null;
-  }
-  return created?.id ?? null;
+  return (data as { id: string } | null)?.id ?? null;
 }
 
-function intentionOf(subject: SubjectRow, columnId: string | null): string {
-  if (columnId) {
-    const value = subject.custom?.[columnId];
-    if (typeof value === "string" && value.trim() !== "") return value;
-  }
-  return subject.name;
+/**
+ * Le brief sur lequel la rédaction se greffe : la cellule Wording, plus
+ * l'ancienne colonne Intention pour un sujet posé avant la bascule.
+ */
+function briefOf(subject: SubjectRow, legacyColumnId: string | null): string {
+  const legacy = legacyColumnId ? subject.custom?.[legacyColumnId] : null;
+  return [subject.wording, typeof legacy === "string" ? legacy : null]
+    .map((part) => (part ?? "").trim())
+    .filter((part) => part !== "")
+    .join("\n\n");
 }
 
 // --- La boucle : ce qui a été publié, ce qu'il a donné ------------------------
@@ -601,47 +602,6 @@ async function readPreviousReports(
 
 // --- Phase : intentions ------------------------------------------------------
 
-/** Ce que le modèle doit rendre pour chaque intention. */
-type GeneratedIntention = {
-  reseau?: string;
-  sujet?: string;
-  type?: string;
-  template?: string;
-  theme?: string;
-  date?: string;
-  intention?: string;
-  /** Le contenu de la créa se fige ici, à l'étape des intentions — c'est lui
-      qui part en validation, la phase wording n'y revient plus. */
-  contenu_crea?: string | null;
-  texte_visuel?: string | null;
-  slides?: { titre?: string; sous_titre?: string; visuel?: string }[] | null;
-  sponso?: boolean;
-  objectif?: string;
-};
-
-const PLATFORM_BY_LABEL: Record<string, PlanningPlatform> = {
-  META: "meta",
-  INSTAGRAM: "instagram",
-  FACEBOOK: "facebook",
-  LINKEDIN: "linkedin",
-  TIKTOK: "tiktok",
-  YOUTUBE: "youtube",
-  X: "x",
-  PINTEREST: "pinterest",
-  SNAPCHAT: "snapchat",
-};
-
-const FORMAT_BY_LABEL: Record<string, PlanningFormat> = {
-  REELS: "reel",
-  REEL: "reel",
-  POST: "post",
-  STORY: "story",
-  STORIE: "story",
-  CARROUSEL: "carousel",
-  CAROUSEL: "carousel",
-  VIDEO: "video",
-};
-
 async function runIntentions(
   supabase: SupabaseAdmin,
   job: GenerationJob,
@@ -652,11 +612,17 @@ async function runIntentions(
     return failure("Aucun planning éditorial pour cet espace : créer le tableau d'abord.");
   }
 
-  const context = await getClientContext({
-    workspaceId: job.workspace_id,
-    targetMonth: job.target_month,
-    adjustment,
-  });
+  // L'ajustement à chaud a son propre bloc dans le prompt, en fin de fiche :
+  // le passer aussi au Contexte l'écrirait deux fois.
+  const [context, { data: workspaceRow }] = await Promise.all([
+    getClientContext({
+      workspaceId: job.workspace_id,
+      targetMonth: job.target_month,
+      client: supabase,
+    }),
+    supabase.from("workspaces").select("name").eq("id", job.workspace_id).maybeSingle(),
+  ]);
+  const clientName = (workspaceRow as { name: string } | null)?.name ?? "";
 
   // L'historique des trois mois précédant le mois cible, tel qu'exigé par le
   // prompt : sujets, formats, dates — la matière de la rotation des templates.
@@ -689,7 +655,17 @@ async function runIntentions(
         .filter((subject) => subject.month_id === month.id)
         .sort((a, b) => (a.scheduled_on ?? "").localeCompare(b.scheduled_on ?? ""))
         .map((subject) => {
-          const line = `- ${subject.scheduled_on ?? "sans date"} · ${platformLabelOf(lanePlatforms.get(subject.lane_id))} · ${formatLabelOf(subject.format)} · « ${subject.name} »`;
+          // Visuels et légende : c'est là que se lit la forme d'un format chez
+          // ce client, et donc ce que les intentions doivent reproduire.
+          const line = historyLine({
+            date: subject.scheduled_on,
+            platform: platformLabelOf(lanePlatforms.get(subject.lane_id)),
+            format: formatLabelOf(subject.format),
+            name: subject.name,
+            status: subject.status,
+            visuals: subject.visual_urls?.length ?? 0,
+            wording: subject.wording,
+          });
           const mesure = matchByCaption(mesuresPassees, subject.wording);
           if (!mesure) return line;
           const base = mesure.reach > 0 ? mesure.reach : mesure.impressions;
@@ -705,7 +681,9 @@ async function runIntentions(
               : mesure.impressions > 0
                 ? `impressions ${mesure.impressions} (portée non rendue)`
                 : "aucune mesure rendue";
-          return `${line} — ${volume}, ${interactions} interactions, engagement ${taux}`;
+          // La mesure suit la ligne du titre, pas la légende qui s'ajoute dessous.
+          const [head, ...rest] = line.split("\n");
+          return [`${head} — ${volume}, ${interactions} interactions, engagement ${taux}`, ...rest].join("\n");
         });
       return `### ${fullMonthLabel(month.month)}\n${rows.join("\n") || "- (aucune publication)"}`;
     })
@@ -732,9 +710,18 @@ async function runIntentions(
   }));
   const quotas = computeQuotas(deliverables, existing);
 
-  // Contrat renseigné et déjà honoré : ne rien produire est la bonne réponse,
-  // et elle ne coûte pas un appel au modèle.
-  if (quotas.duTotal > 0 && quotas.resteTotal === 0) {
+  // Une coquille sans wording attend son contenu : la génération le lui donne,
+  // sans toucher à son nom ni à sa date. Seules celles encore au stade
+  // d'intention comptent — une cellule rédigée porte une caption.
+  const openShells = targetSubjects.filter(
+    (subject) =>
+      (subject.wording ?? "").trim() === "" &&
+      (WORDING_PENDING_STATUSES as string[]).includes(subject.status),
+  );
+
+  // Contrat renseigné, déjà honoré, et aucune coquille à compléter : ne rien
+  // produire est la bonne réponse, et elle ne coûte pas un appel au modèle.
+  if (quotas.duTotal > 0 && quotas.resteTotal === 0 && openShells.length === 0) {
     return {
       status: "done",
       result: {
@@ -750,22 +737,34 @@ async function runIntentions(
   const syntheses = await readPreviousReports(supabase, job.workspace_id, job.target_month);
 
   const system = renderPrompt("intentions", {
-    contexte_injecte: context.injected,
-    historique,
+    client: clientName,
     target_month: fullMonthLabel(job.target_month),
-    deja_planifie: renderExisting(existing),
+    contexte_injecte: context.injected,
     reste_a_produire: renderQuotas(quotas),
+    coquilles: renderCoquilles(
+      targetSubjects.map((subject) => ({
+        date: subject.scheduled_on,
+        platform: platformLabelOf(targetLanes.get(subject.lane_id)),
+        format: formatLabelOf(subject.format),
+        name: subject.name,
+        status: subject.status,
+        visuals: subject.visual_urls?.length ?? 0,
+        wording: subject.wording,
+      })),
+    ),
+    historique,
     syntheses_precedentes: syntheses,
     top_posts_mesures: renderTopPostsSummary(mesuresPassees),
+    ajustement: adjustment ?? "",
   });
 
   const attendu =
     quotas.resteTotal > 0
-      ? ` Tu dois produire exactement ${quotas.resteTotal} intention${quotas.resteTotal > 1 ? "s" : ""}, en complément de ce qui est déjà au planning.`
+      ? ` ${quotas.resteTotal} publication${quotas.resteTotal > 1 ? "s" : ""} à créer, en plus des coquilles existantes.`
       : "";
   const text = await callClaude({
     system,
-    user: `Produis maintenant les intentions de ${fullMonthLabel(job.target_month)}, au format de sortie demandé.${attendu}`,
+    user: `Produis maintenant le planning de ${fullMonthLabel(job.target_month)}, au format de sortie demandé.${attendu}`,
     // Un mois entier de planning tient rarement sous 12 000 jetons une fois la
     // réflexion payée sur le même budget : c'est ce plafond qui rendait des
     // réponses sans texte.
@@ -773,12 +772,52 @@ async function runIntentions(
     effort: "medium",
   });
 
-  const items = parseModelJson<GeneratedIntention[]>(text).filter(
-    (item): item is GeneratedIntention & { sujet: string } =>
-      typeof item?.sujet === "string" && item.sujet.trim() !== "",
-  );
-  if (items.length === 0) {
-    return failure("Le modèle n'a produit aucune intention exploitable.");
+  const output = parseIntentionsOutput(text);
+  const notes = renderNotes(output.notes);
+  if (output.items.length === 0) {
+    return failure(
+      `Le modèle n'a produit aucune publication lisible. Début de sa réponse : ${text.trim().slice(0, 300)}`,
+    );
+  }
+
+  // --- Les coquilles : leur wording seulement, jamais leur nom ni leur date --
+  // Rapprochées par nom, puis par date quand deux coquilles portent le même.
+  const shellsByKey = new Map<string, SubjectRow[]>();
+  for (const subject of targetSubjects) {
+    const key = subjectKey(subject.name);
+    shellsByKey.set(key, [...(shellsByKey.get(key) ?? []), subject]);
+  }
+  const findShell = (item: ParsedIntention): SubjectRow | null => {
+    const candidates = shellsByKey.get(subjectKey(item.nom)) ?? [];
+    return (
+      candidates.find((subject) => item.date !== null && subject.scheduled_on === item.date) ??
+      candidates[0] ??
+      null
+    );
+  };
+
+  let filledShells = 0;
+  const toCreate: ParsedIntention[] = [];
+  for (const item of output.items) {
+    const shell = findShell(item);
+    // Une ligne déjà au planning ne se recrée jamais, même annoncée « à créer ».
+    if (shell) {
+      const empty = (shell.wording ?? "").trim() === "";
+      const pending = (WORDING_PENDING_STATUSES as string[]).includes(shell.status);
+      if (empty && pending && item.wording !== "") {
+        const { error: shellError } = await supabase
+          .from("planning_subjects")
+          .update({ wording: item.wording } as never)
+          .eq("id", shell.id);
+        if (shellError) {
+          console.error("[production] coquille non complétée :", shellError.message);
+        } else {
+          filledShells += 1;
+        }
+      }
+      continue;
+    }
+    if (item.statut === "a_creer") toCreate.push(item);
   }
 
   // --- Insertion dans le planning : mois, réseaux, sujets -------------------
@@ -807,12 +846,6 @@ async function runIntentions(
     }
     monthId = createdMonth.id;
   }
-
-  const intentionColumnId = await ensureIntentionColumn(
-    supabase,
-    board.id,
-    job.workspace_id,
-  );
 
   const laneIds = new Map<PlanningPlatform, string>();
   const laneOf = async (platform: PlanningPlatform): Promise<string | null> => {
@@ -854,33 +887,20 @@ async function runIntentions(
   // se rangent dans un ordre arbitraire, et l'ordre manuel du board est une
   // donnée de travail.
   let position = existing.length;
-  for (const item of items) {
-    const platform = PLATFORM_BY_LABEL[(item.reseau ?? "").toUpperCase()] ?? "other";
-    const format = FORMAT_BY_LABEL[(item.type ?? "").toUpperCase()] ?? "other";
+  const monthPlatforms = [...new Set(targetLanes.values())];
+  for (const item of toCreate) {
+    const platform = lanePlatformFor(item.plateforme, monthPlatforms);
+    const format = formatFromLabel(item.format);
     const laneId = await laneOf(platform);
     if (!laneId) continue;
+    if (!monthPlatforms.includes(platform)) monthPlatforms.push(platform);
 
     const date =
       item.date && item.date.startsWith(monthKey) ? item.date : null;
-    // L'intention porte aussi le contenu de créa : angle, visuel, slides —
-    // tout ce que la validation doit voir, tout ce que la phase wording lira
-    // sans le réécrire.
-    const slides = (item.slides ?? [])
-      .map(
-        (slide, slideIndex) =>
-          `Slide ${slideIndex + 1} : ${slide.titre ?? ""}${slide.sous_titre ? ` — ${slide.sous_titre}` : ""}${slide.visuel ? ` (visuel : ${slide.visuel})` : ""}`,
-      )
-      .join("\n");
-    const intentionText = [
-      item.template ? `Template : ${item.template}` : null,
-      item.theme ? `Thème : ${item.theme}` : null,
-      item.intention ?? null,
-      item.contenu_crea ? `Créa : ${item.contenu_crea}` : null,
-      item.texte_visuel ? `Texte visuel : ${item.texte_visuel}` : null,
-      slides || null,
-    ]
-      .filter(Boolean)
-      .join("\n");
+    // Le wording va dans la cellule Wording, pas dans une colonne à part :
+    // c'est là que la phase Content le lit, avec le titre, avant de le
+    // remplacer par la caption.
+    const brief = item.wording;
 
     const { data: createdSubject, error: subjectError } = await supabase
       .from("planning_subjects")
@@ -889,16 +909,14 @@ async function runIntentions(
         month_id: monthId,
         board_id: board.id,
         workspace_id: job.workspace_id,
-        name: item.sujet.toUpperCase(),
+        name: item.nom.toUpperCase(),
         status: "idea",
         format,
         scheduled_on: date,
-        ad_objective: item.objectif ?? null,
-        ad_status: item.sponso ? "todo" : null,
-        custom:
-          intentionColumnId && intentionText
-            ? { [intentionColumnId]: intentionText }
-            : {},
+        sponsoring: item.sponso,
+        ad_objective: item.objectif,
+        ad_status: item.sponso || item.objectif ? "todo" : null,
+        wording: brief === "" ? null : brief,
         position: position++,
       } as never)
       .select("id")
@@ -911,19 +929,34 @@ async function runIntentions(
     if (createdSubject) createdIds.push(createdSubject.id);
   }
 
-  if (createdIds.length === 0) {
+  if (createdIds.length === 0 && filledShells === 0) {
     return failure("Aucune intention n'a pu être insérée dans le planning.");
   }
+
+  // Le compte rendu : ce qui a été posé, puis les points signalés — c'est la
+  // rubrique qui dit ce qui manque à la fiche, elle ne doit pas se perdre.
+  const counts = [
+    createdIds.length > 0
+      ? `${createdIds.length} intention${createdIds.length > 1 ? "s" : ""} posée${createdIds.length > 1 ? "s" : ""}`
+      : null,
+    filledShells > 0
+      ? `${filledShells} coquille${filledShells > 1 ? "s" : ""} complétée${filledShells > 1 ? "s" : ""}`
+      : null,
+  ].filter(Boolean);
+  const signaled = hasSignaledPoints(output.notes)
+    ? ` Points signalés : ${output.notes.pointsSignales.replace(/\s*\n\s*/g, " ")}`
+    : "";
 
   return {
     status: "done",
     result: {
       created_subject_ids: createdIds,
-      summary: `${createdIds.length} intentions posées dans le planning de ${fullMonthLabel(job.target_month)}.`,
+      summary: `${counts.join(", ")} dans le planning de ${fullMonthLabel(job.target_month)}.${signaled}`,
+      notes,
     },
     error: null,
-    progressCurrent: createdIds.length,
-    progressTotal: items.length,
+    progressCurrent: createdIds.length + filledShells,
+    progressTotal: output.items.length,
     phaseDone: true,
   };
 }
@@ -978,7 +1011,8 @@ const WORDING_BATCH_SIZE = 4;
 /**
  * La consigne de sortie propre au format.
  *
- * La créa est arrêtée depuis la phase d'intentions — validée, en production.
+ * La créa est arrêtée depuis la phase d'intentions, dans le brief de la
+ * cellule — validée, en production.
  * Ici, chaque format ne produit que ce qui se **publie en texte** : la
  * caption, ou pour une Story le texte des écrans. Redemander le contenu de
  * créa fusionnait les deux phases et remplissait la cellule d'un livrable que
@@ -989,16 +1023,16 @@ function formatInstruction(format: PlanningFormat): string {
     case "story":
       return [
         "Ce sujet est une STORY : il n'y a aucune légende à écrire.",
-        "Mets dans `wording` le texte affiché à l'écran, écran par écran — court, lisible en une seconde, interaction comprise si l'intention en prévoit une. La créa de chaque écran est déjà définie dans l'intention : ne la redécris pas.",
+        "Mets dans `wording` le texte affiché à l'écran, écran par écran — court, lisible en une seconde, interaction comprise si l'intention en prévoit une. La créa de chaque écran est déjà définie dans le brief : ne la redécris pas.",
         "`accroche` et `cta` valent null : une story n'alimente pas l'historique des accroches.",
       ].join("\n");
     case "carousel":
-      return "Ce sujet est un CARROUSEL : ses slides sont déjà définies dans l'intention et n'ont pas à être réécrites. Produis uniquement la légende qui l'accompagne, dans `wording`.";
+      return "Ce sujet est un CARROUSEL : ses slides sont déjà définies dans le brief et n'ont pas à être réécrites. Produis uniquement la légende qui l'accompagne, dans `wording`.";
     case "reel":
     case "video":
-      return "Ce sujet est un REEL ou une VIDÉO : son déroulé est déjà défini dans l'intention. Produis uniquement la légende, dans `wording`.";
+      return "Ce sujet est un REEL ou une VIDÉO : son déroulé est déjà défini dans le brief. Produis uniquement la légende, dans `wording`.";
     default:
-      return "Ce sujet est une publication fixe : son visuel est déjà défini dans l'intention. Produis uniquement la légende, dans `wording`.";
+      return "Ce sujet est une publication fixe : son visuel est déjà défini dans le brief. Produis uniquement la légende, dans `wording`.";
   }
 }
 
@@ -1017,7 +1051,8 @@ async function produceWording(
     platform: PlanningPlatform | undefined;
     orgId: string;
     workspaceId: string;
-    intentionColumnId: string | null;
+    /** L'ancienne colonne Intention, lue pour les sujets d'avant la bascule. */
+    legacyIntentionColumnId: string | null;
     context: Awaited<ReturnType<typeof getClientContext>>;
     /** Les derniers wordings validés, rendus pour le prompt — le registre. */
     previous: string;
@@ -1029,17 +1064,17 @@ async function produceWording(
   const format = subject.format as PlanningFormat;
   const isStory = format === "story";
 
-  // Le brief saisi à la main dans la colonne Wording. C'est une consigne de
-  // rédaction, pas un livrable : le texte final le remplace.
-  const brief = (subject.wording ?? "").trim();
+  // Le brief de la cellule Wording — posé par les intentions ou à la main.
+  // C'est une consigne de rédaction, pas un livrable : le texte final le
+  // remplace.
+  const brief = briefOf(subject, input.legacyIntentionColumnId);
 
   const system = renderPrompt("wording", {
     contexte_injecte: input.context.injected,
     reseau: platformLabelOf(input.platform),
     type: formatLabelOf(subject.format),
-    template: subject.name,
+    sujet: subject.name,
     date: subject.scheduled_on ?? "Non datée",
-    intention: intentionOf(subject, input.intentionColumnId),
     brief_existant: brief,
     consigne_format: formatInstruction(format),
     wordings_precedents: input.previous,
@@ -1063,9 +1098,10 @@ async function produceWording(
     throw new Error(isStory ? "Contenu de story vide." : "Wording vide.");
   }
 
-  // La cellule ne reçoit que la caption : le contenu de créa appartient à la
-  // phase d'intentions, où il a été défini et validé. L'empiler ici derrière
-  // des séparateurs refaisait le travail et noyait le texte publiable.
+  // La cellule ne reçoit que la caption, qui remplace le brief : le contenu de
+  // créa appartient à la phase d'intentions, où il a été défini et validé.
+  // L'empiler ici derrière des séparateurs refaisait le travail et noyait le
+  // texte publiable.
   const wording = generated.wording.trim();
   const { error: updateError } = await supabase
     .from("planning_subjects")
@@ -1105,7 +1141,7 @@ export type SubjectWordingResult =
  * Le wording d'une seule publication, depuis le bouton de sa cellule.
  *
  * Même chemin que la phase mensuelle — contexte client, historique
- * d'accroches, colonne Intention — mais sans job : un appel, un verdict.
+ * d'accroches, brief de la cellule — mais sans job : un appel, un verdict.
  * Une publication déjà partie ne se réécrit jamais ; tout le reste se
  * régénère, brief compris, c'est le sens du bouton « recréer ».
  */
@@ -1153,9 +1189,9 @@ export async function generateWordingForSubject(
     const targetMonth =
       (subjectMonth as { month: string } | null)?.month ?? "9999-12-01";
 
-    const [context, intentionColumnId, previous, performance] = await Promise.all([
-      getClientContext({ workspaceId: subject.workspace_id, targetMonth }),
-      ensureIntentionColumn(supabase, subject.board_id, subject.workspace_id),
+    const [context, legacyIntentionColumnId, previous, performance] = await Promise.all([
+      getClientContext({ workspaceId: subject.workspace_id, targetMonth, client: supabase }),
+      findLegacyIntentionColumn(supabase, subject.board_id),
       previousWordings(supabase, subject.workspace_id, subject.board_id, targetMonth),
       readPerformanceBlocks(supabase, subject.workspace_id, targetMonth),
     ]);
@@ -1165,7 +1201,7 @@ export async function generateWordingForSubject(
       platform: (lane as { platform?: PlanningPlatform } | null)?.platform,
       orgId: (workspace as { org_id: string }).org_id,
       workspaceId: subject.workspace_id,
-      intentionColumnId,
+      legacyIntentionColumnId,
       context,
       previous,
       performance,
@@ -1219,6 +1255,7 @@ async function runWording(
       workspaceId: job.workspace_id,
       targetMonth: job.target_month,
       adjustment,
+      client: supabase,
     }),
     getLanePlatforms(supabase, months.map((month) => month.id)),
     previousWordings(supabase, job.workspace_id, board.id, job.target_month),
@@ -1227,11 +1264,7 @@ async function runWording(
     readPerformanceBlocks(supabase, job.workspace_id, job.target_month),
   ]);
 
-  const intentionColumnId = await ensureIntentionColumn(
-    supabase,
-    board.id,
-    job.workspace_id,
-  );
+  const legacyIntentionColumnId = await findLegacyIntentionColumn(supabase, board.id);
 
   await supabase
     .from("generation_jobs")
@@ -1247,7 +1280,7 @@ async function runWording(
       platform: lanePlatforms.get(subject.lane_id),
       orgId: job.org_id,
       workspaceId: job.workspace_id,
-      intentionColumnId,
+      legacyIntentionColumnId,
       context,
       previous,
       performance,
@@ -1646,6 +1679,7 @@ async function runReporting(
     workspaceId: job.workspace_id,
     targetMonth: job.target_month,
     adjustment,
+    client: supabase,
   });
 
   const system = renderPrompt("reporting", {

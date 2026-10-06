@@ -100,6 +100,10 @@ on:
         description: "… en simulation : décide et affiche, n'envoie rien"
         type: boolean
         default: false
+      acces_test_vers:
+        description: "Courriels d'accès (invitation ANMF + lien de connexion), par la vraie chaîne, vers cette adresse de test"
+        type: string
+        default: ""
       renvoi_factures_vers:
         description: "… vers cette adresse à la place des clients, sans journal (test)"
         type: string
@@ -247,6 +251,25 @@ jobs:
           META_AD_LIBRARY_TOKEN: ${{ secrets.META_AD_LIBRARY_TOKEN }}
           DROPCONTACT_API_KEY: ${{ secrets.DROPCONTACT_API_KEY }}
           HUNTER_API_KEY: ${{ secrets.HUNTER_API_KEY }}
+
+      # Le courriel d'accès à un espace, envoyé par le code du produit vers
+      # une adresse de test : la preuve qu'exige tout courriel qui part vers
+      # un client. Le lien reçu connecte l'adresse — à n'envoyer qu'à soi.
+      - name: Courriel d'accès
+        if: ${{ inputs.acces_test_vers != '' }}
+        # Les deux courriels : l'invitation de la gestion des accès, puis le
+        # lien de connexion que demande la page /login.
+        run: |
+          pnpm acces:test --vers "${{ inputs.acces_test_vers }}"
+          pnpm acces:test --vers "${{ inputs.acces_test_vers }}" --connexion
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          NEXT_PUBLIC_SITE_URL: ${{ vars.NEXT_PUBLIC_SITE_URL || 'https://dashboard-antidotes-beta.vercel.app' }}
+          CREDENTIALS_ENCRYPTION_KEY: ${{ secrets.CREDENTIALS_ENCRYPTION_KEY }}
+          GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
+          GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
 
       # Renvoyer les derniers envois de factures, tels quels, l'objet complété :
       # pour le jour où un défaut d'affichage a touché ce qui est parti. Même

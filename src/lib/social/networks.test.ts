@@ -118,6 +118,19 @@ describe("planConnexionRows", () => {
     expect(rows.every((row) => row.group === "Meta")).toBe(true);
   });
 
+  it("propose le compte publicitaire TikTok dès que TikTok est déclaré", () => {
+    const rows = planConnexionRows({ networks: ["TikTok"], linked: [] });
+
+    const kinds = rows.map((row) => row.kind);
+    expect(kinds.indexOf("tiktok_ad_account")).toBe(kinds.indexOf("tiktok") + 1);
+    expect(rows.find((row) => row.kind === "tiktok_ad_account")!.declared).toBe(false);
+  });
+
+  it("ne double pas le compte publicitaire TikTok déclaré en plus", () => {
+    const rows = planConnexionRows({ networks: ["TikTok", "TikTok Ads"], linked: [] });
+    expect(rows.filter((row) => row.kind === "tiktok_ad_account")).toHaveLength(1);
+  });
+
   it("ne rappelle aucun groupe pour un réseau qui n'en couvre qu'un", () => {
     const rows = planConnexionRows({ networks: ["Instagram"], linked: [] });
     expect(rows[0]!.group).toBeNull();

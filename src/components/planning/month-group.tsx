@@ -319,6 +319,7 @@ export function MonthGroup({
                 defaultOpen={!closedLanes.includes(lane.id)}
                 onOpenChange={(next) => onLaneOpenChange(lane.id, next)}
                 canGenerateWording={isOwner}
+                monthKey={month.month}
               />
             ))
           )}

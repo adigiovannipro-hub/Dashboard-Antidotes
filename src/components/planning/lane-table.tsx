@@ -22,7 +22,8 @@ import {
 } from "@/components/planning/subject-row";
 import type { ColumnDef } from "@/lib/planning/columns";
 import { gridTemplate } from "@/lib/planning/columns";
-import type { LaneWithSubjects, PlanningOwner } from "@/lib/planning/types";
+import { draftSubject, nextPosition, withDrafts } from "@/lib/planning/draft-subject";
+import type { LaneWithSubjects, PlanningOwner, SubjectRow } from "@/lib/planning/types";
 import { totalSponsoring } from "@/lib/planning/types";
 import type { PlanningSort, SortableColumnKey } from "@/lib/ui-preferences";
 import { cn } from "@/lib/utils";
@@ -52,6 +53,7 @@ export function LaneTable({
   defaultOpen,
   onOpenChange,
   canGenerateWording,
+  monthKey,
 }: {
   scope: Scope;
   lane: LaneWithSubjects;
@@ -72,6 +74,8 @@ export function LaneTable({
   onOpenChange: (open: boolean) => void;
   /** Le stylo de génération, réservé à l'agence. */
   canGenerateWording: boolean;
+  /** Le mois du couloir, `YYYY-MM-01` — porté par les lignes ajoutées. */
+  monthKey: string;
 }) {
   const [open, setOpen] = useState(defaultOpen);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
@@ -79,10 +83,16 @@ export function LaneTable({
     subjectId: string;
     after: boolean;
   } | null>(null);
-  const { run, pending } = useCellAction();
-  // Lignes en cours de création : affichées par avance, résorbées d'elles-
-  // mêmes quand la revalidation apporte les vraies (voir le rendu plus bas).
-  const [creatingCount, showCreating] = useOptimistic(0, (count: number) => count + 1);
+  const { run } = useCellAction();
+  // Lignes en cours de création : de vraies lignes, éditables tout de suite,
+  // dont l'identifiant est celui que le serveur va écrire. `useOptimistic`
+  // les retire quand la revalidation apporte les mêmes — même clé, donc même
+  // ligne à l'écran, saisie et focus compris.
+  const [drafts, addDraft] = useOptimistic<SubjectRow[], SubjectRow>(
+    [],
+    (current, added) => [...current, added],
+  );
+  const [freshId, setFreshId] = useState<string | null>(null);
 
   const toggle = (next: boolean) => {
     setOpen(next);
@@ -90,7 +100,9 @@ export function LaneTable({
   };
 
   const template = gridTemplate(columns);
-  const subjects = sortSubjects(lane.subjects, sort, columns);
+  // Les brouillons au bout, là où l'on a cliqué : le tri les rangera quand
+  // le serveur les aura rendus.
+  const subjects = withDrafts(sortSubjects(lane.subjects, sort, columns), drafts);
   const live = subjects.filter((subject) => subject.status !== "dropped");
   const sponsoring = totalSponsoring(subjects);
 
@@ -117,7 +129,7 @@ export function LaneTable({
 
   return (
     <section
-      className="border-border-strong relative overflow-hidden rounded-md border bg-background"
+      className="border-board-line bg-board-row relative overflow-hidden rounded-md border"
       aria-label={lane.name}
       // Un liseré aux couleurs du réseau court sur toute la hauteur du
       // couloir : à trois réseaux empilés dans un mois, c'est ce qui dit d'un
@@ -134,7 +146,7 @@ export function LaneTable({
           Alterner surface et creux fait ressortir l'emboîtement mois → réseau
           → colonnes. */}
       <header
-        className="border-border-strong bg-surface flex cursor-pointer items-center gap-2 border-b px-2 py-2"
+        className="border-board-line bg-board-lane flex cursor-pointer items-center gap-2 border-b px-2 py-2"
         // Toute la barre plie et déplie le couloir, pas seulement le chevron.
         // La garde est indispensable : la barre porte le nom du réseau en
         // champ éditable et la poubelle, qu'un handler posé à l'aveugle
@@ -194,7 +206,7 @@ export function LaneTable({
 
         {/* Encre primaire et non secondaire : sur le gris de `border-strong`,
             l'encre secondaire tombait à 3,9:1, mesuré au navigateur. */}
-        <span className="bg-border-strong text-text-primary rounded-full px-2 py-0.5 text-[11px] font-semibold tabular-nums">
+        <span className="bg-board-line text-text-primary rounded-full px-2 py-0.5 text-[11px] font-semibold tabular-nums">
           {live.length}
         </span>
 
@@ -243,7 +255,7 @@ export function LaneTable({
             {/* Mêmes filets verticaux que les lignes (`[&>*+*]`), même padding
                 par cellule : en-tête et lignes restent alignés au pixel. */}
             <div
-              className="border-border-strong bg-surface-sunken [&>*+*]:border-border-strong grid border-b px-2 [&>*+*]:border-l"
+              className="border-board-line bg-board-columns [&>*+*]:border-board-line grid border-b px-2 [&>*+*]:border-l"
               style={{ gridTemplateColumns: template }}
             >
               <span className="flex items-center justify-center py-1">
@@ -311,40 +323,38 @@ export function LaneTable({
                 onRowDrop={(subjectId, after, draggedId) =>
                   drop(draggedId, dropIndex(subjectId, after))
                 }
+                focusName={subject.id === freshId}
               />
             ))}
 
-            {/* La ligne fantôme : le clic sur « Ajouter » répond tout de
-                suite, pendant que le serveur crée la vraie ligne — sans elle,
-                rien ne bougeait à l'écran le temps de l'aller-retour et on
-                recliquait. `useOptimistic` la retire de lui-même quand la
-                revalidation apporte la ligne réelle. */}
-            {Array.from({ length: creatingCount }).map((_, index) => (
-              <div
-                key={`fantome-${index}`}
-                aria-hidden
-                className="border-border-strong flex h-10 animate-pulse items-center gap-2 border-b px-9"
-              >
-                <span className="bg-muted h-3 w-44 rounded" />
-              </div>
-            ))}
-
-            {/* Le pied du couloir : ajouter, ou déposer en fin de liste. */}
+            {/* Le pied du couloir : ajouter, ou déposer en fin de liste. Pas
+                de garde « en cours » : chaque clic pose sa ligne, et les
+                créations partent l'une après l'autre. */}
             <button
               type="button"
-              disabled={pending}
-              onClick={() =>
-                run(async () => {
+              onClick={() => {
+                const id = crypto.randomUUID();
+                setFreshId(id);
+                run(() => {
                   // Avant tout `await` : un état optimiste ne se pose que
                   // dans la partie synchrone d'une transition.
-                  showCreating(null);
+                  addDraft(
+                    draftSubject({
+                      id,
+                      lane,
+                      monthKey,
+                      position: nextPosition(subjects),
+                      now: new Date().toISOString(),
+                    }),
+                  );
                   return createSubject(scope, {
+                    subjectId: id,
                     laneId: lane.id,
                     monthId: lane.month_id,
                     boardId: lane.board_id,
                   });
-                })
-              }
+                });
+              }}
               onDragOver={(event) => {
                 if (![...event.dataTransfer.types].includes(SUBJECT_DRAG_TYPE)) return;
                 event.preventDefault();

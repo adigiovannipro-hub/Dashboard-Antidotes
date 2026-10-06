@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/select";
 import { PendingLabel } from "@/components/ds/pending-label";
 import type { WorkspaceAccess } from "@/lib/auth";
+import { AccessLinkFallback } from "./access-link-fallback";
 
 const ROLE_LABELS: Record<string, string> = {
   client: "Client",
@@ -122,6 +123,8 @@ export function InviteForm({ workspaces }: { workspaces: WorkspaceAccess[] }) {
         </div>
       </div>
       </div>
+
+      {state?.ok && state.link ? <AccessLinkFallback link={state.link} /> : null}
     </form>
   );
 }

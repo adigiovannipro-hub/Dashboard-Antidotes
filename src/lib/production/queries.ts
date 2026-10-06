@@ -3,7 +3,7 @@ import "server-only";
 import { createAdminClient, createClient } from "@/lib/supabase/server";
 import { EXCLUDED_STATUSES } from "@/lib/planning/types";
 import { shiftMonth, type PhaseSlice } from "./phases";
-import { AHEAD_MONTHS, EMPTY_AHEAD, type ProductionSnapshot } from "./card-model";
+import { AHEAD_MONTHS, EMPTY_AHEAD, PAST_MONTHS, type ProductionSnapshot } from "./card-model";
 import type { ClientReport, GenerationJob } from "./types";
 import { needsContent } from "./wording-state";
 
@@ -109,6 +109,25 @@ export async function listRecentClientReports(options: {
   return (data ?? []) as unknown as ClientReport[];
 }
 
+/** Toutes les lignes d'une lecture, page par page de mille. */
+async function readAllPages<T>(
+  page: (
+    from: number,
+    to: number,
+  ) => PromiseLike<{ data: unknown[] | null; error: { message: string } | null }>,
+): Promise<T[]> {
+  const size = 1000;
+  const rows: T[] = [];
+  for (let from = 0; from < 50_000; from += size) {
+    const { data, error } = await page(from, from + size - 1);
+    if (error) break;
+    const batch = (data ?? []) as T[];
+    rows.push(...batch);
+    if (batch.length < size) break;
+  }
+  return rows;
+}
+
 export async function getProductionSnapshots(options: {
   workspaceIds: string[];
   today: string;
@@ -120,13 +139,11 @@ export async function getProductionSnapshots(options: {
   const monthKey = options.today.slice(0, 7);
   const nextMonth = `${shiftMonth(monthKey, 1)}-01`;
   const previousMonth = `${shiftMonth(monthKey, -1)}-01`;
-  // Les mois d'avance proposés par le sélecteur de la carte. Deux lectures de
-  // plus sur la même requête : le coût est nul et le sélecteur n'a plus besoin
-  // d'un aller-retour réseau à chaque flèche.
-  const aheadMonths = Array.from(
-    { length: AHEAD_MONTHS },
-    (_unused, index) => `${shiftMonth(monthKey, 2 + index)}-01`,
-  );
+  // Une seule plage pour tous les mois du sélecteur, du plus ancien au
+  // dernier mois d'avance : le sélecteur n'a pas besoin d'un aller-retour
+  // réseau à chaque flèche.
+  const firstMonth = `${shiftMonth(monthKey, -PAST_MONTHS)}-01`;
+  const lastMonth = `${shiftMonth(monthKey, 1 + AHEAD_MONTHS)}-01`;
 
   const ensure = (workspaceId: string): ProductionSnapshot => {
     const existing = result.get(workspaceId);
@@ -164,9 +181,10 @@ export async function getProductionSnapshots(options: {
       .from("planning_months")
       .select("id, workspace_id, month")
       .in("board_id", boardIds)
-      .in("month", [previousMonth, nextMonth, ...aheadMonths])
+      .gte("month", firstMonth)
+      .lte("month", lastMonth)
       .is("deleted_at", null)
-      .limit(200);
+      .limit(1000);
     months = (data ?? []) as unknown as MonthSlice[];
   }
 
@@ -187,8 +205,9 @@ export async function getProductionSnapshots(options: {
       .from("client_phases")
       .select("workspace_id, phase, target_month, status, completed_at, due_start, due_end")
       .in("workspace_id", options.workspaceIds)
-      .in("target_month", [nextMonth, previousMonth])
-      .limit(200)
+      .gte("target_month", firstMonth)
+      .lte("target_month", lastMonth)
+      .limit(1000)
       .then(({ data, error }) => ({
         rows: (data ?? []) as unknown as (PhaseSlice & { workspace_id: string })[],
         missing: isMissingTable(error),
@@ -203,28 +222,35 @@ export async function getProductionSnapshots(options: {
         rows: (data ?? []) as unknown as GenerationJob[],
         missing: isMissingTable(error),
       })),
+    // Par pages : l'API plafonne une réponse à mille lignes, et un an de
+    // planning sur plusieurs espaces les dépasse — un `limit` plus haut serait
+    // tronqué sans le dire, et les compteurs de la carte mentiraient.
     monthIds.length > 0
-      ? supabase
-          .from("planning_subjects")
-          .select("id, workspace_id, month_id, status, scheduled_on")
-          .in("month_id", monthIds)
-          .is("deleted_at", null)
-          .is("archived_at", null)
-          .limit(2000)
-          .then(({ data }) => (data ?? []) as unknown as SubjectSlice[])
+      ? readAllPages<SubjectSlice>((from, to) =>
+          supabase
+            .from("planning_subjects")
+            .select("id, workspace_id, month_id, status, scheduled_on")
+            .in("month_id", monthIds)
+            .is("deleted_at", null)
+            .is("archived_at", null)
+            .order("id")
+            .range(from, to),
+        )
       : Promise.resolve([] as SubjectSlice[]),
     // La présence d'un wording, sans rapatrier les textes : les ids suffisent.
     monthIds.length > 0
-      ? supabase
-          .from("planning_subjects")
-          .select("id")
-          .in("month_id", monthIds)
-          .is("deleted_at", null)
-          .is("archived_at", null)
-          .not("wording", "is", null)
-          .neq("wording", "")
-          .limit(2000)
-          .then(({ data }) => new Set(((data ?? []) as { id: string }[]).map((row) => row.id)))
+      ? readAllPages<{ id: string }>((from, to) =>
+          supabase
+            .from("planning_subjects")
+            .select("id")
+            .in("month_id", monthIds)
+            .is("deleted_at", null)
+            .is("archived_at", null)
+            .not("wording", "is", null)
+            .neq("wording", "")
+            .order("id")
+            .range(from, to),
+        ).then((rows) => new Set(rows.map((row) => row.id)))
       : Promise.resolve(new Set<string>()),
     // Trois lectures d'une seule colonne : on ne veut pas les chiffres, juste
     // savoir quels espaces en ont. Un relevé d'abonnés compte — c'est une
@@ -314,9 +340,11 @@ export async function getProductionSnapshots(options: {
     } else if (month.month === previousMonth) {
       snapshot.previous.total += 1;
       if (subject.status === "published") snapshot.previous.published += 1;
-    } else {
-      // Un mois d'avance : on ne retient que ce que la vue « en avance »
-      // affiche, sans fenêtre ni première date — elle n'en montre aucune.
+    }
+
+    // Chaque mois hors du mois par défaut — passés, en cours, d'avance : on
+    // ne retient que ce que leur vue affiche, sans fenêtre ni première date.
+    if (month.month !== nextMonth) {
       const stats = (snapshot.ahead[month.month] ??= { ...EMPTY_AHEAD });
       stats.total += 1;
       if (

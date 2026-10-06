@@ -171,13 +171,20 @@ export const getAppNavigation = cache(async (): Promise<NavGroup[]> => {
       // geste de la journée, pas un outil qu'on va chercher en bas du rail.
       title: "Aujourd'hui",
       entries: [
-        {
-          href: "/",
-          label: "Mon travail",
-          icon: "aujourdhui",
-          match: "exact",
-          badge: badges.travail,
-        },
+        // « Mon travail » est l'outil de l'agence : un client n'y trouverait
+        // qu'une redirection vers son propre dossier. Le groupe disparaît
+        // alors avec lui — le rail d'un client ne montre que son espace.
+        ...(viewer.isOwner
+          ? ([
+              {
+                href: "/",
+                label: "Mon travail",
+                icon: "aujourdhui",
+                match: "exact",
+                badge: badges.travail,
+              },
+            ] satisfies NavEntry[])
+          : []),
         ...(isModerationVisible(moderation.access)
           ? ([
               {

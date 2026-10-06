@@ -53,6 +53,19 @@ const KINDS_BY_NETWORK: Record<string, SocialAccountKind[]> = {
   snapchat: ["snapchat"],
 };
 
+/**
+ * Le compte publicitaire qui accompagne un réseau déclaré.
+ *
+ * Personne ne déclare « TikTok Ads » au contrat d'un client qui fait du
+ * TikTok — pas plus qu'on ne déclare le compte publicitaire Meta —, et c'est
+ * pourtant lui qui alimente l'onglet payant du Reporting. Déclarer TikTok
+ * fait donc apparaître sa ligne. Seulement pour un compte qu'on sait
+ * brancher : une ligne « aucun connecteur » de plus ne dirait rien d'utile.
+ */
+const AD_COMPANION: Partial<Record<SocialAccountKind, SocialAccountKind>> = {
+  tiktok: "tiktok_ad_account",
+};
+
 /** Le couloir de planning d'un réseau déclaré. */
 const PLATFORM_BY_NETWORK: Record<string, PlanningPlatform> = {
   instagram: "instagram",
@@ -119,7 +132,8 @@ export type ConnexionRow = {
  *   1. les réseaux **déclarés** au Contexte — ce que le client attend ;
  *   2. le compte publicitaire Meta, **toujours** : il n'est pas un réseau de
  *      publication, c'est lui qui alimente le Reporting, et personne ne pense
- *      à le déclarer aux livrables ;
+ *      à le déclarer aux livrables — de même le compte publicitaire TikTok,
+ *      dès que TikTok est déclaré (`AD_COMPANION`) ;
  *   3. tout compte **déjà affecté** qui ne serait dans aucune des deux. Sans
  *      cette reprise, retirer un réseau des livrables ferait disparaître de
  *      l'écran une affectation qui, elle, continue de publier — une connexion
@@ -157,6 +171,12 @@ export function planConnexionRows(options: {
       if (seenKinds.has(kind)) continue;
       seenKinds.add(kind);
       rows.push({ label, kind, declared: true, group });
+
+      const companion = AD_COMPANION[kind];
+      if (companion && !seenKinds.has(companion)) {
+        seenKinds.add(companion);
+        rows.push({ label: "", kind: companion, declared: false, group: null });
+      }
     }
   }
 

@@ -5,6 +5,7 @@ import { getWorkspace } from "@/lib/auth";
 import { syncWorkspaceWebAnalytics } from "@/lib/connectors/google-analytics/sync";
 import { syncWorkspaceLinkedin } from "@/lib/connectors/linkedin/sync";
 import { syncWorkspaceReporting } from "@/lib/connectors/meta/sync";
+import { syncWorkspaceTiktokAds } from "@/lib/connectors/tiktok-ads/sync";
 import { missingServerEnv } from "@/lib/env";
 import { createAdminClient } from "@/lib/supabase/server";
 import { COMPOSIO_TRANSITION_NOTE } from "@/lib/social/direct-connect";
@@ -77,17 +78,29 @@ export async function POST(request: Request) {
   });
   const linkedinReports = linkedinReport ? [linkedinReport] : [];
 
+  // TikTok Ads, si un compte publicitaire est affecté.
+  const tiktokReport = await syncWorkspaceTiktokAds({
+    admin,
+    workspaceId: workspace.id,
+    atLeastSince: parsed.data.du,
+  });
+  const tiktokReports = tiktokReport ? [tiktokReport] : [];
+
   const errors = [
     ...reports.filter((report) => report.error),
     ...webReports.filter((report) => report.error),
     ...linkedinReports.filter((report) => report.error),
+    ...tiktokReports.filter((report) => report.error),
   ];
   return NextResponse.json({
     ok: errors.length === 0,
-    reports: [...reports, ...webReports, ...linkedinReports],
+    reports: [...reports, ...webReports, ...linkedinReports, ...tiktokReports],
     note:
-      reports.length === 0 && webReports.length === 0 && linkedinReports.length === 0
-        ? `Aucun compte Meta ni LinkedIn affecté à cet espace, aucune propriété GA rattachée. ${COMPOSIO_TRANSITION_NOTE}`
+      reports.length === 0 &&
+      webReports.length === 0 &&
+      linkedinReports.length === 0 &&
+      tiktokReports.length === 0
+        ? `Aucun compte Meta, LinkedIn ni TikTok Ads affecté à cet espace, aucune propriété GA rattachée. ${COMPOSIO_TRANSITION_NOTE}`
         : undefined,
   });
 }

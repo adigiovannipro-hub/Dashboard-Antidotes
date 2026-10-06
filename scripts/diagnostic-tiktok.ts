@@ -23,6 +23,8 @@
  *   4. Que rend `TIKTOK_LIST_VIDEOS` — quels champs par vidéo, et sur
  *      quelle profondeur ?
  *   5. Le passage HTTP brut atteint-il l'API TikTok, et jusqu'où ?
+ *
+ * Puis TikTok Ads, toolkit à part (`tiktok_ads`), branché depuis Connexions.
  *      `open.tiktokapis.com` porte la Display API (les vidéos publiques du
  *      compte) ; `business.tiktokapis.com` porte la Business Account API,
  *      seule à rendre les vues de profil et les grandeurs au grain jour. Ce
@@ -56,8 +58,95 @@ async function main() {
     process.exit(1);
   }
 
-  const userId = argValue("user") ?? process.env.COMPOSIO_DEFAULT_USER_ID ?? "agence";
   const composio = new Composio({ apiKey });
+  await organique(composio);
+  console.log("");
+  await publicite(composio);
+}
+
+/**
+ * TikTok Ads — le payant, une autre API (`business-api.tiktok.com`), un autre
+ * toolkit Composio (`tiktok_ads`). Rejoue exactement ce que le connecteur
+ * demande : les Business Centers, leurs comptes publicitaires, puis une
+ * semaine du rapport intégré sur le premier compte trouvé — réponses brutes.
+ */
+async function publicite(composio: Composio) {
+  console.log("══ TikTok Ads ══");
+  const accounts = await composio.connectedAccounts.list({
+    toolkitSlugs: ["tiktok_ads"],
+    statuses: ["ACTIVE"],
+  });
+  const actifs = accounts.items
+    .filter((item) => !item.isDisabled)
+    .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
+  if (actifs.length === 0) {
+    console.log(
+      "   aucun compte tiktok_ads dans ce projet. Le brancher depuis Connexions " +
+        "(bouton « Brancher TikTok Ads ») : une connexion faite depuis le tableau " +
+        "de bord de Composio reste dans l'espace personnel.",
+    );
+    return;
+  }
+  for (const account of actifs) {
+    console.log(`   ${account.id} — créé le ${account.createdAt}`);
+  }
+
+  const account = actifs[0]!;
+  const get = async (endpoint: string, params: Record<string, string>) => {
+    const response = await composio.tools.proxyExecute({
+      endpoint,
+      method: "GET",
+      connectedAccountId: account.id,
+      parameters: Object.entries(params).map(([name, value]) => ({
+        in: "query" as const,
+        name,
+        value,
+      })),
+    });
+    console.log(`   ${endpoint} → ${response.status}`);
+    console.log(`     ${short(response.data, 1500)}`);
+    return response.data as { data?: { list?: Record<string, unknown>[] } } | undefined;
+  };
+
+  try {
+    const centers = await get("/bc/get/", { page_size: "50", page: "1" });
+    const firstCenter = (centers?.data?.list ?? [])
+      .map((entry) => (entry.bc_info as { bc_id?: string } | undefined)?.bc_id)
+      .find(Boolean);
+    if (!firstCenter) return;
+
+    const assets = await get("/bc/asset/get/", {
+      bc_id: firstCenter,
+      asset_type: "ADVERTISER",
+      page_size: "50",
+      page: "1",
+    });
+    const advertiser = (assets?.data?.list ?? [])
+      .map((entry) => entry.asset_id as string | undefined)
+      .find(Boolean);
+    if (!advertiser) return;
+
+    const until = new Date();
+    const since = new Date(until.getTime() - 7 * 86_400_000);
+    await get("/report/integrated/get/", {
+      advertiser_id: advertiser,
+      report_type: "BASIC",
+      data_level: "AUCTION_ADGROUP",
+      dimensions: JSON.stringify(["adgroup_id", "stat_time_day"]),
+      metrics: JSON.stringify(["spend", "impressions", "clicks", "reach", "adgroup_name"]),
+      start_date: since.toISOString().slice(0, 10),
+      end_date: until.toISOString().slice(0, 10),
+      page_size: "20",
+      page: "1",
+    });
+  } catch (error) {
+    console.log(`   échec : ${short(error instanceof Error ? error.message : error, 400)}`);
+  }
+}
+
+async function organique(composio: Composio) {
+  console.log("══ TikTok organique ══");
+  const userId = argValue("user") ?? process.env.COMPOSIO_DEFAULT_USER_ID ?? "agence";
 
   // --- 1. Les configurations d'authentification ---------------------------
   console.log("1. Configurations d'authentification TikTok du projet");

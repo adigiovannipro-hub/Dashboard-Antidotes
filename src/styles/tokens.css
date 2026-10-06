@@ -74,6 +74,29 @@
   --neutral-subtle: #f0f0ed;
   --neutral-ink: #5c5c57;
 
+  /* Le tableau du Planning — ses gris à lui. En clair ils reprennent ceux de
+     la page ; en sombre ils remontent d'un cran au-dessus du canevas, comme
+     les cellules de Monday : à #1c1c1a sur #131312, lignes, en-têtes et page
+     se fondaient en un seul aplat noir où l'œil perdait la grille. */
+  --board-row: var(--canvas);
+  --board-lane: var(--surface);
+  --board-columns: var(--surface-sunken);
+  --board-hover: var(--surface-sunken);
+  --board-line: var(--border-strong);
+
+  /* Aplats qui portent du blanc — toasts, compteur de sélection. **Fixes**
+     dans les deux modes : une encre qui s'inverse en sombre ferait tomber le
+     blanc posé dessus sous le seuil (la leçon de `--accent-ink`). Rapports
+     mesurés contre le blanc. */
+  --toast-success: #00854d; /* 4,71:1 — le vert des toasts de Monday */
+  --toast-danger: #b00028; /* 7,30:1 */
+  --toast-warning: #7a5200; /* 6,92:1 */
+  --toast-info: #1f5a78; /* 7,52:1 */
+  --toast-neutral: #323338; /* 12,6:1 */
+  --toast-text: #ffffff;
+  --selection-count: #0073ea; /* 4,53:1 — la pastille bleue de Monday */
+  --bulk-bar: var(--surface);
+
   /* --- Rayons ------------------------------------------------------------ */
   --r-sm: 8px;
   --r-md: 12px;
@@ -159,6 +182,16 @@
 
   --neutral-subtle: #262623;
   --neutral-ink: #a8a8a2;
+
+  /* Texte primaire ≥ 11:1 et secondaire ≥ 5:1 sur ces gris (mesuré). */
+  --board-row: #2b2b29;
+  --board-lane: #333330;
+  --board-columns: #30302d;
+  --board-hover: #363633;
+  --board-line: #4a4a46;
+
+  --toast-neutral: #45464c; /* 9,4:1 — un cran au-dessus du canevas */
+  --bulk-bar: #2e2f33;
 
   --elevation-card: 0 1px 2px rgba(0, 0, 0, 0.4), 0 4px 12px rgba(0, 0, 0, 0.3);
   --elevation-card-hover: 0 1px 2px rgba(0, 0, 0, 0.5), 0 8px 20px rgba(0, 0, 0, 0.4);

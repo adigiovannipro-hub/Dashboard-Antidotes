@@ -70,6 +70,7 @@ export type ProductionSnapshot = {
    * que `target` : on ne calcule pas de fenêtre d'échéance pour un mois qui
    * n'est pas encore dû, et un mois à venir ne peut pas être en retard.
    */
+  /** Le mois en cours et les mois d'avance, par `YYYY-MM-01`. */
   ahead: Record<string, AheadStats>;
   /** Jobs récents de l'espace, du plus neuf au plus ancien. */
   jobs: GenerationJob[];
@@ -147,10 +148,16 @@ export type ProductionCardModel = {
   /** `false` quand les tables du module manquent : rien n'est modifiable. */
   moduleReady: boolean;
   /**
-   * Les mois sélectionnables, du mois par défaut aux deux suivants. La carte
-   * s'ouvre toujours sur le premier : un choix mémorisé cacherait un retard.
+   * Les mois sélectionnables, dans l'ordre du calendrier : le mois en cours
+   * (dont la production n'est pas forcément finie), le mois par défaut, puis
+   * deux mois d'avance.
    */
   views: CardMonthView[];
+  /**
+   * La vue sur laquelle la carte s'ouvre : toujours le mois par défaut, qui
+   * porte le cycle réel. Un choix mémorisé cacherait un retard.
+   */
+  defaultIndex: number;
   subtitle: string;
   segments: PhaseSegment[];
   lateBadge: string | null;
@@ -473,7 +480,10 @@ export function buildCardModel(options: {
   // mémorisé cacherait un retard.
   const defaultView: CardMonthView = {
     targetMonth: targetMonthFor(current ?? "intentions", today),
-    monthLabel: monthLabel(shiftMonth(monthKey, 1)),
+    monthLabel:
+      shiftMonth(monthKey, 1).slice(0, 4) === monthKey.slice(0, 4)
+        ? monthLabel(shiftMonth(monthKey, 1))
+        : `${monthLabel(shiftMonth(monthKey, 1))} ${shiftMonth(monthKey, 1).slice(0, 4)}`,
     badge: current === "reporting" ? "Bilan" : null,
     subtitle: view.subtitle,
     segments: view.segments,
@@ -485,7 +495,37 @@ export function buildCardModel(options: {
     menu,
   };
 
-  const views: CardMonthView[] = [defaultView];
+  // Les mois passés puis le mois en cours, à gauche du mois par défaut : une
+  // production a pu déborder (vécu le 1er octobre — octobre n'était pas
+  // bouclé, et la carte ne proposait plus que novembre). On remonte jusqu'à
+  // un an, mais seulement par les mois qui portent quelque chose : une
+  // flèche qui traverse six mois vides avant le premier vrai ne sert à rien.
+  const views: CardMonthView[] = [];
+  for (let back = PAST_MONTHS; back >= 1; back -= 1) {
+    const key = shiftMonth(monthKey, -back);
+    const stats = snapshot.ahead[`${key}-01`];
+    const hasPhases = snapshot.phases.some((row) => row.target_month === `${key}-01`);
+    if (!stats && !hasPhases) continue;
+    views.push(
+      buildAheadView({
+        monthKey: key,
+        phases: snapshot.phases,
+        stats: stats ?? EMPTY_AHEAD,
+        kind: "past",
+        showYear: key.slice(0, 4) !== monthKey.slice(0, 4),
+      }),
+    );
+  }
+  views.push(
+    buildAheadView({
+      monthKey,
+      phases: snapshot.phases,
+      stats: snapshot.ahead[`${monthKey}-01`] ?? EMPTY_AHEAD,
+      kind: "current",
+    }),
+  );
+  const defaultIndex = views.length;
+  views.push(defaultView);
   for (let ahead = 1; ahead <= AHEAD_MONTHS; ahead += 1) {
     const key = shiftMonth(monthKey, 1 + ahead);
     views.push(
@@ -493,6 +533,8 @@ export function buildCardModel(options: {
         monthKey: key,
         phases: snapshot.phases,
         stats: snapshot.ahead[`${key}-01`] ?? EMPTY_AHEAD,
+        kind: "ahead",
+        showYear: key.slice(0, 4) !== monthKey.slice(0, 4),
       }),
     );
   }
@@ -500,6 +542,7 @@ export function buildCardModel(options: {
   return {
     moduleReady: true,
     views,
+    defaultIndex,
     subtitle: view.subtitle,
     segments: view.segments,
     lateBadge: view.lateBadge,
@@ -515,6 +558,9 @@ export function buildCardModel(options: {
 /** Combien de mois d'avance la carte propose au-delà du mois par défaut. */
 export const AHEAD_MONTHS = 2;
 
+/** Jusqu'où la carte remonte avant le mois en cours. */
+export const PAST_MONTHS = 12;
+
 /**
  * La carte pour un mois qu'on prend en avance.
  *
@@ -528,6 +574,13 @@ function buildAheadView(options: {
   monthKey: string;
   phases: PhaseSlice[];
   stats: AheadStats;
+  /**
+   * `current` : le mois qu'on publie, dont la production peut rester à finir ;
+   * `past` : un mois écoulé, qu'on peut encore reprendre et dont le reporting
+   * a de quoi analyser.
+   */
+  kind: "ahead" | "current" | "past";
+  showYear?: boolean;
 }): CardMonthView {
   const targetMonth = `${options.monthKey}-01`;
   const label = monthLabel(options.monthKey);
@@ -614,9 +667,12 @@ function buildAheadView(options: {
       kind: (phase === "programmation" ? "validation" : "generate") as CardAction["kind"],
     };
     // Le reporting analyse un mois écoulé : il n'a rien à dire d'un mois qui
-    // n'a pas encore commencé, et le proposer ferait échouer un job pour rien.
+    // n'a pas encore commencé — ni de celui qu'on publie encore —, et le
+    // proposer ferait échouer un job pour rien. Un mois passé, lui, s'analyse.
     if (phase === "reporting") {
-      return { ...entry, disabled: true, reason: "Le reporting analyse un mois écoulé" };
+      return options.kind === "past"
+        ? { ...entry, disabled: false, reason: null }
+        : { ...entry, disabled: true, reason: "Le reporting analyse un mois écoulé" };
     }
     if (phase === "intentions") return { ...entry, disabled: false, reason: null };
     return {
@@ -627,18 +683,26 @@ function buildAheadView(options: {
     };
   });
 
+  const isCurrent = options.kind === "current";
+  const isPast = options.kind === "past";
   return {
     targetMonth,
-    monthLabel: label,
-    badge: "En avance",
+    // L'année seulement quand elle change : remonter d'un an ramène deux
+    // « Octobre » côte à côte, qu'il faut distinguer.
+    monthLabel: options.showYear ? `${label} ${options.monthKey.slice(0, 4)}` : label,
+    badge: isPast ? "Passé" : isCurrent ? "En cours" : "En avance",
     subtitle: `${label} · ${current ? PHASE_LABELS[current] : "Cycle bouclé"}`,
     segments,
     lateBadge: null,
     currentPhase: current,
     metrics,
-    info: current
-      ? `${label} n'est pas encore dans la fenêtre. Rien n'est en retard.`
-      : `${label} est bouclé.`,
+    info: !current
+      ? `${label} est bouclé.`
+      : isCurrent
+        ? `${label} se publie : ses contenus restent modifiables.`
+        : isPast
+          ? `${label} est passé : ses contenus restent modifiables.`
+          : `${label} n'est pas encore dans la fenêtre. Rien n'est en retard.`,
     action,
     menu,
   };
@@ -678,6 +742,7 @@ function buildUnavailableModel(options: {
     moduleReady: false,
     // Une seule vue : sans les tables du module, il n'y a pas de mois à
     // parcourir — le sélecteur n'aurait rien à montrer.
+    defaultIndex: 0,
     views: [
       {
         targetMonth: `${options.monthKey}-01`,

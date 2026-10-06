@@ -3,8 +3,12 @@ import {
   prepareVisualUploads,
   type PlanningResult,
 } from "@/app/actions/planning";
+import { toast } from "sonner";
+
 import { makeVisualPreview } from "./preview-client";
 import { visualUploadError } from "./storage";
+import { needsCompression } from "./video-compression";
+import { VideoCompressionError, compressVideo } from "./video-compression-client";
 
 /**
  * L'envoi d'un visuel, vu du navigateur : les octets vont **droit au bucket**.
@@ -32,10 +36,19 @@ const LONG_LIVED_CACHE = "max-age=31536000, immutable";
 export async function uploadVisualsFromBrowser(
   scope: { workspace: string; board: string },
   subjectId: string,
-  files: File[],
+  picked: File[],
 ): Promise<PlanningResult> {
-  const refused = visualUploadError(files);
+  const refused = visualUploadError(picked);
   if (refused) return { ok: false, error: refused };
+
+  let files: File[];
+  try {
+    files = await shrinkHeavyVideos(picked);
+  } catch (error) {
+    const message =
+      error instanceof VideoCompressionError ? error.message : "La compression a échoué.";
+    return { ok: false, error: message };
+  }
 
   const prepared = await prepareVisualUploads(scope, {
     subjectId,
@@ -116,4 +129,36 @@ export async function uploadVisualsFromBrowser(
     return { ok: false, error: `${refusal} Les autres sont bien là.` };
   }
   return attached;
+}
+
+/**
+ * Les vidéos au-delà du plafond du bucket, ramenées dessous une par une — deux
+ * encodages de front se disputeraient l'encodeur matériel. Le toast suit
+ * l'avancement : un master d'une minute prend quelques dizaines de secondes,
+ * et un spinner muet pendant ce temps se lirait comme un envoi bloqué.
+ */
+async function shrinkHeavyVideos(files: File[]): Promise<File[]> {
+  const ready: File[] = [];
+  for (const file of files) {
+    if (!needsCompression(file)) {
+      ready.push(file);
+      continue;
+    }
+    const toastId = toast.loading("Compression de la vidéo… 0 %");
+    let shown = "";
+    try {
+      ready.push(
+        await compressVideo(file, (ratio, attempt) => {
+          const pass = attempt > 1 ? ` (passage ${attempt})` : "";
+          const label = `Compression de la vidéo${pass}… ${Math.floor(ratio * 100)} %`;
+          if (label === shown) return;
+          shown = label;
+          toast.loading(label, { id: toastId });
+        }),
+      );
+    } finally {
+      toast.dismiss(toastId);
+    }
+  }
+  return ready;
 }
