@@ -3,7 +3,7 @@ import { ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Counter, Panel, PanelBody, PanelRows } from "@/components/ds/surface";
 import {
-  gridFor,
+  INSTALLMENT_GRID,
   InstallmentRow,
   InstallmentsHeader,
   InvoiceRow,
@@ -98,7 +98,7 @@ export function StageGroup({
       </PanelBody>
     ) : (
       <>
-        <InstallmentsHeader sortParam={sortParam} tracked={tracked} />
+        <InstallmentsHeader sortParam={sortParam} />
         {/* Les lignes défilent, l'en-tête de colonnes et la somme restent :
             ce sont les deux repères qu'on ne veut jamais perdre de vue. */}
         <div className={cn(SIX_ROWS, "overflow-y-auto")}>
@@ -113,17 +113,12 @@ export function StageGroup({
                   tracked={tracked}
                 />
               ) : (
-                <InvoiceRow
-                  key={row.invoice.id}
-                  invoice={row.invoice}
-                  stage={stage}
-                  tracked={tracked}
-                />
+                <InvoiceRow key={row.invoice.id} invoice={row.invoice} stage={stage} />
               ),
             )}
           </PanelRows>
         </div>
-        <GroupFooter count={rows.length} sums={sums} tracked={tracked} />
+        <GroupFooter count={rows.length} sums={sums} />
         {footnote ? (
           <p className="type-caption text-text-secondary border-t border-border px-5 py-2.5">
             {footnote}
@@ -179,23 +174,20 @@ function groupSums(rows: BoardRow[]): { ttc: CurrencyTotals } {
 function GroupFooter({
   count,
   sums,
-  tracked,
 }: {
   count: number;
   sums: { ttc: CurrencyTotals };
-  tracked: boolean;
 }) {
   return (
     <div
       className={cn(
         "flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-border bg-surface-sunken px-5 py-2.5",
-        gridFor(tracked),
+        INSTALLMENT_GRID,
       )}
     >
       <span className="type-caption text-text-secondary">
         Somme · {count} ligne{count > 1 ? "s" : ""}
       </span>
-      {tracked ? <span className="hidden md:block" /> : null}
       <span className="hidden md:block" />
       <span className="hidden md:block" />
       <span className="type-label text-text-primary text-left tabular-nums md:text-right">

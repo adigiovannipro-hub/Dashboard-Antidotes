@@ -98,36 +98,30 @@ function stepTitle(step: DeliveryTrack["steps"][number]): string {
 
 /**
  * Les quatre coches : l'envoi, puis les trois relances — grises tant
- * qu'elles ne sont pas parties, bleues ensuite. Une facture émise hors de
- * l'envoi automatique n'en a pas : quatre coches grises y diraient « jamais
- * envoyée », ce qui est faux.
+ * qu'elles ne sont pas parties, bleues ensuite. À 12 px et légèrement
+ * chevauchées, elles tiennent avec « En retard » dans les 8,5 rem de la
+ * colonne d'état. Une facture émise hors de l'envoi automatique n'en a pas :
+ * quatre coches grises y diraient « jamais envoyée », ce qui est faux.
  */
-function DeliveryChecks({ track }: { track: DeliveryTrack | null }) {
-  if (!track) {
-    return (
-      <span
-        className="type-caption text-text-secondary hidden md:inline"
-        title="Hors envoi automatique : aucune relance ne part"
-      >
-        —
-      </span>
-    );
-  }
-
+function DeliveryChecks({ track }: { track: DeliveryTrack }) {
   const done = track.steps.filter((step) => step.sentAt !== null).length;
   return (
     <span
       role="img"
       aria-label={`${done} envoi${done > 1 ? "s" : ""} sur 4 — ${track.steps.map(stepTitle).join(", ")}`}
-      className="inline-flex w-fit items-center gap-0.5"
+      className="inline-flex w-fit items-center"
     >
       {track.steps.map((step) => (
-        <span key={step.kind} title={stepTitle(step)} className="inline-flex">
+        <span
+          key={step.kind}
+          title={stepTitle(step)}
+          className="-ml-0.5 inline-flex first:ml-0"
+        >
           <Check
             aria-hidden
             strokeWidth={2.5}
             className={cn(
-              "size-3.5",
+              "size-3",
               step.sentAt ? "text-info" : "text-text-tertiary",
             )}
           />
@@ -152,37 +146,21 @@ export type BoardRow =
 export const INSTALLMENT_GRID =
   "md:grid md:grid-cols-[8.5rem_minmax(0,1.4fr)_8.5rem_8rem_minmax(9rem,auto)] md:items-center md:gap-x-4";
 
-/* Le groupe « Facturée » gagne une colonne entre l'état et le client : les
-   coches d'envoi et de relance. L'état garde ses 8,5 rem — l'œil descend
-   toujours la même colonne d'étiquettes d'un groupe à l'autre. */
-export const INSTALLMENT_GRID_TRACKED =
-  "md:grid md:grid-cols-[8.5rem_4rem_minmax(0,1.4fr)_8.5rem_8rem_minmax(9rem,auto)] md:items-center md:gap-x-4";
-
-export function gridFor(tracked: boolean): string {
-  return tracked ? INSTALLMENT_GRID_TRACKED : INSTALLMENT_GRID;
-}
 
 /* Les trois colonnes qui portent une valeur comparable se trient au clic ;
    l'état et les actions n'en sont pas. Le tri est local au groupe — d'où le
    paramètre d'URL passé de haut en bas plutôt que déduit ici. Sans lui, les
    en-têtes restent du texte : seule une page qui applique le tri a le droit
    de le proposer. */
-export function InstallmentsHeader({
-  sortParam,
-  tracked = false,
-}: {
-  sortParam?: string;
-  tracked?: boolean;
-}) {
+export function InstallmentsHeader({ sortParam }: { sortParam?: string }) {
   return (
     <div
       className={cn(
         "type-overline hidden border-b border-border bg-surface-sunken px-5 py-1.5 text-text-secondary",
-        gridFor(tracked),
+        INSTALLMENT_GRID,
       )}
     >
       <span>Statut</span>
-      {tracked ? <span>Envois</span> : null}
       {sortParam ? (
         <>
           <SortHead
@@ -252,13 +230,16 @@ export function InstallmentRow({
 
   return (
     <div
-      className={cn("flex flex-wrap items-center gap-x-4 gap-y-2 px-5 py-3", gridFor(tracked))}
+      className={cn("flex flex-wrap items-center gap-x-4 gap-y-2 px-5 py-3", INSTALLMENT_GRID)}
     >
-      <StatusPill tone={enRetard ? "danger" : STAGE_TONES[stage]} className="w-fit">
-        {enRetard ? LATE_LABEL : ROW_LABELS[stage]}
-      </StatusPill>
-
-      {tracked ? <DeliveryChecks track={track} /> : null}
+      {/* Les coches vivent dans la cellule d'état, collées à la pastille : une
+          colonne à elles décalait le client par rapport aux autres groupes. */}
+      <div className="flex w-fit items-center gap-1.5">
+        <StatusPill tone={enRetard ? "danger" : STAGE_TONES[stage]} className="w-fit">
+          {enRetard ? LATE_LABEL : ROW_LABELS[stage]}
+        </StatusPill>
+        {tracked && track ? <DeliveryChecks track={track} /> : null}
+      </div>
 
       {/* Le nom prend sa propre ligne au téléphone : coincé dans le rang
           flex, il se faisait tronquer jusqu'à « Bon… ». */}
@@ -319,11 +300,9 @@ export function InstallmentRow({
 export function InvoiceRow({
   invoice,
   stage,
-  tracked = false,
 }: {
   invoice: UnmatchedInvoice;
   stage: InstallmentStage;
-  tracked?: boolean;
 }) {
   const overdue = stage === "invoiced" && isOverdue(invoice);
   const chip =
@@ -337,14 +316,12 @@ export function InvoiceRow({
 
   return (
     <div
-      className={cn("flex flex-wrap items-center gap-x-4 gap-y-2 px-5 py-3", gridFor(tracked))}
+      className={cn("flex flex-wrap items-center gap-x-4 gap-y-2 px-5 py-3", INSTALLMENT_GRID)}
     >
+      {/* Une facture sans devis est partie à la main : pas de coches. */}
       <StatusPill tone={overdue ? "danger" : STAGE_TONES[stage]} className="w-fit">
         {overdue ? LATE_LABEL : ROW_LABELS[stage]}
       </StatusPill>
-
-      {/* Une facture sans devis est partie à la main : pas de coches. */}
-      {tracked ? <DeliveryChecks track={null} /> : null}
 
       <div className="min-w-0 basis-full md:basis-auto">
         <p className="type-label text-text-primary truncate">{invoice.client_name}</p>
