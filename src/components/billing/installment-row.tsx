@@ -1,3 +1,5 @@
+import { Check } from "lucide-react";
+
 import { cn } from "@/lib/utils";
 import { StatusPill, type StatusTone } from "@/components/ds/status-pill";
 import { SortHead } from "@/components/billing/group-sort";
@@ -7,10 +9,12 @@ import {
 } from "@/components/billing/installment-action";
 import { InstallmentCells } from "@/components/billing/installment-cells";
 import { dayLabel } from "@/lib/billing/format";
+import { deliveryTrack, type DeliveryTrack } from "@/lib/billing/delivery";
 import { isLate, isPaymentOverdue } from "@/lib/billing/schedule";
 import { isOverdue } from "@/lib/finance/invoices";
 import type { UnmatchedInvoice } from "@/lib/billing/queries";
 import {
+  EMAIL_KIND_LABELS,
   LATE_LABEL,
   STAGE_LABELS,
   type BillingEmailKind,
@@ -38,27 +42,99 @@ export type InstallmentLine = BillingInstallment & {
   project: string;
   /** Ce qui est parti chez le client pour cette mensualité, dans l'ordre. */
   emails?: { kind: BillingEmailKind; sent_at: string }[];
+  /** Le devis porte une adresse : l'automate envoie et relance. Sans elle,
+      plus rien ne part — même une facture déjà relancée une fois. */
+  autoSend?: boolean;
 };
 
 /**
- * Ce que le mail dit de cette ligne, en une phrase.
- *
- * L'envoi automatique ne se voit nulle part ailleurs : sans cette mention, un
- * client relancé trois fois et un client jamais contacté auraient exactement
- * la même ligne à l'écran. `null` quand rien n'est parti — la plupart des
- * lignes, tant que l'envoi n'est pas réglé sur leur devis.
+ * Ce que le mail dit de cette ligne, en une phrase : quand la facture est
+ * partie, la dernière relance, et — tant qu'elle attend son règlement — la
+ * prochaine. Sans cette mention, un client relancé trois fois et un client
+ * jamais contacté auraient exactement la même ligne à l'écran.
  */
-function deliveryNote(line: InstallmentLine): string | null {
+function deliveryNote(
+  line: InstallmentLine,
+  stage: InstallmentStage,
+  track: DeliveryTrack | null,
+  now: Date,
+): string | null {
   if (line.last_send_error) return `envoi bloqué — ${line.last_send_error}`;
 
-  const emails = line.emails ?? [];
-  const initial = emails.find((mail) => mail.kind === "invoice");
-  if (!initial) return null;
+  if (!track) {
+    /* Émise sans passer par l'envoi automatique — reprise de Monday, ou
+       facturée à la main : rien ne la relancera, et il faut le savoir. */
+    return stage === "invoiced" ? "hors envoi automatique · pas de relance" : null;
+  }
 
-  const reminders = emails.filter((mail) => mail.kind !== "invoice").length;
-  const sent = `envoyée le ${dayLabel(initial.sent_at.slice(0, 10))}`;
-  if (reminders === 0) return sent;
-  return `${sent} · ${reminders} relance${reminders > 1 ? "s" : ""}`;
+  /* La dernière chose partie, puis la suivante : c'est ce qu'on vient lire.
+     La date d'envoi initial s'efface dès la première relance — elle reste
+     dans l'infobulle de la première coche. */
+  const parts = [
+    track.lastReminder?.sentAt
+      ? `relancée le ${dayLabel(track.lastReminder.sentAt.slice(0, 10))}`
+      : `envoyée le ${dayLabel(track.steps[0]!.sentAt!.slice(0, 10))}`,
+  ];
+  if (stage === "invoiced" && line.autoSend !== false) {
+    if (!track.next) {
+      parts.push("plus de relance automatique");
+    } else if (track.next.dueOn === now.toISOString().slice(0, 10)) {
+      parts.push("relance prévue aujourd'hui");
+    } else {
+      parts.push(`relance prévue le ${dayLabel(track.next.dueOn)}`);
+    }
+  }
+  return parts.join(" · ");
+}
+
+/** Le libellé d'une coche, pour l'infobulle : ce qui est parti, ou quand. */
+function stepTitle(step: DeliveryTrack["steps"][number]): string {
+  const name = step.kind === "invoice" ? "Facture" : EMAIL_KIND_LABELS[step.kind];
+  if (step.sentAt) {
+    return `${name} envoyée le ${dayLabel(step.sentAt.slice(0, 10))}`;
+  }
+  return step.dueOn ? `${name} prévue le ${dayLabel(step.dueOn)}` : name;
+}
+
+/**
+ * Les quatre coches : l'envoi, puis les trois relances — grises tant
+ * qu'elles ne sont pas parties, bleues ensuite. Une facture émise hors de
+ * l'envoi automatique n'en a pas : quatre coches grises y diraient « jamais
+ * envoyée », ce qui est faux.
+ */
+function DeliveryChecks({ track }: { track: DeliveryTrack | null }) {
+  if (!track) {
+    return (
+      <span
+        className="type-caption text-text-secondary hidden md:inline"
+        title="Hors envoi automatique : aucune relance ne part"
+      >
+        —
+      </span>
+    );
+  }
+
+  const done = track.steps.filter((step) => step.sentAt !== null).length;
+  return (
+    <span
+      role="img"
+      aria-label={`${done} envoi${done > 1 ? "s" : ""} sur 4 — ${track.steps.map(stepTitle).join(", ")}`}
+      className="inline-flex w-fit items-center gap-0.5"
+    >
+      {track.steps.map((step) => (
+        <span key={step.kind} title={stepTitle(step)} className="inline-flex">
+          <Check
+            aria-hidden
+            strokeWidth={2.5}
+            className={cn(
+              "size-3.5",
+              step.sentAt ? "text-info" : "text-text-tertiary",
+            )}
+          />
+        </span>
+      ))}
+    </span>
+  );
 }
 
 /**
@@ -76,20 +152,37 @@ export type BoardRow =
 export const INSTALLMENT_GRID =
   "md:grid md:grid-cols-[8.5rem_minmax(0,1.4fr)_8.5rem_8rem_minmax(9rem,auto)] md:items-center md:gap-x-4";
 
+/* Le groupe « Facturée » gagne une colonne entre l'état et le client : les
+   coches d'envoi et de relance. L'état garde ses 8,5 rem — l'œil descend
+   toujours la même colonne d'étiquettes d'un groupe à l'autre. */
+export const INSTALLMENT_GRID_TRACKED =
+  "md:grid md:grid-cols-[8.5rem_4rem_minmax(0,1.4fr)_8.5rem_8rem_minmax(9rem,auto)] md:items-center md:gap-x-4";
+
+export function gridFor(tracked: boolean): string {
+  return tracked ? INSTALLMENT_GRID_TRACKED : INSTALLMENT_GRID;
+}
+
 /* Les trois colonnes qui portent une valeur comparable se trient au clic ;
    l'état et les actions n'en sont pas. Le tri est local au groupe — d'où le
    paramètre d'URL passé de haut en bas plutôt que déduit ici. Sans lui, les
    en-têtes restent du texte : seule une page qui applique le tri a le droit
    de le proposer. */
-export function InstallmentsHeader({ sortParam }: { sortParam?: string }) {
+export function InstallmentsHeader({
+  sortParam,
+  tracked = false,
+}: {
+  sortParam?: string;
+  tracked?: boolean;
+}) {
   return (
     <div
       className={cn(
         "type-overline hidden border-b border-border bg-surface-sunken px-5 py-1.5 text-text-secondary",
-        INSTALLMENT_GRID,
+        gridFor(tracked),
       )}
     >
       <span>Statut</span>
+      {tracked ? <span>Envois</span> : null}
       {sortParam ? (
         <>
           <SortHead
@@ -142,23 +235,30 @@ export function InstallmentRow({
   line,
   stage,
   canDecide,
+  tracked = false,
 }: {
   line: InstallmentLine;
   stage: InstallmentStage;
   canDecide: boolean;
+  /** Afficher la colonne des coches — le groupe « Facturée » seulement. */
+  tracked?: boolean;
 }) {
+  const now = new Date();
   const late = stage === "to_invoice" && isLate(line);
   const overdue = isPaymentOverdue(line);
   const enRetard = late || overdue;
-  const delivery = deliveryNote(line);
+  const track = deliveryTrack(line.emails ?? [], now);
+  const delivery = deliveryNote(line, stage, track, now);
 
   return (
     <div
-      className={cn("flex flex-wrap items-center gap-x-4 gap-y-2 px-5 py-3", INSTALLMENT_GRID)}
+      className={cn("flex flex-wrap items-center gap-x-4 gap-y-2 px-5 py-3", gridFor(tracked))}
     >
       <StatusPill tone={enRetard ? "danger" : STAGE_TONES[stage]} className="w-fit">
         {enRetard ? LATE_LABEL : ROW_LABELS[stage]}
       </StatusPill>
+
+      {tracked ? <DeliveryChecks track={track} /> : null}
 
       {/* Le nom prend sa propre ligne au téléphone : coincé dans le rang
           flex, il se faisait tronquer jusqu'à « Bon… ». */}
@@ -171,11 +271,13 @@ export function InstallmentRow({
             : ""}
           {line.notes ? ` · ${line.notes}` : ""}
         </p>
+        {/* Pas de troncature : « relance prévue le … » est la moitié qu'on
+            vient chercher, et c'est elle qui tombait sous les points. */}
         {delivery ? (
           <p
             className={cn(
-              "type-caption truncate",
-              line.last_send_error ? "text-danger-ink" : "text-text-tertiary",
+              "type-caption",
+              line.last_send_error ? "text-danger-ink" : "text-text-secondary",
             )}
           >
             {delivery}
@@ -217,9 +319,11 @@ export function InstallmentRow({
 export function InvoiceRow({
   invoice,
   stage,
+  tracked = false,
 }: {
   invoice: UnmatchedInvoice;
   stage: InstallmentStage;
+  tracked?: boolean;
 }) {
   const overdue = stage === "invoiced" && isOverdue(invoice);
   const chip =
@@ -233,11 +337,14 @@ export function InvoiceRow({
 
   return (
     <div
-      className={cn("flex flex-wrap items-center gap-x-4 gap-y-2 px-5 py-3", INSTALLMENT_GRID)}
+      className={cn("flex flex-wrap items-center gap-x-4 gap-y-2 px-5 py-3", gridFor(tracked))}
     >
       <StatusPill tone={overdue ? "danger" : STAGE_TONES[stage]} className="w-fit">
         {overdue ? LATE_LABEL : ROW_LABELS[stage]}
       </StatusPill>
+
+      {/* Une facture sans devis est partie à la main : pas de coches. */}
+      {tracked ? <DeliveryChecks track={null} /> : null}
 
       <div className="min-w-0 basis-full md:basis-auto">
         <p className="type-label text-text-primary truncate">{invoice.client_name}</p>

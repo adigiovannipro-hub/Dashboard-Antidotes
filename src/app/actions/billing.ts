@@ -20,6 +20,7 @@ import {
   isoMonth,
 } from "@/lib/billing/forms";
 import { TEMPLATE_VARIABLES, unknownVariablesIn } from "@/lib/billing/templates";
+import { closeSettledEngagements } from "@/lib/billing/settle";
 import { createClient } from "@/lib/supabase/server";
 
 /**
@@ -279,11 +280,34 @@ export async function setInstallmentStatus(
     .update({ status: parsed.data.status, ...stamps } as never)
     .eq("id", parsed.data.installmentId)
     .eq("org_id", context.orgId)
-    .select("id");
+    .select("id, engagement_id");
 
   if (error) return { ok: false, error: `Mise à jour refusée : ${error.message}` };
   if (!data || data.length === 0) {
     return { ok: false, error: "Échéance introuvable." };
+  }
+
+  /* La dernière mensualité payée clôt son devis — même règle que le
+     rapprochement Airwallex, posée sur la transition et jamais en balayage. */
+  if (parsed.data.status === "paid") {
+    const engagementId = (data as unknown as { engagement_id: string }[])[0]?.engagement_id;
+    try {
+      const closed = await closeSettledEngagements(
+        supabase,
+        context.orgId,
+        engagementId ? [engagementId] : [],
+      );
+      if (closed > 0) {
+        refresh();
+        return { ok: true, message: "Payée — le devis est soldé, il passe Terminé." };
+      }
+    } catch (closeError) {
+      refresh();
+      return {
+        ok: true,
+        message: `Échéance payée. ${closeError instanceof Error ? closeError.message : ""}`.trim(),
+      };
+    }
   }
 
   refresh();
@@ -467,6 +491,42 @@ export async function endEngagement(
 
   refresh();
   return { ok: true, message: "Devis terminé, échéances restantes passées." };
+}
+
+// --- Rouvrir un devis -------------------------------------------------------
+
+const reopenEngagementInput = z.object({ engagementId: z.uuid() });
+
+/**
+ * Rouvrir un devis terminé — clos à la main ou soldé tout seul. Le statut
+ * seul change : les mois passés à la clôture restent passés, chacun se
+ * rétablit depuis le détail (« Rétablir »). Un devis rouvert ne se referme
+ * qu'au paiement d'une de ses mensualités, jamais au passage suivant.
+ */
+export async function reopenEngagement(
+  _previous: BillingActionResult | null,
+  formData: FormData,
+): Promise<BillingActionResult> {
+  const parsed = reopenEngagementInput.safeParse({
+    engagementId: formData.get("engagementId"),
+  });
+  if (!parsed.success) return { ok: false, error: "Requête incomplète." };
+
+  const context = await requireFinanceAccess();
+  if (!context.canDecide) return { ok: false, error: "Action indisponible." };
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("billing_engagements")
+    .update({ status: "active" } as never)
+    .eq("id", parsed.data.engagementId)
+    .eq("org_id", context.orgId)
+    .select("id");
+  if (error) return { ok: false, error: `Réouverture refusée : ${error.message}` };
+  if (!data || data.length === 0) return { ok: false, error: "Devis introuvable." };
+
+  refresh();
+  return { ok: true, message: "Devis rouvert." };
 }
 
 // --- Supprimer un devis ------------------------------------------------------

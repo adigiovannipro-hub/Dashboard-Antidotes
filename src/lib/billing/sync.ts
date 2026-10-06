@@ -7,6 +7,7 @@ import {
   type ReconcilableInstallment,
   type ReconcilableInvoice,
 } from "./reconcile";
+import { closeSettledEngagements } from "./settle";
 
 /**
  * L'application du rapprochement : lit l'état, laisse `reconcile` décider,
@@ -22,6 +23,7 @@ import {
  */
 
 type InstallmentRow = Omit<ReconcilableInstallment, "client_name"> & {
+  engagement_id: string;
   billing_engagements: { client_name: string };
 };
 
@@ -31,7 +33,7 @@ export async function reconcileBillingInstallments(orgId: string): Promise<numbe
   const { data: lines, error: linesError } = await admin
     .from("billing_installments")
     .select(
-      "id, status, amount_cents, vat_rate, currency, issue_on, matched_invoice_id, issued_at, paid_at, billing_engagements!inner(client_name)",
+      "id, engagement_id, status, amount_cents, vat_rate, currency, issue_on, matched_invoice_id, issued_at, paid_at, billing_engagements!inner(client_name)",
     )
     .eq("org_id", orgId)
     .limit(2000);
@@ -39,12 +41,14 @@ export async function reconcileBillingInstallments(orgId: string): Promise<numbe
     throw new Error(`Lecture des échéances : ${linesError.message}`);
   }
 
-  const installments = ((lines ?? []) as unknown as InstallmentRow[]).map(
-    ({ billing_engagements, ...line }) => ({
-      ...line,
-      client_name: billing_engagements.client_name,
-    }),
-  );
+  const rows = (lines ?? []) as unknown as InstallmentRow[];
+  const engagementOf = new Map(rows.map((row) => [row.id, row.engagement_id]));
+  /* `reconcile` reçoit la ligne avec son `engagement_id` en trop : sans
+     effet sur la décision, et ça évite une copie de plus. */
+  const installments = rows.map(({ billing_engagements, ...line }) => ({
+    ...line,
+    client_name: billing_engagements.client_name,
+  }));
   if (installments.length === 0) return 0;
 
   const [{ data: invoices, error: invoicesError }, { data: aliasRows, error: aliasError }] =
@@ -86,6 +90,15 @@ export async function reconcileBillingInstallments(orgId: string): Promise<numbe
       throw new Error(`Écriture du rapprochement : ${error.message}`);
     }
   }
+
+  /* Un devis dont la dernière mensualité vient d'être payée se clôt — mais
+     seulement sur cette transition : un devis rouvert à la main ne se
+     referme pas au passage suivant (`settle.ts`). */
+  const justPaid = decisions
+    .filter((decision) => decision.set.status === "paid")
+    .map((decision) => engagementOf.get(decision.installment_id))
+    .filter((id): id is string => Boolean(id));
+  await closeSettledEngagements(admin, orgId, justPaid);
 
   return decisions.length;
 }
