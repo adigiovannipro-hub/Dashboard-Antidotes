@@ -6,13 +6,15 @@ import { toast } from "sonner";
 import {
   deleteEngagement,
   endEngagement,
+  reopenEngagement,
   type BillingActionResult,
 } from "@/app/actions/billing";
 import { Button } from "@/components/ui/button";
 
 /**
- * Clore ou supprimer un devis. Deux gestes que rien ne presse : ils vivent
- * dans le détail déplié du devis, pas sur sa ligne.
+ * Clore, rouvrir ou supprimer un devis. Des gestes que rien ne presse : ils
+ * vivent dans le détail déplié du devis, pas sur sa ligne. Un devis soldé se
+ * clôt tout seul ; « Rouvrir le devis » est le chemin inverse, à la main.
  */
 export function EngagementActions({
   engagementId,
@@ -29,13 +31,17 @@ export function EngagementActions({
     BillingActionResult | null,
     FormData
   >(deleteEngagement, null);
+  const [reopenState, reopenAction, reopenPending] = useActionState<
+    BillingActionResult | null,
+    FormData
+  >(reopenEngagement, null);
 
   useEffect(() => {
-    const state = endState ?? deleteState;
+    const state = endState ?? deleteState ?? reopenState;
     if (!state) return;
     if (state.ok) toast.success(state.message);
     else toast.error(state.error);
-  }, [endState, deleteState]);
+  }, [endState, deleteState, reopenState]);
 
   return (
     <div className="flex gap-2">
@@ -46,7 +52,14 @@ export function EngagementActions({
             Terminer le devis
           </Button>
         </form>
-      ) : null}
+      ) : (
+        <form action={reopenAction}>
+          <input type="hidden" name="engagementId" value={engagementId} />
+          <Button type="submit" variant="outline" size="sm" disabled={reopenPending}>
+            Rouvrir le devis
+          </Button>
+        </form>
+      )}
       <form
         action={deleteAction}
         onSubmit={(event) => {

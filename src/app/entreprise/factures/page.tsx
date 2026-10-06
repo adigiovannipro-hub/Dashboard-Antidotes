@@ -96,6 +96,7 @@ export default async function FacturesPage({ searchParams }: { searchParams: Sea
     client: engagementById.get(installment.engagement_id)?.client_name ?? "—",
     project: engagementById.get(installment.engagement_id)?.label ?? "",
     emails: emailsByInstallment[installment.id] ?? [],
+    autoSend: Boolean(engagementById.get(installment.engagement_id)?.recipient_email),
   });
   const lines = living.map(toLine);
 
