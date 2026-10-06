@@ -211,7 +211,9 @@ export function PostsTable({
       ? value === null
         ? "—"
         : `${formatValue(value, "decimal")} %`
-      : formatValue(value ?? 0, "integer");
+      : value === null
+        ? "—"
+        : formatValue(value, "integer");
 
   return (
     <div className="space-y-3">
