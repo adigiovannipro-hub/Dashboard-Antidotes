@@ -87,6 +87,8 @@ const POST_CANDIDATES = [
  * rend pas — c'est la cause soupçonnée des « Vues » à zéro et des vues vidéo
  * trois fois sous ce qu'affiche Facebook.
  */
+const SAVE_CANDIDATES = ["post_saves", "post_saved", "saves", "saved"];
+
 const REEL_METRICS = [
   "blue_reels_play_count",
   "fb_reels_total_plays",
@@ -129,6 +131,18 @@ const SECRET_PARAMS = ["access_token", "input_token"];
 type Sonde = (path: string, params: Record<string, string>) => Promise<void>;
 
 /**
+ * Les liens de pagination que Meta rend dans `paging.next` **portent le
+ * jeton** en clair : un corps affiché tel quel publiait un jeton de Page dans
+ * le journal du runner (vécu le 6/10/2026, journaux effacés). Tout ce qui
+ * s'imprime passe par ici.
+ */
+function redact(text: string): string {
+  return text
+    .replace(/(access_token|input_token)=[^&"\\\s]+/g, "$1=…")
+    .replace(/"access_token"\s*:\s*"[^"]+"/g, '"access_token":"…"');
+}
+
+/**
  * Un appel, un seul — jamais rejoué, borné à 45 s — et son corps affiché
  * tel quel, avec la durée. Un timeout se dit comme tel : c'est la réponse
  * qu'on cherche quand on soupçonne le volume plutôt que le refus.
@@ -154,7 +168,7 @@ function makeSonde(base: string, accessToken: string): Sonde {
     const startedAt = Date.now();
     try {
       const response = await fetch(url, { signal: controller.signal });
-      const body = await response.text();
+      const body = redact(await response.text());
       console.log(`  ${response.status} · ${Date.now() - startedAt} ms · ${body}`);
     } catch (error) {
       const ms = Date.now() - startedAt;
@@ -359,7 +373,7 @@ async function main() {
         `${base}/${compte.external_id}/published_posts?limit=1&fields=id,created_time&access_token=${encodeURIComponent(accessToken)}`,
       );
       const postsBody = await posts.text();
-      console.log(`\n→ /published_posts?limit=1\n  ${posts.status} ${postsBody}`);
+      console.log(`\n→ /published_posts?limit=1\n  ${posts.status} ${redact(postsBody)}`);
 
       let postId: string | null = null;
       try {
@@ -405,7 +419,7 @@ async function main() {
           }
         }
       } catch {
-        console.log(`\n→ /published_posts?limit=20\n  ${recents.status} ${recentsBody}`);
+        console.log(`\n→ /published_posts?limit=20\n  ${recents.status} ${redact(recentsBody)}`);
       }
 
       if (reel) {
@@ -420,8 +434,11 @@ async function main() {
         for (const metric of REEL_METRICS) {
           await sonde(`/${reel.videoId}/video_insights`, { metric });
         }
-        for (const metric of [...POST_METRICS, ...POST_CANDIDATES]) {
+        for (const metric of [...POST_METRICS, ...POST_CANDIDATES, ...SAVE_CANDIDATES]) {
           await sonde(`/${reel.postId}/insights`, { metric });
+        }
+        for (const metric of SAVE_CANDIDATES) {
+          await sonde(`/${reel.videoId}/video_insights`, { metric });
         }
       } else {
         console.log("  (aucun Reel parmi les vingt dernières publications)");
@@ -478,7 +495,7 @@ async function main() {
       `${base}/${compte.external_id}/media?limit=1&fields=id,timestamp,media_type&access_token=${encodeURIComponent(accessToken)}`,
     );
     const mediaBody = await media.text();
-    console.log(`\n→ /media?limit=1\n  ${media.status} ${mediaBody}`);
+    console.log(`\n→ /media?limit=1\n  ${media.status} ${redact(mediaBody)}`);
 
     let mediaId: string | null = null;
     try {
