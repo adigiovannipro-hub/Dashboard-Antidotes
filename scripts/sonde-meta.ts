@@ -67,9 +67,45 @@ const POST_METRICS = [
   "post_video_views",
 ];
 
+/**
+ * Les métriques d'une publication **par l'objet de la publication**, candidates
+ * au remplacement de celles que Meta a dépréciées. Un nom inconnu rend une
+ * erreur et pas un zéro : c'est ce qui tranche.
+ */
+const POST_CANDIDATES = [
+  "post_media_view",
+  "post_total_media_view_unique",
+  "post_clicks",
+  "post_reactions_by_type_total",
+  "post_activity_by_action_type",
+];
+
+/**
+ * Les métriques d'un Reel, lues sur **la vidéo** et non sur la publication.
+ * Un Reel de Page est une vidéo : ses lectures, sa portée et ses gestes
+ * vivent dans `/{vidéo}/video_insights`, que l'arête des publications ne
+ * rend pas — c'est la cause soupçonnée des « Vues » à zéro et des vues vidéo
+ * trois fois sous ce qu'affiche Facebook.
+ */
+const REEL_METRICS = [
+  "blue_reels_play_count",
+  "fb_reels_total_plays",
+  "fb_reels_replay_count",
+  "post_impressions_unique",
+  "post_video_avg_time_watched",
+  "post_video_view_time",
+  "post_video_social_actions",
+  "post_video_likes_by_reaction_type",
+  "post_video_followers",
+  "post_video_saves",
+];
+
 /** Les métriques de la Page au grain jour, l'ancien nom à côté du nouveau. */
 const PAGE_METRICS = [
   "page_media_view",
+  "page_total_media_view_unique",
+  "page_impressions_unique",
+  "page_daily_follows_unique",
   "page_impressions",
   "page_views_total",
   "page_post_engagements",
@@ -335,12 +371,66 @@ async function main() {
       }
 
       if (postId) {
-        for (const metric of POST_METRICS) {
+        for (const metric of [...POST_METRICS, ...POST_CANDIDATES]) {
           await sonde(`/${postId}/insights`, { metric });
         }
       } else {
         console.log("  (aucune publication lue — pas de sonde par publication)");
       }
+
+      /* Un Reel : on le cherche parmi les vingt dernières publications par son
+         permalien (`/reel/{vidéo}`), puis on interroge la vidéo elle-même —
+         sans `metric` d'abord, pour voir ce que Meta sert par défaut. */
+      const recents = await fetch(
+        `${base}/${compte.external_id}/published_posts?limit=20&fields=id,permalink_url,status_type,attachments{media_type,target{id}}&access_token=${encodeURIComponent(accessToken)}`,
+      );
+      const recentsBody = await recents.text();
+      let reel: { postId: string; videoId: string } | null = null;
+      try {
+        const rows =
+          (JSON.parse(recentsBody) as {
+            data?: {
+              id: string;
+              permalink_url?: string;
+              attachments?: { data?: { target?: { id?: string } }[] };
+            }[];
+          }).data ?? [];
+        for (const row of rows) {
+          const fromLink = /\/reel\/(\d+)/.exec(row.permalink_url ?? "")?.[1];
+          const fromTarget = row.attachments?.data?.[0]?.target?.id;
+          const videoId = fromLink ?? fromTarget;
+          if (videoId && row.permalink_url?.includes("/reel/")) {
+            reel = { postId: row.id, videoId };
+            break;
+          }
+        }
+      } catch {
+        console.log(`\n→ /published_posts?limit=20\n  ${recents.status} ${recentsBody}`);
+      }
+
+      if (reel) {
+        console.log(`\n— Reel : publication ${reel.postId}, vidéo ${reel.videoId} —`);
+        await sonde(`/${reel.postId}`, {
+          fields: "id,permalink_url,status_type,attachments{media_type,target{id}}",
+        });
+        await sonde(`/${reel.videoId}`, {
+          fields: "id,views,length,post_views,permalink_url,created_time",
+        });
+        await sonde(`/${reel.videoId}/video_insights`, {});
+        for (const metric of REEL_METRICS) {
+          await sonde(`/${reel.videoId}/video_insights`, { metric });
+        }
+        for (const metric of [...POST_METRICS, ...POST_CANDIDATES]) {
+          await sonde(`/${reel.postId}/insights`, { metric });
+        }
+      } else {
+        console.log("  (aucun Reel parmi les vingt dernières publications)");
+      }
+
+      // Les abonnés de la Page, champ par champ : ce que le relevé en lit.
+      await sonde(`/${compte.external_id}`, {
+        fields: "followers_count,fan_count,name",
+      });
 
       // Trente jours : assez pour que la série existe, assez peu pour que la
       // réponse tienne à l'écran.
