@@ -28,6 +28,7 @@ import {
   DeleteBoardDialog,
   MoveDialog,
 } from "@/components/planning/board-dialogs";
+import { MoveProvider } from "@/components/planning/move-context";
 import { BulkBar } from "@/components/planning/bulk-bar";
 import { FeedPreview } from "@/components/planning/feed-preview";
 import { panelZIndex } from "@/components/planning/panel-layers";
@@ -441,6 +442,7 @@ export function PlanningBoardView({
   // Le cadre de l'application fournit déjà la marge de page : en ajouter une
   // ici décalait le planning de tous les autres écrans.
   return (
+    <MoveProvider>
     <div className="min-w-0 flex-1 space-y-4">
       {/* Alignés par le bas, et la barre d'outils décollée du filet des
           onglets : centrés, ses champs de 36 px chevauchaient le soulignement
@@ -771,6 +773,7 @@ export function PlanningBoardView({
         }}
       />
     </div>
+    </MoveProvider>
   );
 }
 

@@ -946,18 +946,21 @@ export async function moveSubject(
       ...visible.slice(index).map((subject) => subject.id),
     ];
 
-    for (const [position, id] of ordered.entries()) {
+    // Seules les lignes dont le rang change sont réécrites, et toutes d'un
+    // bloc : une boucle d'`await` coûtait un aller-retour par ligne du
+    // couloir, et le glisser-déposer attendait la dernière.
+    const before = new Map(visible.map((subject) => [subject.id, subject.position]));
+    const writes = ordered.flatMap((id, position) => {
+      if (id !== input.subjectId && before.get(id) === position) return [];
       const patch: Record<string, unknown> = { position };
       if (id === input.subjectId) {
         patch.lane_id = lane.id;
         patch.month_id = lane.month_id;
       }
-      const { error } = await supabase
-        .from("planning_subjects")
-        .update(patch as never)
-        .eq("id", id);
-      if (error) throw new Error(error.message);
-    }
+      return [supabase.from("planning_subjects").update(patch as never).eq("id", id)];
+    });
+    const failed = (await Promise.all(writes)).find((result) => result.error);
+    if (failed?.error) throw new Error(failed.error.message);
 
     if (moved.lane_id !== lane.id) {
       const { data: from } = await supabase
