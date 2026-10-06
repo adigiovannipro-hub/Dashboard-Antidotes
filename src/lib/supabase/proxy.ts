@@ -19,6 +19,9 @@ const PUBLIC_PATHS = [
   "/auth/erreur",
   "/partage",
   "/api/cron",
+  /* Le connecteur MCP de Claude n'a pas de session : sa clé, dans l'adresse,
+     est vérifiée par la route elle-même (404 sinon). */
+  "/api/mcp",
   /* Les pages légales sont publiques par nécessité : Meta, Google et TikTok
      refusent une application dont l'URL de confidentialité renvoie vers un
      écran de connexion — c'est un robot qui la lit, jamais un utilisateur

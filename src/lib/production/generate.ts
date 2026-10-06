@@ -1454,7 +1454,7 @@ function toMeasuredPost(post: SocialPost, platform: OrganicPlatform): MeasuredPo
  * Client `service_role` assumé : le worker tourne dans un `after()`, sans
  * session. La garde owner a été faite par la route qui a créé le job.
  */
-async function readReportingFacts(
+export async function readReportingFacts(
   supabase: SupabaseAdmin,
   workspaceId: string,
   month: string,
