@@ -55,7 +55,7 @@ définitive et bloquante en base (triggers de 20260907a).
   sur leurs replis.
 - `NEXT_PUBLIC_SITE_URL` sur le runner GitHub, pour les liens de
   désinscription : la variable de dépôt `NEXT_PUBLIC_SITE_URL`, à défaut
-  `https://dashboard-antidotes-beta.vercel.app`.
+  `https://app.antidotes.agency`.
 
 ## Ce qui n'existe pas, volontairement
 
