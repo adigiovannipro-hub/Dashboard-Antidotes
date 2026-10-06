@@ -1,0 +1,1808 @@
+{
+  "workspace": "bondet",
+  "year": 2026,
+  "excludedMonths": [
+    "2026-10-01"
+  ],
+  "capturedAt": "2026-09-25T09:47:58.258Z",
+  "board": {
+    "id": "5094677213",
+    "name": "LUNETTES BONDET I PE 2026",
+    "url": "https://adigiovannipros-team.monday.com/boards/5094677213"
+  },
+  "subitemBoardId": "5094677215",
+  "subitemColumns": [
+    {
+      "id": "name",
+      "title": "Name",
+      "type": "name"
+    },
+    {
+      "id": "person",
+      "title": "Propriétaire",
+      "type": "people"
+    },
+    {
+      "id": "status",
+      "title": "Status",
+      "type": "status"
+    },
+    {
+      "id": "dup__of_status",
+      "title": "Thématique",
+      "type": "status"
+    },
+    {
+      "id": "date0",
+      "title": "Date",
+      "type": "date"
+    },
+    {
+      "id": "fichier",
+      "title": "Visuel",
+      "type": "file"
+    },
+    {
+      "id": "texte5",
+      "title": "Wording",
+      "type": "long_text"
+    },
+    {
+      "id": "chiffres",
+      "title": "Sponsorisation",
+      "type": "numbers"
+    },
+    {
+      "id": "statut",
+      "title": "Objectifs",
+      "type": "status"
+    },
+    {
+      "id": "statut0",
+      "title": "Statut Ads",
+      "type": "status"
+    },
+    {
+      "id": "pulse_updated",
+      "title": "Last update",
+      "type": "last_updated"
+    }
+  ],
+  "groups": [
+    {
+      "id": "nouveau_groupe10717",
+      "title": "AVRIL",
+      "position": 0
+    },
+    {
+      "id": "duplicate_of_mars12658",
+      "title": "MAI",
+      "position": 1
+    },
+    {
+      "id": "nouveau_groupe33653",
+      "title": "JUIN",
+      "position": 2
+    },
+    {
+      "id": "group_mm4egvdf",
+      "title": "JUILLET",
+      "position": 3
+    },
+    {
+      "id": "group_mm5jdjdm",
+      "title": "AOUT",
+      "position": 4
+    },
+    {
+      "id": "duplicate_of_avril",
+      "title": "SEPTEMBRE",
+      "position": 5
+    },
+    {
+      "id": "group_mm6vb0ex",
+      "title": "OCTOBRE",
+      "position": 6
+    }
+  ],
+  "items": [
+    {
+      "id": "2845391576",
+      "name": "META",
+      "groupId": "nouveau_groupe10717",
+      "position": 0,
+      "subitems": [
+        {
+          "id": "2848125481",
+          "name": "SOLAIRE AMBRÉE",
+          "url": "https://adigiovannipros-team.monday.com/boards/5094677215/pulses/2848125481",
+          "updatedAt": "2026-04-20T14:20:25Z",
+          "columnValues": {
+            "person": "Alessandro DI GIOVANNI",
+            "status": "PUBLIÉ",
+            "dup__of_status": "POST",
+            "date0": "2026-04-20",
+            "fichier": "https://adigiovannipros-team.monday.com/protected_static/18530754/resources/217908953/Plan%20de%20travail%201.png",
+            "texte5": "Posée, souriante, lumineuse. Le modèle Jim et ses verres bruns dégradés réchauffent le regard même quand le soleil se fait timide. Une monture solaire 100% française, conçue pour être portée au quotidien, avec autant de style que de naturel.\n\nEt vous, vous êtes plutôt verres dégradés, gris ou très colorés ? Dites-le nous en commentaire.\n\nRetrouvez votre favorite en bio.",
+            "chiffres": null,
+            "statut": null,
+            "statut0": null,
+            "pulse_updated": "2026-04-20 14:20:25 UTC"
+          },
+          "updates": []
+        },
+        {
+          "id": "2848142147",
+          "name": "CAMPAGNE - CAPSULE 1",
+          "url": "https://adigiovannipros-team.monday.com/boards/5094677215/pulses/2848142147",
+          "updatedAt": "2026-06-01T16:11:10Z",
+          "columnValues": {
+            "person": "Alessandro DI GIOVANNI",
+            "status": "PUBLIÉ",
+            "dup__of_status": "REELS",
+            "date0": "2026-04-22",
+            "fichier": "https://adigiovannipros-team.monday.com/protected_static/18530754/resources/217466011/CAPSULE%201%20-%20VFINALE%20HD%20-%20150426.mp4, https://adigiovannipros-team.monday.com/protected_static/18530754/resources/217466978/COVER%201.png",
+            "texte5": "Des lunettes qui s'invitent dans chaque moment, même les plus tranquilles.\nBondet. Des lunettes pour la vie. Abonnez-vous pour ne rien manquer.",
+            "chiffres": "806.8",
+            "statut": "Visite de profil",
+            "statut0": "Fait",
+            "pulse_updated": "2026-06-01 16:11:10 UTC"
+          },
+          "updates": []
+        },
+        {
+          "id": "2848154338",
+          "name": "SOLAIRE",
+          "url": "https://adigiovannipros-team.monday.com/boards/5094677215/pulses/2848154338",
+          "updatedAt": "2026-04-24T14:53:12Z",
+          "columnValues": {
+            "person": "Alessandro DI GIOVANNI",
+            "status": "PUBLIÉ",
+            "dup__of_status": "POST",
+            "date0": "2026-04-24",
+            "fichier": "https://adigiovannipros-team.monday.com/protected_static/18530754/resources/218275171/Plan%20de%20travail%202.png",
+            "texte5": "Oversize, ivoire, sans effort. Le modèle Jackie pour celles qui n'ont pas besoin d'en faire plus.\n\nEnregistrez ce post si cette paire DOIT être sur votre liste. Trouvez votre favorite en bio.",
+            "chiffres": null,
+            "statut": null,
+            "statut0": null,
+            "pulse_updated": "2026-04-24 14:53:12 UTC"
+          },
+          "updates": [
+            {
+              "id": "562090229",
+              "body": "@BOUILLOD MALORY Hello Malory, c'est mis à jour. Dis-moi si OK en ce sens ? Merci bcp S",
+              "creator": "Alessandro DI GIOVANNI",
+              "createdAt": "2026-04-20T14:27:48.000Z",
+              "replies": []
+            }
+          ]
+        },
+        {
+          "id": "2848154383",
+          "name": "SAVOIR-FAIRE ATELIER",
+          "url": "https://adigiovannipros-team.monday.com/boards/5094677215/pulses/2848154383",
+          "updatedAt": "2026-04-27T11:06:11Z",
+          "columnValues": {
+            "person": "Alessandro DI GIOVANNI",
+            "status": "PUBLIÉ",
+            "dup__of_status": "POST",
+            "date0": "2026-04-27",
+            "fichier": "https://adigiovannipros-team.monday.com/protected_static/18530754/resources/217909213/Plan%20de%20travail%203.png",
+            "texte5": "Derrière chaque paire que vous portez, il y a des mains et un savoir-faire transmis depuis trois générations dans notre atelier français. Chez Bondet, rien n'a changé dans l'essentiel.\n\nDécouvrez notre histoire en bio.",
+            "chiffres": null,
+            "statut": null,
+            "statut0": null,
+            "pulse_updated": "2026-04-27 11:06:11 UTC"
+          },
+          "updates": []
+        },
+        {
+          "id": "2848125482",
+          "name": "MOMENT BONDET",
+          "url": "https://adigiovannipros-team.monday.com/boards/5094677215/pulses/2848125482",
+          "updatedAt": "2026-04-29T07:23:48Z",
+          "columnValues": {
+            "person": "Alessandro DI GIOVANNI",
+            "status": "PUBLIÉ",
+            "dup__of_status": "POST",
+            "date0": "2026-04-29",
+            "fichier": "https://adigiovannipros-team.monday.com/protected_static/18530754/resources/217909525/Plan%20de%20travail%207.png",
+            "texte5": "Ces moments-là, on ne les planifie pas, on les vit. Et les bonnes lunettes suivent sans qu'on y pense.\nC'est quoi votre moment Bondet à vous ? Racontez-nous en commentaire.\nTrouvez la paire qui vous suit partout en bio.",
+            "chiffres": null,
+            "statut": null,
+            "statut0": null,
+            "pulse_updated": "2026-04-29 07:23:48 UTC"
+          },
+          "updates": []
+        }
+      ]
+    },
+    {
+      "id": "2845390271",
+      "name": "META",
+      "groupId": "duplicate_of_mars12658",
+      "position": 1,
+      "subitems": [
+        {
+          "id": "2848142288",
+          "name": "CAMPAGNE - CAPSULE 2",
+          "url": "https://adigiovannipros-team.monday.com/boards/5094677215/pulses/2848142288",
+          "updatedAt": "2026-06-18T13:16:03Z",
+          "columnValues": {
+            "person": "Alessandro DI GIOVANNI",
+            "status": "PUBLIÉ",
+            "dup__of_status": "REELS",
+            "date0": "2026-05-04",
+            "fichier": "https://adigiovannipros-team.monday.com/protected_static/18530754/resources/217466020/CAPSULE%202%20-%20VFINALE%20HD%20-%20150426.mp4, https://adigiovannipros-team.monday.com/protected_static/18530754/resources/217466983/COVER%202.png",
+            "texte5": "Portées tous les jours, dans tous les instants.\nBondet. Des lunettes pour la vie. Rejoignez-nous.",
+            "chiffres": "442.62",
+            "statut": "Visite de profil",
+            "statut0": "Fait",
+            "pulse_updated": "2026-06-18 13:16:03 UTC"
+          },
+          "updates": []
+        },
+        {
+          "id": "2848181602",
+          "name": "MUSE SOLAIRE",
+          "url": "https://adigiovannipros-team.monday.com/boards/5094677215/pulses/2848181602",
+          "updatedAt": "2026-06-18T13:23:41Z",
+          "columnValues": {
+            "person": "Alessandro DI GIOVANNI",
+            "status": "PUBLIÉ",
+            "dup__of_status": "POST",
+            "date0": "2026-05-06",
+            "fichier": "https://adigiovannipros-team.monday.com/protected_static/18530754/resources/217909655/Plan%20de%20travail%208.png",
+            "texte5": "Le soleil ne prévient pas, les bonnes lunettes si. Le modèle Muse, prêt avant vous.\nTaguez quelqu'un qui sort ses solaires dès que le ciel se dégage.\nToute la collection en bio.",
+            "chiffres": "103.4",
+            "statut": "Conversion",
+            "statut0": "Fait",
+            "pulse_updated": "2026-06-18 13:23:41 UTC"
+          },
+          "updates": []
+        },
+        {
+          "id": "2848154493",
+          "name": "ORIGINE FRANCE",
+          "url": "https://adigiovannipros-team.monday.com/boards/5094677215/pulses/2848154493",
+          "updatedAt": "2026-05-11T16:24:31Z",
+          "columnValues": {
+            "person": "Alessandro DI GIOVANNI",
+            "status": "PUBLIÉ",
+            "dup__of_status": "POST",
+            "date0": "2026-05-11",
+            "fichier": "https://adigiovannipros-team.monday.com/protected_static/18530754/resources/221040325/Plan%20de%20travail%209.png",
+            "texte5": "Ce qu'on ne voit pas au premier regard, c'est souvent ce qui compte le plus. Matière biosourcée, fabrication certifiée \"Origine France Garantie\".\n\nL'origine de vos lunettes, ça compte pour vous, ça compte pour nous.",
+            "chiffres": null,
+            "statut": null,
+            "statut0": null,
+            "pulse_updated": "2026-05-11 16:24:31 UTC"
+          },
+          "updates": [
+            {
+              "id": "565656599",
+              "body": "Ce n 'est pas une photo de notre produit, est ce qu'on modifie ?",
+              "creator": "BOUILLOD MALORY",
+              "createdAt": "2026-04-27T12:04:17.000Z",
+              "replies": [
+                {
+                  "id": "565672302",
+                  "body": "Hello @BOUILLOD MALORY, j’avais un doute là-dessus, mais le parti pris était de communiquer non pas sur la marque ou sur un modèle spécifique, mais plutôt sur les labels. Du coup, je les ai maintenus tels quels. Selon moi, c’est OK, mais tu me dis, S.",
+                  "creator": "Alessandro DI GIOVANNI",
+                  "createdAt": "2026-04-27T12:25:06.000Z"
+                },
+                {
+                  "id": "566454439",
+                  "body": "@Alessandro DI GIOVANNI je préfère quand même qu'on communique exclusivement avec des visuels de montures nous appartenant",
+                  "creator": "BOUILLOD MALORY",
+                  "createdAt": "2026-04-28T15:09:36.000Z"
+                },
+                {
+                  "id": "566670077",
+                  "body": "@BOUILLOD MALORY hello Malory, j'espère que tu vas bien. J'ai modifié le visuel avec une photo BONDET, toujours dans le même esprit. Tu me dis, S",
+                  "creator": "Alessandro DI GIOVANNI",
+                  "createdAt": "2026-04-29T08:06:16.000Z"
+                },
+                {
+                  "id": "567465851",
+                  "body": "@Alessandro DI GIOVANNI c'est bon pour moi ! ",
+                  "creator": "BOUILLOD MALORY",
+                  "createdAt": "2026-04-30T08:34:02.000Z"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "2848181612",
+          "name": "ELIO MIXTE",
+          "url": "https://adigiovannipros-team.monday.com/boards/5094677215/pulses/2848181612",
+          "updatedAt": "2026-06-18T13:23:42Z",
+          "columnValues": {
+            "person": "Alessandro DI GIOVANNI",
+            "status": "PUBLIÉ",
+            "dup__of_status": "POST",
+            "date0": "2026-05-13",
+            "fichier": "https://adigiovannipros-team.monday.com/protected_static/18530754/resources/220117924/Plan%20de%20travail%2010.png",
+            "texte5": "La paire qu'on remarque, le sourire qu'on provoque. Le modèle Elio, pour ceux qui n'ont pas besoin d'en dire plus.\nTaguez la personne qui vous emprunte toujours vos lunettes.\nToute la collection en bio.",
+            "chiffres": "103.4",
+            "statut": "Conversion",
+            "statut0": "Fait",
+            "pulse_updated": "2026-06-18 13:23:42 UTC"
+          },
+          "updates": []
+        },
+        {
+          "id": "2848142229",
+          "name": "CAMPAGNE - CAPSULE 3",
+          "url": "https://adigiovannipros-team.monday.com/boards/5094677215/pulses/2848142229",
+          "updatedAt": "2026-06-18T13:16:13Z",
+          "columnValues": {
+            "person": "Alessandro DI GIOVANNI",
+            "status": "PUBLIÉ",
+            "dup__of_status": "REELS",
+            "date0": "2026-05-15",
+            "fichier": "https://adigiovannipros-team.monday.com/protected_static/18530754/resources/217466027/CAPSULE%203%20-%20VFINALE%20HD%20-%20150426.mp4, https://adigiovannipros-team.monday.com/protected_static/18530754/resources/217466996/COVER%203.png",
+            "texte5": "On choisit ses lunettes comme on choisit sa journée. Avec soin.\nBondet. Des lunettes pour la vie. Abonnez-vous.",
+            "chiffres": "240.06",
+            "statut": "Visite de profil",
+            "statut0": "Fait",
+            "pulse_updated": "2026-06-18 13:16:13 UTC"
+          },
+          "updates": []
+        },
+        {
+          "id": "2848154496",
+          "name": "PRÊTES VIE",
+          "url": "https://adigiovannipros-team.monday.com/boards/5094677215/pulses/2848154496",
+          "updatedAt": "2026-05-18T12:43:45Z",
+          "columnValues": {
+            "person": "Alessandro DI GIOVANNI",
+            "status": "PUBLIÉ",
+            "dup__of_status": "POST",
+            "date0": "2026-05-18",
+            "fichier": "https://adigiovannipros-team.monday.com/protected_static/18530754/resources/220118090/Plan%20de%20travail%2011.png",
+            "texte5": "Et surtout prêtes pour les moments qui comptent vraiment.\n\nÇa ressemble à quoi, votre après-midi idéal ? Racontez-nous en commentaire. Toute la collection en bio.",
+            "chiffres": null,
+            "statut": null,
+            "statut0": null,
+            "pulse_updated": "2026-05-18 12:43:45 UTC"
+          },
+          "updates": []
+        },
+        {
+          "id": "2848181613",
+          "name": "CONÇUES DURER",
+          "url": "https://adigiovannipros-team.monday.com/boards/5094677215/pulses/2848181613",
+          "updatedAt": "2026-05-20T11:01:17Z",
+          "columnValues": {
+            "person": "Alessandro DI GIOVANNI",
+            "status": "PUBLIÉ",
+            "dup__of_status": "POST",
+            "date0": "2026-05-20",
+            "fichier": "https://adigiovannipros-team.monday.com/protected_static/18530754/resources/220118312/Plan%20de%20travail%2012.png",
+            "texte5": "Pas de compromis, pas de raccourci. Enregistrez ce post si vous en avez assez des paires qu'on remplace chaque année. \n\nDécouvrez nos engagements en bio.",
+            "chiffres": null,
+            "statut": null,
+            "statut0": null,
+            "pulse_updated": "2026-05-20 11:01:17 UTC"
+          },
+          "updates": []
+        },
+        {
+          "id": "2848125457",
+          "name": "JACKIE IVOIRE",
+          "url": "https://adigiovannipros-team.monday.com/boards/5094677215/pulses/2848125457",
+          "updatedAt": "2026-06-18T13:23:45Z",
+          "columnValues": {
+            "person": "Alessandro DI GIOVANNI",
+            "status": "PUBLIÉ",
+            "dup__of_status": "POST",
+            "date0": "2026-05-22",
+            "fichier": "https://adigiovannipros-team.monday.com/protected_static/18530754/resources/220118367/Plan%20de%20travail%2014.png",
+            "texte5": "Ivoire, oversize, sans effort. La Jackie Ivoire pour celles qui choisissent une fois et n'y reviennent plus.\nEnregistrez ce post si cette paire est déjà dans votre tête.\nRetrouvez votre favorite en bio.",
+            "chiffres": "103.4",
+            "statut": "Conversion",
+            "statut0": "Fait",
+            "pulse_updated": "2026-06-18 13:23:45 UTC"
+          },
+          "updates": []
+        },
+        {
+          "id": "2848142289",
+          "name": "CAMPAGNE - CAPSULE 4",
+          "url": "https://adigiovannipros-team.monday.com/boards/5094677215/pulses/2848142289",
+          "updatedAt": "2026-05-25T10:31:03Z",
+          "columnValues": {
+            "person": "Alessandro DI GIOVANNI",
+            "status": "PUBLIÉ",
+            "dup__of_status": "REELS",
+            "date0": "2026-05-25",
+            "fichier": "https://adigiovannipros-team.monday.com/protected_static/18530754/resources/217466036/CAPSULE%204%20-%20VFINALE%20HD%20-%20150426.mp4, https://adigiovannipros-team.monday.com/protected_static/18530754/resources/217467001/COVER%204.png",
+            "texte5": "Pour les jours qui sentent bon et ceux qu'on attendait.\nBondet. Des lunettes pour la vie. Suivez l'aventure.",
+            "chiffres": "600",
+            "statut": "Visite de profil",
+            "statut0": "Fait",
+            "pulse_updated": "2026-05-25 10:31:03 UTC"
+          },
+          "updates": []
+        },
+        {
+          "id": "2848125458",
+          "name": "ATELIER FRANCE",
+          "url": "https://adigiovannipros-team.monday.com/boards/5094677215/pulses/2848125458",
+          "updatedAt": "2026-05-27T22:55:35Z",
+          "columnValues": {
+            "person": "Alessandro DI GIOVANNI",
+            "status": "PUBLIÉ",
+            "dup__of_status": "POST",
+            "date0": "2026-05-26",
+            "fichier": "https://adigiovannipros-team.monday.com/protected_static/18530754/resources/217467182/Plan%20de%20travail%2018.png",
+            "texte5": "Avant de devenir la paire que vous portez, il y a des décennies de savoir-faire, des mains expertes et des machines qui tournent depuis toujours dans notre atelier.\n\nPartagez ce post si vous croyez, vous aussi, que le fait en France ça fait toute la différence.\nNotre histoire en bio.",
+            "chiffres": null,
+            "statut": null,
+            "statut0": null,
+            "pulse_updated": "2026-05-27 22:55:35 UTC"
+          },
+          "updates": []
+        },
+        {
+          "id": "2848125522",
+          "name": "RIEN HASARD",
+          "url": "https://adigiovannipros-team.monday.com/boards/5094677215/pulses/2848125522",
+          "updatedAt": "2026-05-27T22:53:07Z",
+          "columnValues": {
+            "person": "Alessandro DI GIOVANNI",
+            "status": "PUBLIÉ",
+            "dup__of_status": "POST",
+            "date0": "2026-05-27",
+            "fichier": "https://adigiovannipros-team.monday.com/protected_static/18530754/resources/227472148/Plan%20de%20travail%2017.png",
+            "texte5": "Chez Bondet, rien n'est laissé au hasard. Ce que vous ressentez en portant vos lunettes, c'est le résultat d'un travail minutieux, pensé pour durer.\n\nEnregistrez ce post si vous partagez cette vision de la qualité.\nDécouvrez nos engagements en bio.",
+            "chiffres": null,
+            "statut": null,
+            "statut0": null,
+            "pulse_updated": "2026-05-27 22:53:07 UTC"
+          },
+          "updates": [
+            {
+              "id": "575233271",
+              "body": "@BOUILLOD MALORY hello Malory, j'espère que tu vas bien. Est-ce que tu peux me dire si c'est OK en ce sens, ce visuel ? Merci beaucoup.",
+              "creator": "Alessandro DI GIOVANNI",
+              "createdAt": "2026-05-13T14:19:00.000Z",
+              "replies": [
+                {
+                  "id": "575260280",
+                  "body": "c'est bon pour moi, merci !",
+                  "creator": "BOUILLOD MALORY",
+                  "createdAt": "2026-05-13T14:47:38.000Z"
+                }
+              ]
+            },
+            {
+              "id": "574715199",
+              "body": "Sandro, je te remercie de changer l'image pour un visuel atelier nous appartenant, merci :)",
+              "creator": "BOUILLOD MALORY",
+              "createdAt": "2026-05-12T17:12:18.000Z",
+              "replies": []
+            }
+          ]
+        },
+        {
+          "id": "2848181562",
+          "name": "SAMEDI PLAGE",
+          "url": "https://adigiovannipros-team.monday.com/boards/5094677215/pulses/2848181562",
+          "updatedAt": "2026-05-29T09:28:06Z",
+          "columnValues": {
+            "person": "Alessandro DI GIOVANNI",
+            "status": "PUBLIÉ",
+            "dup__of_status": "POST",
+            "date0": "2026-05-28",
+            "fichier": "https://adigiovannipros-team.monday.com/protected_static/18530754/resources/232369957/Plan%20de%20travail%2015.png",
+            "texte5": "Samedi 09h34, peut-être une journée plage. Les lunettes déjà prêtes, le reste on verra. Une paire Bondet, fabriquée en France, à prix juste.\n\nC'est quoi votre signe que le week-end commence vraiment ? Dites-nous en commentaire.\nToute la collection en bio.",
+            "chiffres": null,
+            "statut": null,
+            "statut0": null,
+            "pulse_updated": "2026-05-29 09:28:06 UTC"
+          },
+          "updates": [
+            {
+              "id": "581999149",
+              "body": "Je pense par exemple que sur ce visuel nous pourrions ajouter le logo OFG. Je te transmet par maisl car je n'arrive pas à les télécharger ici",
+              "creator": "BOUILLOD MALORY",
+              "createdAt": "2026-05-28T08:07:22.000Z",
+              "replies": [
+                {
+                  "id": "582275301",
+                  "body": "@BOUILLOD MALORY Hello :) Dis-moi si OK ainsi ? ",
+                  "creator": "Alessandro DI GIOVANNI",
+                  "createdAt": "2026-05-28T14:16:50.000Z"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "2848113398",
+          "name": "CAMPAGNE - CAPSULE 5",
+          "url": "https://adigiovannipros-team.monday.com/boards/5094677215/pulses/2848113398",
+          "updatedAt": "2026-06-02T08:20:53Z",
+          "columnValues": {
+            "person": "Alessandro DI GIOVANNI",
+            "status": "PUBLIÉ",
+            "dup__of_status": "REELS",
+            "date0": "2026-05-30",
+            "fichier": "https://adigiovannipros-team.monday.com/protected_static/18530754/resources/217466040/CAPSULE%205%20-%20VFINALE%20HD%20-%20150426.mp4, https://adigiovannipros-team.monday.com/protected_static/18530754/resources/217467003/COVER%205.png",
+            "texte5": "Pour les après-midis qui durent, les verres qu'on lève et les lunettes qu'on pose là. Bondet. Réellement fabriqué en France, à partir de 59€. Des lunettes pour la vie. Abonnez-vous pour la suite.",
+            "chiffres": "600",
+            "statut": "Visite de profil",
+            "statut0": "Fait",
+            "pulse_updated": "2026-06-02 08:20:53 UTC"
+          },
+          "updates": []
+        }
+      ]
+    },
+    {
+      "id": "2845389929",
+      "name": "DARK",
+      "groupId": "nouveau_groupe33653",
+      "position": 2,
+      "subitems": [
+        {
+          "id": "2848243845",
+          "name": "CONVERSION",
+          "url": "https://adigiovannipros-team.monday.com/boards/5094677215/pulses/2848243845",
+          "updatedAt": "2026-06-22T15:06:06Z",
+          "columnValues": {
+            "person": "Alessandro DI GIOVANNI",
+            "status": "PUBLIÉ",
+            "dup__of_status": "DARK",
+            "date0": "2026-06-01",
+            "fichier": "https://adigiovannipros-team.monday.com/protected_static/18530754/resources/217473971/CAPSULE%204%20-%20VFINALE%20HD%20-%20150426.mp4, https://adigiovannipros-team.monday.com/protected_static/18530754/resources/217473972/CAPSULE%205%20-%20VFINALE%20HD%20-%20150426.mp4, https://adigiovannipros-team.monday.com/protected_static/18530754/resources/217473969/CAPSULE%201%20-%20VFINALE%20HD%20-%20150426.mp4, https://adigiovannipros-team.monday.com/protected_static/18530754/resources/217473975/CAPSULE%202%20-%20VFINALE%20HD%20-%20150426.mp4, https://adigiovannipros-team.monday.com/protected_static/18530754/resources/217473970/CAPSULE%203%20-%20VFINALE%20HD%20-%20150426.mp4",
+            "texte5": "La paire qu'on cherchait existe. Française, responsable, belle, et à un prix qui ne fait pas hésiter. Bondet, à partir de 59€.\n-10% sur votre première commande.\n\n\nTITRE\n\n\"Lunettes françaises à partir de 59€\"",
+            "chiffres": "4500",
+            "statut": "Conversion",
+            "statut0": "Fait",
+            "pulse_updated": "2026-06-22 15:06:06 UTC"
+          },
+          "updates": []
+        }
+      ]
+    },
+    {
+      "id": "2929624507",
+      "name": "META",
+      "groupId": "nouveau_groupe33653",
+      "position": 3,
+      "subitems": [
+        {
+          "id": "2929698868",
+          "name": "BILLIE PILOTE",
+          "url": "https://adigiovannipros-team.monday.com/boards/5094677215/pulses/2929698868",
+          "updatedAt": "2026-06-02T08:14:23Z",
+          "columnValues": {
+            "person": "Alessandro DI GIOVANNI",
+            "status": "PUBLIÉ",
+            "dup__of_status": "POST",
+            "date0": "2026-06-01",
+            "fichier": "https://adigiovannipros-team.monday.com/protected_static/18530754/resources/232607265/Plan%20de%20travail%2014.png",
+            "texte5": "Billie, LA monture pilote tendance, à porter du matin au soir.\n\nRDV en bio et profitez de -10% avec le code de bienvenue sur votre première commande de solaires.",
+            "chiffres": null,
+            "statut": null,
+            "statut0": null,
+            "pulse_updated": "2026-06-02 08:14:23 UTC"
+          },
+          "updates": []
+        },
+        {
+          "id": "2929698872",
+          "name": "TOUT EST DIT",
+          "url": "https://adigiovannipros-team.monday.com/boards/5094677215/pulses/2929698872",
+          "updatedAt": "2026-06-03T12:52:47Z",
+          "columnValues": {
+            "person": "Alessandro DI GIOVANNI",
+            "status": "PUBLIÉ",
+            "dup__of_status": "POST",
+            "date0": "2026-06-03",
+            "fichier": "https://adigiovannipros-team.monday.com/protected_static/18530754/resources/234408759/Plan%20de%20travail%205.png",
+            "texte5": "Tout est dit. Bondet, fabrication française, matière biosourcée, et des lunettes solaires à partir de 59€.\n\nPartagez ce post avec quelqu'un qui pensait que c'était impossible. Découvrez toute la collection en bio.",
+            "chiffres": null,
+            "statut": null,
+            "statut0": null,
+            "pulse_updated": "2026-06-03 12:52:47 UTC"
+          },
+          "updates": [
+            {
+              "id": "584823848",
+              "body": "par exemple, je n'avais pas fait attention ici, mais le logo OFG était important à ajouter sur le visuel",
+              "creator": "BOUILLOD MALORY",
+              "createdAt": "2026-06-03T08:45:57.000Z",
+              "replies": [
+                {
+                  "id": "585026559",
+                  "body": "@BOUILLOD MALORY Hello Malory :) Je pense qu'il faut l'utiliser et le mettre en avant, mais que trop sera contre productif, comme si nous voulons prouver quelque chose. Sur un triptyque (3 visuels à la suite), je recommande un seul logo, 3 en tout sur chaque mois, qu'en penses-tu? Sinon ce sera too much vis à vis de la cible ... ",
+                  "creator": "Alessandro DI GIOVANNI",
+                  "createdAt": "2026-06-03T12:14:48.000Z"
+                },
+                {
+                  "id": "585117776",
+                  "body": "ok je te suis et je vois ce que tu veux dire, mais effectivement c'est une info tellement importante pour nous et je pense que l'OFG pourrait etre un peu plus présent sur certain visuel, pour que les gens retiennent l'info et que ce soit clair pour tout le monde",
+                  "creator": "BOUILLOD MALORY",
+                  "createdAt": "2026-06-03T13:50:02.000Z"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "2929698871",
+          "name": "ÉLÉGANCE FRANÇAISE",
+          "url": "https://adigiovannipros-team.monday.com/boards/5094677215/pulses/2929698871",
+          "updatedAt": "2026-06-08T11:40:47Z",
+          "columnValues": {
+            "person": "Alessandro DI GIOVANNI",
+            "status": "PUBLIÉ",
+            "dup__of_status": "POST",
+            "date0": "2026-06-08",
+            "fichier": "https://adigiovannipros-team.monday.com/protected_static/18530754/resources/232607305/Plan%20de%20travail%209.png",
+            "texte5": "L'élégance dans le détail, et dans tout ce qu'on ne voit pas. Origine France Garantie, matière biosourcée et à prix mini. \n\nToute la collection en bio.",
+            "chiffres": null,
+            "statut": null,
+            "statut0": null,
+            "pulse_updated": "2026-06-08 11:40:47 UTC"
+          },
+          "updates": []
+        },
+        {
+          "id": "2929694938",
+          "name": "JOY SOLAIRE",
+          "url": "https://adigiovannipros-team.monday.com/boards/5094677215/pulses/2929694938",
+          "updatedAt": "2026-06-10T12:13:31Z",
+          "columnValues": {
+            "person": "Alessandro DI GIOVANNI",
+            "status": "PUBLIÉ",
+            "dup__of_status": "POST",
+            "date0": "2026-06-10",
+            "fichier": "https://adigiovannipros-team.monday.com/protected_static/18530754/resources/232584914/Plan%20de%20travail%208.png",
+            "texte5": "Le sourire, le ciel, la Joy. Nouvelle solaire Bondet, ovale, ultra tendance, 79€.\nPartagez ce post à quelqu'un qui a besoin de cette énergie.\nRetrouvez le modèle Joy en bio.",
+            "chiffres": null,
+            "statut": null,
+            "statut0": null,
+            "pulse_updated": "2026-06-10 12:13:31 UTC"
+          },
+          "updates": []
+        },
+        {
+          "id": "2929698998",
+          "name": "CRISTAL BLEUTÉ",
+          "url": "https://adigiovannipros-team.monday.com/boards/5094677215/pulses/2929698998",
+          "updatedAt": "2026-06-15T08:27:33Z",
+          "columnValues": {
+            "person": "Alessandro DI GIOVANNI",
+            "status": "PUBLIÉ",
+            "dup__of_status": "POST",
+            "date0": "2026-06-15",
+            "fichier": "https://adigiovannipros-team.monday.com/protected_static/18530754/resources/235062092/Plan%20de%20travail%202.png",
+            "texte5": "Cristal, verres bleutés, douceur assumée. Le modèle Jonas pour ceux qui préfèrent la lumière tamisée.\nMarque française accessible, à partir de 59€.\nRetrouvez toute la collection en bio.",
+            "chiffres": null,
+            "statut": null,
+            "statut0": null,
+            "pulse_updated": "2026-06-15 08:27:33 UTC"
+          },
+          "updates": [
+            {
+              "id": "584824954",
+              "body": "logo OFG ET BIO à ajouter au visuel",
+              "creator": "BOUILLOD MALORY",
+              "createdAt": "2026-06-03T08:47:14.000Z",
+              "replies": []
+            }
+          ]
+        },
+        {
+          "id": "2929692631",
+          "name": "ELIO SOLAIRE",
+          "url": "https://adigiovannipros-team.monday.com/boards/5094677215/pulses/2929692631",
+          "updatedAt": "2026-06-17T14:54:02Z",
+          "columnValues": {
+            "person": "Alessandro DI GIOVANNI",
+            "status": "PUBLIÉ",
+            "dup__of_status": "POST",
+            "date0": "2026-06-17",
+            "fichier": "https://adigiovannipros-team.monday.com/protected_static/18530754/resources/233582765/Plan%20de%20travail%201.png",
+            "texte5": "Celui qui sait, sait. Elio, nouvelle solaire Bondet à partir de 79€. Marque et fabrication française, matière biosourcée, et aucune raison de ne pas craquer.\n\nRDV en bio.",
+            "chiffres": null,
+            "statut": null,
+            "statut0": null,
+            "pulse_updated": "2026-06-17 14:54:02 UTC"
+          },
+          "updates": [
+            {
+              "id": "584822143",
+              "body": "@Alessandro DI GIOVANNI je pense qu'on devrait avoir les logos OFG sur le maximum de posts. c'est trop important pour passer à coté, merci de les ajouter",
+              "creator": "BOUILLOD MALORY",
+              "createdAt": "2026-06-03T08:44:48.000Z",
+              "replies": []
+            },
+            {
+              "id": "584193834",
+              "body": "@BOUILLOD MALORY C'est OK pour moi !",
+              "creator": "Alessandro DI GIOVANNI",
+              "createdAt": "2026-06-02T08:18:44.000Z",
+              "replies": []
+            },
+            {
+              "id": "583894908",
+              "body": "le visuel ne correspond pas au modèle ELIO (mais BOBBY ici); Je te montre les visuels en pj",
+              "creator": "BOUILLOD MALORY",
+              "createdAt": "2026-06-01T16:48:48.000Z",
+              "replies": []
+            }
+          ]
+        },
+        {
+          "id": "2929694941",
+          "name": "JOY ÉNERGIE",
+          "url": "https://adigiovannipros-team.monday.com/boards/5094677215/pulses/2929694941",
+          "updatedAt": "2026-06-22T18:05:21Z",
+          "columnValues": {
+            "person": "Alessandro DI GIOVANNI",
+            "status": "PUBLIÉ",
+            "dup__of_status": "POST",
+            "date0": "2026-06-22",
+            "fichier": "https://adigiovannipros-team.monday.com/protected_static/18530754/resources/232607324/Plan%20de%20travail%2010.png",
+            "texte5": "Ce regard-là, c'est celui de quelqu'un qui a trouvé sa paire. Joy, nouvelle solaire Bondet, à partir de 79€. Et avec -10% sur votre première commande, c'est encore mieux.\n\nRetrouvez la monture Joy en bio.",
+            "chiffres": null,
+            "statut": null,
+            "statut0": null,
+            "pulse_updated": "2026-06-22 18:05:21 UTC"
+          },
+          "updates": []
+        },
+        {
+          "id": "2929698951",
+          "name": "CONÇUES DURER",
+          "url": "https://adigiovannipros-team.monday.com/boards/5094677215/pulses/2929698951",
+          "updatedAt": "2026-06-25T09:04:16Z",
+          "columnValues": {
+            "person": "Alessandro DI GIOVANNI",
+            "status": "PUBLIÉ",
+            "dup__of_status": "POST",
+            "date0": "2026-06-24",
+            "fichier": "https://adigiovannipros-team.monday.com/protected_static/18530754/resources/235062916/Plan%20de%20travail%2011.png",
+            "texte5": "Des lunettes qui traversent les saisons, les moments et les habitudes. C'est ça, conçues pour durer.\nEnregistrez ce post pour vous en souvenir quand viendra le moment de choisir.\nToute la collection en bio.",
+            "chiffres": null,
+            "statut": null,
+            "statut0": null,
+            "pulse_updated": "2026-06-25 09:04:16 UTC"
+          },
+          "updates": [
+            {
+              "id": "584825307",
+              "body": "logos OFG et bio à ajouter au visuel",
+              "creator": "BOUILLOD MALORY",
+              "createdAt": "2026-06-03T08:47:41.000Z",
+              "replies": []
+            }
+          ]
+        },
+        {
+          "id": "2929698952",
+          "name": "ELIO DURABLE",
+          "url": "https://adigiovannipros-team.monday.com/boards/5094677215/pulses/2929698952",
+          "updatedAt": "2026-06-29T11:19:44Z",
+          "columnValues": {
+            "person": "Alessandro DI GIOVANNI",
+            "status": "PUBLIÉ",
+            "dup__of_status": "POST",
+            "date0": "2026-06-29",
+            "fichier": "https://adigiovannipros-team.monday.com/protected_static/18530754/resources/235509223/Plan%20de%20travail%2012.png",
+            "texte5": "Fabriquée en France, en matière biosourcée, portée sans y penser, gardée sans hésiter.\n\nRetrouvez la monture Elio, 79€ en bio.",
+            "chiffres": null,
+            "statut": null,
+            "statut0": null,
+            "pulse_updated": "2026-06-29 11:19:44 UTC"
+          },
+          "updates": [
+            {
+              "id": "586046385",
+              "body": "@Alessandro DI GIOVANNI à modifier sur le visuel : On ne doit pas parler de \"made in France\" mais de \"fabrication française\", \"fabriqué en France\" \"origine France garantie\".\n\n\n\nle \"MIF\" aujourd'hui ne veut rien dire et nous on se bat contre ça :); c'est pour cela qu'on a la certification OFG\n\n\n\npour info : made in France est une simple appellation, sans aucun contrôle, n'importe qui peut se dire \"made in France\" aujourd'hui.\n\nOFG c'est un label, payant avec audit annuel, et le seul qui atteste de la réelle fabrication française d'un produit.\n\nJ'ajoute l'info dans la FAQ si un jour la question se pose",
+              "creator": "BOUILLOD MALORY",
+              "createdAt": "2026-06-05T07:17:50.000Z",
+              "replies": [
+                {
+                  "id": "586609287",
+                  "body": "@BOUILLOD MALORY Mille mercis pour la précision, en effet je n'avais pas cela en tête 🙏 Je modifie de suite ",
+                  "creator": "Alessandro DI GIOVANNI",
+                  "createdAt": "2026-06-05T19:38:59.000Z"
+                }
+              ]
+            },
+            {
+              "id": "584825597",
+              "body": "logos OFG et bio à ajouter au visuel",
+              "creator": "BOUILLOD MALORY",
+              "createdAt": "2026-06-03T08:48:03.000Z",
+              "replies": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "3009225960",
+      "name": "META",
+      "groupId": "group_mm4egvdf",
+      "position": 4,
+      "subitems": [
+        {
+          "id": "3009286081",
+          "name": "JONAS LABELS",
+          "url": "https://adigiovannipros-team.monday.com/boards/5094677215/pulses/3009286081",
+          "updatedAt": "2026-07-02T05:41:00Z",
+          "columnValues": {
+            "person": "Alessandro DI GIOVANNI",
+            "status": "PUBLIÉ",
+            "dup__of_status": "POST",
+            "date0": "2026-07-02",
+            "fichier": "https://adigiovannipros-team.monday.com/protected_static/18530754/resources/241948560/Plan%20de%20travail%209.png",
+            "texte5": "Fabrication française certifiée Origine France Garantie, matière biosourcée. Tout ce qu'on ne voit pas dans le modèle Jonas, c'est justement ce qui fait la différence.\n\nToute la collection sur bondet.com.",
+            "chiffres": null,
+            "statut": null,
+            "statut0": null,
+            "pulse_updated": "2026-07-02 05:41:00 UTC"
+          },
+          "updates": [
+            {
+              "id": "596145843",
+              "body": "Est ce que c'est possible de zoomer un peu le visuel pour qu'on soit plus centré sur la monture ?",
+              "creator": "BOUILLOD MALORY",
+              "createdAt": "2026-06-25T08:27:37.000Z",
+              "replies": [
+                {
+                  "id": "596653984",
+                  "body": "@BOUILLOD MALORY OK pour moi :) Dis-moi ? ",
+                  "creator": "Alessandro DI GIOVANNI",
+                  "createdAt": "2026-06-26T04:27:47.000Z"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "3009286082",
+          "name": "JOY SOLAIRE",
+          "url": "https://adigiovannipros-team.monday.com/boards/5094677215/pulses/3009286082",
+          "updatedAt": "2026-07-08T03:06:29Z",
+          "columnValues": {
+            "person": "Alessandro DI GIOVANNI",
+            "status": "PUBLIÉ",
+            "dup__of_status": "POST",
+            "date0": "2026-07-07",
+            "fichier": "https://adigiovannipros-team.monday.com/protected_static/18530754/resources/239954627/Plan%20de%20travail%2021.png",
+            "texte5": "La Joy, solaire ovale ultra tendance, 79€. Le genre de paire qui change un look sans forcer.\n\nTaguez quelqu'un qui a besoin de la découvrir.\nRetrouvez la Joy en bio.",
+            "chiffres": null,
+            "statut": null,
+            "statut0": null,
+            "pulse_updated": "2026-07-08 03:06:29 UTC"
+          },
+          "updates": []
+        },
+        {
+          "id": "3009226442",
+          "name": "CONÇUES DURER",
+          "url": "https://adigiovannipros-team.monday.com/boards/5094677215/pulses/3009226442",
+          "updatedAt": "2026-07-11T09:25:07Z",
+          "columnValues": {
+            "person": "Alessandro DI GIOVANNI",
+            "status": "PUBLIÉ",
+            "dup__of_status": "POST",
+            "date0": "2026-07-10",
+            "fichier": "https://adigiovannipros-team.monday.com/protected_static/18530754/resources/242107589/Plan%20de%20travail%2011.png",
+            "texte5": "Une paire Bondet, c'est une paire qu'on garde. Saison après saison, elle vous suit sans faiblir.\n\nPartagez ce post si vous pensez que les belles choses doivent durer.\nToute la collection en bio et chez nos opticiens partenaires.",
+            "chiffres": null,
+            "statut": null,
+            "statut0": null,
+            "pulse_updated": "2026-07-11 09:25:07 UTC"
+          },
+          "updates": [
+            {
+              "id": "596654338",
+              "body": "@BOUILLOD MALORY Hello Malory ! C'est rectifié pour la photo. Je n'ai pas mis le logo car il passe sur le visage s'il est centré. De plus, cela alourdit le visuel avec le texte. Je regarde pour l'insérer ailleurs !",
+              "creator": "Alessandro DI GIOVANNI",
+              "createdAt": "2026-06-26T04:33:11.000Z",
+              "replies": [
+                {
+                  "id": "596682719",
+                  "body": "@Alessandro DI GIOVANNI peux tu ajouter la cédille sur \"conçues\" et ce sera ok pour moi",
+                  "creator": "BOUILLOD MALORY",
+                  "createdAt": "2026-06-26T06:57:24.000Z"
+                }
+              ]
+            },
+            {
+              "id": "596221076",
+              "body": "Je pense également qu'il ne faut pas oublier d'intégrer quelques optiques de temps en temps avec les nombreux visuels qu'on a à dispo, pour ne pas oublier les opticiens. Je te les retransfère via WeTransfer (optique, atelier, corpo), je ne sais pas si tu les as",
+              "creator": "BOUILLOD MALORY",
+              "createdAt": "2026-06-25T09:05:14.000Z",
+              "replies": [
+                {
+                  "id": "596558224",
+                  "body": "JE T'envoie également le dernier logo crayonné, que j'aime beaucoup, qui figure dans la chartre graphique mais qu'on avait un peu oublié",
+                  "creator": "BOUILLOD MALORY",
+                  "createdAt": "2026-06-25T15:57:53.000Z"
+                }
+              ]
+            },
+            {
+              "id": "596156962",
+              "body": "Je pense qu'il ne faut pas omettre la cédille du C dans \"conçues\" sur le visuel",
+              "creator": "BOUILLOD MALORY",
+              "createdAt": "2026-06-25T08:32:00.000Z",
+              "replies": []
+            }
+          ]
+        },
+        {
+          "id": "3009285863",
+          "name": "JACKIE SOLAIRE",
+          "url": "https://adigiovannipros-team.monday.com/boards/5094677215/pulses/3009285863",
+          "updatedAt": "2026-07-14T15:07:35Z",
+          "columnValues": {
+            "person": "Alessandro DI GIOVANNI",
+            "status": "PUBLIÉ",
+            "dup__of_status": "POST",
+            "date0": "2026-07-14",
+            "fichier": "https://adigiovannipros-team.monday.com/protected_static/18530754/resources/239954668/Plan%20de%20travail%202.png",
+            "texte5": "Oversize, ivoire, solaire. La Jackie entièrement fabriquée en France, pour celles qui aiment en imposer sans effort.\n\nEt vous, oversize ou plus discret ? Dites-nous en commentaire.\nRetrouvez la Jackie en bio.",
+            "chiffres": null,
+            "statut": null,
+            "statut0": null,
+            "pulse_updated": "2026-07-14 15:07:35 UTC"
+          },
+          "updates": []
+        },
+        {
+          "id": "3009226441",
+          "name": "PRIX ACCESSIBLE",
+          "url": "https://adigiovannipros-team.monday.com/boards/5094677215/pulses/3009226441",
+          "updatedAt": "2026-07-18T11:13:05Z",
+          "columnValues": {
+            "person": "Alessandro DI GIOVANNI",
+            "status": "PUBLIÉ",
+            "dup__of_status": "POST",
+            "date0": "2026-07-17",
+            "fichier": "https://adigiovannipros-team.monday.com/protected_static/18530754/resources/241949594/Plan%20de%20travail%2019.png",
+            "texte5": "Fabrication française, matière biosourcée, à partir de 59€. On est les seuls à réunir les trois. Et avec -10% sur votre première commande, il n'y a plus de raison d'hésiter.\n\nDécouvrez toute la collection sur bondet.com.",
+            "chiffres": null,
+            "statut": null,
+            "statut0": null,
+            "pulse_updated": "2026-07-18 11:13:05 UTC"
+          },
+          "updates": [
+            {
+              "id": "596655965",
+              "body": "@BOUILLOD MALORY C'est OK pour moi ici mais j'ai du retirer le logo pour ne pas surcharger le visuel, tu me dis ? ",
+              "creator": "Alessandro DI GIOVANNI",
+              "createdAt": "2026-06-26T04:52:47.000Z",
+              "replies": []
+            },
+            {
+              "id": "596216474",
+              "body": "Je pense qu'on peut ajouter les 2 logos OFG et bio. j'aime bien l'idée mais est ce que tu as une autre idée de photo ? je suis pas emballée à 100% par cette photo",
+              "creator": "BOUILLOD MALORY",
+              "createdAt": "2026-06-25T09:00:49.000Z",
+              "replies": []
+            }
+          ]
+        },
+        {
+          "id": "3009226443",
+          "name": "ELIO BIOSOURCÉ",
+          "url": "https://adigiovannipros-team.monday.com/boards/5094677215/pulses/3009226443",
+          "updatedAt": "2026-07-21T12:11:12Z",
+          "columnValues": {
+            "person": "Alessandro DI GIOVANNI",
+            "status": "PUBLIÉ",
+            "dup__of_status": "POST",
+            "date0": "2026-07-21",
+            "fichier": "https://adigiovannipros-team.monday.com/protected_static/18530754/resources/239954727/Plan%20de%20travail%209.png",
+            "texte5": "Elio, matière biosourcée, fabrication française, 79€. Une solaire qui a autant de fond que de style. Et tout l'été, les frais de port sont offerts avec le code ETE2026.\n\nTaguez celui qui cherche encore la paire parfaite.\nRetrouvez le modèle Elio en bio.",
+            "chiffres": null,
+            "statut": null,
+            "statut0": null,
+            "pulse_updated": "2026-07-21 12:11:12 UTC"
+          },
+          "updates": []
+        },
+        {
+          "id": "3009220664",
+          "name": "ALMA SOLAIRE",
+          "url": "https://adigiovannipros-team.monday.com/boards/5094677215/pulses/3009220664",
+          "updatedAt": "2026-07-26T05:20:44Z",
+          "columnValues": {
+            "person": "Alessandro DI GIOVANNI",
+            "status": "PUBLIÉ",
+            "dup__of_status": "POST",
+            "date0": "2026-07-24",
+            "fichier": "https://adigiovannipros-team.monday.com/protected_static/18530754/resources/241949499/Plan%20de%20travail%2010.png",
+            "texte5": "Le rouge translucide, c'est cette envie de lumière qui ne se cache pas. Le modèle Alma pour celles qui prennent la vie du bon côté. Et tout l'été, on vous offre les frais de port avec le code ETE2026.\n\nEnregistrez ce post pour le grand choix final.\nRetrouvez l'Alma en bio.",
+            "chiffres": null,
+            "statut": null,
+            "statut0": null,
+            "pulse_updated": "2026-07-26 05:20:44 UTC"
+          },
+          "updates": [
+            {
+              "id": "596235727",
+              "body": "Est ce qu'on pourrait mettre en avant une autre monture ? comme ALMA portée au bord de la piscine",
+              "creator": "BOUILLOD MALORY",
+              "createdAt": "2026-06-25T09:19:58.000Z",
+              "replies": [
+                {
+                  "id": "596655836",
+                  "body": "C'est OK pour ici ! Tu me dis,",
+                  "creator": "Alessandro DI GIOVANNI",
+                  "createdAt": "2026-06-26T04:50:21.000Z"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "3009226444",
+          "name": "JONAS MOMENT",
+          "url": "https://adigiovannipros-team.monday.com/boards/5094677215/pulses/3009226444",
+          "updatedAt": "2026-07-29T03:43:40Z",
+          "columnValues": {
+            "person": "Alessandro DI GIOVANNI",
+            "status": "PUBLIÉ",
+            "dup__of_status": "POST",
+            "date0": "2026-07-28",
+            "fichier": "https://adigiovannipros-team.monday.com/protected_static/18530754/resources/243703517/Plan%20de%20travail%2015.png",
+            "texte5": "Les lunettes déjà prêtes, le reste on improvise. Modèle Jonas pour les jours où l'on ne prévoit rien mais que tout arrive. Et cet été, on vous offre les frais de port avec le code ETE2026.\n\nC'est quoi votre plan idéal quand il n'y en a pas ? Dites-nous en commentaire.",
+            "chiffres": null,
+            "statut": null,
+            "statut0": null,
+            "pulse_updated": "2026-07-29 03:43:40 UTC"
+          },
+          "updates": [
+            {
+              "id": "598227321",
+              "body": "@BOUILLOD MALORY Hello Malory :)\nDis-moi si OK pour toi ainsi ? S ",
+              "creator": "Alessandro DI GIOVANNI",
+              "createdAt": "2026-06-30T03:52:58.000Z",
+              "replies": [
+                {
+                  "id": "598752830",
+                  "body": "Je trouve toujours le texte pas très lisible. Je pense que tu peux agrandir la police encore et peut être décaler un petit peu, il tombe sur les reflets derrière et pour moi ce n'est pas lisible.",
+                  "creator": "BOUILLOD MALORY",
+                  "createdAt": "2026-06-30T16:43:26.000Z"
+                },
+                {
+                  "id": "599278580",
+                  "body": "@BOUILLOD MALORY hello Malory, dis-moi si c'est OK en ce sens :) ?",
+                  "creator": "Alessandro DI GIOVANNI",
+                  "createdAt": "2026-07-01T12:14:28.000Z"
+                },
+                {
+                  "id": "599444407",
+                  "body": "@Alessandro DI GIOVANNI ok pour moi !!",
+                  "creator": "BOUILLOD MALORY",
+                  "createdAt": "2026-07-01T14:38:51.000Z"
+                }
+              ]
+            },
+            {
+              "id": "596690234",
+              "body": "@Alessandro DI GIOVANNI  ok pour le visuel. je pense qu'on peut ajouter un petit logo BONDET en haut et également, je trouve que le texte \"dimanche, 10h47...\" n'est pas hyper lisible, on peut grossir un peu la taille de la typo",
+              "creator": "BOUILLOD MALORY",
+              "createdAt": "2026-06-26T07:15:41.000Z",
+              "replies": [
+                {
+                  "id": "596873940",
+                  "body": "@BOUILLOD MALORY C'est OK pour moi, tu me dis, ",
+                  "creator": "Alessandro DI GIOVANNI",
+                  "createdAt": "2026-06-26T11:46:31.000Z"
+                }
+              ]
+            },
+            {
+              "id": "596276555",
+              "body": "J'aime bien l'idée, mais pour moi le visuel ne convient pas ici, on ne voit absolument pas les lunettes",
+              "creator": "BOUILLOD MALORY",
+              "createdAt": "2026-06-25T09:26:05.000Z",
+              "replies": [
+                {
+                  "id": "596655118",
+                  "body": "@BOUILLOD MALORY C'est OK pour moi. J'ai pris une autre photo avec un plan plus rapproché et j'ai décalé la phrase pour une meilleure visibilité ! Tu me dis,",
+                  "creator": "Alessandro DI GIOVANNI",
+                  "createdAt": "2026-06-26T04:42:02.000Z"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "3009220665",
+          "name": "MUSE OPTIQUE",
+          "url": "https://adigiovannipros-team.monday.com/boards/5094677215/pulses/3009220665",
+          "updatedAt": "2026-07-31T11:57:17Z",
+          "columnValues": {
+            "person": "Alessandro DI GIOVANNI",
+            "status": "PUBLIÉ",
+            "dup__of_status": "POST",
+            "date0": "2026-07-31",
+            "fichier": "https://adigiovannipros-team.monday.com/protected_static/18530754/resources/241949002/Plan%20de%20travail%208.png",
+            "texte5": "Le bleu, c'est cette touche de caractère qui change tout. Le modèle Muse, pour celles et ceux qui aiment juste ce qu'il faut de couleur. \n\nRetrouvez la collection chez l'un de nos opticiens partenaires !",
+            "chiffres": null,
+            "statut": null,
+            "statut0": null,
+            "pulse_updated": "2026-07-31 11:57:17 UTC"
+          },
+          "updates": [
+            {
+              "id": "596549402",
+              "body": "Je pense qu'on peut mettre en avant une autre monture optique\n\nje t'envoie par wetransfer les visuels",
+              "creator": "BOUILLOD MALORY",
+              "createdAt": "2026-06-25T15:38:05.000Z",
+              "replies": [
+                {
+                  "id": "596655982",
+                  "body": "OK pour moi ! Tu me dis, @BOUILLOD MALORY \n\n",
+                  "creator": "Alessandro DI GIOVANNI",
+                  "createdAt": "2026-06-26T04:53:02.000Z"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "3109663689",
+      "name": "META",
+      "groupId": "group_mm5jdjdm",
+      "position": 5,
+      "subitems": [
+        {
+          "id": "3109663669",
+          "name": "LIVRAISON OFFERTE",
+          "url": "https://adigiovannipros-team.monday.com/boards/5094677215/pulses/3109663669",
+          "updatedAt": "2026-08-03T14:29:45Z",
+          "columnValues": {
+            "person": "Alessandro DI GIOVANNI",
+            "status": "PUBLIÉ",
+            "dup__of_status": "POST",
+            "date0": "2026-08-03",
+            "fichier": "https://adigiovannipros-team.monday.com/protected_static/18530754/resources/251442756/Plan%20de%20travail%2019.png",
+            "texte5": "Tout le mois d'août, la livraison est offerte. Une bonne raison de craquer pour la paire que vous attendez depuis le début de l'été.\n\nCode ETE2026 sur bondet.com.",
+            "chiffres": null,
+            "statut": null,
+            "statut0": null,
+            "pulse_updated": "2026-08-03 14:29:45 UTC"
+          },
+          "updates": [
+            {
+              "id": "612094031",
+              "body": "est ce qu'on pourrait échanger ce post avec le premier post du mois d'aout ?",
+              "creator": "BOUILLOD MALORY",
+              "createdAt": "2026-07-27T10:44:59.000Z",
+              "replies": [
+                {
+                  "id": "612599377",
+                  "body": "OK ici !",
+                  "creator": "Alessandro DI GIOVANNI",
+                  "createdAt": "2026-07-28T04:50:48.000Z"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "3109650522",
+          "name": "ELIO COULEURS VERRES",
+          "url": "https://adigiovannipros-team.monday.com/boards/5094677215/pulses/3109650522",
+          "updatedAt": "2026-08-05T11:36:40Z",
+          "columnValues": {
+            "person": "Alessandro DI GIOVANNI",
+            "status": "PUBLIÉ",
+            "dup__of_status": "CARROUSEL",
+            "date0": "2026-08-05",
+            "fichier": "https://adigiovannipros-team.monday.com/protected_static/18530754/resources/253520584/Plan%20de%20travail%2024%20copie.png, https://adigiovannipros-team.monday.com/protected_static/18530754/resources/253520586/Plan%20de%20travail%2024%20copie%202.png, https://adigiovannipros-team.monday.com/protected_static/18530754/resources/253520588/Plan%20de%20travail%2024-4.png, https://adigiovannipros-team.monday.com/protected_static/18530754/resources/253520587/Plan%20de%20travail%2024%20copie%203.png, https://adigiovannipros-team.monday.com/protected_static/18530754/resources/253520587/Plan%20de%20travail%2024%20copie%203.png, https://adigiovannipros-team.monday.com/protected_static/18530754/resources/253520585/Plan%20de%20travail%2024-3.png, https://adigiovannipros-team.monday.com/protected_static/18530754/resources/253520589/Plan%20de%20travail%2024-2.png, https://adigiovannipros-team.monday.com/protected_static/18530754/resources/253520592/Plan%20de%20travail%2024-1.png, https://adigiovannipros-team.monday.com/protected_static/18530754/resources/253520590/Plan%20de%20travail%2024.png",
+            "texte5": "Une même monture, plusieurs personnalités. Elio se décline en plusieurs couleurs de monture et verres, dont des verres polarisés pour un vrai confort au soleil. À vous de composer la vôtre.\n\nDites-nous en commentaire la combinaison que vous choisiriez.",
+            "chiffres": null,
+            "statut": null,
+            "statut0": null,
+            "pulse_updated": "2026-08-05 11:36:40 UTC"
+          },
+          "updates": [
+            {
+              "id": "612080777",
+              "body": "@Alessandro DI GIOVANNI on dispose de 8 teintes de verres : bleu dégradé, brun dégradé, gris, vert, orange, ceux ci à 79€ et brun polarisant, gris polarisant, vert polarisant à 99€. merci d'ajouter les polarisants.\n\nIl y a une erreur de nom sur un des visuels, et je te remercie de mettre en 1er le bleu dégradé car c'est celui qu'on vend le plus.\n\naussi, dans la légende, on peut être justement parler des polar ou du fait que la monture existe aussi dans différents coloris, on peut parler de personnalisation verres/monture, ce qui plait en général bcp.\n\nj'ajouterai toujours évidemment le logo Bondet, OFG, ou en parler dans la légende",
+              "creator": "BOUILLOD MALORY",
+              "createdAt": "2026-07-27T10:29:36.000Z",
+              "replies": [
+                {
+                  "id": "614104761",
+                  "body": "@BOUILLOD MALORY Dis-moi si OK ? :)\n\n",
+                  "creator": "Alessandro DI GIOVANNI",
+                  "createdAt": "2026-07-30T09:52:41.000Z"
+                },
+                {
+                  "id": "614188509",
+                  "body": "il faut modifier \"8 coloris de verres\" en haut du visuel et privilégier la version bleu dégradé en 1er.\n\nsinon ok pour moi",
+                  "creator": "BOUILLOD MALORY",
+                  "createdAt": "2026-07-30T11:56:26.000Z"
+                },
+                {
+                  "id": "614432968",
+                  "body": "@BOUILLOD MALORY C'est OK ici !",
+                  "creator": "Alessandro DI GIOVANNI",
+                  "createdAt": "2026-07-31T03:05:11.000Z"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "3109650817",
+          "name": "MOMENTS BONDET 1",
+          "url": "https://adigiovannipros-team.monday.com/boards/5094677215/pulses/3109650817",
+          "updatedAt": "2026-08-10T13:57:05Z",
+          "columnValues": {
+            "person": "Alessandro DI GIOVANNI",
+            "status": "PUBLIÉ",
+            "dup__of_status": "REELS",
+            "date0": "2026-08-10",
+            "fichier": "https://adigiovannipros-team.monday.com/protected_static/18530754/resources/251445172/sanstitre-143.jpg, https://adigiovannipros-team.monday.com/protected_static/18530754/resources/253520885/50E07F91-ACBD-404A-9B22-7E759024ADE7.mov",
+            "texte5": "Une paire, et tout ce qu'il y a autour. Les trajets, les pauses, les fous rires, les silences. C'est ça, des lunettes pour la vie.\n\nPartagez ce reel à quelqu'un qui s'y reconnaîtra.",
+            "chiffres": null,
+            "statut": null,
+            "statut0": null,
+            "pulse_updated": "2026-08-10 13:57:05 UTC"
+          },
+          "updates": [
+            {
+              "id": "612092471",
+              "body": "j'aime beaucoup ces réels mais est ce qu'on peut pas a=justement ajouter un joli logo ou mongramme bondet etc à la fin de la video ?",
+              "creator": "BOUILLOD MALORY",
+              "createdAt": "2026-07-27T10:42:49.000Z",
+              "replies": [
+                {
+                  "id": "612619731",
+                  "body": "Hello @BOUILLOD MALORY ! On peut mais c'est mieux si on évite : trop de logo font passer la vidéo comme étant une pub/commercial, ce qui baisse l'engagement. Finir sur un logo ou une fin fond noir par exemple diminue le nombre de vues puisqu'il indique la fin de la vidéo et amène au scroll. Tu me dis,",
+                  "creator": "Alessandro DI GIOVANNI",
+                  "createdAt": "2026-07-28T06:19:36.000Z"
+                },
+                {
+                  "id": "614105134",
+                  "body": "@Alessandro DI GIOVANNI Hello Malory ! Dis-moi que pensais-tu de ce retour comme ça j'ajuste en conséquence !",
+                  "creator": "Alessandro DI GIOVANNI",
+                  "createdAt": "2026-07-30T09:53:14.000Z"
+                },
+                {
+                  "id": "614199435",
+                  "body": "je comprend ce que tu dis, mais je trouve quand même qu'il manque quelque chose. si ce n'est pas à la fin de la vidéo, ce peut être à un autre moment",
+                  "creator": "BOUILLOD MALORY",
+                  "createdAt": "2026-07-30T12:12:14.000Z"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "3109733642",
+          "name": "JOY SOLAIRE SHOOT",
+          "url": "https://adigiovannipros-team.monday.com/boards/5094677215/pulses/3109733642",
+          "updatedAt": "2026-08-12T15:08:41Z",
+          "columnValues": {
+            "person": "Alessandro DI GIOVANNI",
+            "status": "PUBLIÉ",
+            "dup__of_status": "POST",
+            "date0": "2026-08-12",
+            "fichier": "https://adigiovannipros-team.monday.com/protected_static/18530754/resources/253272673/Plan%20de%20travail%208.png",
+            "texte5": "Il y a les paires qu'on essaie, et il y a la Joy. Ovale, tendance, fabriquée en France, et à partir de 79€, avec ce petit quelque chose qui fait qu'on ne la retire plus.\n\nElle vous attend sur bondet.com.",
+            "chiffres": null,
+            "statut": null,
+            "statut0": null,
+            "pulse_updated": "2026-08-12 15:08:41 UTC"
+          },
+          "updates": [
+            {
+              "id": "612091421",
+              "body": "Je pense qu'on peut ajouter un logo ou mongramme bondet ?",
+              "creator": "BOUILLOD MALORY",
+              "createdAt": "2026-07-27T10:41:15.000Z",
+              "replies": [
+                {
+                  "id": "614106130",
+                  "body": "@BOUILLOD MALORY Dis-moi si OK ici ? ",
+                  "creator": "Alessandro DI GIOVANNI",
+                  "createdAt": "2026-07-30T09:54:38.000Z"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "3109650639",
+          "name": "MOMENTS BONDET 2",
+          "url": "https://adigiovannipros-team.monday.com/boards/5094677215/pulses/3109650639",
+          "updatedAt": "2026-08-17T08:08:21Z",
+          "columnValues": {
+            "person": "Alessandro DI GIOVANNI",
+            "status": "PUBLIÉ",
+            "dup__of_status": "REELS",
+            "date0": "2026-08-17",
+            "fichier": "https://adigiovannipros-team.monday.com/protected_static/18530754/resources/251445179/sanstitre-67.jpg, https://adigiovannipros-team.monday.com/protected_static/18530754/resources/253521069/4BCF7D1D-B484-455B-BA92-721794A550CC.mov",
+            "texte5": "On a repris nos plus beaux moments de campagne et on les a mis bout à bout. Ce qui reste à la fin, ce ne sont pas les lunettes, ce sont les instants.\n\nTaguez la personne qui apparaîtrait dans le vôtre.",
+            "chiffres": null,
+            "statut": null,
+            "statut0": null,
+            "pulse_updated": "2026-08-17 08:08:21 UTC"
+          },
+          "updates": [
+            {
+              "id": "612094961",
+              "body": "idem, j'aime beaucoup, mais je terminerai avec un joli BONDET ou logo sur la fin de la video",
+              "creator": "BOUILLOD MALORY",
+              "createdAt": "2026-07-27T10:46:16.000Z",
+              "replies": []
+            }
+          ]
+        },
+        {
+          "id": "3109663775",
+          "name": "FRANÇAISE ACCESSIBLE",
+          "url": "https://adigiovannipros-team.monday.com/boards/5094677215/pulses/3109663775",
+          "updatedAt": "2026-08-19T10:07:02Z",
+          "columnValues": {
+            "person": "Alessandro DI GIOVANNI",
+            "status": "PUBLIÉ",
+            "dup__of_status": "POST",
+            "date0": "2026-08-19",
+            "fichier": "https://adigiovannipros-team.monday.com/protected_static/18530754/resources/253273351/Plan%20de%20travail%205.png",
+            "texte5": "Des montures fabriquées en France, à partir de 59€. On nous demande souvent où est le piège. Il n'y en a pas.\n\nEnregistrez ce post, vous y repenserez au moment de changer de paire.",
+            "chiffres": null,
+            "statut": null,
+            "statut0": null,
+            "pulse_updated": "2026-08-19 10:07:02 UTC"
+          },
+          "updates": [
+            {
+              "id": "612095433",
+              "body": "je pense qu'on peut agrandir un petit peu le message ?",
+              "creator": "BOUILLOD MALORY",
+              "createdAt": "2026-07-27T10:46:58.000Z",
+              "replies": [
+                {
+                  "id": "614106839",
+                  "body": "@BOUILLOD MALORY OK pour moi ici !",
+                  "creator": "Alessandro DI GIOVANNI",
+                  "createdAt": "2026-07-30T09:55:40.000Z"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "3109663774",
+          "name": "LABELS BIOSOURCÉS",
+          "url": "https://adigiovannipros-team.monday.com/boards/5094677215/pulses/3109663774",
+          "updatedAt": "2026-08-24T09:09:03Z",
+          "columnValues": {
+            "person": "Alessandro DI GIOVANNI",
+            "status": "PUBLIÉ",
+            "dup__of_status": "POST",
+            "date0": "2026-08-24",
+            "fichier": "https://adigiovannipros-team.monday.com/protected_static/18530754/resources/251445186/Plan%20de%20travail%209.png",
+            "texte5": "Une matière biosourcée, ça veut dire une matière issue du végétal plutôt que du pétrole. Chez Bondet, elle vient de l'huile de ricin, et ce n'est pas un argument, c'est le point de départ.\n\nToute la collection est en bio.",
+            "chiffres": null,
+            "statut": null,
+            "statut0": null,
+            "pulse_updated": "2026-08-24 09:09:03 UTC"
+          },
+          "updates": [
+            {
+              "id": "614112608",
+              "body": "@BOUILLOD MALORY Avais-tu un retour à ce sujet ? Merci !",
+              "creator": "Alessandro DI GIOVANNI",
+              "createdAt": "2026-07-30T10:02:42.000Z",
+              "replies": [
+                {
+                  "id": "614190510",
+                  "body": "RAS pour moi ici",
+                  "creator": "BOUILLOD MALORY",
+                  "createdAt": "2026-07-30T11:59:44.000Z"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "3109663946",
+          "name": "JOY COULEURS VERRES",
+          "url": "https://adigiovannipros-team.monday.com/boards/5094677215/pulses/3109663946",
+          "updatedAt": "2026-08-26T08:19:08Z",
+          "columnValues": {
+            "person": "Alessandro DI GIOVANNI",
+            "status": "PUBLIÉ",
+            "dup__of_status": "CARROUSEL",
+            "date0": "2026-08-26",
+            "fichier": "https://adigiovannipros-team.monday.com/protected_static/18530754/resources/253520595/Plan%20de%20travail%2022-3.png, https://adigiovannipros-team.monday.com/protected_static/18530754/resources/253520597/Plan%20de%20travail%2022-7.png, https://adigiovannipros-team.monday.com/protected_static/18530754/resources/253520600/Plan%20de%20travail%2022-6.png, https://adigiovannipros-team.monday.com/protected_static/18530754/resources/253520598/Plan%20de%20travail%2022-5.png, https://adigiovannipros-team.monday.com/protected_static/18530754/resources/253520596/Plan%20de%20travail%2022-4.png, https://adigiovannipros-team.monday.com/protected_static/18530754/resources/253520601/Plan%20de%20travail%2022-2.png, https://adigiovannipros-team.monday.com/protected_static/18530754/resources/253520603/Plan%20de%20travail%2022-1.png, https://adigiovannipros-team.monday.com/protected_static/18530754/resources/253520602/Plan%20de%20travail%2022.png",
+            "texte5": "La Joy comme vous voulez. Plusieurs coloris de monture, plusieurs teintes de verres, et des versions polarisées pour affronter la lumière en toute circonstance. Composez celle qui vous ressemble.\n\nToutes les combinaisons sont sur bondet.com.",
+            "chiffres": null,
+            "statut": null,
+            "statut0": null,
+            "pulse_updated": "2026-08-26 08:19:08 UTC"
+          },
+          "updates": [
+            {
+              "id": "628618605",
+              "body": "@Alessandro DI GIOVANNI je te remercie d'ajouter l'achat sur insta sur ce produit",
+              "creator": "BOUILLOD MALORY",
+              "createdAt": "2026-08-31T11:50:22.000Z",
+              "replies": []
+            },
+            {
+              "id": "614129739",
+              "body": "@BOUILLOD MALORY C'est OK ici !",
+              "creator": "Alessandro DI GIOVANNI",
+              "createdAt": "2026-07-30T10:27:19.000Z",
+              "replies": [
+                {
+                  "id": "614197361",
+                  "body": "modifier le \"6coloris de verres\" en haut du visuel sinon ok pour moi",
+                  "creator": "BOUILLOD MALORY",
+                  "createdAt": "2026-07-30T12:09:09.000Z"
+                },
+                {
+                  "id": "614432979",
+                  "body": "@BOUILLOD MALORY C'est OK ici !",
+                  "creator": "Alessandro DI GIOVANNI",
+                  "createdAt": "2026-07-31T03:05:22.000Z"
+                }
+              ]
+            },
+            {
+              "id": "612097797",
+              "body": "est ce qu'on peut prévoir la version avec verres bruns dégradés en 1er et ajouter les 8 teintes de verres avec les bons prix comme sur le carroussel d'Elio.\n\n\n\ntous les \"verres\" et coloris qui s'accordent doivent être au pluriel :)",
+              "creator": "BOUILLOD MALORY",
+              "createdAt": "2026-07-27T10:50:01.000Z",
+              "replies": []
+            }
+          ]
+        },
+        {
+          "id": "3109663883",
+          "name": "MOMENTS BONDET 3",
+          "url": "https://adigiovannipros-team.monday.com/boards/5094677215/pulses/3109663883",
+          "updatedAt": "2026-08-31T09:01:33Z",
+          "columnValues": {
+            "person": "Alessandro DI GIOVANNI",
+            "status": "PUBLIÉ",
+            "dup__of_status": "REELS",
+            "date0": "2026-08-31",
+            "fichier": "https://adigiovannipros-team.monday.com/protected_static/18530754/resources/251445195/sanstitre-552.jpg, https://adigiovannipros-team.monday.com/protected_static/18530754/resources/253724471/copy_72210938-5E09-4A6B-8313-E7E6E2BD5DD8.MOV",
+            "texte5": "Juste des morceaux de vie qui défilent les uns après les autres. Nos lunettes n'ont jamais eu d'autre ambition que de faire parties de ces moments.\n\nLequel de ces instants vous ressemble le plus ? Dites-nous en commentaire.",
+            "chiffres": null,
+            "statut": null,
+            "statut0": null,
+            "pulse_updated": "2026-08-31 09:01:33 UTC"
+          },
+          "updates": [
+            {
+              "id": "612101218",
+              "body": "idem, j(ajouterai seulement un msg, ou logo",
+              "creator": "BOUILLOD MALORY",
+              "createdAt": "2026-07-27T10:54:50.000Z",
+              "replies": [
+                {
+                  "id": "614733781",
+                  "body": "@BOUILLOD MALORY OK pour moi ici !",
+                  "creator": "Alessandro DI GIOVANNI",
+                  "createdAt": "2026-07-31T11:57:42.000Z"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "2845387882",
+      "name": "META",
+      "groupId": "duplicate_of_avril",
+      "position": 6,
+      "subitems": [
+        {
+          "id": "3189706966",
+          "name": "RENTRÉE OPTIQUE",
+          "url": "https://adigiovannipros-team.monday.com/boards/5094677215/pulses/3189706966",
+          "updatedAt": "2026-09-19T08:49:10Z",
+          "columnValues": {
+            "person": "Alessandro DI GIOVANNI",
+            "status": "PUBLIÉ",
+            "dup__of_status": "POST",
+            "date0": "2026-09-02",
+            "fichier": "https://adigiovannipros-team.monday.com/protected_static/18530754/resources/262519052/Plan%20de%20travail%209.png",
+            "texte5": "La rentrée, c'est le bon moment pour changer de regard. Nos montures optiques sont entièrement fabriquées en France, et à retrouver chez nos opticiens partenaires.\n\nTrouvez l'opticien le plus proche de chez vous, le lien est en bio.",
+            "chiffres": "93",
+            "statut": "Visite de profil",
+            "statut0": "Fait",
+            "pulse_updated": "2026-09-19 08:49:10 UTC"
+          },
+          "updates": [
+            {
+              "id": "628603442",
+              "body": "Sandro, j'ai modifié le texte, on ne parle pas de prix pour les montures optiques car elles sont vendues par les opticiens et les prix de vente en magasin sont plutôt entre 100 et 150€ pour les optiques.\n\nle 59-99€ n'est valable que pour les solaires en direct",
+              "creator": "BOUILLOD MALORY",
+              "createdAt": "2026-08-31T11:29:59.000Z",
+              "replies": []
+            }
+          ]
+        },
+        {
+          "id": "3189715102",
+          "name": "LUMIÈRE SEPTEMBRE",
+          "url": "https://adigiovannipros-team.monday.com/boards/5094677215/pulses/3189715102",
+          "updatedAt": "2026-09-19T09:08:17Z",
+          "columnValues": {
+            "person": "Alessandro DI GIOVANNI",
+            "status": "PUBLIÉ",
+            "dup__of_status": "REELS",
+            "date0": "2026-09-04",
+            "fichier": "https://adigiovannipros-team.monday.com/protected_static/18530754/resources/262548808/7118C58B-2724-4AEC-921C-674CD26ECA67.mov",
+            "texte5": "Solaires ou optiques, toutes nos montures sont pensées et fabriquées en France, en matière biosourcée. De quoi voir la rentrée du bon œil.\n\nLaquelle est faite pour vous ? Dites-nous en commentaire.",
+            "chiffres": "93",
+            "statut": "Visite de profil",
+            "statut0": "Fait",
+            "pulse_updated": "2026-09-19 09:08:17 UTC"
+          },
+          "updates": [
+            {
+              "id": "628604461",
+              "body": "ici, soit on parle que des solaires et du coup la vidéo ne devrait montrer que les solaires ou on parle des montures solaires et optiques mais il faudrait modifier le texte",
+              "creator": "BOUILLOD MALORY",
+              "createdAt": "2026-08-31T11:31:45.000Z",
+              "replies": [
+                {
+                  "id": "628742039",
+                  "body": "@BOUILLOD MALORY OK pour moi sur le wording, tu me dis ? ",
+                  "creator": "Alessandro DI GIOVANNI",
+                  "createdAt": "2026-08-31T14:23:32.000Z"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "3110915421",
+          "name": "ANNONCE SILMO",
+          "url": "https://adigiovannipros-team.monday.com/boards/5094677215/pulses/3110915421",
+          "updatedAt": "2026-09-19T09:08:16Z",
+          "columnValues": {
+            "person": "Alessandro DI GIOVANNI",
+            "status": "PUBLIÉ",
+            "dup__of_status": "POST",
+            "date0": "2026-09-09",
+            "fichier": "https://adigiovannipros-team.monday.com/protected_static/18530754/resources/262989544/Plan%20de%20travail%2011.png",
+            "texte5": "On y sera. Nous vous donnons rendez-vous au SILMO 2026, du 25 au 28 septembre à Paris Nord Villepinte, Hall 7 stand D324. Nouveau stand, nouvelles collections et toute l'équipe pour en parler.\n\nEnregistrez ce post pour ne pas oublier notre stand.",
+            "chiffres": "93",
+            "statut": "Visite de profil",
+            "statut0": "Fait",
+            "pulse_updated": "2026-09-19 09:08:16 UTC"
+          },
+          "updates": [
+            {
+              "id": "628606268",
+              "body": "Je pense qu'on peut ajouter directement le numéro du stand sur le visuel pour nos opticiens flemmards 😆",
+              "creator": "BOUILLOD MALORY",
+              "createdAt": "2026-08-31T11:34:36.000Z",
+              "replies": [
+                {
+                  "id": "628740579",
+                  "body": "@BOUILLOD MALORY Dis-moi si OK en ce sens ? S",
+                  "creator": "Alessandro DI GIOVANNI",
+                  "createdAt": "2026-08-31T14:20:24.000Z"
+                },
+                {
+                  "id": "628760065",
+                  "body": "@Alessandro DI GIOVANNI il faut donner le stand en entier donc \"Hall 7 - Stand D 324\" ou au minimum \"Hall 7 - D 324\"",
+                  "creator": "BOUILLOD MALORY",
+                  "createdAt": "2026-08-31T14:59:49.000Z"
+                },
+                {
+                  "id": "629003789",
+                  "body": "@BOUILLOD MALORY Dis-moi si OK :) ? ",
+                  "creator": "Alessandro DI GIOVANNI",
+                  "createdAt": "2026-09-01T08:41:25.000Z"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "3189712551",
+          "name": "JACKIE COULEURS VERRES",
+          "url": "https://adigiovannipros-team.monday.com/boards/5094677215/pulses/3189712551",
+          "updatedAt": "2026-09-11T11:18:56Z",
+          "columnValues": {
+            "person": "Alessandro DI GIOVANNI",
+            "status": "PUBLIÉ",
+            "dup__of_status": "CARROUSEL",
+            "date0": "2026-09-11",
+            "fichier": "https://adigiovannipros-team.monday.com/protected_static/18530754/resources/262473188/Plan%20de%20travail%2023-3.png, https://adigiovannipros-team.monday.com/protected_static/18530754/resources/262473189/Plan%20de%20travail%2023-1.png, https://adigiovannipros-team.monday.com/protected_static/18530754/resources/262473190/Plan%20de%20travail%2023-2.png, https://adigiovannipros-team.monday.com/protected_static/18530754/resources/262473191/Plan%20de%20travail%2023-4.png, https://adigiovannipros-team.monday.com/protected_static/18530754/resources/262473193/Plan%20de%20travail%2023-5.png, https://adigiovannipros-team.monday.com/protected_static/18530754/resources/262473198/Plan%20de%20travail%2023-7.png, https://adigiovannipros-team.monday.com/protected_static/18530754/resources/262473200/Plan%20de%20travail%2023-6.png, https://adigiovannipros-team.monday.com/protected_static/18530754/resources/262473201/Plan%20de%20travail%2023.png",
+            "texte5": "La Jackie joue toutes ses cartes. Plusieurs coloris de monture, et de verres classiques, dégradés, ou polarisés pour un vrai confort face à la lumière. À vous de composer la vôtre.\n\nDites-nous en commentaire la combinaison que vous préférez.",
+            "chiffres": null,
+            "statut": null,
+            "statut0": null,
+            "pulse_updated": "2026-09-11 11:18:56 UTC"
+          },
+          "updates": [
+            {
+              "id": "628618135",
+              "body": "merci de mettre la monture avec les verres bruns dégradés en 1er, et d'ajouter la possibilité d'achat sur insta",
+              "creator": "BOUILLOD MALORY",
+              "createdAt": "2026-08-31T11:49:43.000Z",
+              "replies": [
+                {
+                  "id": "628740779",
+                  "body": "OK pour moi !",
+                  "creator": "Alessandro DI GIOVANNI",
+                  "createdAt": "2026-08-31T14:20:51.000Z"
+                },
+                {
+                  "id": "628761075",
+                  "body": "@Alessandro DI GIOVANNI d'ailleurs il faut aussi rajouter la possibilité d'ahcat sur le carrousel de la monture JOY qui vient d'être publiée",
+                  "creator": "BOUILLOD MALORY",
+                  "createdAt": "2026-08-31T15:01:19.000Z"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "3189713375",
+          "name": "VERRES POLARISÉS",
+          "url": "https://adigiovannipros-team.monday.com/boards/5094677215/pulses/3189713375",
+          "updatedAt": "2026-09-16T14:45:13Z",
+          "columnValues": {
+            "person": "Alessandro DI GIOVANNI",
+            "status": "PUBLIÉ",
+            "dup__of_status": "POST",
+            "date0": "2026-09-16",
+            "fichier": "https://adigiovannipros-team.monday.com/protected_static/18530754/resources/262521031/Plan%20de%20travail%2010.png",
+            "texte5": "Les lunettes de soleil ne se rangent pas à la fin de l’été.\n\nLumière rasante d’automne, trajets en voiture ou premières neiges : les verres polarisés restent vos meilleurs alliés pour protéger vos yeux.\n\nBondet, les lunettes de soleil fabriquées en France et en matière biosourcée",
+            "chiffres": null,
+            "statut": null,
+            "statut0": null,
+            "pulse_updated": "2026-09-16 14:45:13 UTC"
+          },
+          "updates": [
+            {
+              "id": "628620014",
+              "body": "ok pour moi, si tu peux ajouter la possibilité d'achat pour ces 2 modèles solaires : JONAS et ALMA\n\nmerci",
+              "creator": "BOUILLOD MALORY",
+              "createdAt": "2026-08-31T11:52:18.000Z",
+              "replies": []
+            }
+          ]
+        },
+        {
+          "id": "3189707164",
+          "name": "SOLAIRE EN MOUVEMENT",
+          "url": "https://adigiovannipros-team.monday.com/boards/5094677215/pulses/3189707164",
+          "updatedAt": "2026-09-18T09:14:01Z",
+          "columnValues": {
+            "person": "Alessandro DI GIOVANNI",
+            "status": "PUBLIÉ",
+            "dup__of_status": "REELS",
+            "date0": "2026-09-18",
+            "fichier": "https://adigiovannipros-team.monday.com/protected_static/18530754/resources/262548836/copy_E261CE8F-D433-4487-8E28-03693D7BBC9E.MOV",
+            "texte5": "Autant de montures, autant de façons d'être soi. Nos lunettes suivent le mouvement, du matin jusqu'au soir.\n\nDécouvrez toute la collection sur bondet.com.",
+            "chiffres": null,
+            "statut": null,
+            "statut0": null,
+            "pulse_updated": "2026-09-18 09:14:01 UTC"
+          },
+          "updates": []
+        },
+        {
+          "id": "3110938101",
+          "name": "RELANCE SILMO J-7",
+          "url": "https://adigiovannipros-team.monday.com/boards/5094677215/pulses/3110938101",
+          "updatedAt": "2026-09-21T15:06:57Z",
+          "columnValues": {
+            "person": "Alessandro DI GIOVANNI",
+            "status": "PUBLIÉ",
+            "dup__of_status": "CARROUSEL",
+            "date0": "2026-09-21",
+            "fichier": "https://adigiovannipros-team.monday.com/protected_static/18530754/resources/262473207/SILMO%203.png, https://adigiovannipros-team.monday.com/protected_static/18530754/resources/262473205/SILMO%204.png, https://adigiovannipros-team.monday.com/protected_static/18530754/resources/262991932/Plan%20de%20travail%205.png, https://adigiovannipros-team.monday.com/protected_static/18530754/resources/263035540/silmo%202025%20-%201.mp4, https://adigiovannipros-team.monday.com/protected_static/18530754/resources/263035545/silmo%202025%20-%202.mp4, https://adigiovannipros-team.monday.com/protected_static/18530754/resources/263035571/silmo%202025%20-%203.mp4",
+            "texte5": "Plus qu'une semaine avant le SILMO 2026. On vous attend du 25 au 28 septembre à Paris Nord Villepinte, Hall 7 stand D324, avec un nouveau stand et nos prochaines collections.\n\nPartagez ce post à celle ou celui que vous voulez y emmener.",
+            "chiffres": "93",
+            "statut": "Visite de profil",
+            "statut0": "À faire",
+            "pulse_updated": "2026-09-21 15:06:57 UTC"
+          },
+          "updates": [
+            {
+              "id": "628642773",
+              "body": "@Alessandro DI GIOVANNI j'aime bien l'idée, mais je ne suis pas sure du choix des différents visuels. dans les stories à la Une \"Silmo\" tu as toutes les images et videos de 2025, pour faire peut être une petite rétrospective 2025 et \"hâte d'être à l'édition 2026\n\n\n\nconcernant le 1er visuel, je pense que l'écriture n'est pas assez grosse et je mettrais plutôt le logo typo BONDET en haut. parce qu'il n'apparait sur aucun des visuels silmo pour l'instant",
+              "creator": "BOUILLOD MALORY",
+              "createdAt": "2026-08-31T12:17:39.000Z",
+              "replies": [
+                {
+                  "id": "629076762",
+                  "body": "@BOUILLOD MALORY Hello Malory, ok pour moi, pour le premier visuel, j'ai modifié le template et j'ai ajusté les deux logos avec la couleur qui va bien. J'ai ajusté la sélection, c'était compliqué de trouver les bons contenus parce qu'il y avait beaucoup de textes ou d'émojis, de GIFs sur les stories à la une donc c'est peu exploitable.\n\nPar contre j'ai fait une petite compilation que j'ai divisé en trois vidéos, attention ce sont des formats carrousel, donc 4:5, et non pas Reels 9:16, ça viendra au sein d'un carrousel. Dis-moi si c'est OK pour toi ?",
+                  "creator": "Alessandro DI GIOVANNI",
+                  "createdAt": "2026-09-01T09:16:22.000Z"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "3110932643",
+          "name": "RELANCE SILMO J-J",
+          "url": "https://adigiovannipros-team.monday.com/boards/5094677215/pulses/3110932643",
+          "updatedAt": "2026-09-18T03:46:59Z",
+          "columnValues": {
+            "person": "Alessandro DI GIOVANNI",
+            "status": "EN ATTENTE",
+            "dup__of_status": "REELS",
+            "date0": "2026-09-25",
+            "fichier": null,
+            "texte5": "Ça y est, le SILMO ouvre ses portes. Retrouvez nous jusqu'au 28 septembre à Paris Nord Villepinte, Hall 7 stand D324. Toute l'équipe est là pour vous accueillir, et nous avons hâte de vous retrouver.\n\nVous y êtes ? Passez nous dire bonjour et taguez-nous en story.",
+            "chiffres": "93",
+            "statut": "Visite de profil",
+            "statut0": "À faire",
+            "pulse_updated": "2026-09-18 03:46:59 UTC"
+          },
+          "updates": []
+        },
+        {
+          "id": "3189715099",
+          "name": "REMERCIEMENT SILMO",
+          "url": "https://adigiovannipros-team.monday.com/boards/5094677215/pulses/3189715099",
+          "updatedAt": "2026-09-03T11:56:22Z",
+          "columnValues": {
+            "person": "Alessandro DI GIOVANNI",
+            "status": "EN ATTENTE",
+            "dup__of_status": "POST",
+            "date0": "2026-09-29",
+            "fichier": null,
+            "texte5": "On revient du SILMO avec une énergie et un enthousiasme débordants, et de belles nouveautés à vous présenter. \nEncore merci à toutes celles et ceux qui ont fait de cette édition un si grand succès. \n\nToutes les nouveautés sont désormais disponibles, sur le site et retrouvez-les chez votre opticien, le lien est en bio.",
+            "chiffres": null,
+            "statut": null,
+            "statut0": null,
+            "pulse_updated": "2026-09-03 11:56:22 UTC"
+          },
+          "updates": [
+            {
+              "id": "629062987",
+              "body": "@BOUILLOD MALORY Hello ! Avais-tu un retour à ce sujet ou étais-ce OK ? Mille mercis",
+              "creator": "Alessandro DI GIOVANNI",
+              "createdAt": "2026-09-01T09:01:54.000Z",
+              "replies": [
+                {
+                  "id": "630055013",
+                  "body": "j'étais pas aller jusqu'au silmo mais je pense qu'on peut prévoir plutôt des clichés du salon ou vidéos rétrospectives pour remercier tout le monde ?\n\net garder ce visuel pour le post suivant",
+                  "creator": "BOUILLOD MALORY",
+                  "createdAt": "2026-09-02T12:42:29.000Z"
+                },
+                {
+                  "id": "630639340",
+                  "body": "@BOUILLOD MALORY Hello Malory, j'espère que tu vas bien. Ok pour moi, je passe en attente et j'ai vu que tu avais modifié la caption donc je suppose que c'est tout bon, j'attends les contenus !",
+                  "creator": "Alessandro DI GIOVANNI",
+                  "createdAt": "2026-09-03T11:57:36.000Z"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
