@@ -11,6 +11,16 @@ describe("explainYouTubeError", () => {
     expect(diagnosis.message).toContain("quota YouTube du jour");
   });
 
+  it("donne le lien d'activation quand l'API n'est pas activée sur le projet", () => {
+    const diagnosis = explainYouTubeError(
+      "YouTube Data API v3 has not been used in project 285345048097 before or it is disabled. Enable it by visiting https://console.developers.google.com/apis/api/youtube.googleapis.com/overview?project=285345048097 then retry. (accessNotConfigured)",
+    );
+    expect(diagnosis.message).toContain("n'est pas activée");
+    expect(diagnosis.message).toContain(
+      "https://console.cloud.google.com/apis/library/youtube.googleapis.com?project=285345048097",
+    );
+  });
+
   it("dit qu'une vidéo sans commentaires n'est pas une panne", () => {
     const diagnosis = explainYouTubeError("Comments disabled (commentsDisabled)");
     expect(diagnosis.reconnect).toBe(false);

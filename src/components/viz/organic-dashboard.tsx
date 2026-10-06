@@ -39,7 +39,7 @@ export function OrganicDashboard({
   followersNow,
   period,
 }: {
-  network: "instagram" | "facebook" | "linkedin" | "tiktok";
+  network: "instagram" | "facebook" | "linkedin" | "tiktok" | "x";
   posts: readonly SocialPost[];
   total: RawMetrics;
   previousTotal: RawMetrics;
@@ -150,14 +150,14 @@ export function OrganicDashboard({
         />
         <PanelBody>
           {/* Mêmes colonnes qu'Instagram : le client lit les deux tableaux
-              avec la même grille. Sur Facebook, les enregistrements restent
-              vides — une Page n'en a pas —, et une publication collectée
-              avant la bascule vers `views` garde 0 vue, donc « — » de taux.
+              avec la même grille. Sur Facebook, les enregistrements
+              s'écrivent « — » — Meta ne les mesure pas sur une Page.
               LinkedIn n'a pas d'enregistrement du tout, mais il compte les
               clics — la seule colonne qui lui soit propre. */}
           <PostsTable
             posts={posts}
             withSaves={parPublication}
+            savesUnmeasured={isUnmeasuredZero(network, "saves", 0)}
             withImpressions
             withClicks={!parPublication}
           />

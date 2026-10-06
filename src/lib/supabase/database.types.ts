@@ -18,7 +18,9 @@ export type DataProvider =
   // 0060 — Google Analytics 4, lu à travers Composio.
   | "google_analytics"
   // 20260902c — LinkedIn organique, lu à travers Composio.
-  | "linkedin_organic";
+  | "linkedin_organic"
+  // 20261006c — X organique, lu à travers Composio.
+  | "x_organic";
 export type DataSourceStatus = "pending" | "connected" | "error" | "disabled";
 export type SyncStatus = "running" | "success" | "error";
 export type AdLevel = "campaign" | "adset" | "ad";

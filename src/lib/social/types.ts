@@ -87,8 +87,9 @@ export const META_KINDS: SocialAccountKind[] = [
  *
  * Meta d'un côté — un login, trois comptes —, YouTube de l'autre, qui demande
  * son propre aller-retour Google, puis LinkedIn et TikTok Ads, dont
- * l'autorisation vit chez Composio, branchée une fois pour toute l'agence :
- * aucun n'a ni la même app, ni le même périmètre. Le reste s'affiche sans
+ * l'autorisation vit chez Composio, branchée une fois pour toute l'agence,
+ * et enfin X et TikTok, par Composio aussi mais avec le login de chaque
+ * client : aucun n'a ni la même app, ni le même périmètre. Le reste s'affiche sans
  * bouton plutôt que d'offrir une liste vide qui se lirait comme une panne.
  */
 export const CONNECTABLE_KINDS: SocialAccountKind[] = [
@@ -96,12 +97,14 @@ export const CONNECTABLE_KINDS: SocialAccountKind[] = [
   "youtube",
   "linkedin",
   "tiktok_ad_account",
+  "x",
+  "tiktok",
 ];
 
 /** Par quel branchement passe un réseau — chaque famille a sa route. */
 export function connectorOf(
   kind: SocialAccountKind,
-): "meta" | "youtube" | "linkedin" | "tiktok_ads" | null {
+): "meta" | "youtube" | "linkedin" | "tiktok_ads" | "twitter" | "tiktok" | null {
   if (META_KINDS.includes(kind)) return "meta";
   if (kind === "youtube") return "youtube";
   /* LinkedIn et TikTok Ads n'ont pas d'aller-retour OAuth **ici** : la
@@ -109,6 +112,10 @@ export function connectorOf(
      demander le lien puis importer l'inventaire. */
   if (kind === "linkedin") return "linkedin";
   if (kind === "tiktok_ad_account") return "tiktok_ads";
+  /* X et TikTok passent aussi par Composio, mais **compte par compte** :
+     chaque client branche le sien, avec son propre login. */
+  if (kind === "x") return "twitter";
+  if (kind === "tiktok") return "tiktok";
   return null;
 }
 

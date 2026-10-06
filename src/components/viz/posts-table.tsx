@@ -55,10 +55,16 @@ export function PostsTable({
   withSaves,
   withImpressions = true,
   withClicks = false,
+  savesUnmeasured = false,
 }: {
   posts: readonly SocialPost[];
   /** Les enregistrements n'existent que sur Instagram. */
   withSaves: boolean;
+  /** La colonne est là pour garder la grille d'Instagram, mais la source ne
+      mesure rien : un zéro s'y écrit « — ». C'est Facebook — sondé le
+      6/10/2026, aucun nom de métrique d'enregistrement n'existe ni sur une
+      publication de Page ni sur un reel. */
+  savesUnmeasured?: boolean;
   /** La colonne « Vues » : présente partout où la source rend la grandeur. */
   withImpressions?: boolean;
   /** Le clic est une mesure LinkedIn : Meta ne le rend pas par publication. */
@@ -120,8 +126,12 @@ export function PostsTable({
         key: "saves",
         header: "Enregistrements",
         kind: "integer",
-        value: (post) => number(post.saves),
-        total: (rows) => sumOf(rows, (post) => number(post.saves)),
+        value: (post) =>
+          savesUnmeasured && number(post.saves) === 0 ? null : number(post.saves),
+        total: (rows) => {
+          const sum = sumOf(rows, (post) => number(post.saves));
+          return savesUnmeasured && sum === 0 ? null : sum;
+        },
       });
     }
 
@@ -151,7 +161,7 @@ export function PostsTable({
     );
 
     return base;
-  }, [withSaves, withImpressions, withClicks]);
+  }, [withSaves, withImpressions, withClicks, savesUnmeasured]);
 
   const [sort, setSort] = useState<{ key: string; desc: boolean }>({
     // Sans colonne de vues, les « J'aime » classent le mieux.

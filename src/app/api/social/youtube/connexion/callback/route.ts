@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 import { getViewer, getWorkspace } from "@/lib/auth";
 import { publicEnv } from "@/lib/env";
 import { serializeTokens } from "@/lib/connectors/youtube/credentials";
+import { explainYouTubeError } from "@/lib/connectors/youtube/errors";
 import { exchangeCode, listChannels, YOUTUBE_SCOPES } from "@/lib/social/youtube";
 import { createAdminClient } from "@/lib/supabase/server";
 import { YOUTUBE_STATE_COOKIE, redirectUri } from "../route";
@@ -148,6 +149,6 @@ export async function GET(request: Request) {
       true,
     );
   } catch (error) {
-    return back(path, (error as Error).message);
+    return back(path, explainYouTubeError((error as Error).message).message);
   }
 }

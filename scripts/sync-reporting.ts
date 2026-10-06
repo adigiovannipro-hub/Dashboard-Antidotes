@@ -6,7 +6,7 @@
  *   pnpm sync:reporting --espace tout
  *
  * Joue les mêmes collectes que le bouton « Synchroniser » — Meta (Instagram,
- * Page, compte publicitaire), LinkedIn, TikTok Ads, Site Web — par le code du
+ * Page, compte publicitaire), LinkedIn, TikTok Ads, X et TikTok, Site Web — par le code du
  * produit, puis **relit la base** mois par mois, telle que l'écran la lira.
  * C'est l'outil de la vérification en boucle : on compare cette sortie aux
  * chiffres que le réseau affiche, et on corrige jusqu'à ce qu'ils
@@ -18,6 +18,7 @@
 import dotenv from "dotenv";
 import { createClient } from "@supabase/supabase-js";
 
+import { syncWorkspaceClientSocial } from "../src/lib/connectors/composio-social/sync";
 import { syncWorkspaceWebAnalytics } from "../src/lib/connectors/google-analytics/sync";
 import { syncWorkspaceLinkedin } from "../src/lib/connectors/linkedin/sync";
 import { syncWorkspaceReporting } from "../src/lib/connectors/meta/sync";
@@ -103,6 +104,19 @@ async function main() {
         echecs += 1;
         console.log(`  ✗ ${label} — ${(failure as Error).message}`);
       }
+    }
+
+    try {
+      for (const report of await syncWorkspaceClientSocial({
+        admin,
+        workspaceId: workspace.id,
+        atLeastSince,
+      })) {
+        if (!print(report.account, report)) echecs += 1;
+      }
+    } catch (failure) {
+      echecs += 1;
+      console.log(`  ✗ X / TikTok — ${(failure as Error).message}`);
     }
 
     try {

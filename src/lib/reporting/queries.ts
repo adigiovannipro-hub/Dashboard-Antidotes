@@ -310,7 +310,7 @@ export async function getAdsData(options: {
 }
 
 /** Les quatre plateformes dont un onglet organique lit les relevés. */
-export type OrganicPlatform = "instagram" | "facebook" | "linkedin" | "tiktok";
+export type OrganicPlatform = "instagram" | "facebook" | "linkedin" | "tiktok" | "x";
 
 export type OrganicData = {
   hasData: boolean;
@@ -347,6 +347,7 @@ const ACCOUNT_KIND_BY_PLATFORM = {
   facebook: "facebook_page",
   linkedin: "linkedin",
   tiktok: "tiktok",
+  x: "x",
 } as const satisfies Record<OrganicPlatform, SocialAccountKind>;
 
 async function assignedSourceIds(

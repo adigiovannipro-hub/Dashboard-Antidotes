@@ -29,6 +29,24 @@ export function explainYouTubeError(raw: string): YouTubeDiagnosis {
     };
   }
 
+  if (
+    text.includes("accessnotconfigured") ||
+    text.includes("service_disabled") ||
+    (text.includes("youtube data api") && text.includes("disabled"))
+  ) {
+    /* L'API n'est pas activée sur le projet Google Cloud qui porte l'OAuth :
+       ni le code ni un rebranchement n'y peuvent rien, c'est un clic dans la
+       console — d'où le lien direct quand Google donne le numéro du projet. */
+    const project = /project[=\s]+(\d+)/i.exec(raw)?.[1];
+    const link = project
+      ? `https://console.cloud.google.com/apis/library/youtube.googleapis.com?project=${project}`
+      : "https://console.cloud.google.com/apis/library/youtube.googleapis.com";
+    return {
+      message: `L'API YouTube Data v3 n'est pas activée sur le projet Google Cloud${project ? ` ${project}` : ""}. L'activer (${link}), attendre quelques minutes, puis rebrancher YouTube.`,
+      reconnect: true,
+    };
+  }
+
   if (text.includes("commentsdisabled")) {
     return {
       message:

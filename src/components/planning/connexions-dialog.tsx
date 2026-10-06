@@ -15,7 +15,12 @@ import {
 import { Input } from "@/components/ui/input";
 import { NETWORK_SUGGESTIONS, networkKey } from "@/lib/context/types";
 import { safeAction } from "@/lib/context/safe-action";
-import { AGENCY_TOOLKIT_LABELS, type AgencyToolkit } from "@/lib/composio/labels";
+import {
+  AGENCY_TOOLKIT_LABELS,
+  CLIENT_TOOLKIT_LABELS,
+  type AgencyToolkit,
+  type ClientToolkit,
+} from "@/lib/composio/labels";
 import {
   COMPOSIO_TRANSITION_NOTE,
   isDirectConnectEnabled,
@@ -106,6 +111,20 @@ export function ConnexionsDialog({
     ] as const
   ).filter((entry) => rows.some((row) => row.kind === entry.kind));
 
+  /* X et TikTok passent aussi par Composio, mais avec le login **du
+     client** : le compte branché ici n'appartient qu'à cet espace, et s'y
+     affecte au retour. */
+  const clientHref = (reseau: ClientToolkit) =>
+    `/api/social/composio/connexion?espace=${encodeURIComponent(
+      workspaceSlug,
+    )}&reseau=${reseau}&retour=${encodeURIComponent(retour)}`;
+  const clientNetworks = (
+    [
+      { reseau: "twitter", kind: "x" },
+      { reseau: "tiktok", kind: "tiktok" },
+    ] as const
+  ).filter((entry) => rows.some((row) => row.kind === entry.kind));
+
   const inventory = accounts.length;
 
   return (
@@ -174,6 +193,31 @@ export function ConnexionsDialog({
           );
         })}
 
+        {clientNetworks.length > 0 ? (
+          <div className="flex flex-wrap gap-2">
+            {clientNetworks.map((entry) => {
+              const linked = Boolean(selection[entry.kind]);
+              const label = CLIENT_TOOLKIT_LABELS[entry.reseau];
+              return (
+                <Button
+                  key={entry.reseau}
+                  render={<a href={clientHref(entry.reseau)} />}
+                  variant="outline"
+                  size="sm"
+                  className="min-w-0 flex-1"
+                >
+                  {linked ? (
+                    <RefreshCw className="size-3.5" strokeWidth={1.75} aria-hidden />
+                  ) : (
+                    <Plug className="size-3.5" strokeWidth={1.75} aria-hidden />
+                  )}
+                  {linked ? `Rebrancher ${label}` : `Brancher ${label}`}
+                </Button>
+              );
+            })}
+          </div>
+        ) : null}
+
         {isDirectConnectEnabled() ? (
           <>
           {wantsYouTube ? (
@@ -225,9 +269,9 @@ export function ConnexionsDialog({
           {/* `--text-tertiary` est à 2,79:1 : réservé aux icônes, jamais au texte. */}
           <p className="type-caption text-text-secondary">
             Rebrancher met l&apos;inventaire à jour sans toucher aux affectations
-            déjà faites ici. Meta, YouTube, LinkedIn et TikTok Ads ont un
-            connecteur : les autres réseaux se déclarent, s&apos;affichent, et
-            attendent le leur.
+            déjà faites ici. Meta, YouTube, LinkedIn, TikTok, TikTok Ads et X
+            ont un connecteur : les autres réseaux se déclarent,
+            s&apos;affichent, et attendent le leur.
           </p>
           </>
         ) : (

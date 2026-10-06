@@ -1,7 +1,15 @@
 import { NextResponse, after } from "next/server";
 
 import { getViewer, getWorkspace } from "@/lib/auth";
-import { AGENCY_TOOLKIT_LABELS, isAgencyToolkit } from "@/lib/composio/agency";
+import {
+  COMPOSIO_TOOLKIT_LABELS,
+  isAgencyToolkit,
+  isClientToolkit,
+} from "@/lib/composio/agency";
+import {
+  importClientAccount,
+  syncWorkspaceClientSocial,
+} from "@/lib/connectors/composio-social/sync";
 import { importLinkedinInventory, syncWorkspaceLinkedin } from "@/lib/connectors/linkedin/sync";
 import {
   importTiktokAdsInventory,
@@ -10,7 +18,8 @@ import {
 import { createAdminClient } from "@/lib/supabase/server";
 
 /**
- * L'inventaire LinkedIn ou TikTok Ads, relevé chez Composio.
+ * L'inventaire LinkedIn ou TikTok Ads, relevé chez Composio — ou, pour X et
+ * TikTok, le profil du client, aussitôt affecté à son espace.
  *
  * Deux portes : le bouton « Relever » de Connexions, et le retour de
  * l'autorisation (`branche=1`), où Composio ramène après un branchement.
@@ -32,7 +41,7 @@ export async function GET(request: Request) {
   const url = new URL(request.url);
   const workspaceSlug = url.searchParams.get("espace");
   const reseau = url.searchParams.get("reseau") ?? "";
-  if (!workspaceSlug || !isAgencyToolkit(reseau)) {
+  if (!workspaceSlug || !(isAgencyToolkit(reseau) || isClientToolkit(reseau))) {
     return new NextResponse(null, { status: 404 });
   }
 
@@ -46,7 +55,7 @@ export async function GET(request: Request) {
     asked.startsWith(`/espace/${workspaceSlug}/`) ? asked : `/espace/${workspaceSlug}`,
     url.origin,
   );
-  const label = AGENCY_TOOLKIT_LABELS[reseau];
+  const label = COMPOSIO_TOOLKIT_LABELS[reseau];
   const branche = url.searchParams.get("branche") === "1";
 
   /* Composio dit « failed » quand l'autorisation a été refusée ou abandonnée.
@@ -60,6 +69,32 @@ export async function GET(request: Request) {
 
   const admin = createAdminClient();
   const viewer = await getViewer();
+
+  /* X et TikTok : un compte, celui du client, qui s'affecte à l'espace d'où
+     le branchement est parti — le login est le sien, rien à deviner. */
+  if (isClientToolkit(reseau)) {
+    const imported = await importClientAccount({
+      admin,
+      orgId: workspace.org_id,
+      workspaceId: workspace.id,
+      toolkit: reseau,
+      connectedBy: viewer?.user.id ?? null,
+    }).catch((error: unknown) => ({
+      error: `${label} indisponible : ${error instanceof Error ? error.message : "erreur"}`,
+    }));
+    if ("error" in imported) {
+      target.searchParams.set("erreur", imported.error);
+      return NextResponse.redirect(target);
+    }
+    after(async () => {
+      await syncWorkspaceClientSocial({ admin, workspaceId: workspace.id });
+    });
+    target.searchParams.set(
+      "connecte",
+      `${label} branché — ${imported.account}, affecté à ${workspace.name}. La collecte est relancée : les chiffres arrivent d'ici une minute.`,
+    );
+    return NextResponse.redirect(target);
+  }
 
   /* Une clé Composio absente lève avant tout appel : elle doit revenir à
      l'écran comme une erreur lisible, pas comme une page d'erreur. */
