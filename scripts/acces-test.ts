@@ -52,7 +52,7 @@ async function main() {
   const site =
     argument("--site") ??
     process.env.NEXT_PUBLIC_SITE_URL ??
-    "https://dashboard-antidotes-beta.vercel.app";
+    "https://app.antidotes.agency";
 
   const { createAdminClient } = await import("../src/lib/supabase/server");
   const { sendAccessLink } = await import("../src/lib/access/send-access");

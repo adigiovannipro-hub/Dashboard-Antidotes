@@ -1,8 +1,26 @@
-import type { NextRequest } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 
+import { isVitrineHost, routeVitrine, VITRINE_PAGE } from "@/lib/domains";
+import { publicEnv } from "@/lib/env";
 import { updateSession } from "@/lib/supabase/proxy";
 
 export async function proxy(request: NextRequest) {
+  /* La vitrine passe avant la session : elle ne sert que des pages publiques,
+     et un aller-retour Supabase par visite n'y vérifierait rien. */
+  if (isVitrineHost(request.headers.get("host"))) {
+    const route = routeVitrine(
+      request.nextUrl.pathname,
+      request.nextUrl.search,
+      publicEnv.NEXT_PUBLIC_SITE_URL,
+    );
+    if (route.kind === "page") {
+      return NextResponse.rewrite(new URL(VITRINE_PAGE, request.url));
+    }
+    if (route.kind === "served") return NextResponse.next();
+    // 307 et non 308 : la landing reprendra un jour certains de ces chemins.
+    return NextResponse.redirect(route.url, 307);
+  }
+
   return updateSession(request);
 }
 
