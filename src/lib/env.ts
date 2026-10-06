@@ -41,6 +41,9 @@ const serverSchema = {
      jetons Google Analytics. Serveur uniquement : elle ouvre l'accès à tous
      les comptes connectés du projet. Voir `docs/web-analytics-setup.md`. */
   COMPOSIO_API_KEY: z.string().min(1),
+  /* La clé du connecteur MCP de Claude : elle forme l'adresse
+     `/api/mcp/<clé>`. 32 caractères au moins — c'est le seul verrou. */
+  MCP_SECRET: z.string().min(32),
 } as const;
 
 export type ServerEnvKey = keyof typeof serverSchema;

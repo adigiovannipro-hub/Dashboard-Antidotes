@@ -18,6 +18,7 @@ const KEYS = [
   "CRON_SECRET",
   "GITHUB_SYNC_TOKEN",
   "COMPOSIO_API_KEY",
+  "MCP_SECRET",
 ] as const;
 
 const saved: Record<string, string | undefined> = {};
@@ -25,7 +26,8 @@ const saved: Record<string, string | undefined> = {};
 beforeEach(() => {
   for (const key of KEYS) {
     saved[key] = process.env[key];
-    process.env[key] = `valeur-${key}`;
+    // 32 caractères au moins : le seuil de `MCP_SECRET`.
+    process.env[key] = `valeur-${key}-0123456789abcdef0123456789`;
   }
 });
 
@@ -73,7 +75,7 @@ describe("missingServerEnv", () => {
 describe("serverEnv", () => {
   it("ne rend que les secrets demandés", () => {
     expect(serverEnv("CRON_SECRET")).toEqual({
-      CRON_SECRET: "valeur-CRON_SECRET",
+      CRON_SECRET: "valeur-CRON_SECRET-0123456789abcdef0123456789",
     });
   });
 
