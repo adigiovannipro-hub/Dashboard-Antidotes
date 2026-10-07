@@ -318,6 +318,8 @@ export type PlanningSubject = {
   /** Archives et corbeille : `null` quand la ligne est visible au tableau. */
   archived_at: string | null;
   deleted_at: string | null;
+  /** Réglages TikTok du panneau (`jsonb`) — relus par `parseTiktokSettings`. */
+  tiktok_settings?: unknown;
   created_at: string;
   updated_at: string;
   updated_by: string | null;

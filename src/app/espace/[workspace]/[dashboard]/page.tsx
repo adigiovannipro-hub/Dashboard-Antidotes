@@ -151,6 +151,7 @@ export default async function DashboardPage({
     network === "facebook" ||
     network === "linkedin" ||
     network === "tiktok" ||
+    network === "youtube" ||
     network === "x"
       ? await getOrganicData({ workspaceId: workspace.id, platform: network, range })
       : null;
@@ -336,6 +337,7 @@ export default async function DashboardPage({
           network === "facebook" ||
           network === "linkedin" ||
           network === "tiktok" ||
+          network === "youtube" ||
           network === "x") &&
         organic?.hasData ? (
         <OrganicDashboard

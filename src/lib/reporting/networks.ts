@@ -62,6 +62,7 @@ const WITH_CONNECTOR: readonly ReportingNetwork[] = [
   "linkedin",
   "tiktok",
   "tiktok-ads",
+  "youtube",
   "x",
   "site-web",
 ];

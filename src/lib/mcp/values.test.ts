@@ -35,9 +35,11 @@ describe("resolveEditableStatus", () => {
     expect(resolveEditableStatus("WORDING A FAIRE")).toBe("wording_todo");
   });
 
-  it("refuse la validation et la publication", () => {
+  it("refuse la validation, la programmation et la publication", () => {
     expect(() => resolveEditableStatus("validated")).toThrow(/application/);
     expect(() => resolveEditableStatus("Validé")).toThrow(/application/);
+    expect(() => resolveEditableStatus("Programmé")).toThrow(/application/);
+    expect(() => resolveEditableStatus("scheduled")).toThrow(/application/);
     expect(() => resolveEditableStatus("publié")).toThrow(/application/);
   });
 

@@ -178,6 +178,75 @@ arbitrage de **légitimité contre friction**, jamais de richesse de données.
 - **Import CSV** depuis TikTok Studio — zéro coût, zéro API, un geste manuel
   par mois. Le projet a déjà ce motif avec `pnpm import:followers`.
 
+## Publier sur TikTok — ajouté le 7/10/2026
+
+Le couloir TikTok du planning publie **en direct** dès que l'app
+« Antidotes » est auditée, et **en brouillon** d'ici là : la vidéo atterrit
+dans l'application TikTok du compte, une personne appuie sur « publier ».
+Le passage tente toujours le direct quand la publication a ses réglages ;
+TikTok répond `unaudited_client_can_only_post_to_private_accounts` tant
+que l'audit n'est pas passé, et la vidéo repart aussitôt en brouillon. Le
+jour où l'audit passe, ce refus disparaît : **rien à changer dans le code**.
+
+### Le bloc TikTok du panneau
+
+Toute publication d'un couloir TikTok a, dans son panneau, le bloc que
+TikTok exige de voir avant une publication directe — c'est ce que l'audit
+filme : le compte de destination (pseudo et nom, lus sur `creator_info`),
+« Qui peut voir cette vidéo » parmi les options du compte **sans valeur par
+défaut**, commentaires / duos / collages décochés tant qu'on ne les coche
+pas (grisés si le compte les a coupés), le contenu commercial (« Votre
+marque », « Contenu de marque » — ce dernier interdit « Moi uniquement »),
+et la mention de la Music Usage Confirmation au-dessus du bouton
+« Enregistrer ». L'enregistrement horodate l'accord
+(`planning_subjects.tiktok_settings`). « Reprendre les derniers réglages »
+recopie ceux de la dernière publication réglée — c'est un geste, pas une
+valeur par défaut. Sans réglages : brouillon.
+
+« Publier maintenant sur TikTok » (agence seule, publication « Validé ») fait
+le passage de 16h pour ce seul sujet — c'est le bouton de la vidéo de
+démonstration.
+
+### Ce qu'il faut à l'app « Antidotes »
+
+1. Produit **Content Posting API**, avec **Direct Post** activé, portées
+   **`video.upload`** et **`video.publish`** (en plus de `user.info.basic`,
+   `user.info.stats`, `video.list`).
+2. Les mêmes portées dans la configuration TikTok de Composio, puis
+   **rebrancher** chaque compte client depuis Connexions : une connexion
+   garde les portées qu'elle avait au moment du branchement.
+3. Sandbox : déclarer les comptes clients en *target users* — brouillons et
+   publication privée marchent sans audit.
+4. Soumettre à la revue, avec la vidéo de démonstration ci-dessous.
+
+### La vidéo de démonstration
+
+Un seul plan continu, sur `https://app.antidotes.agency` :
+
+1. Connexions de l'espace → « Brancher TikTok » → écran d'autorisation
+   TikTok → retour, le compte apparaît.
+2. Planning → une publication du couloir TikTok, vidéo déposée, statut
+   « Validé » → le panneau s'ouvre sur l'aperçu de la vidéo.
+3. Bloc TikTok : montrer le compte, choisir la confidentialité, cocher les
+   interactions, montrer le contenu commercial, lire la mention, cliquer
+   « Enregistrer ».
+4. « Publier maintenant sur TikTok » → message « Vidéo envoyée… quelques
+   minutes ».
+5. Ouvrir le profil TikTok : la vidéo y est, avec sa légende.
+
+Limites connues :
+
+- En brouillon, **la légende ne voyage pas** : l'API brouillon n'en prend
+  aucune. Elle se copie depuis la cellule Wording.
+- **Vidéo seule.** Un carrousel photo exige des images servies depuis un
+  domaine vérifié chez TikTok (`PULL_FROM_URL`) — l'app Antidotes l'a, par
+  préfixe ; reste à servir les images depuis ce domaine.
+- TikTok refuse au-delà de cinq brouillons en attente sur 24 h.
+
+La ligne reste « Validé » tant que la vidéo n'est pas en ligne ; chaque
+passage relit son état (`/v2/post/publish/status/fetch/`) et la fait passer
+« Publié » avec son lien.
+
 ## TikTok Ads — branché le 1/10/2026
 
 Le payant passe par la **Marketing API** (`business-api.tiktok.com`), un

@@ -43,6 +43,9 @@ const nextConfig: NextConfig = {
     // `/api/mcp/[cle]` : sous Turbopack, `[cle]` est une classe de caractères
     // et ne désigne jamais la route — vérifié sur la trace du build.
     "/api/mcp/**": ["./node_modules/.pnpm/@img+sharp-libvips-linux-x64@*/node_modules/@img/sharp-libvips-linux-x64/lib/**"],
+    // La publication de 16h00 convertit en JPEG pour Instagram et assemble
+    // les PDF de LinkedIn : même bibliothèque, même trou dans la trace.
+    "/api/cron/publier": ["./node_modules/.pnpm/@img+sharp-libvips-linux-x64@*/node_modules/@img/sharp-libvips-linux-x64/lib/**"],
   },
   // Next le tient déjà hors du bundle par défaut ; écrit ici pour que ça ne
   // dépende pas d'une liste interne qui peut changer d'une version à l'autre.

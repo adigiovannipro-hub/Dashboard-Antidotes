@@ -106,6 +106,7 @@ const NETWORKS = [
   { key: "tiktok-ads", label: "TikTok Ads" },
   { key: "instagram", label: "Instagram" },
   { key: "facebook", label: "Facebook" },
+  { key: "youtube", label: "YouTube" },
   { key: "site-web", label: "Site Web" },
 ] as const;
 
@@ -132,7 +133,7 @@ export default async function PartagePage({
 
   // Seuls les onglets qui portent des chiffres s'affichent : un rapport
   // partagé ne montre jamais un écran vide à expliquer.
-  const [ads, tiktokAds, instagram, facebook, web] = await Promise.all([
+  const [ads, tiktokAds, instagram, facebook, youtube, web] = await Promise.all([
     getAdsData({ workspaceId: share.workspaceId, range, reader: admin }),
     getAdsData({
       workspaceId: share.workspaceId,
@@ -152,6 +153,12 @@ export default async function PartagePage({
       range,
       reader: admin,
     }),
+    getOrganicData({
+      workspaceId: share.workspaceId,
+      platform: "youtube",
+      range,
+      reader: admin,
+    }),
     getWebData({ workspaceId: share.workspaceId, range, reader: admin }),
   ]);
 
@@ -161,6 +168,7 @@ export default async function PartagePage({
       (key === "tiktok-ads" && tiktokAds.hasData) ||
       (key === "instagram" && instagram.hasData) ||
       (key === "facebook" && facebook.hasData) ||
+      (key === "youtube" && youtube.hasData) ||
       (key === "site-web" && web.hasData),
   );
 
@@ -249,6 +257,16 @@ export default async function PartagePage({
           previousTotal={facebook.previousTotal}
           followers={facebook.followers}
           followersNow={facebook.followersNow}
+          period={period}
+        />
+      ) : network === "youtube" && youtube.hasData ? (
+        <OrganicDashboard
+          network="youtube"
+          posts={youtube.posts}
+          total={youtube.total}
+          previousTotal={youtube.previousTotal}
+          followers={youtube.followers}
+          followersNow={youtube.followersNow}
           period={period}
         />
       ) : network === "site-web" && web.hasData ? (

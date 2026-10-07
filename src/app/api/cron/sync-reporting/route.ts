@@ -6,6 +6,7 @@ import { syncWorkspaceLinkedin } from "@/lib/connectors/linkedin/sync";
 import { syncWorkspaceReporting } from "@/lib/connectors/meta/sync";
 import { syncWorkspaceTiktokAds } from "@/lib/connectors/tiktok-ads/sync";
 import { syncWorkspaceClientSocial } from "@/lib/connectors/composio-social/sync";
+import { syncWorkspaceYoutube } from "@/lib/connectors/youtube/reporting-sync";
 import { missingServerEnv, serverEnv } from "@/lib/env";
 import { createAdminClient } from "@/lib/supabase/server";
 
@@ -185,6 +186,31 @@ export async function GET(request: Request) {
     } catch (error) {
       errors.push(
         `x/tiktok ${workspaceId} : ${error instanceof Error ? error.message : "erreur"}`,
+      );
+    }
+  }
+
+  /* YouTube : les chaînes affectées, par le branchement Google direct. */
+  const { data: youtubeLinks, error: youtubeLinksError } = await admin
+    .from("workspace_social_accounts")
+    .select("workspace_id")
+    .eq("kind", "youtube");
+  if (youtubeLinksError) {
+    errors.push(`Lecture des affectations YouTube : ${youtubeLinksError.message}`);
+  }
+
+  for (const { workspace_id: workspaceId } of (youtubeLinks ?? []) as {
+    workspace_id: string;
+  }[]) {
+    try {
+      const sources = await syncWorkspaceYoutube({ admin, workspaceId });
+      report[`youtube:${workspaceId}`] = sources;
+      for (const source of sources) {
+        if (source.error) errors.push(`${source.account} : ${source.error}`);
+      }
+    } catch (error) {
+      errors.push(
+        `youtube ${workspaceId} : ${error instanceof Error ? error.message : "erreur"}`,
       );
     }
   }

@@ -151,12 +151,13 @@ jobs:
       # priver les suivantes de leur passage. Elles partagent le job parce que
       # l'installation coûte plus cher que le travail lui-même.
       #
-      # Le script regarde l'heure de Paris et ne publie qu'**à partir de**
-      # 16h, et jamais un sujet daté d'hier : le soir publie, le matin
-      # rattrape quand il atterrit encore avant minuit à Paris — une seconde
-      # chance si GitHub a sauté le soir. `planning_publications` interdit le
-      # doublon ; hors fenêtre, l'étape coûte une seconde.
-      - name: Publication automatique du Planning (à partir de 16h Paris)
+      # La publication part à 16h00 heure de Bali, de Vercel, appelée par
+      # `pg_cron` (`/api/cron/publier`). Cette étape est le filet : elle reprend
+      # ce qui est « Programmé » pour le jour et pas encore en ligne — réseau
+      # en erreur, ligne laissée faute de temps — tant qu'il n'est pas minuit à
+      # Paris, et jamais un sujet daté d'hier. `planning_publications` interdit
+      # le doublon ; sans rien à reprendre, l'étape coûte une seconde.
+      - name: Publication automatique du Planning (filet de 16h00 à Bali)
         if: always() && contains(fromJSON('["quotidien","matin","tout"]'), env.PORTEE)
         run: pnpm publier:planning
         env:
@@ -164,6 +165,8 @@ jobs:
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           CREDENTIALS_ENCRYPTION_KEY: ${{ secrets.CREDENTIALS_ENCRYPTION_KEY }}
+          # TikTok (brouillons) et LinkedIn (profil) passent par Composio.
+          COMPOSIO_API_KEY: ${{ secrets.COMPOSIO_API_KEY }}
 
       # L'émission des factures et leurs relances — jamais sur `finance`, la
       # portée des écrans : ouvrir une page ne doit pas envoyer un mail à un

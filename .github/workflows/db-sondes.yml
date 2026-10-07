@@ -112,6 +112,14 @@ on:
         description: "… vers cette adresse à la place des clients, sans journal (test)"
         type: string
         default: ""
+      essai_publication:
+        description: "Essai de publication : identifiant du sujet du planning (vraie chaîne, rien n'est écrit au planning)"
+        type: string
+        default: ""
+      essai_publication_vers:
+        description: "… sur les comptes de cet espace de test (slug) — jamais celui du client"
+        type: string
+        default: ""
 
 jobs:
   sonder:
@@ -203,6 +211,10 @@ jobs:
           # Les jetons Meta sont chiffrés en base.
           CREDENTIALS_ENCRYPTION_KEY: ${{ secrets.CREDENTIALS_ENCRYPTION_KEY }}
           COMPOSIO_API_KEY: ${{ secrets.COMPOSIO_API_KEY }}
+          # YouTube : le jeton Google expire dans l'heure et se renouvelle
+          # avec l'application OAuth qui l'a émis.
+          GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
+          GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
 
       # TikTok, avant d'écrire la moindre ligne de connecteur : quelle
       # configuration d'authentification existe, quel compte est branché dans
@@ -317,3 +329,21 @@ jobs:
           CREDENTIALS_ENCRYPTION_KEY: ${{ secrets.CREDENTIALS_ENCRYPTION_KEY }}
           GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
           GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
+
+      # L'essai de publication : un sujet publié par le code du produit sur
+      # les comptes d'un espace de test — Instagram, Facebook, LinkedIn en
+      # direct, TikTok en brouillon. La preuve par la vraie chaîne avant
+      # qu'un réseau neuf ne parte chez un client. Utilisable après la
+      # fusion seulement : un `workflow_dispatch` se valide contre `main`.
+      - name: Essai de publication
+        if: ${{ inputs.essai_publication != '' && inputs.essai_publication_vers != '' }}
+        run: >-
+          pnpm publier:essai
+          --sujet "${{ inputs.essai_publication }}"
+          --espace "${{ inputs.essai_publication_vers }}"
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          CREDENTIALS_ENCRYPTION_KEY: ${{ secrets.CREDENTIALS_ENCRYPTION_KEY }}
+          COMPOSIO_API_KEY: ${{ secrets.COMPOSIO_API_KEY }}
