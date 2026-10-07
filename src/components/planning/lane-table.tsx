@@ -54,7 +54,6 @@ export function LaneTable({
   onResizePreview,
   defaultOpen,
   onOpenChange,
-  canGenerateWording,
   monthKey,
 }: {
   scope: Scope;
@@ -74,8 +73,6 @@ export function LaneTable({
   /** Ouvert sauf si le cookie dit le contraire. */
   defaultOpen: boolean;
   onOpenChange: (open: boolean) => void;
-  /** Le stylo de génération, réservé à l'agence. */
-  canGenerateWording: boolean;
   /** Le mois du couloir, `YYYY-MM-01` — porté par les lignes ajoutées. */
   monthKey: string;
 }) {
@@ -310,7 +307,6 @@ export function LaneTable({
                 gridTemplate={template}
                 owners={owners}
                 selected={selectedIds.has(subject.id)}
-                canGenerateWording={canGenerateWording}
                 bulkTargets={
                   selectedIds.has(subject.id) ? [...selectedIds] : null
                 }
