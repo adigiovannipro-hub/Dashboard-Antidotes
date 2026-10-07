@@ -46,8 +46,13 @@ export const signedVisualUrls = unstable_cache(
     for (const entry of data ?? []) {
       if (entry.signedUrl && entry.path) byPath.set(entry.path, entry.signedUrl);
     }
+    // Un fichier introuvable lève au lieu de rendre "" : sans quoi l'échec
+    // restait en cache une semaine, et la créa redéposée sous le même chemin
+    // ne s'affichait que par son nom.
+    const url = byPath.get(path);
+    if (!url) throw new Error(`visuel introuvable : ${path}`);
     return {
-      url: byPath.get(path) ?? "",
+      url,
       previewUrl: byPath.get(previewPathFor(path)) ?? null,
     };
   },

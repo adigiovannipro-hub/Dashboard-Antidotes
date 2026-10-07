@@ -6,7 +6,6 @@ import { getClientContext } from "@/lib/context/get-client-context";
 import { EMPTY_DELIVERABLES, normalizeDeliverables } from "@/lib/context/deliverables";
 import type { ContextDeliverables } from "@/lib/context/types";
 import {
-  DONE_STATUSES,
   EXCLUDED_STATUSES,
   FORMAT_LABELS,
   PLATFORM_LABELS,

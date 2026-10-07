@@ -5,7 +5,6 @@ import {
   creatorOf,
   directPostInfo,
   TIKTOK_CAPTION_MAX,
-  TIKTOK_PRIVACY_LABELS,
   tiktokSettingsIssue,
   type TiktokCreator,
   type TiktokPostSettings,
@@ -144,13 +143,9 @@ export async function publishTiktokVideo(options: {
     // Relu au moment de publier : un compte peut avoir changé ses réglages
     // depuis que le panneau les a affichés.
     const creator = await fetchTiktokCreator(connectedAccountId);
-    if (!creator.privacyOptions.includes(settings.privacy)) {
-      throw new Error(
-        `la confidentialité « ${TIKTOK_PRIVACY_LABELS[settings.privacy]} » n'est plus proposée par ce compte — la rechoisir dans le panneau`,
-      );
-    }
-
-    try {
+    // Une confidentialité que le compte ne propose pas (compte privé, app
+    // non auditée) ne bloque plus rien : la vidéo part en brouillon.
+    if (creator.privacyOptions.includes(settings.privacy)) try {
       const publishId = await initAndUpload(
         connectedAccountId,
         "/v2/post/publish/video/init/",

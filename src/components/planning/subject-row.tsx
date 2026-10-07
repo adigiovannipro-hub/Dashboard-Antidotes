@@ -446,9 +446,7 @@ function Cell({
           onUpload={(files) =>
             runUpload(() => uploadVisualsFromBrowser(scope, row.id, files))
           }
-          onRemove={(path) =>
-            runUpload(() => removeVisual(scope, { subjectId: row.id, path }))
-          }
+          onRemove={(path) => removeVisual(scope, { subjectId: row.id, path })}
         />,
       );
 

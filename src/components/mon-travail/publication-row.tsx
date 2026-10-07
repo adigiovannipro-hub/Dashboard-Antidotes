@@ -319,9 +319,7 @@ export function PublicationRowView({ row }: { row: Row }) {
           onUpload={(files) =>
             run(() => uploadVisualsFromBrowser(scope, row.subject.id, files))
           }
-          onRemove={(path) =>
-            run(() => removeVisual(scope, { subjectId: row.subject.id, path }))
-          }
+          onRemove={(path) => removeVisual(scope, { subjectId: row.subject.id, path })}
         />
       </Cell>
 
