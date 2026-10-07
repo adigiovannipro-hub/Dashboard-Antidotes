@@ -640,6 +640,9 @@ export function CommentThread({
   const [recipients, setRecipients] = useState<string[]>([]);
   const [mentionOpen, setMentionOpen] = useState(false);
   const [emailDraft, setEmailDraft] = useState("");
+  // Suggestion surlignée au clavier ; -1 = aucune, Entrée valide alors la saisie.
+  const [activeIndex, setActiveIndex] = useState(-1);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   // Position du `@` tapé, pour y écrire l'adresse validée.
   const mentionAt = useRef(0);
   const { run, pending } = useCellAction();
@@ -659,7 +662,9 @@ export function CommentThread({
       setRecipients((current) => [...current, email]);
     }
     setEmailDraft("");
+    setActiveIndex(-1);
     setMentionOpen(false);
+    textareaRef.current?.focus();
   };
 
   const suggestions = members.filter((member) => {
@@ -669,7 +674,11 @@ export function CommentThread({
       member.email.toLowerCase().includes(needle) ||
       (member.full_name ?? "").toLowerCase().includes(needle)
     );
-  });
+  }).slice(0, 4);
+
+  // ⌘/Ctrl+Entrée envoie le retour, depuis le texte comme depuis la bulle.
+  const isSubmitShortcut = (event: React.KeyboardEvent) =>
+    event.key === "Enter" && (event.metaKey || event.ctrlKey);
 
   function submit() {
     if (!body.trim()) return;
@@ -707,9 +716,23 @@ export function CommentThread({
           <textarea
             value={body}
             onChange={(event) => setBody(event.target.value)}
+            ref={textareaRef}
             onKeyDown={(event) => {
+              if (isSubmitShortcut(event)) {
+                event.preventDefault();
+                submit();
+                return;
+              }
               if (event.key === "@") {
-                mentionAt.current = event.currentTarget.selectionStart;
+                /* Le `@` s'écrit ici à la main : laissé au navigateur, il
+                   tombait dans le champ de la bulle qui prend le focus. */
+                event.preventDefault();
+                const { selectionStart, selectionEnd } = event.currentTarget;
+                mentionAt.current = selectionStart;
+                setBody((current) =>
+                  current.slice(0, selectionStart) + "@" + current.slice(selectionEnd),
+                );
+                setActiveIndex(-1);
                 setMentionOpen(true);
               }
             }}
@@ -733,11 +756,40 @@ export function CommentThread({
                   type="email"
                   autoFocus
                   value={emailDraft}
-                  onChange={(event) => setEmailDraft(event.target.value)}
+                  onChange={(event) => {
+                    setEmailDraft(event.target.value);
+                    setActiveIndex(-1);
+                  }}
+                  role="combobox"
+                  aria-expanded={suggestions.length > 0}
+                  aria-controls={`mention-${subjectId}`}
+                  aria-activedescendant={
+                    activeIndex >= 0 ? `mention-${subjectId}-${activeIndex}` : undefined
+                  }
                   onKeyDown={(event) => {
+                    if (isSubmitShortcut(event)) {
+                      event.preventDefault();
+                      setMentionOpen(false);
+                      submit();
+                      return;
+                    }
+                    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+                      if (suggestions.length === 0) return;
+                      event.preventDefault();
+                      const step = event.key === "ArrowDown" ? 1 : -1;
+                      setActiveIndex((current) =>
+                        current < 0
+                          ? step > 0 ? 0 : suggestions.length - 1
+                          : (current + step + suggestions.length) % suggestions.length,
+                      );
+                      return;
+                    }
                     if (event.key === "Enter") {
                       event.preventDefault();
-                      validateMention(emailDraft);
+                      const picked = suggestions[activeIndex];
+                      if (picked) validateMention(picked.email);
+                      else if (/^\S+@\S+\.\S+$/.test(emailDraft.trim())) validateMention(emailDraft);
+                      else if (suggestions[0]) validateMention(suggestions[0].email);
                     }
                     if (event.key === "Escape") {
                       event.stopPropagation();
@@ -758,13 +810,23 @@ export function CommentThread({
                 </button>
               </div>
               {suggestions.length > 0 ? (
-                <ul className="mt-1.5 space-y-0.5">
-                  {suggestions.slice(0, 4).map((member) => (
-                    <li key={member.id}>
+                <ul id={`mention-${subjectId}`} role="listbox" className="mt-1.5 space-y-0.5">
+                  {suggestions.map((member, index) => (
+                    <li
+                      key={member.id}
+                      id={`mention-${subjectId}-${index}`}
+                      role="option"
+                      aria-selected={index === activeIndex}
+                    >
                       <button
                         type="button"
+                        tabIndex={-1}
                         onClick={() => validateMention(member.email)}
-                        className="hover:bg-muted flex w-full items-center gap-2 rounded px-1.5 py-1 text-left text-xs"
+                        onMouseEnter={() => setActiveIndex(index)}
+                        className={cn(
+                          "hover:bg-muted flex w-full items-center gap-2 rounded px-1.5 py-1 text-left text-xs",
+                          index === activeIndex && "bg-muted",
+                        )}
                       >
                         <OwnerAvatar owner={member} />
                         <span className="min-w-0 flex-1 truncate">
