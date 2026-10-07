@@ -45,7 +45,7 @@ import {
  * Les écritures suivent les gestes de l'application et s'écrivent au journal
  * du sujet comme eux. Aucune ne valide, ne publie ni ne supprime : le circuit
  * de validation du client reste dans l'application, et `scheduled`
- * (« Programmé ») déclenche la publication automatique de 16 h.
+ * (« Programmé ») déclenche la publication automatique de 16h00, heure de Bali.
  */
 
 type SubjectLine = {
@@ -492,7 +492,7 @@ export const PLANNING_TOOLS: ToolDefinition[] = [
   {
     name: "modifier_publication",
     description:
-      "Modifie une publication du planning : sujet, date (dans son mois), type ou statut. Chaque changement s'écrit au journal du sujet. Les statuts « Validé », « Programmé » et « Publié » sont refusés : la validation appartient au client, et « Programmé » déclenche la publication automatique de 16 h.",
+      "Modifie une publication du planning : sujet, date (dans son mois), type ou statut. Chaque changement s'écrit au journal du sujet. Les statuts « Validé », « Programmé » et « Publié » sont refusés : la validation appartient au client, et « Programmé » déclenche la publication automatique de 16h00 (heure de Bali).",
     inputSchema: {
       type: "object",
       properties: {

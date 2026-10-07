@@ -6,9 +6,9 @@
 -- de retard, mesurées) ne tiennent la minute. `pg_cron` si : il tourne dans
 -- la base, à la seconde, et `pg_net` appelle la route qui publie.
 --
--- `pg_cron` compte en UTC. 16h de Paris vaut 14h UTC l'été et 15h l'hiver :
--- deux tâches, et la route ne travaille que lorsqu'il est 16h à Paris —
--- l'autre appel répond « pas ma saison » et ne fait rien.
+-- L'heure est 16h00 **à Bali** (décision du 7/10/2026), 10h à Paris l'été et
+-- 9h l'hiver. Bali n'a pas d'heure d'été : 08h00 UTC toute l'année, une seule
+-- tâche. La route vérifie elle-même que la journée est ouverte.
 --
 -- Le jeton n'est pas ici : il vit dans le coffre de Supabase (`vault`, secret
 -- `publication_cron_secret`), et la même valeur dans
@@ -46,7 +46,6 @@ begin
   execute 'create extension if not exists pg_cron with schema pg_catalog';
   execute 'create extension if not exists pg_net with schema extensions';
 
-  execute format('select cron.schedule(%L, %L, %L)', 'publication-16h-ete', '0 14 * * *', commande);
-  execute format('select cron.schedule(%L, %L, %L)', 'publication-16h-hiver', '0 15 * * *', commande);
+  execute format('select cron.schedule(%L, %L, %L)', 'publication-16h-bali', '0 8 * * *', commande);
 end
 $migration$;

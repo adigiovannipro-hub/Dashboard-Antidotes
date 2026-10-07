@@ -189,11 +189,11 @@ export function targetPlan(
 }
 
 /**
- * L'heure et la date **de Paris** pour un instant donné.
+ * La date et l'heure **de Paris** pour un instant donné.
  *
- * C'est la seule horloge métier du module : « publier à 16h » veut dire 16h
- * heure française, été comme hiver. Le décalage UTC changeant deux fois par
- * an, on demande au fuseau plutôt que de coder un offset.
+ * La date d'une publication est celle du calendrier du client, français :
+ * c'est elle qui dit de quel jour une ligne est. Le décalage UTC changeant
+ * deux fois par an, on demande au fuseau plutôt que de coder un offset.
  */
 export function parisStamp(now: Date): { date: string; hour: number } {
   const parts = new Intl.DateTimeFormat("fr-CA", {
@@ -226,30 +226,54 @@ export const PUBLISH_TRIGGER_STATUS = "scheduled";
  */
 export const PUBLISHABLE_NOW_STATUSES: string[] = ["scheduled", "validated"];
 
-/** L'heure de Paris à laquelle la publication automatique part. */
-export const PUBLISH_HOUR_PARIS = 16;
+/**
+ * L'heure de la publication automatique : **16h00 à Bali**, où travaille
+ * l'agence (décision du 7/10/2026) — 10h à Paris l'été, 9h l'hiver.
+ *
+ * Bali (`Asia/Makassar`, WITA) n'a pas d'heure d'été : UTC+8 toute l'année,
+ * d'où un décalage écrit en dur, sans risque de dériver. C'est aussi ce qui
+ * permet à `pg_cron`, qui compte en UTC, de tomber juste avec une seule tâche
+ * à 08h00 UTC.
+ */
+export const PUBLISH_HOUR = 16;
+export const PUBLISH_TIME_ZONE_LABEL = "heure de Bali";
+const PUBLISH_UTC_OFFSET = "+08:00";
+
+/** L'instant où s'ouvre la publication d'un jour : 16h00 à Bali, ce jour-là. */
+export function publishOpening(date: string): Date {
+  return new Date(`${date}T${String(PUBLISH_HOUR).padStart(2, "0")}:00:00${PUBLISH_UTC_OFFSET}`);
+}
+
+/** « 10h00 » ou « 9h00 » : l'ouverture d'un jour, lue à Paris. */
+export function openingInParis(date: string): string {
+  const parts = new Intl.DateTimeFormat("fr-FR", {
+    timeZone: "Europe/Paris",
+    hour: "numeric",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(publishOpening(date));
+  const get = (type: string) => parts.find((part) => part.type === type)?.value ?? "";
+  return `${get("hour")}h${get("minute")}`;
+}
 
 /**
- * La fenêtre de publication : de 16h à minuit, heure de Paris.
+ * La fenêtre de publication d'un jour : de 16h00 à Bali jusqu'à minuit à
+ * Paris — la date de la ligne restant celle du calendrier français.
  *
  * Le passage de 16h00 pile vient de `pg_cron` (Supabase), qui appelle
  * `/api/cron/publier` à la minute. La fenêtre reste ouverte jusqu'à minuit
- * pour les filets : un `schedule` GitHub arrive des heures en retard et en
- * saute près d'un sur deux, sans ligne rouge ni notification.
+ * pour les filets : les passages programmés de GitHub arrivent des heures en
+ * retard, et le soir d'`airwallex-sync.yml` reprend ce que 16h00 a laissé.
+ * La borne haute n'a pas à s'écrire : à minuit, la date de Paris avance et
+ * les sujets du jour deviennent des retards, que le passage refuse déjà de
+ * publier.
  *
- * Ouverte de 16h à minuit, elle reçoit le passage du soir d'`airwallex-sync.yml`
- * (programmé à 15h UTC, lancé par GitHub des heures plus tard — la fenêtre de
- * huit heures absorbe le retard) et, souvent, celui du matin, qui rattrape.
- * La borne haute n'a pas à s'écrire : à
- * minuit, la date de Paris avance et les sujets du jour deviennent des
- * retards, que le passage refuse déjà de publier.
- *
- * Ce qui rend l'élargissement sûr, c'est `planning_publications` : revendiquer
+ * Ce qui rend la fenêtre sûre, c'est `planning_publications` : revendiquer
  * un couple (sujet, réseau) est une insertion sous contrainte d'unicité. Un
- * sujet parti à 16h est ignoré à 17h. Effet de bord voulu : une ligne en
- * `error` est reprise à chaque passage, donc un compte affecté ou un wording
- * corrigé à 18h publie à 19h au lieu de ne jamais partir.
+ * sujet parti à 16h00 est ignoré au passage suivant. Effet de bord voulu : une
+ * ligne en `error` est reprise à chaque passage, donc un compte affecté ou un
+ * wording corrigé dans la journée publie au passage suivant.
  */
-export function isPublishWindow(parisHour: number): boolean {
-  return parisHour >= PUBLISH_HOUR_PARIS;
+export function isPublishWindow(now: Date): boolean {
+  return now.getTime() >= publishOpening(parisStamp(now).date).getTime();
 }

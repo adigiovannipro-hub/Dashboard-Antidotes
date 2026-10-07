@@ -37,7 +37,7 @@ export function resolveFormat(raw: unknown): PlanningFormat {
  * Les statuts qu'un modèle n'a pas le droit de poser.
  *
  * `validated` est le geste du client, jamais celui d'un assistant ;
- * `scheduled` (« Programmé ») déclenche la publication automatique à 16 h,
+ * `scheduled` (« Programmé ») déclenche la publication automatique de 16h00 (Bali),
  * c'est le geste de l'agence ; `published` affirmerait une publication qui
  * n'a pas eu lieu.
  */
@@ -68,7 +68,7 @@ export function resolveEditableStatus(raw: unknown): PlanningStatus {
   if (!found) throw new Error(`Statut inconnu : « ${String(raw)} ». Statuts : ${allowed}.`);
   if (FORBIDDEN_STATUSES.includes(found)) {
     throw new Error(
-      `« ${STATUS_LABELS[found]} » ne se pose que dans l'application : la validation appartient au client, et « Programmé » déclenche la publication automatique de 16 h.`,
+      `« ${STATUS_LABELS[found]} » ne se pose que dans l'application : la validation appartient au client, et « Programmé » déclenche la publication automatique de 16h00 (heure de Bali).`,
     );
   }
   return found;

@@ -20,7 +20,7 @@ import { createAdminClient, createClient } from "@/lib/supabase/server";
  * Les gestes TikTok du panneau d'une publication : voir le compte de
  * destination et ce qu'il autorise, enregistrer les réglages que TikTok exige
  * de voir choisis par l'utilisateur, et — pour l'agence seule — publier tout
- * de suite plutôt qu'à 16h.
+ * de suite plutôt qu'à 16h00.
  */
 
 type Scope = { workspace: string; board: string };
@@ -156,7 +156,7 @@ export async function lastTiktokSettings(
 
 /**
  * Publier tout de suite sur TikTok — l'agence seule. Le même chemin que le
- * passage de 16h : même verrou, même journal, même bascule de statut.
+ * passage de 16h00 : même verrou, même journal, même bascule de statut.
  */
 export async function publishTiktokNow(
   scope: Scope,

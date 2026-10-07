@@ -173,7 +173,7 @@ export async function dispatchModerationWorkflow(
 }
 
 /**
- * Le relais de la publication de 16h00 : ce que la fonction Vercel n'a pas
+ * Le relais de la publication de 16h00 (heure de Bali) : ce que la fonction Vercel n'a pas
  * eu le temps de revendiquer part sur un runner dans la minute — un
  * `workflow_dispatch` démarre tout de suite, contrairement à un `schedule`.
  * Fichier à part, avec sa propre file : derrière `finance-sync`, il pourrait

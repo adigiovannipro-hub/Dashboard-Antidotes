@@ -1,7 +1,7 @@
 /**
  * Publication automatique du Planning, exécutée depuis une machine GitHub.
  *
- *   pnpm publier:planning            — publie ce qui est « Programmé » aujourd'hui, à partir de 16h de Paris
+ *   pnpm publier:planning            — publie ce qui est « Programmé » aujourd'hui, à partir de 16h00 à Bali
  *   pnpm publier:planning --force    — publie maintenant, quelle que soit l'heure
  *
  * Le passage de 16h00 pile part de Vercel (`/api/cron/publier`, appelée par

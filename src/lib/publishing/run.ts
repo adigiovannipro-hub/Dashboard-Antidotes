@@ -11,9 +11,10 @@ import { publishFacebook, publishInstagram } from "./meta-publish";
 import { pdfFromJpegs } from "./pdf-from-jpegs";
 import {
   isPublishWindow,
+  openingInParis,
   parisStamp,
   PUBLISH_BLOCKER_LABELS,
-  PUBLISH_HOUR_PARIS,
+  PUBLISH_TIME_ZONE_LABEL,
   PUBLISH_TARGET_LABELS,
   PUBLISH_TRIGGER_STATUS,
   PUBLISHABLE_NOW_STATUSES,
@@ -32,7 +33,8 @@ import { parseTiktokSettings } from "./tiktok-settings";
 /**
  * Le passage de publication automatique.
  *
- * Chaque jour **à 16h00** heure de Paris : tout sujet **« Programmé »**
+ * Chaque jour **à 16h00 heure de Bali** (10h à Paris l'été, 9h l'hiver) :
+ * tout sujet **« Programmé »**
  * (`scheduled`) dont la date est aujourd'hui part sur les réseaux de son couloir — Instagram et
  * Facebook en direct, LinkedIn sur le profil du client, TikTok **en
  * brouillon** dans l'application du compte. Le déclencheur est le statut
@@ -51,7 +53,7 @@ import { parseTiktokSettings } from "./tiktok-settings";
  * (`followTiktokDrafts`), à toute heure.
  *
  * L'heure exacte vient de `pg_cron`, dans Supabase, qui appelle
- * `/api/cron/publier` à 16h00 : la publication part de Vercel à la minute
+ * `/api/cron/publier` à 08h00 UTC : la publication part de Vercel à la minute
  * (Meta accepte ses adresses). Les passages du soir de GitHub restent en
  * filet — un réseau en erreur ou laissé faute de temps y repart, le verrou
  * empêchant tout doublon. Voir `isPublishWindow`.
@@ -126,7 +128,7 @@ function accountResolver(admin: Admin) {
 export async function runScheduledPublishing(options: {
   admin: Admin;
   now?: Date;
-  /** Publier même hors de 16h — le passage manuel. */
+  /** Publier même hors de la fenêtre — le passage manuel. */
   force?: boolean;
   /**
    * Heure limite (epoch ms) : passé `deadline - DEFER_RESERVE_MS`, un réseau
@@ -149,10 +151,10 @@ export async function runScheduledPublishing(options: {
     deferred: [],
   };
 
-  if (isPublishWindow(paris.hour) || force) {
+  if (isPublishWindow(now) || force) {
     await publishToday({ admin, paris, accountFor, report, deadline });
   } else {
-    report.skipped = `Il est ${paris.hour}h à Paris — la publication part à partir de ${PUBLISH_HOUR_PARIS}h.`;
+    report.skipped = `Il est ${paris.hour}h à Paris — la publication du ${paris.date} part à 16h00 ${PUBLISH_TIME_ZONE_LABEL} (${openingInParis(paris.date)} à Paris).`;
   }
 
   // Les brouillons TikTok se suivent à toute heure, après la publication

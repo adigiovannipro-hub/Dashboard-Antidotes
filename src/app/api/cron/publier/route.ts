@@ -3,16 +3,15 @@ import { timingSafeEqual } from "node:crypto";
 
 import { serverEnv } from "@/lib/env";
 import { dispatchPublicationWorkflow } from "@/lib/finance/github-actions";
-import { parisStamp, PUBLISH_HOUR_PARIS } from "@/lib/publishing/readiness";
+import { parisStamp, publishOpening } from "@/lib/publishing/readiness";
 import { runScheduledPublishing } from "@/lib/publishing/run";
 import { createAdminClient } from "@/lib/supabase/server";
 
 /**
- * La publication de 16h00 pile.
+ * La publication de 16h00 pile, heure de Bali (10h à Paris l'été, 9h l'hiver).
  *
- * L'horloge est `pg_cron`, dans Supabase (migration 20261007c) : à 14h00 et
- * 15h00 UTC il appelle cette route, et seule celle qui tombe à 16h de Paris
- * travaille — l'autre est l'heure d'été ou d'hiver qui ne s'applique pas.
+ * L'horloge est `pg_cron`, dans Supabase (migration 20261007c) : à 08h00 UTC
+ * il appelle cette route — Bali n'a pas d'heure d'été, une seule tâche suffit.
  * Ni un cron Vercel (le plan Hobby ne garantit que l'heure, pas la minute,
  * et ses deux créneaux sont pris) ni un `schedule` GitHub (quatre à sept
  * heures de retard) ne tiennent la minute.
@@ -30,6 +29,9 @@ export const maxDuration = 300;
 
 /** Marge sous `maxDuration` : clore les lignes et donner l'ordre du relais. */
 const BUDGET_MS = 270_000;
+
+/** Une horloge en avance de quelques secondes reste la bonne. */
+const EARLY_TOLERANCE_MS = 2 * 60_000;
 
 function authorized(request: Request): boolean {
   const header = request.headers.get("authorization");
@@ -51,16 +53,20 @@ async function handle(request: Request) {
 
   const started = Date.now();
   const paris = parisStamp(new Date(started));
-  if (paris.hour !== PUBLISH_HOUR_PARIS) {
+  // Avant l'ouverture du jour, rien ne part — un appel égaré ne publie pas en
+  // avance. Après, la fenêtre est ouverte jusqu'à minuit à Paris.
+  if (started < publishOpening(paris.date).getTime() - EARLY_TOLERANCE_MS) {
     return NextResponse.json({
       ok: true,
-      skipped: `Il est ${paris.hour}h à Paris : ce créneau est celui de l'autre saison.`,
+      skipped: `La publication du ${paris.date} n'est pas encore ouverte (16h00 à Bali).`,
     });
   }
 
   after(async () => {
     const report = await runScheduledPublishing({
       admin: createAdminClient(),
+      // La tolérance d'avance ci-dessus : la fenêtre est vérifiée ici.
+      force: true,
       deadline: started + BUDGET_MS,
     }).catch((error: unknown) => {
       console.error("[publication 16h]", error);

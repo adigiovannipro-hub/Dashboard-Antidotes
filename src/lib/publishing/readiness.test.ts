@@ -4,6 +4,8 @@ import {
   isPublishWindow,
   isJpegPath,
   isPdfPath,
+  openingInParis,
+  publishOpening,
   isVideoPath,
   parisStamp,
   publishPlan,
@@ -212,25 +214,35 @@ describe("parisStamp", () => {
   });
 });
 
+describe("publishOpening", () => {
+  it("ouvre à 16h00 à Bali, soit 08h00 UTC toute l'année", () => {
+    expect(publishOpening("2026-10-09").toISOString()).toBe("2026-10-09T08:00:00.000Z");
+    expect(publishOpening("2026-12-01").toISOString()).toBe("2026-12-01T08:00:00.000Z");
+  });
+
+  it("se lit 10h à Paris l'été et 9h l'hiver", () => {
+    expect(openingInParis("2026-10-09")).toBe("10h00");
+    expect(openingInParis("2026-12-01")).toBe("9h00");
+  });
+});
+
 describe("isPublishWindow", () => {
-  it("refuse le matin — rien ne part avant 16h", () => {
-    expect(isPublishWindow(9)).toBe(false);
-    expect(isPublishWindow(15)).toBe(false);
+  it("reste fermée avant 16h00 à Bali", () => {
+    expect(isPublishWindow(new Date("2026-10-09T07:59:00Z"))).toBe(false);
   });
 
-  it("ouvre à 16h pile", () => {
-    expect(isPublishWindow(16)).toBe(true);
+  it("ouvre à 16h00 pile à Bali", () => {
+    expect(isPublishWindow(new Date("2026-10-09T08:00:00Z"))).toBe(true);
+    expect(isPublishWindow(new Date("2026-12-01T08:00:00Z"))).toBe(true);
   });
 
-  it("laisse rattraper toute la soirée — c'est là qu'est la correction", () => {
-    // Une seule chance par jour, c'était une chance sur deux de ne rien
-    // publier : le passage de 14h17 UTC est sauté aussi souvent qu'un autre.
-    expect(isPublishWindow(19)).toBe(true);
-    expect(isPublishWindow(23)).toBe(true);
+  it("laisse rattraper jusqu'à minuit à Paris — c'est là que sont les filets", () => {
+    expect(isPublishWindow(new Date("2026-10-09T21:30:00Z"))).toBe(true);
   });
 
-  it("se referme à minuit — pas par l'heure, par la date de Paris qui avance", () => {
-    expect(isPublishWindow(0)).toBe(false);
+  it("se referme à minuit de Paris : la date de la ligne est française", () => {
+    // 00h30 à Paris le 10 : la journée du 10 n'est pas encore ouverte.
+    expect(isPublishWindow(new Date("2026-10-09T22:30:00Z"))).toBe(false);
   });
 });
 
