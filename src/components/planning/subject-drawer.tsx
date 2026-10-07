@@ -336,7 +336,21 @@ function VisualCarousel({
   const [expanded, setExpanded] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const visuals = subject.visuals;
+  // L'ordre posé par un glisser-déposer s'affiche tout de suite ; il vaut
+  // tant que le serveur n'a pas renvoyé de nouveaux visuels (identité de la
+  // liste reçue, pas d'effet qui remet à zéro).
+  const [localOrder, setLocalOrder] = useState<{
+    source: SubjectRow["visuals"];
+    paths: string[];
+  } | null>(null);
+  const [dragFrom, setDragFrom] = useState<number | null>(null);
+  const [dragOver, setDragOver] = useState<number | null>(null);
+  const visuals =
+    localOrder && localOrder.source === subject.visuals
+      ? localOrder.paths
+          .map((path) => subject.visuals.find((visual) => visual.path === path))
+          .filter((visual): visual is SubjectRow["visuals"][number] => !!visual)
+      : subject.visuals;
   const { trackRef, index, scrollTo, onScroll, prev, next } = useSnapCarousel(
     visuals.length,
   );
@@ -348,6 +362,7 @@ function VisualCarousel({
     const paths = visuals.map((visual) => visual.path);
     const [moved] = paths.splice(from, 1);
     paths.splice(to, 0, moved!);
+    setLocalOrder({ source: subject.visuals, paths });
     scrollTo(to, false);
     onReorder(paths);
   };
@@ -440,11 +455,43 @@ function VisualCarousel({
         />
       ) : null}
 
-      {/* La bande de vignettes : scroll horizontal, flèches de réordonnancement. */}
+      {/* La bande de vignettes : glisser-déposer pour réordonner (l'ordre des
+          slides publiées), flèches au survol pour le clavier. */}
       {visuals.length > 1 ? (
         <div className="flex gap-2 overflow-x-auto px-4 py-2" role="list">
           {visuals.map((visual, i) => (
-            <div key={visual.path} role="listitem" className="group/thumb relative shrink-0">
+            <div
+              key={visual.path}
+              role="listitem"
+              draggable
+              onDragStart={(event) => {
+                event.dataTransfer.effectAllowed = "move";
+                event.dataTransfer.setData("text/plain", visual.path);
+                setDragFrom(i);
+              }}
+              onDragOver={(event) => {
+                if (dragFrom === null) return;
+                event.preventDefault();
+                event.dataTransfer.dropEffect = "move";
+                if (dragOver !== i) setDragOver(i);
+              }}
+              onDrop={(event) => {
+                if (dragFrom === null) return;
+                event.preventDefault();
+                move(dragFrom, i);
+                setDragFrom(null);
+                setDragOver(null);
+              }}
+              onDragEnd={() => {
+                setDragFrom(null);
+                setDragOver(null);
+              }}
+              className={cn(
+                "group/thumb relative shrink-0 cursor-grab rounded-lg active:cursor-grabbing",
+                dragFrom === i && "opacity-40",
+                dragOver === i && dragFrom !== null && dragFrom !== i && "ring-brand ring-2",
+              )}
+            >
               <button
                 type="button"
                 onClick={() => scrollTo(i)}
@@ -460,6 +507,7 @@ function VisualCarousel({
                   <img
                     src={visualThumbUrl(visual)!}
                     alt=""
+                    draggable={false}
                     className="size-full object-cover"
                     loading="lazy"
                   />
