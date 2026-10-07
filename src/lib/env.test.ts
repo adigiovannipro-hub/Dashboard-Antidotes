@@ -19,6 +19,7 @@ const KEYS = [
   "GITHUB_SYNC_TOKEN",
   "COMPOSIO_API_KEY",
   "MCP_SECRET",
+  "PUBLICATION_CRON_SECRET",
 ] as const;
 
 const saved: Record<string, string | undefined> = {};
@@ -26,7 +27,7 @@ const saved: Record<string, string | undefined> = {};
 beforeEach(() => {
   for (const key of KEYS) {
     saved[key] = process.env[key];
-    // 32 caractères au moins : le seuil de `MCP_SECRET`.
+    // 32 caractères au moins : le seuil de `MCP_SECRET` et de `PUBLICATION_CRON_SECRET`.
     process.env[key] = `valeur-${key}-0123456789abcdef0123456789`;
   }
 });
