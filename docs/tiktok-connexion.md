@@ -178,6 +178,35 @@ arbitrage de **légitimité contre friction**, jamais de richesse de données.
 - **Import CSV** depuis TikTok Studio — zéro coût, zéro API, un geste manuel
   par mois. Le projet a déjà ce motif avec `pnpm import:followers`.
 
+## Publier en brouillon — ajouté le 7/10/2026
+
+Le couloir TikTok du planning part **en brouillon** dans l'application du
+compte : le client (ou l'agence, si elle tient le téléphone) reçoit une
+notification et appuie sur « publier ». Pourquoi pas la publication
+directe : une app non auditée ne publie qu'en privé (`SELF_ONLY`).
+
+Ce qu'il faut ajouter à l'app « Antidotes » (sandbox d'abord, comme le
+reste) :
+
+1. Produit **Content Posting API**, portée **`video.upload`** (brouillons).
+   `video.publish` ne servira qu'après l'audit.
+2. La même portée dans la configuration TikTok de Composio, puis
+   **rebrancher** le compte du client depuis Connexions : une connexion
+   garde les portées qu'elle avait au moment du branchement.
+
+Limites connues :
+
+- **La légende ne voyage pas** : l'API brouillon n'en accepte aucune. Elle
+  se copie depuis la cellule Wording du planning.
+- **Vidéo seule.** Un carrousel photo exige que les images viennent d'un
+  domaine vérifié chez TikTok (`PULL_FROM_URL`) : possible avec l'app
+  Antidotes, dont le domaine est vérifié par préfixe, le jour où on servira
+  les images depuis ce domaine.
+- TikTok refuse au-delà de cinq brouillons en attente sur 24 h.
+
+La ligne reste « Validé » tant que le brouillon n'est pas publié ; chaque
+passage relit son état et la fait passer « Publié » avec son lien.
+
 ## TikTok Ads — branché le 1/10/2026
 
 Le payant passe par la **Marketing API** (`business-api.tiktok.com`), un
