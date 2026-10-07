@@ -19,6 +19,9 @@ import type { ContentBlock, ToolResult } from "./protocol";
  *
  * Ce module est pur à l'exception de sharp, chargé à la demande : le stockage
  * lui est passé par `VisualStorage`, ce qui le rend testable sans Supabase.
+ * Si sharp ne se charge pas (binaire natif absent de la fonction, vécu en
+ * production le 7/10/2026), l'image part telle quelle sous 5 Mo, sinon par
+ * son URL signée : l'erreur va au journal, jamais dans la réponse.
  */
 
 /** Durée de vie des URL signées rendues au connecteur. */
@@ -39,6 +42,47 @@ export const BATCH_IMAGE_EDGE = 1_080;
 export const IMAGE_BUDGET_BASE64 = 3_000_000;
 
 const JPEG_QUALITY = 80;
+
+/** Sans sharp, une image ne part en clair que sous ce poids ; au-delà, son URL signée. */
+export const RAW_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
+
+/** sharp n'a pas pu être chargé : ce n'est pas l'image qui est en cause. */
+export class SharpUnavailableError extends Error {
+  constructor(cause: unknown) {
+    super(cause instanceof Error ? cause.message : String(cause));
+    this.name = "SharpUnavailableError";
+  }
+}
+
+type SharpModule = typeof import("sharp");
+type SharpLoader = () => Promise<SharpModule>;
+
+const loadSharp: SharpLoader = () => import("sharp");
+
+export type PreparedImage = { data: string; mimeType: string; width: number; height: number };
+
+/**
+ * Le format réel d'après les premiers octets — l'extension du chemin ment
+ * parfois. Seuls les quatre formats qu'un modèle lit sont reconnus : un HEIC
+ * ou un TIFF envoyé tel quel ferait échouer le message entier.
+ */
+export function sniffImageMime(bytes: Uint8Array): string | null {
+  const starts = (...signature: number[]) => signature.every((byte, at) => bytes[at] === byte);
+  if (starts(0xff, 0xd8, 0xff)) return "image/jpeg";
+  if (starts(0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a)) return "image/png";
+  if (starts(0x47, 0x49, 0x46, 0x38)) return "image/gif";
+  const webp = [0x57, 0x45, 0x42, 0x50];
+  if (starts(0x52, 0x49, 0x46, 0x46) && webp.every((byte, at) => bytes[8 + at] === byte)) return "image/webp";
+  return null;
+}
+
+/** L'image d'origine en bloc MCP, quand sharp manque : format lisible et moins de 5 Mo, sinon rien. */
+export function rawImageBlock(bytes: Uint8Array): { data: string; mimeType: string } | null {
+  if (bytes.length >= RAW_IMAGE_MAX_BYTES) return null;
+  const mimeType = sniffImageMime(bytes);
+  if (!mimeType) return null;
+  return { data: Buffer.from(bytes).toString("base64"), mimeType };
+}
 
 export type VisualKind = "image" | "vidéo" | "document" | "fichier";
 
@@ -88,8 +132,14 @@ export type VisualStorage = {
 export async function prepareImage(
   bytes: Uint8Array,
   maxEdge: number,
-): Promise<{ data: string; mimeType: string; width: number; height: number }> {
-  const { default: sharp } = await import("sharp");
+  load: SharpLoader = loadSharp,
+): Promise<PreparedImage> {
+  let sharp: SharpModule["default"];
+  try {
+    ({ default: sharp } = await load());
+  } catch (error) {
+    throw new SharpUnavailableError(error);
+  }
   const { data, info } = await sharp(bytes, { animated: false })
     .rotate()
     .resize({ width: maxEdge, height: maxEdge, fit: "inside", withoutEnlargement: true })
@@ -129,8 +179,10 @@ export async function collectVisuals(input: {
   index?: unknown;
   storage: VisualStorage;
   budget?: number;
+  prepare?: (bytes: Uint8Array, maxEdge: number) => Promise<PreparedImage>;
 }): Promise<ToolResult> {
   const { name, visualUrls, storage } = input;
+  const prepare = input.prepare ?? prepareImage;
   if (visualUrls.length === 0) return { text: `Aucun visuel sur « ${name} ».` };
 
   const indexes = selectIndexes(visualUrls.length, input.index);
@@ -175,22 +227,32 @@ export async function collectVisuals(input: {
           ? [pathOrUrl]
           : [previewPathFor(pathOrUrl), pathOrUrl];
 
-    let image: Awaited<ReturnType<typeof prepareImage>> | null = null;
-    let failure: string | null = null;
+    let image: (Pick<PreparedImage, "data" | "mimeType"> & { size: string | null }) | null = null;
+    let downloaded = false;
+    let unreadable = false;
     for (const candidate of candidates) {
       const bytes = await storage.download(candidate);
       if (!bytes) continue;
+      downloaded = true;
       try {
-        image = await prepareImage(bytes, maxEdge);
+        const prepared = await prepare(bytes, maxEdge);
+        image = { data: prepared.data, mimeType: prepared.mimeType, size: `${prepared.width}×${prepared.height}` };
       } catch (error) {
-        failure = error instanceof Error ? error.message : "lecture impossible";
+        const message = error instanceof Error ? error.message : String(error);
+        console.error(`[mcp] lire_visuels : ${candidate} non redimensionné — ${message}`);
+        // Sharp absent : l'original part tel quel s'il est lisible et léger.
+        // Image corrompue : rien, un octet faux ferait échouer tout le message.
+        const raw = error instanceof SharpUnavailableError ? rawImageBlock(bytes) : null;
+        if (raw) image = { ...raw, size: null };
+        else unreadable = !(error instanceof SharpUnavailableError);
       }
       break;
     }
 
     if (!image) {
-      const why = kind === "vidéo" ? "pas de miniature" : `image illisible${failure ? ` (${failure})` : ""}`;
-      content.push({ type: "text", text: `${label} · ${why} · URL signée (1 h) : ${url}` });
+      const why =
+        kind === "vidéo" && !downloaded ? "pas de miniature · " : unreadable ? "image illisible · " : "";
+      content.push({ type: "text", text: `${label} · ${why}URL signée (1 h) : ${url}` });
       continue;
     }
     if (spent + image.data.length > budget && spent > 0) {
@@ -205,7 +267,9 @@ export async function collectVisuals(input: {
     const caption =
       kind === "vidéo"
         ? `${label} · première image ci-dessous · la vidéo : ${url}`
-        : `${label} · ${image.width}×${image.height}`;
+        : image.size
+          ? `${label} · ${image.size}`
+          : `${label} · original`;
     content.push({ type: "text", text: caption });
     content.push({ type: "image", data: image.data, mimeType: image.mimeType });
   }
