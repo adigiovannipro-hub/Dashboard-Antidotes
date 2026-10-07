@@ -51,7 +51,6 @@ export function MonthGroup({
   closedLanes,
   onLaneOpenChange,
   forceOpen,
-  isOwner,
 }: {
   scope: Scope;
   month: MonthWithLanes;
