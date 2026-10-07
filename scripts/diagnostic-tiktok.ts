@@ -161,6 +161,9 @@ async function organique(composio: Composio) {
     }
     for (const config of configs.items) {
       console.log(`   ${config.id} — ${config.name} (${config.authScheme ?? "schéma inconnu"}, ${config.status})`);
+      // Les portées seules : la configuration porte aussi la client secret.
+      const scopes = (config as { credentials?: Record<string, unknown> }).credentials?.scopes;
+      if (scopes !== undefined) console.log(`     portées demandées : ${short(scopes, 300)}`);
     }
   } catch (error) {
     console.log(`   échec : ${short(error instanceof Error ? error.message : error, 300)}`);
@@ -185,6 +188,9 @@ async function organique(composio: Composio) {
   for (const account of actifs) {
     console.log(`   ${account.id} — ${account.toolkit?.slug ?? TOOLKIT}`);
   }
+
+  console.log("");
+  await publication(composio, actifs);
 
   const account = actifs[0]!;
   const version = argValue("version") ?? "latest";
@@ -267,6 +273,55 @@ async function organique(composio: Composio) {
       console.log(
         `   ${titre} → échec ${short(error instanceof Error ? error.message : error, 300)}`,
       );
+    }
+  }
+}
+
+type TiktokAccount = {
+  id: string;
+  createdAt: string;
+  authConfig: { id: string; isComposioManaged: boolean };
+  state?: { val?: unknown };
+  data?: Record<string, unknown>;
+};
+
+/** Les portées que TikTok a accordées au jeton, si Composio les rend — jamais le jeton. */
+function grantedScope(account: TiktokAccount): string | null {
+  for (const source of [account.state?.val, account.data]) {
+    const scope = (source as Record<string, unknown> | undefined)?.scope;
+    if (typeof scope === "string") return scope;
+    if (Array.isArray(scope)) return scope.join(",");
+  }
+  return null;
+}
+
+/**
+ * Ce que le passage de 16h00 pourra faire, compte par compte : la
+ * configuration qui l'a émis, les portées accordées par TikTok, et la réponse
+ * de `creator_info` — l'appel que la publication fait en premier, qui exige
+ * `video.publish`. Une connexion garde les portées de son branchement : un
+ * compte branché avant l'ajout de la Content Posting API répond
+ * `scope_not_authorized` ici, et il faut le rebrancher. Rien n'est envoyé.
+ */
+async function publication(composio: Composio, actifs: TiktokAccount[]) {
+  console.log("6. Publication — portées et creator_info, par compte");
+  for (const account of actifs) {
+    const config = account.authConfig;
+    console.log(
+      `   ${account.id} — branché le ${account.createdAt}, configuration ${config.id}` +
+        (config.isComposioManaged ? " (gérée par Composio)" : " (app TikTok à nous)"),
+    );
+    console.log(`     portées accordées : ${grantedScope(account) ?? "non rendues par Composio"}`);
+    try {
+      const response = await composio.tools.proxyExecute({
+        endpoint: "/v2/post/publish/creator_info/query/",
+        method: "POST",
+        connectedAccountId: account.id,
+        body: {},
+      });
+      console.log(`     creator_info → ${response.status} ${short(response.data, 600)}`);
+    } catch (error) {
+      console.log(`     creator_info → échec ${short(error instanceof Error ? error.message : error, 300)}`);
     }
   }
 }
