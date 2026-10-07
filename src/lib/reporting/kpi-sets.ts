@@ -40,9 +40,8 @@ export const HERO_METRIC: Record<SocialReportingNetwork, MetricId> = {
      Prendre la définition d'Instagram — interactions sur portée — aurait
      donné 3,6 % et fait douter le client de son propre rapport. */
   linkedin: "engagementRateWithClicks",
-  /* TikTok se lit à ses vues : c'est le chiffre que l'application affiche
-     sous chaque vidéo. X, à ses interactions. YouTube n'a pas encore de
-     connecteur de Reporting. */
+  /* TikTok et YouTube se lisent à leurs vues : c'est le chiffre que chaque
+     plateforme affiche sous la vidéo. X, à ses interactions. */
   tiktok: "videoViews",
   youtube: "videoViews",
   x: "interactions",
@@ -117,7 +116,10 @@ export const KPI_SETS: Record<SocialReportingNetwork, MetricId[]> = {
      ni portée ni enregistrements : le taux d'engagement se rapporte donc aux
      vues. */
   tiktok: ["engagementRate", "likes", "comments", "shares"],
-  youtube: ["likes", "comments", "shares"],
+  /* L'API Data de YouTube rend vues, j'aime et commentaires — ni partages,
+     ni enregistrements, ni portée : le taux d'engagement se rapporte aux
+     vues, et aucune tuile ne promet une grandeur que la source ne rend pas. */
+  youtube: ["engagementRate", "interactions", "likes", "comments"],
   /* X rend tout, impressions et signets compris (`public_metrics`). */
   x: ["impressions", "engagementRate", "likes", "comments", "shares", "saves"],
   "linkedin-ads": ["spend", "impressions", "clicks", "cpm", "ctr", "videoViews", "videoCompletions"],

@@ -7,6 +7,7 @@ import { syncWorkspaceLinkedin } from "@/lib/connectors/linkedin/sync";
 import { syncWorkspaceReporting } from "@/lib/connectors/meta/sync";
 import { syncWorkspaceTiktokAds } from "@/lib/connectors/tiktok-ads/sync";
 import { syncWorkspaceClientSocial } from "@/lib/connectors/composio-social/sync";
+import { syncWorkspaceYoutube } from "@/lib/connectors/youtube/reporting-sync";
 import { missingServerEnv } from "@/lib/env";
 import { createAdminClient } from "@/lib/supabase/server";
 import { COMPOSIO_TRANSITION_NOTE } from "@/lib/social/direct-connect";
@@ -94,23 +95,38 @@ export async function POST(request: Request) {
     atLeastSince: parsed.data.du,
   });
 
+  // YouTube, par le branchement Google direct qui sert déjà l'Inbox.
+  const youtubeReports = await syncWorkspaceYoutube({
+    admin,
+    workspaceId: workspace.id,
+  });
+
   const errors = [
     ...reports.filter((report) => report.error),
     ...webReports.filter((report) => report.error),
     ...linkedinReports.filter((report) => report.error),
     ...tiktokReports.filter((report) => report.error),
     ...clientReports.filter((report) => report.error),
+    ...youtubeReports.filter((report) => report.error),
   ];
   return NextResponse.json({
     ok: errors.length === 0,
-    reports: [...reports, ...webReports, ...linkedinReports, ...tiktokReports, ...clientReports],
+    reports: [
+      ...reports,
+      ...webReports,
+      ...linkedinReports,
+      ...tiktokReports,
+      ...clientReports,
+      ...youtubeReports,
+    ],
     note:
       reports.length === 0 &&
       webReports.length === 0 &&
       linkedinReports.length === 0 &&
       tiktokReports.length === 0 &&
-      clientReports.length === 0
-        ? `Aucun compte Meta, LinkedIn, TikTok ni X affecté à cet espace, aucune propriété GA rattachée. ${COMPOSIO_TRANSITION_NOTE}`
+      clientReports.length === 0 &&
+      youtubeReports.length === 0
+        ? `Aucun compte Meta, LinkedIn, TikTok, X ni YouTube affecté à cet espace, aucune propriété GA rattachée. ${COMPOSIO_TRANSITION_NOTE}`
         : undefined,
   });
 }
