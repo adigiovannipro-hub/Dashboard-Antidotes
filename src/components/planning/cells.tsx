@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useOptimistic, useRef, useState, useTransition } from "react";
-import { CalendarDays, Check, Loader2, Paperclip, Pencil, Trash2 } from "lucide-react";
+import { CalendarDays, Check, Loader2, Paperclip, Pencil, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 
 import type { PlanningResult } from "@/app/actions/planning";
@@ -957,7 +957,14 @@ export function WordingCell({
  * depuis le panneau, en cliquant la créa. Un fichier se dépose directement
  * sur la cellule, sans passer par un sélecteur ; pendant l'envoi, la cellule
  * tourne — le seul retour utile pendant qu'une vidéo monte.
+ *
+ * La croix au survol retire la première créa, comme sur Monday : elle
+ * disparaît tout de suite, et la suppression ne part qu'après le délai du
+ * toast « Annuler » — le fichier quitte le bucket pour de bon, un clic à côté
+ * ne doit rien coûter.
  */
+const UNDO_DELAY_MS = 5000;
+
 export function VisualsCell({
   visuals,
   subjectName,
@@ -971,7 +978,7 @@ export function VisualsCell({
   subjectName: string;
   uploading: boolean;
   onUpload: (files: File[]) => void;
-  onRemove: (path: string) => void;
+  onRemove: (path: string) => Promise<PlanningResult> | void;
   /** Ouvre le panneau de la publication. Absent : visionneuse (Mon travail). */
   onOpen?: () => void;
   className?: string;
@@ -979,7 +986,39 @@ export function VisualsCell({
   const [open, setOpen] = useState(false);
   const [dropping, setDropping] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
-  const first = visuals[0];
+  // Les chemins retirés à l'écran, en attendant que le serveur les oublie.
+  const [hidden, setHidden] = useState<ReadonlySet<string>>(() => new Set());
+  const shown = visuals.filter((visual) => !hidden.has(visual.path));
+  const first = shown[0];
+
+  const reveal = (path: string) =>
+    setHidden((current) => {
+      const next = new Set(current);
+      next.delete(path);
+      return next;
+    });
+
+  const quickRemove = (path: string) => {
+    setHidden((current) => new Set(current).add(path));
+    const timer = setTimeout(() => {
+      void Promise.resolve(onRemove(path)).then((result) => {
+        if (result && !result.ok) {
+          reveal(path);
+          toast.error(result.error);
+        }
+      });
+    }, UNDO_DELAY_MS);
+    toast("Visuel retiré", {
+      duration: UNDO_DELAY_MS,
+      action: {
+        label: "Annuler",
+        onClick: () => {
+          clearTimeout(timer);
+          reveal(path);
+        },
+      },
+    });
+  };
   // La miniature d'abord — même pour une vidéo, dont le poster remplace le
   // trombone. Sans miniature, une image retombe sur l'original signé.
   const thumbUrl = first ? visualThumbUrl(first) : null;
@@ -998,12 +1037,13 @@ export function VisualsCell({
           event.target.value = "";
         }}
       />
+      <div className="group/visual relative w-full">
       <button
         type="button"
-        aria-label={`Visuels de ${subjectName || "la publication"} (${visuals.length})`}
+        aria-label={`Visuels de ${subjectName || "la publication"} (${shown.length})`}
         onClick={() => {
           if (onOpen) onOpen();
-          else if (visuals.length === 0) inputRef.current?.click();
+          else if (shown.length === 0) inputRef.current?.click();
           else setOpen(true);
         }}
         onDragOver={(event) => {
@@ -1040,9 +1080,9 @@ export function VisualsCell({
             ) : (
               <Paperclip className="text-muted-foreground size-3.5" aria-hidden />
             )}
-            {visuals.length > 1 ? (
+            {shown.length > 1 ? (
               <span className="text-muted-foreground text-[11px] tabular-nums">
-                +{visuals.length - 1}
+                +{shown.length - 1}
               </span>
             ) : null}
           </>
@@ -1050,15 +1090,33 @@ export function VisualsCell({
           <span className="text-muted-foreground text-xs">—</span>
         )}
       </button>
+      {first && !uploading ? (
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            quickRemove(first.path);
+          }}
+          aria-label={`Retirer ${first.name || "le visuel"}`}
+          className="bg-muted-foreground text-background hover:bg-foreground focus-visible:ring-ring absolute top-1/2 right-0.5 flex size-4 -translate-y-1/2 items-center justify-center rounded-full opacity-0 transition-opacity duration-(--motion-duration) ease-standard group-hover/visual:opacity-100 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:outline-none"
+        >
+          <X className="size-3" strokeWidth={2.5} aria-hidden />
+        </button>
+      ) : null}
+      </div>
 
       {open ? (
         <VisualLightbox
-          visuals={visuals}
+          visuals={shown}
           subjectName={subjectName}
           uploading={uploading}
           onClose={() => setOpen(false)}
           onUpload={onUpload}
-          onRemove={onRemove}
+          onRemove={(path) => {
+            void Promise.resolve(onRemove(path)).then((result) => {
+              if (result && !result.ok) toast.error(result.error);
+            });
+          }}
         />
       ) : null}
     </>

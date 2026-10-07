@@ -1764,7 +1764,17 @@ export async function removeVisual(
     // Le fichier ne part du bucket que s'il y avait bien été déposé : un visuel
     // importé depuis Monday est une URL externe, pas un objet à nous. La
     // miniature part avec lui — `remove` ignore un chemin absent.
-    if (isOwnedVisualPath(input.path, workspace.id, input.subjectId)) {
+    // Et seulement si plus aucune publication ne le porte : « Dupliquer »
+    // recopie les chemins, et retirer la créa de l'original effaçait le
+    // fichier sous la copie — qui n'affichait plus que son nom.
+    const { count: sharedBy } = await supabase
+      .from("planning_subjects")
+      .select("id", { count: "exact", head: true })
+      .contains("visual_urls", [input.path]);
+    if (
+      isOwnedVisualPath(input.path, workspace.id, input.subjectId) &&
+      (sharedBy ?? 0) === 0
+    ) {
       await supabase.storage
         .from(VISUALS_BUCKET)
         .remove([input.path, previewPathFor(input.path)]);
