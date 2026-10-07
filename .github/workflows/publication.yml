@@ -1,0 +1,49 @@
+# Le relais de la publication de 16h00.
+#
+# La publication part de Vercel à 16h00 pile (`/api/cron/publier`, appelée par
+# `pg_cron` dans Supabase). Ce que la fonction n'a pas eu le temps de
+# revendiquer — plusieurs reels à encoder le même jour — part ici, lancé par
+# la route elle-même : un `workflow_dispatch` démarre dans la minute, là où un
+# `schedule` arrive des heures en retard.
+#
+# Sa propre file (`publication`) : derrière `finance-sync`, il attendrait la
+# fin d'une synchronisation Airwallex. Le verrou de `planning_publications`
+# empêche tout doublon avec un passage du soir qui tomberait en même temps.
+
+name: Publication du Planning
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: publication
+  cancel-in-progress: false
+
+jobs:
+  publier:
+    name: Publier
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.18.2
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Publier ce qui est dû
+        run: pnpm publier:planning
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          CREDENTIALS_ENCRYPTION_KEY: ${{ secrets.CREDENTIALS_ENCRYPTION_KEY }}
+          COMPOSIO_API_KEY: ${{ secrets.COMPOSIO_API_KEY }}

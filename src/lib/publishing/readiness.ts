@@ -214,17 +214,28 @@ export function parisStamp(now: Date): { date: string; hour: number } {
   };
 }
 
+/**
+ * Le statut qui arme la publication automatique : « Programmé ». « Validé »
+ * est l'accord du client, il ne publie rien — c'est l'agence qui programme.
+ */
+export const PUBLISH_TRIGGER_STATUS = "scheduled";
+
+/**
+ * Ce que « Publier maintenant » accepte, et d'où une ligne passe « Publié » :
+ * le geste manuel de l'agence vaut aussi pour une ligne seulement validée.
+ */
+export const PUBLISHABLE_NOW_STATUSES: string[] = ["scheduled", "validated"];
+
 /** L'heure de Paris à laquelle la publication automatique part. */
 export const PUBLISH_HOUR_PARIS = 16;
 
 /**
- * La publication part **à partir de** 16h, pas à 16h pile.
+ * La fenêtre de publication : de 16h à minuit, heure de Paris.
  *
- * L'exactitude coûtait des journées entières. Le seul déclencheur est un
- * `schedule` GitHub, qui n'a qu'une chance par jour de tomber dans l'heure 16
- * de Paris — et GitHub laisse tomber près d'une exécution programmée sur
- * deux, sans ligne rouge ni notification. Une fenêtre sautée à 14h17 UTC, et
- * rien ne partait de la journée.
+ * Le passage de 16h00 pile vient de `pg_cron` (Supabase), qui appelle
+ * `/api/cron/publier` à la minute. La fenêtre reste ouverte jusqu'à minuit
+ * pour les filets : un `schedule` GitHub arrive des heures en retard et en
+ * saute près d'un sur deux, sans ligne rouge ni notification.
  *
  * Ouverte de 16h à minuit, elle reçoit le passage du soir d'`airwallex-sync.yml`
  * (programmé à 15h UTC, lancé par GitHub des heures plus tard — la fenêtre de

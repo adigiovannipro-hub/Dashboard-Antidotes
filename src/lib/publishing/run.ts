@@ -15,6 +15,8 @@ import {
   PUBLISH_BLOCKER_LABELS,
   PUBLISH_HOUR_PARIS,
   PUBLISH_TARGET_LABELS,
+  PUBLISH_TRIGGER_STATUS,
+  PUBLISHABLE_NOW_STATUSES,
   publishPlan,
   publishTargets,
   targetPlan,
@@ -30,8 +32,8 @@ import { parseTiktokSettings } from "./tiktok-settings";
 /**
  * Le passage de publication automatique.
  *
- * Chaque jour **à partir de** 16h heure de Paris : tout sujet **validé** dont
- * la date est aujourd'hui part sur les réseaux de son couloir — Instagram et
+ * Chaque jour **à 16h00** heure de Paris : tout sujet **« Programmé »**
+ * (`scheduled`) dont la date est aujourd'hui part sur les réseaux de son couloir — Instagram et
  * Facebook en direct, LinkedIn sur le profil du client, TikTok **en
  * brouillon** dans l'application du compte. Le déclencheur est le statut
  * posé par l'agence — pas une file séparée à entretenir — et le verrou est la
@@ -39,16 +41,20 @@ import { parseTiktokSettings } from "./tiktok-settings";
  * une insertion sous contrainte d'unicité, deux passages concurrents ne
  * publieront jamais deux fois.
  *
+ * « Validé » ne publie pas : c'est l'accord du client. C'est l'agence qui
+ * arme la publication en passant la ligne en « Programmé ».
+ *
  * Le sujet passe « Publié » quand **tous** les réseaux de son couloir sont
  * en ligne (`settleSubject`). Un brouillon TikTok n'est pas en ligne : la
- * ligne reste « Validé » — donc dans « À publier » — jusqu'à ce que quelqu'un
+ * ligne reste « Programmé » — donc dans « À publier » — jusqu'à ce que quelqu'un
  * le publie depuis l'application, ce que chaque passage vérifie
  * (`followTiktokDrafts`), à toute heure.
  *
- * « À partir de » et non « à 16h pile » : un passage programmé de GitHub
- * arrive des heures en retard, et l'heure exacte n'offrait qu'une chance par
- * jour — voir `isPublishWindow`. Les passages suivants de la fenêtre
- * rattrapent, le verrou empêchant tout doublon.
+ * L'heure exacte vient de `pg_cron`, dans Supabase, qui appelle
+ * `/api/cron/publier` à 16h00 : la publication part de Vercel à la minute
+ * (Meta accepte ses adresses). Les passages du soir de GitHub restent en
+ * filet — un réseau en erreur ou laissé faute de temps y repart, le verrou
+ * empêchant tout doublon. Voir `isPublishWindow`.
  *
  * Un sujet en retard ne part pas : publier le 20 un post prévu le 12 sans
  * qu'un humain l'ait décidé serait pire que le trou. Il reste en rouge dans
@@ -65,6 +71,8 @@ export type PublishReport = {
   drafted: { subject: string; target: PublishTarget; kind: "draft" | "processing" }[];
   errors: { subject: string; target: PublishTarget | null; error: string }[];
   ignored: { subject: string; reason: string }[];
+  /** Laissés au relais faute de temps — rien n'a été revendiqué ni envoyé. */
+  deferred: { subject: string; target: PublishTarget }[];
 };
 
 type SubjectRow = {
@@ -120,8 +128,14 @@ export async function runScheduledPublishing(options: {
   now?: Date;
   /** Publier même hors de 16h — le passage manuel. */
   force?: boolean;
+  /**
+   * Heure limite (epoch ms) : passé `deadline - DEFER_RESERVE_MS`, un réseau
+   * n'est plus revendiqué et part au relais (`report.deferred`). C'est ce qui
+   * tient le passage de 16h00 dans la durée d'une fonction Vercel.
+   */
+  deadline?: number;
 }): Promise<PublishReport> {
-  const { admin, force } = options;
+  const { admin, force, deadline } = options;
   const now = options.now ?? new Date();
   const paris = parisStamp(now);
   const accountFor = accountResolver(admin);
@@ -132,32 +146,55 @@ export async function runScheduledPublishing(options: {
     drafted: [],
     errors: [],
     ignored: [],
+    deferred: [],
   };
 
-  // Les brouillons TikTok se suivent à toute heure : un client qui publie à
-  // 9h doit voir sa ligne passer « Publié » au passage suivant, pas à 16h.
-  // Un suivi en panne ne doit jamais empêcher Meta de publier.
-  try {
-    await followTiktokDrafts({ admin, now, report, accountFor });
-  } catch (error) {
-    report.errors.push({
-      subject: "Brouillons TikTok",
-      target: "tiktok",
-      error: (error as Error).message,
-    });
+  if (isPublishWindow(paris.hour) || force) {
+    await publishToday({ admin, paris, accountFor, report, deadline });
+  } else {
+    report.skipped = `Il est ${paris.hour}h à Paris — la publication part à partir de ${PUBLISH_HOUR_PARIS}h.`;
   }
 
-  if (!isPublishWindow(paris.hour) && !force) {
-    report.skipped = `Il est ${paris.hour}h à Paris — la publication part à partir de ${PUBLISH_HOUR_PARIS}h.`;
-    return report;
+  // Les brouillons TikTok se suivent à toute heure, après la publication
+  // (l'heure compte pour elle, pas pour eux) : un client qui publie à 9h doit
+  // voir sa ligne passer « Publié » au passage suivant. Un suivi en panne ne
+  // doit jamais faire échouer le passage.
+  if (!deadline || Date.now() < deadline - DEFER_RESERVE_MS) {
+    try {
+      await followTiktokDrafts({ admin, now, report, accountFor });
+    } catch (error) {
+      report.errors.push({
+        subject: "Brouillons TikTok",
+        target: "tiktok",
+        error: (error as Error).message,
+      });
+    }
   }
+
+  return report;
+}
+
+/** Combien de sujets partent en même temps — des comptes distincts, rien ne les lie. */
+const SUBJECT_CONCURRENCY = 3;
+
+/** Le temps qu'un réseau doit pouvoir encore prendre pour être revendiqué. */
+const DEFER_RESERVE_MS = 75_000;
+
+async function publishToday(options: {
+  admin: Admin;
+  paris: { date: string; hour: number };
+  accountFor: ReturnType<typeof accountResolver>;
+  report: PublishReport;
+  deadline?: number;
+}): Promise<void> {
+  const { admin, paris, accountFor, report, deadline } = options;
 
   // Règle des passages machine : chaque `error` Supabase est testé — une
   // table absente ne doit jamais ressembler à « rien à publier ».
   const { data: subjectRows, error: subjectsError } = await admin
     .from("planning_subjects")
     .select(SUBJECT_COLUMNS)
-    .eq("status", "validated")
+    .eq("status", PUBLISH_TRIGGER_STATUS)
     .eq("scheduled_on", paris.date)
     // Une ligne à la corbeille ou archivée ne part jamais, même validée.
     .is("deleted_at", null)
@@ -165,29 +202,33 @@ export async function runScheduledPublishing(options: {
   if (subjectsError) fail(`Lecture des sujets : ${subjectsError.message}`);
 
   const subjects = (subjectRows ?? []) as unknown as SubjectRow[];
-  if (subjects.length === 0) return report;
+  if (subjects.length === 0) return;
 
   const platformByLane = await lanePlatforms(
     admin,
     subjects.map((subject) => subject.lane_id),
   );
 
-  for (const subject of subjects) {
-    const platform = platformByLane.get(subject.lane_id) ?? "other";
-    const wanted = publishTargets(platform);
+  // Quelques sujets à la fois : à 16h00, un reel qui s'encode ne doit pas
+  // retarder les photos des autres clients.
+  const queue = [...subjects];
+  const worker = async () => {
+    for (let subject = queue.shift(); subject; subject = queue.shift()) {
+      const platform = platformByLane.get(subject.lane_id) ?? "other";
+      const wanted = publishTargets(platform);
 
-    if (wanted.length === 0) {
-      report.ignored.push({
-        subject: subject.name,
-        reason: `le réseau « ${platform} » ne se publie pas automatiquement`,
-      });
-      continue;
+      if (wanted.length === 0) {
+        report.ignored.push({
+          subject: subject.name,
+          reason: `le réseau « ${platform} » ne se publie pas automatiquement`,
+        });
+        continue;
+      }
+
+      await publishSubject({ admin, subject, wanted, targets: wanted, accountFor, report, deadline });
     }
-
-    await publishSubject({ admin, subject, wanted, targets: wanted, accountFor, report });
-  }
-
-  return report;
+  };
+  await Promise.all(Array.from({ length: SUBJECT_CONCURRENCY }, worker));
 }
 
 /**
@@ -201,8 +242,9 @@ async function publishSubject(options: {
   targets: PublishTarget[];
   accountFor: ReturnType<typeof accountResolver>;
   report: PublishReport;
+  deadline?: number;
 }): Promise<void> {
-  const { admin, subject, wanted, targets, accountFor, report } = options;
+  const { admin, subject, wanted, targets, accountFor, report, deadline } = options;
   const plan = publishPlan(subject);
 
   if (!plan.ready) {
@@ -239,6 +281,14 @@ async function publishSubject(options: {
       continue;
     }
 
+    // Plus assez de temps : rien n'est revendiqué, le relais reprend tout.
+    // Revendiquer puis être coupé laisserait une ligne « en cours » que
+    // personne ne reprend.
+    if (deadline && Date.now() > deadline - DEFER_RESERVE_MS) {
+      report.deferred.push({ subject: subject.name, target });
+      continue;
+    }
+
     const claimed = await claimPublication(admin, subject, target);
     if (!claimed) {
       // Déjà publié, en brouillon ou en cours ailleurs : le verrou a parlé.
@@ -257,6 +307,7 @@ async function publishSubject(options: {
         account,
         subject,
         items: await media,
+        deadline: deadline ? deadline - 15_000 : undefined,
       });
       await closePublication(admin, subject, target, outcome);
 
@@ -293,6 +344,7 @@ export async function publishSubjectNow(options: {
     drafted: [],
     errors: [],
     ignored: [],
+    deferred: [],
   };
 
   const { data, error } = await admin
@@ -306,7 +358,9 @@ export async function publishSubjectNow(options: {
     | (SubjectRow & { status: string; deleted_at: string | null; archived_at: string | null })
     | null;
   if (!row || row.deleted_at || row.archived_at) fail("Publication introuvable.");
-  if (row.status !== "validated") fail("Seule une publication « Validé » part.");
+  if (!PUBLISHABLE_NOW_STATUSES.includes(row.status)) {
+    fail("Seule une publication « Programmé » ou « Validé » part.");
+  }
 
   const platform = (await lanePlatforms(admin, [row.lane_id])).get(row.lane_id) ?? "other";
   const wanted = publishTargets(platform);
@@ -347,8 +401,10 @@ export async function publishToTarget(options: {
   account: TargetAccount;
   subject: SubjectRow;
   items: MediaItem[];
+  /** Heure limite des attentes d'encodage chez les réseaux. */
+  deadline?: number;
 }): Promise<PublishOutcome> {
-  const { admin, target, account, subject, items } = options;
+  const { admin, target, account, subject, items, deadline } = options;
   const caption = subject.wording?.trim() ?? "";
 
   if (target === "instagram" || target === "facebook") {
@@ -376,6 +432,7 @@ export async function publishToTarget(options: {
         accessToken: account.token,
         caption,
         mediaUrls: urls,
+        deadline,
       });
       return { status: "success", ...published };
     } finally {
@@ -401,8 +458,8 @@ export async function publishToTarget(options: {
     // En direct, TikTok traite la vidéo quelques secondes à quelques
     // minutes : on attend un peu pour clore tout de suite, sinon le suivi
     // des passages suivants prend le relais.
-    const deadline = Date.now() + TIKTOK_DIRECT_WAIT_MS;
-    while (Date.now() < deadline) {
+    const waitUntil = Math.min(Date.now() + TIKTOK_DIRECT_WAIT_MS, deadline ?? Infinity);
+    while (Date.now() < waitUntil) {
       await new Promise((resolve) => setTimeout(resolve, 5000));
       const state = await fetchTiktokDraftState(account.connectedAccountId, sent.publishId);
       if (state.state === "failed") fail(state.reason);
@@ -421,6 +478,7 @@ export async function publishToTarget(options: {
     connectedAccountId: account.connectedAccountId,
     caption,
     media: await linkedinMedia(subject, items),
+    deadline,
   });
   return { status: "success", ...published };
 }
@@ -586,8 +644,8 @@ async function markError(
  * l'autre aujourd'hui font un sujet publié aujourd'hui, et un brouillon
  * TikTok ou une ligne en cours ailleurs n'en font pas un.
  *
- * `where status = 'validated'` : si l'agence a changé d'avis pendant le
- * passage, son geste gagne — on ne réécrit pas par-dessus.
+ * `where status in ('scheduled', 'validated')` : si l'agence a changé d'avis
+ * pendant le passage, son geste gagne — on ne réécrit pas par-dessus.
  */
 async function settleSubject(
   admin: Admin,
@@ -611,12 +669,12 @@ async function settleSubject(
     .from("planning_subjects")
     .update({ status: "published", updated_at: new Date().toISOString() } as never)
     .eq("id", subject.id)
-    .eq("status", "validated")
-    .select("id");
+    .in("status", PUBLISHABLE_NOW_STATUSES)
+    .select("id, status");
   if (statusError) fail(`Statut du sujet : ${statusError.message}`);
   if ((updated ?? []).length === 0) return;
 
-  await logActivity(admin, subject, "status", "validated", "published");
+  await logActivity(admin, subject, "status", PUBLISH_TRIGGER_STATUS, "published");
 }
 
 /** Au-delà, un brouillon resté dans l'application ne passera plus « Publié » tout seul. */

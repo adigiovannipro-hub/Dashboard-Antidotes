@@ -44,8 +44,8 @@ import {
  *
  * Les écritures suivent les gestes de l'application et s'écrivent au journal
  * du sujet comme eux. Aucune ne valide, ne publie ni ne supprime : le circuit
- * de validation du client reste dans l'application, et `validated` déclenche
- * la publication automatique de 16 h.
+ * de validation du client reste dans l'application, et `scheduled`
+ * (« Programmé ») déclenche la publication automatique de 16 h.
  */
 
 type SubjectLine = {
@@ -492,7 +492,7 @@ export const PLANNING_TOOLS: ToolDefinition[] = [
   {
     name: "modifier_publication",
     description:
-      "Modifie une publication du planning : sujet, date (dans son mois), type ou statut. Chaque changement s'écrit au journal du sujet. Le statut « Validé » et « Publié » sont refusés : la validation appartient au client et déclenche la publication automatique.",
+      "Modifie une publication du planning : sujet, date (dans son mois), type ou statut. Chaque changement s'écrit au journal du sujet. Les statuts « Validé », « Programmé » et « Publié » sont refusés : la validation appartient au client, et « Programmé » déclenche la publication automatique de 16 h.",
     inputSchema: {
       type: "object",
       properties: {
@@ -503,7 +503,7 @@ export const PLANNING_TOOLS: ToolDefinition[] = [
         statut: {
           type: "string",
           description:
-            "Nouveau statut, en clé ou en libellé : En cours, Wording à faire, À valider, En attente, Non retenu, En brouillon, Programmé.",
+            "Nouveau statut, en clé ou en libellé : En cours, Wording à faire, À valider, En attente, Non retenu, En brouillon.",
         },
       },
       required: ["publication_id"],

@@ -7,6 +7,8 @@ import {
   isVideoPath,
   parisStamp,
   publishPlan,
+  PUBLISH_TRIGGER_STATUS,
+  PUBLISHABLE_NOW_STATUSES,
   publishTargets,
   targetPlan,
 } from "./readiness";
@@ -229,5 +231,14 @@ describe("isPublishWindow", () => {
 
   it("se referme à minuit — pas par l'heure, par la date de Paris qui avance", () => {
     expect(isPublishWindow(0)).toBe(false);
+  });
+});
+
+describe("PUBLISH_TRIGGER_STATUS", () => {
+  it("« Programmé » publie, « Validé » non — c'est l'accord du client", () => {
+    expect(PUBLISH_TRIGGER_STATUS).toBe("scheduled");
+    expect(PUBLISHABLE_NOW_STATUSES).toContain("scheduled");
+    // Le geste manuel de l'agence vaut aussi pour une ligne seulement validée.
+    expect(PUBLISHABLE_NOW_STATUSES).toContain("validated");
   });
 });

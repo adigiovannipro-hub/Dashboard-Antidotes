@@ -1,8 +1,12 @@
 /**
  * Publication automatique du Planning, exécutée depuis une machine GitHub.
  *
- *   pnpm publier:planning            — ne publie qu'à 16h heure de Paris
+ *   pnpm publier:planning            — publie ce qui est « Programmé » aujourd'hui, à partir de 16h de Paris
  *   pnpm publier:planning --force    — publie maintenant, quelle que soit l'heure
+ *
+ * Le passage de 16h00 pile part de Vercel (`/api/cron/publier`, appelée par
+ * `pg_cron`) ; ce script en est le relais (`publication.yml`) et le filet
+ * des passages du soir.
  *
  * Le passage est greffé sur le workflow `airwallex-sync.yml` : le passage du
  * soir (portée `quotidien`) tombe dans la fenêtre 16h–minuit de Paris, celui
@@ -65,7 +69,11 @@ async function main() {
     console.log(`  ✓ ${done.subject} → ${done.target}${done.permalink ? ` — ${done.permalink}` : ""}`);
   }
   for (const draft of report.drafted) {
-    console.log(`  ◌ ${draft.subject} → ${draft.target} — brouillon à publier depuis l'application`);
+    console.log(
+      `  ◌ ${draft.subject} → ${draft.target} — ${
+        draft.kind === "draft" ? "brouillon à publier depuis l'application" : "en traitement chez TikTok"
+      }`,
+    );
   }
   for (const ignored of report.ignored) {
     console.log(`  · ${ignored.subject} — ${ignored.reason}`);

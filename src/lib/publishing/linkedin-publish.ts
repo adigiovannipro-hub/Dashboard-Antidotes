@@ -103,8 +103,12 @@ async function putBytes(url: string, bytes: Uint8Array, contentType: string): Pr
 type Resource = "images" | "documents" | "videos";
 
 /** Attend que LinkedIn ait fini de traiter le média. */
-async function waitAvailable(accountId: string, resource: Resource, urn: string): Promise<void> {
-  const deadline = Date.now() + 5 * 60 * 1000;
+async function waitAvailable(
+  accountId: string,
+  resource: Resource,
+  urn: string,
+  deadline: number,
+): Promise<void> {
   for (;;) {
     const response = await proxy({
       accountId,
@@ -129,6 +133,7 @@ async function uploadSimple(
   resource: "images" | "documents",
   bytes: Uint8Array,
   contentType: string,
+  deadline: number,
 ): Promise<string> {
   const init = await proxy({
     accountId,
@@ -140,11 +145,16 @@ async function uploadSimple(
   const urn = resource === "images" ? value.image : value.document;
   if (!value.uploadUrl || !urn) throw new Error(`LinkedIn : initialisation de l'envoi sans adresse (${resource}).`);
   await putBytes(value.uploadUrl, bytes, contentType);
-  await waitAvailable(accountId, resource, urn);
+  await waitAvailable(accountId, resource, urn, deadline);
   return urn;
 }
 
-async function uploadVideo(accountId: string, owner: string, bytes: Uint8Array): Promise<string> {
+async function uploadVideo(
+  accountId: string,
+  owner: string,
+  bytes: Uint8Array,
+  deadline: number,
+): Promise<string> {
   const init = await proxy({
     accountId,
     method: "POST",
@@ -194,7 +204,7 @@ async function uploadVideo(accountId: string, owner: string, bytes: Uint8Array):
       },
     },
   });
-  await waitAvailable(accountId, "videos", value.video);
+  await waitAvailable(accountId, "videos", value.video, deadline);
   return value.video;
 }
 
@@ -207,22 +217,25 @@ export async function publishLinkedin(options: {
   connectedAccountId: string;
   caption: string;
   media: LinkedinMedia;
+  /** Heure limite d'attente du traitement chez LinkedIn — cinq minutes sinon. */
+  deadline?: number;
 }): Promise<{ externalId: string; permalink: string }> {
   const accountId = options.connectedAccountId;
+  const deadline = options.deadline ?? Date.now() + 5 * 60 * 1000;
   const author = await personUrn(accountId);
   const { media } = options;
 
   const content =
     media.type === "image"
-      ? { media: { id: await uploadSimple(accountId, author, "images", media.bytes, media.contentType) } }
+      ? { media: { id: await uploadSimple(accountId, author, "images", media.bytes, media.contentType, deadline) } }
       : media.type === "document"
         ? {
             media: {
               title: media.title,
-              id: await uploadSimple(accountId, author, "documents", media.bytes, "application/pdf"),
+              id: await uploadSimple(accountId, author, "documents", media.bytes, "application/pdf", deadline),
             },
           }
-        : { media: { title: media.title, id: await uploadVideo(accountId, author, media.bytes) } };
+        : { media: { title: media.title, id: await uploadVideo(accountId, author, media.bytes, deadline) } };
 
   const response = await proxy({
     accountId,

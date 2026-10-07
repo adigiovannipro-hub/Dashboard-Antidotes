@@ -14,6 +14,7 @@ import {
   saveTiktokSettings,
   type TiktokCreatorResult,
 } from "@/app/actions/tiktok";
+import { PUBLISHABLE_NOW_STATUSES } from "@/lib/publishing/readiness";
 import {
   isTiktokPrivacy,
   parseTiktokSettings,
@@ -294,8 +295,12 @@ export function TiktokPanel({
           size="sm"
           variant="outline"
           className="w-full"
-          disabled={pending || status !== "validated" || !account}
-          title={status !== "validated" ? "Seule une publication « Validé » part." : undefined}
+          disabled={pending || !PUBLISHABLE_NOW_STATUSES.includes(status) || !account}
+          title={
+            PUBLISHABLE_NOW_STATUSES.includes(status)
+              ? undefined
+              : "Seule une publication « Programmé » ou « Validé » part."
+          }
           onClick={() => void run(() => publishTiktokNow(scope, subjectId))}
         >
           <Send className="size-3.5" strokeWidth={1.75} aria-hidden />
