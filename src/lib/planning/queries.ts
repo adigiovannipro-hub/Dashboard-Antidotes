@@ -436,7 +436,8 @@ export async function resolveVisuals(
   const signed = new Map(
     await Promise.all(
       paths.map(
-        async (path) => [path, await signedVisualUrls(path)] as const,
+        async (path) =>
+          [path, await signedVisualUrls(path).catch(() => null)] as const,
       ),
     ),
   );

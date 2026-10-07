@@ -1,5 +1,6 @@
 import "server-only";
 
+import { unstable_cache } from "next/cache";
 import { cache } from "react";
 
 import { getViewer } from "@/lib/auth";
@@ -69,13 +70,13 @@ export async function withSignedAvatars<T extends { avatar_url: string | null }>
   ];
   if (paths.length === 0) return people;
 
-  const { data } = await createAdminClient()
-    .storage.from("member-avatars")
-    .createSignedUrls(paths, TTL_SECONDS);
   const signed = new Map(
-    (data ?? [])
-      .filter((entry) => entry.path && entry.signedUrl)
-      .map((entry) => [entry.path as string, entry.signedUrl]),
+    await Promise.all(
+      paths.map(
+        async (path) =>
+          [path, await stableAvatarUrl(path).catch(() => null)] as const,
+      ),
+    ),
   );
 
   return people.map((person) =>
@@ -84,3 +85,25 @@ export async function withSignedAvatars<T extends { avatar_url: string | null }>
       : person,
   );
 }
+
+/**
+ * La signature d'une photo, gardée une semaine par chemin (signée pour deux).
+ *
+ * Signer à chaque rendu changeait l'URL à chaque rafraîchissement — le jeton
+ * porte son `iat` —, donc l'empreinte des lignes du planning qui portent un
+ * avatar : toutes se redessinaient à chaque modification, et le navigateur
+ * bloqué laissait des pans vides (7/10/2026, le même défaut que #57). Même
+ * mécanique que `signedVisualUrls`. Un chemin absent lève au lieu de rendre
+ * `null` : un échec ne doit pas rester en cache une semaine.
+ */
+const stableAvatarUrl = unstable_cache(
+  async (path: string): Promise<string> => {
+    const { data } = await createAdminClient()
+      .storage.from("member-avatars")
+      .createSignedUrl(path, 14 * 24 * 3600);
+    if (!data?.signedUrl) throw new Error(`photo introuvable : ${path}`);
+    return data.signedUrl;
+  },
+  ["avatar-signe"],
+  { revalidate: 7 * 24 * 3600 },
+);
