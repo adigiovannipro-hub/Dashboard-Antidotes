@@ -19,6 +19,7 @@ const KEYS = [
   "GITHUB_SYNC_TOKEN",
   "COMPOSIO_API_KEY",
   "MCP_SECRET",
+  "PUBLICATION_CRON_SECRET",
 ] as const;
 
 const saved: Record<string, string | undefined> = {};
