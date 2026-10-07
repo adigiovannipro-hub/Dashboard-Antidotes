@@ -35,7 +35,18 @@ const nextConfig: NextConfig = {
   outputFileTracingIncludes: {
     "/api/generate/[phase]": ["./src/lib/prompts/**"],
     "/api/jobs/[id]/run": ["./src/lib/prompts/**"],
+    // `lire_visuels` redimensionne avec sharp. Le traceur suit son `.node`,
+    // mais pas `libvips-cpp.so` : le binaire ne la charge que par son RPATH,
+    // que le traceur ne lit pas, et la fonction tombait en production sur
+    // « ERR_DLOPEN_FAILED: libvips-cpp.so.8.18.6 ». Chemin pnpm : il n'y a
+    // pas de `node_modules/@img` à la racine. La clé n'est pas
+    // `/api/mcp/[cle]` : sous Turbopack, `[cle]` est une classe de caractères
+    // et ne désigne jamais la route — vérifié sur la trace du build.
+    "/api/mcp/**": ["./node_modules/.pnpm/@img+sharp-libvips-linux-x64@*/node_modules/@img/sharp-libvips-linux-x64/lib/**"],
   },
+  // Next le tient déjà hors du bundle par défaut ; écrit ici pour que ça ne
+  // dépende pas d'une liste interne qui peut changer d'une version à l'autre.
+  serverExternalPackages: ["sharp"],
   // Les 61 fichiers qui écrivent `import { Icon } from "lucide-react"` passent
   // par le baril du paquet, qui référence plus de mille icônes. Sans cette
   // liste, chacune de ces importations force l'outil de build à traverser tout

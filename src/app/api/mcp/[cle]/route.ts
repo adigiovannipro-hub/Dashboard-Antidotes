@@ -19,6 +19,8 @@ import { MCP_TOOLS } from "@/lib/mcp/tools";
  */
 
 export const dynamic = "force-dynamic";
+// sharp (lire_visuels) est un module natif : jamais en Edge.
+export const runtime = "nodejs";
 export const maxDuration = 60;
 
 function authorized(key: string): boolean {

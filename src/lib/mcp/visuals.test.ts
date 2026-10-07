@@ -1,12 +1,16 @@
 // @vitest-environment node
 import sharp from "sharp";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { ContentBlock } from "./protocol";
 import {
   collectVisuals,
   prepareImage,
+  RAW_IMAGE_MAX_BYTES,
+  rawImageBlock,
   selectIndexes,
+  SharpUnavailableError,
+  sniffImageMime,
   storagePaths,
   visualKind,
   visualLines,
@@ -96,6 +100,120 @@ describe("prepareImage", () => {
   it("n'agrandit jamais une petite image", async () => {
     const result = await prepareImage(await png(400, 300), 1568);
     expect([result.width, result.height]).toEqual([400, 300]);
+  });
+});
+
+describe("sniffImageMime", () => {
+  it("lit le format dans les premiers octets, pas dans l'extension", async () => {
+    expect(sniffImageMime(await png(2, 2))).toBe("image/png");
+    expect(sniffImageMime(new Uint8Array([0xff, 0xd8, 0xff, 0xe0]))).toBe("image/jpeg");
+    expect(sniffImageMime(new TextEncoder().encode("GIF89a"))).toBe("image/gif");
+    expect(sniffImageMime(new TextEncoder().encode("RIFF\0\0\0\0WEBPVP8 "))).toBe("image/webp");
+  });
+
+  it("ne reconnaît pas ce qu'un modèle ne lit pas", () => {
+    expect(sniffImageMime(new TextEncoder().encode("\0\0\0\x18ftypheic"))).toBeNull();
+    expect(sniffImageMime(new Uint8Array([]))).toBeNull();
+  });
+});
+
+describe("rawImageBlock", () => {
+  it("rend l'original en base64 sous 5 Mo", async () => {
+    const bytes = await png(4, 4);
+    expect(rawImageBlock(bytes)).toEqual({ data: Buffer.from(bytes).toString("base64"), mimeType: "image/png" });
+  });
+
+  it("refuse 5 Mo et plus, et un format inconnu", () => {
+    const heavy = new Uint8Array(RAW_IMAGE_MAX_BYTES);
+    heavy.set([0xff, 0xd8, 0xff]);
+    expect(rawImageBlock(heavy)).toBeNull();
+    expect(rawImageBlock(new Uint8Array([1, 2, 3]))).toBeNull();
+  });
+});
+
+describe("prepareImage, sans sharp", () => {
+  it("traduit un module introuvable en SharpUnavailableError", async () => {
+    const load = () =>
+      Promise.reject(new Error("Could not load the sharp module using the linux-x64 runtime"));
+    await expect(prepareImage(await png(10, 10), 1568, load)).rejects.toBeInstanceOf(SharpUnavailableError);
+  });
+});
+
+describe("collectVisuals, sans sharp", () => {
+  const sharpMissing = async (): Promise<never> => {
+    throw new SharpUnavailableError(new Error("ERR_DLOPEN_FAILED: libvips-cpp.so.8.18.6"));
+  };
+  const errors = () => vi.spyOn(console, "error").mockImplementation(() => {});
+
+  afterEach(() => vi.restoreAllMocks());
+
+  it("rend l'original tel quel sous 5 Mo, et met l'erreur au journal plutôt que dans la réponse", async () => {
+    const log = errors();
+    const original = await png(3000, 2000);
+    const { storage } = fakeStorage({ "ws/s/1-a.png": original });
+    const result = await collectVisuals({
+      name: "Post",
+      visualUrls: ["ws/s/1-a.png"],
+      index: 1,
+      storage,
+      prepare: sharpMissing,
+    });
+
+    expect(images(result.content)).toEqual([
+      { type: "image", data: Buffer.from(original).toString("base64"), mimeType: "image/png" },
+    ]);
+    expect(texts(result.content)).toContain("visuel 1 · image · original");
+    expect(result.text).not.toContain("libvips");
+    expect(result.isError).toBeUndefined();
+    expect(log).toHaveBeenCalledWith(expect.stringContaining("libvips-cpp.so.8.18.6"));
+  });
+
+  it("rend la miniature d'un lot telle quelle", async () => {
+    errors();
+    const preview = await png(1080, 720);
+    const { storage } = fakeStorage({ "ws/s/1-a.png": await png(10, 10), "ws/s/1-a.png.preview.jpg": preview });
+    const result = await collectVisuals({
+      name: "Lot",
+      visualUrls: ["ws/s/1-a.png", "https://ext/b.png"],
+      storage,
+      prepare: sharpMissing,
+    });
+    expect(images(result.content)[0]?.data).toBe(Buffer.from(preview).toString("base64"));
+  });
+
+  it("au-delà de 5 Mo, ne rend que l'URL signée", async () => {
+    errors();
+    const heavy = new Uint8Array(RAW_IMAGE_MAX_BYTES + 1);
+    heavy.set([0xff, 0xd8, 0xff]);
+    const { storage } = fakeStorage({ "ws/s/1-a.jpg": heavy });
+    const result = await collectVisuals({
+      name: "Lourd",
+      visualUrls: ["ws/s/1-a.jpg"],
+      index: 1,
+      storage,
+      prepare: sharpMissing,
+    });
+    expect(images(result.content)).toHaveLength(0);
+    expect(result.text).toContain("visuel 1 · image · URL signée (1 h) : https://signe/ws/s/1-a.jpg?token=1h");
+    expect(result.text).not.toContain("libvips");
+  });
+
+  it("une image corrompue ne part jamais en clair, et son erreur reste au journal", async () => {
+    const log = errors();
+    const { storage } = fakeStorage({ "ws/s/1-a.jpg": new Uint8Array([0xff, 0xd8, 0xff, 0x00]) });
+    const result = await collectVisuals({
+      name: "Abîmée",
+      visualUrls: ["ws/s/1-a.jpg"],
+      index: 1,
+      storage,
+      prepare: async () => {
+        throw new Error("VipsJpeg: Premature end of input file");
+      },
+    });
+    expect(images(result.content)).toHaveLength(0);
+    expect(result.text).toContain("visuel 1 · image · image illisible · URL signée (1 h)");
+    expect(result.text).not.toContain("Premature");
+    expect(log).toHaveBeenCalledOnce();
   });
 });
 
