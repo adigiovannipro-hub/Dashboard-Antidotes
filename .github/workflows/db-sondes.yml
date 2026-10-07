@@ -203,6 +203,10 @@ jobs:
           # Les jetons Meta sont chiffrés en base.
           CREDENTIALS_ENCRYPTION_KEY: ${{ secrets.CREDENTIALS_ENCRYPTION_KEY }}
           COMPOSIO_API_KEY: ${{ secrets.COMPOSIO_API_KEY }}
+          # YouTube : le jeton Google expire dans l'heure et se renouvelle
+          # avec l'application OAuth qui l'a émis.
+          GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
+          GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
 
       # TikTok, avant d'écrire la moindre ligne de connecteur : quelle
       # configuration d'authentification existe, quel compte est branché dans

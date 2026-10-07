@@ -39,7 +39,7 @@ export function OrganicDashboard({
   followersNow,
   period,
 }: {
-  network: "instagram" | "facebook" | "linkedin" | "tiktok" | "x";
+  network: "instagram" | "facebook" | "linkedin" | "tiktok" | "youtube" | "x";
   posts: readonly SocialPost[];
   total: RawMetrics;
   previousTotal: RawMetrics;
@@ -88,7 +88,7 @@ export function OrganicDashboard({
   const membres = aucuneMesure
     ? []
     : [
-        `${formatValue(posts.length, "integer")} publication${posts.length > 1 ? "s" : ""}`,
+        `${formatValue(posts.length, "integer")} ${network === "youtube" ? "vidéo" : "publication"}${posts.length > 1 ? "s" : ""}`,
         total.impressions > 0
           ? `${formatMetric("impressions", total.impressions)} vues`
           : null,
@@ -154,12 +154,17 @@ export function OrganicDashboard({
               s'écrivent « — » — Meta ne les mesure pas sur une Page.
               LinkedIn n'a pas d'enregistrement du tout, mais il compte les
               clics — la seule colonne qui lui soit propre. */}
+          {/* YouTube : l'API Data ne rend ni enregistrements ni partages,
+              et ses vues sont déjà la colonne « Vues » — trois colonnes
+              vides ou doublées de moins. */}
           <PostsTable
             posts={posts}
-            withSaves={parPublication}
+            withSaves={parPublication && network !== "youtube"}
             savesUnmeasured={isUnmeasuredZero(network, "saves", 0)}
             withImpressions
             withClicks={!parPublication}
+            withVideoViews={network !== "youtube"}
+            withShares={network !== "youtube"}
           />
         </PanelBody>
       </Panel>

@@ -20,7 +20,9 @@ export type DataProvider =
   // 20260902c — LinkedIn organique, lu à travers Composio.
   | "linkedin_organic"
   // 20261006c — X organique, lu à travers Composio.
-  | "x_organic";
+  | "x_organic"
+  // 20261007c — YouTube organique, par le branchement Google direct.
+  | "youtube_organic";
 export type DataSourceStatus = "pending" | "connected" | "error" | "disabled";
 export type SyncStatus = "running" | "success" | "error";
 export type AdLevel = "campaign" | "adset" | "ad";

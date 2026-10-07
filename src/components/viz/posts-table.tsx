@@ -26,6 +26,12 @@ const KIND_LABELS: Record<SocialPost["media_kind"], string> = {
   video: "Reel",
 };
 
+/** « Reel » est le mot de Meta : ailleurs — YouTube, TikTok, LinkedIn —, une vidéo. */
+const kindLabel = (post: SocialPost): string =>
+  post.media_kind === "video" && post.platform !== "instagram" && post.platform !== "facebook"
+    ? "Vidéo"
+    : (KIND_LABELS[post.media_kind] ?? "Post");
+
 type Column = {
   key: string;
   header: string;
@@ -56,6 +62,8 @@ export function PostsTable({
   withImpressions = true,
   withClicks = false,
   savesUnmeasured = false,
+  withVideoViews = true,
+  withShares = true,
 }: {
   posts: readonly SocialPost[];
   /** Les enregistrements n'existent que sur Instagram. */
@@ -69,6 +77,10 @@ export function PostsTable({
   withImpressions?: boolean;
   /** Le clic est une mesure LinkedIn : Meta ne le rend pas par publication. */
   withClicks?: boolean;
+  /** Sur YouTube, les vues sont les vues vidéo : la colonne doublerait « Vues ». */
+  withVideoViews?: boolean;
+  /** YouTube ne rend pas les partages par l'API Data. */
+  withShares?: boolean;
 }) {
   const columns = useMemo<Column[]>(() => {
     const base: Column[] = [];
@@ -95,8 +107,8 @@ export function PostsTable({
       });
     }
 
-    base.push(
-      {
+    if (withVideoViews) {
+      base.push({
         key: "videoViews",
         header: "Vues vidéo",
         kind: "integer",
@@ -104,7 +116,10 @@ export function PostsTable({
         total: (rows) => sumOf(rows, (post) => number(post.video_views)),
         // Une image n'a pas de vue vidéo : la teinter en rouge accuserait à tort.
         shaded: (post) => post.media_kind === "video",
-      },
+      });
+    }
+
+    base.push(
       {
         key: "likes",
         header: "J'aime",
@@ -135,14 +150,17 @@ export function PostsTable({
       });
     }
 
-    base.push(
-      {
+    if (withShares) {
+      base.push({
         key: "shares",
         header: "Partages",
         kind: "integer",
         value: (post) => number(post.shares),
         total: (rows) => sumOf(rows, (post) => number(post.shares)),
-      },
+      });
+    }
+
+    base.push(
       {
         key: "engagement",
         // Un taux, pas un volume : « Engagement » laissait croire à un compte
@@ -161,7 +179,7 @@ export function PostsTable({
     );
 
     return base;
-  }, [withSaves, withImpressions, withClicks, savesUnmeasured]);
+  }, [withSaves, withImpressions, withClicks, savesUnmeasured, withVideoViews, withShares]);
 
   const [sort, setSort] = useState<{ key: string; desc: boolean }>({
     // Sans colonne de vues, les « J'aime » classent le mieux.
@@ -306,7 +324,7 @@ export function PostsTable({
                 </th>
                 <td className="px-2 py-2">
                   <span className="bg-surface-sunken text-text-secondary rounded-pill px-2 py-0.5 font-medium whitespace-nowrap">
-                    {KIND_LABELS[post.media_kind] ?? "Post"}
+                    {kindLabel(post)}
                   </span>
                 </td>
                 <td className="text-muted-foreground px-2 py-2 whitespace-nowrap">

@@ -19,6 +19,7 @@ import dotenv from "dotenv";
 import { createClient } from "@supabase/supabase-js";
 
 import { syncWorkspaceClientSocial } from "../src/lib/connectors/composio-social/sync";
+import { syncWorkspaceYoutube } from "../src/lib/connectors/youtube/reporting-sync";
 import { syncWorkspaceWebAnalytics } from "../src/lib/connectors/google-analytics/sync";
 import { syncWorkspaceLinkedin } from "../src/lib/connectors/linkedin/sync";
 import { syncWorkspaceReporting } from "../src/lib/connectors/meta/sync";
@@ -117,6 +118,15 @@ async function main() {
     } catch (failure) {
       echecs += 1;
       console.log(`  ✗ X / TikTok — ${(failure as Error).message}`);
+    }
+
+    try {
+      for (const report of await syncWorkspaceYoutube({ admin, workspaceId: workspace.id })) {
+        if (!print(report.account, report)) echecs += 1;
+      }
+    } catch (failure) {
+      echecs += 1;
+      console.log(`  ✗ YouTube — ${(failure as Error).message}`);
     }
 
     try {
