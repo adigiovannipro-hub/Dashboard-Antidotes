@@ -7,6 +7,7 @@ import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { isOpenAccess } from "@/lib/access-mode";
 import { publicEnv, serverEnv } from "@/lib/env";
 import type { Database } from "./database.types";
+import { withFreshJwtRetry } from "./fresh-jwt-retry";
 
 /**
  * Client de lecture en accès ouvert.
@@ -46,6 +47,10 @@ export async function createSessionClient() {
     publicEnv.NEXT_PUBLIC_SUPABASE_URL,
     publicEnv.NEXT_PUBLIC_SUPABASE_ANON_KEY,
     {
+      // Un jeton tout juste rafraîchi peut être refusé quelques secondes par
+      // PostgREST — voir `fresh-jwt-retry.ts`. Sans cette reprise, la liste des
+      // espaces revenait vide et la page demandée répondait 404.
+      global: { fetch: withFreshJwtRetry((input, init) => fetch(input, init)) },
       cookies: {
         getAll() {
           return cookieStore.getAll();

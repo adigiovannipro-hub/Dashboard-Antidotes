@@ -45,8 +45,11 @@ export const getViewer = cache(async () => {
      suffirait si elle s'appliquait toujours — mais en accès ouvert les
      lectures passent en `service_role`, et sans ces `where` un client
      récupérerait les appartenances de tout le monde. */
-  const [{ data: orgMemberships }, { data: memberships }, { data: workspaces }] =
-    await Promise.all([
+  const [
+    { data: orgMemberships, error: orgError },
+    { data: memberships, error: membershipError },
+    { data: workspaces, error: workspaceError },
+  ] = await Promise.all([
       supabase
         .from("organization_members")
         .select("org_id, role")
@@ -57,6 +60,15 @@ export const getViewer = cache(async () => {
         .eq("user_id", user.id),
       supabase.from("workspaces").select("*").order("type").order("name"),
     ]);
+
+  /* Une erreur ici n'est pas « aucun accès ». Avalée, elle rendait une liste
+     d'espaces vide, et l'espace demandé répondait 404 — une page qui affirme
+     que le dossier n'existe pas, pour une lecture qui a simplement échoué.
+     Mieux vaut une erreur franche, que le rechargement suivant efface. */
+  const readError = orgError ?? membershipError ?? workspaceError;
+  if (readError) {
+    throw new Error(`Lecture des accès impossible : ${readError.message}`);
+  }
 
   const ownedOrgs = new Set(
     (orgMemberships ?? [])
