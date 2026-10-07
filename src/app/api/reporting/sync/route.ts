@@ -6,6 +6,7 @@ import { syncWorkspaceWebAnalytics } from "@/lib/connectors/google-analytics/syn
 import { syncWorkspaceLinkedin } from "@/lib/connectors/linkedin/sync";
 import { syncWorkspaceReporting } from "@/lib/connectors/meta/sync";
 import { syncWorkspaceTiktokAds } from "@/lib/connectors/tiktok-ads/sync";
+import { syncWorkspaceClientSocial } from "@/lib/connectors/composio-social/sync";
 import { missingServerEnv } from "@/lib/env";
 import { createAdminClient } from "@/lib/supabase/server";
 import { COMPOSIO_TRANSITION_NOTE } from "@/lib/social/direct-connect";
@@ -86,21 +87,30 @@ export async function POST(request: Request) {
   });
   const tiktokReports = tiktokReport ? [tiktokReport] : [];
 
+  // X et TikTok organiques, les comptes que le client a branchés lui-même.
+  const clientReports = await syncWorkspaceClientSocial({
+    admin,
+    workspaceId: workspace.id,
+    atLeastSince: parsed.data.du,
+  });
+
   const errors = [
     ...reports.filter((report) => report.error),
     ...webReports.filter((report) => report.error),
     ...linkedinReports.filter((report) => report.error),
     ...tiktokReports.filter((report) => report.error),
+    ...clientReports.filter((report) => report.error),
   ];
   return NextResponse.json({
     ok: errors.length === 0,
-    reports: [...reports, ...webReports, ...linkedinReports, ...tiktokReports],
+    reports: [...reports, ...webReports, ...linkedinReports, ...tiktokReports, ...clientReports],
     note:
       reports.length === 0 &&
       webReports.length === 0 &&
       linkedinReports.length === 0 &&
-      tiktokReports.length === 0
-        ? `Aucun compte Meta, LinkedIn ni TikTok Ads affecté à cet espace, aucune propriété GA rattachée. ${COMPOSIO_TRANSITION_NOTE}`
+      tiktokReports.length === 0 &&
+      clientReports.length === 0
+        ? `Aucun compte Meta, LinkedIn, TikTok ni X affecté à cet espace, aucune propriété GA rattachée. ${COMPOSIO_TRANSITION_NOTE}`
         : undefined,
   });
 }

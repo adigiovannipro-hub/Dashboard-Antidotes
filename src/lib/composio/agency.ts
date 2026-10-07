@@ -3,10 +3,26 @@ import "server-only";
 import { Composio } from "@composio/core";
 
 import { serverEnv } from "@/lib/env";
-import { AGENCY_TOOLKIT_LABELS, type AgencyToolkit } from "./labels";
+import {
+  AGENCY_TOOLKIT_LABELS,
+  CLIENT_TOOLKIT_LABELS,
+  type AgencyToolkit,
+  type ClientToolkit,
+  type ComposioToolkit,
+} from "./labels";
 import { pickNewestAccount } from "./pick";
 
-export { AGENCY_TOOLKIT_LABELS, isAgencyToolkit, type AgencyToolkit } from "./labels";
+export {
+  AGENCY_TOOLKIT_LABELS,
+  CLIENT_TOOLKIT_KIND,
+  CLIENT_TOOLKIT_LABELS,
+  COMPOSIO_TOOLKIT_LABELS,
+  isAgencyToolkit,
+  isClientToolkit,
+  type AgencyToolkit,
+  type ClientToolkit,
+  type ComposioToolkit,
+} from "./labels";
 
 /**
  * Les réseaux branchés **une fois pour toute l'agence** par la passerelle
@@ -36,7 +52,7 @@ export { AGENCY_TOOLKIT_LABELS, isAgencyToolkit, type AgencyToolkit } from "./la
  * TikTok Ads : l'OAuth géré par Composio suffit — c'est celui qui a servi au
  * branchement du 1/10/2026 dans l'espace personnel.
  */
-const SCOPED_CONFIGS: Partial<Record<AgencyToolkit, { name: string; scopes: string[] }>> = {
+const SCOPED_CONFIGS: Partial<Record<ComposioToolkit, { name: string; scopes: string[] }>> = {
   linkedin: {
     name: "linkedin-pages",
     scopes: [
@@ -67,6 +83,34 @@ export function agencyUserId(): string {
   return process.env.COMPOSIO_DEFAULT_USER_ID ?? "agence";
 }
 
+/**
+ * L'identifiant d'un **client** chez Composio : un compte X ou TikTok
+ * n'appartient qu'à lui, et deux clients branchés sous le même identifiant
+ * se confondraient — le plus récent l'emportant chez l'autre.
+ */
+export function clientUserId(workspaceId: string): string {
+  return `espace:${workspaceId}`;
+}
+
+/** Le compte d'un client pour ce réseau — le plus récent —, ou la raison de son absence. */
+export async function findClientAccount(
+  toolkit: ClientToolkit,
+  workspaceId: string,
+): Promise<{ id: string } | { error: string }> {
+  const list = await composioClient().connectedAccounts.list({
+    userIds: [clientUserId(workspaceId)],
+    toolkitSlugs: [toolkit],
+    statuses: ["ACTIVE"],
+  });
+  const picked = pickNewestAccount(list.items);
+  if (picked) return { id: picked.id };
+
+  const label = CLIENT_TOOLKIT_LABELS[toolkit];
+  return {
+    error: `Aucun compte ${label} n'est branché pour ce client. Le brancher depuis Connexions (bouton « Brancher ${label} »), avec le login du client.`,
+  };
+}
+
 /** Le compte de l'agence pour ce réseau — le plus récent —, ou la raison de son absence. */
 export async function findAgencyAccount(
   toolkit: AgencyToolkit,
@@ -91,8 +135,10 @@ export async function findAgencyAccount(
  * rebranchement.
  */
 export async function startAgencyConnection(options: {
-  toolkit: AgencyToolkit;
+  toolkit: ComposioToolkit;
   callbackUrl: string;
+  /** L'identifiant Composio — celui de l'agence par défaut, celui de l'espace pour un client. */
+  userId?: string;
 }): Promise<string> {
   const composio = composioClient();
   const scoped = SCOPED_CONFIGS[options.toolkit];
@@ -111,7 +157,7 @@ export async function startAgencyConnection(options: {
     config = { id: created.id } as (typeof configs.items)[number];
   }
 
-  const request = await composio.connectedAccounts.link(agencyUserId(), config.id, {
+  const request = await composio.connectedAccounts.link(options.userId ?? agencyUserId(), config.id, {
     callbackUrl: options.callbackUrl,
     allowMultiple: true,
   });

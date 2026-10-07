@@ -179,12 +179,15 @@ jobs:
         env:
           COMPOSIO_API_KEY: ${{ secrets.COMPOSIO_API_KEY }}
 
-      # La collecte LinkedIn à la main : le cron tourne à 5 h, et on ne veut
-      # pas attendre demain pour constater un branchement.
-      - name: Collecte LinkedIn
+      # La collecte du Reporting d'un espace à la main — Meta, LinkedIn,
+      # TikTok Ads, site — puis la relecture de ce qui est écrit, mois par
+      # mois. Le cron tourne à 5 h, et une correction se vérifie contre les
+      # chiffres du réseau sans attendre demain. Le champ garde son nom
+      # `sync_linkedin` : un `workflow_dispatch` se valide contre `main`.
+      - name: Collecte du Reporting
         if: ${{ inputs.sync_linkedin != '' }}
         run: >-
-          pnpm sync:linkedin
+          pnpm sync:reporting
           ${{ inputs.sync_linkedin != 'tout' && format('--espace "{0}"', inputs.sync_linkedin) || '' }}
           ${{ inputs.sync_linkedin_depuis != '' && format('--depuis "{0}"', inputs.sync_linkedin_depuis) || '' }}
         env:
@@ -193,6 +196,8 @@ jobs:
           # le script meurt à l'import, avant la moindre ligne utile.
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          # Les jetons Meta sont chiffrés en base.
+          CREDENTIALS_ENCRYPTION_KEY: ${{ secrets.CREDENTIALS_ENCRYPTION_KEY }}
           COMPOSIO_API_KEY: ${{ secrets.COMPOSIO_API_KEY }}
 
       # TikTok, avant d'écrire la moindre ligne de connecteur : quelle

@@ -40,8 +40,9 @@ export const HERO_METRIC: Record<SocialReportingNetwork, MetricId> = {
      Prendre la définition d'Instagram — interactions sur portée — aurait
      donné 3,6 % et fait douter le client de son propre rapport. */
   linkedin: "engagementRateWithClicks",
-  // Réseaux sans connecteur encore : les vues portent la vidéo, les
-  // interactions portent le reste. Ces choix se rejugeront au branchement.
+  /* TikTok se lit à ses vues : c'est le chiffre que l'application affiche
+     sous chaque vidéo. X, à ses interactions. YouTube n'a pas encore de
+     connecteur de Reporting. */
   tiktok: "videoViews",
   youtube: "videoViews",
   x: "interactions",
@@ -112,9 +113,13 @@ export const KPI_SETS: Record<SocialReportingNetwork, MetricId[]> = {
     "pageViews",
     "jobsPageViews",
   ],
-  tiktok: ["likes", "comments", "saves", "shares"],
+  /* La Display API de TikTok rend vues, j'aime, commentaires et partages —
+     ni portée ni enregistrements : le taux d'engagement se rapporte donc aux
+     vues. */
+  tiktok: ["engagementRate", "likes", "comments", "shares"],
   youtube: ["likes", "comments", "shares"],
-  x: ["likes", "comments", "shares"],
+  /* X rend tout, impressions et signets compris (`public_metrics`). */
+  x: ["impressions", "engagementRate", "likes", "comments", "shares", "saves"],
   "linkedin-ads": ["spend", "impressions", "clicks", "cpm", "ctr", "videoViews", "videoCompletions"],
   "tiktok-ads": ["spend", "impressions", "clicks", "cpm", "ctr", "videoViews", "videoCompletions"],
 };
@@ -130,6 +135,8 @@ export const UNMEASURED_AT_ZERO: Partial<Record<SocialReportingNetwork, readonly
      `views` par publication et `page_media_view` au grain jour. Les
      enregistrements restent — une Page n'en a jamais eu. */
   facebook: ["saves"],
+  // La colonne du tableau, pas une tuile : TikTok ne rend pas les enregistrements.
+  tiktok: ["saves"],
 };
 
 export function isUnmeasuredZero(

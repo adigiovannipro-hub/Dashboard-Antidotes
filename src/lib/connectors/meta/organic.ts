@@ -19,15 +19,28 @@ import { toNumber } from "./mapping";
 
 /** `{ data: [{ name, values: [{ value }] }] }` tel que Graph le rend. */
 export type MetaInsightsField = {
-  data?: { name?: string; values?: { value?: number | string }[] }[];
+  data?: {
+    name?: string;
+    period?: string;
+    values?: { value?: number | string }[];
+  }[];
 };
 
-/** La valeur d'une métrique d'insights, ou 0 — absente vaut zéro. */
+/**
+ * La valeur d'une métrique d'insights, ou 0 — absente vaut zéro.
+ *
+ * Certaines métriques de publication rendent **deux séries** sous le même nom
+ * — `lifetime` et `day` (vu sur `post_total_media_view_unique`, 6/10/2026).
+ * C'est le cumul qu'on veut : la série du jour ne porte que les deux
+ * dernières journées.
+ */
 export function insightValue(
   insights: MetaInsightsField | undefined,
   name: string,
 ): number {
-  const metric = insights?.data?.find((entry) => entry.name === name);
+  const entries = insights?.data?.filter((entry) => entry.name === name) ?? [];
+  const metric =
+    entries.find((entry) => entry.period === "lifetime") ?? entries[0];
   const value = metric?.values?.[0]?.value;
   if (typeof value === "number") return Number.isFinite(value) ? value : 0;
   return toNumber(value);
@@ -62,6 +75,8 @@ export type OrganicPostColumns = {
   comments: number;
   saves: number;
   shares: number;
+  /** Les clics dans la publication — Facebook seulement (`post_clicks`). */
+  clicks?: number;
 };
 
 /** La nature d'un média Instagram — reel, carrousel, ou image fixe. */
@@ -142,13 +157,55 @@ export function pagePostKind(
 }
 
 /**
+ * Les métriques d'une publication de Page que Meta sert encore — **sondées
+ * sur pièce** le 6/10/2026 (Graph v21 et v24, Page d'Andrea De Luca).
+ *
+ * `views`, `post_impressions` et `post_impressions_unique` répondent
+ * désormais « (#100) The value must be a valid insights metric » : c'étaient
+ * elles qui donnaient des « Vues » et une portée à zéro sur toutes les
+ * publications Facebook, donc un taux d'engagement vide. Leurs remplaçantes :
+ *
+ *   `post_media_view`              combien de fois la publication s'est
+ *                                  affichée — **le chiffre que Facebook
+ *                                  affiche** sous un Reel (121 sur le Reel
+ *                                  sondé, égal à `fb_reels_total_plays` et au
+ *                                  champ `views` de la vidéo) ;
+ *   `post_total_media_view_unique` les spectateurs uniques — la portée ;
+ *   `post_clicks`                  les clics dans la publication.
+ *
+ * `post_video_views` répond encore, mais compte les lectures de **plus de
+ * trois secondes** (37 sur le même Reel) : c'est lui qui affichait 40 383 là
+ * où Facebook dit 130 K. Il ne sert plus que de repli.
+ *
+ * Les anciens noms restent lus en repli : une ligne collectée avant la bascule
+ * les porte encore.
+ */
+export const PAGE_POST_METRICS = [
+  "post_media_view",
+  "post_total_media_view_unique",
+  "post_clicks",
+  "post_video_views",
+] as const;
+
+/**
  * Un post de Page vers une ligne de `social_posts`.
  *
  * Les réactions tiennent lieu de « likes » : Facebook n'a plus de compteur de
  * likes seul, et distinguer un cœur d'un pouce n'apporte rien au reporting.
+ *
+ * **Pas d'enregistrements** : Meta ne les expose pas sur une publication de
+ * Page — `post_video_saves`, `post_saves` et voisins sont refusés comme
+ * métriques inconnues, et la liste par défaut des insights d'un Reel n'en
+ * porte aucun. La colonne reste à 0 et l'écran écrit « — ».
  */
 export function pagePostToPost(post: MetaPagePostRow): OrganicPostColumns | null {
   if (!post.created_time) return null;
+
+  const kind = pagePostKind(post);
+  const views =
+    insightValue(post.insights, "post_media_view") ||
+    insightValue(post.insights, "views") ||
+    insightValue(post.insights, "post_impressions");
 
   return {
     external_id: post.id,
@@ -156,20 +213,18 @@ export function pagePostToPost(post: MetaPagePostRow): OrganicPostColumns | null
     caption: post.message ?? null,
     permalink: post.permalink_url ?? null,
     thumbnail_url: post.full_picture ?? null,
-    media_kind: pagePostKind(post),
-    reach: insightValue(post.insights, "post_impressions_unique"),
-    /* `views` d'abord, `post_impressions` en repli. Meta a déprécié la
-       seconde fin 2025 et ne rend plus que la première sur les versions
-       récentes — mais l'inverse reste vrai sur les Pages qui n'ont pas
-       basculé, et une publication collectée avant la bascule porte encore
-       l'ancienne. Prendre le nouveau nom d'abord sans jeter l'ancien évite
-       de réécrire à zéro un historique bien réel. */
-    impressions:
-      insightValue(post.insights, "views") ||
-      insightValue(post.insights, "post_impressions"),
-    // Facebook compte les lectures à part des impressions — les déduire du
-    // type de média donnerait un chiffre inventé.
-    video_views: insightValue(post.insights, "post_video_views"),
+    media_kind: kind,
+    reach:
+      insightValue(post.insights, "post_total_media_view_unique") ||
+      insightValue(post.insights, "post_impressions_unique"),
+    impressions: views,
+    /* La vue d'une vidéo **est** son affichage, comme sur Instagram depuis la
+       fusion des deux compteurs : c'est le nombre que Facebook écrit sous un
+       Reel. Les vues de trois secondes ne servent qu'à défaut. Une image n'a
+       pas de vue vidéo. */
+    video_views:
+      kind === "video" ? views || insightValue(post.insights, "post_video_views") : 0,
+    clicks: insightValue(post.insights, "post_clicks"),
     likes: post.reactions?.summary?.total_count ?? 0,
     comments: post.comments?.summary?.total_count ?? 0,
     saves: 0,
@@ -206,12 +261,61 @@ export type PageDailyColumns = {
 const PAGE_METRIC_COLUMNS: Record<string, keyof Omit<PageDailyColumns, "date">> = {
   page_media_view: "impressions",
   page_impressions: "impressions",
+  /* `page_impressions_unique` est refusée depuis l'automne 2026 (sondé le
+     6/10) : les spectateurs uniques du jour la remplacent. Leur somme sur
+     une période compte deux fois qui revient — l'approximation additive que
+     le payant fait déjà sur la portée. */
+  page_total_media_view_unique: "reach",
   page_impressions_unique: "reach",
   page_post_engagements: "engagements",
   page_video_views: "video_views",
 };
 
-export const PAGE_DAILY_METRICS = Object.keys(PAGE_METRIC_COLUMNS);
+/**
+ * Ce qu'on demande à Page Insights : les noms vivants seulement. Les noms
+ * morts (`page_impressions`, `page_impressions_unique`) restent lisibles par
+ * `pageInsightsToDaily` pour l'historique, mais les demander faisait tomber
+ * la liste en bloc à chaque tranche de 90 jours et coûtait un appel par
+ * métrique en repli.
+ */
+export const PAGE_DAILY_METRICS = [
+  "page_media_view",
+  "page_total_media_view_unique",
+  "page_post_engagements",
+  "page_video_views",
+];
+
+/**
+ * Les abonnés de la Page, jour par jour, depuis `page_follows`.
+ *
+ * C'est un **cumul** : la valeur d'un jour est le nombre d'abonnés à la
+ * clôture de ce jour (95 le 8 septembre, 7 087 le 5 octobre chez Andrea —
+ * vérifié contre `followers_count` à 7 122 le 6). Contrairement à Instagram,
+ * Facebook rend donc l'historique : la courbe se remplit dès le premier
+ * passage, sans reprise manuelle. Même datation que le reste — la veille de
+ * `end_time`.
+ */
+export function pageFollowsToSeries(
+  rows: MetaPageInsightRow[],
+): { date: string; followers: number }[] {
+  const byDate = new Map<string, number>();
+  for (const row of rows) {
+    if (row.name !== "page_follows") continue;
+    for (const point of row.values ?? []) {
+      if (!point.end_time) continue;
+      const closed = new Date(Date.parse(point.end_time) - 86_400_000);
+      if (Number.isNaN(closed.getTime())) continue;
+      const value = typeof point.value === "number" ? point.value : toNumber(point.value);
+      // Un zéro n'est pas un relevé : Meta en rend avant la création de la
+      // Page, et l'écrire tirerait la courbe au sol.
+      if (!Number.isFinite(value) || value <= 0) continue;
+      byDate.set(closed.toISOString().slice(0, 10), value);
+    }
+  }
+  return [...byDate.entries()]
+    .map(([date, followers]) => ({ date, followers }))
+    .sort((a, b) => a.date.localeCompare(b.date));
+}
 
 /** L'inverse : par colonne, les noms qui la nourrissent, préférence d'abord. */
 const PAGE_COLUMN_METRICS = Object.entries(PAGE_METRIC_COLUMNS).reduce<

@@ -2,6 +2,7 @@ import "server-only";
 
 import { GRAPH_API, MetaError } from "@/lib/social/meta";
 import { isMetaTimeout, isTransientMeta, saysMetaTimeout } from "./errors";
+import { PAGE_POST_METRICS } from "./organic";
 import type {
   MetaIgCommentRow,
   MetaIgMediaLite,
@@ -448,23 +449,13 @@ export async function fetchPagePosts(options: {
       }),
     );
 
-  /* `views` **d'abord**, les trois anciennes ensuite. Fin 2025, Meta a
-     déprécié `post_impressions`, `post_impressions_unique` et
-     `post_video_views` sur les publications de Page au profit de `views` —
-     la même bascule qu'Instagram a déjà faite. Les anciennes restent
-     demandées : elles répondent encore sur certaines Pages, et surtout
-     l'historique déjà collecté ne doit pas être réécrit à zéro le jour où
-     l'une des deux se tait.
-
-     Demander les quatre ne coûte rien : `fetchPostInsights` redemande
-     métrique par métrique dès que Meta refuse la liste en bloc, et garde ce
-     qui passe. Ce que Meta refuse manque seul. */
-  const metrics = [
-    "views",
-    "post_impressions",
-    "post_impressions_unique",
-    "post_video_views",
-  ];
+  /* Les noms vivants seulement — voir `PAGE_POST_METRICS`. Les anciens
+     (`views`, `post_impressions`, `post_impressions_unique`) sont refusés
+     comme métriques inconnues depuis l'automne 2026 : les demander faisait
+     tomber l'expansion en bloc, le listing revenait sans statistiques et
+     chaque publication se redemandait métrique par métrique — d'où des vues
+     et une portée à zéro partout. */
+  const metrics = [...PAGE_POST_METRICS];
 
   let rows: MetaPagePostRow[];
   try {

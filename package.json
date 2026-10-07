@@ -23,6 +23,7 @@
     "import:billing-monday": "tsx scripts/import-billing-monday.ts",
     "diagnostic:billing": "tsx scripts/diagnostic-billing.ts",
     "sync:linkedin": "tsx --conditions=react-server scripts/sync-linkedin.ts",
+    "sync:reporting": "tsx --conditions=react-server scripts/sync-reporting.ts",
     "sonde:linkedin": "tsx scripts/sonde-linkedin-rest.ts",
     "sonde:meta": "tsx --conditions=react-server scripts/sonde-meta.ts",
     "diagnostic:linkedin": "tsx scripts/diagnostic-linkedin.ts",

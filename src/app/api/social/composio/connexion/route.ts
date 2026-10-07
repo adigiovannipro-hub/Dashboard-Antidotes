@@ -2,13 +2,17 @@ import { NextResponse } from "next/server";
 
 import { getWorkspace } from "@/lib/auth";
 import {
-  AGENCY_TOOLKIT_LABELS,
+  COMPOSIO_TOOLKIT_LABELS,
+  clientUserId,
   isAgencyToolkit,
+  isClientToolkit,
   startAgencyConnection,
 } from "@/lib/composio/agency";
 
 /**
- * Brancher — ou rebrancher — LinkedIn et TikTok Ads depuis Connexions.
+ * Brancher — ou rebrancher — LinkedIn et TikTok Ads depuis Connexions, pour
+ * toute l'agence ; X et TikTok, pour ce seul client, rangés chez Composio
+ * sous l'identifiant de l'espace (`clientUserId`).
  *
  * L'autorisation vit chez Composio, mais **le lien se demande ici**, avec la
  * clé du projet de l'application : un compte branché depuis le tableau de
@@ -17,7 +21,8 @@ import {
  * ce chemin, l'application lisait toujours l'ancien jeton révoqué).
  *
  * Composio ramène ensuite sur `/api/social/composio/inventaire`, qui importe
- * les pages ou les comptes publicitaires et relance la collecte de l'espace.
+ * les pages, les comptes publicitaires ou le profil du client, et relance la
+ * collecte de l'espace.
  *
  * Module interne : 404 et non 403 à qui n'est pas propriétaire.
  */
@@ -28,7 +33,7 @@ export async function GET(request: Request) {
   const url = new URL(request.url);
   const workspaceSlug = url.searchParams.get("espace");
   const reseau = url.searchParams.get("reseau") ?? "";
-  if (!workspaceSlug || !isAgencyToolkit(reseau)) {
+  if (!workspaceSlug || !(isAgencyToolkit(reseau) || isClientToolkit(reseau))) {
     return new NextResponse(null, { status: 404 });
   }
 
@@ -56,13 +61,14 @@ export async function GET(request: Request) {
     const redirectUrl = await startAgencyConnection({
       toolkit: reseau,
       callbackUrl: callback.toString(),
+      ...(isClientToolkit(reseau) ? { userId: clientUserId(workspace.id) } : {}),
     });
     return NextResponse.redirect(redirectUrl);
   } catch (error) {
     const back = new URL(retour, url.origin);
     back.searchParams.set(
       "erreur",
-      `Lien ${AGENCY_TOOLKIT_LABELS[reseau]} indisponible : ${(error as Error).message}`,
+      `Lien ${COMPOSIO_TOOLKIT_LABELS[reseau]} indisponible : ${(error as Error).message}`,
     );
     return NextResponse.redirect(back);
   }

@@ -31,6 +31,7 @@ import {
 import {
   mediaToPost,
   PAGE_DAILY_METRICS,
+  pageFollowsToSeries,
   pageInsightsToDaily,
   pagePostToPost,
   type OrganicPostColumns,
@@ -620,6 +621,47 @@ async function syncOrganic(
       if (error instanceof MetaError && error.retryable) throw error;
       const cause = explainMetaError((error as Error).message).message;
       warning = [warning, `Statistiques de Page non lues : ${cause}`]
+        .filter(Boolean)
+        .join(" — ");
+    }
+
+    /* L'historique des abonnés : Facebook le rend jour par jour, en cumul,
+       par `page_follows`. Sans lui, chaque Page repartait d'un seul relevé
+       le jour de son branchement — Andrea n'avait qu'un point, quand Meta
+       sait raconter les 95 abonnés du 8 septembre jusqu'aux 7 122 du
+       6 octobre. Le relevé du jour (`followers_count`, plus bas) écrase le
+       point de la même date : la mesure directe gagne. */
+    try {
+      const series = pageFollowsToSeries(
+        await fetchPageInsights({
+          pageId: account.external_id,
+          accessToken,
+          metrics: ["page_follows"],
+          since: window.since,
+          until: window.until,
+        }),
+      ).filter((point) => point.date <= closingDate());
+      if (series.length > 0) {
+        const now = new Date().toISOString();
+        const { error } = await admin.from("social_followers").upsert(
+          series.map((point) => ({
+            data_source_id: dataSourceId,
+            workspace_id: workspaceId,
+            platform,
+            date: point.date,
+            followers_count: point.followers,
+            source: "api",
+            updated_at: now,
+          })) as never,
+          { onConflict: "data_source_id,platform,date" },
+        );
+        if (error) fail(`Historique des abonnés : ${error.message}`);
+        ingested += series.length;
+      }
+    } catch (error) {
+      if (error instanceof MetaError && error.retryable) throw error;
+      const cause = explainMetaError((error as Error).message).message;
+      warning = [warning, `Historique des abonnés non lu : ${cause}`]
         .filter(Boolean)
         .join(" — ");
     }

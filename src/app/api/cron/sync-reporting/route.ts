@@ -5,6 +5,7 @@ import { syncWorkspaceWebAnalytics } from "@/lib/connectors/google-analytics/syn
 import { syncWorkspaceLinkedin } from "@/lib/connectors/linkedin/sync";
 import { syncWorkspaceReporting } from "@/lib/connectors/meta/sync";
 import { syncWorkspaceTiktokAds } from "@/lib/connectors/tiktok-ads/sync";
+import { syncWorkspaceClientSocial } from "@/lib/connectors/composio-social/sync";
 import { missingServerEnv, serverEnv } from "@/lib/env";
 import { createAdminClient } from "@/lib/supabase/server";
 
@@ -155,6 +156,35 @@ export async function GET(request: Request) {
     } catch (error) {
       errors.push(
         `tiktok ads ${workspaceId} : ${error instanceof Error ? error.message : "erreur"}`,
+      );
+    }
+  }
+
+  /* X et TikTok organiques : les comptes que chaque client a branchés. */
+  const { data: clientLinks, error: clientLinksError } = await admin
+    .from("workspace_social_accounts")
+    .select("workspace_id")
+    .in("kind", ["x", "tiktok"]);
+  if (clientLinksError) {
+    errors.push(`Lecture des affectations X et TikTok : ${clientLinksError.message}`);
+  }
+
+  const clientWorkspaceIds = [
+    ...new Set(
+      ((clientLinks ?? []) as { workspace_id: string }[]).map((link) => link.workspace_id),
+    ),
+  ];
+
+  for (const workspaceId of clientWorkspaceIds) {
+    try {
+      const sources = await syncWorkspaceClientSocial({ admin, workspaceId });
+      report[`social:${workspaceId}`] = sources;
+      for (const source of sources) {
+        if (source.error) errors.push(`${source.account} : ${source.error}`);
+      }
+    } catch (error) {
+      errors.push(
+        `x/tiktok ${workspaceId} : ${error instanceof Error ? error.message : "erreur"}`,
       );
     }
   }

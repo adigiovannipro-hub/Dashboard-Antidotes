@@ -5,6 +5,7 @@ import {
   mediaToPost,
   pagePostKind,
   pagePostToPost,
+  pageFollowsToSeries,
   pageInsightsToDaily,
 } from "./organic";
 
@@ -144,22 +145,87 @@ describe("pagePostToPost", () => {
     expect(pagePostToPost({ id: "1" })).toBeNull();
   });
 
-  it("lit les vues vidéo de Facebook au lieu de les déduire", () => {
-    // `post_video_views` est une grandeur distincte des impressions.
+  it("lit un Reel avec les métriques que Meta sert encore", () => {
+    /* Charge utile sondée le 6/10/2026 sur un Reel d'Andrea De Luca : 121
+       vues (le chiffre que Facebook affiche), 32 spectateurs uniques, 37
+       lectures de plus de trois secondes. `post_total_media_view_unique`
+       rend deux séries sous le même nom — c'est le cumul qui compte. */
+    const post = pagePostToPost({
+      id: "1344039808792759_122121277335470051",
+      created_time: "2026-10-06T14:02:14+0000",
+      attachments: { data: [{ media_type: "video" }] },
+      insights: {
+        data: [
+          { name: "post_media_view", period: "lifetime", values: [{ value: 121 }] },
+          {
+            name: "post_total_media_view_unique",
+            period: "day",
+            values: [{ value: 0 }, { value: 0 }],
+          },
+          {
+            name: "post_total_media_view_unique",
+            period: "lifetime",
+            values: [{ value: 32 }],
+          },
+          { name: "post_clicks", period: "lifetime", values: [{ value: 1 }] },
+          { name: "post_video_views", period: "lifetime", values: [{ value: 37 }] },
+        ],
+      },
+    });
+    expect(post?.impressions).toBe(121);
+    expect(post?.video_views).toBe(121);
+    expect(post?.reach).toBe(32);
+    expect(post?.clicks).toBe(1);
+  });
+
+  it("retombe sur les lectures de trois secondes quand les vues manquent", () => {
     const post = pagePostToPost({
       id: "1",
       created_time: "2026-08-03T09:00:00+0000",
       attachments: { data: [{ media_type: "video" }] },
-      insights: {
-        data: [
-          { name: "post_impressions", values: [{ value: 5000 }] },
-          { name: "post_video_views", values: [{ value: 1800 }] },
+      insights: { data: [{ name: "post_video_views", values: [{ value: 1800 }] }] },
+    });
+    expect(post?.video_views).toBe(1800);
+  });
+
+  it("ne donne pas de vue vidéo à une image", () => {
+    const post = pagePostToPost({
+      id: "1",
+      created_time: "2026-08-03T09:00:00+0000",
+      insights: { data: [{ name: "post_media_view", values: [{ value: 400 }] }] },
+    });
+    expect(post?.impressions).toBe(400);
+    expect(post?.video_views).toBe(0);
+  });
+});
+
+describe("pageFollowsToSeries", () => {
+  it("rend le cumul d'abonnés daté du jour qu'il clôture", () => {
+    // Relevé réel d'Andrea De Luca, 6/10/2026.
+    const series = pageFollowsToSeries([
+      {
+        name: "page_follows",
+        period: "day",
+        values: [
+          { value: 95, end_time: "2026-09-08T07:00:00+0000" },
+          { value: 4046, end_time: "2026-09-30T07:00:00+0000" },
+          { value: 7122, end_time: "2026-10-07T07:00:00+0000" },
         ],
       },
-    });
-    expect(post?.media_kind).toBe("video");
-    expect(post?.video_views).toBe(1800);
-    expect(post?.impressions).toBe(5000);
+    ]);
+    expect(series).toEqual([
+      { date: "2026-09-07", followers: 95 },
+      { date: "2026-09-29", followers: 4046 },
+      { date: "2026-10-06", followers: 7122 },
+    ]);
+  });
+
+  it("ignore les zéros et les autres métriques", () => {
+    const series = pageFollowsToSeries([
+      { name: "page_follows", values: [{ value: 0, end_time: "2026-09-08T07:00:00+0000" }] },
+      { name: "page_media_view", values: [{ value: 9, end_time: "2026-09-08T07:00:00+0000" }] },
+    ]);
+    expect(series).toEqual([]);
   });
 });
 
@@ -242,6 +308,18 @@ describe("pageInsightsToDaily", () => {
       { name: "page_impressions_unique", period: "day", values: [point] },
     ]);
     expect(rows[0]?.reach).toBe(500);
+  });
+
+  it("prend les spectateurs uniques du jour pour la portée", () => {
+    // `page_impressions_unique` est refusée depuis l'automne 2026 (sondé).
+    const rows = pageInsightsToDaily([
+      {
+        name: "page_total_media_view_unique",
+        period: "day",
+        values: [{ value: 73653, end_time: "2026-09-26T07:00:00+0000" }],
+      },
+    ]);
+    expect(rows[0]?.reach).toBe(73653);
   });
 
   it("ignore une métrique inconnue et une valeur illisible", () => {
