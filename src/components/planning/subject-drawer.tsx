@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ArrowLeft,
   ArrowRight,
@@ -10,6 +10,7 @@ import {
   Plus,
   X,
 } from "lucide-react";
+import { toast } from "sonner";
 
 import {
   removeVisual,
@@ -84,6 +85,33 @@ export function SubjectDrawer({
   const [tab, setTab] = useState<"retours" | "activite">("retours");
   const { run, pending } = useCellAction();
   const [wording, setWording] = useState(subject.wording ?? "");
+
+  /*
+   * Le wording s'enregistre aussi quand le panneau se ferme. Un clic dehors
+   * ou Échap démontent le panneau sans que le champ reçoive de `blur` — React
+   * n'en émet pas sur un élément retiré —, et la saisie partait avec lui.
+   * L'appel part hors transition : le composant n'existe plus pour l'attendre.
+   */
+  const draftRef = useRef<string | null>(null);
+  const saveWording = () => {
+    const draft = draftRef.current;
+    if (draft === null) return;
+    draftRef.current = null;
+    const next = draft.trim();
+    if (next === (subject.wording ?? "").trim()) return;
+    void updateSubject(scope, {
+      subjectId: subject.id,
+      field: "wording",
+      value: next || null,
+    }).then((result) => {
+      if (!result.ok) toast.error(result.error);
+    });
+  };
+  const saveWordingRef = useRef(saveWording);
+  useEffect(() => {
+    saveWordingRef.current = saveWording;
+  });
+  useEffect(() => () => saveWordingRef.current(), []);
 
   // Un clic sur le tableau derrière referme — mais pas pendant la glissade de
   // sortie, où le panneau n'écoute plus rien.
@@ -218,17 +246,17 @@ export function SubjectDrawer({
           <p className="text-muted-foreground mb-1 text-[11px] uppercase">Wording</p>
           <textarea
             value={wording}
-            onChange={(event) => setWording(event.target.value)}
-            onBlur={() => {
-              const next = wording.trim();
-              if (next === (subject.wording ?? "").trim()) return;
-              run(() =>
-                updateSubject(scope, {
-                  subjectId: subject.id,
-                  field: "wording",
-                  value: next || null,
-                }),
-              );
+            onChange={(event) => {
+              setWording(event.target.value);
+              draftRef.current = event.target.value;
+            }}
+            onBlur={saveWording}
+            onKeyDown={(event) => {
+              // ⌘/Ctrl+Entrée enregistre, comme dans la cellule du tableau.
+              if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+                event.preventDefault();
+                event.currentTarget.blur();
+              }
             }}
             rows={7}
             aria-label="Wording"
