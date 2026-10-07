@@ -29,6 +29,7 @@ import {
   MoveDialog,
 } from "@/components/planning/board-dialogs";
 import { MoveProvider } from "@/components/planning/move-context";
+import { useLiveBoard } from "@/components/planning/use-live-board";
 import { BulkBar } from "@/components/planning/bulk-bar";
 import { FeedPreview } from "@/components/planning/feed-preview";
 import { panelZIndex } from "@/components/planning/panel-layers";
@@ -134,6 +135,7 @@ export function PlanningBoardView({
   view: PlanningView;
 }) {
   const router = useRouter();
+  useLiveBoard(board.id, board.workspace_id);
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { run, pending } = useCellAction();
