@@ -28,7 +28,7 @@ import {
   publishTiktokVideo,
   tiktokPermalink,
 } from "./tiktok-publish";
-import { DEFAULT_TIKTOK_SETTINGS, parseTiktokSettings } from "./tiktok-settings";
+import { parseTiktokSettings } from "./tiktok-settings";
 
 /**
  * Le passage de publication automatique.
@@ -451,7 +451,7 @@ export async function publishToTarget(options: {
       video: await video.read(),
       contentType: video.contentType,
       caption,
-      settings: parseTiktokSettings(subject.tiktok_settings) ?? DEFAULT_TIKTOK_SETTINGS,
+      settings: parseTiktokSettings(subject.tiktok_settings),
     });
     if (sent.mode === "draft") {
       return { status: "awaiting", externalId: sent.publishId, kind: "draft" };

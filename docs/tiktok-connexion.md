@@ -191,7 +191,9 @@ jour où l'audit passe, ce refus disparaît : **rien à changer dans le code**.
 ### Le bloc TikTok du panneau
 
 Toute publication d'un couloir TikTok a, dans son panneau, le bloc que
-TikTok exige de voir avant une publication directe — c'est ce que l'audit
+TikTok exige de voir avant une publication directe — **réservé à l'agence**
+(le client ne le voit pas) et **replié** : on l'ouvre d'un clic, le compte
+n'est lu chez TikTok qu'à ce moment-là — c'est ce que l'audit
 filme : le compte de destination (pseudo et nom, lus sur `creator_info`),
 « Qui peut voir cette vidéo » parmi les options du compte **sans valeur par
 défaut**, commentaires / duos / collages décochés tant qu'on ne les coche

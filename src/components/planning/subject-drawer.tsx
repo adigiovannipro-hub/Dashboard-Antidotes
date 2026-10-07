@@ -34,6 +34,7 @@ import {
 import { useDismissOnOutsideClick } from "@/components/planning/panel-layers";
 import { CommentThread, type Scope } from "@/components/planning/subject-row";
 import { PlatformIcon } from "@/components/planning/platform-icon";
+import { TiktokPanel } from "@/components/planning/tiktok-panel";
 import { PendingLabel } from "@/components/ds/pending-label";
 import { Button } from "@/components/ui/button";
 import type { ColumnDef, ColumnLabel } from "@/lib/planning/columns";
@@ -65,10 +66,11 @@ export function SubjectDrawer({
   closing,
   zIndex,
   onClose,
+  isOwner = false,
 }: {
   scope: Scope;
   subject: SubjectRow;
-  /** L'agence : seule à pouvoir publier tout de suite. */
+  /** L'agence : seule à voir le bloc TikTok, ses réglages et « Publier maintenant ». */
   isOwner?: boolean;
   columns: ColumnDef[];
   owners: PlanningOwner[];
@@ -267,6 +269,16 @@ export function SubjectDrawer({
             {wording.length} caractères
           </p>
         </div>
+
+        {isOwner && subject.platform === "tiktok" ? (
+          <TiktokPanel
+            key={subject.id}
+            scope={scope}
+            subjectId={subject.id}
+            status={subject.status}
+            settings={subject.tiktok_settings}
+          />
+        ) : null}
 
         {/* --- Retours / Activités --- */}
         <div className="p-4">

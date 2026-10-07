@@ -112,12 +112,10 @@ on:
         description: "… vers cette adresse à la place des clients, sans journal (test)"
         type: string
         default: ""
+      # Une seule entrée pour trois valeurs : GitHub refuse plus de 25 entrées,
+      # et le workflow entier devient alors inerte (vécu le 7/10/2026).
       essai_publication:
-        description: "Essai de publication : identifiant du sujet du planning (vraie chaîne, rien n'est écrit au planning)"
-        type: string
-        default: ""
-      essai_publication_vers:
-        description: "… sur les comptes de cet espace de test (slug) — jamais celui du client"
+        description: "Essai de publication, vraie chaîne, rien n'est écrit au planning : « <uuid du sujet> <slug de l'espace de test> [instagram|facebook|tiktok|linkedin] »"
         type: string
         default: ""
 
@@ -336,12 +334,14 @@ jobs:
       # qu'un réseau neuf ne parte chez un client. Utilisable après la
       # fusion seulement : un `workflow_dispatch` se valide contre `main`.
       - name: Essai de publication
-        if: ${{ inputs.essai_publication != '' && inputs.essai_publication_vers != '' }}
-        run: >-
-          pnpm publier:essai
-          --sujet "${{ inputs.essai_publication }}"
-          --espace "${{ inputs.essai_publication_vers }}"
+        if: ${{ inputs.essai_publication != '' }}
+        # Passée par l'environnement, jamais interpolée dans le script : une
+        # entrée de formulaire ne doit pas pouvoir écrire du shell.
+        run: |
+          read -r sujet espace reseau <<< "$ESSAI"
+          pnpm publier:essai --sujet "$sujet" --espace "$espace" ${reseau:+--reseau "$reseau"}
         env:
+          ESSAI: ${{ inputs.essai_publication }}
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}

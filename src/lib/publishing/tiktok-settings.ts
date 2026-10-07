@@ -10,13 +10,12 @@
  * déclaré (« votre marque », « contenu de marque ») ; et l'accord avec la
  * « Music Usage Confirmation » est affiché avant de publier.
  *
- * Depuis le 7/10, plus aucun réglage ne se saisit à l'écran (demande de
- * l'utilisateur : le panneau était visible du client et ralentissait la
- * programmation) : une publication sans réglages enregistrés part avec
- * `DEFAULT_TIKTOK_SETTINGS` — tout le monde, commentaires, duos et collages
- * ouverts, pas de contenu commercial. Elle part en direct dès que l'app est
- * auditée, en brouillon d'ici là. Revers assumé : l'audit TikTok exige un
- * choix explicite à l'écran, il faudra remontrer un panneau pour sa vidéo.
+ * Ces réglages se saisissent dans le bloc TikTok du panneau d'une
+ * publication, **réservé à l'agence et replié** : retiré le 7/10 au matin
+ * parce qu'il était visible du client et ralentissait la programmation, il
+ * est revenu l'après-midi sous cette forme — l'audit exige de le voir, et
+ * publier en public sans choix explicite enfreindrait les règles de TikTok
+ * après l'audit. Sans réglages enregistrés, la vidéo part en **brouillon**.
  *
  * Module sans `server-only` : le panneau du planning s'en sert aussi.
  */
@@ -49,16 +48,6 @@ export type TiktokPostSettings = {
   brandedContent: boolean;
   /** Le moment où la personne a enregistré ces réglages — et donc accepté la Music Usage Confirmation. */
   consentedAt: string;
-};
-
-export const DEFAULT_TIKTOK_SETTINGS: TiktokPostSettings = {
-  privacy: "PUBLIC_TO_EVERYONE",
-  allowComment: true,
-  allowDuet: true,
-  allowStitch: true,
-  yourBrand: false,
-  brandedContent: false,
-  consentedAt: "1970-01-01T00:00:00.000Z",
 };
 
 /**
