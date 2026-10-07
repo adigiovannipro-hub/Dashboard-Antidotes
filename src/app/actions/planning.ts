@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { z } from "zod";
 
 import { getViewer, getWorkspace } from "@/lib/auth";
@@ -16,6 +17,9 @@ import {
   previewPathFor,
   visualPath,
 } from "@/lib/planning/storage";
+import { dispatchVideosWorkflow } from "@/lib/finance/github-actions";
+import { notifyApprovals } from "@/lib/planning/approval-notify";
+import { isUnportableVideoPath } from "@/lib/planning/video-compression";
 import { sendCommentEmails } from "@/lib/planning/notify";
 import { PLATFORM_LABELS, PLATFORM_ORDER } from "@/lib/planning/types";
 import { createClient } from "@/lib/supabase/server";
@@ -52,6 +56,19 @@ async function guard(scope: Scope) {
   if (!workspace) throw new Error("Action indisponible.");
 
   return { viewer, workspace };
+}
+
+/**
+ * Un client — ou tout membre qui n'est pas owner — passe une ligne à
+ * « Validé ». C'est le feu vert de la publication automatique : l'agence en
+ * reçoit un courriel. Ses propres validations, elle les connaît.
+ */
+function isClientApproval(
+  viewer: { isOwner: boolean },
+  field: EditableField,
+  value: unknown,
+): boolean {
+  return !viewer.isOwner && field === "status" && value === "validated";
 }
 
 function revalidate(scope: Scope) {
@@ -692,6 +709,11 @@ export async function updateSubject(
       after: parsed.data,
     });
 
+    const previous = (before as Record<string, unknown> | null)?.[input.field];
+    if (isClientApproval(viewer, input.field, parsed.data) && previous !== "validated") {
+      after(() => notifyApprovals({ subjectIds: [input.subjectId], approverId: viewer.user.id }));
+    }
+
     revalidate(scope);
     return OK;
   } catch (error) {
@@ -724,6 +746,22 @@ export async function bulkUpdateSubjects(
     const { viewer, workspace } = await guard(scope);
     const supabase = await createClient();
 
+    // Les lignes déjà validées ne reprennent pas de courriel à la revalidation.
+    const approving = isClientApproval(viewer, input.field, parsed.data);
+    const alreadyValidated = approving
+      ? new Set(
+          (
+            ((
+              await supabase
+                .from("planning_subjects")
+                .select("id")
+                .in("id", input.subjectIds)
+                .eq("status", "validated")
+            ).data ?? []) as { id: string }[]
+          ).map((row) => row.id),
+        )
+      : new Set<string>();
+
     const patch = { [input.field]: parsed.data } as Partial<PlanningSubjectRow>;
     const { error } = await supabase
       .from("planning_subjects")
@@ -742,6 +780,11 @@ export async function bulkUpdateSubjects(
         after: parsed.data,
       })),
     });
+
+    if (approving) {
+      const fresh = input.subjectIds.filter((id) => !alreadyValidated.has(id));
+      after(() => notifyApprovals({ subjectIds: fresh, approverId: viewer.user.id }));
+    }
 
     revalidate(scope);
     return {
@@ -1631,6 +1674,17 @@ export async function attachVisuals(
         )
         .join(", "),
     });
+
+    // Une vidéo arrivée hors MP4 (`.mov` HEVC que ce navigateur n'a pas su
+    // convertir) ne se lirait pas chez le client : sa conversion part tout
+    // de suite sur GitHub, sans attendre aucun passage programmé.
+    if (input.paths.some(isUnportableVideoPath)) {
+      after(() =>
+        dispatchVideosWorkflow().catch((cause) =>
+          console.error(`Conversion vidéo non déclenchée : ${(cause as Error).message}`),
+        ),
+      );
+    }
 
     revalidate(scope);
     return {

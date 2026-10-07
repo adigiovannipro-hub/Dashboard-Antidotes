@@ -78,10 +78,16 @@ export function transcodeArgs(input: {
   output: string;
   probe: VideoProbe;
   videoKbps: number;
+  /** Petit côté maximal. 720 pour l'archive reprise de Monday ; une vidéo
+      encore à publier garde 1080, la définition d'un reel. */
+  shortEdge?: number;
+  /** 26 pour l'archive ; plus bas, plus fidèle, pour ce qui reste à publier. */
+  crf?: number;
 }): string[] {
+  const edge = input.shortEdge ?? VIDEO_SHORT_EDGE;
   const scale =
-    `scale=w='if(gt(iw,ih),-2,min(${VIDEO_SHORT_EDGE},iw))'` +
-    `:h='if(gt(iw,ih),min(${VIDEO_SHORT_EDGE},ih),-2)'`;
+    `scale=w='if(gt(iw,ih),-2,min(${edge},iw))'` +
+    `:h='if(gt(iw,ih),min(${edge},ih),-2)'`;
 
   // HDR : l'iPhone ne dit pas son pic de lumière, et `tonemap` en suppose
   // alors un de 1 000 nits — l'image sortait 15 % trop sombre, un mur blanc
@@ -127,7 +133,7 @@ export function transcodeArgs(input: {
     "-profile:v",
     "high",
     "-crf",
-    "26",
+    String(input.crf ?? 26),
     "-maxrate",
     `${kbps}k`,
     "-bufsize",

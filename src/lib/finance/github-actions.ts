@@ -229,3 +229,14 @@ async function dispatchWorkflow(file: string, inputs: Record<string, string>): P
 export async function dispatchRadarWorkflow(): Promise<void> {
   await dispatchWorkflow(RADAR_WORKFLOW_FILE, {});
 }
+
+/**
+ * La conversion en MP4 d'une vidéo que le navigateur n'a pas su convertir à
+ * l'envoi. Déclenchée par le dépôt lui-même, jamais programmée : la vidéo
+ * devient lisible chez le client dans les minutes qui suivent.
+ */
+export const VIDEOS_WORKFLOW_FILE = "videos-lisibles.yml";
+
+export async function dispatchVideosWorkflow(): Promise<void> {
+  await dispatchWorkflow(VIDEOS_WORKFLOW_FILE, { ecrire: "true" });
+}

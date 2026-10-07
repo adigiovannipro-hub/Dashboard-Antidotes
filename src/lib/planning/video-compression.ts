@@ -27,12 +27,63 @@ const HD_BITRATE_FLOOR = 2_500_000;
 /** Le conteneur MP4 et ses index mangent quelques pourcents du budget. */
 const CONTAINER_OVERHEAD = 0.97;
 
-/** Une vidéo au-dessus du plafond du bucket, mais qu'on sait ramener dessous. */
+/**
+ * Une vidéo que les navigateurs du client ne liraient pas à coup sûr.
+ *
+ * Un `.mov` d'iPhone est en HEVC dans un conteneur QuickTime : Safari sur Mac
+ * le lit, Chrome sous Windows et la plupart des Android non — l'agence la
+ * voyait jouer, le client voyait un cadre noir (6/10/2026, deux sujets
+ * d'ANMF). Seul le MP4 passe partout ; on ne sait pas lire le codec sans
+ * ouvrir le fichier, donc tout ce qui n'est pas MP4 est réencodé en H.264.
+ */
+export function isPortableVideo(file: { name: string; type: string }): boolean {
+  if (file.type) return file.type === "video/mp4";
+  return /\.mp4$/i.test(file.name);
+}
+
+/** Un chemin de vidéo au bucket qui n'est pas un MP4 — à convertir. */
+export function isUnportableVideoPath(path: string): boolean {
+  return !path.startsWith("http") && /\.(mov|m4v|webm|qt)$/i.test(path);
+}
+
+/**
+ * Une vidéo à réencoder avant l'envoi : trop lourde pour le bucket, ou dans un
+ * format que les navigateurs du client ne lisent pas.
+ */
 export function needsCompression(file: { name: string; type: string; size: number }): boolean {
   return (
     isVideoFile(file) &&
-    file.size > MAX_VISUAL_BYTES &&
-    file.size <= MAX_SOURCE_VIDEO_BYTES
+    file.size <= MAX_SOURCE_VIDEO_BYTES &&
+    (file.size > MAX_VISUAL_BYTES || !isPortableVideo(file))
+  );
+}
+
+/** Le plancher d'une simple conversion : sous ce poids, l'économie ne vaut
+    pas une image qui bave. */
+const CONVERSION_FLOOR_BYTES = 8 * 1024 * 1024;
+
+/**
+ * Le poids visé pour une vidéo **légère** qu'on ne fait que convertir.
+ *
+ * Viser les 45 Mo d'un master gonflerait un clip d'iPhone de 2 Mo à 15 —
+ * sur un stockage de 1 Go pour tout le projet. Le H.264 pèse à peu près le
+ * double du HEVC à qualité égale : deux fois la source, entre 8 et 45 Mo, et
+ * jamais sous ce que le débit plancher exige pour la durée. Une vidéo déjà
+ * trop lourde garde la cible du bucket.
+ */
+export function conversionTargetBytes(input: {
+  sizeBytes: number;
+  durationSeconds: number;
+  audioBitrate: number;
+}): number {
+  if (input.sizeBytes > MAX_VISUAL_BYTES) return COMPRESSION_TARGET_BYTES;
+  const floorForDuration =
+    (Math.max(0, input.durationSeconds) * (MIN_VIDEO_BITRATE * 1.25 + Math.max(0, input.audioBitrate))) /
+    8 /
+    CONTAINER_OVERHEAD;
+  return Math.min(
+    COMPRESSION_TARGET_BYTES,
+    Math.ceil(Math.max(input.sizeBytes * 2, CONVERSION_FLOOR_BYTES, floorForDuration)),
   );
 }
 
