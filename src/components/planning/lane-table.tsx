@@ -14,6 +14,7 @@ import { ConfirmDialog } from "@/components/ds/confirm-dialog";
 import { TextCell, useCellAction } from "@/components/planning/cells";
 import { AddColumnMenu, ColumnHeaderMenu } from "@/components/planning/column-menus";
 import { useMoves } from "@/components/planning/move-context";
+import { useSortSave } from "@/components/planning/sort-save";
 import { sortSubjects, sortableKey } from "@/lib/planning/sort";
 import { PlatformIcon, platformColor } from "@/components/planning/platform-icon";
 import {
@@ -415,6 +416,7 @@ function HeaderCell({
   onResizePreview: (columnId: string, width: number | null) => void;
 }) {
   const { run } = useCellAction();
+  const sortSave = useSortSave();
   const sortKey = sortableKey(column);
   const sorted =
     sort !== "position" && sortKey !== null && sort.column === sortKey
@@ -456,6 +458,19 @@ function HeaderCell({
       )}
     </button>
   ) : null;
+
+  // Le tri devient l'ordre du tableau d'un clic, là où il a été posé.
+  const saveButton =
+    sorted && sortSave ? (
+      <button
+        type="button"
+        disabled={sortSave.pending}
+        onClick={sortSave.save}
+        className="bg-primary text-primary-foreground focus-visible:ring-ring absolute top-1/2 right-7 z-10 h-5 -translate-y-1/2 rounded-full px-2 text-[11px] font-medium normal-case tracking-normal transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50"
+      >
+        {sortSave.pending ? "…" : "Enregistrer"}
+      </button>
+    ) : null;
 
   /**
    * La poignée de redimensionnement, au bord droit de l'en-tête.
@@ -524,6 +539,7 @@ function HeaderCell({
       )}
     >
       {menu}
+      {saveButton}
       {sortButton}
       {handle}
     </span>

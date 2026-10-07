@@ -6,8 +6,6 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import {
   Archive,
-  ArrowDown,
-  ArrowUp,
   CalendarDays,
   Plus,
   Search,
@@ -29,6 +27,7 @@ import {
   MoveDialog,
 } from "@/components/planning/board-dialogs";
 import { MoveProvider } from "@/components/planning/move-context";
+import { SortSaveProvider } from "@/components/planning/sort-save";
 import { useLiveBoard } from "@/components/planning/use-live-board";
 import { BulkBar } from "@/components/planning/bulk-bar";
 import { FeedPreview } from "@/components/planning/feed-preview";
@@ -76,14 +75,6 @@ import type {
 } from "@/lib/planning/types";
 import { cn } from "@/lib/utils";
 
-/** Le nom des colonnes triables, pour le bandeau Enregistrer/Annuler. */
-const SORT_COLUMN_LABELS: Record<SortableColumnKey, string> = {
-  date: "Date",
-  status: "Statut",
-  format: "Type",
-  objective: "Objectif ads",
-  ad_status: "Statut ads",
-};
 
 /**
  * Le tableau d'une année.
@@ -444,6 +435,7 @@ export function PlanningBoardView({
   // Le cadre de l'application fournit déjà la marge de page : en ajouter une
   // ici décalait le planning de tous les autres écrans.
   return (
+    <SortSaveProvider value={{ save: applySort, pending }}>
     <MoveProvider>
     <div className="min-w-0 flex-1 space-y-4">
       {/* Alignés par le bas, et la barre d'outils décollée du filet des
@@ -566,37 +558,6 @@ export function PlanningBoardView({
         // 6 px : chaque mois se détache comme un groupe Monday, le rail
         // coloré continue de guider l'œil sur l'année.
         <div className="space-y-4">
-          {sort !== "position" ? (
-            // Collant : le tri se déclenche souvent au milieu de l'année,
-            // la sortie doit rester sous les yeux.
-            <div className="border-border bg-surface sticky top-16 z-30 flex items-center justify-between gap-3 rounded-md border px-3 py-2 shadow-card">
-              <span className="text-text-secondary flex items-center gap-1.5 text-xs">
-                {sort.direction === "asc" ? (
-                  <ArrowUp className="size-3.5" aria-hidden />
-                ) : (
-                  <ArrowDown className="size-3.5" aria-hidden />
-                )}
-                Tri par {SORT_COLUMN_LABELS[sort.column]}
-              </span>
-              <span className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setSort("position")}
-                  className="border-border text-text-secondary hover:text-text-primary hover:bg-muted/60 focus-visible:ring-ring h-8 rounded-md border px-3 text-xs transition-colors focus-visible:ring-2 focus-visible:outline-none"
-                >
-                  Annuler
-                </button>
-                <button
-                  type="button"
-                  disabled={pending}
-                  onClick={applySort}
-                  className="bg-primary text-primary-foreground focus-visible:ring-ring h-8 rounded-md px-3 text-xs font-medium transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50"
-                >
-                  {pending ? "Enregistrement…" : "Enregistrer cet ordre"}
-                </button>
-              </span>
-            </div>
-          ) : null}
           {visibleMonths.map((month) => (
             <MonthGroup
               key={month.id}
@@ -777,6 +738,7 @@ export function PlanningBoardView({
       />
     </div>
     </MoveProvider>
+    </SortSaveProvider>
   );
 }
 
