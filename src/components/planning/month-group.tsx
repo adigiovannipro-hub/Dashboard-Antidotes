@@ -9,7 +9,6 @@ import { FeedPreviewButton } from "@/components/planning/feed-preview";
 import { PlatformIcon } from "@/components/planning/platform-icon";
 import { TextCell, useCellAction } from "@/components/planning/cells";
 import { LaneTable } from "@/components/planning/lane-table";
-import { MonthWordingMenu } from "@/components/planning/wording-generation";
 import type { Scope } from "@/components/planning/subject-row";
 import {
   DropdownMenu,
@@ -53,7 +52,6 @@ export function MonthGroup({
   onLaneOpenChange,
   forceOpen,
   isOwner,
-  workspaceId,
 }: {
   scope: Scope;
   month: MonthWithLanes;
@@ -223,13 +221,6 @@ export function MonthGroup({
         )}
 
         <div className="ml-auto flex items-center gap-1">
-          {isOwner ? (
-            <MonthWordingMenu
-              workspaceId={workspaceId}
-              targetMonth={month.month}
-              monthLabel={month.label}
-            />
-          ) : null}
           <FeedPreviewButton onClick={onPreviewFeed} />
 
           <DropdownMenu>
@@ -318,7 +309,6 @@ export function MonthGroup({
                 onResizePreview={onResizePreview}
                 defaultOpen={!closedLanes.includes(lane.id)}
                 onOpenChange={(next) => onLaneOpenChange(lane.id, next)}
-                canGenerateWording={isOwner}
                 monthKey={month.month}
               />
             ))

@@ -7,7 +7,6 @@ import { toast } from "sonner";
 import type { PlanningResult } from "@/app/actions/planning";
 import { ConfirmDialog } from "@/components/ds/confirm-dialog";
 import { VisualLightbox } from "@/components/planning/lightbox";
-import { GenerateWordingButton } from "@/components/planning/wording-generation";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -740,7 +739,6 @@ export function WordingCell({
   value,
   subjectName,
   onCommit,
-  generateSubjectId,
   fieldName,
   placeholder,
   readOnly,
@@ -749,8 +747,6 @@ export function WordingCell({
   value: string | null;
   subjectName: string;
   onCommit: (next: string | null) => unknown;
-  /** Posé par l'agence seulement : le stylo de génération apparaît au survol. */
-  generateSubjectId?: string;
   /** Ce que la cellule contient — « Wording » par défaut, « Réponse » dans la
       FAQ : c'est ce que le lecteur d'écran annonce. */
   fieldName?: string;
@@ -887,15 +883,6 @@ export function WordingCell({
           {shown ? shown.replace(/\s+/g, " ") : "—"}
         </span>
       </button>
-
-      {generateSubjectId ? (
-        <span className="absolute top-1/2 right-1 -translate-y-1/2 opacity-0 transition-opacity duration-(--motion-duration) ease-standard group-hover/wording:opacity-100 has-focus-visible:opacity-100">
-          <GenerateWordingButton
-            subjectId={generateSubjectId}
-            subjectName={subjectName}
-          />
-        </span>
-      ) : null}
 
       {tip && !editor ? (
         // La bulle duplique la cellule pour l'œil : cachée aux lecteurs

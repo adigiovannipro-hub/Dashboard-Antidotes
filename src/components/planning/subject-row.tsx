@@ -99,7 +99,6 @@ function SubjectRowInner({
   onRowDragOver,
   onRowDragLeave,
   onRowDrop,
-  canGenerateWording,
   focusName,
 }: {
   scope: Scope;
@@ -109,8 +108,6 @@ function SubjectRowInner({
   owners: PlanningOwner[];
   selected: boolean;
   bulkTargets: string[] | null;
-  /** Le stylo de la cellule Wording, réservé à l'agence. */
-  canGenerateWording: boolean;
   onToggleSelect: (subjectId: string, extendRange?: boolean) => void;
   onOpen: (subjectId: string, focusRetours?: boolean) => void;
   /** Ouvre l'éditeur d'étiquettes de la colonne cliquée. */
@@ -254,7 +251,6 @@ function SubjectRowInner({
           onOpenRetours={() => onOpen(row.id, true)}
           onOpenSubject={() => onOpen(row.id)}
           onEditLabels={() => onEditLabels(column)}
-          canGenerateWording={canGenerateWording}
           focusName={focusName}
         />
       ))}
@@ -290,7 +286,6 @@ function sameRowProps(a: SubjectRowProps, b: SubjectRowProps): boolean {
   return (
     a.selected === b.selected &&
     a.dropIndicator === b.dropIndicator &&
-    a.canGenerateWording === b.canGenerateWording &&
     a.focusName === b.focusName &&
     a.gridTemplate === b.gridTemplate &&
     a.scope.workspace === b.scope.workspace &&
@@ -355,7 +350,6 @@ function Cell({
   onOpenRetours,
   onOpenSubject,
   onEditLabels,
-  canGenerateWording,
   focusName,
 }: {
   scope: Scope;
@@ -369,7 +363,6 @@ function Cell({
   onOpenRetours: () => void;
   onOpenSubject: () => void;
   onEditLabels: () => void;
-  canGenerateWording: boolean;
   focusName?: boolean;
 }) {
   // `flush` : la cellule ne met **aucune** marge autour de son contenu — c'est
@@ -465,7 +458,6 @@ function Cell({
           value={row.wording}
           subjectName={row.name}
           onCommit={(next) => edit("wording", next)}
-          generateSubjectId={canGenerateWording ? row.id : undefined}
         />,
       );
 
