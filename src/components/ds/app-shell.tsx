@@ -1,9 +1,12 @@
 import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 
 import { ShellFrame } from "@/components/ds/shell-frame";
 import { isOpenAccess } from "@/lib/access-mode";
 import type { Viewer } from "@/lib/auth";
 import { getAppNavigation } from "@/lib/navigation";
+import { needsOnboarding } from "@/lib/profil/identity";
+import { getMyProfile } from "@/lib/profil/queries";
 import { RAIL_COOKIE } from "@/lib/ui-preferences";
 
 /**
@@ -41,7 +44,15 @@ export async function AppShell({
   wide?: boolean;
   children: React.ReactNode;
 }) {
-  const [groups, cookieStore] = await Promise.all([getAppNavigation(), cookies()]);
+  const [groups, cookieStore, profile] = await Promise.all([
+    getAppNavigation(),
+    cookies(),
+    getMyProfile(),
+  ]);
+  // Une fiche sans nom passe d'abord par l'accueil. Le cadre est le seul
+  // point de passage commun à tous les écrans — la garde vit donc ici, et
+  // l'accueil, lui, ne l'emprunte pas.
+  if (needsOnboarding(profile)) redirect("/bienvenue");
 
   return (
     <ShellFrame

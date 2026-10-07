@@ -41,6 +41,7 @@ import type {
   SubjectRow as Row,
 } from "@/lib/planning/types";
 import { useDraggedRow } from "@/components/planning/move-context";
+import { displayName } from "@/lib/profil/identity";
 import { cn } from "@/lib/utils";
 
 export type Scope = { workspace: string; board: string };
@@ -819,7 +820,7 @@ function CommentItem({ comment }: { comment: PlanningComment }) {
       <div className="min-w-0 flex-1">
         <p className="flex items-baseline gap-2 text-xs">
           <span className="font-medium">
-            {comment.author?.full_name ?? comment.author?.email ?? "Inconnu"}
+            {comment.author ? displayName(comment.author) : "Utilisateur supprimé"}
           </span>
           <time
             dateTime={comment.created_at}

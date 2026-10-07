@@ -147,6 +147,9 @@ suite("isolation entre espaces (RLS)", () => {
         org_id: ids.org,
         workspace_id: ids.clientA,
         role: "client",
+        // Le nom saisi par l'agence à l'invitation doit rejoindre la fiche.
+        first_name: "Candice",
+        last_name: "Test",
       },
       {
         email: emails.clientB,
@@ -261,6 +264,51 @@ suite("isolation entre espaces (RLS)", () => {
         .update({ layout: { kpis: ["spend", "roas"] } })
         .eq("id", ids.dashboardA);
       expect(error).toBeNull();
+    });
+  });
+
+  describe("les fiches de profil (20261007a)", () => {
+    const profileOf = (client: SupabaseClient, email: string) =>
+      client.from("profiles").select("email, first_name, last_name, full_name").eq("email", email);
+
+    it("recopie sur la fiche le nom saisi à l'invitation", async () => {
+      const { data } = await profileOf(admin, emails.clientA);
+      expect(data?.[0]).toMatchObject({
+        first_name: "Candice",
+        last_name: "Test",
+        full_name: "Candice Test",
+      });
+    });
+
+    it("l'owner lit la fiche d'un client de son organisation", async () => {
+      const { data } = await profileOf(clients.owner, emails.clientA);
+      expect(data?.[0]?.full_name).toBe("Candice Test");
+    });
+
+    it("le client lit la fiche de l'agence et des membres de son espace", async () => {
+      const [owner, contributor] = await Promise.all([
+        profileOf(clients.clientA, emails.owner),
+        profileOf(clients.clientA, emails.contributor),
+      ]);
+      expect(owner.data).toHaveLength(1);
+      expect(contributor.data).toHaveLength(1);
+    });
+
+    it("le client ne lit pas la fiche du client d'un autre espace", async () => {
+      const { data, error } = await profileOf(clients.clientA, emails.clientB);
+      expect(error).toBeNull();
+      expect(data).toEqual([]);
+    });
+
+    it("le client ne réécrit pas la fiche de l'agence", async () => {
+      const { data } = await clients.clientA
+        .from("profiles")
+        .update({ full_name: "Piraté" })
+        .eq("email", emails.owner)
+        .select("id");
+      expect(data ?? []).toEqual([]);
+      const { data: kept } = await profileOf(admin, emails.owner);
+      expect(kept?.[0]?.full_name).not.toBe("Piraté");
     });
   });
 

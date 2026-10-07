@@ -1,6 +1,7 @@
 import { MAX_VISUAL_BYTES } from "./storage";
 import {
   compressedName,
+  conversionTargetBytes,
   formatDuration,
   planCompression,
   planRetry,
@@ -70,6 +71,7 @@ export async function compressVideo(
       displayWidth: await videoTrack.getDisplayWidth(),
       displayHeight: await videoTrack.getDisplayHeight(),
       audioBitrate,
+      targetBytes: conversionTargetBytes({ sizeBytes: file.size, durationSeconds, audioBitrate }),
     });
     if (!plan.ok) {
       throw fail(
