@@ -27,7 +27,18 @@ export type JsonSchema = {
   required?: string[];
 };
 
-export type ToolResult = { text: string; isError?: boolean };
+/** Un bloc de réponse : du texte, ou une image en base64 que le modèle voit. */
+export type ContentBlock =
+  | { type: "text"; text: string }
+  | { type: "image"; data: string; mimeType: string };
+
+/**
+ * Le résultat d'un outil. `text` suffit à presque tous ; `content`, quand il
+ * est fourni, remplace le bloc texte unique — c'est ainsi qu'un outil rend des
+ * images intercalées de leurs légendes. Ajout du 7/10/2026, sans effet sur les
+ * outils qui ne s'en servent pas : leur réponse reste octet pour octet la même.
+ */
+export type ToolResult = { text: string; isError?: boolean; content?: ContentBlock[] };
 
 export type ToolDefinition = {
   name: string;
@@ -163,7 +174,7 @@ function toolResponse(id: JsonRpcResponse["id"], result: ToolResult): JsonRpcRes
     jsonrpc: "2.0",
     id,
     result: {
-      content: [{ type: "text", text: result.text }],
+      content: result.content ?? [{ type: "text", text: result.text }],
       isError: result.isError ?? false,
     },
   };

@@ -80,6 +80,18 @@ describe("handleMessage", () => {
     expect(response?.result).toEqual({ content: [{ type: "text", text: "salut" }], isError: false });
   });
 
+  it("rend tels quels les blocs d'un outil qui en fournit, images comprises", async () => {
+    const content = [
+      { type: "text" as const, text: "visuel 1 · image" },
+      { type: "image" as const, data: "/9j/AA==", mimeType: "image/jpeg" },
+    ];
+    const response = await handleMessage(
+      { jsonrpc: "2.0", id: 9, method: "tools/call", params: { name: "echo", arguments: { texte: "x" } } },
+      [echo({ run: async () => ({ text: "visuel 1 · image", content }) })],
+    );
+    expect(response?.result).toEqual({ content, isError: false });
+  });
+
   it("rend une erreur d'outil au modèle plutôt qu'une erreur de protocole", async () => {
     const response = await handleMessage(
       { jsonrpc: "2.0", id: 4, method: "tools/call", params: { name: "echo", arguments: { texte: "x" } } },

@@ -13,10 +13,12 @@ import {
 import { readReportingFacts } from "@/lib/production/generate";
 import { EMPTY_FACTS, renderReportingFacts } from "@/lib/production/reporting-facts";
 import { PUBLISH_BLOCKER_LABELS, publishPlan } from "@/lib/publishing/readiness";
+import { VISUALS_BUCKET } from "@/lib/planning/storage";
 
 import type { ToolDefinition } from "./protocol";
 import {
   admin,
+  type Admin,
   clientArg,
   findMonth,
   findWorkspace,
@@ -29,6 +31,13 @@ import {
   text,
 } from "./shared";
 import { parseDay, parseMonth, resolveEditableStatus, resolveFormat } from "./values";
+import { formatSubjectBlock } from "./planning-format";
+import {
+  VISUAL_URL_TTL_SECONDS,
+  collectVisuals,
+  storagePaths,
+  visualLines,
+} from "./visuals";
 
 /**
  * Les clients : contexte, planning, FAQ, reporting.
@@ -78,6 +87,23 @@ function blockersOf(subject: SubjectLine): string {
   if ("story" in plan) return "story : publication manuelle";
   if (plan.ready) return "prête à publier";
   return `bloquée : ${plan.blockers.map((blocker) => PUBLISH_BLOCKER_LABELS[blocker]).join(", ")}`;
+}
+
+/**
+ * Des URL signées d'une heure pour des chemins du bucket privé, en un seul
+ * appel. Un chemin que le stockage ne connaît plus n'a simplement pas
+ * d'entrée : la ligne le dira, l'outil ne tombe pas pour un fichier perdu.
+ */
+async function signVisualPaths(client: Admin, paths: string[]): Promise<Map<string, string>> {
+  const signed = new Map<string, string>();
+  if (paths.length === 0) return signed;
+  const { data } = await client.storage
+    .from(VISUALS_BUCKET)
+    .createSignedUrls(paths, VISUAL_URL_TTL_SECONDS);
+  for (const entry of data ?? []) {
+    if (entry.signedUrl && entry.path && !entry.error) signed.set(entry.path, entry.signedUrl);
+  }
+  return signed;
 }
 
 export const PLANNING_TOOLS: ToolDefinition[] = [
@@ -188,7 +214,7 @@ export const PLANNING_TOOLS: ToolDefinition[] = [
   {
     name: "lire_planning",
     description:
-      "Le planning éditorial d'un client pour un mois : chaque publication avec son identifiant, réseau, sujet, statut, type, date, wording (caption ou brief d'intention), sponsorisation, nombre de visuels, retours, et ce qui bloquerait sa publication automatique.",
+      "Le planning éditorial d'un client pour un mois : chaque publication avec son identifiant, réseau, sujet, statut, type, date, wording (caption ou brief d'intention), sponsorisation, nombre de visuels puis une ligne par visuel (ordre, type, URL signée valable une heure), retours, et ce qui bloquerait sa publication automatique. Pour voir les images elles-mêmes : lire_visuels.",
     inputSchema: {
       type: "object",
       properties: { client: clientArg, mois: monthArg },
@@ -232,25 +258,69 @@ export const PLANNING_TOOLS: ToolDefinition[] = [
       for (const comment of comments) {
         commentCount.set(comment.subject_id, (commentCount.get(comment.subject_id) ?? 0) + 1);
       }
+      const signed = await signVisualPaths(
+        client,
+        storagePaths(subjects.flatMap((subject) => subject.visual_urls ?? [])),
+      );
 
       const blocks = lanes.map((lane) => {
         const lines = subjects
           .filter((subject) => subject.lane_id === lane.id)
           .sort((a, b) => a.position - b.position)
           .map((subject) =>
-            [
-              `### ${subject.name || "(sans sujet)"}`,
-              `id : ${subject.id}`,
-              `statut : ${STATUS_LABELS[subject.status] ?? subject.status} · type : ${FORMAT_LABELS[subject.format] ?? subject.format} · date : ${subject.scheduled_on ?? "—"}` +
-                (subject.sponsoring ? ` · sponso : ${subject.sponsoring} €` : ""),
-              `visuels : ${(subject.visual_urls ?? []).length} · retours : ${commentCount.get(subject.id) ?? 0} · ${blockersOf(subject)}`,
-              `wording : ${subject.wording?.trim() || "—"}`,
-            ].join("\n"),
+            formatSubjectBlock({
+              id: subject.id,
+              name: subject.name,
+              statusLabel: STATUS_LABELS[subject.status] ?? subject.status,
+              formatLabel: FORMAT_LABELS[subject.format] ?? subject.format,
+              scheduledOn: subject.scheduled_on,
+              sponsoring: subject.sponsoring,
+              visualCount: (subject.visual_urls ?? []).length,
+              commentCount: commentCount.get(subject.id) ?? 0,
+              blockers: blockersOf(subject),
+              wording: subject.wording,
+              visualLines: visualLines(subject.visual_urls ?? [], signed),
+            }),
           );
         return [`## ${lane.name} (${PLATFORM_LABELS[lane.platform] ?? lane.platform})`, ...lines].join("\n\n");
       });
 
       return { text: [`# ${workspace.name} — ${month.slice(0, 7)}`, ...blocks].join("\n\n") };
+    },
+  },
+
+  {
+    name: "lire_visuels",
+    description:
+      "Les visuels d'une publication du planning, en images : dans l'ordre du carrousel, en JPEG, 1 568 px de côté au plus pour un visuel seul et 1 080 px pour un lot. Une vidéo rend sa première image et son URL signée valable une heure ; un PDF, son URL signée. index (à partir de 1) pour ne demander qu'un visuel — c'est aussi la reprise quand un lot trop lourd s'arrête en route.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        publication_id: { type: "string", description: "Identifiant (lire_planning)." },
+        index: {
+          type: "integer",
+          description: "Le visuel à rendre seul, à partir de 1 (l'ordre de lire_planning). Absent : tous.",
+        },
+      },
+      required: ["publication_id"],
+    },
+    readOnly: true,
+    run: async (args) => {
+      const subject = await subjectById(args.publication_id);
+      const client = admin();
+      return collectVisuals({
+        name: subject.name || "(sans sujet)",
+        visualUrls: subject.visual_urls ?? [],
+        index: args.index,
+        storage: {
+          download: async (path) => {
+            const { data, error } = await client.storage.from(VISUALS_BUCKET).download(path);
+            if (error || !data) return null;
+            return new Uint8Array(await data.arrayBuffer());
+          },
+          sign: (paths) => signVisualPaths(client, paths),
+        },
+      });
     },
   },
 
