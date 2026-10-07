@@ -56,6 +56,26 @@ export function draftStateOf(payload: unknown): TiktokDraftState {
   return { state: "waiting" };
 }
 
+/** Un refus de l'API TikTok, avec son code — c'est lui qui décide du repli. */
+export class TiktokApiError extends Error {
+  constructor(
+    message: string,
+    readonly code: string | null,
+  ) {
+    super(message);
+    this.name = "TiktokApiError";
+  }
+}
+
+/**
+ * Le refus d'une app non auditée qui tente une publication publique : le
+ * signal qu'il faut repasser en brouillon. Le jour où l'audit passe, ce refus
+ * disparaît et la publication directe démarre d'elle-même.
+ */
+export function isUnauditedRefusal(code: string | null | undefined): boolean {
+  return code === "unaudited_client_can_only_post_to_private_accounts";
+}
+
 const ERROR_CODES: Record<string, string> = {
   scope_not_authorized:
     "le compte TikTok n'a pas autorisé l'envoi de brouillons (portée video.upload) — l'ajouter à l'app TikTok et rebrancher",
@@ -64,6 +84,11 @@ const ERROR_CODES: Record<string, string> = {
     "trop de brouillons en attente dans l'application TikTok — en publier ou en supprimer",
   rate_limit_exceeded: "TikTok limite les appels — réessai au passage suivant",
   url_ownership_unverified: "domaine de la vidéo non vérifié chez TikTok",
+  privacy_level_option_mismatch:
+    "la confidentialité choisie n'est plus proposée par ce compte — la rechoisir dans le panneau",
+  spam_risk_too_many_posts: "TikTok plafonne les publications du compte pour aujourd'hui",
+  unaudited_client_can_only_post_to_private_accounts:
+    "l'app TikTok n'est pas encore auditée : publication publique impossible",
 };
 
 /** Le refus de TikTok en français, avec le geste à faire quand il existe. */

@@ -33,6 +33,7 @@ import {
 import { useDismissOnOutsideClick } from "@/components/planning/panel-layers";
 import { CommentThread, type Scope } from "@/components/planning/subject-row";
 import { PlatformIcon } from "@/components/planning/platform-icon";
+import { TiktokPanel } from "@/components/planning/tiktok-panel";
 import { PendingLabel } from "@/components/ds/pending-label";
 import { Button } from "@/components/ui/button";
 import type { ColumnDef, ColumnLabel } from "@/lib/planning/columns";
@@ -64,9 +65,12 @@ export function SubjectDrawer({
   closing,
   zIndex,
   onClose,
+  isOwner = false,
 }: {
   scope: Scope;
   subject: SubjectRow;
+  /** L'agence : seule à pouvoir publier tout de suite. */
+  isOwner?: boolean;
   columns: ColumnDef[];
   owners: PlanningOwner[];
   /** `null` : le journal arrive encore du serveur — le panneau, lui, est déjà là. */
@@ -237,6 +241,17 @@ export function SubjectDrawer({
             {wording.length} caractères
           </p>
         </div>
+
+        {subject.platform === "tiktok" ? (
+          <TiktokPanel
+            key={subject.id}
+            scope={scope}
+            subjectId={subject.id}
+            status={subject.status}
+            settings={subject.tiktok_settings}
+            isOwner={isOwner}
+          />
+        ) : null}
 
         {/* --- Retours / Activités --- */}
         <div className="p-4">
@@ -621,6 +636,7 @@ function ActivityList({
 
 /** Les gestes qui se suffisent : la phrase dit tout, pas de avant → après. */
 const NO_VALUE_FIELDS = new Set([
+  "tiktok_settings",
   "created",
   "archived",
   "restored",
@@ -645,7 +661,8 @@ const FIELD_SENTENCES: Record<string, string> = {
   deleted: "a envoyé la publication à la corbeille",
   // Les gestes de la publication automatique — sans acteur : c'est la machine.
   publication: "a publié automatiquement",
-  publication_draft: "a envoyé un brouillon à publier",
+  publication_draft: "a envoyé la vidéo à TikTok",
+  tiktok_settings: "a réglé la publication TikTok",
   publication_error: "n'a pas pu publier automatiquement",
 };
 

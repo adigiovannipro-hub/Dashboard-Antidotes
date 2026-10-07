@@ -1,7 +1,6 @@
 import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import sharp from "sharp";
 
 import { VISUALS_BUCKET } from "@/lib/planning/storage";
 import type { Database } from "@/lib/supabase/database.types";
@@ -15,9 +14,10 @@ import { isJpegPath, isPdfPath, isVideoPath } from "./readiness";
  * rendent. Un même visuel sert donc sous deux formes, et ne se télécharge
  * qu'une fois (`read` garde sa promesse).
  *
- * Le passage tourne sur une machine GitHub : `sharp` y est installé, comme
- * pour les miniatures de la reprise Monday. Rien de ce module ne tourne sur
- * Vercel.
+ * La conversion d'images (`sharp`) ne sert qu'à Instagram et LinkedIn, sur
+ * la machine GitHub du passage. Elle est chargée à la demande : « Publier
+ * maintenant » sur TikTok tourne sur Vercel, où rien ne garantit le binaire
+ * natif — et n'en a pas besoin.
  */
 
 type Admin = SupabaseClient<Database>;
@@ -98,6 +98,7 @@ export async function loadMedia(admin: Admin, visualUrls: string[]): Promise<Med
 export async function toRgbJpeg(
   input: Buffer,
 ): Promise<{ bytes: Buffer; width: number; height: number }> {
+  const { default: sharp } = await import("sharp");
   const { data, info } = await sharp(input)
     .rotate()
     .flatten({ background: "#ffffff" })

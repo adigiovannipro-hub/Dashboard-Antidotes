@@ -16,6 +16,10 @@ import { parsePlanningView, planningViewCookie } from "@/lib/ui-preferences";
 import { requirePageAccess } from "@/lib/workspaces/access";
 import { PLANNING_PAGE_KEY } from "@/lib/workspaces/types";
 
+// « Publier maintenant sur TikTok » tourne dans une action de cette page :
+// envoi de la vidéo puis attente du traitement chez TikTok, sous la minute.
+export const maxDuration = 60;
+
 type Params = Promise<{ workspace: string; board: string }>;
 type Search = Promise<Record<string, string | undefined>>;
 

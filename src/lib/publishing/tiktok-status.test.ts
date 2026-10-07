@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { draftStateOf, tiktokErrorText } from "./tiktok-status";
+import { draftStateOf, isUnauditedRefusal, tiktokErrorText } from "./tiktok-status";
 
 describe("draftStateOf", () => {
   it("un brouillon dans la boîte attend le geste du client", () => {
@@ -44,5 +44,13 @@ describe("tiktokErrorText", () => {
 
   it("garde le code et le message d'un refus inconnu", () => {
     expect(tiktokErrorText("invalid_params", "video_size")).toBe("TikTok invalid_params — video_size");
+  });
+});
+
+describe("isUnauditedRefusal", () => {
+  it("ne reconnaît que le refus d'une app non auditée", () => {
+    expect(isUnauditedRefusal("unaudited_client_can_only_post_to_private_accounts")).toBe(true);
+    expect(isUnauditedRefusal("scope_not_authorized")).toBe(false);
+    expect(isUnauditedRefusal(null)).toBe(false);
   });
 });

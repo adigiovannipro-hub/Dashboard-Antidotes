@@ -20,7 +20,12 @@ import {
   targetPlan,
   type PublishTarget,
 } from "./readiness";
-import { fetchTiktokDraftState, sendTiktokDraft } from "./tiktok-publish";
+import {
+  fetchTiktokDraftState,
+  publishTiktokVideo,
+  tiktokPermalink,
+} from "./tiktok-publish";
+import { parseTiktokSettings } from "./tiktok-settings";
 
 /**
  * Le passage de publication automatique.
@@ -56,8 +61,8 @@ export type PublishReport = {
   paris: { date: string; hour: number };
   skipped?: string;
   published: { subject: string; target: PublishTarget; permalink: string | null }[];
-  /** Brouillons TikTok envoyés ce passage — en attente du geste du client. */
-  drafted: { subject: string; target: PublishTarget }[];
+  /** TikTok parti ce passage sans être encore en ligne : brouillon, ou vidéo en traitement. */
+  drafted: { subject: string; target: PublishTarget; kind: "draft" | "processing" }[];
   errors: { subject: string; target: PublishTarget | null; error: string }[];
   ignored: { subject: string; reason: string }[];
 };
@@ -70,7 +75,12 @@ type SubjectRow = {
   format: string;
   wording: string | null;
   visual_urls: string[];
+  /** Les réglages TikTok du panneau — `jsonb`, relus par `parseTiktokSettings`. */
+  tiktok_settings: unknown;
 };
+
+const SUBJECT_COLUMNS =
+  "id, lane_id, workspace_id, name, format, wording, visual_urls, tiktok_settings";
 
 type MetaAccount = { channel: "meta"; externalId: string; token: string };
 type ComposioAccount = { channel: "composio"; connectedAccountId: string; username: string | null };
@@ -78,11 +88,18 @@ export type TargetAccount = MetaAccount | ComposioAccount;
 
 export type PublishOutcome =
   | { status: "success"; externalId: string; permalink: string | null }
-  | { status: "awaiting"; externalId: string };
+  /** TikTok : `draft` attend un geste dans l'application, `processing` attend TikTok. */
+  | { status: "awaiting"; externalId: string; kind: "draft" | "processing" };
 
 function fail(message: string): never {
   throw new Error(message);
 }
+
+/**
+ * L'attente d'une publication TikTok directe avant de passer la main au suivi.
+ * Tient dans la minute de « Publier maintenant », qui tourne sur Vercel.
+ */
+const TIKTOK_DIRECT_WAIT_MS = 30_000;
 
 /** Les comptes d'un espace, résolus une fois par passage. */
 function accountResolver(admin: Admin) {
@@ -139,7 +156,7 @@ export async function runScheduledPublishing(options: {
   // table absente ne doit jamais ressembler à « rien à publier ».
   const { data: subjectRows, error: subjectsError } = await admin
     .from("planning_subjects")
-    .select("id, lane_id, workspace_id, name, format, wording, visual_urls")
+    .select(SUBJECT_COLUMNS)
     .eq("status", "validated")
     .eq("scheduled_on", paris.date)
     // Une ligne à la corbeille ou archivée ne part jamais, même validée.
@@ -167,80 +184,144 @@ export async function runScheduledPublishing(options: {
       continue;
     }
 
-    const plan = publishPlan(subject);
+    await publishSubject({ admin, subject, wanted, targets: wanted, accountFor, report });
+  }
 
-    if (!plan.ready) {
-      if ("story" in plan) {
-        // Les stories se publient à la main — widgets impossibles par l'API.
-        report.ignored.push({ subject: subject.name, reason: "story, publication manuelle" });
-        continue;
-      }
-      const cause = plan.blockers
-        .map((blocker) => PUBLISH_BLOCKER_LABELS[blocker])
-        .join(" ; ");
-      for (const target of wanted) {
-        await recordFailure(admin, subject, target, cause);
-      }
-      report.errors.push({ subject: subject.name, target: null, error: cause });
+  return report;
+}
+
+/**
+ * Publie un sujet sur les réseaux demandés (`targets`), puis le fait passer
+ * « Publié » si tous ceux de son couloir (`wanted`) sont en ligne.
+ */
+async function publishSubject(options: {
+  admin: Admin;
+  subject: SubjectRow;
+  wanted: PublishTarget[];
+  targets: PublishTarget[];
+  accountFor: ReturnType<typeof accountResolver>;
+  report: PublishReport;
+}): Promise<void> {
+  const { admin, subject, wanted, targets, accountFor, report } = options;
+  const plan = publishPlan(subject);
+
+  if (!plan.ready) {
+    if ("story" in plan) {
+      // Les stories se publient à la main — widgets impossibles par l'API.
+      report.ignored.push({ subject: subject.name, reason: "story, publication manuelle" });
+      return;
+    }
+    const cause = plan.blockers.map((blocker) => PUBLISH_BLOCKER_LABELS[blocker]).join(" ; ");
+    for (const target of targets) {
+      await recordFailure(admin, subject, target, cause);
+    }
+    report.errors.push({ subject: subject.name, target: null, error: cause });
+    return;
+  }
+
+  // Les fichiers ne se signent et ne se téléchargent qu'une fois par sujet,
+  // et seulement si un réseau part vraiment.
+  let media: Promise<MediaItem[]> | null = null;
+
+  for (const target of targets) {
+    const ready = targetPlan(target, subject);
+    if (!ready.ready) {
+      const cause = ready.blockers.map((blocker) => PUBLISH_BLOCKER_LABELS[blocker]).join(" ; ");
+      await recordFailure(admin, subject, target, cause);
+      report.errors.push({ subject: subject.name, target, error: cause });
       continue;
     }
 
-    // Les fichiers ne se signent et ne se téléchargent qu'une fois par sujet,
-    // et seulement si un réseau part vraiment.
-    let media: Promise<MediaItem[]> | null = null;
-
-    for (const target of wanted) {
-      const ready = targetPlan(target, subject);
-      if (!ready.ready) {
-        const cause = ready.blockers.map((blocker) => PUBLISH_BLOCKER_LABELS[blocker]).join(" ; ");
-        await recordFailure(admin, subject, target, cause);
-        report.errors.push({ subject: subject.name, target, error: cause });
-        continue;
-      }
-
-      const account = await accountFor(subject.workspace_id, target);
-      if ("error" in account) {
-        await recordFailure(admin, subject, target, account.error);
-        report.errors.push({ subject: subject.name, target, error: account.error });
-        continue;
-      }
-
-      const claimed = await claimPublication(admin, subject, target);
-      if (!claimed) {
-        // Déjà publié, en brouillon ou en cours ailleurs : le verrou a parlé.
-        report.ignored.push({
-          subject: subject.name,
-          reason: `${PUBLISH_TARGET_LABELS[target]} déjà traité`,
-        });
-        continue;
-      }
-
-      try {
-        media ??= loadMedia(admin, subject.visual_urls);
-        const outcome = await publishToTarget({
-          admin,
-          target,
-          account,
-          subject,
-          items: await media,
-        });
-        await closePublication(admin, subject, target, outcome);
-
-        if (outcome.status === "awaiting") {
-          report.drafted.push({ subject: subject.name, target });
-        } else {
-          report.published.push({ subject: subject.name, target, permalink: outcome.permalink });
-        }
-      } catch (error) {
-        const cause = (error as Error).message;
-        await markError(admin, subject, target, cause);
-        report.errors.push({ subject: subject.name, target, error: cause });
-      }
+    const account = await accountFor(subject.workspace_id, target);
+    if ("error" in account) {
+      await recordFailure(admin, subject, target, account.error);
+      report.errors.push({ subject: subject.name, target, error: account.error });
+      continue;
     }
 
-    await settleSubject(admin, subject, wanted);
+    const claimed = await claimPublication(admin, subject, target);
+    if (!claimed) {
+      // Déjà publié, en brouillon ou en cours ailleurs : le verrou a parlé.
+      report.ignored.push({
+        subject: subject.name,
+        reason: `${PUBLISH_TARGET_LABELS[target]} déjà traité`,
+      });
+      continue;
+    }
+
+    try {
+      media ??= loadMedia(admin, subject.visual_urls);
+      const outcome = await publishToTarget({
+        admin,
+        target,
+        account,
+        subject,
+        items: await media,
+      });
+      await closePublication(admin, subject, target, outcome);
+
+      if (outcome.status === "awaiting") {
+        report.drafted.push({ subject: subject.name, target, kind: outcome.kind });
+      } else {
+        report.published.push({ subject: subject.name, target, permalink: outcome.permalink });
+      }
+    } catch (error) {
+      const cause = (error as Error).message;
+      await markError(admin, subject, target, cause);
+      report.errors.push({ subject: subject.name, target, error: cause });
+    }
   }
 
+  await settleSubject(admin, subject, wanted);
+}
+
+/**
+ * « Publier maintenant » : un sujet validé, sur un réseau, sans attendre 16h.
+ * Même verrou, même journal, même bascule de statut que le passage — c'est le
+ * passage, pour un seul sujet.
+ */
+export async function publishSubjectNow(options: {
+  admin: Admin;
+  subjectId: string;
+  workspaceId: string;
+  target: PublishTarget;
+}): Promise<PublishReport> {
+  const { admin } = options;
+  const report: PublishReport = {
+    paris: parisStamp(new Date()),
+    published: [],
+    drafted: [],
+    errors: [],
+    ignored: [],
+  };
+
+  const { data, error } = await admin
+    .from("planning_subjects")
+    .select(`${SUBJECT_COLUMNS}, status, deleted_at, archived_at`)
+    .eq("id", options.subjectId)
+    .eq("workspace_id", options.workspaceId)
+    .maybeSingle();
+  if (error) fail(`Lecture du sujet : ${error.message}`);
+  const row = data as unknown as
+    | (SubjectRow & { status: string; deleted_at: string | null; archived_at: string | null })
+    | null;
+  if (!row || row.deleted_at || row.archived_at) fail("Publication introuvable.");
+  if (row.status !== "validated") fail("Seule une publication « Validé » part.");
+
+  const platform = (await lanePlatforms(admin, [row.lane_id])).get(row.lane_id) ?? "other";
+  const wanted = publishTargets(platform);
+  if (!wanted.includes(options.target)) {
+    fail(`Ce couloir ne publie pas sur ${PUBLISH_TARGET_LABELS[options.target]}.`);
+  }
+
+  await publishSubject({
+    admin,
+    subject: row,
+    wanted,
+    targets: [options.target],
+    accountFor: accountResolver(admin),
+    report,
+  });
   return report;
 }
 
@@ -306,12 +387,34 @@ export async function publishToTarget(options: {
 
   if (target === "tiktok") {
     const video = items[0]!;
-    const { publishId } = await sendTiktokDraft({
+    const sent = await publishTiktokVideo({
       connectedAccountId: account.connectedAccountId,
       video: await video.read(),
       contentType: video.contentType,
+      caption,
+      settings: parseTiktokSettings(subject.tiktok_settings),
     });
-    return { status: "awaiting", externalId: publishId };
+    if (sent.mode === "draft") {
+      return { status: "awaiting", externalId: sent.publishId, kind: "draft" };
+    }
+
+    // En direct, TikTok traite la vidéo quelques secondes à quelques
+    // minutes : on attend un peu pour clore tout de suite, sinon le suivi
+    // des passages suivants prend le relais.
+    const deadline = Date.now() + TIKTOK_DIRECT_WAIT_MS;
+    while (Date.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, 5000));
+      const state = await fetchTiktokDraftState(account.connectedAccountId, sent.publishId);
+      if (state.state === "failed") fail(state.reason);
+      if (state.state === "published") {
+        return {
+          status: "success",
+          externalId: state.postId ?? sent.publishId,
+          permalink: tiktokPermalink(account.username, state.postId),
+        };
+      }
+    }
+    return { status: "awaiting", externalId: sent.publishId, kind: "processing" };
   }
 
   const published = await publishLinkedin({
@@ -438,7 +541,9 @@ async function closePublication(
       subject,
       "publication_draft",
       null,
-      `${PUBLISH_TARGET_LABELS[target]} — brouillon dans l'application, à publier depuis le téléphone (la légende est à coller depuis le planning)`,
+      outcome.kind === "draft"
+        ? `${PUBLISH_TARGET_LABELS[target]} — brouillon dans l'application, à publier depuis le téléphone (la légende est à coller depuis le planning)`
+        : `${PUBLISH_TARGET_LABELS[target]} — vidéo envoyée, en traitement chez TikTok`,
     );
     return;
   }
@@ -588,11 +693,7 @@ async function followTiktokDrafts(options: {
         continue;
       }
 
-      const permalink = account.username
-        ? state.postId
-          ? `https://www.tiktok.com/@${account.username}/video/${state.postId}`
-          : `https://www.tiktok.com/@${account.username}`
-        : null;
+      const permalink = tiktokPermalink(account.username, state.postId);
       await closePublication(admin, ref, "tiktok", {
         status: "success",
         externalId: state.postId ?? draft.external_id,
@@ -627,7 +728,7 @@ export async function publishTrial(options: {
   const { admin } = options;
   const { data, error } = await admin
     .from("planning_subjects")
-    .select("id, lane_id, workspace_id, name, format, wording, visual_urls")
+    .select(SUBJECT_COLUMNS)
     .eq("id", options.subjectId)
     .single();
   if (error) fail(`Sujet introuvable : ${error.message}`);

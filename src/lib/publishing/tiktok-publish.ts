@@ -1,17 +1,38 @@
 import "server-only";
 
 import { composioClient } from "@/lib/composio/agency";
-import { draftStateOf, tiktokErrorText, type TiktokDraftState } from "./tiktok-status";
+import {
+  creatorOf,
+  directPostInfo,
+  TIKTOK_CAPTION_MAX,
+  TIKTOK_PRIVACY_LABELS,
+  tiktokSettingsIssue,
+  type TiktokCreator,
+  type TiktokPostSettings,
+} from "./tiktok-settings";
+import {
+  draftStateOf,
+  isUnauditedRefusal,
+  TiktokApiError,
+  tiktokErrorText,
+  type TiktokDraftState,
+} from "./tiktok-status";
 
 /**
- * TikTok en **brouillon** : la vidéo atterrit dans la boîte de l'application
- * TikTok du compte, et c'est une personne qui appuie sur « publier ».
+ * Publier sur TikTok — en direct quand c'est possible, en brouillon sinon.
  *
- * Pourquoi pas la publication directe : une app TikTok non auditée ne
- * publie qu'en privé (`SELF_ONLY`), et l'audit prend des semaines. Le
- * brouillon, lui, marche tout de suite — y compris dans le sandbox de l'app
- * « Antidotes », jusqu'à dix comptes. Le jour où l'audit passe, la
- * publication directe ne change que l'appel d'initialisation.
+ * **En direct** (`/v2/post/publish/video/init/`) : la vidéo part sur le
+ * compte avec sa légende et les réglages choisis dans le panneau de la
+ * publication (`tiktok-settings.ts`). TikTok n'accepte une publication
+ * publique que d'une app **auditée** ; tant que l'app « Antidotes » ne l'est
+ * pas, il répond `unaudited_client_can_only_post_to_private_accounts`, et on
+ * repasse aussitôt en brouillon. Le jour où l'audit passe, ce refus disparaît
+ * et la publication directe démarre d'elle-même, sans toucher au code.
+ *
+ * **En brouillon** (`/v2/post/publish/inbox/video/init/`) : la vidéo atterrit
+ * dans la boîte de l'application TikTok du compte, et une personne appuie sur
+ * « publier ». La légende ne voyage pas — l'API brouillon n'en prend aucune.
+ * C'est aussi la voie d'une publication sans réglages enregistrés.
  *
  * L'autorisation vit chez Composio (compte du client, `espace:<id>`) : on
  * passe par son passage brut pour les appels d'API, et on pousse les octets
@@ -47,25 +68,35 @@ async function tiktokPost(
     data?: Record<string, unknown>;
     error?: { code?: string; message?: string };
   };
-  const code = payload.error?.code;
+  const code = payload.error?.code ?? null;
   if (Number(response.status ?? 0) >= 400 || (code && code !== "ok")) {
-    throw new Error(tiktokErrorText(code, payload.error?.message || `HTTP ${response.status}`));
+    throw new TiktokApiError(
+      tiktokErrorText(code ?? undefined, payload.error?.message || `HTTP ${response.status}`),
+      code,
+    );
   }
   return payload.data ?? {};
 }
 
-/** Envoie la vidéo en brouillon ; rend l'identifiant qui permet d'en suivre le sort. */
-export async function sendTiktokDraft(options: {
-  connectedAccountId: string;
-  video: Buffer;
-  contentType: string;
-}): Promise<{ publishId: string }> {
-  const size = options.video.byteLength;
+/** Le compte, et ce qu'il autorise — à afficher avant de publier, à vérifier au moment de le faire. */
+export async function fetchTiktokCreator(connectedAccountId: string): Promise<TiktokCreator> {
+  return creatorOf(await tiktokPost(connectedAccountId, "/v2/post/publish/creator_info/query/", {}));
+}
+
+async function initAndUpload(
+  connectedAccountId: string,
+  path: string,
+  extra: Record<string, unknown>,
+  video: Buffer,
+  contentType: string,
+): Promise<string> {
+  const size = video.byteLength;
   if (size > SINGLE_CHUNK_MAX) {
     throw new Error("vidéo au-delà de 64 Mo — la recompresser avant de la déposer");
   }
 
-  const init = await tiktokPost(options.connectedAccountId, "/v2/post/publish/inbox/video/init/", {
+  const init = await tiktokPost(connectedAccountId, path, {
+    ...extra,
     source_info: {
       source: "FILE_UPLOAD",
       video_size: size,
@@ -80,16 +111,68 @@ export async function sendTiktokDraft(options: {
   const put = await fetch(uploadUrl, {
     method: "PUT",
     headers: {
-      "Content-Type": options.contentType,
+      "Content-Type": contentType,
       "Content-Range": `bytes 0-${size - 1}/${size}`,
     },
-    body: new Uint8Array(options.video),
+    body: new Uint8Array(video),
   });
   if (!put.ok) {
     throw new Error(`TikTok a refusé le fichier (${put.status} ${await put.text().catch(() => "")})`.trim());
   }
+  return publishId;
+}
 
-  return { publishId };
+export type TiktokSent = { mode: "direct" | "draft"; publishId: string };
+
+export async function publishTiktokVideo(options: {
+  connectedAccountId: string;
+  video: Buffer;
+  contentType: string;
+  caption: string;
+  /** Les réglages du panneau ; sans eux, brouillon. */
+  settings: TiktokPostSettings | null;
+}): Promise<TiktokSent> {
+  const { connectedAccountId, video, contentType, caption, settings } = options;
+
+  if (settings) {
+    const issue = tiktokSettingsIssue(settings);
+    if (issue) throw new Error(issue);
+    if (caption.length > TIKTOK_CAPTION_MAX) {
+      throw new Error(`légende au-delà de ${TIKTOK_CAPTION_MAX} caractères pour TikTok`);
+    }
+
+    // Relu au moment de publier : un compte peut avoir changé ses réglages
+    // depuis que le panneau les a affichés.
+    const creator = await fetchTiktokCreator(connectedAccountId);
+    if (!creator.privacyOptions.includes(settings.privacy)) {
+      throw new Error(
+        `la confidentialité « ${TIKTOK_PRIVACY_LABELS[settings.privacy]} » n'est plus proposée par ce compte — la rechoisir dans le panneau`,
+      );
+    }
+
+    try {
+      const publishId = await initAndUpload(
+        connectedAccountId,
+        "/v2/post/publish/video/init/",
+        { post_info: directPostInfo(settings, creator, caption) },
+        video,
+        contentType,
+      );
+      return { mode: "direct", publishId };
+    } catch (error) {
+      if (!(error instanceof TiktokApiError && isUnauditedRefusal(error.code))) throw error;
+      // App pas encore auditée : la vidéo part en brouillon, à finir dans l'application.
+    }
+  }
+
+  const publishId = await initAndUpload(
+    connectedAccountId,
+    "/v2/post/publish/inbox/video/init/",
+    {},
+    video,
+    contentType,
+  );
+  return { mode: "draft", publishId };
 }
 
 export async function fetchTiktokDraftState(
@@ -99,4 +182,12 @@ export async function fetchTiktokDraftState(
   return draftStateOf(
     await tiktokPost(connectedAccountId, "/v2/post/publish/status/fetch/", { publish_id: publishId }),
   );
+}
+
+/** Le lien d'une vidéo publiée — le profil quand TikTok ne rend pas d'identifiant sûr. */
+export function tiktokPermalink(username: string | null, postId: string | null): string | null {
+  if (!username) return null;
+  return postId
+    ? `https://www.tiktok.com/@${username}/video/${postId}`
+    : `https://www.tiktok.com/@${username}`;
 }

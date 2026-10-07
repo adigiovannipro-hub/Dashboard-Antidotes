@@ -661,6 +661,8 @@ export type PlanningSubjectRow = {
   visual_text: string | null;
   slides: unknown[] | null;
   wording_status: string;
+  /** Réglages TikTok du panneau (migration 20261007b) — relus par `parseTiktokSettings`. */
+  tiktok_settings: unknown;
   created_at: string;
   updated_at: string;
   updated_by: string | null;

@@ -705,6 +705,7 @@ export function PlanningBoardView({
           closing={panelClosing}
           zIndex={panelZIndex(layers.subject)}
           onClose={closeDrawer}
+          isOwner={isOwner}
         />
       ) : null}
 
