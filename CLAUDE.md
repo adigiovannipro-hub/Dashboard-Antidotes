@@ -331,7 +331,7 @@ Quatre fichiers dans `src/lib/supabase/`, trois constructeurs. Choisis en connai
 - `client.ts` → navigateur, clé anon, RLS active. **Un seul call site légitime**, le formulaire de login. Aucune donnée métier ne se fetche côté client.
 - `server.ts` / `createClient()` → le défaut pour toute lecture serveur. Clé anon et RLS **sauf en accès ouvert**, où il bascule en `service_role`.
 - `server.ts` / `createAdminClient()` → `service_role`, contourne la RLS. Réservé à trois usages écrits dans le fichier : cron, callback OAuth, écritures d'audit. Jamais pour répondre à une requête utilisateur.
-- `proxy.ts` → rafraîchit la session. `getUser()` et non `getSession()` : seul le premier revalide le jeton.
+- `proxy.ts` → rafraîchit la session. `getClaims()` depuis le 7/10/2026 : il vérifie la signature du jeton sur place (clé publique ES256 du projet, gardée dix minutes en mémoire), là où `getUser()` payait un aller-retour vers l'Auth à Paris à chaque page — le proxy tourne près du visiteur, Singapour pour Hong Kong. Jamais `getSession()` seul : il ne vérifie pas la signature. L'identité qui fait foi reste `getViewer()`, qui appelle `getUser()` depuis le rendu, à Paris. Rejoué contre une fausse Auth (jeton valide : zéro appel du proxy ; jeton expiré : un seul rafraîchissement, cookie renvoyé, aucune reconnexion ; signature falsifiée et absence de cookie : `/login`).
 
 Il n'y a **pas de `middleware.ts`** : Next 16 l'a renommé, c'est `src/proxy.ts` et il exporte `proxy()`.
 
