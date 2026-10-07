@@ -1,8 +1,12 @@
 /**
  * Publication automatique du Planning, exécutée depuis une machine GitHub.
  *
- *   pnpm publier:planning            — ne publie qu'à 16h heure de Paris
+ *   pnpm publier:planning            — publie ce qui est « Programmé » aujourd'hui, à partir de 16h00 à Bali
  *   pnpm publier:planning --force    — publie maintenant, quelle que soit l'heure
+ *
+ * Le passage de 16h00 pile part de Vercel (`/api/cron/publier`, appelée par
+ * `pg_cron`) ; ce script en est le relais (`publication.yml`) et le filet
+ * des passages du soir.
  *
  * Le passage est greffé sur le workflow `airwallex-sync.yml` : le passage du
  * soir (portée `quotidien`) tombe dans la fenêtre 16h–minuit de Paris, celui
@@ -15,7 +19,8 @@
  * `react-server` de Node — nous *sommes* le serveur.
  *
  * Variables requises : NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY,
- * SUPABASE_SERVICE_ROLE_KEY, CREDENTIALS_ENCRYPTION_KEY.
+ * SUPABASE_SERVICE_ROLE_KEY, CREDENTIALS_ENCRYPTION_KEY — et COMPOSIO_API_KEY
+ * dès qu'un couloir TikTok ou LinkedIn a quelque chose à publier.
  */
 import dotenv from "dotenv";
 
@@ -44,16 +49,31 @@ async function main() {
   });
 
   if (report.skipped) {
+    // Hors fenêtre, le passage a quand même suivi les brouillons TikTok.
+    for (const done of report.published) {
+      console.log(`  ✓ ${done.subject} → ${done.target}${done.permalink ? ` — ${done.permalink}` : ""}`);
+    }
+    for (const failed of report.errors) {
+      console.error(`  ✗ ${failed.subject}${failed.target ? ` → ${failed.target}` : ""} — ${failed.error}`);
+    }
     console.log(report.skipped);
     return;
   }
 
   console.log(
     `Paris ${report.paris.date} ${report.paris.hour}h — ` +
-      `${report.published.length} publiée(s), ${report.errors.length} échec(s), ${report.ignored.length} ignorée(s).`,
+      `${report.published.length} publiée(s), ${report.drafted.length} brouillon(s) TikTok, ` +
+      `${report.errors.length} échec(s), ${report.ignored.length} ignorée(s).`,
   );
   for (const done of report.published) {
     console.log(`  ✓ ${done.subject} → ${done.target}${done.permalink ? ` — ${done.permalink}` : ""}`);
+  }
+  for (const draft of report.drafted) {
+    console.log(
+      `  ◌ ${draft.subject} → ${draft.target} — ${
+        draft.kind === "draft" ? "brouillon à publier depuis l'application" : "en traitement chez TikTok"
+      }`,
+    );
   }
   for (const ignored of report.ignored) {
     console.log(`  · ${ignored.subject} — ${ignored.reason}`);

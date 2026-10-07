@@ -15,7 +15,7 @@ import type { PublicationRow } from "@/lib/mon-travail/types";
  *
  * Un sujet en retard ne part pas tout seul — c'est voulu, l'automate ne
  * rattrape pas la veille. Ce bouton fait le geste humain d'un coup : la date
- * passe à aujourd'hui, et la fenêtre de publication de 16 h les reprend.
+ * passe à aujourd'hui, et la fenêtre de publication du jour les reprend.
  * Chaque ligne passe par la même action que la cellule Date du planning,
  * donc même journal, même revalidation.
  */

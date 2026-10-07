@@ -173,6 +173,19 @@ export async function dispatchModerationWorkflow(
 }
 
 /**
+ * Le relais de la publication de 16h00 (heure de Bali) : ce que la fonction Vercel n'a pas
+ * eu le temps de revendiquer part sur un runner dans la minute — un
+ * `workflow_dispatch` démarre tout de suite, contrairement à un `schedule`.
+ * Fichier à part, avec sa propre file : derrière `finance-sync`, il pourrait
+ * attendre la fin d'une synchronisation Airwallex.
+ */
+export const PUBLICATION_WORKFLOW_FILE = "publication.yml";
+
+export async function dispatchPublicationWorkflow(): Promise<void> {
+  await dispatchWorkflow(PUBLICATION_WORKFLOW_FILE, {});
+}
+
+/**
  * Les workflows du pôle Antidotes : « Lancer » depuis l'écran de campagne pose
  * un passage en file puis donne cet ordre — même jeton, même mécanique que
  * Finance, une autre file d'attente ; « Relever maintenant » du radar, idem.

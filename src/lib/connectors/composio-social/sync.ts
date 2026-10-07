@@ -12,6 +12,7 @@ import {
 } from "@/lib/composio/agency";
 import type { Database } from "@/lib/supabase/database.types";
 import {
+  linkedinMemberProfile,
   tiktokProfile,
   tiktokVideosPage,
   xProfile,
@@ -47,12 +48,15 @@ const PASSAGE_COURANT_JOURS = 35;
 /** Garde-fou de pagination : au-delà, on considère que le fil boucle. */
 const MAX_PAGES = 25;
 
-const PROVIDER: Record<ClientToolkit, "x_organic" | "tiktok_organic"> = {
+/** Les branchements client dont on collecte les chiffres — le profil LinkedIn ne sert qu'à publier. */
+type CollectedToolkit = Exclude<ClientToolkit, "linkedin_profil">;
+
+const PROVIDER: Record<CollectedToolkit, "x_organic" | "tiktok_organic"> = {
   twitter: "x_organic",
   tiktok: "tiktok_organic",
 };
 
-const PLATFORM: Record<ClientToolkit, "x" | "tiktok"> = {
+const PLATFORM: Record<CollectedToolkit, "x" | "tiktok"> = {
   twitter: "x",
   tiktok: "tiktok",
 };
@@ -126,11 +130,32 @@ async function xGet(
   return body;
 }
 
+/** Le membre LinkedIn derrière la connexion — OpenID, sans version d'API. */
+async function linkedinUserinfo(connectedAccountId: string): Promise<unknown> {
+  const response = await composioClient().tools.proxyExecute({
+    endpoint: "https://api.linkedin.com/v2/userinfo",
+    method: "GET",
+    connectedAccountId,
+  });
+  const status = Number(response.status ?? 0);
+  const body = response.data as { message?: string; code?: string } | undefined;
+  if (status >= 400) {
+    fail(`LinkedIn ${status} ${body?.code ?? ""} ${body?.message ?? ""}`.trim());
+  }
+  return body;
+}
+
 async function readProfile(
   toolkit: ClientToolkit,
   workspaceId: string,
   connectedAccountId: string,
 ): Promise<ClientProfile> {
+  if (toolkit === "linkedin_profil") {
+    return (
+      linkedinMemberProfile(await linkedinUserinfo(connectedAccountId)) ??
+      fail("LinkedIn n'a pas rendu le membre (portée openid manquante ?).")
+    );
+  }
   const profile =
     toolkit === "tiktok"
       ? tiktokProfile(
@@ -159,7 +184,7 @@ async function readProfile(
 }
 
 async function readPosts(options: {
-  toolkit: ClientToolkit;
+  toolkit: CollectedToolkit;
   workspaceId: string;
   connectedAccountId: string;
   profile: ClientProfile;
@@ -299,7 +324,7 @@ export async function syncWorkspaceClientSocial(options: {
 
   const reports: ClientSocialReport[] = [];
   for (const link of (links ?? []) as unknown as { kind: "x" | "tiktok"; account_id: string }[]) {
-    const toolkit: ClientToolkit = link.kind === "x" ? "twitter" : "tiktok";
+    const toolkit: CollectedToolkit = link.kind === "x" ? "twitter" : "tiktok";
     reports.push(await syncOne({ admin, workspaceId, toolkit, accountId: link.account_id, now, atLeastSince: options.atLeastSince }));
   }
   return reports;
@@ -308,7 +333,7 @@ export async function syncWorkspaceClientSocial(options: {
 async function syncOne(context: {
   admin: Admin;
   workspaceId: string;
-  toolkit: ClientToolkit;
+  toolkit: CollectedToolkit;
   accountId: string;
   now: Date;
   atLeastSince?: string;

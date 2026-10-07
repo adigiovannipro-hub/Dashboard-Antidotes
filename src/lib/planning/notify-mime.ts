@@ -145,9 +145,9 @@ export function buildValidationMime(email: ValidationEmail): string {
 
 /**
  * Le courriel d'une validation client — ce que reçoit l'agence quand un client
- * passe une publication à « Validé » sur son planning. Validé, c'est le
- * déclencheur de la publication automatique de 16 h : l'agence doit le savoir
- * sans avoir à rouvrir chaque tableau.
+ * passe une publication à « Validé » sur son planning. Validé, c'est l'accord
+ * du client : l'agence doit le savoir sans rouvrir chaque tableau, pour
+ * passer la ligne en « Programmé » — c'est ce statut qui publie à 16h00.
  */
 export type ApprovalEmail = {
   from: string;

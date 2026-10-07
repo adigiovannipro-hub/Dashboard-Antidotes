@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  linkedinMemberProfile,
   tiktokPayload,
   tiktokProfile,
   tiktokVideosPage,
@@ -191,5 +192,36 @@ describe("xTweetsPage", () => {
 
   it("lit une page vide comme vide, sans lever", () => {
     expect(xTweetsPage({ meta: { result_count: 0 } }, "andrea").posts).toEqual([]);
+  });
+});
+
+describe("linkedinMemberProfile", () => {
+  it("lit le membre OpenID : sub, nom et photo", () => {
+    expect(
+      linkedinMemberProfile({
+        sub: "F6kGF1Uduq",
+        name: "Alessandro Di Giovanni",
+        picture: "https://media.licdn.com/a.jpg",
+        email: "x@y.z",
+      }),
+    ).toEqual({
+      externalId: "F6kGF1Uduq",
+      username: null,
+      displayName: "Alessandro Di Giovanni",
+      avatarUrl: "https://media.licdn.com/a.jpg",
+      biography: null,
+      followers: null,
+      mediaCount: null,
+    });
+  });
+
+  it("recompose le nom quand LinkedIn ne rend que ses parties", () => {
+    expect(linkedinMemberProfile({ sub: "1", given_name: "Ada", family_name: "L." })?.displayName).toBe(
+      "Ada L.",
+    );
+  });
+
+  it("sans identifiant, pas de profil", () => {
+    expect(linkedinMemberProfile({ name: "x" })).toBeNull();
   });
 });

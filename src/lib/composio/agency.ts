@@ -9,6 +9,7 @@ import {
   type AgencyToolkit,
   type ClientToolkit,
   type ComposioToolkit,
+  composioSlug,
 } from "./labels";
 import { pickNewestAccount } from "./pick";
 
@@ -17,6 +18,7 @@ export {
   CLIENT_TOOLKIT_KIND,
   CLIENT_TOOLKIT_LABELS,
   COMPOSIO_TOOLKIT_LABELS,
+  composioSlug,
   isAgencyToolkit,
   isClientToolkit,
   type AgencyToolkit,
@@ -51,6 +53,9 @@ export {
  * Management API ; c'est celle que `scripts/composio-lien.ts` crée aussi.
  * TikTok Ads : l'OAuth géré par Composio suffit — c'est celui qui a servi au
  * branchement du 1/10/2026 dans l'espace personnel.
+ * Profil LinkedIn d'un client : publier en son nom, rien de plus — lui
+ * demander l'administration de pages qu'il n'a peut-être pas encombrerait
+ * l'écran de consentement pour rien.
  */
 const SCOPED_CONFIGS: Partial<Record<ComposioToolkit, { name: string; scopes: string[] }>> = {
   linkedin: {
@@ -64,6 +69,10 @@ const SCOPED_CONFIGS: Partial<Record<ComposioToolkit, { name: string; scopes: st
       "r_organization_admin",
       "rw_organization_admin",
     ],
+  },
+  linkedin_profil: {
+    name: "linkedin-profil",
+    scopes: ["openid", "profile", "w_member_social"],
   },
 };
 
@@ -99,7 +108,7 @@ export async function findClientAccount(
 ): Promise<{ id: string } | { error: string }> {
   const list = await composioClient().connectedAccounts.list({
     userIds: [clientUserId(workspaceId)],
-    toolkitSlugs: [toolkit],
+    toolkitSlugs: [composioSlug(toolkit)],
     statuses: ["ACTIVE"],
   });
   const picked = pickNewestAccount(list.items);
@@ -143,13 +152,14 @@ export async function startAgencyConnection(options: {
   const composio = composioClient();
   const scoped = SCOPED_CONFIGS[options.toolkit];
 
-  const configs = await composio.authConfigs.list({ toolkit: options.toolkit });
+  const slug = composioSlug(options.toolkit);
+  const configs = await composio.authConfigs.list({ toolkit: slug });
   let config = scoped
     ? configs.items.find((item) => item.name === scoped.name)
     : (configs.items.find((item) => item.status === "ENABLED") ?? configs.items[0]);
 
   if (!config) {
-    const created = await composio.authConfigs.create(options.toolkit, {
+    const created = await composio.authConfigs.create(slug, {
       type: "use_composio_managed_auth",
       name: scoped?.name ?? `${options.toolkit}-agence`,
       ...(scoped ? { credentials: { scopes: scoped.scopes } } : {}),

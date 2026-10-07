@@ -117,8 +117,12 @@ export async function publishInstagram(options: {
   accessToken: string;
   caption: string;
   mediaUrls: string[];
+  /** Heure limite d'attente de l'encodage chez Meta — quatre minutes sinon. */
+  deadline?: number;
 }): Promise<PublishedPost> {
   const { igUserId, accessToken, caption, mediaUrls } = options;
+  const deadline = options.deadline ?? Date.now() + 4 * 60 * 1000;
+  const timeoutMs = () => Math.max(5000, deadline - Date.now());
 
   let containerId: string;
 
@@ -144,7 +148,7 @@ export async function publishInstagram(options: {
       });
       // Chaque enfant vidéo doit être prêt avant d'assembler le parent.
       if (isVideoPath(url)) {
-        await waitForContainer({ containerId: child.id, accessToken });
+        await waitForContainer({ containerId: child.id, accessToken, timeoutMs: timeoutMs() });
       }
       children.push(child.id);
     }
@@ -158,7 +162,7 @@ export async function publishInstagram(options: {
     containerId = parent.id;
   }
 
-  await waitForContainer({ containerId, accessToken });
+  await waitForContainer({ containerId, accessToken, timeoutMs: timeoutMs() });
 
   const published = await graphPost<{ id: string }>(
     `/${igUserId}/media_publish`,

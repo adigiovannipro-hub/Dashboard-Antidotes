@@ -101,6 +101,29 @@ export function tiktokProfile(payload: unknown): ClientProfile | null {
 }
 
 /**
+ * Le profil LinkedIn d'un membre, lu sur `/v2/userinfo` (OpenID). `sub` est
+ * l'identifiant qui fait l'auteur d'un post (`urn:li:person:<sub>`). LinkedIn
+ * ne rend ni le pseudo, ni les abonnés d'un membre à cette portée.
+ */
+export function linkedinMemberProfile(payload: unknown): ClientProfile | null {
+  const user = asObject(payload);
+  const id = text(user.sub);
+  if (!id) return null;
+  const fullName =
+    text(user.name) ??
+    ([text(user.given_name), text(user.family_name)].filter(Boolean).join(" ") || null);
+  return {
+    externalId: id,
+    username: null,
+    displayName: fullName,
+    avatarUrl: text(user.picture),
+    biography: null,
+    followers: null,
+    mediaCount: null,
+  };
+}
+
+/**
  * Une page de vidéos. `create_time` est en secondes UNIX ; le curseur, lui,
  * en millisecondes — c'est TikTok qui le rend, on ne le fabrique jamais.
  *

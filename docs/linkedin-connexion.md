@@ -86,3 +86,24 @@ Meta repart de zéro.
   identifiant numérique, pas un `urn:li:organization:…` — la deviner a fait
   conclure « ce compte n'administre aucune page » sur un compte qui en
   administre six.
+
+## Publier sur le profil personnel d'un client
+
+La page entreprise (ci-dessus) porte les **chiffres**. Le couloir LinkedIn du
+planning, lui, publie sur le **profil personnel** du client : un autre
+compte, un autre login.
+
+1. Connexions de l'espace → **Brancher LinkedIn (profil)**. Le client se
+   connecte avec **son** LinkedIn. Composio range la connexion sous
+   `espace:<id>` et l'application crée au besoin la configuration
+   `linkedin-profil` (portées `openid profile w_member_social`, OAuth géré
+   par Composio — rien à déclarer chez LinkedIn).
+2. Au retour, le profil entre dans l'inventaire et s'affecte à l'espace
+   (ligne « Profil LinkedIn »).
+3. Avant le premier envoi chez le client : `pnpm publier:essai --sujet <uuid>
+   --espace <slug-de-test>` sur un espace de test branché à son propre
+   profil, puis regarder le post à l'écran.
+
+Ce qui part : une image, une vidéo, un PDF déposé tel quel, ou **un carrousel
+d'images assemblé en PDF** — la forme qu'on fait défiler sur LinkedIn.
+

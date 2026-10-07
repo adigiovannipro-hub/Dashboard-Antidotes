@@ -2,10 +2,17 @@ import { describe, expect, it } from "vitest";
 
 import {
   isPublishWindow,
+  isJpegPath,
+  isPdfPath,
+  openingInParis,
+  publishOpening,
   isVideoPath,
   parisStamp,
   publishPlan,
+  PUBLISH_TRIGGER_STATUS,
+  PUBLISHABLE_NOW_STATUSES,
   publishTargets,
+  targetPlan,
 } from "./readiness";
 
 const subject = (over: Partial<Parameters<typeof publishPlan>[0]> = {}) => ({
@@ -22,9 +29,15 @@ describe("publishTargets", () => {
     expect(publishTargets("facebook")).toEqual(["facebook"]);
   });
 
+  it("TikTok et LinkedIn ont chacun leur cible", () => {
+    expect(publishTargets("linkedin")).toEqual(["linkedin"]);
+    expect(publishTargets("tiktok")).toEqual(["tiktok"]);
+  });
+
   it("les autres réseaux ne partent pas automatiquement", () => {
-    expect(publishTargets("linkedin")).toEqual([]);
-    expect(publishTargets("tiktok")).toEqual([]);
+    expect(publishTargets("x")).toEqual([]);
+    expect(publishTargets("youtube")).toEqual([]);
+    expect(publishTargets("other")).toEqual([]);
   });
 });
 
@@ -67,10 +80,106 @@ describe("publishPlan", () => {
     expect(publishPlan(subject())).toEqual({ ready: true, shape: "image" });
   });
 
-  it("plafonne le carrousel à 10 — la limite Meta", () => {
-    const eleven = Array.from({ length: 11 }, (_, index) => `v${index}.jpg`);
-    const plan = publishPlan(subject({ visual_urls: eleven }));
-    expect(plan).toEqual({ ready: false, blockers: ["carrousel-trop-long"] });
+  it("un PDF seul est un document", () => {
+    expect(publishPlan(subject({ visual_urls: ["deck.pdf"] }))).toEqual({
+      ready: true,
+      shape: "document",
+    });
+  });
+});
+
+describe("targetPlan", () => {
+  const eleven = Array.from({ length: 11 }, (_, index) => `v${index}.png`);
+
+  it("plafonne le carrousel à 10 sur Meta, pas sur LinkedIn", () => {
+    const long = subject({ visual_urls: eleven });
+    expect(targetPlan("instagram", long)).toEqual({
+      ready: false,
+      blockers: ["carrousel-trop-long"],
+    });
+    expect(targetPlan("facebook", long)).toEqual({
+      ready: false,
+      blockers: ["carrousel-trop-long"],
+    });
+    expect(targetPlan("linkedin", long)).toEqual({ ready: true, shape: "document" });
+  });
+
+  it("un carrousel d'images part en PDF sur LinkedIn", () => {
+    const carousel = subject({ visual_urls: ["a.png", "b.png", "c.png"] });
+    expect(targetPlan("instagram", carousel)).toEqual({ ready: true, shape: "carousel" });
+    expect(targetPlan("linkedin", carousel)).toEqual({ ready: true, shape: "document" });
+  });
+
+  it("Facebook refuse un carrousel qui contient une vidéo, Instagram non", () => {
+    const mixed = subject({ visual_urls: ["a.jpg", "clip.mp4"] });
+    expect(targetPlan("instagram", mixed).ready).toBe(true);
+    expect(targetPlan("facebook", mixed)).toEqual({
+      ready: false,
+      blockers: ["facebook-carrousel-video"],
+    });
+  });
+
+  it("le brouillon TikTok ne prend qu'une vidéo seule", () => {
+    expect(
+      targetPlan("tiktok", subject({ format: "reel", visual_urls: ["clip.MOV"] })),
+    ).toEqual({ ready: true, shape: "video" });
+    expect(targetPlan("tiktok", subject({ visual_urls: ["a.png", "b.png"] }))).toEqual({
+      ready: false,
+      blockers: ["tiktok-video-seule"],
+    });
+    expect(targetPlan("tiktok", subject()).ready).toBe(false);
+  });
+
+  it("LinkedIn ne mêle pas vidéo ou PDF à d'autres visuels", () => {
+    expect(targetPlan("linkedin", subject({ visual_urls: ["clip.mp4", "a.png"] }))).toEqual({
+      ready: false,
+      blockers: ["linkedin-melange"],
+    });
+    expect(targetPlan("linkedin", subject({ visual_urls: ["deck.pdf", "a.png"] }))).toEqual({
+      ready: false,
+      blockers: ["linkedin-melange"],
+    });
+    expect(targetPlan("linkedin", subject({ visual_urls: ["deck.pdf"] }))).toEqual({
+      ready: true,
+      shape: "document",
+    });
+    expect(targetPlan("linkedin", subject({ visual_urls: ["clip.mp4"] }))).toEqual({
+      ready: true,
+      shape: "video",
+    });
+  });
+
+  it("un PDF ne part que sur LinkedIn", () => {
+    const pdf = subject({ visual_urls: ["deck.pdf"] });
+    expect(targetPlan("instagram", pdf)).toEqual({
+      ready: false,
+      blockers: ["pdf-hors-linkedin"],
+    });
+  });
+
+  it("compte la légende en caractères, emojis compris, au plafond du réseau", () => {
+    const at = subject({ wording: "é".repeat(2200) });
+    const over = subject({ wording: "🌾".repeat(2201) });
+    expect(targetPlan("instagram", at).ready).toBe(true);
+    expect(targetPlan("instagram", over)).toEqual({
+      ready: false,
+      blockers: ["legende-trop-longue"],
+    });
+    expect(targetPlan("linkedin", over).ready).toBe(true);
+    // TikTok ne reçoit pas la légende en brouillon : aucun plafond.
+    expect(
+      targetPlan("tiktok", subject({ wording: "x".repeat(5000), visual_urls: ["c.mp4"] })).ready,
+    ).toBe(true);
+  });
+});
+
+describe("isPdfPath / isJpegPath", () => {
+  it("reconnaissent l'extension, casse et querystring compris", () => {
+    expect(isPdfPath("anmf/deck.PDF?token=1")).toBe(true);
+    expect(isPdfPath("anmf/deck.png")).toBe(false);
+    expect(isJpegPath("anmf/a.JPEG")).toBe(true);
+    expect(isJpegPath("anmf/a.jpg?x=1")).toBe(true);
+    expect(isJpegPath("anmf/a.png")).toBe(false);
   });
 });
 
@@ -105,24 +214,43 @@ describe("parisStamp", () => {
   });
 });
 
+describe("publishOpening", () => {
+  it("ouvre à 16h00 à Bali, soit 08h00 UTC toute l'année", () => {
+    expect(publishOpening("2026-10-09").toISOString()).toBe("2026-10-09T08:00:00.000Z");
+    expect(publishOpening("2026-12-01").toISOString()).toBe("2026-12-01T08:00:00.000Z");
+  });
+
+  it("se lit 10h à Paris l'été et 9h l'hiver", () => {
+    expect(openingInParis("2026-10-09")).toBe("10h00");
+    expect(openingInParis("2026-12-01")).toBe("9h00");
+  });
+});
+
 describe("isPublishWindow", () => {
-  it("refuse le matin — rien ne part avant 16h", () => {
-    expect(isPublishWindow(9)).toBe(false);
-    expect(isPublishWindow(15)).toBe(false);
+  it("reste fermée avant 16h00 à Bali", () => {
+    expect(isPublishWindow(new Date("2026-10-09T07:59:00Z"))).toBe(false);
   });
 
-  it("ouvre à 16h pile", () => {
-    expect(isPublishWindow(16)).toBe(true);
+  it("ouvre à 16h00 pile à Bali", () => {
+    expect(isPublishWindow(new Date("2026-10-09T08:00:00Z"))).toBe(true);
+    expect(isPublishWindow(new Date("2026-12-01T08:00:00Z"))).toBe(true);
   });
 
-  it("laisse rattraper toute la soirée — c'est là qu'est la correction", () => {
-    // Une seule chance par jour, c'était une chance sur deux de ne rien
-    // publier : le passage de 14h17 UTC est sauté aussi souvent qu'un autre.
-    expect(isPublishWindow(19)).toBe(true);
-    expect(isPublishWindow(23)).toBe(true);
+  it("laisse rattraper jusqu'à minuit à Paris — c'est là que sont les filets", () => {
+    expect(isPublishWindow(new Date("2026-10-09T21:30:00Z"))).toBe(true);
   });
 
-  it("se referme à minuit — pas par l'heure, par la date de Paris qui avance", () => {
-    expect(isPublishWindow(0)).toBe(false);
+  it("se referme à minuit de Paris : la date de la ligne est française", () => {
+    // 00h30 à Paris le 10 : la journée du 10 n'est pas encore ouverte.
+    expect(isPublishWindow(new Date("2026-10-09T22:30:00Z"))).toBe(false);
+  });
+});
+
+describe("PUBLISH_TRIGGER_STATUS", () => {
+  it("« Programmé » publie, « Validé » non — c'est l'accord du client", () => {
+    expect(PUBLISH_TRIGGER_STATUS).toBe("scheduled");
+    expect(PUBLISHABLE_NOW_STATUSES).toContain("scheduled");
+    // Le geste manuel de l'agence vaut aussi pour une ligne seulement validée.
+    expect(PUBLISHABLE_NOW_STATUSES).toContain("validated");
   });
 });

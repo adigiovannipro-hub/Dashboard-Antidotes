@@ -289,7 +289,7 @@ export function buildCardModel(options: {
         { label: "Posts validés client", value: String(snapshot.target.validated) },
         {
           // « Datés » et non « programmés » : la programmation n'existe plus
-          // comme geste — un post validé et daté part tout seul à 16h.
+          // comme geste — un post programmé et daté part tout seul à 16h00 (Bali).
           label: "Posts datés",
           value: `${snapshot.target.scheduled} sur ${snapshot.target.total}`,
         },
@@ -417,7 +417,7 @@ export function buildCardModel(options: {
         }
         case "programmation": {
           // Plus rien à « programmer » : la publication part toute seule à
-          // 16h dès qu'un post est validé et daté. Ce moment du cycle est
+          // 16h00 (Bali) dès qu'un post est programmé et daté. Ce moment du cycle est
           // celui du client — on lui envoie son planning à relire.
           action = {
             ...base,

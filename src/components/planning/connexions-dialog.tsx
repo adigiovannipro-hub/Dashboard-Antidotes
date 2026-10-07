@@ -111,9 +111,9 @@ export function ConnexionsDialog({
     ] as const
   ).filter((entry) => rows.some((row) => row.kind === entry.kind));
 
-  /* X et TikTok passent aussi par Composio, mais avec le login **du
-     client** : le compte branché ici n'appartient qu'à cet espace, et s'y
-     affecte au retour. */
+  /* X, TikTok et le profil LinkedIn passent aussi par Composio, mais avec le
+     login **du client** : le compte branché ici n'appartient qu'à cet
+     espace, et s'y affecte au retour. */
   const clientHref = (reseau: ClientToolkit) =>
     `/api/social/composio/connexion?espace=${encodeURIComponent(
       workspaceSlug,
@@ -122,6 +122,7 @@ export function ConnexionsDialog({
     [
       { reseau: "twitter", kind: "x" },
       { reseau: "tiktok", kind: "tiktok" },
+      { reseau: "linkedin_profil", kind: "linkedin_profile" },
     ] as const
   ).filter((entry) => rows.some((row) => row.kind === entry.kind));
 

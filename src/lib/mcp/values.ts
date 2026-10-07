@@ -36,11 +36,12 @@ export function resolveFormat(raw: unknown): PlanningFormat {
 /**
  * Les statuts qu'un modèle n'a pas le droit de poser.
  *
- * `validated` déclenche la publication automatique à 16 h : c'est le geste du
- * client, jamais celui d'un assistant. `published` affirmerait une
- * publication qui n'a pas eu lieu.
+ * `validated` est le geste du client, jamais celui d'un assistant ;
+ * `scheduled` (« Programmé ») déclenche la publication automatique de 16h00 (Bali),
+ * c'est le geste de l'agence ; `published` affirmerait une publication qui
+ * n'a pas eu lieu.
  */
-export const FORBIDDEN_STATUSES: PlanningStatus[] = ["validated", "published"];
+export const FORBIDDEN_STATUSES: PlanningStatus[] = ["validated", "scheduled", "published"];
 
 function fold(text: string): string {
   return text
@@ -67,7 +68,7 @@ export function resolveEditableStatus(raw: unknown): PlanningStatus {
   if (!found) throw new Error(`Statut inconnu : « ${String(raw)} ». Statuts : ${allowed}.`);
   if (FORBIDDEN_STATUSES.includes(found)) {
     throw new Error(
-      `« ${STATUS_LABELS[found]} » ne se pose que dans l'application : la validation appartient au client et déclenche la publication automatique.`,
+      `« ${STATUS_LABELS[found]} » ne se pose que dans l'application : la validation appartient au client, et « Programmé » déclenche la publication automatique de 16h00 (heure de Bali).`,
     );
   }
   return found;

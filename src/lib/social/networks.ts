@@ -39,7 +39,9 @@ const KINDS_BY_NETWORK: Record<string, SocialAccountKind[]> = {
   meta: ["instagram", "facebook_page", "meta_ad_account"],
   instagram: ["instagram"],
   facebook: ["facebook_page"],
-  linkedin: ["linkedin"],
+  // La page porte les chiffres du Reporting, le profil reçoit les publications :
+  // le planning LinkedIn d'un client publie sur son compte personnel.
+  linkedin: ["linkedin", "linkedin_profile"],
   "linkedin-ads": ["linkedin_ad_account"],
   tiktok: ["tiktok"],
   "tik-tok": ["tiktok"],

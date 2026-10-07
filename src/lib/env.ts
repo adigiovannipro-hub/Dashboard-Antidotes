@@ -44,6 +44,10 @@ const serverSchema = {
   /* La clé du connecteur MCP de Claude : elle forme l'adresse
      `/api/mcp/<clé>`. 32 caractères au moins — c'est le seul verrou. */
   MCP_SECRET: z.string().min(32),
+  /* Le jeton de l'horloge de 16h00 (heure de Bali) : `pg_cron`, dans Supabase, le lit dans
+     le coffre (`vault`, secret `publication_cron_secret`) et l'envoie à
+     `/api/cron/publier`. Distinct de `CRON_SECRET`, que Supabase n'a pas. */
+  PUBLICATION_CRON_SECRET: z.string().min(32),
 } as const;
 
 export type ServerEnvKey = keyof typeof serverSchema;

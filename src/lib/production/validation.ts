@@ -13,7 +13,7 @@ import { listWorkspacePartners } from "@/lib/workspaces/queries";
  * Programmation de la carte cockpit.
  *
  * La programmation n'avait plus rien à programmer : la publication part toute
- * seule à 16h dès qu'un post est validé et daté. Ce qui manquait au cycle,
+ * seule à 16h00 (heure de Bali) dès qu'un post est programmé et daté. Ce qui manquait au cycle,
  * c'est le moment où le **client** entre en scène : quand les contenus sont
  * rédigés, on le prévient que son planning est prêt à relire. Un courriel
  * depuis la boîte de l'agence — celle que le client connaît — et la phase se

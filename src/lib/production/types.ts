@@ -20,7 +20,7 @@ export const PHASE_LABELS: Record<ProductionPhase, string> = {
   wording: "Content",
   // La clé reste `programmation` — enum en base, segment d'URL — mais le
   // moment du cycle est celui du client : son planning part en validation,
-  // la publication elle-même étant automatique à 16h.
+  // la publication elle-même étant automatique à 16h00, heure de Bali.
   programmation: "Validation",
   reporting: "Reporting",
 };
