@@ -5,6 +5,7 @@ import {
   COMPRESSION_TARGET_BYTES,
   MAX_VIDEO_BITRATE,
   compressedName,
+  conversionTargetBytes,
   formatDuration,
   needsCompression,
   planCompression,
@@ -25,12 +26,18 @@ describe("needsCompression", () => {
     expect(needsCompression(file())).toBe(true);
   });
 
-  it("laisse partir telle quelle une vidéo sous 50 Mo", () => {
-    expect(needsCompression(file({ size: 30 * MO }))).toBe(false);
+  it("laisse partir telle quelle une vidéo MP4 sous 50 Mo", () => {
+    expect(needsCompression(file({ name: "reel.mp4", type: "video/mp4", size: 30 * MO }))).toBe(false);
+  });
+
+  it("réencode un .mov d'iPhone, même léger : Chrome ne lit pas le HEVC", () => {
+    expect(needsCompression(file({ name: "IMG_0042.MOV", type: "video/quicktime", size: 2 * MO }))).toBe(true);
+    expect(needsCompression(file({ name: "IMG_0042.MOV", type: "", size: 2 * MO }))).toBe(true);
   });
 
   it("reconnaît une vidéo arrivée sans type MIME par son extension", () => {
     expect(needsCompression(file({ name: "rush.MOV", type: "" }))).toBe(true);
+    expect(needsCompression(file({ name: "reel.mp4", type: "", size: 3 * MO }))).toBe(false);
   });
 
   it("ne touche jamais une image lourde", () => {
@@ -148,5 +155,24 @@ describe("compressedName", () => {
     expect(compressedName("master260420.mov")).toBe("master260420.mp4");
     expect(compressedName("reel.final.mp4")).toBe("reel.final.mp4");
     expect(compressedName("sans-extension")).toBe("sans-extension.mp4");
+  });
+});
+
+describe("conversionTargetBytes", () => {
+  it("garde la cible du bucket pour une vidéo trop lourde", () => {
+    expect(conversionTargetBytes({ sizeBytes: 120 * MO, durationSeconds: 60, audioBitrate: 128_000 })).toBe(
+      COMPRESSION_TARGET_BYTES,
+    );
+  });
+
+  it("vise deux fois la source pour un clip léger, avec un plancher", () => {
+    expect(conversionTargetBytes({ sizeBytes: 10 * MO, durationSeconds: 20, audioBitrate: 128_000 })).toBe(20 * MO);
+    expect(conversionTargetBytes({ sizeBytes: 1 * MO, durationSeconds: 10, audioBitrate: 128_000 })).toBe(8 * MO);
+  });
+
+  it("ne descend jamais sous le débit plancher, ni au-dessus de 45 Mo", () => {
+    const long = conversionTargetBytes({ sizeBytes: 3 * MO, durationSeconds: 120, audioBitrate: 128_000 });
+    expect(planCompression({ durationSeconds: 120, displayWidth: 1080, displayHeight: 1920, audioBitrate: 128_000, targetBytes: long }).ok).toBe(true);
+    expect(conversionTargetBytes({ sizeBytes: 40 * MO, durationSeconds: 30, audioBitrate: 0 })).toBe(COMPRESSION_TARGET_BYTES);
   });
 });

@@ -6,7 +6,7 @@ import {
 import { toast } from "sonner";
 
 import { makeVisualPreview } from "./preview-client";
-import { visualUploadError } from "./storage";
+import { MAX_VISUAL_BYTES, visualUploadError } from "./storage";
 import { needsCompression } from "./video-compression";
 import { VideoCompressionError, compressVideo } from "./video-compression-client";
 
@@ -144,18 +144,29 @@ async function shrinkHeavyVideos(files: File[]): Promise<File[]> {
       ready.push(file);
       continue;
     }
-    const toastId = toast.loading("Compression de la vidéo… 0 %");
+    // Une vidéo légère n'est pas compressée mais convertie en MP4 : le mot
+    // dit ce qui se passe.
+    const verb = file.size > MAX_VISUAL_BYTES ? "Compression" : "Conversion";
+    const toastId = toast.loading(`${verb} de la vidéo… 0 %`);
     let shown = "";
     try {
       ready.push(
         await compressVideo(file, (ratio, attempt) => {
           const pass = attempt > 1 ? ` (passage ${attempt})` : "";
-          const label = `Compression de la vidéo${pass}… ${Math.floor(ratio * 100)} %`;
+          const label = `${verb} de la vidéo${pass}… ${Math.floor(ratio * 100)} %`;
           if (label === shown) return;
           shown = label;
           toast.loading(label, { id: toastId });
         }),
       );
+    } catch (error) {
+      // Une vidéo légère que ce navigateur ne sait pas convertir part telle
+      // quelle : le dépôt déclenche aussitôt sa conversion côté serveur
+      // (`attachVisuals`), elle devient lisible chez le client en quelques
+      // minutes. Mieux vaut ça qu'un envoi bloqué.
+      if (file.size > MAX_VISUAL_BYTES) throw error;
+      toast.info(`${file.name} : conversion en MP4 en cours, lisible par tous d'ici quelques minutes.`);
+      ready.push(file);
     } finally {
       toast.dismiss(toastId);
     }

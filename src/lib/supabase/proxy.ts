@@ -70,11 +70,21 @@ export async function updateSession(request: NextRequest) {
     },
   );
 
-  // `getUser()` et non `getSession()` : seul le premier revalide le jeton
-  // auprès de Supabase. Se fier au cookie seul serait usurpable.
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  /* `getClaims()` et non `getUser()` : le proxy tourne au plus près du
+     visiteur — Singapour pour un visiteur à Hong Kong, relevé dans les
+     journaux Supabase le 7/10 — et `getUser()` y payait un aller-retour vers
+     l'Auth à Paris à chaque page, environ 200 ms. `getClaims()` vérifie la
+     signature du jeton sur place, avec la clé publique du projet (ES256) gardée
+     dix minutes en mémoire : aucun appel tant que le jeton est valide, et un
+     rafraîchissement quand il expire, cookies posés comme avant.
+
+     Jamais `getSession()` seul : il lirait le cookie sans en vérifier la
+     signature, donc usurpable. Une session révoquée ailleurs reste acceptée
+     ici jusqu'à l'expiration de son jeton (une heure au plus) — le proxy n'est
+     qu'une barrière de confort : `getViewer()` revalide l'identité auprès de
+     l'Auth à chaque rendu, depuis Paris, et la RLS reste l'autorité. */
+  const { data: claims } = await supabase.auth.getClaims();
+  const user = claims?.claims ?? null;
 
   const { pathname } = request.nextUrl;
 

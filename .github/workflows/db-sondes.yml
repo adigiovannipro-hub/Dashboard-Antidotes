@@ -104,6 +104,10 @@ on:
         description: "Courriels d'accès (invitation ANMF + lien de connexion), par la vraie chaîne, vers cette adresse de test"
         type: string
         default: ""
+      validation_test_vers:
+        description: "Courriel « Validé » (validation client d'un post), par la vraie chaîne, vers cette adresse de test"
+        type: string
+        default: ""
       renvoi_factures_vers:
         description: "… vers cette adresse à la place des clients, sans journal (test)"
         type: string
@@ -264,6 +268,20 @@ jobs:
           META_AD_LIBRARY_TOKEN: ${{ secrets.META_AD_LIBRARY_TOKEN }}
           DROPCONTACT_API_KEY: ${{ secrets.DROPCONTACT_API_KEY }}
           HUNTER_API_KEY: ${{ secrets.HUNTER_API_KEY }}
+
+      # Le courriel que reçoit l'agence quand un client valide une
+      # publication, par le code du produit, vers une adresse de test.
+      - name: Courriel de validation
+        if: ${{ inputs.validation_test_vers != '' }}
+        run: pnpm validation:test --vers "${{ inputs.validation_test_vers }}"
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          NEXT_PUBLIC_SITE_URL: ${{ vars.NEXT_PUBLIC_SITE_URL || 'https://app.antidotes.agency' }}
+          CREDENTIALS_ENCRYPTION_KEY: ${{ secrets.CREDENTIALS_ENCRYPTION_KEY }}
+          GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
+          GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
 
       # Le courriel d'accès à un espace, envoyé par le code du produit vers
       # une adresse de test : la preuve qu'exige tout courriel qui part vers

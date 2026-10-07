@@ -89,6 +89,19 @@ describe("transcodeArgs", () => {
     expect(args.join(" ")).not.toContain("bt709");
   });
 
+  it("garde 1080 et une qualité plus fine pour une vidéo encore à publier", () => {
+    const args = transcodeArgs({
+      source: "in.mov",
+      output: "out.mp4",
+      probe: probe(),
+      videoKbps: 6000,
+      shortEdge: 1080,
+      crf: 21,
+    });
+    expect(args.join(" ")).toContain("min(1080,iw)");
+    expect(args[args.indexOf("-crf") + 1]).toBe("21");
+  });
+
   it("retire les métadonnées de la source", () => {
     const args = transcodeArgs({ source: "in.mov", output: "out.mp4", probe: probe(), videoKbps: 900 });
     expect(args.join(" ")).toContain("-map_metadata -1");

@@ -1,5 +1,6 @@
 import "server-only";
 
+import { withSignedAvatars } from "@/lib/profil/queries";
 import { createClient } from "@/lib/supabase/server";
 import type { ColumnDef, ColumnOverride } from "./columns";
 import { resolveColumns } from "./columns";
@@ -149,6 +150,11 @@ export async function getBoardContent(board: PlanningBoard): Promise<{
   ]);
 
   const ownerById = new Map(owners.map((owner) => [owner.id, owner]));
+  // Un retour peut venir de quelqu'un qui n'est plus rattaché à l'espace :
+  // sa fiche se lit à part, sinon son nom tombait en « Inconnu ».
+  for (const author of await loadMissingAuthors(commentsById, ownerById)) {
+    ownerById.set(author.id, author);
+  }
   const monthById = new Map(monthRows.map((month) => [month.id, month]));
   const deletedMonthIds = new Set(
     monthRows.filter((month) => month.deleted_at).map((month) => month.id),
@@ -283,7 +289,10 @@ export async function listActivity(subjectId: string): Promise<PlanningActivity[
     : { data: [] };
 
   const byId = new Map(
-    ((profiles ?? []) as unknown as PlanningOwner[]).map((p) => [p.id, p]),
+    (await withSignedAvatars((profiles ?? []) as unknown as PlanningOwner[])).map((p) => [
+      p.id,
+      p,
+    ]),
   );
 
   return rows.map((row) => ({
@@ -300,6 +309,27 @@ export async function listActivity(subjectId: string): Promise<PlanningActivity[
  * l'organisation : un contributeur ne verra donc que lui dans le sélecteur.
  * C'est la politique en place, et elle n'est pas contournée ici.
  */
+async function loadMissingAuthors(
+  commentsById: Map<string, { author_id: string | null }[]>,
+  known: Map<string, PlanningOwner>,
+): Promise<PlanningOwner[]> {
+  const missing = [
+    ...new Set(
+      [...commentsById.values()]
+        .flat()
+        .map((comment) => comment.author_id)
+        .filter((id): id is string => !!id && !known.has(id)),
+    ),
+  ];
+  if (missing.length === 0) return [];
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("profiles")
+    .select("id, email, full_name, avatar_url")
+    .in("id", missing);
+  return withSignedAvatars((data ?? []) as unknown as PlanningOwner[]);
+}
+
 export async function listWorkspaceMembers(
   workspaceId: string,
 ): Promise<PlanningOwner[]> {
@@ -341,7 +371,7 @@ export async function listWorkspaceMembers(
     .in("id", ids)
     .order("full_name");
 
-  return (profiles ?? []) as unknown as PlanningOwner[];
+  return withSignedAvatars((profiles ?? []) as unknown as PlanningOwner[]);
 }
 
 /**
@@ -449,7 +479,10 @@ export async function listComments(subjectId: string): Promise<PlanningComment[]
     );
 
   const byId = new Map(
-    ((profiles ?? []) as unknown as PlanningOwner[]).map((p) => [p.id, p]),
+    (await withSignedAvatars((profiles ?? []) as unknown as PlanningOwner[])).map((p) => [
+      p.id,
+      p,
+    ]),
   );
 
   return comments.map((comment) => ({

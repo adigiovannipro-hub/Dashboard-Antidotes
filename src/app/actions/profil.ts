@@ -47,6 +47,11 @@ export async function updateMyProfile(
   }
 
   const { firstName, lastName } = parsed.data;
+  // L'accueil exige les deux : c'est ce que l'agence et les autres membres
+  // lisent sous chaque retour. Depuis « Mon profil », on peut vider un champ.
+  if (formData.get("onboarding") === "1" && (firstName === "" || lastName === "")) {
+    return { ok: false, error: "Prénom et nom sont nécessaires." };
+  }
 
   // `profiles_update_own` (0002) borne déjà l'écriture à sa propre ligne ; le
   // `.eq` explicite tient le même rôle en accès ouvert, où le client bascule
@@ -63,13 +68,14 @@ export async function updateMyProfile(
 
   if (error) return { ok: false, error: error.message };
 
-  revalidatePath("/mon-profil");
-  revalidatePath("/academy", "layout");
+  revalidatePath("/", "layout");
   return { ok: true, message: "Fiche mise à jour." };
 }
 
 const AVATAR_TYPES = ["image/png", "image/jpeg", "image/webp"];
-const MAX_AVATAR_BYTES = 2 * 1024 * 1024;
+/* 20 Mo, comme le bucket (20261007a) : une photo de téléphone en pèse 4 à 8,
+   et le navigateur la réduit avant l'envoi quand il sait la lire. */
+const MAX_AVATAR_BYTES = 20 * 1024 * 1024;
 
 export type AvatarUpload =
   | { ok: true; path: string; url: string }
@@ -88,7 +94,7 @@ export async function prepareMyAvatarUpload(input: {
   const viewer = await requireViewer();
 
   if (input.size > MAX_AVATAR_BYTES) {
-    return { ok: false, error: "Trop lourde : 2 Mo maximum." };
+    return { ok: false, error: "Trop lourde : 20 Mo maximum." };
   }
   if (!AVATAR_TYPES.includes(input.type)) {
     return { ok: false, error: "Format non accepté : PNG, JPG ou WebP." };

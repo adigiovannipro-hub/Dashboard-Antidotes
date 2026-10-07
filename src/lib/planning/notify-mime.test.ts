@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vitest";
 
-import { buildCommentHtml, buildCommentMime, type CommentEmail } from "./notify-mime";
+import {
+  approvalSubject,
+  buildApprovalHtml,
+  buildApprovalMime,
+  buildCommentHtml,
+  buildCommentMime,
+  type ApprovalEmail,
+  type CommentEmail,
+} from "./notify-mime";
 
 const email = (partial: Partial<CommentEmail> = {}): CommentEmail => ({
   from: "agence@antidotes.fr",
@@ -46,5 +54,47 @@ describe("buildCommentMime", () => {
     const body = mime.split("\r\n\r\n")[1] ?? "";
     const decoded = Buffer.from(body.replaceAll("\r\n", ""), "base64").toString("utf8");
     expect(decoded).toContain("Ouvrir la publication");
+  });
+});
+
+const approval = (partial: Partial<ApprovalEmail> = {}): ApprovalEmail => ({
+  from: "agence@antidotes.fr",
+  to: "alessandro@antidotes.fr",
+  workspaceName: "ANMF",
+  subjectName: "POV : LES MÉTIERS QUE L'IA NE REMPLACERA PAS",
+  laneName: "META",
+  formatLabel: "Reel",
+  dateLabel: "jeudi 15 octobre 2026",
+  approverName: "Candice HEYMAN",
+  wording: "Ligne une\nLigne deux",
+  link: "https://app.antidotes.agency/espace/anmf/planning/pe-2026?sujet=abc",
+  ...partial,
+});
+
+describe("buildApprovalMime", () => {
+  it("dit dans l'objet quelle publication et quel client", () => {
+    expect(approvalSubject(approval())).toBe(
+      "Validé — POV : LES MÉTIERS QUE L'IA NE REMPLACERA PAS (ANMF)",
+    );
+    const mime = buildApprovalMime(approval());
+    expect(mime).toContain("To: alessandro@antidotes.fr");
+    expect(mime).toMatch(/^Subject: =\?UTF-8\?B\?/m);
+  });
+
+  it("porte le réseau, le format, la date, qui a validé, la caption et le lien", () => {
+    const html = buildApprovalHtml(approval());
+    for (const part of ["ANMF · META", "Validé par Candice HEYMAN", "Reel · prévue le jeudi 15 octobre 2026", "Ligne une<br />Ligne deux", "?sujet=abc"]) {
+      expect(html).toContain(part);
+    }
+  });
+
+  it("tronque une longue caption, dit « sans date », et échappe le HTML", () => {
+    const html = buildApprovalHtml(
+      approval({ wording: `<b>${"x".repeat(900)}`, dateLabel: null, approverName: "<i>Eve</i>" }),
+    );
+    expect(html).toContain("sans date");
+    expect(html).toContain("…");
+    expect(html).not.toContain("<b>");
+    expect(html).toContain("&lt;i&gt;Eve&lt;/i&gt;");
   });
 });

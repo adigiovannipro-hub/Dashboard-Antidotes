@@ -48,3 +48,39 @@ export async function signAvatarUrl(path: string | null): Promise<string | null>
 
   return data?.signedUrl ?? null;
 }
+
+/**
+ * Signe d'un coup les photos d'une liste de personnes.
+ *
+ * `avatar_url` porte le **chemin** dans `member-avatars` (0065), jamais une
+ * URL : posé tel quel dans un `<img>`, il donnait une image cassée, et le
+ * planning retombait sur les initiales sans que personne ne sache pourquoi.
+ * Une URL déjà absolue (photo d'un fournisseur d'identité) passe telle quelle.
+ */
+export async function withSignedAvatars<T extends { avatar_url: string | null }>(
+  people: T[],
+): Promise<T[]> {
+  const paths = [
+    ...new Set(
+      people
+        .map((person) => person.avatar_url)
+        .filter((path): path is string => !!path && !path.startsWith("http")),
+    ),
+  ];
+  if (paths.length === 0) return people;
+
+  const { data } = await createAdminClient()
+    .storage.from("member-avatars")
+    .createSignedUrls(paths, TTL_SECONDS);
+  const signed = new Map(
+    (data ?? [])
+      .filter((entry) => entry.path && entry.signedUrl)
+      .map((entry) => [entry.path as string, entry.signedUrl]),
+  );
+
+  return people.map((person) =>
+    person.avatar_url && !person.avatar_url.startsWith("http")
+      ? { ...person, avatar_url: signed.get(person.avatar_url) ?? null }
+      : person,
+  );
+}

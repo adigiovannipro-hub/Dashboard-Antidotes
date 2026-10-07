@@ -1,0 +1,43 @@
+# Convertit en MP4 H.264 les vidéos du planning que les navigateurs du client
+# ne lisent pas (`.mov` d'iPhone en HEVC). Le navigateur convertit à l'envoi
+# depuis le 7/10/2026 ; ce passage rattrape ce qui était déjà déposé.
+#
+# « Run workflow » depuis l'onglet Actions : sans « écrire », il liste.
+
+name: Vidéos lisibles partout
+
+on:
+  workflow_dispatch:
+    inputs:
+      ecrire:
+        description: "Convertir et rebrancher (sinon aperçu)"
+        type: boolean
+        default: false
+
+concurrency:
+  group: videos-lisibles
+  cancel-in-progress: false
+
+jobs:
+  convertir:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.18.2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: ffmpeg
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
+      - name: Conversion
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          ECRIRE: ${{ inputs.ecrire }}
+        run: |
+          if [ "$ECRIRE" = "true" ]; then pnpm videos:lisibles --ecrire; else pnpm videos:lisibles; fi

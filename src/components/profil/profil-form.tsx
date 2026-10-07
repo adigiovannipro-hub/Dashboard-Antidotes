@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useRef, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 import {
@@ -28,12 +29,17 @@ export function ProfilForm({
   firstName,
   lastName,
   avatarUrl,
+  onboarding,
 }: {
   email: string;
   firstName: string;
   lastName: string;
   avatarUrl: string | null;
+  /** L'accueil d'une première connexion : les deux noms sont exigés, et
+      l'enregistrement mène à la page demandée au départ. */
+  onboarding?: { next: string };
 }) {
+  const router = useRouter();
   const [state, action, pending] = useActionState<ProfilResult | null, FormData>(
     updateMyProfile,
     null,
@@ -47,15 +53,20 @@ export function ProfilForm({
 
   useEffect(() => {
     if (!state) return;
-    if (state.ok) toast.success(state.message);
-    else toast.error(state.error);
-  }, [state]);
+    if (!state.ok) {
+      toast.error(state.error);
+      return;
+    }
+    if (onboarding) router.replace(onboarding.next);
+    else toast.success(state.message);
+  }, [state, onboarding, router]);
 
   const shown = preview ?? avatarUrl;
   const initials = initialsOf(firstName, lastName, email);
 
-  function upload(file: File) {
+  function upload(original: File) {
     startUpload(async () => {
+      const file = await shrinkPhoto(original);
       const prepared = await prepareMyAvatarUpload({
         name: file.name,
         type: file.type,
@@ -107,7 +118,7 @@ export function ProfilForm({
           <input
             ref={fileRef}
             type="file"
-            accept="image/png,image/jpeg,image/webp"
+            accept="image/*"
             className="sr-only"
             onChange={(event) => {
               const file = event.target.files?.[0];
@@ -122,7 +133,9 @@ export function ProfilForm({
             disabled={uploading}
             onClick={() => fileRef.current?.click()}
           >
-            <PendingLabel pending={uploading} busy="Envoi…">Changer la photo</PendingLabel>
+            <PendingLabel pending={uploading} busy="Envoi…">
+              {shown ? "Changer la photo" : "Ajouter une photo"}
+            </PendingLabel>
           </Button>
           {shown ? (
             <Button
@@ -147,6 +160,7 @@ export function ProfilForm({
       </div>
 
       <form ref={formRef} action={action} className="space-y-4">
+        {onboarding ? <input type="hidden" name="onboarding" value="1" /> : null}
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2">
             <Label htmlFor="profil-prenom">Prénom</Label>
@@ -155,6 +169,7 @@ export function ProfilForm({
               name="firstName"
               defaultValue={firstName}
               autoComplete="given-name"
+              required={!!onboarding}
             />
           </div>
           <div className="space-y-2">
@@ -164,6 +179,7 @@ export function ProfilForm({
               name="lastName"
               defaultValue={lastName}
               autoComplete="family-name"
+              required={!!onboarding}
             />
           </div>
         </div>
@@ -176,7 +192,9 @@ export function ProfilForm({
         </div>
 
         <Button type="submit" disabled={pending}>
-          <PendingLabel pending={pending} busy="Enregistrement…">Enregistrer</PendingLabel>
+          <PendingLabel pending={pending} busy="Enregistrement…">
+            {onboarding ? "Continuer" : "Enregistrer"}
+          </PendingLabel>
         </Button>
       </form>
     </div>
@@ -190,4 +208,32 @@ function initialsOf(firstName: string, lastName: string, email: string): string 
     .filter(Boolean)
     .join("");
   return (letters || email.charAt(0)).toUpperCase();
+}
+
+/**
+ * Ramène une photo à 1 024 px de grand côté, en JPEG.
+ *
+ * Une photo de téléphone pèse 4 à 8 Mo pour une pastille de 24 px : réduite
+ * dans le navigateur, elle part vite et ne pèse plus rien au bucket. Un format
+ * que le navigateur ne sait pas décoder (HEIC sous Chrome) part tel quel, et
+ * c'est le serveur qui dit s'il l'accepte.
+ */
+async function shrinkPhoto(file: File): Promise<File> {
+  try {
+    const bitmap = await createImageBitmap(file);
+    const scale = Math.min(1, 1024 / Math.max(bitmap.width, bitmap.height));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(bitmap.width * scale);
+    canvas.height = Math.round(bitmap.height * scale);
+    const context = canvas.getContext("2d");
+    if (!context) return file;
+    context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    bitmap.close();
+    const blob = await new Promise<Blob | null>((resolve) =>
+      canvas.toBlob(resolve, "image/jpeg", 0.86),
+    );
+    return blob ? new File([blob], "avatar.jpg", { type: "image/jpeg" }) : file;
+  } catch {
+    return file;
+  }
 }
