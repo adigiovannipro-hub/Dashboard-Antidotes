@@ -15,7 +15,8 @@
  * `react-server` de Node — nous *sommes* le serveur.
  *
  * Variables requises : NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY,
- * SUPABASE_SERVICE_ROLE_KEY, CREDENTIALS_ENCRYPTION_KEY.
+ * SUPABASE_SERVICE_ROLE_KEY, CREDENTIALS_ENCRYPTION_KEY — et COMPOSIO_API_KEY
+ * dès qu'un couloir TikTok ou LinkedIn a quelque chose à publier.
  */
 import dotenv from "dotenv";
 
@@ -44,16 +45,27 @@ async function main() {
   });
 
   if (report.skipped) {
+    // Hors fenêtre, le passage a quand même suivi les brouillons TikTok.
+    for (const done of report.published) {
+      console.log(`  ✓ ${done.subject} → ${done.target}${done.permalink ? ` — ${done.permalink}` : ""}`);
+    }
+    for (const failed of report.errors) {
+      console.error(`  ✗ ${failed.subject}${failed.target ? ` → ${failed.target}` : ""} — ${failed.error}`);
+    }
     console.log(report.skipped);
     return;
   }
 
   console.log(
     `Paris ${report.paris.date} ${report.paris.hour}h — ` +
-      `${report.published.length} publiée(s), ${report.errors.length} échec(s), ${report.ignored.length} ignorée(s).`,
+      `${report.published.length} publiée(s), ${report.drafted.length} brouillon(s) TikTok, ` +
+      `${report.errors.length} échec(s), ${report.ignored.length} ignorée(s).`,
   );
   for (const done of report.published) {
     console.log(`  ✓ ${done.subject} → ${done.target}${done.permalink ? ` — ${done.permalink}` : ""}`);
+  }
+  for (const draft of report.drafted) {
+    console.log(`  ◌ ${draft.subject} → ${draft.target} — brouillon à publier depuis l'application`);
   }
   for (const ignored of report.ignored) {
     console.log(`  · ${ignored.subject} — ${ignored.reason}`);

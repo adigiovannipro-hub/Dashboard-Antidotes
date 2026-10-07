@@ -691,13 +691,14 @@ export type PlanningActivityRow = {
   created_at: string;
 };
 
-// 0046 — journal et verrou de la publication automatique.
+// 0046 — journal et verrou de la publication automatique (TikTok, LinkedIn et
+// `awaiting` : 20261007).
 export type PlanningPublicationRow = {
   id: string;
   subject_id: string;
   workspace_id: string;
-  target: "instagram" | "facebook";
-  status: "running" | "success" | "error";
+  target: "instagram" | "facebook" | "tiktok" | "linkedin";
+  status: "running" | "success" | "error" | "awaiting";
   external_id: string | null;
   permalink: string | null;
   error: string | null;
@@ -1236,12 +1237,13 @@ export type Database = {
         | "error"
         | "partial"
         | "cancelled";
-      // Comptes sociaux (0043 ; cinq réseaux ajoutés par 0049)
+      // Comptes sociaux (0043 ; cinq réseaux ajoutés par 0049 ; profil LinkedIn 20261007)
       social_account_kind:
         | "instagram"
         | "facebook_page"
         | "meta_ad_account"
         | "linkedin"
+        | "linkedin_profile"
         | "tiktok"
         | "youtube"
         | "pinterest"
@@ -1249,9 +1251,9 @@ export type Database = {
         | "threads"
         | "snapchat";
       social_account_status: "connected" | "expired" | "error" | "disabled";
-      // Publication automatique du Planning (0046)
-      publish_target: "instagram" | "facebook";
-      publish_run_status: "running" | "success" | "error";
+      // Publication automatique du Planning (0046 ; TikTok, LinkedIn et brouillons 20261007)
+      publish_target: "instagram" | "facebook" | "tiktok" | "linkedin";
+      publish_run_status: "running" | "success" | "error" | "awaiting";
       // Reporting Site Web (0060)
       web_breakdown_type: WebBreakdownType;
       // FAQ (20260830)

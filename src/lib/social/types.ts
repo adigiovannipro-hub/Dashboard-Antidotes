@@ -26,6 +26,7 @@ export type SocialAccountKind =
   | "facebook_page"
   | "meta_ad_account"
   | "linkedin"
+  | "linkedin_profile"
   | "linkedin_ad_account"
   | "tiktok"
   | "tiktok_ad_account"
@@ -40,6 +41,7 @@ export const SOCIAL_ACCOUNT_LABELS: Record<SocialAccountKind, string> = {
   facebook_page: "Page Facebook",
   meta_ad_account: "Compte publicitaire Meta",
   linkedin: "LinkedIn",
+  linkedin_profile: "Profil LinkedIn",
   linkedin_ad_account: "Compte publicitaire LinkedIn",
   tiktok: "TikTok",
   tiktok_ad_account: "Compte publicitaire TikTok",
@@ -55,9 +57,10 @@ export const SOCIAL_ACCOUNT_PURPOSE: Record<SocialAccountKind, string> = {
   instagram: "Publication et prévisualisation du feed",
   facebook_page: "Publication sur la Page",
   meta_ad_account: "Chiffres de campagnes du Reporting",
-  linkedin: "Publication sur la page entreprise",
+  linkedin: "Chiffres de la page entreprise",
+  linkedin_profile: "Publication sur le profil personnel",
   linkedin_ad_account: "Chiffres de campagnes du Reporting",
-  tiktok: "Publication sur le compte",
+  tiktok: "Brouillons de publication et chiffres du compte",
   tiktok_ad_account: "Chiffres de campagnes du Reporting",
   youtube: "Publication sur la chaîne",
   pinterest: "Épingles du compte",
@@ -99,12 +102,13 @@ export const CONNECTABLE_KINDS: SocialAccountKind[] = [
   "tiktok_ad_account",
   "x",
   "tiktok",
+  "linkedin_profile",
 ];
 
 /** Par quel branchement passe un réseau — chaque famille a sa route. */
 export function connectorOf(
   kind: SocialAccountKind,
-): "meta" | "youtube" | "linkedin" | "tiktok_ads" | "twitter" | "tiktok" | null {
+): "meta" | "youtube" | "linkedin" | "tiktok_ads" | "twitter" | "tiktok" | "linkedin_profil" | null {
   if (META_KINDS.includes(kind)) return "meta";
   if (kind === "youtube") return "youtube";
   /* LinkedIn et TikTok Ads n'ont pas d'aller-retour OAuth **ici** : la
@@ -116,6 +120,7 @@ export function connectorOf(
      chaque client branche le sien, avec son propre login. */
   if (kind === "x") return "twitter";
   if (kind === "tiktok") return "tiktok";
+  if (kind === "linkedin_profile") return "linkedin_profil";
   return null;
 }
 

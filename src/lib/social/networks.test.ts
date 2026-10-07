@@ -27,7 +27,8 @@ describe("kindsForNetwork", () => {
 
   it("ignore la casse et les accents", () => {
     expect(kindsForNetwork("INSTAGRAM")).toEqual(["instagram"]);
-    expect(kindsForNetwork(" LinkedIn ")).toEqual(["linkedin"]);
+    // La page pour les chiffres, le profil pour publier.
+    expect(kindsForNetwork(" LinkedIn ")).toEqual(["linkedin", "linkedin_profile"]);
   });
 
   it("accepte les deux noms de X", () => {

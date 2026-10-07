@@ -24,18 +24,25 @@ export function isAgencyToolkit(value: string): value is AgencyToolkit {
   return value in AGENCY_TOOLKIT_LABELS;
 }
 
-/** Le slug Composio — `twitter` pour X, le nom que Composio garde. */
-export type ClientToolkit = "twitter" | "tiktok";
+/**
+ * Le branchement d'un client — le slug Composio (`twitter` pour X, le nom que
+ * Composio garde), sauf `linkedin_profil` : le **profil personnel** du client
+ * passe par le même toolkit `linkedin` que les pages de l'agence, mais pas par
+ * le même login ni la même configuration (`composioSlug`).
+ */
+export type ClientToolkit = "twitter" | "tiktok" | "linkedin_profil";
 
 export const CLIENT_TOOLKIT_LABELS: Record<ClientToolkit, string> = {
   twitter: "X",
   tiktok: "TikTok",
+  linkedin_profil: "LinkedIn (profil)",
 };
 
 /** Le type de compte social que chaque branchement client rapporte. */
 export const CLIENT_TOOLKIT_KIND = {
   twitter: "x",
   tiktok: "tiktok",
+  linkedin_profil: "linkedin_profile",
 } as const satisfies Record<ClientToolkit, string>;
 
 export function isClientToolkit(value: string): value is ClientToolkit {
@@ -43,6 +50,11 @@ export function isClientToolkit(value: string): value is ClientToolkit {
 }
 
 export type ComposioToolkit = AgencyToolkit | ClientToolkit;
+
+/** Le toolkit chez Composio : celui de la clé, sauf le profil LinkedIn. */
+export function composioSlug(toolkit: ComposioToolkit): string {
+  return toolkit === "linkedin_profil" ? "linkedin" : toolkit;
+}
 
 export const COMPOSIO_TOOLKIT_LABELS: Record<ComposioToolkit, string> = {
   ...AGENCY_TOOLKIT_LABELS,

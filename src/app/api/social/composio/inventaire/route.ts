@@ -86,6 +86,14 @@ export async function GET(request: Request) {
       target.searchParams.set("erreur", imported.error);
       return NextResponse.redirect(target);
     }
+    // Le profil LinkedIn ne sert qu'à publier : rien à collecter.
+    if (reseau === "linkedin_profil") {
+      target.searchParams.set(
+        "connecte",
+        `${label} branché — ${imported.account}, affecté à ${workspace.name}. Les publications LinkedIn validées de son planning partiront sur ce profil.`,
+      );
+      return NextResponse.redirect(target);
+    }
     after(async () => {
       await syncWorkspaceClientSocial({ admin, workspaceId: workspace.id });
     });

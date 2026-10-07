@@ -7,22 +7,28 @@
  * rattrape pas.
  */
 
-export type PublishTarget = "instagram" | "facebook";
+export type PublishTarget = "instagram" | "facebook" | "tiktok" | "linkedin";
 
 export const PUBLISH_TARGET_LABELS: Record<PublishTarget, string> = {
   instagram: "Instagram",
   facebook: "Facebook",
+  tiktok: "TikTok",
+  linkedin: "LinkedIn",
 };
 
 /**
  * Où publie un couloir. Le couloir META historique du board couvre les deux
- * réseaux — c'est sa définition côté Monday. Tout le reste (LinkedIn,
- * TikTok…) n'est pas publiable automatiquement aujourd'hui.
+ * réseaux — c'est sa définition côté Monday. TikTok part en **brouillon**
+ * dans l'application du compte (le client appuie sur « publier ») et LinkedIn
+ * sur le **profil personnel** du client ; X, YouTube et les autres ne se
+ * publient pas automatiquement.
  */
 export function publishTargets(platform: string): PublishTarget[] {
   if (platform === "meta") return ["instagram", "facebook"];
   if (platform === "instagram") return ["instagram"];
   if (platform === "facebook") return ["facebook"];
+  if (platform === "tiktok") return ["tiktok"];
+  if (platform === "linkedin") return ["linkedin"];
   return [];
 }
 
@@ -30,23 +36,51 @@ export type PublishBlocker =
   | "sans-visuel"
   | "sans-wording"
   | "reel-sans-video"
-  | "carrousel-trop-long";
+  | "carrousel-trop-long"
+  | "pdf-hors-linkedin"
+  | "facebook-carrousel-video"
+  | "tiktok-video-seule"
+  | "linkedin-melange"
+  | "legende-trop-longue";
 
 export const PUBLISH_BLOCKER_LABELS: Record<PublishBlocker, string> = {
   "sans-visuel": "aucun visuel accroché",
   "sans-wording": "wording absent ou non rédigé",
   "reel-sans-video": "un reel demande un fichier vidéo",
   "carrousel-trop-long": "un carrousel Meta accepte 10 visuels au plus",
+  "pdf-hors-linkedin": "un PDF ne se publie que sur LinkedIn",
+  "facebook-carrousel-video":
+    "Facebook ne publie pas un carrousel qui contient une vidéo",
+  "tiktok-video-seule":
+    "le brouillon TikTok ne prend qu'une vidéo seule — les carrousels photo attendent l'app TikTok d'Antidotes",
+  "linkedin-melange":
+    "LinkedIn ne mêle pas une vidéo ou un PDF à d'autres visuels",
+  "legende-trop-longue":
+    "légende trop longue pour ce réseau (Instagram 2 200 caractères, LinkedIn 3 000)",
 };
 
-/** La forme sous laquelle le post part chez Meta. */
-export type PublishShape = "image" | "video" | "carousel";
+/** La forme sous laquelle le post part. */
+export type PublishShape = "image" | "video" | "carousel" | "document";
 
 const VIDEO_EXTENSIONS = [".mp4", ".mov", ".m4v"];
 
+function cleanPath(path: string): string {
+  return path.split("?")[0]?.toLowerCase() ?? "";
+}
+
 export function isVideoPath(path: string): boolean {
-  const clean = path.split("?")[0]?.toLowerCase() ?? "";
+  const clean = cleanPath(path);
   return VIDEO_EXTENSIONS.some((extension) => clean.endsWith(extension));
+}
+
+export function isPdfPath(path: string): boolean {
+  return cleanPath(path).endsWith(".pdf");
+}
+
+/** Instagram ne prend que du JPEG : tout autre format d'image se convertit. */
+export function isJpegPath(path: string): boolean {
+  const clean = cleanPath(path);
+  return clean.endsWith(".jpg") || clean.endsWith(".jpeg");
 }
 
 /** Les libellés de wording qui veulent dire « pas encore écrit ». */
@@ -64,7 +98,8 @@ export type PublishPlan =
   | { ready: false; story: true };
 
 /**
- * Le plan de publication d'un sujet, ou ce qui l'empêche.
+ * Le plan de publication d'un sujet, tous réseaux confondus, ou ce qui
+ * l'empêche. Ce que chaque réseau refuse en plus se lit dans `targetPlan`.
  *
  * Une story n'est jamais publiée automatiquement : les widgets — sondage,
  * lien, musique — ne se posent pas par l'API, et une story nue serait une
@@ -78,7 +113,6 @@ export function publishPlan(subject: PublishableSubject): PublishPlan {
   const visuals = subject.visual_urls;
 
   if (visuals.length === 0) blockers.push("sans-visuel");
-  if (visuals.length > 10) blockers.push("carrousel-trop-long");
 
   const wording = subject.wording?.trim().toLowerCase() ?? "";
   if (!wording || WORDING_PLACEHOLDERS.has(wording)) {
@@ -90,14 +124,68 @@ export function publishPlan(subject: PublishableSubject): PublishPlan {
   }
 
   if (blockers.length > 0) return { ready: false, blockers };
+  return { ready: true, shape: shapeOf(visuals) };
+}
 
-  // La forme découle des fichiers plus que de l'étiquette : deux visuels sur
-  // un « post » sont un carrousel, une vidéo seule part en reel — c'est le
-  // seul format vidéo que le feed Instagram connaisse encore.
-  const shape: PublishShape =
-    visuals.length > 1 ? "carousel" : isVideoPath(visuals[0]!) ? "video" : "image";
+/**
+ * La forme découle des fichiers plus que de l'étiquette : deux visuels sur
+ * un « post » sont un carrousel, une vidéo seule part en reel — c'est le
+ * seul format vidéo que le feed Instagram connaisse encore —, un PDF seul
+ * est un document LinkedIn.
+ */
+function shapeOf(visuals: string[]): PublishShape {
+  if (visuals.length > 1) return "carousel";
+  const only = visuals[0] ?? "";
+  if (isVideoPath(only)) return "video";
+  if (isPdfPath(only)) return "document";
+  return "image";
+}
 
-  return { ready: true, shape };
+/** Les plafonds de légende, en caractères — TikTok n'en reçoit pas en brouillon. */
+const CAPTION_LIMITS: Partial<Record<PublishTarget, number>> = {
+  instagram: 2200,
+  linkedin: 3000,
+};
+
+/**
+ * Ce que **ce réseau** refuse, une fois le plan commun passé.
+ *
+ * LinkedIn reçoit un carrousel en **PDF** — la forme qu'on y fait défiler :
+ * plusieurs images sont assemblées en un document, page après page, dans
+ * l'ordre de la ligne. Une vidéo ou un PDF déjà fait, eux, partent seuls.
+ */
+export function targetPlan(
+  target: PublishTarget,
+  subject: PublishableSubject,
+): { ready: true; shape: PublishShape } | { ready: false; blockers: PublishBlocker[] } {
+  const visuals = subject.visual_urls;
+  const videos = visuals.filter(isVideoPath).length;
+  const pdfs = visuals.filter(isPdfPath).length;
+  const blockers: PublishBlocker[] = [];
+
+  if (target !== "linkedin" && pdfs > 0) blockers.push("pdf-hors-linkedin");
+
+  if (target === "instagram" || target === "facebook") {
+    if (visuals.length > 10) blockers.push("carrousel-trop-long");
+  }
+  if (target === "facebook" && visuals.length > 1 && videos > 0) {
+    blockers.push("facebook-carrousel-video");
+  }
+  if (target === "tiktok" && !(visuals.length === 1 && videos === 1)) {
+    blockers.push("tiktok-video-seule");
+  }
+  if (target === "linkedin" && visuals.length > 1 && videos + pdfs > 0) {
+    blockers.push("linkedin-melange");
+  }
+
+  const limit = CAPTION_LIMITS[target];
+  if (limit !== undefined && [...(subject.wording?.trim() ?? "")].length > limit) {
+    blockers.push("legende-trop-longue");
+  }
+
+  if (blockers.length > 0) return { ready: false, blockers };
+  const shape = shapeOf(visuals);
+  return { ready: true, shape: target === "linkedin" && shape === "carousel" ? "document" : shape };
 }
 
 /**

@@ -645,6 +645,7 @@ const FIELD_SENTENCES: Record<string, string> = {
   deleted: "a envoyé la publication à la corbeille",
   // Les gestes de la publication automatique — sans acteur : c'est la machine.
   publication: "a publié automatiquement",
+  publication_draft: "a envoyé un brouillon à publier",
   publication_error: "n'a pas pu publier automatiquement",
 };
 

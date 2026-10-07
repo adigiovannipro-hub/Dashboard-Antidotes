@@ -164,6 +164,8 @@ jobs:
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           CREDENTIALS_ENCRYPTION_KEY: ${{ secrets.CREDENTIALS_ENCRYPTION_KEY }}
+          # TikTok (brouillons) et LinkedIn (profil) passent par Composio.
+          COMPOSIO_API_KEY: ${{ secrets.COMPOSIO_API_KEY }}
 
       # L'émission des factures et leurs relances — jamais sur `finance`, la
       # portée des écrans : ouvrir une page ne doit pas envoyer un mail à un
