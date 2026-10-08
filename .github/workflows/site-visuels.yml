@@ -4,8 +4,13 @@
 # à la fois Supabase, les sites des clients et le dépôt : un visuel ne
 # transite jamais par une conversation.
 #
-# Déclenché par un push de la liste (site/scripts/visuels.json) ou du script,
-# et à la main.
+# Déclenché par un push de la liste (site/scripts/visuels.json) ou d'un des
+# deux scripts, et à la main.
+#
+# Deux jobs, l'un après l'autre parce que chacun pousse un commit : les
+# visuels de la liste (bucket et sites des clients), puis les reels Instagram
+# d'I-WAY par la Graph API — les liens cdninstagram de la liste sont signés et
+# périment en quelques jours, le jeton rangé dans la base, non.
 
 name: Visuels du site vitrine
 
@@ -16,6 +21,7 @@ on:
     paths:
       - site/scripts/visuels.json
       - site/scripts/visuels-cas.mjs
+      - scripts/visuels-iway.ts
       - .github/workflows/site-visuels.yml
 
 permissions:
@@ -55,4 +61,49 @@ jobs:
           if git diff --cached --quiet; then echo "rien de neuf"; exit 0; fi
           du -sh site/public/cas site/public/logos
           git commit -m "Site vitrine : visuels des cas et logos clients (passage automatique)"
+          git push origin HEAD:${{ github.ref_name }}
+
+  reels-iway:
+    # Le job attend le premier pour ne pas pousser en même temps que lui, mais
+    # ne dépend pas de son verdict : une source refusée là-bas ne doit pas
+    # priver le site des reels d'I-WAY.
+    needs: rapatrier
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.18.2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Outils d'image
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg imagemagick >/dev/null
+          ffmpeg -version | head -1
+          convert -version | head -1
+      - name: Installation
+        run: pnpm install --frozen-lockfile
+      - name: Reels Instagram d'I-WAY
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          CREDENTIALS_ENCRYPTION_KEY: ${{ secrets.CREDENTIALS_ENCRYPTION_KEY }}
+        run: pnpm visuels:iway --espace i-way --nombre 5 --mois 12
+      - name: Commit
+        run: |
+          git config user.name "antidotes-bot"
+          git config user.email "noreply@antidotes.agency"
+          git add site/public/cas
+          if git diff --cached --quiet; then echo "rien de neuf"; exit 0; fi
+          du -sh site/public/cas
+          git commit -m "Site vitrine : reels Instagram d'I-WAY (passage automatique)"
+          git pull --rebase origin "${{ github.ref_name }}"
           git push origin HEAD:${{ github.ref_name }}
