@@ -52,7 +52,7 @@ mkdirSync(join(SITE, "public", "logos"), { recursive: true });
 
 const report = [];
 for (const item of LIST.cases) {
-  const ext = (item.path ?? item.url).split(".").pop().toLowerCase();
+  const ext = (item.path ?? item.url).split(/[?#]/)[0].split(".").pop().toLowerCase();
   const src = join(TMP, `${item.out}.${ext}`);
   const bytes = await download(item, src);
   const base = join(SITE, "public", "cas", item.out);

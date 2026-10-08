@@ -38,6 +38,8 @@ jobs:
           node-version: 22
       - name: Outils d'image
         run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg imagemagick >/dev/null
           ffmpeg -version | head -1
           convert -version | head -1
       - name: Rapatrier
