@@ -1,0 +1,56 @@
+# Visuels du site vitrine — rapatrie dans site/public les contenus clients
+# (bucket privé du dashboard) et les logos du marquee, puis les commit sur
+# la branche. Tourne sur le runner parce que c'est le seul endroit qui joint
+# à la fois Supabase, les sites des clients et le dépôt : un visuel ne
+# transite jamais par une conversation.
+#
+# Déclenché par un push de la liste (site/scripts/visuels.json) ou du script,
+# et à la main.
+
+name: Visuels du site vitrine
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [claude/clever-newton-k0u44g]
+    paths:
+      - site/scripts/visuels.json
+      - site/scripts/visuels-cas.mjs
+      - .github/workflows/site-visuels.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: site-visuels
+  cancel-in-progress: false
+
+jobs:
+  rapatrier:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Outils d'image
+        run: |
+          ffmpeg -version | head -1
+          convert -version | head -1
+      - name: Rapatrier
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: node site/scripts/visuels-cas.mjs
+      - name: Commit
+        run: |
+          git config user.name "antidotes-bot"
+          git config user.email "noreply@antidotes.agency"
+          git add site/public/cas site/public/logos
+          if git diff --cached --quiet; then echo "rien de neuf"; exit 0; fi
+          du -sh site/public/cas site/public/logos
+          git commit -m "Site vitrine : visuels des cas et logos clients (passage automatique)"
+          git push origin HEAD:${{ github.ref_name }}

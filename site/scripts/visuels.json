@@ -1,0 +1,25 @@
+{
+  "cases": [
+    { "out": "anmf-meunier", "kind": "video", "bucket": "planning-visuals", "path": "940f89f9-edfa-4107-82d1-3d22e84a418b/3d9a9b57-20ab-4d06-a172-31ca5ddd0790/monday-264387312-Meunier.mp4" },
+    { "out": "anmf-expert", "kind": "video", "bucket": "planning-visuals", "path": "940f89f9-edfa-4107-82d1-3d22e84a418b/c9b06fb1-2c73-4041-b190-39e334d51fc2/monday-264387318-2931_mstream_cdg_portrait-expert-pierre-antoine_master260420.mp4", "start": 2 },
+    { "out": "anmf-spot", "kind": "video", "bucket": "planning-visuals", "path": "940f89f9-edfa-4107-82d1-3d22e84a418b/07bbf761-e58e-4864-9f56-306871e9083f/monday-240013747-2931_chasseursdegraines-30s-1-.mp4", "start": 1 },
+    { "out": "anmf-post", "kind": "image", "bucket": "planning-visuals", "path": "940f89f9-edfa-4107-82d1-3d22e84a418b/6f852a34-dcf8-44fe-a37c-e822da531e7d/1791364795002-ON-A-TOUS-UN-.png" },
+    { "out": "anmf-carrousel", "kind": "image", "bucket": "planning-visuals", "path": "940f89f9-edfa-4107-82d1-3d22e84a418b/5dc9dca2-260a-49db-bf15-4926f199aaa5/1790944431557-UNE-SEMAINE-DANS-1-.png" },
+    { "out": "bondet-solaire", "kind": "video", "bucket": "planning-visuals", "path": "2bf535f0-50f9-4f9a-b659-5ebcc6938cfd/20d3adcc-cd77-40ec-85b0-89b591b93685/monday-262548836-copy_E261CE8F-D433-4487-8E28-03693D7BBC9E.mp4" },
+    { "out": "bondet-lumiere", "kind": "video", "bucket": "planning-visuals", "path": "2bf535f0-50f9-4f9a-b659-5ebcc6938cfd/d3df4135-3c6d-4c5c-8782-095e9df834dd/monday-262548808-7118C58B-2724-4AEC-921C-674CD26ECA67.mp4" },
+    { "out": "bondet-moments", "kind": "image", "bucket": "planning-visuals", "path": "2bf535f0-50f9-4f9a-b659-5ebcc6938cfd/1f13d995-8b82-4ee6-87c3-e4980112bdcd/monday-251445195-sanstitre-552.jpg" },
+    { "out": "bondet-joy", "kind": "image", "bucket": "planning-visuals", "path": "2bf535f0-50f9-4f9a-b659-5ebcc6938cfd/0ede973b-d717-4972-b588-381f6207995c/monday-253272673-Plan-de-travail-8.png" },
+    { "out": "bondet-silmo", "kind": "image", "bucket": "planning-visuals", "path": "2bf535f0-50f9-4f9a-b659-5ebcc6938cfd/a0178ac0-3357-41b2-a27f-9e3306032616/1791372474867-SILMO_-31.jpg" },
+    { "out": "bondet-jackie", "kind": "image", "bucket": "planning-visuals", "path": "2bf535f0-50f9-4f9a-b659-5ebcc6938cfd/a5ec1c46-bf36-4fee-b2ea-78d2c5f53814/monday-262473188-Plan-de-travail-23-3.png" }
+  ],
+  "logos": [
+    { "out": "i-way", "url": "https://www.i-way.fr/landing/img/logo.png" },
+    { "out": "bondet", "bucket": "workspace-logos", "path": "2bf535f0-50f9-4f9a-b659-5ebcc6938cfd/logo.jpeg" },
+    { "out": "anmf", "bucket": "workspace-logos", "path": "940f89f9-edfa-4107-82d1-3d22e84a418b/logo.jpeg" },
+    { "out": "chasseurs-de-graines", "url": "https://chasseursdegraines.fr/wp-content/uploads/2026/04/logo_chasseursdegraines.svg" },
+    { "out": "catherine-osti", "url": "https://www.catherineosti.com/cache/images/content/logo-142.jpg" },
+    { "out": "kare", "url": "https://www.kare-click.fr/img/logo-1776412632.svg" },
+    { "out": "mediapilote", "url": "https://www.mediapilote.com/media/logo-mediapiote-white.svg" },
+    { "out": "banque-populaire", "url": "https://bp-prod.cloudimg.io/_images_/app/uploads/sites/5/2022/03/11141119/cropped-banque-populaire-logotype-rvb-1.png?func=bound&w=400&h=400&gravity=auto&optipress=2" }
+  ]
+}
