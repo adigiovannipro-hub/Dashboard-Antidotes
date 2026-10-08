@@ -7,11 +7,14 @@ import { Geist, Geist_Mono, Instrument_Serif } from "next/font/google";
  * chargement.
  */
 export const geist = Geist({ subsets: ["latin"], variable: "--font-geist", display: "swap" });
-export const geistMono = Geist_Mono({ subsets: ["latin"], variable: "--font-geist-mono", display: "swap" });
+// Le mono ne sert qu'aux petits numéros des services, sous la ligne de flottaison :
+// pas de préchargement, il ne doit pas disputer la bande passante au titre.
+export const geistMono = Geist_Mono({ subsets: ["latin"], variable: "--font-geist-mono", display: "swap", preload: false });
 export const instrument = Instrument_Serif({
   subsets: ["latin"],
   weight: "400",
-  style: ["italic", "normal"],
+  // Italique seulement : `accent-serif` ne pose jamais le romain, et le fichier pesait 15 Ko de plus au chargement.
+  style: ["italic"],
   variable: "--font-instrument",
   display: "swap",
 });

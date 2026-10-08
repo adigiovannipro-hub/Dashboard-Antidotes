@@ -21,7 +21,7 @@ export function Header({ dict, locale }: { dict: Dictionary; locale: Locale }) {
   return (
     <header className="sticky top-0 z-40 border-b border-line bg-ink-0/70 backdrop-blur-xl">
       <div className="container-site flex h-16 items-center justify-between gap-4">
-        <Link href={localePath(locale)} aria-label="antidotes" className="text-text">
+        <Link href={localePath(locale)} className="text-text">
           <Logo height={20} />
         </Link>
         <nav aria-label="Sections" className="hidden items-center gap-7 md:flex">
@@ -35,7 +35,7 @@ export function Header({ dict, locale }: { dict: Dictionary; locale: Locale }) {
           <Link
             href={localePath(other)}
             hrefLang={other}
-            aria-label={dict.nav.switchAria}
+            aria-label={`${dict.nav.switchLabel} – ${dict.nav.switchAria}`}
             className="type-caption rounded-pill border border-line px-3 py-1.5 text-text-2 transition-colors duration-(--motion) hover:border-line-strong hover:text-text"
           >
             {dict.nav.switchLabel}

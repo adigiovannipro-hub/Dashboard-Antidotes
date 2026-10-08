@@ -187,8 +187,10 @@ export function IrisCanvas({ className = "", intensity = 1 }: { className?: stri
     const onMotion = () => {
       reduced = motionQuery.matches;
     };
-    // DPR plafonné à 1,5 ; 0,75× sur mobile — le shader coûte par pixel, un fond flou ne montre pas la différence.
-    const scale = Math.min(window.devicePixelRatio || 1, coarse ? 1 : 1.5) * (coarse ? 0.75 : 1);
+    // DPR plafonné à 1,25 puis 0,8× (0,6× au doigt) — le shader coûte par pixel, et un fond
+    // de bulles floues ne montre pas la différence ; c'est ce qui le rend abordable sur un portable.
+    const scale = Math.min(window.devicePixelRatio || 1, coarse ? 1 : 1.25) * (coarse ? 0.6 : 0.8);
+    const fps = reduced ? 30 : coarse ? 40 : 60;
     const resize = () => {
       const w = Math.max(1, Math.round(canvas.clientWidth * scale));
       const h = Math.max(1, Math.round(canvas.clientHeight * scale));
@@ -208,12 +210,27 @@ export function IrisCanvas({ className = "", intensity = 1 }: { className?: stri
     let running = false;
     let visible = false;
     let painted = false;
+    // Garde-fou : sans GPU (rendu logiciel, appareil faible), la boucle tombe sous 20 images
+    // par seconde et mange le fil principal. On garde alors la dernière image, immobile —
+    // un fond figé vaut mieux qu'une page qui rame. Mesuré sur les quarante premières images.
+    let frozen = false;
+    let samples = 0;
+    let slowMs = 0;
 
     const frame = (now: number) => {
       raf = requestAnimationFrame(frame);
       // Cadence plafonnée : un 120 Hz ne double pas le coût ; en mouvement réduit, 30 suffisent.
-      if (now - last < 1000 / (reduced ? 30 : 60) - 2) return;
+      if (now - last < 1000 / fps - 2) return;
       const dt = Math.min((now - last) / 1000, 0.1);
+      if (painted && samples < 40) {
+        samples += 1;
+        slowMs += now - last;
+        if (samples === 40 && slowMs / samples > 50) {
+          frozen = true;
+          run(false);
+          return;
+        }
+      }
       last = now;
       const s = inputsRef.current;
       const r = s.rect;
@@ -245,7 +262,7 @@ export function IrisCanvas({ className = "", intensity = 1 }: { className?: stri
     // Une seule boucle, qui ne tourne que visible et onglet au premier plan.
     const run = (on: boolean) => {
       if (on === running) return;
-      running = on && visible && !document.hidden;
+      running = on && visible && !document.hidden && !frozen;
       if (running) {
         last = performance.now();
         raf = requestAnimationFrame(frame);

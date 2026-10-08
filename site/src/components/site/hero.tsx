@@ -12,12 +12,12 @@ export function Hero({ dict }: { dict: Dictionary }) {
       <IrisCanvas className="absolute inset-0 -z-10" />
       <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 bg-[linear-gradient(180deg,rgba(10,11,15,0)_40%,var(--ink-0)_100%)]" />
       <div className="container-site flex min-h-[calc(100svh-4rem)] flex-col justify-center py-20 md:py-28">
-        <p className="type-overline reveal is-visible text-accent-ink">{dict.hero.eyebrow}</p>
-        <h1 className="type-display reveal is-visible mt-6 max-w-5xl text-text">
+        <p className="type-overline is-visible text-accent-ink">{dict.hero.eyebrow}</p>
+        <h1 className="type-display is-visible mt-6 max-w-5xl text-text">
           {dict.hero.titleBefore} <span className="accent-serif text-iris">{dict.hero.titleAccent}</span> {dict.hero.titleAfter}
         </h1>
-        <p className="type-lead reveal is-visible mt-7 max-w-2xl text-text-2">{dict.hero.lead}</p>
-        <div className="reveal is-visible mt-10 flex flex-col gap-3 sm:flex-row">
+        <p className="type-lead is-visible mt-7 max-w-2xl text-text-2">{dict.hero.lead}</p>
+        <div className="is-visible mt-10 flex flex-col gap-3 sm:flex-row">
           <a href="#note" className="type-body inline-flex items-center justify-center rounded-pill bg-text px-6 py-3.5 font-medium text-text-on-light transition-transform duration-(--motion) hover:-translate-y-px">
             {dict.hero.ctaPrimary}
           </a>
@@ -25,7 +25,7 @@ export function Hero({ dict }: { dict: Dictionary }) {
             {dict.hero.ctaSecondary}
           </a>
         </div>
-        <div className="reveal is-visible mt-16 md:mt-24">
+        <div className="is-visible mt-16 md:mt-24">
           <p className="type-caption text-text-3">{dict.hero.trustLabel}</p>
           <ul className="mt-3 flex flex-wrap gap-x-7 gap-y-2">
             {dict.hero.trust.map((name) => (
