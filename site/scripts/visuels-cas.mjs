@@ -51,10 +51,19 @@ mkdirSync(join(SITE, "public", "cas"), { recursive: true });
 mkdirSync(join(SITE, "public", "logos"), { recursive: true });
 
 const report = [];
+const failures = [];
 for (const item of LIST.cases) {
   const ext = (item.path ?? item.url).split(/[?#]/)[0].split(".").pop().toLowerCase();
   const src = join(TMP, `${item.out}.${ext}`);
-  const bytes = await download(item, src);
+  let bytes = 0;
+  try {
+    bytes = await download(item, src);
+  } catch (error) {
+    // Une source refusée (lien Instagram périmé, site qui bloque) ne doit pas
+    // priver le passage de tout le reste : on la note et on continue.
+    failures.push(`${item.out}: ${error instanceof Error ? error.message : String(error)}`);
+    continue;
+  }
   const base = join(SITE, "public", "cas", item.out);
   if (item.kind === "video") {
     // Affiche à t = 1 s, puis extrait muet : ce qu'un téléphone dans la page
@@ -75,7 +84,13 @@ for (const item of LIST.cases) {
 for (const logo of LIST.logos) {
   const ext = (logo.path ?? logo.url).split(/[?#]/)[0].split(".").pop().toLowerCase();
   const src = join(TMP, `${logo.out}.${ext}`);
-  const bytes = await download(logo, src);
+  let bytes = 0;
+  try {
+    bytes = await download(logo, src);
+  } catch (error) {
+    failures.push(`${logo.out}: ${error instanceof Error ? error.message : String(error)}`);
+    continue;
+  }
   const target = join(SITE, "public", "logos", logo.out);
   if (ext === "svg") {
     // Un SVG se garde tel quel : c'est la CSS qui le passe en monochrome.
@@ -91,3 +106,5 @@ for (const logo of LIST.logos) {
 
 rmSync(TMP, { recursive: true, force: true });
 console.log(report.join("\n"));
+if (failures.length > 0) console.log("\nRefusés :\n" + failures.join("\n"));
+if (report.length === 0) throw new Error("aucun visuel rapatrié");
