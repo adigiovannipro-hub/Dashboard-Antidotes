@@ -18,6 +18,10 @@ const eslintConfig = defineConfig([
     // à nous : les linter mettait la CI au rouge sans rien améliorer.
     ".agents/**",
     ".claude/**",
+    // Le site vitrine (site/) est un projet Next.js autonome, avec son propre
+    // lockfile, son tsconfig et son eslint : le linter du dashboard n'a pas
+    // à le relire, et ses alias `@/` ne désignent pas les nôtres.
+    "site/**",
   ]),
 ]);
 
