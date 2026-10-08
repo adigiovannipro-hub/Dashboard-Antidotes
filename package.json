@@ -26,6 +26,7 @@
     "sync:reporting": "tsx --conditions=react-server scripts/sync-reporting.ts",
     "sonde:linkedin": "tsx scripts/sonde-linkedin-rest.ts",
     "sonde:meta": "tsx --conditions=react-server scripts/sonde-meta.ts",
+    "visuels:iway": "tsx --conditions=react-server scripts/visuels-iway.ts",
     "diagnostic:linkedin": "tsx scripts/diagnostic-linkedin.ts",
     "diagnostic:meta": "tsx scripts/diagnostic-meta.ts",
     "diagnostic:schema": "tsx scripts/diagnostic-schema.ts",
