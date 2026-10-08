@@ -26,6 +26,7 @@ export function ConfirmDialog({
   description,
   confirmLabel,
   onConfirm,
+  confirmVariant = "destructive",
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -34,6 +35,8 @@ export function ConfirmDialog({
   description: ReactNode;
   confirmLabel: string;
   onConfirm: () => void | Promise<void>;
+  /** Une suppression est `destructive` ; une publication, elle, n'efface rien. */
+  confirmVariant?: "destructive" | "default";
 }) {
   const [pending, setPending] = useState(false);
 
@@ -51,7 +54,7 @@ export function ConfirmDialog({
             Annuler
           </Button>
           <Button
-            variant="destructive"
+            variant={confirmVariant}
             size="sm"
             disabled={pending}
             onClick={async () => {

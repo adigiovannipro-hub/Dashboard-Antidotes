@@ -32,6 +32,14 @@ export function publishTargets(platform: string): PublishTarget[] {
   return [];
 }
 
+/** « Instagram et Facebook » : où part un couloir, en toutes lettres, ou `null`. */
+export function publishNetworksLabel(platform: string): string | null {
+  const labels = publishTargets(platform).map((target) => PUBLISH_TARGET_LABELS[target]);
+  if (labels.length === 0) return null;
+  if (labels.length === 1) return labels[0];
+  return `${labels.slice(0, -1).join(", ")} et ${labels[labels.length - 1]}`;
+}
+
 export type PublishBlocker =
   | "sans-visuel"
   | "sans-wording"
@@ -265,8 +273,8 @@ export function openingInParis(date: string): string {
  * pour les filets : les passages programmés de GitHub arrivent des heures en
  * retard, et le soir d'`airwallex-sync.yml` reprend ce que 16h00 a laissé.
  * La borne haute n'a pas à s'écrire : à minuit, la date de Paris avance et
- * les sujets du jour deviennent des retards, que le passage refuse déjà de
- * publier.
+ * les sujets du jour deviennent des retards, que le passage refuse de
+ * publier — et qu'on ne peut plus programmer (`schedulingProblem`).
  *
  * Ce qui rend la fenêtre sûre, c'est `planning_publications` : revendiquer
  * un couple (sujet, réseau) est une insertion sous contrainte d'unicité. Un
@@ -276,4 +284,40 @@ export function openingInParis(date: string): string {
  */
 export function isPublishWindow(now: Date): boolean {
   return now.getTime() >= publishOpening(parisStamp(now).date).getTime();
+}
+
+/**
+ * Ce qui empêche de programmer une ligne : pas de date, ou une date passée.
+ *
+ * Le passage ne lit que les lignes du jour : une ligne programmée sur une
+ * date passée ne partirait jamais, en silence (« MADDY RENTRÉE », Bondet,
+ * datée du 7/10 et programmée le 8). Plutôt qu'un rattrapage automatique,
+ * le geste est refusé en le disant — changer la date ou publier maintenant
+ * (décision du 8/10/2026). La date du jour est celle de Paris, comme celle
+ * des lignes.
+ */
+export type SchedulingProblem = "no_date" | "past";
+
+export function schedulingProblem(
+  subject: { scheduled_on: string | null },
+  now: Date,
+): SchedulingProblem | null {
+  if (!subject.scheduled_on) return "no_date";
+  return subject.scheduled_on < parisStamp(now).date ? "past" : null;
+}
+
+/**
+ * Une ligne part-elle si le passage est lancé à `now` ? « Programmé », datée
+ * du jour, fenêtre ouverte. C'est ce qui décide de lancer le passage
+ * sur-le-champ quand on arme une ligne après 16h00, heure de Bali.
+ */
+export function isDueNow(
+  subject: { status: string; scheduled_on: string | null },
+  now: Date,
+): boolean {
+  return (
+    subject.status === PUBLISH_TRIGGER_STATUS &&
+    subject.scheduled_on === parisStamp(now).date &&
+    isPublishWindow(now)
+  );
 }
