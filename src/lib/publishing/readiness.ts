@@ -265,8 +265,7 @@ export function openingInParis(date: string): string {
  * pour les filets : les passages programmés de GitHub arrivent des heures en
  * retard, et le soir d'`airwallex-sync.yml` reprend ce que 16h00 a laissé.
  * La borne haute n'a pas à s'écrire : à minuit, la date de Paris avance et
- * les sujets du jour deviennent des retards, que le passage refuse déjà de
- * publier.
+ * les sujets du jour passent au rattrapage (`catchUpFrom`).
  *
  * Ce qui rend la fenêtre sûre, c'est `planning_publications` : revendiquer
  * un couple (sujet, réseau) est une insertion sous contrainte d'unicité. Un
@@ -276,4 +275,38 @@ export function openingInParis(date: string): string {
  */
 export function isPublishWindow(now: Date): boolean {
   return now.getTime() >= publishOpening(parisStamp(now).date).getTime();
+}
+
+/**
+ * Combien de jours une ligne « Programmé » restée derrière est encore reprise.
+ *
+ * « Programmé » est le geste de l'agence, pas un statut qu'on oublie : une
+ * ligne armée après sa date — validée tard par le client, comme « MADDY
+ * RENTRÉE » chez Bondet le 8/10/2026, datée du 7 — part au passage suivant
+ * au lieu d'attendre qu'on corrige sa date. Elle ne repartait jamais : le
+ * passage ne lisait que les lignes du jour. La borne évite l'inverse, un
+ * post d'il y a trois semaines qui sortirait le jour où un jeton revient.
+ */
+export const CATCH_UP_DAYS = 3;
+
+/** Le jour le plus ancien que le passage du `date` (Paris) reprend encore. */
+export function catchUpFrom(date: string): string {
+  const day = new Date(`${date}T00:00:00Z`);
+  day.setUTCDate(day.getUTCDate() - CATCH_UP_DAYS);
+  return day.toISOString().slice(0, 10);
+}
+
+/**
+ * Une ligne part-elle si le passage est lancé à `now` ? « Programmé », datée
+ * du jour ou d'un jour encore rattrapé, fenêtre ouverte. C'est ce qui décide
+ * de lancer le passage sur-le-champ quand on arme une ligne après 16h00.
+ */
+export function isDueNow(
+  subject: { status: string; scheduled_on: string | null },
+  now: Date,
+): boolean {
+  if (subject.status !== PUBLISH_TRIGGER_STATUS || !subject.scheduled_on) return false;
+  if (!isPublishWindow(now)) return false;
+  const today = parisStamp(now).date;
+  return subject.scheduled_on <= today && subject.scheduled_on >= catchUpFrom(today);
 }

@@ -13,9 +13,10 @@ import type { PublicationRow } from "@/lib/mon-travail/types";
 /**
  * Reprogramme à aujourd'hui les publications validées restées en rade.
  *
- * Un sujet en retard ne part pas tout seul — c'est voulu, l'automate ne
- * rattrape pas la veille. Ce bouton fait le geste humain d'un coup : la date
- * passe à aujourd'hui, et la fenêtre de publication du jour les reprend.
+ * Une ligne « Programmé » est rattrapée trois jours ; une ligne seulement
+ * validée, elle, ne part jamais toute seule. Ce bouton fait le geste humain
+ * d'un coup : la date passe à aujourd'hui, et si la ligne est programmée et
+ * la fenêtre du jour ouverte, le passage est lancé sur-le-champ.
  * Chaque ligne passe par la même action que la cellule Date du planning,
  * donc même journal, même revalidation.
  */

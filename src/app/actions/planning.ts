@@ -19,6 +19,8 @@ import {
 } from "@/lib/planning/storage";
 import { dispatchVideosWorkflow } from "@/lib/finance/github-actions";
 import { notifyApprovals } from "@/lib/planning/approval-notify";
+import { PUBLISH_TRIGGER_STATUS } from "@/lib/publishing/readiness";
+import { triggerPublicationIfDue } from "@/lib/publishing/trigger";
 import { isUnportableVideoPath } from "@/lib/planning/video-compression";
 import { sendCommentEmails } from "@/lib/planning/notify";
 import { PLATFORM_LABELS, PLATFORM_ORDER } from "@/lib/planning/types";
@@ -713,12 +715,24 @@ export async function updateSubject(
     if (isClientApproval(viewer, input.field, parsed.data) && previous !== "validated") {
       after(() => notifyApprovals({ subjectIds: [input.subjectId], approverId: viewer.user.id }));
     }
+    if (armsPublication(input.field, parsed.data)) {
+      after(() => triggerPublicationIfDue([input.subjectId]));
+    }
 
     revalidate(scope);
     return OK;
   } catch (error) {
     return fail(error);
   }
+}
+
+/**
+ * Le geste peut-il rendre une ligne publiable tout de suite ? Passer
+ * « Programmé », ou redater une ligne déjà programmée : le passage est alors
+ * lancé sans attendre, s'il trouve quelque chose à publier.
+ */
+function armsPublication(field: EditableField, value: unknown): boolean {
+  return (field === "status" && value === PUBLISH_TRIGGER_STATUS) || field === "scheduled_on";
 }
 
 /**
@@ -784,6 +798,9 @@ export async function bulkUpdateSubjects(
     if (approving) {
       const fresh = input.subjectIds.filter((id) => !alreadyValidated.has(id));
       after(() => notifyApprovals({ subjectIds: fresh, approverId: viewer.user.id }));
+    }
+    if (armsPublication(input.field, parsed.data)) {
+      after(() => triggerPublicationIfDue(input.subjectIds));
     }
 
     revalidate(scope);

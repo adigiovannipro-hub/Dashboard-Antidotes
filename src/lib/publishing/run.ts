@@ -10,6 +10,7 @@ import { instagramUrls, loadMedia, toRgbJpeg, type MediaItem } from "./media";
 import { publishFacebook, publishInstagram } from "./meta-publish";
 import { pdfFromJpegs } from "./pdf-from-jpegs";
 import {
+  catchUpFrom,
   isPublishWindow,
   openingInParis,
   parisStamp,
@@ -58,9 +59,10 @@ import { parseTiktokSettings } from "./tiktok-settings";
  * filet — un réseau en erreur ou laissé faute de temps y repart, le verrou
  * empêchant tout doublon. Voir `isPublishWindow`.
  *
- * Un sujet en retard ne part pas : publier le 20 un post prévu le 12 sans
- * qu'un humain l'ait décidé serait pire que le trou. Il reste en rouge dans
- * « À publier », où il a déjà sa place.
+ * Une ligne « Programmé » restée derrière part au passage suivant, jusqu'à
+ * `CATCH_UP_DAYS` jours après sa date : l'agence l'a armée, elle doit sortir.
+ * Au-delà, elle reste en rouge dans « À publier » — publier le 20 un post
+ * prévu le 12 sans qu'un humain l'ait redaté serait pire que le trou.
  */
 
 type Admin = SupabaseClient<Database>;
@@ -197,10 +199,13 @@ async function publishToday(options: {
     .from("planning_subjects")
     .select(SUBJECT_COLUMNS)
     .eq("status", PUBLISH_TRIGGER_STATUS)
-    .eq("scheduled_on", paris.date)
+    // Le jour même, plus les lignes armées après leur date (`CATCH_UP_DAYS`).
+    .lte("scheduled_on", paris.date)
+    .gte("scheduled_on", catchUpFrom(paris.date))
     // Une ligne à la corbeille ou archivée ne part jamais, même validée.
     .is("deleted_at", null)
-    .is("archived_at", null);
+    .is("archived_at", null)
+    .order("scheduled_on");
   if (subjectsError) fail(`Lecture des sujets : ${subjectsError.message}`);
 
   const subjects = (subjectRows ?? []) as unknown as SubjectRow[];
