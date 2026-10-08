@@ -7,6 +7,14 @@
 export type CaseVisual = { poster: string; video?: string; handle: string; alt: string };
 
 export const CASE_VISUALS: Record<string, CaseVisual[]> = {
+  iway: [
+    { poster: "/cas/iway-f1.webp", video: "/cas/iway-f1.mp4", handle: "@iwayofficiel", alt: "Reel : au volant d'un simulateur de Formule 1" },
+    { poster: "/cas/iway-motogp-adrenaline.webp", video: "/cas/iway-motogp-adrenaline.mp4", handle: "@iwayofficiel", alt: "Reel : adrénaline sur le simulateur MotoGP" },
+    { poster: "/cas/iway-bienvenue-cockpit.webp", video: "/cas/iway-bienvenue-cockpit.mp4", handle: "@iwayofficiel", alt: "Reel : bienvenue dans le cockpit" },
+    { poster: "/cas/iway-cockpit-taille.webp", video: "/cas/iway-cockpit-taille.mp4", handle: "@iwayofficiel", alt: "Reel : un cockpit taille réelle" },
+    { poster: "/cas/iway-bienvenue-combat.webp", video: "/cas/iway-bienvenue-combat.mp4", handle: "@iwayofficiel", alt: "Reel : bienvenue dans le simulateur de combat" },
+    { poster: "/cas/iway-acceleration-freinage.webp", video: "/cas/iway-acceleration-freinage.mp4", handle: "@iwayofficiel", alt: "Reel : accélération et freinage" },
+  ],
   anmf: [
     { poster: "/cas/anmf-meunier.webp", video: "/cas/anmf-meunier.mp4", handle: "@chasseursdegraines", alt: "Reel : une journée de meunier, filmée au moulin" },
     { poster: "/cas/anmf-spot.webp", video: "/cas/anmf-spot.mp4", handle: "@chasseursdegraines", alt: "Reel : la main dans le grain" },
