@@ -61,10 +61,10 @@ describe("la note ne part jamais au prospect", () => {
   });
 
   it("l'owner, lui, la reçoit avec la qualification", () => {
-    const mail = ownerQuestionnaire({ email: "ana@example.com", firstName: "Ana", answers: { role: "dirigeant", networks: ["instagram", "tiktok"] }, score: 7.5, temperature: "chaud" });
+    const mail = ownerQuestionnaire({ email: "ana@example.com", firstName: "Ana", answers: { goal: "ventes", management: "agence" }, score: 7.5, temperature: "chaud" });
     expect(mail.html).toContain("7.5");
     expect(mail.subject).toMatch(/chaud/i);
-    expect(mail.html).toContain("Instagram");
+    expect(mail.html).toContain("Une agence");
   });
 });
 
@@ -81,7 +81,7 @@ describe("ownerBooking", () => {
       ownerTimeZone: "Asia/Makassar",
       meetUrl: "https://meet.jit.si/antidotes-12345678",
       calendarCreated: false,
-      answers: { role: "dirigeant" },
+      answers: { goal: "ventes" },
       score: 4.7,
       temperature: "tiede",
       cancelUrl: "https://antidotes.agency/rdv/tok",

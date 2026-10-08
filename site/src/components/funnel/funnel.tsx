@@ -92,7 +92,7 @@ async function saveCompleted(leadId: string, answers: Answers): Promise<Complete
 }
 
 /**
- * Le tunnel : intro → adresse → treize questions → calcul → rendez-vous ou
+ * Le tunnel : intro → adresse → six questions → calcul → rendez-vous ou
  * conseils → réservation → confirmation. Une seule carte, un écran à la fois.
  *
  * L'état persistant (lead, réponses, étape) vit dans `sessionStorage` par le

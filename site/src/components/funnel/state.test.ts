@@ -46,7 +46,7 @@ describe("reduce", () => {
 
   it("une réponse hors de l'étape question est ignorée", () => {
     const state: FunnelState = { ...INITIAL_STATE, step: "ready", leadId: "l1" };
-    expect(reduce(state, { type: "answer", questionId: "role", value: "x" })).toBe(state);
+    expect(reduce(state, { type: "answer", questionId: "goal", value: "x" })).toBe(state);
   });
 
   it("retour : question précédente, puis l'adresse ; depuis la réservation, l'écran de résultat", () => {
@@ -73,7 +73,7 @@ describe("parseStoredState", () => {
       leadId: "l1",
       firstName: "Ana",
       temperature: "tiede",
-      answers: { role: "founder", networks: ["instagram", "linkedin"] },
+      answers: { goal: "ventes", budget: "3k_8k" },
       booking,
       bookingTimeZone: "Europe/Paris",
     };
@@ -98,8 +98,8 @@ describe("parseStoredState", () => {
   });
 
   it("écarte les réponses à des questions inconnues", () => {
-    const parsed = parseStoredState(JSON.stringify({ step: "question", leadId: "l1", answers: { role: "x", autre: "y", networks: [1] } }));
-    expect(parsed?.answers).toEqual({ role: "x" });
+    const parsed = parseStoredState(JSON.stringify({ step: "question", leadId: "l1", answers: { goal: "x", autre: "y", budget: [1] } }));
+    expect(parsed?.answers).toEqual({ goal: "x" });
   });
 });
 
