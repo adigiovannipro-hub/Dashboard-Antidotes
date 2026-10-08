@@ -22,7 +22,7 @@ export function Header({ dict, locale }: { dict: Dictionary; locale: Locale }) {
     <header className="sticky top-0 z-40 border-b border-line bg-ink-0/70 backdrop-blur-xl">
       <div className="container-site flex h-16 items-center justify-between gap-4">
         <Link href={localePath(locale)} className="text-text">
-          <Logo height={20} />
+          <Logo size={20} />
         </Link>
         <nav aria-label="Sections" className="hidden items-center gap-7 md:flex">
           {links.map((link) => (

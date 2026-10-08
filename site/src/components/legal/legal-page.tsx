@@ -27,7 +27,7 @@ export function LegalPage({
     <main className="mx-auto w-full max-w-2xl px-5 py-10 md:py-16">
       <header className="mb-8">
         <Link href={home} aria-label="antidotes" className="inline-block text-text">
-          <Logo height={20} />
+          <Logo size={20} />
         </Link>
         <h1 className="type-h1 mt-8 text-text">{title}</h1>
         <p className="type-caption mt-3 text-text-3">

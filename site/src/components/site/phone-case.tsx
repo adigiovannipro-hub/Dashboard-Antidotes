@@ -27,6 +27,7 @@ export function PhoneCase({ poster, video, alt, handle, stat, className = "", ch
           {video ? (
             <CaseVideo src={video} poster={poster} alt={alt} />
           ) : (
+            // eslint-disable-next-line @next/next/no-img-element -- affiche webp déjà réduite à 720 px, chargée en différé
             <img src={poster} alt={alt} loading="lazy" decoding="async" className="h-full w-full object-cover" />
           )}
           <span aria-hidden className="phone-island" />

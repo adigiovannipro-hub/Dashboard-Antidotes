@@ -21,6 +21,7 @@ export function LogoMarquee({ logos, label, className = "" }: { logos: MarqueeLo
       <ul className="marquee-track">
         {track.map((logo, index) => (
           <li key={`${logo.src}-${index}`} className="marquee-item" aria-hidden={index >= logos.length || undefined}>
+            {/* eslint-disable-next-line @next/next/no-img-element -- des marques de 28 px, SVG ou PNG déjà réduits : next/image n'y gagnerait rien */}
             <img src={logo.src} alt="" width={logo.width} height={logo.height} loading="lazy" decoding="async" className={`marquee-logo marquee-logo-${logo.tone}`} />
             <span className="type-small whitespace-nowrap text-text-2">{logo.name}</span>
           </li>

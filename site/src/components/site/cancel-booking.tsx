@@ -16,7 +16,7 @@ export async function CancelBookingPage({ token, dict, locale }: { token: string
   return (
     <main className="mx-auto flex min-h-svh w-full max-w-xl flex-col justify-center px-5 py-16">
       <Link href={localePath(locale)} aria-label="antidotes" className="inline-block text-text">
-        <Logo height={20} />
+        <Logo size={20} />
       </Link>
       <div className="glass mt-10 rounded-xl p-8">
         <h1 className="type-h2 text-text">{t.title}</h1>

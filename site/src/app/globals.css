@@ -23,6 +23,10 @@
   --color-iris-violet: var(--iris-violet);
   --color-iris-pink: var(--iris-pink);
   --color-iris-amber: var(--iris-amber);
+  --color-mint: var(--mint);
+  --color-green: var(--green);
+  --color-turquoise: var(--turquoise);
+  --color-pearl: var(--pearl);
   --color-ok: var(--ok);
   --color-ok-ink: var(--ok-ink);
   --color-warn: var(--warn);
