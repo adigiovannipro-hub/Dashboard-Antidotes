@@ -41,6 +41,7 @@ import type {
   SubjectRow as Row,
 } from "@/lib/planning/types";
 import { useDraggedRow } from "@/components/planning/move-context";
+import { PublishActions } from "@/components/planning/publish-actions";
 import { displayName } from "@/lib/profil/identity";
 import { cn } from "@/lib/utils";
 
@@ -100,6 +101,7 @@ function SubjectRowInner({
   onRowDragLeave,
   onRowDrop,
   focusName,
+  publishNetworks = null,
 }: {
   scope: Scope;
   row: Row;
@@ -119,6 +121,8 @@ function SubjectRowInner({
   onRowDrop: (subjectId: string, after: boolean, draggedId: string) => void;
   /** La ligne vient de naître du clic sur « Ajouter » : le curseur est dans son sujet. */
   focusName?: boolean;
+  /** Où l'agence peut publier cette ligne d'ici, `null` sinon (voir `Cell`). */
+  publishNetworks?: string | null;
 }) {
   const { run } = useCellAction();
   // L'envoi d'un fichier a sa propre transition : la roue de la cellule Visuel
@@ -252,6 +256,7 @@ function SubjectRowInner({
           onOpenSubject={() => onOpen(row.id)}
           onEditLabels={() => onEditLabels(column)}
           focusName={focusName}
+          publishNetworks={publishNetworks}
         />
       ))}
 
@@ -287,6 +292,7 @@ function sameRowProps(a: SubjectRowProps, b: SubjectRowProps): boolean {
     a.selected === b.selected &&
     a.dropIndicator === b.dropIndicator &&
     a.focusName === b.focusName &&
+    a.publishNetworks === b.publishNetworks &&
     a.gridTemplate === b.gridTemplate &&
     a.scope.workspace === b.scope.workspace &&
     a.scope.board === b.scope.board &&
@@ -351,6 +357,7 @@ function Cell({
   onOpenSubject,
   onEditLabels,
   focusName,
+  publishNetworks,
 }: {
   scope: Scope;
   column: ColumnDef;
@@ -364,6 +371,11 @@ function Cell({
   onOpenSubject: () => void;
   onEditLabels: () => void;
   focusName?: boolean;
+  /**
+   * Les réseaux où l'agence peut publier cette ligne d'ici (« Instagram et
+   * Facebook »), ou `null` : client, ou couloir sans publication automatique.
+   */
+  publishNetworks: string | null;
 }) {
   // `flush` : la cellule ne met **aucune** marge autour de son contenu — c'est
   // le mode des étiquettes, dont l'aplat coloré remplit le rectangle entier,
@@ -400,8 +412,8 @@ function Cell({
         </>
       );
 
-    case "status":
-      return stop(
+    case "status": {
+      const chip = (
         <ChipSelect<string>
           value={row.status === "idea" ? null : row.status}
           options={toOptions(column.labels)}
@@ -410,9 +422,26 @@ function Cell({
           fill
           onSelect={(next) => edit("status", next ?? "idea")}
           onEditLabels={onEditLabels}
-        />,
+        />
+      );
+      // Validée par le client : l'agence la publie ou la programme d'ici.
+      if (!publishNetworks || row.status !== "validated" || row.format === "story") {
+        return stop(chip, true);
+      }
+      return stop(
+        <span className="group/statut relative flex w-full items-stretch">
+          {chip}
+          <PublishActions
+            scope={scope}
+            subjectId={row.id}
+            subjectName={row.name}
+            networks={publishNetworks}
+            run={run}
+          />
+        </span>,
         true,
       );
+    }
 
     case "format":
       return stop(

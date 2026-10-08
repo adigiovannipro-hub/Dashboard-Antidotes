@@ -1,10 +1,11 @@
 import { after, NextResponse } from "next/server";
 import { timingSafeEqual } from "node:crypto";
+import { z } from "zod";
 
 import { serverEnv } from "@/lib/env";
 import { dispatchPublicationWorkflow } from "@/lib/finance/github-actions";
 import { parisStamp, publishOpening } from "@/lib/publishing/readiness";
-import { runScheduledPublishing } from "@/lib/publishing/run";
+import { publishSubjectNow, runScheduledPublishing } from "@/lib/publishing/run";
 import { createAdminClient } from "@/lib/supabase/server";
 
 /**
@@ -53,6 +54,15 @@ async function handle(request: Request) {
 
   const started = Date.now();
   const paris = parisStamp(new Date(started));
+
+  // « Publier » depuis le planning : un sujet, maintenant, quelle que soit
+  // l'heure. L'appel vient de l'action serveur, qui a déjà vérifié l'owner.
+  const subject = SUBJECT_REQUEST.safeParse(await request.json().catch(() => null));
+  if (subject.success) {
+    after(() => publishOneNow(subject.data, started + BUDGET_MS));
+    return NextResponse.json({ ok: true, subject: subject.data.subjectId }, { status: 202 });
+  }
+
   // Avant l'ouverture du jour, rien ne part — un appel égaré ne publie pas en
   // avance. Après, la fenêtre est ouverte jusqu'à minuit à Paris.
   if (started < publishOpening(paris.date).getTime() - EARLY_TOLERANCE_MS) {
@@ -93,6 +103,33 @@ async function handle(request: Request) {
   });
 
   return NextResponse.json({ ok: true, started: paris }, { status: 202 });
+}
+
+const SUBJECT_REQUEST = z.object({ subjectId: z.uuid(), workspaceId: z.uuid() });
+
+async function publishOneNow(
+  subject: z.infer<typeof SUBJECT_REQUEST>,
+  deadline: number,
+): Promise<void> {
+  const report = await publishSubjectNow({
+    admin: createAdminClient(),
+    subjectId: subject.subjectId,
+    workspaceId: subject.workspaceId,
+    deadline,
+  }).catch((error: unknown) => {
+    console.error("[publication maintenant]", error);
+    return null;
+  });
+  if (!report) return;
+
+  console.log(
+    `[publication maintenant] ${subject.subjectId} — ${report.published.length} publiée(s), ` +
+      `${report.drafted.length} envoyée(s) à TikTok, ${report.errors.length} échec(s), ` +
+      `${report.deferred.length} faute de temps.`,
+  );
+  for (const failed of report.errors) {
+    console.error(`[publication maintenant] ✗ ${failed.subject}${failed.target ? ` → ${failed.target}` : ""} — ${failed.error}`);
+  }
 }
 
 export const GET = handle;
