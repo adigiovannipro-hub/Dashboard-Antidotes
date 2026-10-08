@@ -30,9 +30,6 @@ export function Hero({ dict }: { dict: Dictionary }) {
         <p className="container-site type-caption mb-4 text-text-3">{dict.hero.trustLabel}</p>
         <LogoMarquee logos={CLIENT_LOGOS} label={dict.hero.trustLabel} />
       </div>
-      <p className="type-caption pointer-events-none absolute right-6 top-24 hidden text-text-3 md:block" aria-hidden>
-        {dict.hero.hint}
-      </p>
     </section>
   );
 }

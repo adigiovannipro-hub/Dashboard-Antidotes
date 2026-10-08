@@ -5,8 +5,8 @@ import type { QuestionId } from "@/lib/questionnaire";
  * et EN partageant exactement les mêmes clés — c'est le typecheck qui
  * garantit qu'aucune section n'est muette dans une langue.
  *
- * Sept sections, pas une de plus (DA du 8/10/2026) : hero, cas, services,
- * méthode, qui, note, FAQ. Les chiffres portent leur source.
+ * Six sections (DA du 8/10/2026) : hero, cas, services, méthode, note,
+ * FAQ. Les chiffres portent leur source.
  */
 export type Stat = { value: string; label: string; source?: string };
 
@@ -26,11 +26,10 @@ export type Dictionary = {
   locale: "fr" | "en";
   meta: { title: string; description: string; ogTitle: string; ogDescription: string };
   nav: { cases: string; services: string; method: string; faq: string; cta: string; switchLabel: string; switchAria: string; menu: string; close: string };
-  hero: { eyebrow: string; title: string; lead: string; ctaPrimary: string; ctaSecondary: string; trustLabel: string; hint: string };
+  hero: { eyebrow: string; title: string; lead: string; ctaPrimary: string; ctaSecondary: string; trustLabel: string };
   cases: { eyebrow: string; title: string; items: CaseStudy[]; numbersLabel: string; numbers: Stat[] };
   services: { eyebrow: string; title: string; items: Service[] };
   method: { eyebrow: string; title: string; steps: { title: string; text: string }[] };
-  about: { eyebrow: string; title: string; text: string; points: string[]; location: string };
   funnel: {
     eyebrow: string;
     title: string;

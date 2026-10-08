@@ -21,13 +21,12 @@ export const en: Dictionary = {
     close: "Close",
   },
   hero: {
-    eyebrow: "Social media · Content · Advertising · AI",
+    eyebrow: "Social media and AI",
     title: "Social channels that deliver, with the numbers to prove it.",
     lead: "I design, produce and run your social media presence: ten years in the field, AI where it speeds things up, and a platform built for my clients.",
     ctaPrimary: "Get my score out of 10",
     ctaSecondary: "See client cases",
     trustLabel: "They trusted me with their channels",
-    hint: "Move your cursor",
   },
   cases: {
     eyebrow: "Client cases",
@@ -88,13 +87,6 @@ export const en: Dictionary = {
       { title: "Approval", text: "You review and approve. Nothing goes out without your consent." },
       { title: "Publishing and reporting", text: "Automated publishing at the planned time, then the numbers and three decisions for the next month." },
     ],
-  },
-  about: {
-    eyebrow: "Who",
-    title: "Alessandro Di Giovanni, ten years in social media, agency side then brand side.",
-    text: "I learned the trade in agencies and on the client side: briefing a studio, holding a deadline, being accountable. Today I work directly with brands and agencies, and I built the platform that runs it all.",
-    points: ["A senior expert, from the first call to the reporting", "A proprietary platform, open to my clients", "AI where it speeds things up, humans where decisions are made", "Comfortable with your agencies: I also work behind the scenes"],
-    location: "From Bali, with clients in France: your meetings happen in the morning, your content is ready when you arrive.",
   },
   funnel: {
     eyebrow: "Free",

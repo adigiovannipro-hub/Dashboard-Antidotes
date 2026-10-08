@@ -117,31 +117,6 @@ export function Method({ dict }: { dict: Dictionary }) {
   );
 }
 
-/* --- Qui : deux colonnes, texte et repères. --------------------------------- */
-export function About({ dict }: { dict: Dictionary }) {
-  return (
-    <section id="qui" aria-labelledby="qui-titre" className="scroll-mt-20 border-t border-line">
-      <div className="container-site section-pad grid grid-cols-1 gap-10 lg:grid-cols-12 lg:gap-16">
-        <div className="reveal lg:col-span-7">
-          <p className="type-overline text-accent-ink">{dict.about.eyebrow}</p>
-          <h2 id="qui-titre" className="type-h2 mt-3 text-text">
-            {dict.about.title}
-          </h2>
-          <p className="type-body mt-6 max-w-xl text-text-2">{dict.about.text}</p>
-          <p className="type-small mt-4 max-w-xl text-text-3">{dict.about.location}</p>
-        </div>
-        <ul className="reveal lg:col-span-5 lg:pt-10">
-          {dict.about.points.map((point) => (
-            <li key={point} className="type-small border-t border-line py-4 text-text">
-              {point}
-            </li>
-          ))}
-        </ul>
-      </div>
-    </section>
-  );
-}
-
 /* --- FAQ : cinq accordéons natifs, à filets. --------------------------------- */
 export function Faq({ dict }: { dict: Dictionary }) {
   return (

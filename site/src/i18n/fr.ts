@@ -21,13 +21,12 @@ export const fr: Dictionary = {
     close: "Fermer",
   },
   hero: {
-    eyebrow: "Social media · Contenus · Publicité · IA",
+    eyebrow: "Social media et IA",
     title: "Des réseaux sociaux qui rapportent, chiffres à l'appui.",
     lead: "Je conçois, produis et pilote votre présence social media : dix ans de métier, l'IA là où elle accélère, et une plateforme construite pour mes clients.",
     ctaPrimary: "Obtenir ma note sur 10",
     ctaSecondary: "Voir les cas clients",
     trustLabel: "Ils m'ont confié leurs réseaux",
-    hint: "Faites glisser le curseur",
   },
   cases: {
     eyebrow: "Cas clients",
@@ -88,13 +87,6 @@ export const fr: Dictionary = {
       { title: "Validation", text: "Vous relisez et vous validez. Rien ne part sans votre accord." },
       { title: "Publication et reporting", text: "Publication automatique à l'heure prévue, puis les chiffres et trois décisions pour le mois suivant." },
     ],
-  },
-  about: {
-    eyebrow: "Qui",
-    title: "Alessandro Di Giovanni, dix ans de social media, côté agence puis côté marque.",
-    text: "J'ai appris le métier en agence et chez l'annonceur : brieffer un studio, tenir un délai, rendre des comptes. Aujourd'hui j'accompagne en direct des marques et des agences, et j'ai construit la plateforme qui fait tourner le tout.",
-    points: ["Un senior en direct, du premier appel au reporting", "Une plateforme propriétaire, ouverte à mes clients", "L'IA là où elle accélère, l'humain là où il décide", "À l'aise avec vos agences : je travaille aussi en coulisses"],
-    location: "Depuis Bali, avec des clients en France : vos réunions ont lieu le matin, vos contenus sont prêts quand vous arrivez.",
   },
   funnel: {
     eyebrow: "Offert",

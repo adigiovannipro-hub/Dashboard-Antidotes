@@ -6,11 +6,11 @@ import { localePath, type Locale } from "@/i18n/locale";
 import { Footer } from "./footer";
 import { Header } from "./header";
 import { Hero } from "./hero";
-import { About, Cases, Faq, Method, Services } from "./sections";
+import { Cases, Faq, Method, Services } from "./sections";
 
 /**
- * La page entière, sept sections : promesse, preuves, services, méthode,
- * qui, note, questions. Les pilules défilent derrière tout le corps ; le
+ * La page entière, six sections : promesse, preuves, services, méthode,
+ * note, questions. Les pilules défilent derrière tout le corps ; le
  * hero, opaque, les cache le temps de l'ouverture.
  */
 export function Home({ dict, locale }: { dict: Dictionary; locale: Locale }) {
@@ -25,7 +25,6 @@ export function Home({ dict, locale }: { dict: Dictionary; locale: Locale }) {
           <Cases dict={dict} />
           <Services dict={dict} />
           <Method dict={dict} />
-          <About dict={dict} />
           <section id="note" aria-labelledby="note-titre" className="scroll-mt-20 border-t border-line">
             <div className="container-site section-pad">
               <div className="mx-auto max-w-3xl">

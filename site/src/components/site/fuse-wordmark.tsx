@@ -24,7 +24,7 @@ const FLAME = 1.6;
 const WORD_ASPECT = 4.1;
 const TEX_WIDTH = 2560;
 const TEX_HEIGHT = Math.round(TEX_WIDTH / WORD_ASPECT);
-const LETTER_SPACING_EM = -0.085;
+const LETTER_SPACING_EM = -0.07;
 const LABEL = "antidotes";
 const REDUCED_MOTION_QUERY = "(prefers-reduced-motion: reduce)";
 
@@ -224,7 +224,7 @@ export function FuseWordmark({ className = "" }: { className?: string }) {
     let ready = false;
     let disposed = false;
     const fontStyle = getComputedStyle(stat);
-    const weight = parseInt(fontStyle.fontWeight, 10) || 800;
+    const weight = parseInt(fontStyle.fontWeight, 10) || 700;
     const family = fontStyle.fontFamily;
     document.fonts
       .load(`${weight} 64px ${family}`)

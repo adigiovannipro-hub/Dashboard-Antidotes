@@ -272,10 +272,10 @@
   display: block;
   text-align: center;
   font-family: var(--font-brand);
-  font-weight: 800;
+  font-weight: 700;
   font-size: calc(100cqw / 4.6);
   line-height: 1;
-  letter-spacing: -0.065em;
+  letter-spacing: -0.07em;
   color: var(--text);
   text-shadow: 0 0 2px var(--mint), 0 0 18px color-mix(in srgb, var(--mint) 45%, transparent);
   transition: opacity var(--motion-slow) var(--ease);
