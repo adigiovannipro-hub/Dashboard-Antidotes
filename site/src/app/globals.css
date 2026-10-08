@@ -37,10 +37,8 @@
   --radius-lg: var(--r-lg);
   --radius-xl: var(--r-xl);
   --radius-pill: var(--r-pill);
-  --font-sans: var(--font-geist), ui-sans-serif, system-ui, sans-serif;
-  --font-serif: var(--font-instrument), ui-serif, Georgia, serif;
-  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
-  --font-brand: var(--font-brand-face), var(--font-geist), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-text), ui-sans-serif, system-ui, sans-serif;
+  --font-brand: var(--font-brand-face), var(--font-text), ui-sans-serif, system-ui, sans-serif;
 }
 
 @layer base {
@@ -61,7 +59,7 @@
     min-height: 100dvh;
     overflow-x: clip;
   }
-  ::selection { background: rgba(141, 123, 255, 0.45); color: var(--text); }
+  ::selection { background: rgba(47, 191, 122, 0.45); color: var(--text); }
   :focus-visible { outline: 2px solid var(--accent-ink); outline-offset: 3px; border-radius: 6px; }
   h1, h2, h3, h4 { text-wrap: balance; }
   p { text-wrap: pretty; }
@@ -72,8 +70,8 @@
    range tout `text-*` avec les couleurs et en supprime une au passage.
    --------------------------------------------------------------------------- */
 @utility type-display {
-  font-size: clamp(2.75rem, 7.2vw, 6rem);
-  line-height: 0.98;
+  font-size: clamp(2.5rem, 6.2vw, 5.25rem);
+  line-height: 1;
   letter-spacing: -0.035em;
   font-weight: 500;
 }
@@ -115,10 +113,9 @@
   letter-spacing: 0.005em;
 }
 @utility type-overline {
-  font-size: 0.75rem;
-  line-height: 1.2;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
+  font-size: 0.8125rem;
+  line-height: 1.3;
+  letter-spacing: 0;
   font-weight: 500;
 }
 @utility type-stat {
@@ -127,24 +124,6 @@
   letter-spacing: -0.03em;
   font-weight: 500;
   font-variant-numeric: tabular-nums;
-}
-
-/* Un mot en italique serif au cœur d'un titre : la seule touche « humaine »
-   de la typographie, à n'utiliser qu'une fois par titre. */
-@utility accent-serif {
-  font-family: var(--font-serif);
-  font-style: italic;
-  font-weight: 400;
-  letter-spacing: -0.01em;
-}
-
-/* Texte peint par l'iridescence : réservé aux mots courts et gros (≥ 24 px),
-   où le contraste minimal de 3:1 tient sur chaque teinte. */
-@utility text-iris {
-  background: var(--gradient-iris);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
 }
 
 @utility glass {

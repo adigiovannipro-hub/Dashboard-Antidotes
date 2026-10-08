@@ -1,25 +1,14 @@
-import { Geist, Geist_Mono, Instrument_Serif, Rubik } from "next/font/google";
+import { Hanken_Grotesk, Rubik } from "next/font/google";
 
 /**
- * Deux voix : Geist pour tout ce qui se lit — nette, neutre, premium —, et
- * Instrument Serif en italique pour un seul mot par titre. Téléchargées à la
- * compilation, servies depuis le site : aucune requête vers Google au
- * chargement.
+ * Deux familles, pas une de plus. Hanken Grotesk pour tout ce qui se lit :
+ * titres et corps, deux graisses (400, 500), interlettrage serré sur les
+ * titres. Rubik en graisse 900 pour le seul logotype, dont les lettres se
+ * touchent. Téléchargées à la compilation, servies depuis le site : aucune
+ * requête vers Google au chargement. Vérifiées sur pièce le 8/10/2026
+ * (fichiers TTF relus, rendus sur fond sombre).
  */
-export const geist = Geist({ subsets: ["latin"], variable: "--font-geist", display: "swap" });
-// Le mono ne sert qu'aux petits numéros des services, sous la ligne de flottaison :
-// pas de préchargement, il ne doit pas disputer la bande passante au titre.
-export const geistMono = Geist_Mono({ subsets: ["latin"], variable: "--font-geist-mono", display: "swap", preload: false });
-export const instrument = Instrument_Serif({
-  subsets: ["latin"],
-  weight: "400",
-  // Italique seulement : `accent-serif` ne pose jamais le romain, et le fichier pesait 15 Ko de plus au chargement.
-  style: ["italic"],
-  variable: "--font-instrument",
-  display: "swap",
-});
+export const text = Hanken_Grotesk({ subsets: ["latin"], weight: ["400", "500"], variable: "--font-text", display: "swap" });
+export const brand = Rubik({ subsets: ["latin"], weight: ["900"], variable: "--font-brand-face", display: "swap", preload: false });
 
-// La police de marque du logotype fusionné (provisoire, en attente du scout typographique).
-export const brand = Rubik({ subsets: ["latin"], weight: ["800", "900"], variable: "--font-brand-face", display: "swap", preload: false });
-
-export const fontClassName = `${geist.variable} ${geistMono.variable} ${instrument.variable} ${brand.variable}`;
+export const fontClassName = `${text.variable} ${brand.variable}`;

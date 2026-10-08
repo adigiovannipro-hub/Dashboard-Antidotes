@@ -1,23 +1,23 @@
 import { IrisCanvas } from "@/components/hero/iris-canvas";
 import type { Dictionary } from "@/i18n/types";
+import { CLIENT_LOGOS } from "@/lib/logos";
+import { LogoMarquee } from "./logo-marquee";
 
 /**
- * La zone d'ouverture : l'animation de verre iridescent derrière, la
- * promesse devant. Le texte garde son contraste grâce à la vignette du
- * canvas et à un voile dégradé vers le bas.
+ * La zone d'ouverture : le verre vert animé derrière, la promesse devant,
+ * et le bandeau de logos en bas. Le texte garde son contraste grâce à la
+ * vignette du canvas et au voile dégradé vers l'encre.
  */
 export function Hero({ dict }: { dict: Dictionary }) {
   return (
     <section className="relative isolate overflow-hidden">
       <IrisCanvas className="absolute inset-0 -z-10" />
-      <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 bg-[linear-gradient(180deg,rgba(10,11,15,0)_40%,var(--ink-0)_100%)]" />
-      <div className="container-site flex min-h-[calc(100svh-4rem)] flex-col justify-center py-20 md:py-28">
-        <p className="type-overline is-visible text-accent-ink">{dict.hero.eyebrow}</p>
-        <h1 className="type-display is-visible mt-6 max-w-5xl text-text">
-          {dict.hero.titleBefore} <span className="accent-serif text-iris">{dict.hero.titleAccent}</span> {dict.hero.titleAfter}
-        </h1>
-        <p className="type-lead is-visible mt-7 max-w-2xl text-text-2">{dict.hero.lead}</p>
-        <div className="is-visible mt-10 flex flex-col gap-3 sm:flex-row">
+      <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 bg-[linear-gradient(180deg,rgba(9,12,11,0)_45%,var(--ink-0)_100%)]" />
+      <div className="container-site flex min-h-[calc(88svh-4rem)] flex-col justify-center pb-10 pt-20 md:pt-24">
+        <p className="type-overline text-accent-ink">{dict.hero.eyebrow}</p>
+        <h1 className="type-display mt-5 max-w-4xl text-text">{dict.hero.title}</h1>
+        <p className="type-lead mt-6 max-w-xl text-text-2">{dict.hero.lead}</p>
+        <div className="mt-9 flex flex-col gap-3 sm:flex-row">
           <a href="#note" className="type-body inline-flex items-center justify-center rounded-pill bg-text px-6 py-3.5 font-medium text-text-on-light transition-transform duration-(--motion) hover:-translate-y-px">
             {dict.hero.ctaPrimary}
           </a>
@@ -25,18 +25,12 @@ export function Hero({ dict }: { dict: Dictionary }) {
             {dict.hero.ctaSecondary}
           </a>
         </div>
-        <div className="is-visible mt-16 md:mt-24">
-          <p className="type-caption text-text-3">{dict.hero.trustLabel}</p>
-          <ul className="mt-3 flex flex-wrap gap-x-7 gap-y-2">
-            {dict.hero.trust.map((name) => (
-              <li key={name} className="type-small font-medium text-text-2">
-                {name}
-              </li>
-            ))}
-          </ul>
-        </div>
       </div>
-      <p className="type-caption pointer-events-none absolute bottom-6 right-6 hidden text-text-3 md:block" aria-hidden>
+      <div className="pb-8 pt-2">
+        <p className="container-site type-caption mb-4 text-text-3">{dict.hero.trustLabel}</p>
+        <LogoMarquee logos={CLIENT_LOGOS} label={dict.hero.trustLabel} />
+      </div>
+      <p className="type-caption pointer-events-none absolute right-6 top-24 hidden text-text-3 md:block" aria-hidden>
         {dict.hero.hint}
       </p>
     </section>

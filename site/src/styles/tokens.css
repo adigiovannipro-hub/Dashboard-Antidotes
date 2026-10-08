@@ -2,21 +2,21 @@
    Tokens du site antidotes.agency — la seule source des couleurs, rayons,
    ombres, durées et dégradés. Aucun composant ne porte de valeur en dur.
 
-   La DA : un canevas d'encre profonde (le gris-noir des planches), des
-   surfaces de verre à peine plus claires, et une seule famille de couleur
-   vive — l'iridescence (cyan → violet → rose → ambre) réservée aux fonds,
-   aux reflets et aux marques. Tout ce qui se lit est blanc cassé ou lavande
-   claire ; jamais un dégradé sous du texte courant.
+   La DA (8/10/2026) : une encre presque noire à peine verdie, des surfaces
+   à un cran au-dessus, et une seule famille de couleur vive — le vert, du
+   turquoise au perle — réservée aux fonds, aux reflets, aux pilules et aux
+   marques. Tout ce qui se lit est blanc cassé ou gris vert ; jamais un
+   dégradé sous du texte.
    =========================================================================== */
 
 :root {
   color-scheme: dark;
 
   /* --- Surfaces ---------------------------------------------------------- */
-  --ink-0: #0a0b0f;
-  --ink-1: #101117;
-  --ink-2: #171923;
-  --ink-3: #1f2230;
+  --ink-0: #090c0b;
+  --ink-1: #0f1412;
+  --ink-2: #151c18;
+  --ink-3: #1c2521;
   --line: rgba(255, 255, 255, 0.08);
   --line-strong: rgba(255, 255, 255, 0.16);
   --glass: rgba(255, 255, 255, 0.045);
@@ -24,34 +24,35 @@
   --glass-border: rgba(255, 255, 255, 0.14);
 
   /* --- Texte --------------------------------------------------------------
-     Sur --ink-0 : --text 17,6:1, --text-2 8,1:1, --text-3 6,3:1 (mesuré au navigateur : 5,0:1 sur un verre fort, le pire cas — réservé aux
-     légendes courtes, jamais à un paragraphe). */
-  --text: #f6f5f1;
-  --text-2: #aeb1bd;
-  --text-3: #9094a6;
-  --text-on-light: #0a0b0f;
+     Sur --ink-0 : --text 18:1, --text-2 8,6:1, --text-3 5,9:1 (calculés
+     en sRGB ; --text-3 réservé aux légendes courtes). */
+  --text: #f3f7f4;
+  --text-2: #aeb8b2;
+  --text-3: #8f9a94;
+  --text-on-light: #090c0b;
 
-  /* --- Iridescence --------------------------------------------------------
-     Les quatre teintes de la DA. --accent-ink est la seule à poser sur du
-     texte (13:1 sur --ink-0). */
-  --iris-cyan: #7fd9ff;
-  --iris-violet: #8d7bff;
-  --iris-pink: #ff6fae;
-  --iris-amber: #ffb866;
-  --accent-ink: #cfc8ff;
-  --accent-ink-strong: #e6e1ff;
-  --gradient-iris: linear-gradient(118deg, var(--iris-cyan) 0%, var(--iris-violet) 34%, var(--iris-pink) 66%, var(--iris-amber) 100%);
-  --gradient-iris-soft: linear-gradient(118deg, rgba(127, 217, 255, 0.55), rgba(141, 123, 255, 0.55) 34%, rgba(255, 111, 174, 0.55) 66%, rgba(255, 184, 102, 0.55));
-  --glow: 0 0 80px rgba(141, 123, 255, 0.25), 0 0 160px rgba(255, 111, 174, 0.12);
-
-
-  /* --- Vert : la tonalité du site (provisoire, en attente de la DA finale) --
-     Les pilules de fond, le logotype effervescent et les reflets lisent ces
-     cinq jetons ; --pill-alpha plafonne la luminance sous le texte. */
-  --mint: #9ff0c9;
-  --green: #2fbf7a;
+  /* --- Vert ---------------------------------------------------------------
+     Quatre teintes, du turquoise au perle. --accent-ink est la seule qui se
+     pose sur du texte courant (menthe, 14:1 sur --ink-0). */
   --turquoise: #5fe0c8;
+  --green: #2fbf7a;
+  --mint: #9ff0c9;
   --pearl: #e8fff4;
+  --accent-ink: #9ff0c9;
+  --accent-ink-strong: #d2fbe6;
+  --gradient-iris: linear-gradient(118deg, var(--turquoise) 0%, var(--green) 34%, var(--mint) 66%, var(--pearl) 100%);
+  --gradient-iris-soft: linear-gradient(118deg, rgba(95, 224, 200, 0.55), rgba(47, 191, 122, 0.55) 34%, rgba(159, 240, 201, 0.55) 66%, rgba(232, 255, 244, 0.55));
+  --glow: 0 0 80px rgba(47, 191, 122, 0.22), 0 0 160px rgba(95, 224, 200, 0.1);
+
+  /* Le hero WebGL mélange ces quatre arrêts en cycle : ils gardent du
+     relief parce que leur luminance monte du vert au perle. */
+  --iris-cyan: var(--turquoise);
+  --iris-violet: var(--green);
+  --iris-pink: var(--mint);
+  --iris-amber: var(--pearl);
+
+  /* Les pilules de fond : trois teintes et un reflet, et l'alpha qui
+     plafonne la luminance sous le texte (0,24 : le blanc reste à 4,5:1). */
   --pill-1: var(--mint);
   --pill-2: var(--green);
   --pill-3: var(--turquoise);
@@ -79,5 +80,5 @@
   /* --- Mise en page -------------------------------------------------------- */
   --container: 1200px;
   --gutter: clamp(20px, 5vw, 48px);
-  --section: clamp(88px, 12vw, 160px);
+  --section: clamp(72px, 9vw, 120px);
 }

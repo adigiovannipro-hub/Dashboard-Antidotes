@@ -4,45 +4,33 @@ import type { QuestionId } from "@/lib/questionnaire";
  * Le dictionnaire d'une langue. Tout texte lu par un visiteur vit ici, FR
  * et EN partageant exactement les mêmes clés — c'est le typecheck qui
  * garantit qu'aucune section n'est muette dans une langue.
+ *
+ * Sept sections, pas une de plus (DA du 8/10/2026) : hero, cas, services,
+ * méthode, qui, note, FAQ. Les chiffres portent leur source.
  */
 export type Stat = { value: string; label: string; source?: string };
 
 export type CaseStudy = {
+  /** La clé des visuels dans `lib/cases.ts` ; sans visuel, le cas s'affiche en texte. */
   id: string;
   client: string;
   sector: string;
-  period: string;
   headline: string;
-  need: string;
-  answer: string;
-  results: Stat[];
-  note?: string;
+  text: string;
+  stat: Stat;
 };
+
+export type Service = { icon: "compass" | "calendar" | "clapperboard" | "target" | "layout" | "sparkles"; name: string; text: string };
 
 export type Dictionary = {
   locale: "fr" | "en";
   meta: { title: string; description: string; ogTitle: string; ogDescription: string };
-  nav: { cases: string; services: string; method: string; tools: string; faq: string; cta: string; switchLabel: string; switchAria: string; menu: string; close: string };
-  hero: {
-    eyebrow: string;
-    titleBefore: string;
-    titleAccent: string;
-    titleAfter: string;
-    lead: string;
-    ctaPrimary: string;
-    ctaSecondary: string;
-    trustLabel: string;
-    trust: string[];
-    hint: string;
-  };
-  proof: { eyebrow: string; items: Stat[] };
-  mirror: { eyebrow: string; title: string; items: { situation: string; result: string }[] };
-  cases: { eyebrow: string; title: string; lead: string; needLabel: string; answerLabel: string; resultsLabel: string; sourceLabel: string; items: CaseStudy[]; more: { eyebrow: string; title: string; text: string; items: { title: string; text: string }[] } };
-  services: { eyebrow: string; title: string; lead: string; items: { name: string; text: string }[] };
-  method: { eyebrow: string; title: string; lead: string; steps: { title: string; text: string }[] };
-  tools: { eyebrow: string; title: string; lead: string; items: { name: string; text: string }[]; proofsTitle: string; proofs: string[] };
-  about: { eyebrow: string; title: string; bio: string; points: string[]; location: string };
-  offer: { eyebrow: string; title: string; text: string; items: string[]; cta: string };
+  nav: { cases: string; services: string; method: string; faq: string; cta: string; switchLabel: string; switchAria: string; menu: string; close: string };
+  hero: { eyebrow: string; title: string; lead: string; ctaPrimary: string; ctaSecondary: string; trustLabel: string; hint: string };
+  cases: { eyebrow: string; title: string; items: CaseStudy[]; numbersLabel: string; numbers: Stat[] };
+  services: { eyebrow: string; title: string; items: Service[] };
+  method: { eyebrow: string; title: string; steps: { title: string; text: string }[] };
+  about: { eyebrow: string; title: string; text: string; points: string[]; location: string };
   funnel: {
     eyebrow: string;
     title: string;
@@ -73,7 +61,6 @@ export type Dictionary = {
     };
   };
   faq: { eyebrow: string; title: string; items: { q: string; a: string }[] };
-  final: { title: string; lead: string; cta: string; ctaSecondary: string };
   footer: { tagline: string; privacy: string; terms: string; contact: string; linkedin: string; based: string; copyright: string; rights: string; madeBy: string };
   cancelPage: { title: string; text: string; confirm: string; done: string; doneText: string; missing: string; back: string; already: string };
 };
