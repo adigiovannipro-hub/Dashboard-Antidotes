@@ -1,36 +1,45 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# antidotes.agency — le site
 
-## Getting Started
+Le one-page FR/EN de l'activité freelance. Projet Next.js autonome dans ce
+dossier (son propre lockfile), déployé sur le projet Vercel `antidotes-agency`
+(racine `site/`), base Supabase dédiée `antidotes-agency`.
 
-First, run the development server:
+## Mise en route
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+pnpm install
+pnpm dev            # http://localhost:3000
+pnpm typecheck && pnpm lint && pnpm test && pnpm build
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Sans Supabase sous la main : `bash scripts/db-local.sh` (Postgres jetable qui
+rejoue `supabase/migrations/`) puis `node scripts/rpc-shim.mjs` (simulateur de
+l'API REST sur le port 3100) et `.env.local` pointant dessus.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Variables (projet Vercel)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Variable | Rôle |
+|---|---|
+| `SUPABASE_URL`, `SUPABASE_ANON_KEY` | le projet dédié — la clé anon reste côté serveur |
+| `SITE_DB_KEY` | exigée par chaque fonction SQL (`site_secrets.site_key`) |
+| `CRON_SECRET` | jeton du cron quotidien `/api/cron/entretien` |
+| `ADMIN_SECRET` | clé des routes `/api/admin/*` |
+| `COMPOSIO_API_KEY` | **à poser à la main** — sans elle, les courriels attendent dans `outbox` et le rendez-vous se prend quand même (lien Jitsi) |
+| `OWNER_EMAIL`, `OWNER_TIMEZONE`, `BOOKING_CALENDAR_ID` | l'agence : adresse notifiée, `Asia/Makassar`, agenda lu et écrit |
+| `NEXT_PUBLIC_SITE_URL` | `https://antidotes.agency` |
 
-## Learn More
+## Les trois gestes après déploiement
 
-To learn more about Next.js, take a look at the following resources:
+1. Poser `COMPOSIO_API_KEY` sur le projet Vercel (la même que le dashboard) et redéployer.
+2. Ouvrir `https://antidotes.agency/api/admin/calendrier?cle=<ADMIN_SECRET>` : la page renvoie vers l'autorisation Google Calendar de Composio ; `&etat=1` dit si un compte est branché.
+3. Jouer la vraie chaîne : `https://antidotes.agency/api/admin/essai?cle=<ADMIN_SECRET>&vers=<adresse>&langue=fr` envoie le courriel d'accueil et une confirmation de rendez-vous d'essai par la boîte Gmail de l'agence. Les relire dans Gmail et sur un iPhone avant de considérer le tunnel livré.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Ce que fait le tunnel
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Treize questions → note /10 et température calculées côté serveur
+(`src/lib/questionnaire.ts`) ; **la note n'est jamais rendue au visiteur**,
+elle part à l'owner par courriel et se présente en rendez-vous. Réservation
+de 30 min dans le fuseau du visiteur (`src/lib/booking/`), créneaux lun-ven
+15h-21h à Bali, 24 h de préavis, 30 jours d'horizon, un index unique en base
+contre la double réservation. Chaque étape écrit une ligne dans `outbox`,
+vidée en `after()` puis par le cron.
