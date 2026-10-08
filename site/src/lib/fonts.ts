@@ -1,4 +1,4 @@
-import { Geist, Geist_Mono, Instrument_Serif } from "next/font/google";
+import { Geist, Geist_Mono, Instrument_Serif, Rubik } from "next/font/google";
 
 /**
  * Deux voix : Geist pour tout ce qui se lit — nette, neutre, premium —, et
@@ -19,4 +19,7 @@ export const instrument = Instrument_Serif({
   display: "swap",
 });
 
-export const fontClassName = `${geist.variable} ${geistMono.variable} ${instrument.variable}`;
+// La police de marque du logotype fusionné (provisoire, en attente du scout typographique).
+export const brand = Rubik({ subsets: ["latin"], weight: ["800", "900"], variable: "--font-brand-face", display: "swap", preload: false });
+
+export const fontClassName = `${geist.variable} ${geistMono.variable} ${instrument.variable} ${brand.variable}`;

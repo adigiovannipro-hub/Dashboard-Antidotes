@@ -44,6 +44,20 @@
   --gradient-iris-soft: linear-gradient(118deg, rgba(127, 217, 255, 0.55), rgba(141, 123, 255, 0.55) 34%, rgba(255, 111, 174, 0.55) 66%, rgba(255, 184, 102, 0.55));
   --glow: 0 0 80px rgba(141, 123, 255, 0.25), 0 0 160px rgba(255, 111, 174, 0.12);
 
+
+  /* --- Vert : la tonalité du site (provisoire, en attente de la DA finale) --
+     Les pilules de fond, le logotype effervescent et les reflets lisent ces
+     cinq jetons ; --pill-alpha plafonne la luminance sous le texte. */
+  --mint: #9ff0c9;
+  --green: #2fbf7a;
+  --turquoise: #5fe0c8;
+  --pearl: #e8fff4;
+  --pill-1: var(--mint);
+  --pill-2: var(--green);
+  --pill-3: var(--turquoise);
+  --pill-4: var(--pearl);
+  --pill-alpha: 0.24;
+
   /* --- États ------------------------------------------------------------- */
   --ok: #7ee2a8;
   --ok-ink: #bdf2d3;
