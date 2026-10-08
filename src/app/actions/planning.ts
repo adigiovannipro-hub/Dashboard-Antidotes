@@ -19,6 +19,7 @@ import {
 } from "@/lib/planning/storage";
 import { dispatchVideosWorkflow } from "@/lib/finance/github-actions";
 import { notifyApprovals } from "@/lib/planning/approval-notify";
+import { bulkSchedulingRefusal, schedulingRefusal } from "@/lib/planning/scheduling-guard";
 import { PUBLISH_TRIGGER_STATUS } from "@/lib/publishing/readiness";
 import { triggerPublicationIfDue } from "@/lib/publishing/trigger";
 import { isUnportableVideoPath } from "@/lib/planning/video-compression";
@@ -675,6 +676,7 @@ export async function updateSubject(
 
   try {
     const supabase = await createClient();
+    const touchesScheduling = SCHEDULING_FIELDS.includes(input.field);
 
     // L'ancienne valeur, pour le journal : « À VALIDER → EN ATTENTE » ne se
     // reconstruit pas après coup. Lue en même temps que la garde : chaque
@@ -683,10 +685,17 @@ export async function updateSubject(
       guard(scope),
       supabase
         .from("planning_subjects")
-        .select(input.field)
+        .select(touchesScheduling ? "name, status, scheduled_on" : input.field)
         .eq("id", input.subjectId)
         .maybeSingle(),
     ]);
+
+    // Programmer une ligne antidatée ou sans date : elle ne partirait jamais.
+    if (touchesScheduling && before) {
+      const current = before as unknown as SchedulingFields;
+      const refusal = schedulingRefusal({ ...current, [input.field]: parsed.data }, new Date());
+      if (refusal) return { ok: false, error: refusal };
+    }
 
     // La clé est dynamique mais bornée : `input.field` vient d'être validé
     // contre `EDITABLE_FIELDS`, seule porte d'entrée de cette fonction. Le
@@ -731,6 +740,10 @@ export async function updateSubject(
  * « Programmé », ou redater une ligne déjà programmée : le passage est alors
  * lancé sans attendre, s'il trouve quelque chose à publier.
  */
+const SCHEDULING_FIELDS: EditableField[] = ["status", "scheduled_on"];
+
+type SchedulingFields = { name: string | null; status: string | null; scheduled_on: string | null };
+
 function armsPublication(field: EditableField, value: unknown): boolean {
   return (field === "status" && value === PUBLISH_TRIGGER_STATUS) || field === "scheduled_on";
 }
@@ -759,6 +772,22 @@ export async function bulkUpdateSubjects(
   try {
     const { viewer, workspace } = await guard(scope);
     const supabase = await createClient();
+
+    if (SCHEDULING_FIELDS.includes(input.field)) {
+      const { data: current, error: readError } = await supabase
+        .from("planning_subjects")
+        .select("name, status, scheduled_on")
+        .in("id", input.subjectIds);
+      if (readError) throw new Error(readError.message);
+      const refusal = bulkSchedulingRefusal(
+        ((current ?? []) as unknown as SchedulingFields[]).map((row) => ({
+          ...row,
+          [input.field]: parsed.data,
+        })),
+        new Date(),
+      );
+      if (refusal) return { ok: false, error: refusal };
+    }
 
     // Les lignes déjà validées ne reprennent pas de courriel à la revalidation.
     const approving = isClientApproval(viewer, input.field, parsed.data);

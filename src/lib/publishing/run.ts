@@ -10,7 +10,6 @@ import { instagramUrls, loadMedia, toRgbJpeg, type MediaItem } from "./media";
 import { publishFacebook, publishInstagram } from "./meta-publish";
 import { pdfFromJpegs } from "./pdf-from-jpegs";
 import {
-  catchUpFrom,
   isPublishWindow,
   openingInParis,
   parisStamp,
@@ -59,10 +58,10 @@ import { parseTiktokSettings } from "./tiktok-settings";
  * filet — un réseau en erreur ou laissé faute de temps y repart, le verrou
  * empêchant tout doublon. Voir `isPublishWindow`.
  *
- * Une ligne « Programmé » restée derrière part au passage suivant, jusqu'à
- * `CATCH_UP_DAYS` jours après sa date : l'agence l'a armée, elle doit sortir.
- * Au-delà, elle reste en rouge dans « À publier » — publier le 20 un post
- * prévu le 12 sans qu'un humain l'ait redaté serait pire que le trou.
+ * Un sujet en retard ne part pas : publier le 20 un post prévu le 12 sans
+ * qu'un humain l'ait décidé serait pire que le trou. Programmer une ligne
+ * antidatée est refusé à l'écran (`schedulingProblem`), qui propose de
+ * changer la date ou de publier maintenant.
  */
 
 type Admin = SupabaseClient<Database>;
@@ -199,13 +198,10 @@ async function publishToday(options: {
     .from("planning_subjects")
     .select(SUBJECT_COLUMNS)
     .eq("status", PUBLISH_TRIGGER_STATUS)
-    // Le jour même, plus les lignes armées après leur date (`CATCH_UP_DAYS`).
-    .lte("scheduled_on", paris.date)
-    .gte("scheduled_on", catchUpFrom(paris.date))
+    .eq("scheduled_on", paris.date)
     // Une ligne à la corbeille ou archivée ne part jamais, même validée.
     .is("deleted_at", null)
-    .is("archived_at", null)
-    .order("scheduled_on");
+    .is("archived_at", null);
   if (subjectsError) fail(`Lecture des sujets : ${subjectsError.message}`);
 
   const subjects = (subjectRows ?? []) as unknown as SubjectRow[];
@@ -334,15 +330,17 @@ async function publishSubject(options: {
 }
 
 /**
- * « Publier maintenant » : un sujet validé, sur un réseau, sans attendre 16h.
- * Même verrou, même journal, même bascule de statut que le passage — c'est le
- * passage, pour un seul sujet.
+ * « Publier maintenant » : un sujet validé, sans attendre 16h — sur un réseau
+ * (`target`), ou sur tous ceux de son couloir. Même verrou, même journal, même
+ * bascule de statut que le passage — c'est le passage, pour un seul sujet.
  */
 export async function publishSubjectNow(options: {
   admin: Admin;
   subjectId: string;
   workspaceId: string;
-  target: PublishTarget;
+  target?: PublishTarget;
+  /** Heure limite (epoch ms), comme pour le passage de 16h00. */
+  deadline?: number;
 }): Promise<PublishReport> {
   const { admin } = options;
   const report: PublishReport = {
@@ -371,7 +369,8 @@ export async function publishSubjectNow(options: {
 
   const platform = (await lanePlatforms(admin, [row.lane_id])).get(row.lane_id) ?? "other";
   const wanted = publishTargets(platform);
-  if (!wanted.includes(options.target)) {
+  if (wanted.length === 0) fail(`Le réseau « ${platform} » ne se publie pas automatiquement.`);
+  if (options.target && !wanted.includes(options.target)) {
     fail(`Ce couloir ne publie pas sur ${PUBLISH_TARGET_LABELS[options.target]}.`);
   }
 
@@ -379,9 +378,10 @@ export async function publishSubjectNow(options: {
     admin,
     subject: row,
     wanted,
-    targets: [options.target],
+    targets: options.target ? [options.target] : wanted,
     accountFor: accountResolver(admin),
     report,
+    deadline: options.deadline,
   });
   return report;
 }

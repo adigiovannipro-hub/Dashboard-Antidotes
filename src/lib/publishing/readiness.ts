@@ -32,6 +32,14 @@ export function publishTargets(platform: string): PublishTarget[] {
   return [];
 }
 
+/** « Instagram et Facebook » : où part un couloir, en toutes lettres, ou `null`. */
+export function publishNetworksLabel(platform: string): string | null {
+  const labels = publishTargets(platform).map((target) => PUBLISH_TARGET_LABELS[target]);
+  if (labels.length === 0) return null;
+  if (labels.length === 1) return labels[0];
+  return `${labels.slice(0, -1).join(", ")} et ${labels[labels.length - 1]}`;
+}
+
 export type PublishBlocker =
   | "sans-visuel"
   | "sans-wording"
@@ -265,7 +273,8 @@ export function openingInParis(date: string): string {
  * pour les filets : les passages programmés de GitHub arrivent des heures en
  * retard, et le soir d'`airwallex-sync.yml` reprend ce que 16h00 a laissé.
  * La borne haute n'a pas à s'écrire : à minuit, la date de Paris avance et
- * les sujets du jour passent au rattrapage (`catchUpFrom`).
+ * les sujets du jour deviennent des retards, que le passage refuse de
+ * publier — et qu'on ne peut plus programmer (`schedulingProblem`).
  *
  * Ce qui rend la fenêtre sûre, c'est `planning_publications` : revendiquer
  * un couple (sujet, réseau) est une insertion sous contrainte d'unicité. Un
@@ -278,35 +287,37 @@ export function isPublishWindow(now: Date): boolean {
 }
 
 /**
- * Combien de jours une ligne « Programmé » restée derrière est encore reprise.
+ * Ce qui empêche de programmer une ligne : pas de date, ou une date passée.
  *
- * « Programmé » est le geste de l'agence, pas un statut qu'on oublie : une
- * ligne armée après sa date — validée tard par le client, comme « MADDY
- * RENTRÉE » chez Bondet le 8/10/2026, datée du 7 — part au passage suivant
- * au lieu d'attendre qu'on corrige sa date. Elle ne repartait jamais : le
- * passage ne lisait que les lignes du jour. La borne évite l'inverse, un
- * post d'il y a trois semaines qui sortirait le jour où un jeton revient.
+ * Le passage ne lit que les lignes du jour : une ligne programmée sur une
+ * date passée ne partirait jamais, en silence (« MADDY RENTRÉE », Bondet,
+ * datée du 7/10 et programmée le 8). Plutôt qu'un rattrapage automatique,
+ * le geste est refusé en le disant — changer la date ou publier maintenant
+ * (décision du 8/10/2026). La date du jour est celle de Paris, comme celle
+ * des lignes.
  */
-export const CATCH_UP_DAYS = 3;
+export type SchedulingProblem = "no_date" | "past";
 
-/** Le jour le plus ancien que le passage du `date` (Paris) reprend encore. */
-export function catchUpFrom(date: string): string {
-  const day = new Date(`${date}T00:00:00Z`);
-  day.setUTCDate(day.getUTCDate() - CATCH_UP_DAYS);
-  return day.toISOString().slice(0, 10);
+export function schedulingProblem(
+  subject: { scheduled_on: string | null },
+  now: Date,
+): SchedulingProblem | null {
+  if (!subject.scheduled_on) return "no_date";
+  return subject.scheduled_on < parisStamp(now).date ? "past" : null;
 }
 
 /**
  * Une ligne part-elle si le passage est lancé à `now` ? « Programmé », datée
- * du jour ou d'un jour encore rattrapé, fenêtre ouverte. C'est ce qui décide
- * de lancer le passage sur-le-champ quand on arme une ligne après 16h00.
+ * du jour, fenêtre ouverte. C'est ce qui décide de lancer le passage
+ * sur-le-champ quand on arme une ligne après 16h00, heure de Bali.
  */
 export function isDueNow(
   subject: { status: string; scheduled_on: string | null },
   now: Date,
 ): boolean {
-  if (subject.status !== PUBLISH_TRIGGER_STATUS || !subject.scheduled_on) return false;
-  if (!isPublishWindow(now)) return false;
-  const today = parisStamp(now).date;
-  return subject.scheduled_on <= today && subject.scheduled_on >= catchUpFrom(today);
+  return (
+    subject.status === PUBLISH_TRIGGER_STATUS &&
+    subject.scheduled_on === parisStamp(now).date &&
+    isPublishWindow(now)
+  );
 }

@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  catchUpFrom,
   isDueNow,
   isPublishWindow,
   isJpegPath,
@@ -13,7 +12,9 @@ import {
   publishPlan,
   PUBLISH_TRIGGER_STATUS,
   PUBLISHABLE_NOW_STATUSES,
+  publishNetworksLabel,
   publishTargets,
+  schedulingProblem,
   targetPlan,
 } from "./readiness";
 
@@ -257,42 +258,43 @@ describe("PUBLISH_TRIGGER_STATUS", () => {
   });
 });
 
-describe("catchUpFrom", () => {
-  it("remonte de trois jours, mois et année compris", () => {
-    expect(catchUpFrom("2026-10-08")).toBe("2026-10-05");
-    expect(catchUpFrom("2026-11-02")).toBe("2026-10-30");
-    expect(catchUpFrom("2027-01-01")).toBe("2026-12-29");
-  });
-});
-
 describe("isDueNow", () => {
   // 18h10 à Bali, 12h10 à Paris le 8 octobre : la fenêtre du jour est ouverte.
   const afterOpening = new Date("2026-10-08T10:10:00Z");
   const line = (scheduled_on: string | null, status = "scheduled") => ({ status, scheduled_on });
 
-  it("part : programmée la veille et armée après sa date (Bondet, 8/10)", () => {
-    expect(isDueNow(line("2026-10-07"), afterOpening)).toBe(true);
-  });
-
-  it("part : programmée pour aujourd'hui, armée après 16h00", () => {
+  it("part : programmée pour aujourd'hui, armée après 16h00 à Bali", () => {
     expect(isDueNow(line("2026-10-08"), afterOpening)).toBe(true);
   });
 
-  it("attend : datée de demain", () => {
+  it("attend : datée de demain, ou avant 16h00 à Bali", () => {
     expect(isDueNow(line("2026-10-09"), afterOpening)).toBe(false);
+    expect(isDueNow(line("2026-10-08"), new Date("2026-10-08T07:30:00Z"))).toBe(false);
   });
 
-  it("attend 16h00 à Bali, même en retard", () => {
-    expect(isDueNow(line("2026-10-07"), new Date("2026-10-08T07:30:00Z"))).toBe(false);
-  });
-
-  it("ne rattrape pas au-delà de trois jours", () => {
-    expect(isDueNow(line("2026-10-05"), afterOpening)).toBe(true);
-    expect(isDueNow(line("2026-10-04"), afterOpening)).toBe(false);
+  it("ne rattrape pas une date passée : c'est refusé à l'écran", () => {
+    expect(isDueNow(line("2026-10-07"), afterOpening)).toBe(false);
   });
 
   it("« Validé » ne part pas, ni une ligne sans date", () => {
     expect(isDueNow(line("2026-10-08", "validated"), afterOpening)).toBe(false);
     expect(isDueNow(line(null), afterOpening)).toBe(false);
+  });
+});
+
+describe("schedulingProblem", () => {
+  const now = new Date("2026-10-08T10:10:00Z");
+  it("passée, sans date, ou rien", () => {
+    expect(schedulingProblem({ scheduled_on: "2026-10-07" }, now)).toBe("past");
+    expect(schedulingProblem({ scheduled_on: null }, now)).toBe("no_date");
+    expect(schedulingProblem({ scheduled_on: "2026-10-08" }, now)).toBeNull();
+  });
+});
+
+describe("publishNetworksLabel", () => {
+  it("nomme les réseaux d'un couloir, ou rien", () => {
+    expect(publishNetworksLabel("meta")).toBe("Instagram et Facebook");
+    expect(publishNetworksLabel("tiktok")).toBe("TikTok");
+    expect(publishNetworksLabel("youtube")).toBeNull();
   });
 });

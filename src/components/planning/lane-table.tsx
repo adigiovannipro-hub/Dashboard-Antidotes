@@ -56,6 +56,7 @@ export function LaneTable({
   defaultOpen,
   onOpenChange,
   monthKey,
+  publishNetworks = null,
 }: {
   scope: Scope;
   lane: LaneWithSubjects;
@@ -76,6 +77,8 @@ export function LaneTable({
   onOpenChange: (open: boolean) => void;
   /** Le mois du couloir, `YYYY-MM-01` — porté par les lignes ajoutées. */
   monthKey: string;
+  /** Les réseaux où l'agence publie ce couloir d'ici, `null` pour un client. */
+  publishNetworks?: string | null;
 }) {
   const [open, setOpen] = useState(defaultOpen);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
@@ -312,6 +315,7 @@ export function LaneTable({
                   selectedIds.has(subject.id) ? [...selectedIds] : null
                 }
                 onToggleSelect={onToggleSelect}
+                publishNetworks={publishNetworks}
                 onOpen={onOpenSubject}
                 onEditLabels={onEditLabels}
                 dropIndicator={

@@ -25,6 +25,7 @@ import {
 import type { MonthWithLanes, PlanningOwner } from "@/lib/planning/types";
 import type { PlanningSort, SortableColumnKey } from "@/lib/ui-preferences";
 import { cn } from "@/lib/utils";
+import { publishNetworksLabel } from "@/lib/publishing/readiness";
 
 /**
  * Un mois du planning — un bloc à part entière, nettement détaché des autres.
@@ -51,6 +52,7 @@ export function MonthGroup({
   closedLanes,
   onLaneOpenChange,
   forceOpen,
+  isOwner,
 }: {
   scope: Scope;
   month: MonthWithLanes;
@@ -309,6 +311,7 @@ export function MonthGroup({
                 defaultOpen={!closedLanes.includes(lane.id)}
                 onOpenChange={(next) => onLaneOpenChange(lane.id, next)}
                 monthKey={month.month}
+                publishNetworks={isOwner ? publishNetworksLabel(lane.platform) : null}
               />
             ))
           )}
