@@ -1,0 +1,69 @@
+/* ===========================================================================
+   Tokens du site antidotes.agency — la seule source des couleurs, rayons,
+   ombres, durées et dégradés. Aucun composant ne porte de valeur en dur.
+
+   La DA : un canevas d'encre profonde (le gris-noir des planches), des
+   surfaces de verre à peine plus claires, et une seule famille de couleur
+   vive — l'iridescence (cyan → violet → rose → ambre) réservée aux fonds,
+   aux reflets et aux marques. Tout ce qui se lit est blanc cassé ou lavande
+   claire ; jamais un dégradé sous du texte courant.
+   =========================================================================== */
+
+:root {
+  color-scheme: dark;
+
+  /* --- Surfaces ---------------------------------------------------------- */
+  --ink-0: #0a0b0f;
+  --ink-1: #101117;
+  --ink-2: #171923;
+  --ink-3: #1f2230;
+  --line: rgba(255, 255, 255, 0.08);
+  --line-strong: rgba(255, 255, 255, 0.16);
+  --glass: rgba(255, 255, 255, 0.045);
+  --glass-strong: rgba(255, 255, 255, 0.09);
+  --glass-border: rgba(255, 255, 255, 0.14);
+
+  /* --- Texte --------------------------------------------------------------
+     Sur --ink-0 : --text 17,6:1, --text-2 8,1:1, --text-3 6,3:1 (mesuré au navigateur : 5,0:1 sur un verre fort, le pire cas — réservé aux
+     légendes courtes, jamais à un paragraphe). */
+  --text: #f6f5f1;
+  --text-2: #aeb1bd;
+  --text-3: #9094a6;
+  --text-on-light: #0a0b0f;
+
+  /* --- Iridescence --------------------------------------------------------
+     Les quatre teintes de la DA. --accent-ink est la seule à poser sur du
+     texte (13:1 sur --ink-0). */
+  --iris-cyan: #7fd9ff;
+  --iris-violet: #8d7bff;
+  --iris-pink: #ff6fae;
+  --iris-amber: #ffb866;
+  --accent-ink: #cfc8ff;
+  --accent-ink-strong: #e6e1ff;
+  --gradient-iris: linear-gradient(118deg, var(--iris-cyan) 0%, var(--iris-violet) 34%, var(--iris-pink) 66%, var(--iris-amber) 100%);
+  --gradient-iris-soft: linear-gradient(118deg, rgba(127, 217, 255, 0.55), rgba(141, 123, 255, 0.55) 34%, rgba(255, 111, 174, 0.55) 66%, rgba(255, 184, 102, 0.55));
+  --glow: 0 0 80px rgba(141, 123, 255, 0.25), 0 0 160px rgba(255, 111, 174, 0.12);
+
+  /* --- États ------------------------------------------------------------- */
+  --ok: #7ee2a8;
+  --ok-ink: #bdf2d3;
+  --warn: #ffcf6b;
+  --danger: #ff7b8a;
+  --danger-ink: #ffb3bb;
+
+  /* --- Rayons, ombres, mouvement ----------------------------------------- */
+  --r-sm: 10px;
+  --r-md: 14px;
+  --r-lg: 22px;
+  --r-xl: 32px;
+  --r-pill: 999px;
+  --shadow-card: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 24px 60px -30px rgba(0, 0, 0, 0.8);
+  --motion: 220ms;
+  --motion-slow: 600ms;
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+
+  /* --- Mise en page -------------------------------------------------------- */
+  --container: 1200px;
+  --gutter: clamp(20px, 5vw, 48px);
+  --section: clamp(88px, 12vw, 160px);
+}

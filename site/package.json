@@ -6,9 +6,14 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "db:local": "bash scripts/db-local.sh",
+    "rpc:local": "node scripts/rpc-shim.mjs"
   },
   "dependencies": {
+    "@composio/core": "^0.22.0",
     "@supabase/supabase-js": "^2.117.3",
     "next": "16.4.0",
     "react": "19.3.0",
