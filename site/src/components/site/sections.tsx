@@ -2,6 +2,8 @@ import { CAPSULE_ASSETS, Capsule, type CapsuleAsset } from "@/components/brand/c
 import { Rich } from "@/components/brand/rich";
 import type { Dictionary, Service } from "@/i18n/types";
 import { CASE_VISUALS, type CaseVisual } from "@/lib/cases";
+import { CLIENT_LOGOS } from "@/lib/logos";
+import { LogoMarquee } from "./logo-marquee";
 import { PhoneCase } from "./phone-case";
 
 /**
@@ -47,6 +49,11 @@ export function Services({ dict }: { dict: Dictionary }) {
       data-univers="sombre"
       className="theme-dark relative isolate z-10 scroll-mt-16 overflow-hidden rounded-b-[clamp(28px,4vw,56px)] bg-profondeur text-text"
     >
+      {/* Les marques ouvrent la bande des capsules, sur le noir — jamais sur la lave. */}
+      <div className="pt-6 md:pt-10">
+        <p className="container-site type-overline mb-5 text-text-3">{dict.hero.trustLabel}</p>
+        <LogoMarquee logos={CLIENT_LOGOS} label={dict.hero.trustLabel} />
+      </div>
       <div className="container-site section-pad">
         <SectionHeading eyebrow={dict.services.eyebrow} index={1} title={dict.services.title} id="services-titre" />
         <ul className="mt-14 grid grid-cols-1 gap-x-10 gap-y-14 sm:grid-cols-2 lg:grid-cols-3">
@@ -91,7 +98,14 @@ export function Cases({ dict }: { dict: Dictionary }) {
     <section id="cas" aria-labelledby="cas-titre" className="relative isolate scroll-mt-16 overflow-hidden">
       {/* L'anneau de lumière du Verre clair, coupé par le bord droit. */}
       <span aria-hidden className="ring-light -right-[18vw] -top-[22vw] -z-10 w-[62vw] opacity-90" />
-      <div className="container-site section-pad">
+      <div className="container-site section-pad relative">
+        {/* La gélule irisée du Verre clair (r-18) et une plus petite, floutée, pour la profondeur. */}
+        <div aria-hidden className="pointer-events-none absolute right-[2%] top-[calc(var(--section)-24px)] hidden w-[300px] lg:block xl:w-[340px]">
+          <Capsule src={CAPSULE_ASSETS.hero.src} size={340} halo={CAPSULE_ASSETS.hero.halo} />
+        </div>
+        <div aria-hidden className="pointer-events-none absolute right-[26%] top-[calc(var(--section)+150px)] hidden w-[120px] lg:block">
+          <Capsule src={CAPSULE_ASSETS.heroBlur.src} size={120} halo={CAPSULE_ASSETS.heroBlur.halo} />
+        </div>
         <SectionHeading eyebrow={dict.cases.eyebrow} index={2} title={dict.cases.title} id="cas-titre" />
         {/* Le rail déborde du conteneur jusqu'aux bords de l'écran ; `body` est en `overflow-x: clip`. */}
         <ul tabIndex={0} aria-labelledby="cas-titre" className="reveal bleed-x mt-12 flex snap-x snap-mandatory gap-4 overflow-x-auto pb-4">

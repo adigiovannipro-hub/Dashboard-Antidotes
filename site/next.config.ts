@@ -11,6 +11,14 @@ const ROOT = path.dirname(fileURLToPath(import.meta.url));
 
 const nextConfig: NextConfig = {
   outputFileTracingRoot: ROOT,
+  /*
+   * Le cache disque de Turbopack (actif par défaut en compilation depuis
+   * Next 16.4) a resservi le 9/10/2026 l'ancienne feuille de style après une
+   * refonte de globals.css — la règle `*.css` passe par le chargeur de
+   * Tailwind, dont les dépendances lui échappent. Vercel restaure ce cache
+   * d'un déploiement à l'autre : on compile donc toujours à neuf.
+   */
+  experimental: { turbopackFileSystemCacheForBuild: false },
   turbopack: {
     root: ROOT,
     rules: {

@@ -21,7 +21,7 @@ export function Header({ dict, locale }: { dict: Dictionary; locale: Locale }) {
   ];
   return (
     <header id="entete" className="theme-dark sticky top-0 z-40 transition-colors duration-(--motion)">
-      <div className="glass border-b border-glass-border/40 transition-[background,box-shadow] duration-(--motion)">
+      <div className="glass-bar transition-[background,box-shadow] duration-(--motion)">
         <div className="container-site flex h-16 items-center justify-between gap-4">
           <Link href={localePath(locale)} className="text-text" aria-label="antidotes">
             <Logo height={21} />
