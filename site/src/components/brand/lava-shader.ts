@@ -1,8 +1,8 @@
 /**
  * La lave du hero (charte r-04, r-05, r-19) : un champ de métaballes 2D.
- * Ce module ne dépend ni de React ni du DOM — il porte la composition (où
- * vivent les gouttes et comment elles tournent), le fragment shader et le
- * contour figé qui sert de première image. Une seule source pour les deux
+ * Ce module ne dépend pas de React — il porte la composition (où vivent les
+ * gouttes et comment elles tournent), les shaders et leur moteur WebGL1, et
+ * le contour figé qui sert de première image. Une seule source pour les deux
  * rendus : la première image sans JavaScript et la première image WebGL
  * tombent au même endroit, le fondu de l'une à l'autre ne se voit pas.
  */
@@ -47,17 +47,17 @@ type Blob = {
  */
 const BLOBS: readonly Blob[] = [
   // Le corps, adossé au bord droit et coupé par le bas.
-  { land: [1.02, 0.4, 0.44], port: [1.08, 0.16, 0.44], amp: [0.03, 0.05], period: 19, phase: 0.4 },
+  { land: [1.04, 0.42, 0.42], port: [1.08, 0.16, 0.44], amp: [0.03, 0.05], period: 19, phase: 0.4 },
   // La masse du haut, coupée par le bord supérieur.
-  { land: [0.92, 1.03, 0.27], port: [1.02, 0.95, 0.42], amp: [0.04, 0.025], period: 16, phase: 2.1 },
+  { land: [1.0, 1.04, 0.22], port: [1.02, 0.95, 0.42], amp: [0.04, 0.025], period: 16, phase: 2.1 },
   // Le balayage du bas, coupé par le bord inférieur.
-  { land: [0.84, 0.0, 0.25], port: [0.55, -0.06, 0.42], amp: [0.045, 0.03], period: 21, phase: 4.0 },
+  { land: [0.9, -0.04, 0.24], port: [0.55, -0.06, 0.42], amp: [0.045, 0.03], period: 21, phase: 4.0 },
   // Le nez qui avance vers le texte sans jamais l'atteindre.
-  { land: [0.745, 0.42, 0.2], port: [0.6, 1.0, 0.26], amp: [0.035, 0.06], period: 14, phase: 1.2 },
+  { land: [0.76, 0.56, 0.21], port: [0.6, 1.0, 0.26], amp: [0.035, 0.06], period: 14, phase: 1.2 },
   // Le flanc droit, sous la masse du haut (en portrait : l'autre moitié de la bande du bas).
-  { land: [1.1, 0.78, 0.22], port: [0.05, -0.03, 0.3], amp: [0.025, 0.04], period: 22, phase: 5.3 },
+  { land: [1.12, 0.75, 0.24], port: [0.05, -0.03, 0.3], amp: [0.025, 0.04], period: 22, phase: 5.3 },
   // La gouttelette : assez petite pour se détacher de la masse et s'y fondre à nouveau.
-  { land: [0.66, 0.15, 0.05], port: [0.34, 0.15, 0.06], amp: [0.06, 0.045], period: 17, phase: 3.1 },
+  { land: [0.71, 0.3, 0.05], port: [0.34, 0.15, 0.06], amp: [0.06, 0.045], period: 17, phase: 3.1 },
 ];
 
 /** Rayon de la goutte du pointeur, en unités, sur écran large et en portrait. */
@@ -112,8 +112,10 @@ export function ballsAt(time: number, width: number, height: number, pointer: La
 export function lavaDistance(balls: Float32Array, x: number, y: number): number {
   let sum = 0;
   for (let i = 0; i < BALL_COUNT; i += 1) {
-    const d = Math.hypot(x - balls[i * 3], y - balls[i * 3 + 1]) - balls[i * 3 + 2];
-    sum += Math.exp(-d / BLEND);
+    const dx = x - balls[i * 3];
+    const dy = y - balls[i * 3 + 1];
+    // Math.sqrt plutôt que Math.hypot : quatre fois plus rapide, et ce calcul tourne à l'hydratation.
+    sum += Math.exp(-(Math.sqrt(dx * dx + dy * dy) - balls[i * 3 + 2]) / BLEND);
   }
   return -BLEND * Math.log(Math.max(sum, 1e-30));
 }
@@ -142,7 +144,7 @@ export const LAVA_COLORS = {
   },
   light: {
     /** Le corps : Signal éclairci (#5BEA90 relevé sur r-17). */
-    core: "#57e886",
+    core: "#5bea8e",
     /** Le vert plus dense au cœur des grandes masses. */
     deep: "#2fdc68",
     /** Les franges : Lagon et Lilas. */
@@ -162,7 +164,7 @@ export const LAVA_COLORS = {
  * rejoint le cœur sombre en 150 px environ pour une page de 900 px de haut ;
  * sur r-17 la frange Lagon-Lilas est plus serrée.
  */
-export const GLOW_SIGMA: Record<LavaVariant, number> = { dark: 0.072, light: 0.05 };
+export const GLOW_SIGMA: Record<LavaVariant, number> = { dark: 0.1, light: 0.065 };
 
 /** Définition du masque flouté : texels par unité. Fixe, pour que le noyau du flou ne dépende pas de l'écran. */
 export const GLOW_TEXELS_PER_UNIT = 100;
@@ -215,7 +217,9 @@ function finalShader(variant: LavaVariant): string {
       ? `
   // Frange rose sur les bords tournés vers le bas (r-05, r-04). Le passage du vert au rose est court et
   // passe par la Menthe : mélangés à parts égales, les deux donneraient un gris sale.
-  float w=smoothstep(.45,.8,dot(n,normalize(vec2(-.3,-1.))));
+  // Elle tient aussi le flanc gauche dans le bas de la section, comme le dessous du nez sur r-05.
+  float fa=dot(n,normalize(vec2(-.45,-1.)));
+  float w=clamp(smoothstep(.4,.92,fa)+smoothstep(.05,.6,fa)*smoothstep(.42,.08,uv.y)*.55,0.,1.)*trust;
   vec3 edge=mix(RIM_C,FRINGE,w);edge=mix(edge,GLINT,.55*4.*w*(1.-w));
   // Le rose tient plus loin dans la matière que le vert, puis tourne au mauve avant le cœur (r-05).
   float band=mix(rim,smoothstep(0.,.62,g2),w);
@@ -223,10 +227,12 @@ function finalShader(variant: LavaVariant): string {
   vec3 col=mix(core,edge,band);
   col=mix(col,GLINT,pow(rim,8.)*.1);`
       : `
-  // Lagon et Lilas se partagent le bord : le Lilas sur les faces tournées vers le bas et la droite (r-17).
-  float s=smoothstep(-.55,.75,dot(n,normalize(vec2(.55,-.85))))*mix(.6,1.,vnoise(p*.9+u_time*.015));
+  // Lagon et Lilas se partagent le bord (r-17) : le Lilas sur les faces tournées vers le bas et dans le
+  // bas de la section, le Lagon ailleurs ; un bruit lent fait glisser la frontière entre les deux.
+  float s=clamp(smoothstep(-.3,.6,dot(n,normalize(vec2(.3,-1.))))+smoothstep(.62,.15,uv.y)*.85,0.,1.);
+  s*=trust*mix(.7,1.,vnoise(p*.9+u_time*.015));
   vec3 edge=mix(RIM_C,FRINGE,s);
-  vec3 core=mix(CORE,DEEP,(1.-smoothstep(0.,.1,g))*.45);
+  vec3 core=mix(CORE,DEEP,(1.-smoothstep(0.,.1,g))*.22);
   vec3 col=mix(core,edge,rim);
   col=mix(col,GLINT,pow(rim,10.)*.18);`;
   return `${PRECISION}uniform vec2 u_res;uniform vec2 u_extent;uniform vec2 u_low;uniform sampler2D u_glow;uniform float u_seed;uniform float u_time;
@@ -242,15 +248,18 @@ void main(){
   float depth=depthAt(p);float px=u_extent.x/u_res.x;
   // Grain fin, renouvelé 24 fois par seconde : il vit dans la matière et mord aussi le bord, qui ne tombe jamais net.
   float grain=hash(gl_FragCoord.xy+vec2(u_seed,u_seed*1.618))-.5;
-  float a=smoothstep(-1.1*px,1.1*px,depth+grain*1.2*px);
+  float a=smoothstep(-1.1*px,1.1*px,depth+grain*.9*px);
   if(a<=0.){gl_FragColor=vec4(0.);return;}
   // La part de vide sous le flou : 0,5 sur un bord droit, plus dans un creux, rien au cœur.
   float g=glow(uv);float g2=clamp(g*2.,0.,1.);
   // Profil relevé sur r-05 : le bord reste clair un moment, puis plonge vers le cœur.
   float rim=smoothstep(.04,.9,g2);
-  // Sa pente pointe vers le dehors : c'est la normale lissée du bord le plus proche.
-  vec2 o=1./u_low;
+  // Sa pente pointe vers le dehors : c'est la normale lissée du bord le plus proche. Différences prises à
+  // trois texels : le masque est en 8 bits, une pente mesurée sur un seul texel se lit en escaliers.
+  vec2 o=3./u_low;
   vec2 n=vec2(glow(uv+vec2(o.x,0.))-glow(uv-vec2(o.x,0.)),glow(uv+vec2(0.,o.y))-glow(uv-vec2(0.,o.y)));
+  // Là où la pente s'aplatit (cœur, coin coupé par le cadre), la direction ne veut plus rien dire : la frange s'y retire.
+  float trust=smoothstep(.01,.05,length(n));
   n/=length(n)+1e-5;${shade}
   col+=grain*${variant === "dark" ? "0.1" : "0.075"};
   gl_FragColor=vec4(clamp(col,0.,1.)*a,a);
@@ -404,8 +413,11 @@ export function createLavaRenderer(gl: WebGLRenderingContext, variant: LavaVaria
 
 /** Les deux cadres de référence : la section du hero sur un écran large et sur un téléphone. */
 export const FALLBACK_FRAMES = {
-  land: { width: 1440, height: 940, margin: 180, step: 8 },
-  port: { width: 390, height: 900, margin: 120, step: 6 },
+  // Pas de grille assez large pour que le tracé coûte quelques millisecondes à l'hydratation, assez fin
+  // pour qu'aucune facette ne se voie. Le champ est une distance, presque linéaire près du bord : une
+  // interpolation entre deux nœuds y place le contour au dixième de pixel, même sur une grille lâche.
+  land: { width: 1440, height: 940, margin: 180, step: 18 },
+  port: { width: 390, height: 900, margin: 120, step: 10 },
 } as const;
 
 type Pt = [number, number];

@@ -35,6 +35,8 @@ const FALLBACK_PATHS = { land: fallbackPath("land"), port: fallbackPath("port") 
  */
 const RIM_TABLE = "0 0.057 0.27 0.53 0.82 0.98 1";
 const FRINGE_TABLE = "0 0.18 0.54 0.9 1 1 1";
+/** Côté du carreau de grain du repli, en unités du cadre SVG. */
+const GRAIN_TILE = 160;
 
 /**
  * Le contour de la lave à t = 0, en SVG. Même recette que le shader : la
@@ -51,6 +53,12 @@ function FallbackFrame({ frame, variant, id }: { frame: keyof typeof FALLBACK_FR
   // Direction vers l'extérieur des faces qui portent la frange, en coordonnées SVG (y vers le bas).
   const [ox, oy] = variant === "dark" ? [-0.29, 0.96] : [0.54, 0.84];
   const fid = `${id}-${frame}`;
+  // Le shader étend la frange au bas de la section quelle que soit l'orientation du bord (le rose sur le
+  // flanc gauche d'un écran large, le Lilas partout en clair) : un second passage du contour, tout en
+  // frange, masqué par un dégradé vertical aux mêmes bornes, fait la même chose.
+  const lowFringe = variant === "light" || frame === "land";
+  const [fadeFrom, fadeTo] = variant === "dark" ? [0.58, 0.9] : [0.38, 0.85];
+  const region = { filterUnits: "userSpaceOnUse", x: -m, y: -m, width: w + 2 * m, height: h + 2 * m, colorInterpolationFilters: "sRGB" } as const;
   return (
     <svg
       viewBox={`0 0 ${w} ${h}`}
@@ -59,7 +67,7 @@ function FallbackFrame({ frame, variant, id }: { frame: keyof typeof FALLBACK_FR
       className={`absolute inset-0 h-full w-full ${frame === "land" ? "hidden landscape:block" : "block landscape:hidden"}`}
     >
       <defs>
-        <filter id={fid} filterUnits="userSpaceOnUse" x={-m} y={-m} width={w + 2 * m} height={h + 2 * m} colorInterpolationFilters="sRGB">
+        <filter id={fid} {...region}>
           <feGaussianBlur in="SourceAlpha" stdDeviation={sigma} result="soft" />
           <feComposite in="SourceAlpha" in2="soft" operator="arithmetic" k2={2} k3={-2} result="glow" />
           <feComponentTransfer in="glow" result="rim">
@@ -70,11 +78,17 @@ function FallbackFrame({ frame, variant, id }: { frame: keyof typeof FALLBACK_FR
           </feComponentTransfer>
           <feOffset in="SourceAlpha" dx={-ox * offset} dy={-oy * offset} result="shift" />
           <feComposite in="SourceAlpha" in2="shift" operator="out" result="face" />
-          <feGaussianBlur in="face" stdDeviation={offset * 0.8} result="faceSoft" />
-          <feComposite in="band" in2="faceSoft" operator="arithmetic" k1={2} result="fringe" />
+          <feGaussianBlur in="face" stdDeviation={offset * 0.8} result="faceBlur" />
+          {/* Seules les faces franchement tournées dans la direction gardent la frange, comme le seuil du shader. */}
+          <feComponentTransfer in="faceBlur" result="faceSoft">
+            <feFuncA type="table" tableValues="0 0.12 0.7 1 1 1" />
+          </feComponentTransfer>
+          <feComposite in="band" in2="faceSoft" operator="arithmetic" k1={1} result="fringe" />
+          {/* Là où la frange prend, le liseré vert lui cède la place au lieu de la délaver. */}
+          <feComposite in="rim" in2="fringe" operator="arithmetic" k2={1} k3={-1} result="rimOnly" />
           <feFlood floodColor={c.core} result="core" />
           <feFlood floodColor={c.rim} />
-          <feComposite in2="rim" operator="in" result="rimLayer" />
+          <feComposite in2="rimOnly" operator="in" result="rimLayer" />
           <feFlood floodColor={c.fringe} />
           <feComposite in2="fringe" operator="in" result="fringeLayer" />
           <feMerge result="paint">
@@ -82,14 +96,46 @@ function FallbackFrame({ frame, variant, id }: { frame: keyof typeof FALLBACK_FR
             <feMergeNode in="rimLayer" />
             <feMergeNode in="fringeLayer" />
           </feMerge>
-          {/* Le grain, figé : un bruit fin ramené en niveaux de gris puis ajouté à la peinture. */}
-          <feTurbulence type="fractalNoise" baseFrequency={0.9} numOctaves={1} seed={7} />
+          {/* Le grain, figé : un carreau de bruit fin, répété, ramené en niveaux de gris puis ajouté à la
+              peinture. Calculer la turbulence sur toute la zone coûterait plus que tout le reste du filtre. */}
+          <feTurbulence type="fractalNoise" baseFrequency={1.6} numOctaves={1} seed={7} stitchTiles="stitch" x={0} y={0} width={GRAIN_TILE} height={GRAIN_TILE} />
+          <feTile />
           <feColorMatrix type="matrix" values="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 0 0 0 0 1" result="grain" />
-          <feComposite in="paint" in2="grain" operator="arithmetic" k2={1} k3={0.28} k4={-0.14} />
+          <feComposite in="paint" in2="grain" operator="arithmetic" k2={1} k3={0.34} k4={-0.17} />
           <feComposite in2="SourceAlpha" operator="in" />
         </filter>
+        {lowFringe && (
+          <>
+            <filter id={`${fid}-low`} {...region}>
+              <feGaussianBlur in="SourceAlpha" stdDeviation={sigma} result="soft" />
+              <feComposite in="SourceAlpha" in2="soft" operator="arithmetic" k2={2} k3={-2} result="glow" />
+              <feComponentTransfer in="glow" result="band">
+                <feFuncA type="table" tableValues={variant === "dark" ? FRINGE_TABLE : RIM_TABLE} />
+              </feComponentTransfer>
+              <feFlood floodColor={c.fringe} />
+              <feComposite in2="band" operator="in" result="pink" />
+              <feTurbulence type="fractalNoise" baseFrequency={1.6} numOctaves={1} seed={11} stitchTiles="stitch" x={0} y={0} width={GRAIN_TILE} height={GRAIN_TILE} />
+              <feTile />
+              <feColorMatrix type="matrix" values="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 0 0 0 0 1" result="grain" />
+              <feComposite in="pink" in2="grain" operator="arithmetic" k2={1} k3={0.34} k4={-0.17} />
+              <feComposite in2="band" operator="in" />
+            </filter>
+            <linearGradient id={`${fid}-fade`} gradientUnits="userSpaceOnUse" x1="0" y1={h * fadeFrom} x2="0" y2={h * fadeTo}>
+              <stop offset="0" stopColor="#fff" stopOpacity="0" />
+              <stop offset="1" stopColor="#fff" stopOpacity="0.85" />
+            </linearGradient>
+            <mask id={`${fid}-mask`} maskUnits="userSpaceOnUse" x={-m} y={-m} width={w + 2 * m} height={h + 2 * m}>
+              <rect x={-m} y={0} width={w + 2 * m} height={h + m} fill={`url(#${fid}-fade)`} />
+            </mask>
+          </>
+        )}
       </defs>
       <path d={FALLBACK_PATHS[frame]} fill="#000" filter={`url(#${fid})`} />
+      {lowFringe && (
+        <g mask={`url(#${fid}-mask)`}>
+          <path d={FALLBACK_PATHS[frame]} fill="#000" filter={`url(#${fid}-low)`} />
+        </g>
+      )}
     </svg>
   );
 }
@@ -192,11 +238,12 @@ export function LavaCanvas({ className = "", variant = "dark", fadeOnScroll = tr
     let slowMs = 0;
     const fps = coarse ? 30 : 60;
 
-    // Le shader coûte par pixel : DPR plafonné à 1,5 (1,25 au doigt) et quatre millions de pixels au plus.
+    // Le shader coûte par pixel : DPR plafonné à 1,5 et quatre millions de pixels au plus. Au doigt, 1,6 :
+    // en dessous, le canvas agrandi épaissit le grain du bord jusqu'à le faire pelucher.
     const resize = () => {
       const cw = canvas.clientWidth;
       const ch = canvas.clientHeight;
-      let scale = Math.min(window.devicePixelRatio || 1, coarse ? 1.25 : 1.5);
+      let scale = Math.min(window.devicePixelRatio || 1, coarse ? 1.6 : 1.5);
       if (cw * ch * scale * scale > 4e6) scale = Math.sqrt(4e6 / Math.max(1, cw * ch));
       const w = Math.max(1, Math.round(cw * scale));
       const h = Math.max(1, Math.round(ch * scale));
@@ -314,8 +361,9 @@ export function LavaCanvas({ className = "", variant = "dark", fadeOnScroll = tr
       canvas.removeEventListener("webglcontextlost", onLost);
       motionQuery.removeEventListener("change", onMotion);
       removeInputs();
+      // Les ressources GPU sont rendues, pas le contexte : le perdre exprès le laisserait perdu pour le
+      // montage suivant sur le même canvas (double montage du mode strict de React, changement de variante).
       renderer.dispose();
-      gl.getExtension("WEBGL_lose_context")?.loseContext();
     };
   }, [variant, fadeOnScroll]);
 
