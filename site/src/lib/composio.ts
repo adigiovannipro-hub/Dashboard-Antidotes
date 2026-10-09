@@ -34,11 +34,20 @@ const accountCache = new Map<Toolkit, { id: string; at: number }>();
 /**
  * Le compte actif le plus récent d'un outil — un rebranchement s'ajoute à
  * côté de l'ancien chez Composio, qui reste « actif » même révoqué.
+ *
+ * Borné à l'identifiant de l'agence : le projet Composio est partagé avec le
+ * tableau de bord, où chaque client range ses comptes sous `espace:<id>` —
+ * sans ce filtre, un Gmail branché par un client pourrait servir à écrire
+ * aux prospects.
  */
 export async function findAccount(toolkit: Toolkit): Promise<string | null> {
   const hit = accountCache.get(toolkit);
   if (hit && Date.now() - hit.at < 5 * 60_000) return hit.id;
-  const list = await composioClient().connectedAccounts.list({ toolkitSlugs: [toolkit], statuses: ["ACTIVE"] });
+  const list = await composioClient().connectedAccounts.list({
+    userIds: [env().COMPOSIO_USER_ID],
+    toolkitSlugs: [toolkit],
+    statuses: ["ACTIVE"],
+  });
   const items = (list.items as Account[]).slice().sort((a, b) => {
     const ta = a.createdAt ? Date.parse(a.createdAt) : 0;
     const tb = b.createdAt ? Date.parse(b.createdAt) : 0;

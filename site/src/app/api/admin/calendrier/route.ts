@@ -7,10 +7,13 @@ import { SITE_URL } from "@/i18n/locale";
 export const dynamic = "force-dynamic";
 
 /**
- * Le branchement de l'agenda Google, réservé au propriétaire : avec la clé
+ * Les branchements Google du site, réservés au propriétaire : avec la clé
  * d'administration, la route demande un lien d'autorisation à Composio et y
- * envoie — une fois l'accord donné, l'agenda est lu et écrit. Sans Composio,
- * elle dit ce qui manque. `?etat=1` ne fait que décrire l'état.
+ * envoie — l'agenda par défaut, la boîte Gmail qui écrit aux prospects avec
+ * `?outil=gmail`. Les deux se font **ici** et pas depuis le tableau de bord
+ * de Composio, qui rangerait le compte dans l'espace personnel, invisible du
+ * projet. Sans Composio, elle dit ce qui manque. `?etat=1` ne fait que
+ * décrire l'état.
  */
 export async function GET(request: Request): Promise<Response> {
   const url = new URL(request.url);
@@ -23,7 +26,8 @@ export async function GET(request: Request): Promise<Response> {
     return json({ ok: true, agenda: calendar ? "branché" : "à brancher", gmail: gmail ? "branché" : "à brancher" });
   }
   try {
-    const link = await connectLink("googlecalendar", `${SITE_URL}/api/admin/calendrier?cle=${encodeURIComponent(env().ADMIN_SECRET)}&etat=1`);
+    const toolkit = url.searchParams.get("outil") === "gmail" ? "gmail" : "googlecalendar";
+    const link = await connectLink(toolkit, `${SITE_URL}/api/admin/calendrier?cle=${encodeURIComponent(env().ADMIN_SECRET)}&etat=1`);
     return Response.redirect(link, 302);
   } catch (error) {
     return json({ ok: false, etat: error instanceof Error ? error.message : String(error) }, 500);
