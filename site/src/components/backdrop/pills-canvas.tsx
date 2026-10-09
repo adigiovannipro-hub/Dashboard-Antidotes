@@ -7,10 +7,14 @@ import { useEffect, useRef, useSyncExternalStore } from "react";
  * derrière la page et défilent moins vite qu'elle quand on scrolle — la
  * référence « DAY 219 » du moodboard, passée au vert.
  *
- * Un seul canvas 2D fixe, rendu à demi-résolution et adouci par un flou CSS
- * (composé par le GPU, pas recalculé par le script). Les couleurs et la
- * densité viennent des tokens `--pill-1..4` et `--pill-alpha` : l'alpha
- * plafonne la luminance sous le texte, c'est lui qui garde le contraste.
+ * Un seul canvas 2D fixe, rendu aux trois quarts et à peine adouci par un
+ * flou CSS (composé par le GPU, pas recalculé par le script). Les couleurs
+ * et la densité viennent des tokens `--pill-1..4` et `--pill-alpha` : 0,20
+ * dans les voies latérales, et sous la colonne de texte (`--container` plus
+ * une marge) un masque retire 65 % de ce qui est peint — mesuré aux pixels,
+ * c'est ce qui garde `--text-3` au-dessus de 4,5:1 sous une capsule, là où
+ * l'alpha seul tombait à 2,4:1. Les capsules ne s'additionnent pas entre
+ * elles : deux superposées ne font pas une tache plus claire.
  *
  * Le pointeur repousse doucement ce qu'il frôle ; hors écran ou onglet caché,
  * rien ne tourne ; en mouvement réduit, les capsules ne dérivent pas et ne
@@ -37,6 +41,10 @@ const FALLBACK = ["#9ff0c9", "#2fbf7a", "#5fe0c8", "#e8fff4"] as const;
 const RENDER_SCALE = 0.75;
 const FRAME_MS = 1000 / 30;
 const POINTER_RADIUS = 280;
+/* La colonne de texte : la largeur du conteneur plus une marge, puis un dégradé de 120 px vers les voies. */
+const COLUMN_MARGIN = 48;
+const COLUMN_FEATHER = 120;
+const COLUMN_CUT = 0.65;
 const REDUCED_MOTION_QUERY = "(prefers-reduced-motion: reduce)";
 
 function subscribeReducedMotion(onChange: () => void) {
@@ -63,14 +71,16 @@ function mulberry32(seed: number) {
 function makePills(width: number, height: number): Pill[] {
   const random = mulberry32(219);
   const count = Math.max(3, Math.min(8, Math.round((width * height) / 190000)));
+  /* Sur un téléphone, une capsule de 480 px remplirait la moitié de l'écran : la longueur suit la largeur. */
+  const k = Math.max(0.55, Math.min(1, width / 1440));
   const pills: Pill[] = [];
   for (let i = 0; i < count; i++) {
-    const length = 220 + random() * 260;
+    const length = (220 + random() * 260) * k;
     pills.push({
       x: random() * width,
       y: random() * height,
       length,
-      radius: length * (0.3 + random() * 0.1),
+      radius: length * (0.24 + random() * 0.08),
       angle: (random() < 0.5 ? -1 : 1) * (0.5 + random() * 0.6),
       spin: (random() - 0.5) * 0.06,
       vx: (random() - 0.5) * 14,
@@ -105,7 +115,8 @@ export function PillsCanvas({ className = "" }: { className?: string }) {
 
     const style = getComputedStyle(canvas);
     const colors = TOKENS.map((token, i) => style.getPropertyValue(token).trim() || FALLBACK[i]);
-    const alpha = Math.min(0.5, Math.max(0.05, parseFloat(style.getPropertyValue("--pill-alpha")) || 0.26));
+    const alpha = Math.min(0.5, Math.max(0.05, parseFloat(style.getPropertyValue("--pill-alpha")) || 0.2));
+    const container = parseFloat(style.getPropertyValue("--container")) || 1200;
 
     let width = 0;
     let height = 0;
@@ -138,7 +149,6 @@ export function PillsCanvas({ className = "" }: { className?: string }) {
     const draw = (scrollY: number) => {
       ctx.setTransform(RENDER_SCALE, 0, 0, RENDER_SCALE, 0, 0);
       ctx.clearRect(0, 0, width, height);
-      ctx.globalCompositeOperation = "lighter";
       for (const pill of pills) {
         /* La capsule garde sa place dans la page et ne suit le défilement
            que pour une part : elle paraît derrière, loin. Enveloppe verticale
@@ -149,6 +159,7 @@ export function PillsCanvas({ className = "" }: { className?: string }) {
         ctx.save();
         ctx.translate(x, y);
         ctx.rotate(pill.angle);
+        ctx.globalCompositeOperation = "source-over";
         const gradient = ctx.createLinearGradient(-pill.length / 2, 0, pill.length / 2, 0);
         gradient.addColorStop(0, colors[pill.color]);
         gradient.addColorStop(0.5, colors[(pill.color + 1) % 3]);
@@ -162,20 +173,39 @@ export function PillsCanvas({ className = "" }: { className?: string }) {
         shade.addColorStop(0, "rgba(255,255,255,0.0)");
         shade.addColorStop(0.55, "rgba(0,0,0,0.0)");
         shade.addColorStop(1, "rgba(0,0,0,0.55)");
-        ctx.globalCompositeOperation = "source-over";
         ctx.globalAlpha = alpha * 0.9;
         ctx.fillStyle = shade;
         capsule(ctx, pill.length, pill.radius);
         ctx.fill();
-        ctx.globalCompositeOperation = "lighter";
+        /* Un liseré fin : c'est le bord qui fait la gélule, le flou seul faisait une tache. */
         ctx.globalAlpha = alpha * 0.5;
+        ctx.strokeStyle = colors[0];
+        ctx.lineWidth = 1.5;
+        capsule(ctx, pill.length, pill.radius);
+        ctx.stroke();
+        ctx.globalCompositeOperation = "lighter";
+        ctx.globalAlpha = alpha * 0.25;
         ctx.fillStyle = colors[3];
         ctx.translate(-pill.length * 0.04, -pill.radius * 0.5);
-        capsule(ctx, pill.length * 0.78, pill.radius * 0.2);
+        capsule(ctx, pill.length * 0.78, pill.radius * 0.14);
         ctx.fill();
         ctx.restore();
       }
+      /* Le masque de colonne : sous le texte, 35 % de ce qui vient d'être peint ;
+         en dessous de 1 296 px tous les arrêts se clampent, la coupe est uniforme. */
+      const half = Math.min(width, container) / 2 + COLUMN_MARGIN;
+      const mask = ctx.createLinearGradient(0, 0, width, 0);
+      const stops: Array<[number, number]> = [
+        [width / 2 - half - COLUMN_FEATHER, 0],
+        [width / 2 - half, COLUMN_CUT],
+        [width / 2 + half, COLUMN_CUT],
+        [width / 2 + half + COLUMN_FEATHER, 0],
+      ];
+      for (const [px, cut] of stops) mask.addColorStop(Math.min(1, Math.max(0, px / width)), `rgba(0,0,0,${cut})`);
+      ctx.globalCompositeOperation = "destination-out";
       ctx.globalAlpha = 1;
+      ctx.fillStyle = mask;
+      ctx.fillRect(0, 0, width, height);
       ctx.globalCompositeOperation = "source-over";
     };
 
@@ -277,7 +307,7 @@ export function PillsCanvas({ className = "" }: { className?: string }) {
         width: "100%",
         height: "100%",
         pointerEvents: "none",
-        filter: "blur(7px) saturate(1.1)",
+        filter: "blur(3px) saturate(1.1)",
         zIndex: 0,
       }}
     />

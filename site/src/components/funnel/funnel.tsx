@@ -252,7 +252,12 @@ export function Funnel({ dict, locale, privacyHref }: Props) {
     <div
       ref={cardRef}
       tabIndex={-1}
-      className="glass relative mx-auto flex min-h-130 w-full max-w-190 flex-col overflow-hidden rounded-lg p-6 outline-none sm:p-10"
+      /* L'intro est une section de page, pas une carte : la carte de verre naît avec le formulaire, un objet. */
+      className={
+        state.step === "intro"
+          ? "relative w-full outline-none"
+          : "glass relative mx-auto flex min-h-130 w-full max-w-190 flex-col overflow-hidden rounded-lg p-6 outline-none sm:p-10"
+      }
     >
       {state.step === "question" ? (
         <ProgressBar
@@ -294,24 +299,27 @@ function ScreenTitle({ id, children, size = "h3" }: { id?: string; children: Rea
 
 function IntroScreen({ dict, onStart }: { dict: FunnelDict; onStart: () => void }) {
   return (
-    <div className="flex flex-1 flex-col gap-6">
-      <p className="type-overline text-accent-ink">{dict.eyebrow}</p>
-      <ScreenTitle size="h2">{dict.title}</ScreenTitle>
-      <p className="type-lead text-text-2">{dict.lead}</p>
-      <ul className="flex flex-col gap-3">
+    <div className="grid grid-cols-1 gap-8 lg:grid-cols-12 lg:gap-16">
+      <div className="lg:col-span-7">
+        <p className="type-overline text-accent-ink">{dict.eyebrow}</p>
+        <h2 id="note-titre" tabIndex={-1} data-screen-title className="type-h2 mt-3 text-text outline-none">
+          {dict.title}
+        </h2>
+        <p className="type-lead mt-5 text-text-2">{dict.lead}</p>
+        <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-5">
+          <button type="button" className={BUTTON_PRIMARY} onClick={onStart} data-autofocus>
+            {dict.start}
+          </button>
+          <span className="type-caption text-text-3">{dict.duration}</span>
+        </div>
+      </div>
+      <ul className="lg:col-span-5 lg:self-end">
         {dict.bullets.map((bullet) => (
-          <li key={bullet} className="flex items-start gap-3 type-body text-text">
-            <span aria-hidden="true" className="mt-2.5 size-1.5 shrink-0 rounded-pill" style={{ backgroundImage: "var(--gradient-iris)" }} />
+          <li key={bullet} className="border-t border-line py-3 type-body text-text last:border-b">
             {bullet}
           </li>
         ))}
       </ul>
-      <div className="mt-auto flex flex-col gap-3 pt-4 sm:flex-row sm:items-center sm:gap-5">
-        <button type="button" className={BUTTON_PRIMARY} onClick={onStart} data-autofocus>
-          {dict.start}
-        </button>
-        <span className="type-caption text-text-3">{dict.duration}</span>
-      </div>
     </div>
   );
 }

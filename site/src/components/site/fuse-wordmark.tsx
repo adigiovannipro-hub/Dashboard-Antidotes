@@ -19,7 +19,7 @@ import { useEffect, useRef, useSyncExternalStore } from "react";
 
 const TOKENS: Array<[string, string]> = [["--text", "#f6f5f1"], ["--mint", "#9ff0c9"], ["--green", "#2fbf7a"], ["--turquoise", "#5fe0c8"]];
 /* Hauteur des volutes, en hauteurs de mot. La boîte du composant = mot × (1 + FLAME). */
-const FLAME = 1.6;
+const FLAME = 0.9;
 /* Le rapport largeur/hauteur du mot peint, figé pour que la boîte ait sa taille avant la police. */
 const WORD_ASPECT = 4.1;
 const TEX_WIDTH = 2560;
@@ -48,27 +48,27 @@ vec2 uv=v_uv;
 float inWord=step(uv.y,u_word);
 vec2 tuv=vec2(uv.x,clamp(uv.y/u_word,0.,1.));
 vec4 t=texture2D(u_text,tuv)*inWord;
-// La matière qui monte : une bande étroite des glyphes (de la mi-hauteur
-// d'x aux sommets des hampes) est étirée sur toute la hauteur libre — chaque
-// lettre devient une langue, courte pour un o, haute pour un t — puis tordue
-// par deux bruits, un large qui courbe, un serré qui effiloche. Le bruit
-// fractal vit dans [.25,.75] : amplifié ×3,6 pour que la torsion se voie.
-float v0=.5;float v1=.74;float y0=u_word*v0;
+// La matière qui monte : une bande des glyphes (du tiers de la hauteur d'x
+// au-dessus des sommets des hampes) est relue sur la hauteur libre — chaque
+// lettre devient une langue qui part du corps, pas une épingle sur sa hampe —
+// puis tordue par deux bruits, un large qui courbe, un serré qui effiloche.
+// Le bruit fractal vit dans [.25,.75] : amplifié ×3,6 pour que la torsion se voie.
+float v0=.35;float v1=.8;float y0=u_word*v0;
 float s=(uv.y-y0)/(1.-y0);
 float near=smoothstep(.3,0.,abs(uv.x-u_pointer))*u_hover;
 float agit=.7+.5*u_hover+1.3*near;
 float n1=fbm(vec2(uv.x*4.5+u_time*.06,uv.y*1.3-u_time*.2));
 float n2=fbm(vec2(uv.x*9.+u_time*.04,uv.y*2.6-u_time*.42));
 float stretch=1.+.15*u_hover+.3*near+(n1-.5)*.6;
-float dx=(n1-.5)*3.6*(.012+.09*s)*agit+(n2-.5)*3.6*.02*s*(1.+2.*near);
+float dx=(n1-.5)*3.6*(.012+.14*s)*agit+(n2-.5)*3.6*.02*s*(1.+2.*near);
 float sy=s/stretch;
 float vv=v0+(v1-v0)*sy;
-// Cinq lignes moyennées : la bande est agrandie cinq fois, une seule ligne ferait des marches.
-vec2 fuv=vec2(uv.x+dx,vv);float dv=.0022;
+// Cinq lignes moyennées : la bande n'est plus agrandie, les cinq relectures adoucissent le trait.
+vec2 fuv=vec2(uv.x+dx,vv);float dv=.004;
 vec4 f=(s>0.&&sy<=1.)?(texture2D(u_text,fuv-vec2(0.,2.*dv))+texture2D(u_text,fuv-vec2(0.,dv))+texture2D(u_text,fuv)+texture2D(u_text,fuv+vec2(0.,dv))+texture2D(u_text,fuv+vec2(0.,2.*dv)))*.2:vec4(0.);
 float wisp=smoothstep(.0,.55,n2+.4*(1.-sy));
-float fade=pow(smoothstep(.97,.15,sy),.85);
-float birth=smoothstep(0.,.06,s);
+float fade=pow(smoothstep(.85,.1,sy),.85);
+float birth=smoothstep(0.,.12,s);
 float tear=mix(1.,wisp,smoothstep(.3,1.,sy));
 float body=f.g*tear*fade*birth;
 float rim=f.r*tear*fade*birth;
@@ -81,8 +81,9 @@ float halo=(texture2D(u_text,tuv+vec2(px.x,0.)).r+texture2D(u_text,tuv-vec2(px.x
 float aC=halo*.45;vec3 pc=u_mint*aC;float pa=aC;
 float aA=t.g;pc=u_ink*aA+pc*(1.-aA);pa=aA+pa*(1.-aA);
 float aB=t.r;pc=u_mint*aB+pc*(1.-aB);pa=aB+pa*(1.-aB);
-float aD=min(1.,body*.4+rim*1.);
-pc+=(flameColor*body*.36+mix(u_mint,vec3(1.),.35)*rim*.95)*(1.-pa*.7);pa=pa+aD*(1.-pa);
+// Des langues pleines cernées d'un filet, pas des filaments : le corps pèse plus que le cerne.
+float aD=min(1.,body*.55+rim*.6);
+pc+=(flameColor*body*.55+mix(u_mint,vec3(1.),.35)*rim*.6)*(1.-pa*.7);pa=pa+aD*(1.-pa);
 pc=min(pc,vec3(pa));
 gl_FragColor=vec4(pc,pa);}`;
 
@@ -207,7 +208,8 @@ export function FuseWordmark({ className = "" }: { className?: string }) {
     gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
 
     const coarse = window.matchMedia("(pointer: coarse)").matches;
-    const scale = Math.min(window.devicePixelRatio || 1, coarse ? 1 : 1.25);
+    /* Au doigt, 2× plutôt que 1× : sur un écran 3× le mot était flou, et 0,4 Mpx à 40 i/s reste abordable. */
+    const scale = Math.min(window.devicePixelRatio || 1, coarse ? 2 : 1.25);
     const fps = coarse ? 40 : 60;
     const resize = () => {
       const w = Math.max(1, Math.round(canvas.clientWidth * scale));

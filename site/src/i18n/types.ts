@@ -16,7 +16,6 @@ export type CaseStudy = {
   client: string;
   sector: string;
   headline: string;
-  text: string;
   stat: Stat;
 };
 

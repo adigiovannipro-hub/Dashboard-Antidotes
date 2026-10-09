@@ -54,7 +54,7 @@ export function Footer({ dict, locale }: { dict: Dictionary; locale: Locale }) {
         </p>
       </div>
       {/* Le logotype prend toute la largeur ; l'air au-dessus est celui où montent les volutes. */}
-      <div className="container-site -mt-6 pb-2">
+      <div className="container-site -mt-2 pb-4">
         <FuseWordmark />
       </div>
     </footer>

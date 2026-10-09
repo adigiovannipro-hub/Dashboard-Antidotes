@@ -144,6 +144,21 @@
 @utility section-pad {
   padding-block: var(--section);
 }
+/* Un rail qui sort du conteneur jusqu'aux bords de l'écran : la marge
+   négative rend la gouttière et la part du viewport au-delà du conteneur,
+   le padding la reprend pour que le premier élément s'aligne sur le texte.
+   Pas de barre de défilement : la publication coupée au bord dit qu'on
+   peut glisser. */
+@utility bleed-x {
+  --bleed: calc(max(0px, (100vw - var(--container)) / 2) + var(--gutter));
+  margin-inline: calc(-1 * var(--bleed));
+  padding-inline: var(--bleed);
+  scroll-padding-inline: var(--bleed);
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
 
 /* Apparition au défilement : la classe `reveal` est posée côté serveur, le
    script d'observation ajoute `is-visible`. Sans JavaScript, tout est visible
@@ -168,7 +183,9 @@
 /* ---------------------------------------------------------------------------
    Le bandeau de logos : la piste est rendue deux fois, translatée d'une
    moitié, en boucle. Pause au survol ; en mouvement réduit, une rangée fixe
-   qui passe à la ligne. Les marques sont blanchies par filtre.
+   qui passe à la ligne. Un tracé sur alpha passe en un seul blanc (`mono`),
+   un tracé sombre s'inverse ; un aplat de couleur n'a pas de filtre honnête
+   et s'écrit en lettres.
    --------------------------------------------------------------------------- */
 .marquee {
   overflow: hidden;
@@ -178,7 +195,7 @@
 .marquee-track {
   display: flex;
   width: max-content;
-  gap: clamp(40px, 6vw, 88px);
+  gap: clamp(32px, 5vw, 64px);
   padding-inline: clamp(20px, 3vw, 44px);
   animation: marquee var(--marquee-duration, 64s) linear infinite;
   will-change: transform;
@@ -194,15 +211,17 @@
   flex: none;
 }
 .marquee-logo {
-  height: 28px;
+  height: 40px;
   width: auto;
+  max-width: 176px;
+  object-fit: contain;
   opacity: 0.85;
+}
+.marquee-logo-mono {
+  filter: brightness(0) invert(1);
 }
 .marquee-logo-invert {
   filter: invert(1) grayscale(1) brightness(1.15);
-}
-.marquee-logo-lift {
-  filter: grayscale(1) brightness(1.7) contrast(1.1);
 }
 @keyframes marquee {
   to {

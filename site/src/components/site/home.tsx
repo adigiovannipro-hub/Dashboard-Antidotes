@@ -27,9 +27,7 @@ export function Home({ dict, locale }: { dict: Dictionary; locale: Locale }) {
           <Method dict={dict} />
           <section id="note" aria-labelledby="note-titre" className="scroll-mt-20 border-t border-line">
             <div className="container-site section-pad">
-              <div className="mx-auto max-w-3xl">
-                <Funnel dict={dict.funnel} locale={locale} privacyHref={privacyHref} />
-              </div>
+              <Funnel dict={dict.funnel} locale={locale} privacyHref={privacyHref} />
             </div>
           </section>
           <Faq dict={dict} />

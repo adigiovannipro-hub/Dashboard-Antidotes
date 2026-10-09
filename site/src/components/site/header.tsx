@@ -35,7 +35,7 @@ export function Header({ dict, locale }: { dict: Dictionary; locale: Locale }) {
             href={localePath(other)}
             hrefLang={other}
             aria-label={`${dict.nav.switchLabel}, ${dict.nav.switchAria}`}
-            className="type-caption rounded-pill border border-line px-3 py-1.5 text-text-2 transition-colors duration-(--motion) hover:border-line-strong hover:text-text"
+            className="type-small rounded-pill border border-line px-3 py-1.5 text-text-2 transition-colors duration-(--motion) hover:border-line-strong hover:text-text"
           >
             {dict.nav.switchLabel}
           </Link>

@@ -45,9 +45,10 @@ vec2 uv=gl_FragCoord.xy/u_res;float aspect=u_res.x/u_res.y;vec2 ext=vec2(aspect,
 vec2 p=(uv-.5)*vec2(aspect,1.);float t=u_time;
 // Turbulence du défilement : un cisaillement sinusoïdal tord le champ.
 p+=vec2(sin(p.y*5.+t*2.3),cos(p.x*4.-t*1.9))*u_turb*.05;
-vec2 m=(u_mouse-.5)*vec2(aspect,1.);float rs=mix(.75,1.,clamp(aspect,0.,1.));
+vec2 m=(u_mouse-.5)*vec2(aspect,1.);float rs=clamp(aspect*1.25,.5,1.);
 // Bulle principale : sa dérive est attirée par le pointeur, déjà lissé côté JS.
-vec2 c0=mix(vec2(sin(t*.23)*.5,cos(t*.19)*.4)*ext,m,u_mouseOn*.6);vec2 push=vec2(0.,u_push);
+// Sur un écran large, la bulle principale vit à droite de la colonne de texte ; au doigt, le pointeur l'y ramène.
+vec2 c0=mix(vec2(.3*smoothstep(.9,1.4,aspect)+sin(t*.23)*.4,cos(t*.19)*.4)*ext,m,u_mouseOn*.6);vec2 push=vec2(0.,u_push);
 float f=0.;vec2 g=vec2(0.);
 ball(p,c0+push*.6,.30*rs,f,g);
 ball(p,vec2(-.75+sin(t*.13)*.2,.45+cos(t*.11)*.3)*ext+push,.20*rs,f,g);
@@ -66,8 +67,8 @@ vec3 bg=u_ink+haze(uv)+iris(hue+.3)*smoothstep(.3,1.,f)*.1;
 vec3 body=u_ink+haze(uv+n.xy*.1)*1.8+film*(.08+.9*fres)+vec3(spec);
 vec3 col=u_ink+(mix(bg,body,mask)-u_ink)*u_intensity;
 // Grain, puis vignette vers le bas : le texte du hero repose sur de l'encre.
-col+=(hash(gl_FragCoord.xy+fract(t)*61.)-.5)*.035;
-float vig=smoothstep(0.,.55,uv.y)*(1.-.35*smoothstep(.6,1.3,length(p/ext)));
+col+=(hash(gl_FragCoord.xy+fract(t)*61.)-.5)*.022;
+float vig=smoothstep(.1,.7,uv.y)*(1.-.35*smoothstep(.6,1.3,length(p/ext)));
 gl_FragColor=vec4(mix(u_ink,col,.2+.8*vig),1.);}`;
 
 function readColor(style: CSSStyleDeclaration, name: string, fallback: string): number[] {
@@ -186,6 +187,9 @@ export function IrisCanvas({ className = "", intensity = 1 }: { className?: stri
     let reduced = motionQuery.matches;
     const onMotion = () => {
       reduced = motionQuery.matches;
+      /* En mouvement réduit, une image puis l'arrêt : comme les pilules, le bandeau et les vidéos. */
+      if (reduced) run(false);
+      else run(true);
     };
     // DPR plafonné à 1,25 puis 0,8× (0,6× au doigt) — le shader coûte par pixel, et un fond
     // de bulles floues ne montre pas la différence ; c'est ce qui le rend abordable sur un portable.
@@ -247,7 +251,7 @@ export function IrisCanvas({ className = "", intensity = 1 }: { className?: stri
 
       gl.uniform1f(uTime, sim.time);
       gl.uniform2f(uMouse, sim.x, sim.y);
-      gl.uniform1f(uMouseOn, sim.on * (reduced ? 0.5 : 1));
+      gl.uniform1f(uMouseOn, sim.on * (reduced ? 0 : 1));
       gl.uniform1f(uTurb, Math.min(Math.abs(sim.vel) / 600, 1));
       gl.uniform1f(uPush, Math.max(-1, Math.min(1, sim.vel / 900)) * 0.12);
       gl.uniform1f(uIntensity, intensityRef.current);
@@ -257,6 +261,7 @@ export function IrisCanvas({ className = "", intensity = 1 }: { className?: stri
         painted = true;
         canvas.style.opacity = "1";
         fallback.style.display = "none";
+        if (reduced) run(false);
       }
     };
     // Une seule boucle, qui ne tourne que visible et onglet au premier plan.

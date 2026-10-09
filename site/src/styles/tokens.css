@@ -57,7 +57,7 @@
   --pill-2: var(--green);
   --pill-3: var(--turquoise);
   --pill-4: var(--pearl);
-  --pill-alpha: 0.24;
+  --pill-alpha: 0.2;
 
   /* --- États ------------------------------------------------------------- */
   --ok: #7ee2a8;
@@ -80,5 +80,5 @@
   /* --- Mise en page -------------------------------------------------------- */
   --container: 1200px;
   --gutter: clamp(20px, 5vw, 48px);
-  --section: clamp(72px, 9vw, 120px);
+  --section: clamp(56px, 7vw, 96px);
 }
