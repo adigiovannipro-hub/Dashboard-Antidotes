@@ -5,5 +5,5 @@ export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
 export default async function Image() {
-  return ogImage({ title: "Vos réseaux sociaux méritent un antidote, pas une énième agence.", subtitle: "Stratégie, contenus, publicité et reporting, pilotés par un expert freelance avec des outils maison et l'IA." });
+  return ogImage({ keyword: "antidote", title: "Vos réseaux sociaux méritent un antidote, pas une énième agence.", subtitle: "Stratégie, contenus, publicité et reporting, pilotés par un expert freelance avec des outils maison et l'IA." });
 }

@@ -20,7 +20,9 @@ const GRAPHITE = "#5C5F58";
 const CHALK = "#F7F8F4";
 const SIGNAL = "#22E05B";
 const FOREST = "#0E4A26";
-const BAND = "linear-gradient(90deg,#0F6529,#189D40,#22E05B,#7AEC9D,#A7F3BD)";
+const BAND = "linear-gradient(90deg,#22E05B,#7AEC9D,#A7F3BD)";
+/** Le logotype dessiné, servi par le site : en texte, la police de repli du client l'élargissait et l'alourdissait. */
+const LOGO_URL = "https://antidotes.agency/brand/logo-encre@2x.png";
 const SIGNATURE_FR = "Alessandro Di Giovanni\nFreelance social media & IA — Antidotes\nhttps://antidotes.agency";
 const SIGNATURE_EN = "Alessandro Di Giovanni\nFreelance social media & AI — Antidotes\nhttps://antidotes.agency";
 
@@ -37,8 +39,8 @@ function layout(options: { title: string; paragraphs: string[]; cta?: { label: s
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:${CHALK};padding:32px 16px"><tr><td align="center">
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;background:#ffffff;border-radius:20px;overflow:hidden">
 <tr><td height="4" bgcolor="${SIGNAL}" style="height:4px;line-height:4px;font-size:0;background-color:${SIGNAL};background-image:${BAND}">&nbsp;</td></tr>
-<tr><td style="padding:34px 36px 8px"><div style="font-family:'Funnel Display',-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:24px;line-height:1;letter-spacing:-0.04em;font-weight:700;color:${INK}">antidotes.</div>
-<h1 style="margin:14px 0 20px;font-size:24px;line-height:1.25;color:${INK};font-weight:600">${escapeHtml(options.title)}</h1>${body}${cta}</td></tr>
+<tr><td style="padding:34px 36px 8px"><img src="${LOGO_URL}" width="133" height="21" alt="antidotes." style="display:block;border:0;outline:none;height:21px;width:133px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:20px;font-weight:700;letter-spacing:-0.03em;color:${INK}">
+<h1 style="margin:20px 0 20px;font-family:'Funnel Display',-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:26px;line-height:1.2;letter-spacing:-0.02em;color:${INK};font-weight:600">${escapeHtml(options.title)}</h1>${body}${cta}</td></tr>
 <tr><td style="padding:8px 36px 32px;font-size:13px;line-height:1.5;color:${GRAPHITE};white-space:pre-line">${escapeHtml(options.footer)}</td></tr>
 </table></td></tr></table></body></html>`;
 }

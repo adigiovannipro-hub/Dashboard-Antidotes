@@ -31,7 +31,7 @@ export function Hero({ dict }: { dict: Dictionary }) {
             <a href="#note" className="type-body inline-flex items-center justify-center rounded-pill bg-btn px-6.5 py-3.5 font-semibold text-btn-text transition-colors duration-(--motion) hover:bg-btn-hover">
               {dict.hero.ctaPrimary}
             </a>
-            <a href="#cas" className="glass type-body inline-flex items-center justify-center rounded-pill px-6.5 py-3.5 font-medium text-text transition-[filter] duration-(--motion) hover:brightness-125">
+            <a href="#cas" className="glass type-body inline-flex items-center justify-center rounded-pill px-6.5 py-3.5 font-medium text-text transition-[filter] duration-(--motion) hover:brightness-125 max-md:bg-surface max-md:shadow-[inset_0_0_0_1px_var(--line-strong)]">
               {dict.hero.ctaSecondary}
             </a>
           </div>

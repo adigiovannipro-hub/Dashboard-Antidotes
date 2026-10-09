@@ -5,5 +5,5 @@ export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
 export default async function Image() {
-  return ogImage({ title: "Your social media deserves an antidote, not another agency.", subtitle: "Strategy, content, ads and reporting, run by a senior freelancer with in-house tools and AI." });
+  return ogImage({ keyword: "antidote", title: "Your social media deserves an antidote, not another agency.", subtitle: "Strategy, content, ads and reporting, run by a senior freelancer with in-house tools and AI." });
 }

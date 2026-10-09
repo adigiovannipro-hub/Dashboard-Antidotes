@@ -257,7 +257,7 @@ export function Booking({ dict, locale, leadId, prefill, onConfirmed }: Props) {
             </p>
           </div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="flex flex-col gap-1.5">
+            <div className="flex flex-col gap-1.5 sm:col-span-2">
               <label htmlFor={`${ids.form}-name`} className={LABEL}>
                 {dict.form.name}
               </label>

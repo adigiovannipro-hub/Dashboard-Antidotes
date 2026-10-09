@@ -56,16 +56,18 @@ export function Services({ dict }: { dict: Dictionary }) {
       </div>
       <div className="container-site section-pad">
         <SectionHeading eyebrow={dict.services.eyebrow} index={1} title={dict.services.title} id="services-titre" />
-        <ul className="mt-14 grid grid-cols-1 gap-x-10 gap-y-14 sm:grid-cols-2 lg:grid-cols-3">
+        <ul className="mt-12 grid grid-cols-1 gap-x-10 gap-y-20 sm:grid-cols-2 md:gap-y-24 lg:grid-cols-3">
           {dict.services.items.map((item) => {
             const capsule = CAPSULES[item.icon];
             const asset = CAPSULE_ASSETS[capsule.asset];
             return (
               <li key={item.name} className="capsule-host flex flex-col">
-                <div className="flex h-60 items-center justify-center">
+                {/* La capsule coiffe son libellé, calée à gauche comme lui : à égale distance de deux
+                    rangées, elle se lisait comme celle du service d'en dessous. */}
+                <div className="-ml-6 flex h-48 items-center justify-start">
                   <Capsule src={asset.src} size={capsule.size} rotate={capsule.rotate} halo={asset.halo} />
                 </div>
-                <div className="reveal mt-6 border-t border-line pt-5">
+                <div className="reveal mt-2 border-t border-line pt-5">
                   <h3 className="type-h3 text-text">{item.name}</h3>
                   <p className="type-small mt-2 text-text-2">{item.text}</p>
                 </div>
@@ -108,18 +110,18 @@ export function Cases({ dict }: { dict: Dictionary }) {
         </div>
         <SectionHeading eyebrow={dict.cases.eyebrow} index={2} title={dict.cases.title} id="cas-titre" />
         {/* Le rail déborde du conteneur jusqu'aux bords de l'écran ; `body` est en `overflow-x: clip`. */}
-        <ul tabIndex={0} aria-labelledby="cas-titre" className="reveal bleed-x mt-12 flex snap-x snap-mandatory gap-4 overflow-x-auto pb-4">
+        <ul tabIndex={0} aria-labelledby="cas-titre" className="reveal bleed-x mt-12 flex snap-x snap-mandatory gap-4 overflow-x-auto pb-10">
           {rail.map((visual) => (
             <li key={visual.poster} className="w-[200px] shrink-0 snap-start md:w-[220px]">
               <PhoneCase poster={visual.poster} video={visual.video} alt={visual.alt} handle={visual.handle} />
             </li>
           ))}
         </ul>
-        <ul className="reveal mt-12 grid grid-cols-1 gap-8 sm:grid-cols-3">
+        <ul className="reveal mt-6 grid grid-cols-1 gap-8 sm:grid-cols-3">
           {dict.cases.items.map((item) => (
             <li key={item.id} className="border-t border-line-strong pt-5">
               <h3 className="type-h3 text-text">{item.client}</h3>
-              <p className="type-data mt-1.5 text-text-3">{item.sector}</p>
+              <p className="type-data mt-1.5 text-text-3 sm:min-h-[2.9em]">{item.sector}</p>
               <span className="type-stat mt-5 block text-text">{item.stat.value}</span>
               <span className="type-small mt-2 block text-text-2">{item.stat.label}</span>
               {item.stat.source && <span className="type-caption mt-1 block text-text-3">{item.stat.source}</span>}

@@ -87,7 +87,7 @@ export const en: Dictionary = {
   },
   funnel: {
     eyebrow: "Free",
-    title: "Your *social media* score, _from 1 to 10._",
+    title: "Your _social media_ *score*, from 1 to 10.",
     lead: "The score is calculated right away. I present it to you on a call, with the three levers that would move it up.",
     bullets: ["Based on your answers", "Explained on a 30-minute video call", "No commitment"],
     start: "Start",

@@ -17,7 +17,7 @@ export default function CguPage() {
     <LegalPage title="Conditions générales d'utilisation" other={{ href: "/confidentialite", label: "Politique de confidentialité →" }} home="/" updatedLabel="Dernière mise à jour :" updated={CGU_MAJ}>
       <LegalSection title="Éditeur">
         <p>
-          Directeur de la publication : {LEGAL_ENTITY.responsable}. Contact : <LegalLink href={`mailto:${LEGAL_ENTITY.email}`}>{LEGAL_ENTITY.email}</LegalLink>.
+          Directeur de la publication : {LEGAL_ENTITY.responsable}. Contact : <LegalLink href={`mailto:${LEGAL_ENTITY.email}`}>{LEGAL_ENTITY.email}</LegalLink>.
         </p>
         {identite.length > 0 ? <p>{identite.join(" · ")}</p> : null}
         <p>Hébergement : {HEBERGEURS.map((h) => h.nom).join(", ")}</p>

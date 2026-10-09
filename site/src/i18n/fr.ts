@@ -87,7 +87,7 @@ export const fr: Dictionary = {
   },
   funnel: {
     eyebrow: "Offert",
-    title: "Votre note de présence *social media*, _de 1 à 10._",
+    title: "Votre *note* de _présence social media_, de 1 à 10.",
     lead: "La note se calcule tout de suite. Je vous la présente en rendez-⁠vous, avec les trois leviers qui la feraient monter.",
     bullets: ["Calculée sur vos réponses", "Expliquée en visio, en 30 minutes", "Sans engagement"],
     start: "Commencer",
