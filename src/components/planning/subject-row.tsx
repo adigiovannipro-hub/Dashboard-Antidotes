@@ -35,10 +35,11 @@ import {
 import { Button } from "@/components/ui/button";
 import type { ColumnDef, ColumnLabel } from "@/lib/planning/columns";
 import { uploadVisualsFromBrowser } from "@/lib/planning/upload-client";
-import type {
-  PlanningComment,
-  PlanningOwner,
-  SubjectRow as Row,
+import {
+  STATUS_COLORS,
+  type PlanningComment,
+  type PlanningOwner,
+  type SubjectRow as Row,
 } from "@/lib/planning/types";
 import { useDraggedRow } from "@/components/planning/move-context";
 import { PublishActions } from "@/components/planning/publish-actions";
@@ -64,6 +65,11 @@ function toOptions(labels: ColumnLabel[] | null) {
     label: label.label,
     color: label.color,
   }));
+}
+
+/** La couleur d'une étiquette du tableau, ou celle d'origine si on l'a retirée. */
+function labelColor(labels: ColumnLabel[] | null, status: "scheduled" | "published"): string {
+  return labels?.find((label) => label.id === status)?.color ?? STATUS_COLORS[status];
 }
 
 /** Le format que porte un drag de ligne dans `dataTransfer`. */
@@ -429,16 +435,17 @@ function Cell({
         return stop(chip, true);
       }
       return stop(
-        <span className="group/statut relative flex w-full items-stretch">
+        <PublishActions
+          scope={scope}
+          subjectId={row.id}
+          subjectName={row.name}
+          networks={publishNetworks}
+          run={run}
+          scheduledColor={labelColor(column.labels, "scheduled")}
+          publishedColor={labelColor(column.labels, "published")}
+        >
           {chip}
-          <PublishActions
-            scope={scope}
-            subjectId={row.id}
-            subjectName={row.name}
-            networks={publishNetworks}
-            run={run}
-          />
-        </span>,
+        </PublishActions>,
         true,
       );
     }

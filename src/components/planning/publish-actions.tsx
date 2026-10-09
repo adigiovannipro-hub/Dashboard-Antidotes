@@ -1,23 +1,27 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
+import { CalendarClock, Send, X } from "lucide-react";
 
 import type { PlanningResult } from "@/app/actions/planning";
 import { publishSubjectNow, scheduleSubject } from "@/app/actions/publication";
 import { ConfirmDialog } from "@/components/ds/confirm-dialog";
-import type { useCellAction } from "@/components/planning/cells";
+import { chipInk, type useCellAction } from "@/components/planning/cells";
 import type { Scope } from "@/components/planning/subject-row";
-import { cn } from "@/lib/utils";
 
 /**
- * « Publier » et « Programmer », posés sur la case statut d'une ligne
- * « Validé » au survol — l'agence seule.
+ * La case statut d'une ligne « Validé », vue par l'agence : au survol, elle
+ * se coupe en deux moitiés égales — **Programmer** (le calendrier) à gauche,
+ * **Publier** (l'envoi) à droite — chacune à la couleur de l'étiquette
+ * qu'elle posera, « Programmé » et « Publié ». Le geste se lit avant d'être
+ * fait : la case prend la couleur de ce qu'elle deviendra.
  *
- * Ils couvrent la pastille sauf sa marge droite : un clic sur ce reste ouvre
- * toujours le sélecteur de statut, sans quoi une ligne validée ne pourrait
- * plus revenir à « À valider » depuis le tableau. Au clavier, ils apparaissent
- * dès que le focus entre dans la case.
+ * La petite croix ronde rend la case à « Validé » le temps du survol : c'est
+ * le chemin vers le sélecteur de statut, sans quoi une ligne validée ne
+ * pourrait plus revenir à « À valider » depuis le tableau. Elle revient dès
+ * que la souris quitte la case. Au clavier, les deux moitiés apparaissent
+ * quand le focus entre dans la case, et la croix rend le focus à la pastille.
  *
  * Publier demande confirmation : une publication ne se retire pas d'ici. Elle
  * tourne côté serveur une à deux minutes (l'encodage d'un reel) ; la page se
@@ -31,6 +35,9 @@ export function PublishActions({
   subjectName,
   networks,
   run,
+  scheduledColor,
+  publishedColor,
+  children,
 }: {
   scope: Scope;
   subjectId: string;
@@ -38,9 +45,16 @@ export function PublishActions({
   /** « Instagram et Facebook » — ce que la confirmation annonce. */
   networks: string;
   run: ReturnType<typeof useCellAction>["run"];
+  /** Les couleurs des étiquettes « Programmé » et « Publié » du tableau. */
+  scheduledColor: string;
+  publishedColor: string;
+  /** La pastille de statut, qui reste dessous. */
+  children: ReactNode;
 }) {
   const router = useRouter();
   const [confirming, setConfirming] = useState(false);
+  const [dismissed, setDismissed] = useState(false);
+  const container = useRef<HTMLSpanElement>(null);
   const timers = useRef<number[]>([]);
 
   useEffect(() => {
@@ -56,25 +70,55 @@ export function PublishActions({
     );
   };
 
+  const dismiss = () => {
+    setDismissed(true);
+    // La pastille reprend le focus : Entrée ouvre aussitôt le sélecteur.
+    container.current?.querySelector<HTMLElement>("[aria-haspopup]")?.focus();
+  };
+
   const label = subjectName.trim() ? `« ${subjectName.trim()} »` : "cette publication";
 
   return (
     <>
-      <span className="bg-border-strong absolute inset-y-0 left-0 right-3 hidden gap-px group-focus-within/statut:flex group-hover/statut:flex">
-        <button
-          type="button"
-          onClick={() => setConfirming(true)}
-          className={cn(ACTION, "flex-1")}
-        >
-          Publier
-        </button>
-        <button
-          type="button"
-          onClick={() => run(() => scheduleSubject(scope, subjectId))}
-          className={cn(ACTION, "flex-[1.4]")}
-        >
-          Programmer
-        </button>
+      <span
+        ref={container}
+        className="group/statut relative flex w-full items-stretch"
+        onMouseLeave={() => setDismissed(false)}
+      >
+        {children}
+        {dismissed ? null : (
+          <span className="bg-surface absolute inset-0 hidden gap-px group-focus-within/statut:flex group-hover/statut:flex">
+            <button
+              type="button"
+              aria-label="Programmer à sa date"
+              title="Programmer"
+              onClick={() => run(() => scheduleSubject(scope, subjectId))}
+              className={HALF}
+              style={{ backgroundColor: scheduledColor, color: chipInk(scheduledColor) }}
+            >
+              <CalendarClock className="size-4" strokeWidth={1.75} aria-hidden />
+            </button>
+            <button
+              type="button"
+              aria-label="Publier maintenant"
+              title="Publier maintenant"
+              onClick={() => setConfirming(true)}
+              className={HALF}
+              style={{ backgroundColor: publishedColor, color: chipInk(publishedColor) }}
+            >
+              <Send className="size-4" strokeWidth={1.75} aria-hidden />
+            </button>
+            <button
+              type="button"
+              aria-label="Garder « Validé » et changer le statut"
+              title="Changer le statut"
+              onClick={dismiss}
+              className="focus-visible:ring-ring absolute top-0.5 right-0.5 flex size-4 items-center justify-center rounded-full bg-white text-black shadow-sm ring-1 ring-black/10 outline-none focus-visible:ring-2"
+            >
+              <X className="size-2.5" strokeWidth={2.5} aria-hidden />
+            </button>
+          </span>
+        )}
       </span>
 
       <ConfirmDialog
@@ -90,5 +134,5 @@ export function PublishActions({
   );
 }
 
-const ACTION =
-  "bg-surface text-foreground hover:bg-muted focus-visible:ring-ring flex min-w-0 items-center justify-center px-0.5 text-[11px] font-semibold outline-none transition-[background-color] duration-(--motion-duration) ease-standard focus-visible:ring-2 focus-visible:ring-inset";
+const HALF =
+  "focus-visible:ring-ring flex min-w-0 flex-1 items-center justify-center outline-none transition-opacity duration-(--motion-duration) ease-standard hover:opacity-80 focus-visible:ring-2 focus-visible:ring-inset";
