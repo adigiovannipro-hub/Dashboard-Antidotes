@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 import { LegalList, LegalPage, LegalSection } from "@/components/legal/legal-page";
-import { HEBERGEURS, LEGAL_ENTITY, identityLines } from "@/lib/legal/entity";
+import { CGU_MAJ, HEBERGEURS, LEGAL_ENTITY, identityLines } from "@/lib/legal/entity";
 
 /**
  * Les conditions générales d'utilisation — page **publique**.
@@ -24,6 +24,7 @@ export default function CguPage() {
     <LegalPage
       title="Conditions générales d'utilisation"
       other={{ href: "/confidentialite", label: "Politique de confidentialité →" }}
+      updated={CGU_MAJ}
     >
       <LegalSection title="Éditeur">
         {/* Pas de « éditée par Antidotes » sous un titre « Éditeur » : la
@@ -85,6 +86,9 @@ export default function CguPage() {
           Antidotes lit ces comptes et, lorsque cela lui est demandé, publie
           ou répond en leur nom. Il n&apos;agit sur aucun compte tiers.
         </p>
+        <p>
+          {"TikTok. Connecter un compte TikTok vaut acceptation des Conditions d'utilisation de TikTok pour les développeurs et des Règles de la communauté TikTok. Avant chaque publication, l'utilisateur choisit la visibilité de la vidéo, autorise ou non les commentaires, duos et collages, déclare un éventuel contenu commercial et confirme l'utilisation de la musique. Antidotes ne publie jamais sur TikTok sans cette action explicite."}
+        </p>
       </LegalSection>
 
       <LegalSection title="Usage attendu">
@@ -93,6 +97,7 @@ export default function CguPage() {
             "Ne pas tenter d'accéder à un espace ou à des données qui ne vous sont pas destinés.",
             "Ne pas publier, par l'intermédiaire de la plateforme, de contenu illicite ou contraire aux règles du réseau visé.",
             "Ne pas perturber le fonctionnement du service, ni en extraire massivement les données.",
+            "Ne pas publier sur TikTok de contenu qui enfreint les règles de la communauté TikTok ou les obligations de déclaration des contenus commerciaux.",
           ]}
         />
       </LegalSection>
