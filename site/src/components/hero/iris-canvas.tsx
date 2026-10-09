@@ -19,7 +19,7 @@ type Inputs = {
 };
 
 /** Tokens lus au démarrage ; repli sur les valeurs de tokens.css s'ils manquent. */
-const TOKENS: Array<[string, string]> = [["--iris-cyan", "#7fd9ff"], ["--iris-violet", "#8d7bff"], ["--iris-pink", "#ff6fae"], ["--iris-amber", "#ffb866"], ["--ink-0", "#0a0b0f"]];
+const TOKENS: Array<[string, string]> = [["--iris-cyan", "#5fe0c8"], ["--iris-violet", "#2fbf7a"], ["--iris-pink", "#9ff0c9"], ["--iris-amber", "#e8fff4"], ["--ink-0", "#090c0b"]];
 
 const VERT = `attribute vec2 a_pos;void main(){gl_Position=vec4(a_pos,0.,1.);}`;
 

@@ -5,28 +5,41 @@ import { escapeHtml, whenWithZone } from "./format";
 
 /**
  * Les courriels du site. Chacun existe en HTML et en texte brut, FR et EN.
- * Le gabarit est clair (fond blanc, encre foncée) : un courriel sombre se
- * lit mal dans la moitié des clients, et l'iridescence ne vit ici qu'en
- * filet.
+ * Le gabarit est clair (fond craie, carte blanche, encre) : un courriel
+ * sombre se lit mal dans la moitié des clients, et le vert ne vit ici qu'en
+ * filet et dans les liens. Les couleurs sont celles de la palette de marque
+ * (9/10/2026).
  */
 export type Rendered = { subject: string; html: string; text: string };
 
 const OWNER = "Alessandro Di Giovanni";
+
+/** Encre, graphite et craie de la palette ; le filet descend la gamme verte, de 700 à 200. */
+const INK = "#141414";
+const GRAPHITE = "#5C5F58";
+const CHALK = "#F7F8F4";
+const SIGNAL = "#22E05B";
+const FOREST = "#0E4A26";
+const BAND = "linear-gradient(90deg,#0F6529,#189D40,#22E05B,#7AEC9D,#A7F3BD)";
 const SIGNATURE_FR = "Alessandro Di Giovanni\nFreelance social media & IA — Antidotes\nhttps://antidotes.agency";
 const SIGNATURE_EN = "Alessandro Di Giovanni\nFreelance social media & AI — Antidotes\nhttps://antidotes.agency";
 
 function layout(options: { title: string; paragraphs: string[]; cta?: { label: string; href: string }; footer: string }): string {
-  const body = options.paragraphs.map((p) => `<p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#1a1b22">${p}</p>`).join("");
+  // Les liens des paragraphes prennent le vert forêt : sans couleur posée, chaque client les peint en bleu.
+  const body = options.paragraphs
+    .map((p) => p.replaceAll("<a href=", `<a style="color:${FOREST};text-decoration:underline" href=`))
+    .map((p) => `<p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:${INK}">${p}</p>`)
+    .join("");
   const cta = options.cta
-    ? `<p style="margin:24px 0"><a href="${options.cta.href}" style="display:inline-block;background:#0a0b0f;color:#ffffff;text-decoration:none;padding:14px 22px;border-radius:999px;font-weight:600;font-size:15px">${escapeHtml(options.cta.label)}</a></p>`
+    ? `<p style="margin:24px 0"><a href="${options.cta.href}" style="display:inline-block;background:${INK};color:#ffffff;text-decoration:none;padding:14px 22px;border-radius:999px;font-weight:600;font-size:15px">${escapeHtml(options.cta.label)}</a></p>`
     : "";
-  return `<!doctype html><html><body style="margin:0;background:#f4f4f6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif">
-<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f4f4f6;padding:32px 16px"><tr><td align="center">
+  return `<!doctype html><html><body style="margin:0;background:${CHALK};font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif">
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:${CHALK};padding:32px 16px"><tr><td align="center">
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;background:#ffffff;border-radius:20px;overflow:hidden">
-<tr><td style="height:4px;background:linear-gradient(90deg,#7fd9ff,#8d7bff,#ff6fae,#ffb866)"></td></tr>
-<tr><td style="padding:36px 36px 8px"><div style="font-size:14px;letter-spacing:0.08em;text-transform:uppercase;color:#6b6e7b;font-weight:600">antidotes</div>
-<h1 style="margin:14px 0 20px;font-size:24px;line-height:1.25;color:#0a0b0f;font-weight:600">${escapeHtml(options.title)}</h1>${body}${cta}</td></tr>
-<tr><td style="padding:8px 36px 32px;font-size:13px;line-height:1.5;color:#6b6e7b;white-space:pre-line">${escapeHtml(options.footer)}</td></tr>
+<tr><td height="4" bgcolor="${SIGNAL}" style="height:4px;line-height:4px;font-size:0;background-color:${SIGNAL};background-image:${BAND}">&nbsp;</td></tr>
+<tr><td style="padding:36px 36px 8px"><div style="font-size:14px;letter-spacing:0.08em;text-transform:uppercase;color:${GRAPHITE};font-weight:600">antidotes</div>
+<h1 style="margin:14px 0 20px;font-size:24px;line-height:1.25;color:${INK};font-weight:600">${escapeHtml(options.title)}</h1>${body}${cta}</td></tr>
+<tr><td style="padding:8px 36px 32px;font-size:13px;line-height:1.5;color:${GRAPHITE};white-space:pre-line">${escapeHtml(options.footer)}</td></tr>
 </table></td></tr></table></body></html>`;
 }
 
@@ -134,7 +147,7 @@ export function bookingConfirmation(locale: Locale, b: BookingMailInput): Render
       subject: `Votre rendez-vous Antidotes — ${whenProspect}`,
       title: `${name}, c'est confirmé.`,
       paragraphs: [
-        `<strong>Quand :</strong> ${escapeHtml(whenProspect)}<br><span style="color:#6b6e7b">Soit ${escapeHtml(whenOwner)} pour Alessandro.</span>`,
+        `<strong>Quand :</strong> ${escapeHtml(whenProspect)}<br><span style="color:${GRAPHITE}">Soit ${escapeHtml(whenOwner)} pour Alessandro.</span>`,
         b.meetUrl
           ? `<strong>Où :</strong> en visio, <a href="${b.meetUrl}">${escapeHtml(b.meetUrl)}</a>`
           : "<strong>Où :</strong> en visio — le lien vous parvient dans un second courriel, avant le rendez-vous.",
@@ -148,7 +161,7 @@ export function bookingConfirmation(locale: Locale, b: BookingMailInput): Render
     subject: `Your Antidotes call — ${whenProspect}`,
     title: `${name}, you're booked.`,
     paragraphs: [
-      `<strong>When:</strong> ${escapeHtml(whenProspect)}<br><span style="color:#6b6e7b">That's ${escapeHtml(whenOwner)} for Alessandro.</span>`,
+      `<strong>When:</strong> ${escapeHtml(whenProspect)}<br><span style="color:${GRAPHITE}">That's ${escapeHtml(whenOwner)} for Alessandro.</span>`,
       b.meetUrl
         ? `<strong>Where:</strong> on video, <a href="${b.meetUrl}">${escapeHtml(b.meetUrl)}</a>`
         : "<strong>Where:</strong> on video — the link arrives in a second email before the call.",
@@ -223,7 +236,7 @@ export function ownerQuestionnaire(options: { email: string; firstName: string; 
     subject: `Questionnaire terminé — ${temp} — ${options.email}`,
     title: `${options.firstName} a terminé le questionnaire.`,
     paragraphs: [
-      `<strong>Qualification :</strong> ${temp}<br><strong>Note calculée :</strong> ${options.score ?? "—"} / 10 <span style="color:#6b6e7b">(à dévoiler en rendez-vous, jamais envoyée au prospect)</span>`,
+      `<strong>Qualification :</strong> ${temp}<br><strong>Note calculée :</strong> ${options.score ?? "—"} / 10 <span style="color:${GRAPHITE}">(à dévoiler en rendez-vous, jamais envoyée au prospect)</span>`,
       describeAnswers(options.answers).map(escapeHtml).join("<br>"),
     ],
   });
@@ -252,7 +265,7 @@ export function ownerBooking(options: {
     subject: `RDV pris — ${whenOwner} — ${options.name} (${temp})`,
     title: `${options.name} a réservé un rendez-vous.`,
     paragraphs: [
-      `<strong>Quand :</strong> ${escapeHtml(whenOwner)}<br><span style="color:#6b6e7b">Pour le prospect : ${escapeHtml(whenProspect)}</span>`,
+      `<strong>Quand :</strong> ${escapeHtml(whenOwner)}<br><span style="color:${GRAPHITE}">Pour le prospect : ${escapeHtml(whenProspect)}</span>`,
       `<strong>Qui :</strong> ${escapeHtml(options.name)}${options.company ? ` · ${escapeHtml(options.company)}` : ""}<br>${escapeHtml(options.email)}${options.phone ? ` · ${escapeHtml(options.phone)}` : ""}`,
       options.calendarCreated
         ? `<strong>Agenda :</strong> événement créé${options.meetUrl ? `, visio <a href="${options.meetUrl}">${escapeHtml(options.meetUrl)}</a>` : ""}.`

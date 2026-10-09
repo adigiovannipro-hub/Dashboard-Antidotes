@@ -93,3 +93,14 @@ describe("ownerBooking", () => {
     expect(mail.html).toContain("Lancement en novembre");
   });
 });
+
+describe("layout", () => {
+  it("porte la palette verte : filet vert avec repli plein, liens en forêt, plus aucune teinte irisée", () => {
+    const html = bookingConfirmation("fr", booking).html + leadWelcome("en", { firstName: "Ana", continueUrl: "https://antidotes.agency" }).html;
+    expect(html).toContain('bgcolor="#22E05B"');
+    expect(html).toContain("#0F6529");
+    expect(html).not.toMatch(/7fd9ff|8d7bff|ff6fae|ffb866/i);
+    expect(html).not.toMatch(/<a href="[^"]*">/);
+    expect(html).toContain('<a style="color:#0E4A26;text-decoration:underline" href="https://antidotes.agency/rdv/tok"');
+  });
+});
