@@ -68,7 +68,11 @@ export function ShellFrame({
       />
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-20 border-b border-border bg-canvas/85 backdrop-blur">
+        {/* Opaque, sans `backdrop-blur` : un flou d'arrière-plan sur une
+            barre collante oblige Chrome à recomposer tout ce qui défile
+            dessous, et au zoom du pavé tactile le planning se couvrait de
+            rectangles noirs (9/10/2026). */}
+        <header className="sticky top-0 z-20 border-b border-border bg-canvas">
           {/* `h-14`, la hauteur exacte du bloc de marque du rail : les deux
               bordures basses se rejoignent et le haut de l'application forme
               une seule bande. Le titre descend en `type-h2` — la taille du
