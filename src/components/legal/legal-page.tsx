@@ -19,11 +19,14 @@ export function LegalPage({
   title,
   children,
   other,
+  updated = LEGAL_MAJ,
 }: {
   title: string;
   children: React.ReactNode;
   /** L'autre page légale — les deux se citent, personne ne cherche l'URL. */
   other: { href: string; label: string };
+  /** La date de révision propre à la page, quand elle diffère de l'autre. */
+  updated?: string;
 }) {
   return (
     <main className="mx-auto w-full max-w-2xl px-5 py-10 md:py-16">
@@ -37,7 +40,7 @@ export function LegalPage({
         </Link>
         <h1 className="type-h1 mt-6">{title}</h1>
         <p className="type-caption mt-2 text-text-secondary">
-          Dernière mise à jour : {LEGAL_MAJ}
+          Dernière mise à jour : {updated}
         </p>
       </header>
 

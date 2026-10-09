@@ -78,6 +78,9 @@ export const HEBERGEURS = [
  */
 export const LEGAL_MAJ = "3 septembre 2026";
 
+/** La révision des seules conditions d'utilisation (ajout TikTok du 9/10/2026). */
+export const CGU_MAJ = "9 octobre 2026";
+
 /** Les lignes d'identité effectivement renseignées, dans l'ordre d'affichage. */
 export function identityLines(): string[] {
   const { raisonSociale, juridiction, immatriculation, immatriculeeLe, adresse } =
