@@ -37,7 +37,7 @@ export const fr: Dictionary = {
         client: "I-WAY",
         sector: "Simulation et expériences · Lyon, Paris",
         headline: "Relier le contenu aux réservations.",
-        text: "Reels tournés sur place, campagnes Meta pilotées sur les réservations du site, reporting lu chaque semaine.",
+        text: "Reels tournés sur place, campagnes Meta pilotées sur les réservations du site, reporting mensuel.",
         stat: { value: "241 918", label: "vues sur un seul reel", source: "Reel du 16 octobre 2025, données Meta" },
       },
       {
@@ -45,7 +45,7 @@ export const fr: Dictionary = {
         client: "Lunettes Bondet",
         sector: "Lunetterie française · lancement en ligne",
         headline: "Faire exister une marque en ligne, de zéro.",
-        text: "Carrousels de montures, coulisses d'atelier, publication automatique, campagnes Meta de notoriété puis de trafic.",
+        text: "Carrousels de montures, coulisses d'atelier, campagnes Meta de notoriété puis de conversion.",
         stat: { value: "+114 %", label: "d'abonnés Instagram en cinq mois", source: "Reporting Antidotes, avril à septembre 2026" },
       },
       {
@@ -54,7 +54,7 @@ export const fr: Dictionary = {
         sector: "Métiers de la meunerie · avec l'agence Mediapilote",
         headline: "De la notoriété à l'orientation des jeunes.",
         text: "Dix-huit publications par mois, vidéo tournée au moulin, créateurs UGC, campagnes TikTok et Meta, plateforme ouverte au client.",
-        stat: { value: "10,3 M", label: "de vues TikTok organiques sur 70 vidéos", source: "Reporting Antidotes, cumul au 7 octobre 2026" },
+        stat: { value: "10,3 M", label: "de vues TikTok sur 70 vidéos", source: "Reporting Antidotes, cumul au 7 octobre 2026" },
       },
     ],
     numbersLabel: "Et aussi",
@@ -74,7 +74,7 @@ export const fr: Dictionary = {
       { icon: "clapperboard", name: "Production et UGC", text: "Shootings, reels, carrousels, templates et vidéos de créateurs, prêts à publier." },
       { icon: "target", name: "Publicité", text: "Campagnes Meta, TikTok et LinkedIn pilotées sur vos objectifs, lues chaque semaine." },
       { icon: "layout", name: "Plateforme Antidotes", text: "Reporting, planning, boîte de réception et publication automatique, au même endroit, synchronisés chaque jour." },
-      { icon: "sparkles", name: "Formation et IA", text: "Vos équipes formées aux réseaux et aux bons usages de l'IA : ce qu'elle accélère, ce qu'elle ne remplace pas." },
+      { icon: "sparkles", name: "Formation et IA", text: "Vos équipes formées aux réseaux, à la publicité et aux bons usages de l'IA." },
     ],
   },
   method: {
@@ -91,8 +91,8 @@ export const fr: Dictionary = {
   funnel: {
     eyebrow: "Offert",
     title: "Votre note de présence social media, de 1 à 10.",
-    lead: "Six questions, une minute. La note se calcule tout de suite et vous est présentée en rendez-vous, avec les trois leviers qui la feraient monter.",
-    bullets: ["Calculée sur votre présence réelle", "Expliquée en visio, en 30 minutes", "Sans engagement"],
+    lead: "La note se calcule tout de suite. Je vous la présente en rendez-vous, avec les trois leviers qui la feraient monter.",
+    bullets: ["Calculée sur vos réponses", "Expliquée en visio, en 30 minutes", "Sans engagement"],
     start: "Commencer",
     duration: "1 minute · 6 questions",
     email: {
@@ -116,7 +116,7 @@ export const fr: Dictionary = {
     },
     nav: { next: "Suivant", back: "Retour", progress: "Question {n} sur {total}", multiHint: "Plusieurs réponses possibles", keyHint: "Entrée pour continuer" },
     computing: { title: "Calcul de votre note…", text: "Vos réponses sont analysées sur quatre axes : régularité, pilotage, mesure et moyens." },
-    ready: { title: "Votre note est prête.", text: "Elle vous sera présentée en rendez-vous, avec le détail axe par axe et les trois leviers prioritaires. Choisissez votre créneau : 30 minutes en visio, à l'heure qui vous arrange.", cta: "Choisir mon créneau" },
+    ready: { title: "Votre note est prête.", text: "Choisissez votre créneau : je vous la présente axe par axe, avec vos trois leviers prioritaires.", cta: "Choisir mon créneau" },
     cold: {
       title: "Votre note est enregistrée.",
       text: "Au vu de vos réponses, un rendez-vous ne serait pas le bon format aujourd'hui. Je vous propose plutôt trois gestes concrets, par courriel, pour faire progresser votre présence dès cette semaine.",
@@ -154,10 +154,10 @@ export const fr: Dictionary = {
     eyebrow: "Questions fréquentes",
     title: "Ce qu'on me demande avant de commencer.",
     items: [
-      { q: "Combien ça coûte ?", a: "Chaque devis suit votre périmètre : réseaux, volume de contenus, publicité, modération. Le rendez-vous sert à poser ce cadre, avec un ordre de grandeur dès le premier échange." },
+      { q: "Combien ça coûte ?", a: "Chaque devis suit votre périmètre : réseaux, volume de contenus, publicité, modération. Je vous donne un ordre de grandeur dès le premier rendez-vous." },
       { q: "Y a-t-il un engagement de durée ?", a: "Un accompagnement se juge sur plusieurs mois, et les conditions sont écrites dans le devis. Vos comptes, vos contenus et vos données vous restent." },
       { q: "En combien de temps voit-on des résultats ?", a: "Les premières publications partent dès le premier mois. Les courbes d'audience bougent en général entre le deuxième et le quatrième mois. Les campagnes publicitaires se lisent dès la première semaine." },
-      { q: "L'IA écrit-elle mes contenus ?", a: "Elle propose des intentions et des textes à partir de votre contexte de marque et de vos meilleures publications. Un humain relit, corrige et valide avant chaque publication." },
+      { q: "L'IA écrit-elle mes contenus ?", a: "Elle propose des sujets et des textes à partir de votre contexte de marque et de vos meilleures publications. Je relis, corrige et valide avant chaque publication." },
       { q: "Vous êtes à Bali, est-ce un problème ?", a: "Vos réunions ont lieu le matin en France, et vos contenus sont prêts quand vous commencez votre journée. Pour les tournages, je me déplace ou je coordonne une équipe sur place." },
     ],
   },
@@ -167,7 +167,7 @@ export const fr: Dictionary = {
     terms: "Conditions générales d'utilisation",
     contact: "Écrire à Alessandro",
     linkedin: "LinkedIn",
-    based: "Antidotes · immatriculée à Hong Kong · clients en France et en Europe",
+    based: "Antidotes · immatriculée à Hong Kong · clients en France",
     copyright: "Antidotes",
     rights: "Tous droits réservés.",
     madeBy: "Alessandro Di Giovanni, freelance social media et IA",
