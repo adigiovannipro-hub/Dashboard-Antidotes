@@ -37,6 +37,7 @@ import type { ColumnDef, ColumnLabel } from "@/lib/planning/columns";
 import { uploadVisualsFromBrowser } from "@/lib/planning/upload-client";
 import {
   STATUS_COLORS,
+  STATUS_LABELS,
   type PlanningComment,
   type PlanningOwner,
   type SubjectRow as Row,
@@ -67,9 +68,16 @@ function toOptions(labels: ColumnLabel[] | null) {
   }));
 }
 
-/** La couleur d'une étiquette du tableau, ou celle d'origine si on l'a retirée. */
-function labelColor(labels: ColumnLabel[] | null, status: "scheduled" | "published"): string {
-  return labels?.find((label) => label.id === status)?.color ?? STATUS_COLORS[status];
+/** L'étiquette du tableau, ou celle d'origine si on l'a retirée. */
+function statusLabel(
+  labels: ColumnLabel[] | null,
+  status: "scheduled" | "published",
+): { color: string; label: string } {
+  const found = labels?.find((label) => label.id === status);
+  return {
+    color: found?.color ?? STATUS_COLORS[status],
+    label: found?.label ?? STATUS_LABELS[status],
+  };
 }
 
 /** Le format que porte un drag de ligne dans `dataTransfer`. */
@@ -441,8 +449,8 @@ function Cell({
           subjectName={row.name}
           networks={publishNetworks}
           run={run}
-          scheduledColor={labelColor(column.labels, "scheduled")}
-          publishedColor={labelColor(column.labels, "published")}
+          scheduled={statusLabel(column.labels, "scheduled")}
+          published={statusLabel(column.labels, "published")}
         >
           {chip}
         </PublishActions>,

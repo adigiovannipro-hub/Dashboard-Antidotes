@@ -342,11 +342,11 @@
 }
 
 .anim-mois-suivant {
-  animation: glisse-depuis-droite var(--motion-duration) var(--ease-standard, ease-out) both;
+  animation: glisse-depuis-droite var(--motion-duration) var(--ease-standard, ease-out) backwards;
 }
 
 .anim-mois-precedent {
-  animation: glisse-depuis-gauche var(--motion-duration) var(--ease-standard, ease-out) both;
+  animation: glisse-depuis-gauche var(--motion-duration) var(--ease-standard, ease-out) backwards;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -426,9 +426,16 @@
       piège ne dure que le temps de l'entrée — assez pour décaler un panneau
       ouvert au même instant.
 
-   2. **`both` en mode de remplissage** : l'élément est invisible *avant* son
-      délai. Sans lui, une cascade ferait clignoter les cartes qui attendent
-      leur tour — visibles, puis effacées, puis remontées.
+   2. **`backwards` en mode de remplissage** : l'élément est invisible
+      *avant* son délai. Sans lui, une cascade ferait clignoter les cartes qui
+      attendent leur tour — visibles, puis effacées, puis remontées. Surtout
+      pas `both` ni `forwards` : une animation terminée qui remplit encore
+      garde son élément sur un calque du compositeur **pour toujours** — et
+      `enter-fade` enveloppe la page entière. Chrome assemblait donc tout le
+      planning comme un seul calque géant, et un zoom au pavé tactile laissait
+      des rectangles noirs, des tuiles jamais repeintes (9/10/2026). La
+      dernière image clé vaut l'état par défaut (opacité 1, aucune
+      transformation) : sans remplissage, la fin est identique à l'œil.
 
    3. **Le décalage est plafonné.** `--enter-index` multiplie 40 ms, mais une
       grille de vingt cartes ferait attendre la dernière une seconde entière.
@@ -464,7 +471,7 @@
   .enter-fade {
     animation-duration: var(--motion-duration-slow);
     animation-timing-function: var(--motion-ease-exit);
-    animation-fill-mode: both;
+    animation-fill-mode: backwards;
     animation-delay: calc(min(var(--enter-index, 0), 6) * 40ms);
   }
   .enter-rise {
@@ -489,7 +496,7 @@
     animation-name: enter-rise;
     animation-duration: var(--motion-duration-slow);
     animation-timing-function: var(--motion-ease-exit);
-    animation-fill-mode: both;
+    animation-fill-mode: backwards;
   }
   .enter-stagger > *:nth-child(2) {
     animation-delay: 40ms;
@@ -509,6 +516,148 @@
   .enter-rise,
   .enter-fade,
   .enter-stagger > * {
+    animation: none;
+  }
+}
+
+/* ===========================================================================
+   La case statut qui se remplit : Programmer, Publier.
+
+   Au survol d'une ligne « Validé », la case se coupe en deux moitiés. Le clic
+   sur l'une d'elles la fait **déborder sur l'autre** : sa couleur gagne toute
+   la case, le picto s'en va par le côté où elle s'étend, et le libellé de
+   l'étiquette arrive par le côté d'où elle part. La case finit exactement
+   comme la pastille que le serveur va rendre — même aplat, même typographie —
+   d'où une bascule sans saut quand la ligne passe « Programmé ».
+
+   `clip-path` et non `width` : l'aplat est déjà à sa taille, seule la partie
+   visible grandit, sans repasser par la mise en page à chaque image.
+
+   Remplissage `backwards` partout, et l'état par défaut de chaque élément est
+   son état final (aplat entier, picto effacé, libellé en place) : rien ne
+   reste promu sur un calque une fois l'animation finie — voir `enter-fade`.
+   Le refus du serveur rejoue la même animation à l'envers (`statut-retour`),
+   qui tient alors son point de départ jusqu'au démontage.
+   =========================================================================== */
+@keyframes statut-remplit-depuis-gauche {
+  from {
+    clip-path: inset(0 50% 0 0);
+  }
+  to {
+    clip-path: inset(0);
+  }
+}
+
+@keyframes statut-remplit-depuis-droite {
+  from {
+    clip-path: inset(0 0 0 50%);
+  }
+  to {
+    clip-path: inset(0);
+  }
+}
+
+@keyframes statut-picto-vers-droite {
+  from {
+    opacity: 1;
+    transform: none;
+  }
+  to {
+    opacity: 0;
+    transform: translateX(110%);
+  }
+}
+
+@keyframes statut-picto-vers-gauche {
+  from {
+    opacity: 1;
+    transform: none;
+  }
+  to {
+    opacity: 0;
+    transform: translateX(-110%);
+  }
+}
+
+@keyframes statut-libelle-depuis-gauche {
+  from {
+    opacity: 0;
+    transform: translateX(-1.5rem);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes statut-libelle-depuis-droite {
+  from {
+    opacity: 0;
+    transform: translateX(1.5rem);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@layer components {
+  .statut-remplit-gauche,
+  .statut-remplit-droite {
+    animation-duration: 300ms;
+    animation-timing-function: var(--motion-ease-exit);
+    animation-fill-mode: backwards;
+  }
+  .statut-remplit-gauche {
+    animation-name: statut-remplit-depuis-gauche;
+  }
+  .statut-remplit-droite {
+    animation-name: statut-remplit-depuis-droite;
+  }
+
+  .statut-picto-droite,
+  .statut-picto-gauche {
+    opacity: 0;
+    animation-duration: 240ms;
+    animation-timing-function: var(--motion-ease-exit);
+    animation-fill-mode: backwards;
+  }
+  .statut-picto-droite {
+    animation-name: statut-picto-vers-droite;
+  }
+  .statut-picto-gauche {
+    animation-name: statut-picto-vers-gauche;
+  }
+
+  .statut-libelle-gauche,
+  .statut-libelle-droite {
+    animation-duration: 240ms;
+    animation-delay: 90ms;
+    animation-timing-function: var(--motion-ease-exit);
+    animation-fill-mode: backwards;
+  }
+  .statut-libelle-gauche {
+    animation-name: statut-libelle-depuis-gauche;
+  }
+  .statut-libelle-droite {
+    animation-name: statut-libelle-depuis-droite;
+  }
+
+  /* Le refus : la même course, à l'envers, sans attente. */
+  .statut-retour {
+    animation-direction: reverse;
+    animation-delay: 0ms;
+    animation-fill-mode: forwards;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .statut-remplit-gauche,
+  .statut-remplit-droite,
+  .statut-picto-droite,
+  .statut-picto-gauche,
+  .statut-libelle-gauche,
+  .statut-libelle-droite {
     animation: none;
   }
 }
