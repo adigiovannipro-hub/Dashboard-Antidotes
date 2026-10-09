@@ -1,4 +1,4 @@
-import { Capsule } from "@/components/brand/capsule";
+import { CAPSULE_ASSETS, Capsule, type CapsuleAsset } from "@/components/brand/capsule";
 import { Rich } from "@/components/brand/rich";
 import type { Dictionary, Service } from "@/i18n/types";
 import { CASE_VISUALS, type CaseVisual } from "@/lib/cases";
@@ -27,15 +27,16 @@ export function SectionHeading({ eyebrow, index, title, id, className = "" }: { 
 }
 
 /* --- Services : une capsule par expertise (r-06), sur la Profondeur. --------- */
-/* Jamais deux gélules de même taille ni de même orientation : chaque forme a
-   son angle, sa largeur et la couleur de son halo. */
-const CAPSULES: Record<Service["icon"], { src: string; width: number; rotate: number; halo: string }> = {
-  compass: { src: "/brand/capsule-strategie.webp", width: 196, rotate: -24, halo: "var(--azur)" },
-  calendar: { src: "/brand/capsule-accompagnement.webp", width: 214, rotate: 28, halo: "var(--lilas)" },
-  clapperboard: { src: "/brand/capsule-production.webp", width: 180, rotate: -42, halo: "var(--rose)" },
-  target: { src: "/brand/capsule-publicite.webp", width: 168, rotate: 8, halo: "var(--corail)" },
-  layout: { src: "/brand/capsule-plateforme.webp", width: 206, rotate: 16, halo: "var(--lagon)" },
-  sparkles: { src: "/brand/capsule-ia.webp", width: 160, rotate: -32, halo: "var(--signal)" },
+/* Jamais deux gélules de même taille ni de même orientation : chaque rendu
+   porte déjà son inclinaison et sa lumière, on ne l'écarte que de quelques
+   degrés (au-delà, la lumière partirait dans tous les sens). */
+const CAPSULES: Record<Service["icon"], { asset: CapsuleAsset; size: number; rotate: number }> = {
+  compass: { asset: "strategie", size: 236, rotate: -4 },
+  calendar: { asset: "accompagnement", size: 222, rotate: 6 },
+  clapperboard: { asset: "production", size: 244, rotate: -3 },
+  target: { asset: "publicite", size: 204, rotate: 0 },
+  layout: { asset: "plateforme", size: 230, rotate: 4 },
+  sparkles: { asset: "ia", size: 196, rotate: -6 },
 };
 
 export function Services({ dict }: { dict: Dictionary }) {
@@ -51,10 +52,11 @@ export function Services({ dict }: { dict: Dictionary }) {
         <ul className="mt-14 grid grid-cols-1 gap-x-10 gap-y-14 sm:grid-cols-2 lg:grid-cols-3">
           {dict.services.items.map((item) => {
             const capsule = CAPSULES[item.icon];
+            const asset = CAPSULE_ASSETS[capsule.asset];
             return (
-              <li key={item.name} className="group flex flex-col">
-                <div className="flex h-52 items-center justify-center">
-                  <Capsule src={capsule.src} label="" width={capsule.width} rotate={capsule.rotate} halo={capsule.halo} />
+              <li key={item.name} className="capsule-host flex flex-col">
+                <div className="flex h-60 items-center justify-center">
+                  <Capsule src={asset.src} size={capsule.size} rotate={capsule.rotate} halo={asset.halo} />
                 </div>
                 <div className="reveal mt-6 border-t border-line pt-5">
                   <h3 className="type-h3 text-text">{item.name}</h3>

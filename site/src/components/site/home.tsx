@@ -1,3 +1,4 @@
+import { CAPSULE_ASSETS, Capsule } from "@/components/brand/capsule";
 import { RevealObserver } from "@/components/ds/reveal-observer";
 import { Funnel } from "@/components/funnel/funnel";
 import type { Dictionary } from "@/i18n/types";
@@ -29,6 +30,13 @@ export function Home({ dict, locale }: { dict: Dictionary; locale: Locale }) {
           {/* L'aura et l'anneau de lumière derrière le verre (r-03 en 3a) : le quiz vit dans le Verre clair. */}
           <div aria-hidden className="absolute inset-0 -z-10 bg-[radial-gradient(45%_60%_at_85%_30%,rgb(34_224_91/.22),transparent_70%),radial-gradient(40%_50%_at_10%_80%,rgb(47_211_198/.16),transparent_70%)]" />
           <span aria-hidden className="ring-light -left-[14vw] top-[6%] -z-10 w-[48vw] min-w-[420px]" />
+          {/* Les gélules passent derrière le verre, qui les floute : trois plans, fond, matière, texte (r-16). */}
+          <div aria-hidden className="pointer-events-none absolute -right-10 top-2 -z-10 w-[min(46vw,520px)] md:right-[4vw]">
+            <Capsule src={CAPSULE_ASSETS.hero.src} size={520} rotate={0} halo={CAPSULE_ASSETS.hero.halo} />
+          </div>
+          <div aria-hidden className="pointer-events-none absolute bottom-6 left-[6vw] -z-10 hidden w-[200px] md:block">
+            <Capsule src={CAPSULE_ASSETS.heroBlur.src} size={200} rotate={0} halo={CAPSULE_ASSETS.heroBlur.halo} />
+          </div>
           <div className="container-site section-pad">
             <Funnel dict={dict.funnel} locale={locale} privacyHref={privacyHref} />
           </div>

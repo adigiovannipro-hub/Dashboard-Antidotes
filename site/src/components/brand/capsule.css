@@ -1,0 +1,121 @@
+/* ---------------------------------------------------------------------------
+   Capsules de la charte (r-06, r-19) : rendus 3D précalculés, posés en image.
+
+   L'apparition réutilise l'observateur du site (`.reveal` → `is-visible`) mais
+   remplace son mouvement par celui de la charte : translateY 40 → 0 et
+   rotation de (angle − 6°) à l'angle, 600 ms, cubic-bezier(.2,.8,.2,1).
+   Les sélecteurs portent trois classes pour l'emporter sur `.is-visible.reveal`
+   et `.no-js .reveal` de globals.css, quel que soit l'ordre des feuilles.
+
+   Le survol tourne l'image de +6° et porte le halo à ×1,4. L'image a déjà son
+   halo peint dedans ; le pseudo-élément n'en est que le supplément animable.
+   --------------------------------------------------------------------------- */
+
+.capsule {
+  --capsule-size: 260px;
+  --capsule-rotate: 0deg;
+  --capsule-halo: rgba(156, 149, 255, 0.6);
+  position: relative;
+  display: inline-block;
+  flex: none;
+  width: min(var(--capsule-size), 100%);
+  aspect-ratio: 1;
+  isolation: isolate;
+  pointer-events: auto;
+}
+
+/* Halo supplémentaire, très doux au repos : un dégradé radial, pas de flou
+   (un `filter: blur` coûterait une passe GPU par capsule à chaque image). */
+.capsule::before {
+  content: "";
+  position: absolute;
+  inset: 14%;
+  z-index: -1;
+  border-radius: 50%;
+  background: radial-gradient(
+    closest-side,
+    color-mix(in oklab, var(--capsule-halo) 70%, transparent) 0%,
+    color-mix(in oklab, var(--capsule-halo) 28%, transparent) 55%,
+    transparent 100%
+  );
+  opacity: 0.32;
+  transform: scale(1);
+  transition:
+    opacity 480ms var(--ease, cubic-bezier(0.2, 0.8, 0.2, 1)),
+    transform 480ms var(--ease, cubic-bezier(0.2, 0.8, 0.2, 1));
+  pointer-events: none;
+}
+
+.capsule-img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  user-select: none;
+  -webkit-user-drag: none;
+  transition: transform 480ms var(--ease, cubic-bezier(0.2, 0.8, 0.2, 1));
+}
+
+/* Position de repos quand l'apparition est désactivée (`reveal={false}`). */
+.capsule.capsule-static {
+  transform: rotate(var(--capsule-rotate));
+}
+
+/* Apparition au défilement */
+.capsule.capsule-in.reveal {
+  opacity: 0;
+  transform: translateY(40px) rotate(calc(var(--capsule-rotate) - 6deg));
+  transition:
+    opacity var(--motion-slow, 600ms) var(--ease, cubic-bezier(0.2, 0.8, 0.2, 1)),
+    transform var(--motion-slow, 600ms) var(--ease, cubic-bezier(0.2, 0.8, 0.2, 1));
+}
+.capsule.capsule-in.reveal.is-visible,
+.no-js .capsule.capsule-in.reveal {
+  opacity: 1;
+  transform: translateY(0) rotate(var(--capsule-rotate));
+}
+
+/* Survol : la capsule elle-même, ou toute carte qui la porte (`capsule-host`),
+   pour que le geste réponde sur la surface entière d'un service. */
+@media (hover: hover) {
+  .capsule:hover .capsule-img,
+  .capsule-host:hover .capsule-img,
+  .capsule-host:focus-visible .capsule-img,
+  .capsule-host:focus-within .capsule-img {
+    transform: rotate(6deg);
+  }
+  .capsule:hover::before,
+  .capsule-host:hover .capsule::before,
+  .capsule-host:focus-visible .capsule::before,
+  .capsule-host:focus-within .capsule::before {
+    opacity: 0.45; /* ×1,4 */
+    transform: scale(1.4);
+  }
+}
+
+/* Mouvement réduit : tout est figé, à sa position finale. */
+@media (prefers-reduced-motion: reduce) {
+  .capsule.capsule-in.reveal,
+  .capsule.capsule-in.reveal.is-visible {
+    opacity: 1;
+    transform: rotate(var(--capsule-rotate));
+    transition: none;
+  }
+  .capsule::before,
+  .capsule-img {
+    transition: none;
+  }
+  .capsule:hover .capsule-img,
+  .capsule-host:hover .capsule-img,
+  .capsule-host:focus-visible .capsule-img,
+  .capsule-host:focus-within .capsule-img {
+    transform: none;
+  }
+  .capsule:hover::before,
+  .capsule-host:hover .capsule::before,
+  .capsule-host:focus-visible .capsule::before,
+  .capsule-host:focus-within .capsule::before {
+    opacity: 0.32;
+    transform: none;
+  }
+}
