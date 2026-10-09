@@ -79,6 +79,9 @@ export const HEBERGEURS = [
 export const LEGAL_MAJ = "8 octobre 2026";
 /** La même date, en anglais — les deux se changent ensemble. */
 export const LEGAL_MAJ_EN = "8 October 2026";
+/** La révision des seules conditions d'utilisation (ajout TikTok du 9/10/2026), reprise du dashboard. */
+export const CGU_MAJ = "9 octobre 2026";
+export const CGU_MAJ_EN = "9 October 2026";
 
 /** La date d'immatriculation en anglais, pour la version anglaise des pages. */
 const IMMATRICULEE_LE_EN = "26 January 2026";

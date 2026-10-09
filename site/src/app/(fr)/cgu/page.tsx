@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 import { LegalLink, LegalList, LegalPage, LegalSection } from "@/components/legal/legal-page";
-import { HEBERGEURS, LEGAL_ENTITY, identityLines } from "@/lib/legal/entity";
+import { CGU_MAJ, HEBERGEURS, LEGAL_ENTITY, identityLines } from "@/lib/legal/entity";
 import { pageMetadata } from "@/lib/seo";
 
 /** Les conditions générales d'utilisation — reprises telles quelles de la plateforme ; elles valent aussi mentions légales. */
@@ -14,7 +14,7 @@ export default function CguPage() {
   const identite = identityLines();
 
   return (
-    <LegalPage title="Conditions générales d'utilisation" other={{ href: "/confidentialite", label: "Politique de confidentialité →" }} home="/" updatedLabel="Dernière mise à jour :">
+    <LegalPage title="Conditions générales d'utilisation" other={{ href: "/confidentialite", label: "Politique de confidentialité →" }} home="/" updatedLabel="Dernière mise à jour :" updated={CGU_MAJ}>
       <LegalSection title="Éditeur">
         <p>
           Directeur de la publication : {LEGAL_ENTITY.responsable}. Contact : <LegalLink href={`mailto:${LEGAL_ENTITY.email}`}>{LEGAL_ENTITY.email}</LegalLink>.
@@ -42,6 +42,9 @@ export default function CguPage() {
           Connecter un compte social suppose d&apos;en être titulaire ou d&apos;y être habilité. L&apos;autorisation est donnée par le réseau lui-même, se limite aux permissions affichées au moment de la connexion, et se retire à tout moment — depuis la page Connexions d&apos;Antidotes ou depuis le réseau.
         </p>
         <p>Antidotes lit ces comptes et, lorsque cela lui est demandé, publie ou répond en leur nom. Il n&apos;agit sur aucun compte tiers.</p>
+        <p>
+          {"TikTok. Connecter un compte TikTok vaut acceptation des Conditions d'utilisation de TikTok pour les développeurs et des Règles de la communauté TikTok. Avant chaque publication, l'utilisateur choisit la visibilité de la vidéo, autorise ou non les commentaires, duos et collages, déclare un éventuel contenu commercial et confirme l'utilisation de la musique. Antidotes ne publie jamais sur TikTok sans cette action explicite."}
+        </p>
       </LegalSection>
 
       <LegalSection title="Usage attendu">
@@ -50,6 +53,7 @@ export default function CguPage() {
             "Ne pas tenter d'accéder à un espace ou à des données qui ne vous sont pas destinés.",
             "Ne pas publier, par l'intermédiaire de la plateforme, de contenu illicite ou contraire aux règles du réseau visé.",
             "Ne pas perturber le fonctionnement du service, ni en extraire massivement les données.",
+            "Ne pas publier sur TikTok de contenu qui enfreint les règles de la communauté TikTok ou les obligations de déclaration des contenus commerciaux.",
           ]}
         />
       </LegalSection>

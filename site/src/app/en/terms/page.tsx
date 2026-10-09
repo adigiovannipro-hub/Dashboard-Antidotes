@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 import { LegalLink, LegalList, LegalPage, LegalSection } from "@/components/legal/legal-page";
-import { HEBERGEURS, LEGAL_ENTITY, LEGAL_MAJ_EN, identityLines } from "@/lib/legal/entity";
+import { CGU_MAJ_EN, HEBERGEURS, LEGAL_ENTITY, identityLines } from "@/lib/legal/entity";
 import { pageMetadata } from "@/lib/seo";
 
 /** The terms of use in English — a translation of the French page, which prevails. They also serve as legal notice. */
@@ -16,7 +16,7 @@ export default function TermsPage() {
   const identity = identityLines("en");
 
   return (
-    <LegalPage title="Terms of use" other={{ href: "/en/privacy", label: "Privacy policy →" }} home="/en" updatedLabel="Last updated:" updated={LEGAL_MAJ_EN}>
+    <LegalPage title="Terms of use" other={{ href: "/en/privacy", label: "Privacy policy →" }} home="/en" updatedLabel="Last updated:" updated={CGU_MAJ_EN}>
       <LegalSection title="Publisher">
         <p>
           Publishing director: {LEGAL_ENTITY.responsable}. Contact: <LegalLink href={`mailto:${LEGAL_ENTITY.email}`}>{LEGAL_ENTITY.email}</LegalLink>.
@@ -44,6 +44,9 @@ export default function TermsPage() {
           Connecting a social account requires being its holder or being authorised to do so. The authorisation is granted by the network itself, is limited to the permissions shown at the time of connection, and can be withdrawn at any time — from the Connections page of Antidotes or from the network.
         </p>
         <p>Antidotes reads these accounts and, when asked to, publishes or replies on their behalf. It acts on no third-party account.</p>
+        <p>
+          {"TikTok. Connecting a TikTok account means accepting the TikTok Terms of Service for developers and the TikTok Community Guidelines. Before each publication, the user chooses the video's visibility, allows or disallows comments, duets and stitches, declares any commercial content and confirms the use of the music. Antidotes never publishes to TikTok without this explicit action."}
+        </p>
       </LegalSection>
 
       <LegalSection title="Expected use">
@@ -52,6 +55,7 @@ export default function TermsPage() {
             "Do not attempt to access a workspace or data not intended for you.",
             "Do not publish, through the platform, unlawful content or content contrary to the rules of the targeted network.",
             "Do not disrupt the operation of the service, nor extract its data in bulk.",
+            "Do not publish to TikTok content that breaches the TikTok Community Guidelines or the obligations to declare commercial content.",
           ]}
         />
       </LegalSection>
