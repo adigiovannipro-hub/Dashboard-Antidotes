@@ -24,22 +24,24 @@ export function LegalPage({
   updated?: string;
 }) {
   return (
-    <main className="mx-auto w-full max-w-2xl px-5 py-10 md:py-16">
-      <header className="mb-8">
-        <Link href={home} aria-label="antidotes" className="inline-block text-text">
-          <Logo size={20} />
-        </Link>
-        <h1 className="type-h1 mt-8 text-text">{title}</h1>
-        <p className="type-caption mt-3 text-text-3">
-          {updatedLabel} {updated}
-        </p>
-      </header>
-      <div className="space-y-8">{children}</div>
-      <footer className="mt-12 border-t border-line pt-6">
-        <Link href={other.href} className="type-caption text-text-2 underline underline-offset-4 hover:text-text">
-          {other.label}
-        </Link>
-      </footer>
+    <main className="bg-aura min-h-svh w-full px-5 py-10 md:py-16">
+      <div className="mx-auto w-full max-w-2xl">
+        <header className="mb-8">
+          <Link href={home} aria-label="antidotes" className="inline-block text-text">
+            <Logo height={22} />
+          </Link>
+          <h1 className="type-h1 mt-8 text-text">{title}</h1>
+          <p className="type-data mt-3 text-text-3">
+            {updatedLabel} {updated}
+          </p>
+        </header>
+        <div className="space-y-8">{children}</div>
+        <footer className="mt-12 border-t border-line-strong pt-6">
+          <Link href={other.href} className="type-caption text-text-2 underline underline-offset-4 hover:text-text">
+            {other.label}
+          </Link>
+        </footer>
+      </div>
     </main>
   );
 }

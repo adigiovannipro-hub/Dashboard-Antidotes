@@ -1,14 +1,26 @@
+import { LOGOTYPE } from "@/components/brand/logotype-paths";
+
 /**
- * Le logotype : « antidotes » en bas de casse, dans la police de marque, en
- * graisse lourde et interlettrage négatif pour que les lettres se touchent,
- * et un point menthe en guise de signe. Du texte, pas une image : il prend
- * la couleur courante et se lit par tout le monde.
+ * Le logotype de la charte (r-08) : « antidotes » en tracés Funnel Display,
+ * à la couleur courante (Encre sur clair, Craie sur la Profondeur), et le
+ * point — Encre sur clair, Signal avec un léger halo sur la Profondeur, via
+ * `--dot`. Jamais de dégradé dans le logo. `height` est la hauteur des
+ * ascendantes en pixels ; sous 96 px de large la charte demande la
+ * miniature, mais l'en-tête reste lisible à 24 px de haut.
  */
-export function Logo({ className = "", size = 22 }: { className?: string; size?: number }) {
+export function Logo({ className = "", height = 22, title = "antidotes" }: { className?: string; height?: number; title?: string }) {
+  const [, , w, h] = LOGOTYPE.viewBox.split(" ").map(Number);
   return (
-    <span className={`font-brand inline-flex items-baseline gap-[0.12em] leading-none ${className}`} style={{ fontSize: size, fontWeight: 700, letterSpacing: "-0.07em" }} aria-label="antidotes">
-      <span aria-hidden>antidotes</span>
-      <span aria-hidden className="inline-block rounded-full bg-mint" style={{ width: size * 0.22, height: size * 0.22 }} />
-    </span>
+    <svg
+      role="img"
+      aria-label={title}
+      viewBox={LOGOTYPE.viewBox}
+      width={Math.round((height * w) / h)}
+      height={height}
+      className={`logo-mark block overflow-visible ${className}`}
+    >
+      <path d={LOGOTYPE.letters} fill="currentColor" />
+      <circle cx={LOGOTYPE.dot.cx} cy={LOGOTYPE.dot.cy} r={LOGOTYPE.dot.r} fill="var(--dot)" className="logo-dot" />
+    </svg>
   );
 }

@@ -34,7 +34,7 @@ export function PhoneCase({ poster, video, alt, handle, stat, className = "", ch
         </div>
       </div>
       <figcaption className="mt-4 flex flex-col gap-1">
-        <span className="type-caption text-text-3">{handle}</span>
+        <span className="type-data text-text-3">{handle}</span>
         {stat && (
           <span className="flex items-baseline gap-2">
             <span className="type-h3 text-text tabular-nums">{stat.value}</span>

@@ -22,7 +22,7 @@ export const fr: Dictionary = {
   },
   hero: {
     eyebrow: "Social media et IA",
-    title: "Des réseaux sociaux qui rapportent, chiffres à l'appui.",
+    title: "Des réseaux sociaux *qui rapportent*, _chiffres à l'appui._",
     lead: "Je conçois, produis et pilote votre présence social media : dix ans de métier, l'IA là où elle accélère, et une plateforme construite pour mes clients.",
     ctaPrimary: "Obtenir ma note sur 10",
     ctaSecondary: "Voir les cas clients",
@@ -30,7 +30,7 @@ export const fr: Dictionary = {
   },
   cases: {
     eyebrow: "Cas clients",
-    title: "Des publications réelles, des chiffres lus dans le reporting.",
+    title: "Des publications *réelles*, des chiffres lus _dans le reporting._",
     items: [
       {
         id: "iway",
@@ -64,7 +64,7 @@ export const fr: Dictionary = {
   },
   services: {
     eyebrow: "Services",
-    title: "Un seul interlocuteur senior, du diagnostic au reporting.",
+    title: "Un seul interlocuteur *senior*, _du diagnostic_ au reporting.",
     items: [
       { icon: "compass", name: "Stratégie", text: "Cibles, piliers, formats et budget média." },
       { icon: "calendar", name: "Accompagnement", text: "Planning, rédaction, modération et reporting." },
@@ -76,7 +76,7 @@ export const fr: Dictionary = {
   },
   method: {
     eyebrow: "Méthode",
-    title: "Un mois type, de la réunion éditoriale au reporting.",
+    title: "Un *mois type*, de la réunion éditoriale _au reporting._",
     steps: [
       { title: "Réunion éditoriale", text: "Vos priorités deviennent les sujets du mois." },
       { title: "Planning", text: "Chaque publication a son brief et sa date." },
@@ -87,7 +87,7 @@ export const fr: Dictionary = {
   },
   funnel: {
     eyebrow: "Offert",
-    title: "Votre note de présence social media, de 1 à 10.",
+    title: "Votre note de présence *social media*, _de 1 à 10._",
     lead: "La note se calcule tout de suite. Je vous la présente en rendez-⁠vous, avec les trois leviers qui la feraient monter.",
     bullets: ["Calculée sur vos réponses", "Expliquée en visio, en 30 minutes", "Sans engagement"],
     start: "Commencer",
@@ -149,7 +149,7 @@ export const fr: Dictionary = {
   },
   faq: {
     eyebrow: "Questions fréquentes",
-    title: "Ce qu'on me demande avant de commencer.",
+    title: "Ce qu'on me demande *avant de commencer*.",
     items: [
       { q: "Combien ça coûte ?", a: "Chaque devis suit votre périmètre : réseaux, volume de contenus, publicité, modération. Je vous donne un ordre de grandeur dès le premier rendez-vous." },
       { q: "Y a-t-il un engagement de durée ?", a: "Un accompagnement se juge sur plusieurs mois, et les conditions sont écrites dans le devis. Vos comptes, vos contenus et vos données vous restent." },
@@ -159,7 +159,7 @@ export const fr: Dictionary = {
     ],
   },
   footer: {
-    tagline: "Social media et IA, pilotés de près.",
+    tagline: "Social media et IA, _pilotés de près._",
     privacy: "Politique de confidentialité",
     terms: "Conditions générales d'utilisation",
     contact: "Écrire à Alessandro",

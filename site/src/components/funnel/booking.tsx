@@ -156,7 +156,7 @@ export function Booking({ dict, locale, leadId, prefill, onConfirmed }: Props) {
       </div>
 
       {/* Le fuseau : affiché, et modifiable sans quitter l'écran. */}
-      <div className="flex flex-col gap-2 rounded-md border border-glass-border bg-glass px-4 py-3">
+      <div className="flex flex-col gap-2 rounded-md border border-line bg-field px-4 py-3">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 type-small">
           <span className="text-text-2">{dict.tzLabel}</span>
           <span className="font-medium text-text">{describeTimeZone(timeZone, now)}</span>
@@ -230,8 +230,8 @@ export function Booking({ dict, locale, leadId, prefill, onConfirmed }: Props) {
                           }}
                           className={`w-full rounded-md border px-3 py-2 type-small font-medium tabular-nums transition duration-(--motion) ease-(--ease) ${
                             active
-                              ? "border-accent-ink bg-text text-text-on-light"
-                              : "border-glass-border bg-glass text-text hover:bg-glass-strong"
+                              ? "border-btn bg-btn text-btn-text"
+                              : "border-line bg-field text-text hover:border-line-strong hover:bg-surface"
                           }`}
                         >
                           {formatSlotTime(slot.start, locale, timeZone)}
@@ -247,7 +247,7 @@ export function Booking({ dict, locale, leadId, prefill, onConfirmed }: Props) {
       ) : null}
 
       {selected ? (
-        <form onSubmit={submit} className="flex flex-col gap-4 rounded-md border border-glass-border bg-glass p-4 sm:p-5" aria-labelledby={ids.form}>
+        <form onSubmit={submit} className="flex flex-col gap-4 rounded-md border border-line bg-field p-4 sm:p-5" aria-labelledby={ids.form}>
           <div>
             <h4 id={ids.form} ref={formHeadingRef} tabIndex={-1} className="type-h3 text-text">
               {dict.form.title}

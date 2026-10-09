@@ -16,6 +16,8 @@ import {
 } from "@/lib/funnel-contract";
 import { QUESTIONS, type Answers, type Question, type Temperature } from "@/lib/questionnaire";
 
+import { Rich } from "@/components/brand/rich";
+
 import { Booking } from "./booking";
 import { dispatch, getSnapshot, useFunnelState } from "./funnel-store";
 import {
@@ -255,8 +257,8 @@ export function Funnel({ dict, locale, privacyHref }: Props) {
       /* L'intro est une section de page, pas une carte : la carte de verre naît avec le formulaire, un objet. */
       className={
         state.step === "intro"
-          ? "relative w-full outline-none"
-          : "glass relative mx-auto flex min-h-130 w-full max-w-190 flex-col overflow-hidden rounded-lg p-6 outline-none sm:p-10"
+          ? "glass relative w-full overflow-hidden rounded-xl p-6 outline-none sm:p-10 lg:p-14"
+          : "glass relative mx-auto flex min-h-130 w-full max-w-190 flex-col overflow-hidden rounded-xl p-6 outline-none sm:p-10"
       }
     >
       {state.step === "question" ? (
@@ -283,7 +285,7 @@ function ProgressBar({ value, max, label }: { value: number; max: number; label:
     <div role="progressbar" aria-valuemin={0} aria-valuemax={max} aria-valuenow={value} aria-label={label} className="absolute inset-x-0 top-0 h-0.5 bg-line">
       <div
         className="h-full rounded-pill"
-        style={{ width: `${percent}%`, backgroundImage: "var(--gradient-iris)", transition: "width var(--motion-slow) var(--ease)" }}
+        style={{ width: `${percent}%`, background: "var(--signal)", transition: "width var(--motion-slow) var(--ease)" }}
       />
     </div>
   );
@@ -300,10 +302,16 @@ function ScreenTitle({ id, children, size = "h3" }: { id?: string; children: Rea
 function IntroScreen({ dict, onStart }: { dict: FunnelDict; onStart: () => void }) {
   return (
     <div className="grid grid-cols-1 gap-8 lg:grid-cols-12 lg:gap-16">
+      {/* L'icône verre de la charte (r-04, r-15) : une tuile Signal en volume, coche en relief. */}
+      {/* eslint-disable-next-line @next/next/no-img-element -- rendu 3D précalculé, 320 px, décoratif */}
+      <img src="/brand/icone-verre.webp" alt="" width={160} height={160} loading="lazy" decoding="async" className="pointer-events-none absolute -right-3 -top-4 hidden w-32 rotate-[8deg] select-none sm:block lg:right-10 lg:top-10 lg:w-40" />
       <div className="lg:col-span-7">
-        <p className="type-overline text-accent-ink">{dict.eyebrow}</p>
-        <h2 id="note-titre" tabIndex={-1} data-screen-title className="type-h2 mt-3 text-text outline-none">
-          {dict.title}
+        <p className="type-overline flex items-center gap-2.5 text-text-3">
+          <span aria-hidden className="size-2 rounded-pill bg-signal" />
+          04 · {dict.eyebrow}
+        </p>
+        <h2 id="note-titre" tabIndex={-1} data-screen-title className="type-h2 mt-4 text-text outline-none">
+          <Rich text={dict.title} />
         </h2>
         <p className="type-lead mt-5 text-text-2">{dict.lead}</p>
         <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-5">
@@ -315,7 +323,7 @@ function IntroScreen({ dict, onStart }: { dict: FunnelDict; onStart: () => void 
       </div>
       <ul className="lg:col-span-5 lg:self-end">
         {dict.bullets.map((bullet) => (
-          <li key={bullet} className="border-t border-line py-3 type-body text-text last:border-b">
+          <li key={bullet} className="border-t border-line-strong py-3.5 type-body text-text last:border-b">
             {bullet}
           </li>
         ))}
@@ -572,13 +580,13 @@ function QuestionScreen({
               aria-keyshortcuts={`${letter} ${optionIndex + 1}`}
               onClick={() => (single ? chooseSingle(option) : toggle(option))}
               className={`flex w-full items-center gap-3 rounded-md border px-4 py-3 text-left type-body transition duration-(--motion) ease-(--ease) ${
-                active ? "border-accent-ink bg-glass-strong text-text" : "border-glass-border bg-glass text-text hover:border-line-strong hover:bg-glass-strong"
+                active ? "border-accent-ink bg-surface text-text shadow-[0_0_0_1px_var(--accent-ink)]" : "border-line bg-field text-text hover:border-line-strong hover:bg-surface"
               }`}
             >
               <kbd
                 aria-hidden="true"
                 className={`flex size-7 shrink-0 items-center justify-center rounded-sm border type-caption font-medium ${
-                  active ? "border-accent-ink bg-text text-text-on-light" : "border-glass-border text-text-2"
+                  active ? "border-btn bg-btn text-btn-text" : "border-line-strong text-text-2"
                 }`}
               >
                 {letter}
@@ -600,19 +608,11 @@ function QuestionScreen({
   );
 }
 
-function IrisRing() {
+function SignalRing() {
   return (
     <svg className="size-16 motion-safe:animate-spin" viewBox="0 0 64 64" aria-hidden="true" style={{ animationDuration: "1.4s" }}>
-      <defs>
-        <linearGradient id="funnel-iris-ring" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="var(--iris-cyan)" />
-          <stop offset="0.38" stopColor="var(--iris-violet)" />
-          <stop offset="0.7" stopColor="var(--iris-pink)" />
-          <stop offset="1" stopColor="var(--iris-amber)" />
-        </linearGradient>
-      </defs>
       <circle cx="32" cy="32" r="26" stroke="var(--line-strong)" strokeWidth="5" fill="none" />
-      <circle cx="32" cy="32" r="26" stroke="url(#funnel-iris-ring)" strokeWidth="5" fill="none" strokeLinecap="round" strokeDasharray="110 200" />
+      <circle cx="32" cy="32" r="26" stroke="var(--signal)" strokeWidth="5" fill="none" strokeLinecap="round" strokeDasharray="110 200" />
     </svg>
   );
 }
@@ -620,7 +620,7 @@ function IrisRing() {
 function ComputingScreen({ dict }: { dict: FunnelDict["computing"] }) {
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-6 text-center" role="status" aria-live="polite">
-      <IrisRing />
+      <SignalRing />
       <div>
         <ScreenTitle>{dict.title}</ScreenTitle>
         <p className="type-body mx-auto mt-2 max-w-md text-text-2">{dict.text}</p>
@@ -710,7 +710,7 @@ function ConfirmedScreen({ dict, locale, booking, timeZone }: { dict: FunnelDict
   return (
     <div className="flex flex-1 flex-col gap-6">
       <div>
-        <span aria-hidden="true" className="mb-4 flex size-10 items-center justify-center rounded-pill bg-ok text-text-on-light">
+        <span aria-hidden="true" className="mb-4 flex size-10 items-center justify-center rounded-pill bg-signal text-encre">
           <svg viewBox="0 0 20 20" className="size-5" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M4 10.5l4 4 8-9" />
           </svg>
@@ -718,7 +718,7 @@ function ConfirmedScreen({ dict, locale, booking, timeZone }: { dict: FunnelDict
         <ScreenTitle size="h2">{texts.title}</ScreenTitle>
         <p className="type-body mt-2 text-text-2">{texts.text}</p>
       </div>
-      <dl className="grid grid-cols-1 gap-4 rounded-md border border-glass-border bg-glass p-4 sm:grid-cols-2 sm:p-5">
+      <dl className="grid grid-cols-1 gap-4 rounded-md border border-line bg-field p-4 sm:grid-cols-2 sm:p-5">
         <div>
           <dt className="type-overline text-text-3">{texts.when}</dt>
           <dd className="mt-1 type-body text-text">

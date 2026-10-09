@@ -5,10 +5,10 @@ import { escapeHtml, whenWithZone } from "./format";
 
 /**
  * Les courriels du site. Chacun existe en HTML et en texte brut, FR et EN.
- * Le gabarit est clair (fond craie, carte blanche, encre) : un courriel
- * sombre se lit mal dans la moitié des clients, et le vert ne vit ici qu'en
- * filet et dans les liens. Les couleurs sont celles de la palette de marque
- * (9/10/2026).
+ * Le gabarit est celui du Verre clair de la charte (9/10/2026) : fond
+ * Craie, carte blanche, Encre ; le logotype en tête avec son point Encre
+ * (sur clair, jamais Signal), le vert seulement en filet et dans les liens.
+ * Un courriel sombre se lit mal dans la moitié des clients.
  */
 export type Rendered = { subject: string; html: string; text: string };
 
@@ -37,7 +37,7 @@ function layout(options: { title: string; paragraphs: string[]; cta?: { label: s
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:${CHALK};padding:32px 16px"><tr><td align="center">
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;background:#ffffff;border-radius:20px;overflow:hidden">
 <tr><td height="4" bgcolor="${SIGNAL}" style="height:4px;line-height:4px;font-size:0;background-color:${SIGNAL};background-image:${BAND}">&nbsp;</td></tr>
-<tr><td style="padding:36px 36px 8px"><div style="font-size:14px;letter-spacing:0.08em;text-transform:uppercase;color:${GRAPHITE};font-weight:600">antidotes</div>
+<tr><td style="padding:34px 36px 8px"><div style="font-family:'Funnel Display',-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:24px;line-height:1;letter-spacing:-0.04em;font-weight:700;color:${INK}">antidotes.</div>
 <h1 style="margin:14px 0 20px;font-size:24px;line-height:1.25;color:${INK};font-weight:600">${escapeHtml(options.title)}</h1>${body}${cta}</td></tr>
 <tr><td style="padding:8px 36px 32px;font-size:13px;line-height:1.5;color:${GRAPHITE};white-space:pre-line">${escapeHtml(options.footer)}</td></tr>
 </table></td></tr></table></body></html>`;

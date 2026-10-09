@@ -1,49 +1,62 @@
 @import "tailwindcss";
 @import "../styles/tokens.css";
 
-/* Les tokens câblés sur Tailwind : `bg-ink-1`, `text-text-2`, `border-line`,
-   `rounded-lg` (22 px), `text-accent-ink`… */
+/* Les tokens câblés sur Tailwind : `bg-surface`, `text-text-2`,
+   `border-line`, `rounded-xl` (28 px, le verre de la charte)… Les couleurs
+   passent d'un univers à l'autre avec `.theme-dark`. */
 @theme inline {
-  --color-ink-0: var(--ink-0);
-  --color-ink-1: var(--ink-1);
-  --color-ink-2: var(--ink-2);
-  --color-ink-3: var(--ink-3);
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
   --color-line: var(--line);
   --color-line-strong: var(--line-strong);
-  --color-glass: var(--glass);
-  --color-glass-strong: var(--glass-strong);
+  --color-glass-fill: var(--glass-fill);
   --color-glass-border: var(--glass-border);
+  --color-field: var(--field);
   --color-text: var(--text);
   --color-text-2: var(--text-2);
   --color-text-3: var(--text-3);
-  --color-text-on-light: var(--text-on-light);
+  --color-text-inverse: var(--text-inverse);
+  --color-accent: var(--accent);
   --color-accent-ink: var(--accent-ink);
   --color-accent-ink-strong: var(--accent-ink-strong);
-  --color-iris-cyan: var(--iris-cyan);
-  --color-iris-violet: var(--iris-violet);
-  --color-iris-pink: var(--iris-pink);
-  --color-iris-amber: var(--iris-amber);
-  --color-mint: var(--mint);
-  --color-green: var(--green);
-  --color-turquoise: var(--turquoise);
-  --color-pearl: var(--pearl);
+  --color-btn: var(--btn);
+  --color-btn-text: var(--btn-text);
+  --color-btn-hover: var(--btn-hover);
+  --color-dot: var(--dot);
   --color-ok: var(--ok);
   --color-ok-ink: var(--ok-ink);
   --color-warn: var(--warn);
   --color-danger: var(--danger);
   --color-danger-ink: var(--danger-ink);
+  --color-encre: var(--encre);
+  --color-craie: var(--craie);
+  --color-signal: var(--signal);
+  --color-menthe: var(--menthe);
+  --color-foret: var(--foret);
+  --color-graphite: var(--graphite);
+  --color-profondeur: var(--profondeur);
+  --color-lagon: var(--lagon);
+  --color-azur: var(--azur);
+  --color-lilas: var(--lilas);
+  --color-rose: var(--rose);
+  --color-corail: var(--corail);
   --radius-sm: var(--r-sm);
   --radius-md: var(--r-md);
   --radius-lg: var(--r-lg);
   --radius-xl: var(--r-xl);
   --radius-pill: var(--r-pill);
-  --font-sans: var(--font-text), ui-sans-serif, system-ui, sans-serif;
-  --font-brand: var(--font-brand-face), var(--font-text), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-text-face), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-display-face), var(--font-text-face), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-mono-face), ui-monospace, "SF Mono", Menlo, monospace;
+  --font-serif: var(--font-serif-face), "Iowan Old Style", Georgia, serif;
+  --ease-brand: var(--ease);
 }
 
 @layer base {
   html {
-    background: var(--ink-0);
+    background: var(--bg);
     color: var(--text);
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
@@ -54,84 +67,158 @@
   }
   body {
     font-family: var(--font-sans);
-    font-size: 16px;
-    line-height: 1.6;
+    font-size: 17px;
+    line-height: 1.55;
     min-height: 100dvh;
     overflow-x: clip;
+    background: var(--bg);
+    color: var(--text);
   }
-  ::selection { background: rgba(47, 191, 122, 0.45); color: var(--text); }
+  /* Le grain de la charte, par-dessus tout : une seule couche fixe, sans
+     mode de fusion (un `mix-blend-mode` plein écran se recompose à chaque
+     image de défilement). */
+  body::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 70;
+    pointer-events: none;
+    background-image: var(--grain);
+    background-size: 160px 160px;
+    opacity: var(--grain-opacity);
+    mix-blend-mode: soft-light;
+  }
+  ::selection { background: color-mix(in srgb, var(--signal) 45%, transparent); color: var(--encre); }
   :focus-visible { outline: 2px solid var(--accent-ink); outline-offset: 3px; border-radius: 6px; }
   h1, h2, h3, h4 { text-wrap: balance; }
   p { text-wrap: pretty; }
 }
 
 /* ---------------------------------------------------------------------------
-   Échelle typographique — préfixée `type-` et non `text-` : tailwind-merge
-   range tout `text-*` avec les couleurs et en supprime une au passage.
+   Échelle typographique (r-15) — préfixée `type-` et non `text-` :
+   tailwind-merge range tout `text-*` avec les couleurs et en supprime une.
+   H1 Funnel 600, −3,5 % ; H2 Funnel 500, −2,5 % ; texte et H3 en Geist ;
+   surtitres et données en Geist Mono, en capitales espacées.
    --------------------------------------------------------------------------- */
 @utility type-display {
-  font-size: clamp(2.5rem, 6.2vw, 5.25rem);
-  line-height: 1;
+  font-family: var(--font-display);
+  font-size: clamp(2.75rem, 7.2vw, 6.5rem);
+  line-height: 0.98;
   letter-spacing: -0.035em;
-  font-weight: 500;
+  font-weight: 600;
 }
 @utility type-h1 {
+  font-family: var(--font-display);
   font-size: clamp(2.25rem, 4.6vw, 3.75rem);
-  line-height: 1.04;
+  line-height: 1.02;
   letter-spacing: -0.03em;
-  font-weight: 500;
+  font-weight: 600;
 }
 @utility type-h2 {
-  font-size: clamp(1.75rem, 3.2vw, 2.75rem);
-  line-height: 1.1;
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 4vw, 3.5rem);
+  line-height: 1.08;
   letter-spacing: -0.025em;
   font-weight: 500;
 }
 @utility type-h3 {
-  font-size: clamp(1.25rem, 1.8vw, 1.5rem);
+  font-family: var(--font-sans);
+  font-size: clamp(1.1875rem, 1.6vw, 1.4375rem);
   line-height: 1.25;
-  letter-spacing: -0.015em;
-  font-weight: 500;
+  letter-spacing: -0.012em;
+  font-weight: 600;
 }
 @utility type-lead {
-  font-size: clamp(1.125rem, 1.5vw, 1.375rem);
+  font-size: clamp(1.125rem, 1.45vw, 1.3125rem);
   line-height: 1.5;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.006em;
   font-weight: 400;
 }
 @utility type-body {
-  font-size: 1rem;
-  line-height: 1.65;
+  font-size: 1.0625rem;
+  line-height: 1.55;
 }
 @utility type-small {
   font-size: 0.9375rem;
-  line-height: 1.55;
+  line-height: 1.5;
 }
 @utility type-caption {
   font-size: 0.8125rem;
   line-height: 1.45;
-  letter-spacing: 0.005em;
 }
 @utility type-overline {
-  font-size: 0.8125rem;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
   line-height: 1.3;
-  letter-spacing: 0;
-  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 400;
+}
+@utility type-data {
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  line-height: 1.4;
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
 }
 @utility type-stat {
-  font-size: clamp(2.25rem, 4vw, 3.5rem);
-  line-height: 1;
-  letter-spacing: -0.03em;
-  font-weight: 500;
+  font-family: var(--font-display);
+  font-size: clamp(2.5rem, 4.6vw, 4.25rem);
+  line-height: 0.95;
+  letter-spacing: -0.035em;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
 
+/* Le mot-clé vert, un par titre, sans cartouche (r-15) : Signal 600 sur
+   clair tant que le titre fait moins de 48 px, Signal Titre au-delà, Signal
+   pur sur la Profondeur. */
+.kw { color: var(--kw); }
+@media (min-width: 768px) {
+  .type-display .kw { color: var(--kw-lg); }
+}
+@media (min-width: 1200px) {
+  .type-h2 .kw, .type-h1 .kw { color: var(--kw-lg); }
+}
+/* La touche manuscrite : Instrument Serif italique, deux ou trois mots. Un
+   cran plus grande que le texte qui l'entoure, sa hauteur d'x étant plus
+   petite que celle de Funnel. */
+.serif {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-weight: 400;
+  font-size: 1.08em;
+  letter-spacing: -0.01em;
+}
+
+/* Le verre de la charte (r-19) : dégradé blanc translucide, flou 6 px,
+   saturation ×1,8, arêtes lumineuses en ombres internes. Le fond plein
+   `--glass-fill` passe sous le dégradé pour que le texte posé dessus garde
+   son contraste quelle que soit la matière derrière. */
 @utility glass {
-  background: var(--glass);
-  border: 1px solid var(--glass-border);
-  box-shadow: var(--shadow-card);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
+  background: var(--glass), var(--glass-fill);
+  box-shadow: var(--glass-shadow);
+  backdrop-filter: var(--glass-filter);
+  -webkit-backdrop-filter: var(--glass-filter);
+}
+
+/* Les deux fonds d'univers : l'aura sur la Craie, la Profondeur et sa
+   lumière verte qui monte du bas. */
+@utility bg-aura {
+  background: var(--aura);
+}
+@utility bg-profondeur {
+  background: var(--gradient-profondeur);
+}
+
+/* L'anneau de lumière de l'univers Verre clair (r-02, r-03 en 3a) : un
+   cercle au trait blanc, très grand, coupé par les bords. */
+@utility ring-light {
+  position: absolute;
+  aspect-ratio: 1;
+  border-radius: 999px;
+  border: 1.5px solid rgb(255 255 255 / 0.85);
+  pointer-events: none;
 }
 
 @utility container-site {
@@ -173,12 +260,7 @@
   .reveal { opacity: 1; transform: none; transition: none; }
 }
 
-/* Une ligne iridescente fine, pour séparer deux sections. */
-@utility hairline-iris {
-  height: 1px;
-  background: var(--gradient-iris-soft);
-  opacity: 0.5;
-}
+
 
 /* ---------------------------------------------------------------------------
    Le bandeau de logos : la piste est rendue deux fois, translatée d'une
@@ -217,10 +299,19 @@
   object-fit: contain;
   opacity: 0.85;
 }
+/* Un mur de marques au même poids : en un seul noir sur clair, en un seul
+   blanc sur la Profondeur. Un tracé sombre (`invert`) reste tel quel sur
+   clair. */
 .marquee-logo-mono {
-  filter: brightness(0) invert(1);
+  filter: brightness(0);
 }
 .marquee-logo-invert {
+  filter: grayscale(1) brightness(0.2);
+}
+.theme-dark .marquee-logo-mono {
+  filter: brightness(0) invert(1);
+}
+.theme-dark .marquee-logo-invert {
   filter: invert(1) grayscale(1) brightness(1.15);
 }
 @keyframes marquee {
@@ -257,15 +348,15 @@
   position: relative;
   border-radius: 14% / 6.6%;
   padding: 2.6%;
-  background: linear-gradient(160deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.04) 40%, rgba(0, 0, 0, 0.3));
-  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.12) inset, 0 40px 80px -40px rgba(0, 0, 0, 0.9);
+  background: linear-gradient(160deg, #3a3d38, #141414 45%, #0b0c0b);
+  box-shadow: 0 1px 0 rgb(255 255 255 / 0.18) inset, 0 0 0 1px rgb(20 20 20 / 0.5), 0 40px 70px -36px rgb(20 20 20 / 0.55);
 }
 .phone-screen {
   position: relative;
   aspect-ratio: 9 / 19.5;
   overflow: hidden;
   border-radius: 12% / 5.6%;
-  background: var(--ink-2);
+  background: var(--surface-2);
 }
 .phone-island {
   position: absolute;
@@ -278,40 +369,8 @@
   background: #000;
 }
 
-/* ---------------------------------------------------------------------------
-   Le logotype effervescent : le mot HTML sert de première image et de repli,
-   le canvas WebGL le remplace dès qu'il a peint. La police de marque, en
-   graisse lourde et interlettrage serré, fait se toucher les lettres.
-   --------------------------------------------------------------------------- */
-.fuse-static {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  display: block;
-  text-align: center;
-  font-family: var(--font-brand);
-  font-weight: 700;
-  font-size: calc(100cqw / 4.6);
-  line-height: 1;
-  letter-spacing: -0.07em;
-  color: var(--text);
-  text-shadow: 0 0 2px var(--mint), 0 0 18px color-mix(in srgb, var(--mint) 45%, transparent);
-  transition: opacity var(--motion-slow) var(--ease);
-  user-select: none;
-}
-.fuse {
-  container-type: inline-size;
-}
-.fuse-canvas {
-  position: absolute;
-  inset: 0;
-  display: block;
-  width: 100%;
-  height: 100%;
-  opacity: 0;
-  transition: opacity var(--motion-slow) var(--ease);
-}
-@utility font-brand {
-  font-family: var(--font-brand);
+/* Le point du logotype : Encre sur clair, Signal sur la Profondeur, où il
+   émet un léger halo (r-08). */
+.theme-dark .logo-dot {
+  filter: drop-shadow(0 0 4px rgb(34 224 91 / 0.75));
 }

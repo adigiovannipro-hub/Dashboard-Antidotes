@@ -7,7 +7,7 @@ export const metadata: Metadata = {
   title: { default: "Antidotes", template: "%s — Antidotes" },
 };
 
-export const viewport: Viewport = { themeColor: "#090c0b", colorScheme: "dark" };
+export const viewport: Viewport = { themeColor: "#0b110c", colorScheme: "light" };
 
 export default function FrLayout({ children }: { children: React.ReactNode }) {
   return <Root locale="fr">{children}</Root>;

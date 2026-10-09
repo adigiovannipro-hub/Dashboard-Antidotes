@@ -76,7 +76,7 @@ export default function PrivacyPage() {
 
       <LegalSection title="Data coming from TikTok">
         <p>
-          When a TikTok account is connected, Antidotes requests three permissions and not one more: <code className="type-caption rounded-sm bg-ink-2 px-1 py-0.5">user.info.basic</code>, <code className="type-caption rounded-sm bg-ink-2 px-1 py-0.5">user.info.stats</code> and <code className="type-caption rounded-sm bg-ink-2 px-1 py-0.5">video.list</code>.
+          When a TikTok account is connected, Antidotes requests three permissions and not one more: <code className="type-caption rounded-sm bg-surface-2 px-1 py-0.5">user.info.basic</code>, <code className="type-caption rounded-sm bg-surface-2 px-1 py-0.5">user.info.stats</code> and <code className="type-caption rounded-sm bg-surface-2 px-1 py-0.5">video.list</code>.
         </p>
         <p>
           They are used only to display, in the account holder&apos;s workspace, their own statistics: number of followers, and views, likes, comments and shares of their public videos. This data is shown to no one other than the holder and the agency team managing the account.

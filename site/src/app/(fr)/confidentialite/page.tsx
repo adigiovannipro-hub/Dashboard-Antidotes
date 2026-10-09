@@ -73,7 +73,7 @@ export default function ConfidentialitePage() {
 
       <LegalSection title="Les données venant de TikTok">
         <p>
-          Lorsqu&apos;un compte TikTok est connecté, Antidotes demande trois autorisations et pas une de plus : <code className="type-caption rounded-sm bg-ink-2 px-1 py-0.5">user.info.basic</code>, <code className="type-caption rounded-sm bg-ink-2 px-1 py-0.5">user.info.stats</code> et <code className="type-caption rounded-sm bg-ink-2 px-1 py-0.5">video.list</code>.
+          Lorsqu&apos;un compte TikTok est connecté, Antidotes demande trois autorisations et pas une de plus : <code className="type-caption rounded-sm bg-surface-2 px-1 py-0.5">user.info.basic</code>, <code className="type-caption rounded-sm bg-surface-2 px-1 py-0.5">user.info.stats</code> et <code className="type-caption rounded-sm bg-surface-2 px-1 py-0.5">video.list</code>.
         </p>
         <p>
           Elles servent uniquement à afficher, dans l&apos;espace du titulaire du compte, ses propres statistiques : nombre d&apos;abonnés, et vues, mentions « j&apos;aime », commentaires et partages de ses vidéos publiques. Ces données ne sont montrées à personne d&apos;autre qu&apos;à lui et à l&apos;équipe de l&apos;agence qui gère son compte.

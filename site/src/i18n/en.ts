@@ -22,7 +22,7 @@ export const en: Dictionary = {
   },
   hero: {
     eyebrow: "Social media and AI",
-    title: "Social channels that deliver, with the numbers to prove it.",
+    title: "Social channels *that deliver*, with the numbers _to prove it._",
     lead: "I design, produce and run your social media presence: ten years in the field, AI where it speeds things up, and a platform built for my clients.",
     ctaPrimary: "Get my score out of 10",
     ctaSecondary: "See client cases",
@@ -30,7 +30,7 @@ export const en: Dictionary = {
   },
   cases: {
     eyebrow: "Client cases",
-    title: "Real posts, and numbers read straight from the reporting.",
+    title: "*Real* posts, and numbers read straight _from the reporting._",
     items: [
       {
         id: "iway",
@@ -64,7 +64,7 @@ export const en: Dictionary = {
   },
   services: {
     eyebrow: "Services",
-    title: "One senior contact, from diagnosis to reporting.",
+    title: "One *senior* contact, _from diagnosis_ to reporting.",
     items: [
       { icon: "compass", name: "Strategy", text: "Audiences, pillars, formats and media budget." },
       { icon: "calendar", name: "Social media management", text: "Planning, copywriting, moderation and reporting." },
@@ -76,7 +76,7 @@ export const en: Dictionary = {
   },
   method: {
     eyebrow: "Method",
-    title: "A typical month, from editorial meeting to reporting.",
+    title: "A *typical month*, from editorial meeting _to reporting._",
     steps: [
       { title: "Editorial meeting", text: "Your priorities become the month's topics." },
       { title: "Planning", text: "Each post gets its brief and its date." },
@@ -87,7 +87,7 @@ export const en: Dictionary = {
   },
   funnel: {
     eyebrow: "Free",
-    title: "Your social media score, from 1 to 10.",
+    title: "Your *social media* score, _from 1 to 10._",
     lead: "The score is calculated right away. I present it to you on a call, with the three levers that would move it up.",
     bullets: ["Based on your answers", "Explained on a 30-minute video call", "No commitment"],
     start: "Start",
@@ -149,7 +149,7 @@ export const en: Dictionary = {
   },
   faq: {
     eyebrow: "Frequently asked questions",
-    title: "What people ask before we start.",
+    title: "What people ask *before we start*.",
     items: [
       { q: "How much does it cost?", a: "Each quote follows your scope: channels, content volume, advertising, moderation. I give you a rough figure on the first call." },
       { q: "Is there a long-term commitment?", a: "Social media management is best judged over several months, and the terms are set out in the quote. Your accounts, content and data stay yours." },
@@ -159,7 +159,7 @@ export const en: Dictionary = {
     ],
   },
   footer: {
-    tagline: "Social media and AI, closely managed.",
+    tagline: "Social media and AI, _closely managed._",
     privacy: "Privacy policy",
     terms: "Terms of use",
     contact: "Write to Alessandro",

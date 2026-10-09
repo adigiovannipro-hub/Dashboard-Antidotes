@@ -28,19 +28,19 @@ export function MobileMenu({
         aria-expanded={open}
         aria-controls={id}
         onClick={() => setOpen((v) => !v)}
-        className="type-small rounded-pill border border-line px-3 py-1.5 text-text"
+        className="type-small rounded-pill border border-line-strong px-3.5 py-2 font-medium text-text"
       >
         {open ? labels.close : labels.menu}
       </button>
       {open ? (
-        <div id={id} className="absolute inset-x-0 top-16 border-b border-line bg-ink-0/95 backdrop-blur-xl">
+        <div id={id} className="absolute inset-x-0 top-16 border-b border-line bg-bg/95 backdrop-blur-xl">
           <nav aria-label="Sections" className="container-site flex flex-col gap-1 py-4">
             {links.map((link) => (
-              <a key={link.href} href={link.href} onClick={() => setOpen(false)} className="type-body rounded-md px-2 py-3 text-text-2 hover:text-text">
+              <a key={link.href} href={link.href} onClick={() => setOpen(false)} className="type-body rounded-md px-2 py-3 font-medium text-text-2 hover:text-text">
                 {link.label}
               </a>
             ))}
-            <a href={cta.href} onClick={() => setOpen(false)} className="type-body mt-2 rounded-pill bg-text px-4 py-3 text-center font-medium text-text-on-light">
+            <a href={cta.href} onClick={() => setOpen(false)} className="type-body mt-2 rounded-pill bg-btn px-4 py-3 text-center font-semibold text-btn-text">
               {cta.label}
             </a>
           </nav>

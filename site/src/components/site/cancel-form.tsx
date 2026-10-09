@@ -27,7 +27,7 @@ export function CancelForm({
       <button
         type="submit"
         disabled={pending}
-        className="type-body inline-flex rounded-pill border border-line-strong px-6 py-3 text-text transition-colors duration-(--motion) hover:bg-glass disabled:opacity-60"
+        className="type-body inline-flex rounded-pill border border-line-strong px-6 py-3 text-text transition-colors duration-(--motion) hover:bg-field disabled:opacity-60"
       >
         {labels.confirm}
       </button>

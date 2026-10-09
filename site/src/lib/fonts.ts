@@ -1,14 +1,16 @@
-import { Fredoka, Host_Grotesk } from "next/font/google";
+import { Funnel_Display, Geist, Geist_Mono, Instrument_Serif } from "next/font/google";
 
 /**
- * Deux familles, pas une de plus. Host Grotesk, variable, pour tout ce qui
- * se lit : titres en 500, corps en 400, chiffres tabulaires par défaut.
- * Fredoka en 700 pour le seul logotype, dont les lettres se touchent à
- * −0,07 em (écarts mesurés paire par paire par le scout typographique du
- * 8/10/2026). Téléchargées à la compilation, servies depuis le site :
+ * Les quatre familles de la charte (9/10/2026), et pas une de plus :
+ * Funnel Display pour les grands titres (H1 600, H2 500), Geist pour le
+ * texte, les H3 et l'interface, Geist Mono pour les surtitres et les
+ * données, Instrument Serif en italique pour la touche manuscrite de deux
+ * ou trois mots. Téléchargées à la compilation et servies depuis le site :
  * aucune requête vers Google au chargement.
  */
-export const text = Host_Grotesk({ subsets: ["latin"], weight: "variable", variable: "--font-text", display: "swap" });
-export const brand = Fredoka({ subsets: ["latin"], weight: ["700"], variable: "--font-brand-face", display: "swap", preload: false });
+export const display = Funnel_Display({ subsets: ["latin"], weight: "variable", variable: "--font-display-face", display: "swap" });
+export const text = Geist({ subsets: ["latin"], weight: "variable", variable: "--font-text-face", display: "swap" });
+export const mono = Geist_Mono({ subsets: ["latin"], weight: ["400"], variable: "--font-mono-face", display: "swap" });
+export const serif = Instrument_Serif({ subsets: ["latin"], weight: ["400"], style: ["italic"], variable: "--font-serif-face", display: "swap" });
 
-export const fontClassName = `${text.variable} ${brand.variable}`;
+export const fontClassName = `${display.variable} ${text.variable} ${mono.variable} ${serif.variable}`;
