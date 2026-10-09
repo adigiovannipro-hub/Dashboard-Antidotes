@@ -11,16 +11,19 @@ import { chipInk, type useCellAction } from "@/components/planning/cells";
 import type { Scope } from "@/components/planning/subject-row";
 
 /**
- * La case statut d'une ligne « Validé », vue par l'agence : au survol, elle
- * se coupe en deux moitiés égales — **Programmer** (le calendrier) à gauche,
- * **Publier** (l'envoi) à droite — chacune à la couleur de l'étiquette
- * qu'elle posera, « Programmé » et « Publié ». Le geste se lit avant d'être
- * fait : la case prend la couleur de ce qu'elle deviendra.
+ * La case statut d'une ligne « Validé », vue par l'agence : au survol de la
+ * **ligne** — n'importe où, pas seulement sur la case —, elle se coupe en
+ * deux moitiés égales — **Programmer** (le calendrier) à gauche, **Publier**
+ * (l'envoi) à droite — chacune à la couleur de l'étiquette qu'elle posera,
+ * « Programmé » et « Publié ». Le geste se lit avant d'être fait : la case
+ * prend la couleur de ce qu'elle deviendra. La première version ne réagissait
+ * qu'au survol de la case elle-même : la souris posée sur le sujet ne
+ * montrait rien, et le geste passait pour absent.
  *
  * La petite croix ronde rend la case à « Validé » le temps du survol : c'est
  * le chemin vers le sélecteur de statut, sans quoi une ligne validée ne
  * pourrait plus revenir à « À valider » depuis le tableau. Elle revient dès
- * que la souris quitte la case. Au clavier, les deux moitiés apparaissent
+ * que la souris quitte la ligne. Au clavier, les deux moitiés apparaissent
  * quand le focus entre dans la case, et la croix rend le focus à la pastille.
  *
  * Publier demande confirmation : une publication ne se retire pas d'ici. Elle
@@ -62,6 +65,33 @@ export function PublishActions({
     return () => pending.forEach((timer) => window.clearTimeout(timer));
   }, []);
 
+  // La croix vaut le temps du survol de la ligne : la quitter rend les deux
+  // moitiés. Écouté sur la ligne et non sur la case, puisque c'est elle qui
+  // les fait apparaître. Un focus laissé dans la case par la souris (la
+  // pastille après la croix, le bouton après la confirmation) est rendu au
+  // même moment : sans quoi `focus-within` gardait les deux moitiés sur une
+  // ligne que la souris avait quittée. Le focus clavier, lui, reste.
+  // (`:has(:focus-visible)` évitait la fuite mais cassait Tab : la case se
+  // masquait entre la pastille et « Programmer », et le focus tombait sur la
+  // page.)
+  useEffect(() => {
+    const row = container.current?.closest('[role="row"]');
+    if (!row) return;
+    const reset = () => {
+      setDismissed(false);
+      const active = document.activeElement;
+      if (
+        active instanceof HTMLElement &&
+        container.current?.contains(active) &&
+        !active.matches(":focus-visible")
+      ) {
+        active.blur();
+      }
+    };
+    row.addEventListener("mouseleave", reset);
+    return () => row.removeEventListener("mouseleave", reset);
+  }, []);
+
   const publish = async () => {
     const result: PlanningResult = await run(() => publishSubjectNow(scope, subjectId));
     if (!result.ok) return;
@@ -80,14 +110,10 @@ export function PublishActions({
 
   return (
     <>
-      <span
-        ref={container}
-        className="group/statut relative flex w-full items-stretch"
-        onMouseLeave={() => setDismissed(false)}
-      >
+      <span ref={container} className="group/statut relative flex w-full items-stretch">
         {children}
         {dismissed ? null : (
-          <span className="bg-surface absolute inset-0 hidden gap-px group-focus-within/statut:flex group-hover/statut:flex">
+          <span className="bg-surface absolute inset-0 hidden gap-px group-hover/row:flex group-focus-within/statut:flex">
             <button
               type="button"
               aria-label="Programmer à sa date"
