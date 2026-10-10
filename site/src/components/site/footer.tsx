@@ -61,8 +61,12 @@ export function Footer({ dict, locale }: { dict: Dictionary; locale: Locale }) {
           © {new Date().getUTCFullYear()} {dict.footer.copyright}. {dict.footer.rights}
         </p>
       </div>
+      {/* La coulure garde son dessin, mais le pied ne lui laisse que le haut de ses traînées,
+          fondues vers le bas : la scène entière doublait la hauteur du pied de page. */}
       <div className="container-site mt-3">
-        <CoulureWordmark />
+        <div className="aspect-[1/0.42] overflow-hidden [mask-image:linear-gradient(#000_62%,transparent)]">
+          <CoulureWordmark />
+        </div>
       </div>
     </footer>
   );
