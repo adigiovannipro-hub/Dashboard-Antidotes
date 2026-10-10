@@ -5,6 +5,7 @@
 @import "../styles/hero.css";
 @import "../styles/method.css";
 @import "../styles/funnel.css";
+@import "../styles/pills.css";
 
 /* Les tokens câblés sur Tailwind : `bg-surface`, `text-text-2`,
    `border-line`, `rounded-xl` (28 px, le verre de la charte)… Les couleurs
