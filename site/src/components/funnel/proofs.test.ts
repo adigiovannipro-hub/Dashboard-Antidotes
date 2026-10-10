@@ -13,6 +13,10 @@ describe("proofSlides", () => {
       expect(slides).toHaveLength(dict.funnel.panel.length);
       for (const slide of slides) {
         const caseId = dict.cases.items.find((item) => item.client === slide.client)?.id;
+        if (slide.client === "Catherine Osti") {
+          expect(slide).toMatchObject({ poster: "/cas/catherine-osti-proof.webp", handle: null });
+          continue;
+        }
         if (!caseId) {
           expect(slide.poster).toBeNull();
           expect(slide.handle).toBeNull();
@@ -24,12 +28,12 @@ describe("proofSlides", () => {
     });
   }
 
-  it("Bondet sur ses solaires, Chasseurs de Graines sur le grain, Catherine Osti sans visuel", () => {
+  it("Bondet sur ses solaires, Chasseurs de Graines sur le grain, Catherine Osti sur son portrait", () => {
     const dict = getDictionary("fr");
     const byClient = Object.fromEntries(proofSlides(dict.funnel.panel, dict.cases.items).map((slide) => [slide.client, slide]));
     expect(byClient["Lunettes Bondet"]).toMatchObject({ poster: "/cas/bondet-solaire.webp", handle: "@lunettesbondet" });
     expect(byClient["Chasseurs de Graines"]).toMatchObject({ poster: "/cas/anmf-spot.webp", handle: "@chasseursdegraines" });
-    expect(byClient["Catherine Osti"]).toMatchObject({ poster: null, handle: null });
+    expect(byClient["Catherine Osti"]).toMatchObject({ poster: "/cas/catherine-osti-proof.webp", handle: null });
   });
 
   it("un client inconnu garde le fond de la Profondeur", () => {

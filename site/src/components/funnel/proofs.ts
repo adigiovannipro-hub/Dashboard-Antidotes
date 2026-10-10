@@ -22,8 +22,19 @@ const PROOF_POSTERS: Record<string, string> = {
   iway: "/cas/iway-f1.webp",
 };
 
+/**
+ * Les clients qui ont un chiffre sans avoir de cas : leur visuel vient de
+ * leur propre site (rapatrié par `scripts/visuels-cas.mjs`), sans étiquette
+ * de compte — ce n'est pas une publication.
+ */
+const CLIENT_POSTERS: Record<string, string> = {
+  "Catherine Osti": "/cas/catherine-osti-proof.webp",
+};
+
 export function proofSlides(panel: readonly ProofStat[], cases: readonly CaseStudy[]): ProofSlide[] {
   return panel.map((proof) => {
+    const own = CLIENT_POSTERS[proof.client];
+    if (own) return { ...proof, poster: own, handle: null };
     const caseId = cases.find((item) => item.client === proof.client)?.id;
     const visuals = caseId ? (CASE_VISUALS[caseId] ?? []) : [];
     const wanted = caseId ? PROOF_POSTERS[caseId] : undefined;

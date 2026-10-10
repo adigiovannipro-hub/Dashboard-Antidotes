@@ -15,7 +15,10 @@ import type { MarqueeLogo } from "@/components/site/logo-marquee";
  * marque sans version horizontale publiée : la ligne de son nom est isolée
  * du logo officiel) plus bas encore. McDonald's, L'Originel et MIF viennent
  * des fichiers fournis par Alessandro le 11/10, passés en pochoir (opacité
- * tirée de l'encre, fond retiré).
+ * tirée de l'encre, fond retiré). Bexley vient du SVG officiel de
+ * bexley.com, réduit à ses lettres (le cartouche vert et le filet doré
+ * retirés, le cadre posé sur le tracé) : hors de la liste de rapatriement,
+ * qui l'écraserait.
  */
 export const CLIENT_LOGOS: MarqueeLogo[] = [
   { src: "/logos/i-way.png", name: "I-WAY", width: 278, height: 227, size: 52 },
@@ -23,6 +26,7 @@ export const CLIENT_LOGOS: MarqueeLogo[] = [
   { src: "/logos/mcdonalds.png", name: "McDonald's", width: 258, height: 33, size: 22 },
   { src: "/logos/loriginel.png", name: "L'Originel, brûlerie à Versailles", width: 851, height: 240, size: 36 },
   { src: "/logos/mif.png", name: "MIF", width: 80, height: 52, size: 26 },
+  { src: "/logos/bexley.svg", name: "Bexley", width: 121.75, height: 47.21, size: 30 },
   { src: "/logos/catherine-osti.png", name: "Catherine Osti", width: 382, height: 27, size: 14 },
   { src: "/logos/chasseurs-de-graines.svg", name: "Chasseurs de Graines", width: 199.8, height: 73, size: 40 },
   { src: "/logos/anmf.svg", name: "ANMF, Association nationale de la meunerie française", width: 173.32, height: 87.61, size: 44 },
