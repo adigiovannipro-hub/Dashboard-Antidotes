@@ -63,31 +63,21 @@
 }
 
 /* ---------------------------------------------------------------------------
-   La preuve, comme sur la couverture LinkedIn : une fine barre verticale,
-   le chiffre, puis le libellé souligné d'un trait de surligneur Signal —
+   La preuve, comme sur la couverture LinkedIn (sans la barre verticale,
+   retirée le 11/10) : le chiffre, puis le libellé souligné d'un trait de
+   surligneur Signal —
    épais, un peu décalé vers la droite et sous les jambages, pour que la
    Craie ne se pose jamais sur le vert (1,7:1, r-13).
    --------------------------------------------------------------------------- */
 .hero-proof {
   position: relative;
   width: fit-content;
-  padding-left: 0.95em;
   font-family: var(--ff-text);
   font-size: clamp(1rem, 0.93rem + 0.3vw, 1.1875rem);
   line-height: 1.35;
   font-weight: 500;
   letter-spacing: -0.005em;
   color: var(--text);
-}
-.hero-proof::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: -0.12em;
-  bottom: -0.16em;
-  width: 1.5px;
-  border-radius: 1px;
-  background: var(--text);
 }
 .hero-proof-value {
   font-weight: 600;

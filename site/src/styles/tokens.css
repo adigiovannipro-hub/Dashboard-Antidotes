@@ -34,6 +34,16 @@
   --corail: #ff9a7a;
   --profondeur: #0b110c;
 
+  /* La lave du hero (r-05) : le moteur de la V1, à l'identique, repeint aux
+     couleurs de la charte — cœur Signal, franges Menthe et Rose, sa gamme
+     300 pour le reflet clair, sur la Profondeur. Le shader lit ces cinq
+     jetons au démarrage (`components/hero/iris-canvas.tsx`). */
+  --iris-cyan: var(--g-300);
+  --iris-violet: var(--signal);
+  --iris-pink: var(--rose);
+  --iris-amber: var(--menthe);
+  --ink-0: var(--profondeur);
+
   /* --- Univers Verre clair (défaut) --------------------------------------
      Contrastes sur Craie : --text 17,3:1, --text-2 10,5:1, --text-3
      (Graphite) 6,3:1, --accent-ink (Forêt) 9,7:1. Le mot-clé vert des

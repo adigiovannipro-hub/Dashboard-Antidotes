@@ -26,7 +26,7 @@ export function Header({ dict, locale }: { dict: Dictionary; locale: Locale }) {
       <div className="nav-wrap container-site">
         <div className="nav-pill">
           <Link href={localePath(locale)} className="nav-logo shrink-0 rounded-pill" aria-label="antidotes">
-            <Logo height={22} />
+            <Logo height={19} />
           </Link>
           {/* Les quatre ancres à partir de 1024 px : en dessous, elles passaient sur deux lignes. */}
           <nav aria-label="Sections" className="hidden items-center gap-1 lg:flex">

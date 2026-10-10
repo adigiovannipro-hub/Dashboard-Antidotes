@@ -1,6 +1,6 @@
 import type { CSSProperties } from "react";
 
-import { LavaCanvas } from "@/components/brand/lava-canvas";
+import { IrisCanvas } from "@/components/hero/iris-canvas";
 import { Rich, plainText } from "@/components/brand/rich";
 import type { Dictionary } from "@/i18n/types";
 
@@ -32,9 +32,9 @@ function titleMeasure(title: string): number {
 }
 
 /**
- * L'ouverture, univers Profondeur (r-05) : la lave derrière — grandes
- * formes coupées par les bords, cœur Signal, franges Menthe et Rose — la
- * promesse à gauche sur la grille. Le bandeau de logos ouvre la section
+ * L'ouverture, univers Profondeur : la lave de la V1 derrière — ses bulles
+ * de verre et la bulle qui suit la souris, repeintes aux couleurs de la
+ * charte (cœur Signal, franges Menthe et Rose) — la promesse à gauche. Le bandeau de logos ouvre la section
  * suivante : posé ici, la lave passait sous les marques. Trois
  * plans : fond, matière, texte. La section remonte sous l'en-tête en verre
  * pour que la lave passe dessous au lieu d'être tranchée à 64 px.
@@ -48,7 +48,7 @@ export function Hero({ dict }: { dict: Dictionary }) {
   const measure = { "--hero-measure": titleMeasure(dict.hero.title) } as CSSProperties;
   return (
     <section data-univers="sombre" className="theme-dark relative isolate -mt-16 overflow-hidden bg-bg text-text">
-      <LavaCanvas className="absolute inset-0 -z-10" />
+      <IrisCanvas className="absolute inset-0 -z-10" />
       {/* La pénombre de la colonne de texte : Craie sur Signal tombe à 1,7:1 (r-13), le texte ne se
           pose donc jamais sur la lave. La lave reste vive à droite et sur les bords. Sous lg, le titre
           occupe presque toute la largeur : la pénombre s'élargit avec lui. */}

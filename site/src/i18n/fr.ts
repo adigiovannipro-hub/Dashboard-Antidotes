@@ -159,7 +159,7 @@ export const fr: Dictionary = {
       { q: "Y a-t-il un engagement de durée ?", a: "Un accompagnement se juge sur plusieurs mois, et les conditions sont écrites dans le devis. Vos comptes, vos contenus et vos données vous restent." },
       { q: "En combien de temps voit-on des résultats ?", a: "Les premières publications partent dès le premier mois. Les courbes d'audience bougent en général entre le deuxième et le quatrième mois. Les campagnes publicitaires se lisent dès la première semaine." },
       { q: "L'IA écrit-elle mes contenus ?", a: "Elle propose des sujets et des textes à partir de votre contexte de marque et de vos meilleures publications. Je relis, corrige et valide avant chaque publication." },
-      { q: "Vous êtes à Bali, est-ce un problème ?", a: "Vos réunions ont lieu le matin en France, et vos contenus sont prêts quand vous commencez votre journée. Pour les tournages, je me déplace ou je coordonne une équipe sur place." },
+      { q: "Je n'ai pas de photos ou de vidéos, je n'aurais rien à dire.", a: "C'est fréquent au départ, et ce n'est pas un frein. Vos sujets sont déjà dans votre quotidien : votre savoir-faire, vos coulisses, les questions de vos clients. On les repère ensemble en réunion éditoriale, puis je m'occupe de la matière : tournage sur place, vidéos de créateurs UGC ou visuels conçus à partir de ce que vous avez déjà. Vous n'avez qu'à relire et valider." },
     ],
   },
   footer: {
@@ -168,7 +168,7 @@ export const fr: Dictionary = {
     terms: "Conditions générales d'utilisation",
     contact: "Écrire à Alessandro",
     linkedin: "LinkedIn",
-    based: "Antidotes · immatriculée à Hong Kong · clients en France",
+    based: "Antidotes · clients en France",
     copyright: "Antidotes",
     rights: "Tous droits réservés.",
     madeBy: "Alessandro Di Giovanni, freelance social media et IA",

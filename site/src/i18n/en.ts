@@ -159,7 +159,7 @@ export const en: Dictionary = {
       { q: "Is there a long-term commitment?", a: "Social media management is best judged over several months, and the terms are set out in the quote. Your accounts, content and data stay yours." },
       { q: "How soon do results show?", a: "The first posts go out in the first month. Audience numbers usually start moving between the second and fourth month. Advertising results show from the first week." },
       { q: "Does AI write my content?", a: "It proposes topics and copy from your brand context and your best posts. I review, correct and approve before every publication." },
-      { q: "You are in Bali, is that a problem?", a: "Your meetings take place in the morning in France, and your content is ready when you start your day. For shoots, I travel or coordinate a crew on site." },
+      { q: "I don't have any photos or videos, I wouldn't know what to say.", a: "That's common at the start, and it isn't a blocker. Your topics are already part of your day-to-day: your craft, what happens behind the scenes, your customers' questions. We pick them out together in the editorial meeting, then I take care of the material: an on-site shoot, UGC creator videos, or visuals built from what you already have. All you do is review and approve." },
     ],
   },
   footer: {
@@ -168,7 +168,7 @@ export const en: Dictionary = {
     terms: "Terms of use",
     contact: "Write to Alessandro",
     linkedin: "LinkedIn",
-    based: "Antidotes · registered in Hong Kong · clients in France",
+    based: "Antidotes · clients in France",
     copyright: "Antidotes",
     rights: "All rights reserved.",
     madeBy: "Alessandro Di Giovanni, freelance social media and AI",

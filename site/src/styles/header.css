@@ -29,7 +29,7 @@
   --nav-out: clamp(6px, calc(var(--gutter) - 14px), 24px);
 
   /* Verre clair : blanc translucide, flou et saturation de la charte. */
-  --nav-tint: color-mix(in srgb, var(--surface) 54%, transparent);
+  --nav-tint: color-mix(in srgb, var(--surface) 42%, transparent);
   --nav-sheen: linear-gradient(135deg, rgb(255 255 255 / 0.45), rgb(255 255 255 / 0) 55%, rgb(255 255 255 / 0.25));
   --nav-filter: blur(14px) saturate(1.8) brightness(1.08);
   --nav-edge: inset 0 1px 0 rgb(255 255 255 / 0.95), inset 0 0 0 1px rgb(255 255 255 / 0.55), inset 0 -1px 0 color-mix(in srgb, var(--encre) 6%, transparent);
@@ -45,9 +45,9 @@
 
 /* Profondeur : le verre fumé. */
 .site-header.theme-dark {
-  --nav-tint: color-mix(in srgb, var(--profondeur) 40%, transparent);
+  --nav-tint: color-mix(in srgb, var(--profondeur) 28%, transparent);
   --nav-sheen: linear-gradient(135deg, rgb(255 255 255 / 0.09), rgb(255 255 255 / 0) 55%, rgb(255 255 255 / 0.04));
-  --nav-filter: blur(14px) saturate(1.8) brightness(0.55);
+  --nav-filter: blur(14px) saturate(1.8) brightness(0.68);
   --nav-edge: inset 0 1px 0 rgb(255 255 255 / 0.24), inset 0 0 0 1px rgb(255 255 255 / 0.12), inset 0 -1px 0 rgb(255 255 255 / 0.05);
   --nav-shadow: 0 18px 40px -22px rgb(0 0 0 / 0.75);
   --nav-chip: rgb(255 255 255 / 0.06);
@@ -114,10 +114,10 @@
 .nav-link {
   display: inline-flex;
   align-items: center;
-  height: 38px;
-  padding-inline: 14px;
+  height: 36px;
+  padding-inline: 13px;
   border-radius: var(--r-pill);
-  font-size: 1rem;
+  font-size: 0.9375rem;
   line-height: 1;
   font-weight: 550;
   letter-spacing: -0.005em;

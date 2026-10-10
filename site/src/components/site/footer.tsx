@@ -18,15 +18,15 @@ export function Footer({ dict, locale }: { dict: Dictionary; locale: Locale }) {
   const link = "type-small text-text-2 underline-offset-4 transition-colors duration-(--motion) hover:text-text hover:underline";
   return (
     <footer data-univers="sombre" className="theme-dark relative isolate overflow-hidden rounded-t-[clamp(28px,4vw,56px)] bg-bg text-text">
-      <div className="container-site pt-16 md:pt-20">
-        <div className="grid grid-cols-1 gap-10 md:grid-cols-12">
+      <div className="container-site pt-10 md:pt-12">
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-12 md:gap-10">
           <div className="md:col-span-6">
             <p className="type-h2 max-w-md text-text">
               <Rich text={dict.footer.tagline} />
             </p>
-            <p className="type-data mt-4 text-text-3">{dict.footer.madeBy}</p>
+            <p className="type-data mt-3 text-text-3">{dict.footer.madeBy}</p>
           </div>
-          <ul className="space-y-2.5 md:col-span-3">
+          <ul className="space-y-1.5 md:col-span-3">
             <li>
               <a href={`mailto:${LEGAL_ENTITY.email}`} className={link}>
                 {dict.footer.contact}
@@ -43,7 +43,7 @@ export function Footer({ dict, locale }: { dict: Dictionary; locale: Locale }) {
               </Link>
             </li>
           </ul>
-          <ul className="space-y-2.5 md:col-span-3">
+          <ul className="space-y-1.5 md:col-span-3">
             <li>
               <Link href={privacy} className={link}>
                 {dict.footer.privacy}
@@ -54,14 +54,14 @@ export function Footer({ dict, locale }: { dict: Dictionary; locale: Locale }) {
                 {dict.footer.terms}
               </Link>
             </li>
-            <li className="type-data pt-2 text-text-3">{dict.footer.based}</li>
+            <li className="type-data pt-1 text-text-3">{dict.footer.based}</li>
           </ul>
         </div>
-        <p className="type-data mt-12 text-text-3">
+        <p className="type-data mt-7 text-text-3">
           © {new Date().getUTCFullYear()} {dict.footer.copyright}. {dict.footer.rights}
         </p>
       </div>
-      <div className="container-site mt-6">
+      <div className="container-site mt-3">
         <CoulureWordmark />
       </div>
     </footer>
