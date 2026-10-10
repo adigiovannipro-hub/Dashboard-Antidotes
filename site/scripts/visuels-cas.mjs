@@ -102,7 +102,8 @@ for (const item of LIST.cases) {
 // Le dossier est vidé à chaque passage — un passage sans candidats l'efface.
 //
 // `liens: true` liste aussi les liens de la page, pour trouver où chercher
-// ensuite.
+// ensuite ; `sonde: true` fait de l'entrée une simple recherche, qui n'écrit
+// rien sous son nom (ses candidats, si on les demande, sont déposés).
 //
 // Traitement : un SVG est gardé tel quel, c'est la CSS qui le passe en blanc.
 // `retirer` en ôte les formes d'une couleur donnée (un fond de pastille ajouté
@@ -238,6 +239,8 @@ async function fetchBytes(url, { referer, ua } = {}) {
   if (referer) headers.referer = referer;
   const response = await fetch(url, { headers, redirect: "follow" });
   if (!response.ok) throw new Error(`${response.status} sur ${url}`);
+  // Une page d'erreur servie en 200 n'est pas un logo.
+  if (/text\/html/i.test(response.headers.get("content-type") ?? "")) throw new Error(`page HTML et non image sur ${url}`);
   return Buffer.from(await response.arrayBuffer());
 }
 
@@ -336,14 +339,8 @@ function knockoutSvg(svg) {
   return `${open}<defs><mask id="evide" maskUnits="userSpaceOnUse" ${box}><g fill="#fff">${recoloured}</g></mask></defs><rect ${box} fill="#000" mask="url(#evide)"/></svg>\n`;
 }
 
-for (const logo of LIST.logos) {
-  let source;
-  try {
-    source = await resolveLogo(logo);
-  } catch (error) {
-    failures.push(`${logo.out}: ${message(error)}`);
-    continue;
-  }
+/** Écrit le logo dans public/logos et rend la ligne du rapport. */
+function writeLogo(logo, source) {
   const target = join(LOGOS_DIR, logo.out);
   if (sniffSvg(source.bytes)) {
     // Un SVG se garde tel quel : c'est la CSS qui le passe en monochrome.
@@ -351,23 +348,35 @@ for (const logo of LIST.logos) {
     const colours = [...new Set(svg.match(/#[0-9a-f]{3,8}\b|rgb\([^)]*\)/gi) ?? [])].slice(0, 8).join(" ");
     for (const colour of logo.retirer ?? []) svg = removeColour(svg, colour);
     if (logo.evider) svg = knockoutSvg(svg);
-    rmSync(`${target}.png`, { force: true });
     writeFileSync(`${target}.svg`, svg);
+    rmSync(`${target}.png`, { force: true });
     const box = svg.match(/viewBox\s*=\s*"([^"]*)"/i)?.[1] ?? "?";
     const steps = [logo.retirer?.length ? `sans ${logo.retirer.join(", ")}` : "", logo.evider ? "évidé" : ""].filter(Boolean).join(", ");
-    report.push(`${logo.out}: svg ${Math.round(svg.length / 1024)} Ko, viewBox ${box}, couleurs ${colours || "—"}${steps ? `, ${steps}` : ""} ← ${source.from}`);
-  } else {
-    const src = join(TMP, `${logo.out}.raster`);
-    writeFileSync(src, source.bytes);
-    const opaque = execFileSync("identify", ["-format", "%[opaque]", `${src}[0]`]).toString().trim().toLowerCase() === "true";
-    const knockout = logo.transparent ?? (opaque ? "white" : "none");
-    const args = [`${src}[0]`, "-auto-orient"];
-    if (knockout !== "none") args.push("-fuzz", `${logo.fuzz ?? 8}%`, "-transparent", knockout);
-    args.push("-trim", "+repage", "-resize", `x${logo.height ?? 240}>`, "-strip", `${target}.png`);
-    rmSync(`${target}.svg`, { force: true });
-    run("convert", args);
-    const size = execFileSync("identify", ["-format", "%wx%h", `${target}.png`]).toString().trim();
-    report.push(`${logo.out}: ${opaque ? "opaque" : "détouré"}, fond ${knockout} → png ${size}, ${sizeOf(`${target}.png`)} Ko ← ${source.from}`);
+    return `${logo.out}: svg ${Math.round(svg.length / 1024)} Ko, viewBox ${box}, couleurs ${colours || "—"}${steps ? `, ${steps}` : ""} ← ${source.from}`;
+  }
+  const src = join(TMP, `${logo.out}.raster`);
+  const out = join(TMP, `${logo.out}.png`);
+  writeFileSync(src, source.bytes);
+  const opaque = execFileSync("identify", ["-format", "%[opaque]", `${src}[0]`]).toString().trim().toLowerCase() === "true";
+  const knockout = logo.transparent ?? (opaque ? "white" : "none");
+  const args = [`${src}[0]`, "-auto-orient"];
+  if (knockout !== "none") args.push("-fuzz", `${logo.fuzz ?? 8}%`, "-transparent", knockout);
+  args.push("-trim", "+repage", "-resize", `x${logo.height ?? 240}>`, "-strip", out);
+  run("convert", args);
+  writeFileSync(`${target}.png`, readFileSync(out));
+  rmSync(`${target}.svg`, { force: true });
+  const size = execFileSync("identify", ["-format", "%wx%h", `${target}.png`]).toString().trim();
+  return `${logo.out}: ${opaque ? "opaque" : "détouré"}, fond ${knockout} → png ${size}, ${sizeOf(`${target}.png`)} Ko ← ${source.from}`;
+}
+
+for (const logo of LIST.logos) {
+  // Une sonde ne fait que lister et déposer des candidats : rien n'est écrit
+  // sous son nom.
+  try {
+    const source = await resolveLogo(logo);
+    if (!logo.sonde) report.push(writeLogo(logo, source));
+  } catch (error) {
+    if (!logo.sonde) failures.push(`${logo.out}: ${message(error)}`);
   }
 }
 

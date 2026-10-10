@@ -92,32 +92,34 @@
   "logos": [
     {
       "out": "i-way",
-      "pages": [
-        "https://i-way-world.com/lyon",
-        "https://paris.i-way-world.com/",
-        "https://shop.i-way-world.com/"
-      ],
-      "pick": "logo",
-      "candidats": true,
-      "liens": true
+      "url": "https://www.i-way-world.com/assets/frontOffice/iway/template-assets/assets/img/a185c42.png"
     },
     {
       "out": "bondet",
-      "pages": [
-        "https://www.bondet.com/",
-        "https://bondet.com/",
-        "https://www.lunettesbondet.com/"
-      ],
-      "pick": "logo",
-      "candidats": true,
-      "liens": true
+      "url": "https://bondet.com/cdn/shop/files/bondet-logo.svg?v=1772808528"
     },
     {
       "out": "catherine-osti",
+      "urls": [
+        "https://www.catherineosti.com/images/content/logo.png",
+        "https://www.catherineosti.com/images/content/logo.jpg",
+        "https://www.catherineosti.com/images/content/logo-142.jpg"
+      ],
       "pages": [
         "https://www.catherineosti.com/"
       ],
-      "pick": "logoFull",
+      "pick": "logoFull"
+    },
+    {
+      "out": "catherine-osti-sonde",
+      "sonde": true,
+      "pages": [
+        "https://www.catherineosti.com/la-marque",
+        "https://www.catherineosti.com/points-de-vente",
+        "https://www.catherineosti.com/contact",
+        "https://www.catherineosti.com/?lang=en_US",
+        "https://www.catherineosti.com/mentions-legales.html"
+      ],
       "candidats": true,
       "liens": true
     },
@@ -134,10 +136,8 @@
     },
     {
       "out": "banque-populaire",
-      "commons": "Banque Populaire 2018 logo",
-      "pick": "landscape_2018",
-      "evider": true,
-      "candidats": true
+      "url": "https://upload.wikimedia.org/wikipedia/commons/2/26/Banque_Populaire_landscape_2018_logo.svg",
+      "evider": true
     },
     {
       "out": "kare",
