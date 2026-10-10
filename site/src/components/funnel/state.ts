@@ -1,20 +1,24 @@
 import { localDateKey, offsetMs } from "@/lib/booking/timezone";
 import { DEFAULT_AVAILABILITY } from "@/lib/booking/slots";
 import type { BookingDto, SlotDto } from "@/lib/funnel-contract";
-import { QUESTIONS, type Answers, type QuestionId, type Temperature } from "@/lib/questionnaire";
+import { QUESTIONS, validateAnswers, type Answers, type QuestionId, type Temperature } from "@/lib/questionnaire";
 
 /**
  * La logique pure du tunnel — le réducteur d'étapes, la persistance, les
  * créneaux groupés par jour du visiteur, les fuseaux et les raccourcis
  * clavier. Aucun accès au DOM ni à `window` : tout se teste en Node.
  *
- * La note sur 10 n'apparaît nulle part ici : le serveur la calcule et ne
- * rend que la température, qui décide seulement de l'écran suivant.
+ * L'ordre (retours du 10/10/2026) : la première question s'affiche d'emblée,
+ * les six réponses restent dans le navigateur, et l'adresse ne se demande
+ * qu'à la fin — c'est elle qui crée le lead, puis le jeu complet part au
+ * serveur. La note sur 10 n'apparaît nulle part ici : le serveur la calcule
+ * et ne rend que la température, qui décide seulement de l'écran suivant.
  */
 
-export const STORAGE_KEY = "antidotes-funnel";
+/** La clé de `sessionStorage`. Le suffixe suit la forme de l'état : un parcours enregistré par l'ancien ordre n'est jamais relu. */
+export const STORAGE_KEY = "antidotes-funnel-v2";
 
-export const STEPS = ["intro", "email", "question", "computing", "ready", "cold", "booking", "confirmed"] as const;
+export const STEPS = ["question", "email", "computing", "ready", "cold", "booking", "confirmed"] as const;
 export type Step = (typeof STEPS)[number];
 
 export type FunnelState = {
@@ -32,7 +36,7 @@ export type FunnelState = {
 };
 
 export const INITIAL_STATE: FunnelState = {
-  step: "intro",
+  step: "question",
   questionIndex: 0,
   answers: {},
   leadId: null,
@@ -44,10 +48,9 @@ export const INITIAL_STATE: FunnelState = {
 };
 
 export type FunnelAction =
-  | { type: "start" }
-  | { type: "lead_created"; leadId: string; firstName: string }
   | { type: "answer"; questionId: QuestionId; value: string | string[] }
   | { type: "back" }
+  | { type: "lead_created"; leadId: string; firstName: string }
   | { type: "goto_question"; index: number }
   | { type: "computed"; temperature: Temperature | null }
   | { type: "tips_sent" }
@@ -57,38 +60,71 @@ export type FunnelAction =
 
 export const TOTAL_QUESTIONS = QUESTIONS.length;
 
+/** Les étapes que compte la barre de progression : les questions, puis l'adresse. */
+export const STEP_COUNT = TOTAL_QUESTIONS + 1;
+
+/** La place d'un écran dans la barre (1 à `STEP_COUNT`), ou `null` hors du questionnaire. */
+export function progressStep(state: Pick<FunnelState, "step" | "questionIndex">): number | null {
+  if (state.step === "question") return state.questionIndex + 1;
+  if (state.step === "email") return STEP_COUNT;
+  return null;
+}
+
+/** L'indice de la première question sans réponse valable, ou `null` quand tout est répondu. */
+export function firstMissingIndex(answers: Answers): number | null {
+  const validation = validateAnswers(answers);
+  if (validation.ok) return null;
+  const index = QUESTIONS.findIndex((question) => question.id === validation.missing[0]);
+  return index >= 0 ? index : 0;
+}
+
 /** L'écran de résultat d'une température : seul « froid » détourne du rendez-vous. */
 export function stepForTemperature(temperature: Temperature | null): Step {
   return temperature === "froid" ? "cold" : "ready";
 }
 
+/**
+ * Après la dernière question : l'adresse — sauf si le lead existe déjà (une
+ * réponse reprise après un refus du serveur, un rechargement pendant le
+ * calcul). On ne redemande pas ce qu'on a : le calcul repart directement.
+ */
+function afterLastAnswer(state: FunnelState, answers: Answers): FunnelState {
+  const missing = firstMissingIndex(answers);
+  if (missing !== null) return { ...state, answers, step: "question", questionIndex: missing };
+  return { ...state, answers, step: state.leadId ? "computing" : "email" };
+}
+
 export function reduce(state: FunnelState, action: FunnelAction): FunnelState {
   switch (action.type) {
-    case "start":
-      return state.step === "intro" ? { ...state, step: "email" } : state;
-    case "lead_created":
-      return { ...state, step: "question", questionIndex: 0, leadId: action.leadId, firstName: action.firstName };
     case "answer": {
       if (state.step !== "question") return state;
+      // Une réponse en retard (un choix unique qui avance tout seul, puis
+      // « Suivant » cliqué dans la foulée) ne vaut que pour sa question.
+      if (QUESTIONS[state.questionIndex]?.id !== action.questionId) return state;
       const answers: Answers = { ...state.answers, [action.questionId]: action.value };
-      const isLast = state.questionIndex >= TOTAL_QUESTIONS - 1;
-      return isLast
-        ? { ...state, answers, step: "computing" }
+      return state.questionIndex >= TOTAL_QUESTIONS - 1
+        ? afterLastAnswer(state, answers)
         : { ...state, answers, questionIndex: state.questionIndex + 1 };
     }
     case "back":
       switch (state.step) {
-        case "email":
-          return { ...state, step: "intro" };
         case "question":
-          return state.questionIndex > 0
-            ? { ...state, questionIndex: state.questionIndex - 1 }
-            : { ...state, step: "email" };
+          return state.questionIndex > 0 ? { ...state, questionIndex: state.questionIndex - 1 } : state;
+        case "email":
+          return { ...state, step: "question", questionIndex: TOTAL_QUESTIONS - 1 };
         case "booking":
           return { ...state, step: stepForTemperature(state.temperature) };
         default:
           return state;
       }
+    case "lead_created":
+      // Le lead est retenu même si l'écran a changé entre-temps : la suite ne redemandera pas l'adresse.
+      return {
+        ...state,
+        leadId: action.leadId,
+        firstName: action.firstName,
+        step: state.step === "email" ? "computing" : state.step,
+      };
     case "goto_question": {
       const index = Math.max(0, Math.min(TOTAL_QUESTIONS - 1, Math.trunc(action.index)));
       return { ...state, step: "question", questionIndex: index };
@@ -152,11 +188,17 @@ function readBooking(value: unknown): BookingDto | null {
 }
 
 /**
- * Relit un état persisté, ou `null` s'il est illisible ou incohérent.
+ * Relit un état persisté, ou `null` s'il est illisible ou d'une autre forme.
  *
- * Un rechargement pendant le calcul renvoie à la dernière question : la
- * requête `completed` est peut-être partie, peut-être pas, et la rejouer ne
- * coûte rien. Un rechargement sans lead connu repart de zéro.
+ * Les questions et l'adresse se relisent sans lead : c'est l'adresse qui le
+ * crée. Le reste se remet d'aplomb plutôt que d'échouer :
+ *   • au-delà des questions, des réponses incomplètes renvoient à la
+ *     première question sans réponse ;
+ *   • tout ce qui suit l'adresse sans lead connu revient à l'adresse ;
+ *   • un calcul avec son lead reprend tel quel — le tunnel relance l'envoi
+ *     complet en arrivant sur l'écran, et le rejouer ne coûte rien ;
+ *   • un résultat se recale sur sa température, une confirmation sans
+ *     réservation revient au résultat.
  */
 export function parseStoredState(raw: string | null): FunnelState | null {
   if (!raw) return null;
@@ -177,7 +219,6 @@ export function parseStoredState(raw: string | null): FunnelState | null {
     typeof parsed.questionIndex === "number" && Number.isInteger(parsed.questionIndex)
       ? Math.max(0, Math.min(TOTAL_QUESTIONS - 1, parsed.questionIndex))
       : 0;
-  const booking = readBooking(parsed.booking);
   const state: FunnelState = {
     step: parsed.step,
     questionIndex,
@@ -186,16 +227,17 @@ export function parseStoredState(raw: string | null): FunnelState | null {
     firstName,
     temperature,
     tipsSent: parsed.tipsSent === true,
-    booking,
+    booking: readBooking(parsed.booking),
     bookingTimeZone: typeof parsed.bookingTimeZone === "string" ? parsed.bookingTimeZone : null,
   };
-  if (state.step !== "intro" && state.step !== "email" && !leadId) return { ...INITIAL_STATE };
-  if (state.step === "computing") return { ...state, step: "question", questionIndex: TOTAL_QUESTIONS - 1 };
-  if ((state.step === "ready" || state.step === "cold" || state.step === "booking") && !temperature) {
-    return { ...state, step: "question", questionIndex: TOTAL_QUESTIONS - 1 };
-  }
-  if (state.step === "confirmed" && !booking) return { ...state, step: stepForTemperature(temperature) };
-  return state;
+  if (state.step === "question") return state;
+  const missing = firstMissingIndex(state.answers);
+  if (missing !== null) return { ...state, step: "question", questionIndex: missing };
+  if (state.step === "email") return state;
+  if (!leadId) return { ...state, step: "email" };
+  if (state.step === "computing" || state.step === "booking") return state;
+  if (state.step === "confirmed" && state.booking) return state;
+  return { ...state, step: stepForTemperature(temperature) };
 }
 
 /* ---------------------------------------------------------------------------

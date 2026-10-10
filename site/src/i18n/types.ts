@@ -44,15 +44,12 @@ export type Dictionary = {
     /** Les chiffres sourcés affichés à côté du questionnaire. */
     panel: ProofStat[];
     badges: string[];
-    /** Compteur court des questions, `{n}` et `{total}` remplacés au rendu. */
+    /** Compteur court des étapes (six questions, puis l'adresse), `{n}` et `{total}` remplacés au rendu. */
     progress: string;
-    bullets: string[];
-    start: string;
-    duration: string;
     email: { title: string; lead: string; placeholder: string; firstName: string; consent: string; consentLink: string; cta: string; invalid: string; busy: string };
     /** `title` porte une touche manuscrite (`_mots_`) : la rendre par `Rich`, la reprendre ailleurs par `plainText`. */
     questions: Record<QuestionId, { title: string; help?: string; options: Record<string, string> }>;
-    nav: { next: string; back: string; progress: string; multiHint: string; keyHint: string };
+    nav: { next: string; back: string; multiHint: string; keyHint: string };
     computing: { title: string; text: string };
     ready: { title: string; text: string; cta: string };
     cold: { title: string; text: string; tipsCta: string; tipsSent: string; bookAnyway: string };

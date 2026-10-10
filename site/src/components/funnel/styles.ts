@@ -1,16 +1,22 @@
 /**
  * Les classes partagées des écrans du tunnel — toutes posées sur les tokens.
  *
- * Le bouton primaire est l'aplat d'encre de la charte (Craie sur la
- * Profondeur) ; au survol il s'éclaircit à peine et ne bouge pas (r-19).
+ * Les boutons prennent les utilitaires de la charte (`btn-primary`,
+ * `btn-glass`, `styles/buttons.css`) : au survol ils s'éclaircissent et
+ * s'allument d'un liseré Signal, sans bouger (r-19). Ici ne s'ajoutent que
+ * la forme et la taille.
  */
 
 const BUTTON_BASE =
-  "inline-flex h-12 w-full items-center justify-center gap-2 rounded-pill px-6 type-body font-semibold transition duration-(--motion) ease-(--ease) disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto";
+  "inline-flex h-12 w-full items-center justify-center gap-2 rounded-pill px-6 type-body font-semibold disabled:pointer-events-none disabled:opacity-50 sm:w-auto";
 
-export const BUTTON_PRIMARY = `${BUTTON_BASE} bg-btn text-btn-text hover:bg-btn-hover`;
+export const BUTTON_PRIMARY = `${BUTTON_BASE} btn-primary`;
 
-export const BUTTON_SECONDARY = `${BUTTON_BASE} border border-line-strong bg-field text-text hover:bg-surface`;
+export const BUTTON_SECONDARY = `${BUTTON_BASE} btn-glass`;
+
+/** L'action d'un écran, en bas à droite de la carte : l'aplat d'encre, à sa largeur, jamais pleine ligne. */
+export const CTA =
+  "btn-primary inline-flex h-12 shrink-0 items-center justify-center gap-2 rounded-pill px-6 type-body font-semibold disabled:pointer-events-none disabled:opacity-40";
 
 /** Un bouton discret, sans fond : la navigation secondaire (retour, semaine). */
 export const BUTTON_GHOST =
