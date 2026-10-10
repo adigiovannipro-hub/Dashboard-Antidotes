@@ -66,6 +66,15 @@ describe("la note ne part jamais au prospect", () => {
     expect(mail.subject).toMatch(/chaud/i);
     expect(mail.html).toContain("Une agence");
   });
+
+  it("reprend les questions sans les marques du dictionnaire", () => {
+    const mail = ownerQuestionnaire({ email: "ana@example.com", firstName: "Ana", answers: { goal: "ventes", timing: "maintenant" }, score: 7.5, temperature: "chaud" });
+    expect(mail.text).toContain("Qu'attendez-vous d'abord de vos réseaux");
+    for (const body of [mail.html, mail.text]) {
+      expect(body).not.toMatch(/_[^_\s]/);
+      expect(body).not.toContain("\\n");
+    }
+  });
 });
 
 describe("ownerBooking", () => {

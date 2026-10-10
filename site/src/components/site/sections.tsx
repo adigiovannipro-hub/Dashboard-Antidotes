@@ -61,14 +61,14 @@ export function Services({ dict }: { dict: Dictionary }) {
             const capsule = CAPSULES[item.icon];
             const asset = CAPSULE_ASSETS[capsule.asset];
             return (
-              <li key={item.name} className="capsule-host flex flex-col">
+              <li key={item.label} className="capsule-host flex flex-col">
                 {/* La capsule coiffe son libellé, calée à gauche comme lui : à égale distance de deux
                     rangées, elle se lisait comme celle du service d'en dessous. */}
                 <div className="-ml-6 flex h-48 items-center justify-start">
                   <Capsule src={asset.src} size={capsule.size} rotate={capsule.rotate} halo={asset.halo} />
                 </div>
                 <div className="reveal mt-2 border-t border-line pt-5">
-                  <h3 className="type-h3 text-text">{item.name}</h3>
+                  <h3 className="type-h3 text-text">{item.label}</h3>
                   <p className="type-small mt-2 text-text-2">{item.text}</p>
                 </div>
               </li>

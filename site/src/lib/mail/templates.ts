@@ -1,3 +1,4 @@
+import { plainText } from "@/components/brand/rich";
 import type { Locale } from "@/i18n/locale";
 import { fr } from "@/i18n/fr";
 import { QUESTIONS, type Answers, type QuestionId, type Temperature } from "@/lib/questionnaire";
@@ -65,7 +66,8 @@ export function describeAnswers(answers: Answers): string[] {
     const value = answers[question.id];
     const values = Array.isArray(value) ? value : value ? [value] : [];
     const labels = values.map((v) => q.options[v] ?? v).join(", ");
-    lines.push(`${q.title} → ${labels || "—"}`);
+    // Le titre porte une touche manuscrite (`_mots_`) : le courriel la lit sans marque.
+    lines.push(`${plainText(q.title)} → ${labels || "—"}`);
   }
   return lines;
 }

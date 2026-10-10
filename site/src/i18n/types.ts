@@ -19,13 +19,21 @@ export type CaseStudy = {
   stat: Stat;
 };
 
-export type Service = { icon: "compass" | "calendar" | "clapperboard" | "target" | "layout" | "sparkles"; name: string; text: string };
+/**
+ * Un service : `label` est le nom court (« Stratégie »), `title` la promesse
+ * qui l'explique, `text` le détail en une phrase.
+ */
+export type Service = { icon: "compass" | "calendar" | "clapperboard" | "target" | "layout" | "sparkles"; label: string; title: string; text: string };
+
+/** Un chiffre du panneau de preuves du questionnaire, avec son client et sa source. */
+export type ProofStat = { value: string; label: string; client: string; source: string };
 
 export type Dictionary = {
   locale: "fr" | "en";
   meta: { title: string; description: string; ogTitle: string; ogDescription: string };
   nav: { cases: string; services: string; method: string; faq: string; cta: string; switchLabel: string; switchAria: string; menu: string; close: string };
-  hero: { eyebrow: string; title: string; lead: string; ctaPrimary: string; ctaSecondary: string; trustLabel: string };
+  /** `title` porte ses retours à la ligne (`\n`) : la phrase se lit sur trois lignes. `proof` : le nombre de clients accompagnés. */
+  hero: { proof: { value: string; label: string }; title: string; lead: string; ctaPrimary: string; ctaSecondary: string; trustLabel: string };
   cases: { eyebrow: string; title: string; items: CaseStudy[]; numbersLabel: string; numbers: Stat[] };
   services: { eyebrow: string; title: string; items: Service[] };
   method: { eyebrow: string; title: string; steps: { title: string; text: string }[] };
@@ -33,10 +41,16 @@ export type Dictionary = {
     eyebrow: string;
     title: string;
     lead: string;
+    /** Les chiffres sourcés affichés à côté du questionnaire. */
+    panel: ProofStat[];
+    badges: string[];
+    /** Compteur court des questions, `{n}` et `{total}` remplacés au rendu. */
+    progress: string;
     bullets: string[];
     start: string;
     duration: string;
     email: { title: string; lead: string; placeholder: string; firstName: string; consent: string; consentLink: string; cta: string; invalid: string; busy: string };
+    /** `title` porte une touche manuscrite (`_mots_`) : la rendre par `Rich`, la reprendre ailleurs par `plainText`. */
     questions: Record<QuestionId, { title: string; help?: string; options: Record<string, string> }>;
     nav: { next: string; back: string; progress: string; multiHint: string; keyHint: string };
     computing: { title: string; text: string };

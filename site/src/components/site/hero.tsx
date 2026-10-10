@@ -21,7 +21,7 @@ export function Hero({ dict }: { dict: Dictionary }) {
         <div className="max-w-[46rem]">
           <p className="type-overline flex items-center gap-2.5 text-text-2">
             <span aria-hidden className="size-2 rounded-pill bg-signal shadow-[0_0_10px_var(--signal)]" />
-            {dict.hero.eyebrow}
+            {`${dict.hero.proof.value}\u00a0${dict.hero.proof.label}`}
           </p>
           <h1 className="type-display mt-6 text-text">
             <Rich text={dict.hero.title} />
