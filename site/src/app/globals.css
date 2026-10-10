@@ -1,5 +1,10 @@
 @import "tailwindcss";
 @import "../styles/tokens.css";
+@import "../styles/buttons.css";
+@import "../styles/header.css";
+@import "../styles/hero.css";
+@import "../styles/method.css";
+@import "../styles/funnel.css";
 
 /* Les tokens câblés sur Tailwind : `bg-surface`, `text-text-2`,
    `border-line`, `rounded-xl` (28 px, le verre de la charte)… Les couleurs
