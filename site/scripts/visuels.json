@@ -93,47 +93,50 @@
     {
       "out": "i-way",
       "pages": [
-        "https://www.i-way-world.com/",
-        "https://www.i-way.fr/"
+        "https://i-way-world.com/lyon",
+        "https://paris.i-way-world.com/",
+        "https://shop.i-way-world.com/"
       ],
       "pick": "logo",
-      "candidats": true
+      "candidats": true,
+      "liens": true
     },
     {
       "out": "bondet",
       "pages": [
-        "https://www.lunettes-bondet.fr/"
+        "https://www.bondet.com/",
+        "https://bondet.com/",
+        "https://www.lunettesbondet.com/"
       ],
       "pick": "logo",
-      "candidats": true
+      "candidats": true,
+      "liens": true
     },
     {
       "out": "catherine-osti",
       "pages": [
         "https://www.catherineosti.com/"
       ],
-      "pick": "logo",
-      "candidats": true
+      "pick": "logoFull",
+      "candidats": true,
+      "liens": true
     },
     {
       "out": "chasseurs-de-graines",
-      "url": "https://chasseursdegraines.fr/wp-content/uploads/2026/04/logo_chasseursdegraines.svg"
+      "url": "https://chasseursdegraines.fr/wp-content/uploads/2026/04/logo_chasseursdegraines.svg",
+      "retirer": [
+        "#F3ECDD"
+      ]
     },
     {
       "out": "anmf",
-      "pages": [
-        "https://www.meuneriefrancaise.com/"
-      ],
-      "pick": "logo",
-      "candidats": true
+      "url": "https://www.meuneriefrancaise.com/wp-content/uploads/logo-footer.svg"
     },
     {
       "out": "banque-populaire",
-      "pages": [
-        "https://www.banquepopulaire.fr/"
-      ],
-      "commons": "Banque Populaire logo",
-      "pick": "logo",
+      "commons": "Banque Populaire 2018 logo",
+      "pick": "landscape_2018",
+      "evider": true,
       "candidats": true
     },
     {

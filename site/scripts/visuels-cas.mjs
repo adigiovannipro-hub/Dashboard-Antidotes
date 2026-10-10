@@ -101,8 +101,15 @@ for (const item of LIST.cases) {
 // logo dans `public/logos/_candidats` : de quoi les regarder avant de choisir.
 // Le dossier est vidé à chaque passage — un passage sans candidats l'efface.
 //
+// `liens: true` liste aussi les liens de la page, pour trouver où chercher
+// ensuite.
+//
 // Traitement : un SVG est gardé tel quel, c'est la CSS qui le passe en blanc.
-// Une image matricielle est rognée ; son fond blanc n'est rendu transparent
+// `retirer` en ôte les formes d'une couleur donnée (un fond de pastille ajouté
+// au fichier officiel), et `evider: true` le réécrit en masque — ses blancs
+// deviennent des jours, tout le reste le tracé — pour qu'un logo à deux tons
+// (un « +x » blanc sur un carré bleu) ne devienne pas un aplat une fois passé
+// en blanc. Une image matricielle est rognée ; son fond blanc n'est rendu transparent
 // que si elle est opaque — un PNG déjà détouré garde ses blancs, qui sont
 // souvent le dessin lui-même (`transparent` force une couleur, ou `none`) —
 // puis elle est ramenée à `height` px de haut au plus (240 par défaut : un
@@ -142,7 +149,7 @@ function squash(text, max = 160) {
 }
 
 /** Les images d'une page qui pourraient être un logo, dans l'ordre du HTML. */
-async function discover(pageUrl) {
+async function discover(pageUrl, links = false) {
   const response = await fetch(pageUrl, { headers: { "user-agent": UA, accept: "text/html,*/*" }, redirect: "follow" });
   const html = await response.text();
   const base = response.url;
@@ -195,6 +202,10 @@ async function discover(pageUrl) {
   }
   const header = html.match(/<header\b[\s\S]*?<\/header>/i);
   if (header) console.log(`  <header> ${squash(header[0].replace(/<script[\s\S]*?<\/script>/gi, "").replace(/<svg[\s\S]*?<\/svg>/gi, "<svg…/>"), 900)}`);
+  if (links) {
+    const hrefs = [...new Set([...html.matchAll(/<a\b[^>]*\shref\s*=\s*["']([^"'#]+)["']/gi)].map((match) => absolute(match[1], base)).filter(Boolean))];
+    console.log(`  liens (${hrefs.length}) : ${hrefs.slice(0, 60).join(" ")}`);
+  }
   found.sort((a, b) => a.index - b.index);
   found.slice(0, 45).forEach((item, n) => {
     const where = item.svg ? `svg en ligne (${Math.round(item.svg.length / 1024)} Ko)` : item.url;
@@ -252,7 +263,7 @@ async function resolveLogo(logo) {
   const found = [];
   for (const page of logo.pages ?? []) {
     try {
-      found.push(...(await discover(page)));
+      found.push(...(await discover(page, logo.liens)));
     } catch (error) {
       errors.push(message(error));
     }
@@ -297,6 +308,34 @@ async function resolveLogo(logo) {
   throw new Error(errors.join(" ; ") || "aucune source");
 }
 
+/** Ôte d'un SVG les formes simples peintes d'une couleur (un fond de pastille). */
+function removeColour(svg, colour) {
+  const escaped = colour.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return svg.replace(new RegExp(`<(?:rect|path|circle|ellipse|polygon)\\b[^>]*fill="${escaped}"[^>]*/>\\s*`, "gi"), "");
+}
+
+/**
+ * Réécrit un SVG en masque : ses blancs deviennent des jours, tout le reste
+ * (aplats, dégradés, couleur courante) le tracé, peint en noir — la CSS le
+ * passe ensuite en blanc. Le dessin d'origine reste dans le masque, intact :
+ * seules ses couleurs sont réécrites.
+ */
+function knockoutSvg(svg) {
+  const open = svg.match(/<svg\b[^>]*>/i)[0];
+  const body = svg.slice(svg.indexOf(open) + open.length, svg.lastIndexOf("</svg>"));
+  const isWhite = (value) => /^(#fff|#ffffff|white|rgb\(\s*255\s*,\s*255\s*,\s*255\s*\))$/i.test(value.trim());
+  const map = (value) => (/^(none|transparent)$/i.test(value.trim()) ? value : isWhite(value) ? "#000" : "#fff");
+  const recoloured = body
+    .replace(/\b(fill|stroke)="([^"]*)"/gi, (_, key, value) => `${key}="${map(value)}"`)
+    .replace(/\b(fill|stroke)\s*:\s*([^;"}]+)/gi, (_, key, value) => `${key}:${map(value)}`);
+  const viewBox = open.match(/viewBox\s*=\s*"([^"]*)"/i)?.[1];
+  const [x, y, width, height] = viewBox
+    ? viewBox.trim().split(/[\s,]+/).map(Number)
+    : [0, 0, parseFloat(open.match(/\swidth="([\d.]+)/)?.[1] ?? "0"), parseFloat(open.match(/\sheight="([\d.]+)/)?.[1] ?? "0")];
+  const box = `x="${x}" y="${y}" width="${width}" height="${height}"`;
+  return `${open}<defs><mask id="evide" maskUnits="userSpaceOnUse" ${box}><g fill="#fff">${recoloured}</g></mask></defs><rect ${box} fill="#000" mask="url(#evide)"/></svg>\n`;
+}
+
 for (const logo of LIST.logos) {
   let source;
   try {
@@ -308,12 +347,15 @@ for (const logo of LIST.logos) {
   const target = join(LOGOS_DIR, logo.out);
   if (sniffSvg(source.bytes)) {
     // Un SVG se garde tel quel : c'est la CSS qui le passe en monochrome.
-    rmSync(`${target}.png`, { force: true });
-    writeFileSync(`${target}.svg`, source.bytes);
-    const svg = source.bytes.toString("utf8");
-    const box = svg.match(/viewBox\s*=\s*"([^"]*)"/i)?.[1] ?? "?";
+    let svg = source.bytes.toString("utf8");
     const colours = [...new Set(svg.match(/#[0-9a-f]{3,8}\b|rgb\([^)]*\)/gi) ?? [])].slice(0, 8).join(" ");
-    report.push(`${logo.out}: svg ${Math.round(source.bytes.length / 1024)} Ko, viewBox ${box}, couleurs ${colours || "—"} ← ${source.from}`);
+    for (const colour of logo.retirer ?? []) svg = removeColour(svg, colour);
+    if (logo.evider) svg = knockoutSvg(svg);
+    rmSync(`${target}.png`, { force: true });
+    writeFileSync(`${target}.svg`, svg);
+    const box = svg.match(/viewBox\s*=\s*"([^"]*)"/i)?.[1] ?? "?";
+    const steps = [logo.retirer?.length ? `sans ${logo.retirer.join(", ")}` : "", logo.evider ? "évidé" : ""].filter(Boolean).join(", ");
+    report.push(`${logo.out}: svg ${Math.round(svg.length / 1024)} Ko, viewBox ${box}, couleurs ${colours || "—"}${steps ? `, ${steps}` : ""} ← ${source.from}`);
   } else {
     const src = join(TMP, `${logo.out}.raster`);
     writeFileSync(src, source.bytes);
