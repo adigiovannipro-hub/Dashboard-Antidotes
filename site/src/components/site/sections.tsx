@@ -1,4 +1,5 @@
-import { CAPSULE_ASSETS, Capsule, type CapsuleAsset } from "@/components/brand/capsule";
+import type { CSSProperties } from "react";
+import { CAPSULE_ASSETS, Capsule, SERVICE_PILLS, type ServicePill } from "@/components/brand/capsule";
 import { Rich } from "@/components/brand/rich";
 import type { Dictionary, Service } from "@/i18n/types";
 import { CASE_VISUALS, type CaseVisual } from "@/lib/cases";
@@ -29,22 +30,25 @@ export function SectionHeading({ eyebrow, index, title, id, className = "" }: { 
   );
 }
 
-/* --- Services : une rangée par expertise, la capsule en repère (r-06). ------- */
-/* Retour du 10/10 : les gélules de 200 px écrasaient la grille et le libellé
-   d'un mot ne disait rien. Chaque service se lit désormais par sa promesse
-   (`title`), le libellé passe en surtitre, et la gélule devient un repère à
-   gauche de la rangée, à l'échelle d'une icône.
-   Jamais deux gélules de même taille ni de même orientation (r-06) : chacune
-   occupe une part différente de sa colonne — l'écart tient donc à toutes les
-   largeurs d'écran — et ne s'écarte que de quelques degrés de l'inclinaison
-   déjà rendue dans l'image (au-delà, la lumière partirait dans tous les sens). */
-const CAPSULES: Record<Service["icon"], { asset: CapsuleAsset; scale: number; rotate: number }> = {
-  compass: { asset: "strategie", scale: 0.94, rotate: -4 },
-  calendar: { asset: "accompagnement", scale: 0.86, rotate: 6 },
-  clapperboard: { asset: "production", scale: 1, rotate: -3 },
-  target: { asset: "publicite", scale: 0.78, rotate: 0 },
-  layout: { asset: "plateforme", scale: 0.9, rotate: 4 },
-  sparkles: { asset: "ia", scale: 0.82, rotate: -6 },
+/* --- Services : une rangée par expertise, signée par sa pilule (r-06). ------ */
+/* Retour du 10/10 : chaque service se lit par sa promesse (`title`), en
+   rangées. Retour du 11/10 : les pilules redeviennent vertes et portent le
+   nom du service, gravé ton sur ton (r-06) — c'est la pilule qui nomme le
+   service, le libellé en texte ne reste que pour les lecteurs d'écran (et
+   revient à l'écran pour une pilule lisse, `engraved: false`). Assez grande
+   pour que le mot se lise, elle déborde sur le rembourrage de la rangée
+   plutôt que de l'épaissir.
+   Jamais deux pilules de même taille ni de même orientation (r-06) : chacune
+   occupe une part différente de sa colonne et ne s'écarte que de quelques
+   degrés de l'inclinaison déjà rendue dans l'image — au-delà, la lumière
+   partirait dans tous les sens et le mot pencherait. */
+const PILLS: Record<Service["icon"], { pill: ServicePill; scale: number; rotate: number }> = {
+  compass: { pill: "strategie", scale: 0.9, rotate: -3 },
+  calendar: { pill: "accompagnement", scale: 1, rotate: 2 },
+  clapperboard: { pill: "production", scale: 0.97, rotate: -2 },
+  target: { pill: "publicite", scale: 0.84, rotate: 4 },
+  layout: { pill: "plateforme", scale: 0.87, rotate: -4 },
+  sparkles: { pill: "ia", scale: 0.72, rotate: 3 },
 };
 
 export function Services({ dict }: { dict: Dictionary }) {
@@ -64,25 +68,39 @@ export function Services({ dict }: { dict: Dictionary }) {
         <SectionHeading eyebrow={dict.services.eyebrow} index={1} title={dict.services.title} id="services-titre" />
         {/* Deux colonnes de rangées à filets : chaque colonne porte ses propres filets, du
             premier au dernier, pour que la gouttière les coupe tous de la même façon. */}
-        <ul className="mt-12 md:mt-16 lg:grid lg:grid-cols-2 lg:gap-x-16">
+        <ul className="mt-12 md:mt-16 lg:grid lg:grid-cols-2 lg:gap-x-12 xl:gap-x-16">
           {dict.services.items.map((item) => {
-            const capsule = CAPSULES[item.icon];
-            const asset = CAPSULE_ASSETS[capsule.asset];
+            const placement = PILLS[item.icon];
+            const pill = SERVICE_PILLS[placement.pill];
+            /* Sur téléphone, la pilule est seule sur sa ligne : on retire le vide de son
+               cadre (le halo) pour que la matière s'aligne sur la marge et s'arrête à
+               un demi-cran du titre, quelle que soit sa forme. */
+            const side = 200 * placement.scale;
+            const trim = {
+              "--trim-t": `${Math.round(pill.core.top * side)}px`,
+              "--trim-b": `${Math.round((1 - pill.core.bottom) * side) - 12}px`,
+              "--trim-l": `${Math.round(pill.core.left * side)}px`,
+            } as CSSProperties;
             return (
               <li
                 key={item.label}
-                className="capsule-host grid grid-cols-[72px_minmax(0,1fr)] items-center gap-x-4 border-b border-line py-6 first:border-t sm:grid-cols-[96px_minmax(0,1fr)] sm:gap-x-6 md:py-8 lg:grid-cols-[108px_minmax(0,1fr)] lg:nth-2:border-t"
+                className="capsule-host grid grid-cols-1 border-b border-line py-7 first:border-t sm:grid-cols-[176px_minmax(0,1fr)] sm:items-center sm:gap-x-6 md:py-8 lg:grid-cols-[160px_minmax(0,1fr)] lg:nth-2:border-t xl:grid-cols-[196px_minmax(0,1fr)] xl:gap-x-8"
               >
-                {/* La boîte de la gélule est plus haute que la rangée (son halo est peint dans
-                    l'image) : elle déborde sur le rembourrage plutôt que d'épaissir la ligne. */}
-                <div aria-hidden className="-my-4 flex items-center justify-center">
-                  <div style={{ width: `${capsule.scale * 100}%` }}>
-                    <Capsule src={asset.src} size={120} rotate={capsule.rotate} halo={asset.halo} />
+                {/* La boîte de la pilule est bien plus haute que la pilule (son halo est peint
+                    dans l'image) : elle mord sur le rembourrage au lieu d'épaissir la rangée.
+                    Sur téléphone, elle passe au-dessus du titre, calée sur sa marge gauche. */}
+                <div
+                  aria-hidden
+                  style={trim}
+                  className="mt-[calc(-1*var(--trim-t))] mb-[calc(-1*var(--trim-b))] ml-[calc(-1*var(--trim-l))] flex w-[200px] items-center sm:-my-10 sm:ml-0 sm:w-auto sm:justify-center"
+                >
+                  <div style={{ width: `${placement.scale * 100}%` }} className="flex justify-center">
+                    <Capsule src={pill.src[dict.locale]} size={200} rotate={placement.rotate} halo={pill.halo} />
                   </div>
                 </div>
                 <div className="reveal">
-                  <p className="type-overline text-text-3">{item.label}</p>
-                  <h3 className="mt-2 font-sans text-[length:clamp(1.25rem,1.75vw,1.5rem)] leading-[1.22] font-semibold tracking-[-0.016em] text-balance text-text">
+                  <p className={pill.engraved ? "sr-only" : "type-overline mb-2 text-text-3"}>{item.label}</p>
+                  <h3 className="font-sans text-[length:clamp(1.25rem,1.75vw,1.5rem)] leading-[1.22] font-semibold tracking-[-0.016em] text-balance text-text">
                     {item.title}
                   </h3>
                   <p className="type-small mt-2 max-w-[46ch] text-text-2">{item.text}</p>

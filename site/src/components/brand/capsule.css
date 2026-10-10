@@ -14,7 +14,7 @@
 .capsule {
   --capsule-size: 260px;
   --capsule-rotate: 0deg;
-  --capsule-halo: rgba(156, 149, 255, 0.6);
+  --capsule-halo: var(--signal);
   position: relative;
   display: inline-block;
   flex: none;
