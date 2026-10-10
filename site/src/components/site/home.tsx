@@ -5,6 +5,7 @@ import { localePath, type Locale } from "@/i18n/locale";
 import { Footer } from "./footer";
 import { Header } from "./header";
 import { Hero } from "./hero";
+import { FloatingPills } from "./floating-pills";
 import { Cases, Faq, Method, SectionHeading, Services } from "./sections";
 
 /**
@@ -23,8 +24,10 @@ export function Home({ dict, locale }: { dict: Dictionary; locale: Locale }) {
         {/* L'aura remonte sous les coins arrondis de la bande sombre, pour qu'ils découvrent le même fond. */}
         <div className="bg-aura -mt-14 pt-14">
           <Cases dict={dict} />
+          <FloatingPills zone="methode" />
           <Method dict={dict} />
         </div>
+        <FloatingPills zone="note" />
         <section id="note" aria-labelledby="note-titre" className="relative isolate scroll-mt-16 overflow-hidden">
           {/* L'aura et l'anneau de lumière derrière le verre (r-03 en 3a) : le quiz vit dans le Verre clair. */}
           <div aria-hidden className="absolute inset-0 -z-10 bg-[radial-gradient(42%_48%_at_84%_32%,rgb(34_224_91/.2),transparent_70%),radial-gradient(36%_40%_at_12%_52%,rgb(47_211_198/.14),transparent_70%)]" />
@@ -40,6 +43,7 @@ export function Home({ dict, locale }: { dict: Dictionary; locale: Locale }) {
             </div>
           </div>
         </section>
+        <FloatingPills zone="faq" />
         <Faq dict={dict} />
       </main>
       <Footer dict={dict} locale={locale} />

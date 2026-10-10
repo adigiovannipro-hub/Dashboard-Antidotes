@@ -1,0 +1,93 @@
+/* ===========================================================================
+   Les pilules qui flottent (retour du 11/10) — `floating-pills.tsx`.
+
+   Une ancre de hauteur nulle posée juste avant chaque section (méthode,
+   questionnaire, FAQ) : ses pilules s'y placent en absolu, sans rien pousser.
+   Elles passent sous tout ce qui vient après elles dans la page (la méthode,
+   la carte de verre du questionnaire, le pied de page) et ne vivent que dans
+   les marges : jamais sous un texte.
+
+   Deux jeux, selon la largeur :
+   - écran large (≥ 1280 px) : grosses et moyennes pilules dans les
+     gouttières, leur matière tenue à `--fp-edge` de la colonne de texte,
+     coupées par le bord de l'écran quand la gouttière est étroite ;
+   - en deçà : deux plus petites, dans la bande vide entre deux sections,
+     dont seule une part dépasse du bord (`--fp-show`).
+
+   Le script ne fait que poser `transform` sur `.fpill` (la parallaxe) ; sans
+   lui, ou en mouvement réduit, les pilules restent à leur place de repos.
+   =========================================================================== */
+
+.fpills {
+  /* La gouttière : du bord de l'écran au bord de la colonne de texte. */
+  --fp-gx: calc(max(0px, (100% - var(--container)) / 2) + var(--gutter));
+  position: relative;
+  height: 0;
+  /* Coupées net par les bords de l'écran, sur l'axe horizontal seulement :
+     `clip` ne crée pas de zone de défilement et laisse l'axe vertical libre
+     (l'ancre n'a pas de hauteur). Le `clip` de `body` ne suffit pas : il
+     passe à la fenêtre, qui compte alors la pilule dans sa largeur. */
+  overflow-x: clip;
+  pointer-events: none;
+}
+
+.fpill {
+  --fp-size: 200px;
+  position: absolute;
+  top: var(--fp-top, 0px);
+  width: var(--fp-size);
+  aspect-ratio: 1;
+  pointer-events: none;
+}
+
+.fpill-img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  transform: rotate(var(--fp-rotate, 0deg));
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+/* Écran large : la matière s'arrête à `--fp-edge` du bord de la colonne
+   (négatif : elle passe derrière le bord d'un panneau de verre). */
+.fpill[data-fit="column"][data-side="right"] {
+  left: calc(100% - var(--fp-gx) + var(--fp-edge) - var(--fp-core-l) * var(--fp-size));
+}
+.fpill[data-fit="column"][data-side="left"] {
+  left: calc(var(--fp-gx) - var(--fp-edge) - var(--fp-core-r) * var(--fp-size));
+}
+
+/* En deçà : `--fp-show` pixels de matière dépassent du bord de l'écran. */
+.fpill[data-fit="edge"][data-side="right"] {
+  left: calc(100% - var(--fp-show) - var(--fp-core-l) * var(--fp-size));
+}
+.fpill[data-fit="edge"][data-side="left"] {
+  left: calc(var(--fp-show) - var(--fp-core-r) * var(--fp-size));
+}
+
+/* La méthode figée (`method-timeline.tsx` pose `data-mode="pin"`) est trois
+   fois plus haute : une pilule qui porte `data-pin` y prend `--fp-top-pin`. */
+.fpills:has(+ #methode .method[data-mode="pin"]) .fpill[data-pin] {
+  top: var(--fp-top-pin);
+}
+
+.fpill[data-screen="large"] {
+  display: none;
+}
+@media (min-width: 1280px) {
+  .fpill[data-screen="large"] {
+    display: block;
+  }
+  .fpill[data-screen="small"] {
+    display: none;
+  }
+}
+
+/* La parallaxe ne pose qu'un `transform` : un calque à part, seulement quand
+   elle tourne (script chargé, mouvement autorisé). */
+@media (prefers-reduced-motion: no-preference) {
+  html:not(.no-js) .fpill {
+    will-change: transform;
+  }
+}

@@ -39,6 +39,23 @@ export const SERVICE_PILLS = {
 
 export type ServicePill = keyof typeof SERVICE_PILLS;
 
+/**
+ * Les pilules qui flottent en parallaxe sur la Craie (méthode, questionnaire,
+ * FAQ) : vertes, lisses, sans texte, cinq formes différentes. `max` est la
+ * plus grande taille d'affichage (le fichier est à 2×) ; `core` est la boîte
+ * de la matière seule, halo exclu, en fractions du cadre — de quoi caler une
+ * pilule sur le bord d'une colonne de texte sans jamais passer dessous.
+ */
+export const FLOATING_PILLS = {
+  softgel: { src: "/brand/pilule-deco-softgel.webp", max: 340, core: { left: 0.216, top: 0.162, right: 0.771, bottom: 0.851 } },
+  gelule: { src: "/brand/pilule-deco-gelule.webp", max: 300, core: { left: 0.277, top: 0.142, right: 0.738, bottom: 0.883 } },
+  oblong: { src: "/brand/pilule-deco-oblong.webp", max: 240, core: { left: 0.133, top: 0.283, right: 0.85, bottom: 0.721 } },
+  bicolore: { src: "/brand/pilule-deco-bicolore.webp", max: 170, core: { left: 0.174, top: 0.188, right: 0.841, bottom: 0.824 } },
+  comprime: { src: "/brand/pilule-deco-comprime.webp", max: 150, core: { left: 0.203, top: 0.243, right: 0.8, bottom: 0.777 } },
+} as const satisfies Record<string, { src: string; max: number; core: PillCore }>;
+
+export type FloatingPill = keyof typeof FLOATING_PILLS;
+
 type CapsuleProps = {
   /** Chemin de l'image (voir `CAPSULE_ASSETS`). */
   src: string;
