@@ -4,6 +4,7 @@ import type { Dictionary, Service } from "@/i18n/types";
 import { CASE_VISUALS, type CaseVisual } from "@/lib/cases";
 import { CLIENT_LOGOS } from "@/lib/logos";
 import { LogoMarquee } from "./logo-marquee";
+import { MethodTimeline } from "./method-timeline";
 import { PhoneCase } from "./phone-case";
 
 /**
@@ -28,17 +29,22 @@ export function SectionHeading({ eyebrow, index, title, id, className = "" }: { 
   );
 }
 
-/* --- Services : une capsule par expertise (r-06), sur la Profondeur. --------- */
-/* Jamais deux gélules de même taille ni de même orientation : chaque rendu
-   porte déjà son inclinaison et sa lumière, on ne l'écarte que de quelques
-   degrés (au-delà, la lumière partirait dans tous les sens). */
-const CAPSULES: Record<Service["icon"], { asset: CapsuleAsset; size: number; rotate: number }> = {
-  compass: { asset: "strategie", size: 236, rotate: -4 },
-  calendar: { asset: "accompagnement", size: 222, rotate: 6 },
-  clapperboard: { asset: "production", size: 244, rotate: -3 },
-  target: { asset: "publicite", size: 204, rotate: 0 },
-  layout: { asset: "plateforme", size: 230, rotate: 4 },
-  sparkles: { asset: "ia", size: 196, rotate: -6 },
+/* --- Services : une rangée par expertise, la capsule en repère (r-06). ------- */
+/* Retour du 10/10 : les gélules de 200 px écrasaient la grille et le libellé
+   d'un mot ne disait rien. Chaque service se lit désormais par sa promesse
+   (`title`), le libellé passe en surtitre, et la gélule devient un repère à
+   gauche de la rangée, à l'échelle d'une icône.
+   Jamais deux gélules de même taille ni de même orientation (r-06) : chacune
+   occupe une part différente de sa colonne — l'écart tient donc à toutes les
+   largeurs d'écran — et ne s'écarte que de quelques degrés de l'inclinaison
+   déjà rendue dans l'image (au-delà, la lumière partirait dans tous les sens). */
+const CAPSULES: Record<Service["icon"], { asset: CapsuleAsset; scale: number; rotate: number }> = {
+  compass: { asset: "strategie", scale: 0.94, rotate: -4 },
+  calendar: { asset: "accompagnement", scale: 0.86, rotate: 6 },
+  clapperboard: { asset: "production", scale: 1, rotate: -3 },
+  target: { asset: "publicite", scale: 0.78, rotate: 0 },
+  layout: { asset: "plateforme", scale: 0.9, rotate: 4 },
+  sparkles: { asset: "ia", scale: 0.82, rotate: -6 },
 };
 
 export function Services({ dict }: { dict: Dictionary }) {
@@ -56,20 +62,30 @@ export function Services({ dict }: { dict: Dictionary }) {
       </div>
       <div className="container-site section-pad">
         <SectionHeading eyebrow={dict.services.eyebrow} index={1} title={dict.services.title} id="services-titre" />
-        <ul className="mt-12 grid grid-cols-1 gap-x-10 gap-y-20 sm:grid-cols-2 md:gap-y-24 lg:grid-cols-3">
+        {/* Deux colonnes de rangées à filets : chaque colonne porte ses propres filets, du
+            premier au dernier, pour que la gouttière les coupe tous de la même façon. */}
+        <ul className="mt-12 md:mt-16 lg:grid lg:grid-cols-2 lg:gap-x-16">
           {dict.services.items.map((item) => {
             const capsule = CAPSULES[item.icon];
             const asset = CAPSULE_ASSETS[capsule.asset];
             return (
-              <li key={item.label} className="capsule-host flex flex-col">
-                {/* La capsule coiffe son libellé, calée à gauche comme lui : à égale distance de deux
-                    rangées, elle se lisait comme celle du service d'en dessous. */}
-                <div className="-ml-6 flex h-48 items-center justify-start">
-                  <Capsule src={asset.src} size={capsule.size} rotate={capsule.rotate} halo={asset.halo} />
+              <li
+                key={item.label}
+                className="capsule-host grid grid-cols-[72px_minmax(0,1fr)] items-center gap-x-4 border-b border-line py-6 first:border-t sm:grid-cols-[96px_minmax(0,1fr)] sm:gap-x-6 md:py-8 lg:grid-cols-[108px_minmax(0,1fr)] lg:nth-2:border-t"
+              >
+                {/* La boîte de la gélule est plus haute que la rangée (son halo est peint dans
+                    l'image) : elle déborde sur le rembourrage plutôt que d'épaissir la ligne. */}
+                <div aria-hidden className="-my-4 flex items-center justify-center">
+                  <div style={{ width: `${capsule.scale * 100}%` }}>
+                    <Capsule src={asset.src} size={120} rotate={capsule.rotate} halo={asset.halo} />
+                  </div>
                 </div>
-                <div className="reveal mt-2 border-t border-line pt-5">
-                  <h3 className="type-h3 text-text">{item.label}</h3>
-                  <p className="type-small mt-2 text-text-2">{item.text}</p>
+                <div className="reveal">
+                  <p className="type-overline text-text-3">{item.label}</p>
+                  <h3 className="mt-2 font-sans text-[length:clamp(1.25rem,1.75vw,1.5rem)] leading-[1.22] font-semibold tracking-[-0.016em] text-balance text-text">
+                    {item.title}
+                  </h3>
+                  <p className="type-small mt-2 max-w-[46ch] text-text-2">{item.text}</p>
                 </div>
               </li>
             );
@@ -146,30 +162,28 @@ export function Cases({ dict }: { dict: Dictionary }) {
   );
 }
 
-/* --- Méthode : cinq étapes numérotées en Geist Mono. ------------------------- */
+/* --- Méthode : une flèche que le défilement trace, cinq étapes le long. -------- */
+/* Retour du 10/10 : la flèche se dessine de gauche à droite au fil du
+   défilement, les cinq étapes apparaissent une à une, et un curseur Signal la
+   parcourt jusqu'à la pointe. Le rendu serveur est l'état final — flèche
+   pleine, curseur au bout, tout lisible — : c'est ce que voient un visiteur
+   sans JavaScript et celui qui a demandé de réduire les animations. */
 export function Method({ dict }: { dict: Dictionary }) {
   return (
     <section id="methode" aria-labelledby="methode-titre" className="scroll-mt-16">
-      <div className="container-site section-pad pt-0">
+      <MethodTimeline steps={dict.method.steps}>
         <SectionHeading eyebrow={dict.method.eyebrow} index={3} title={dict.method.title} id="methode-titre" />
-        <ol className="mt-12 grid grid-cols-1 gap-x-8 gap-y-6 sm:grid-cols-2 lg:grid-cols-5">
-          {dict.method.steps.map((step, index) => (
-            <li key={step.title} className="reveal border-t border-line-strong pt-5">
-              <span className="type-overline flex items-center gap-2 text-text-3">
-                <span aria-hidden className={`size-1.5 rounded-pill ${index === 0 ? "bg-signal" : "bg-text-3"}`} />
-                {String(index + 1).padStart(2, "0")}
-              </span>
-              <h3 className="type-h3 mt-4 text-text lg:min-h-15">{step.title}</h3>
-              <p className="type-small mt-2 hidden text-text-2 lg:block">{step.text}</p>
-            </li>
-          ))}
-        </ol>
-      </div>
+      </MethodTimeline>
     </section>
   );
 }
 
 /* --- FAQ : accordéons natifs, à filets. -------------------------------------- */
+/* Un seul dévoilement à la fois (retour du 10/10) : les `<details>` d'un même
+   `name` forment un accordéon exclusif, tenu par le navigateur — ouvrir une
+   question referme l'autre, sans script, clavier et lecteur d'écran compris.
+   Un navigateur qui ne le connaît pas laisse simplement plusieurs réponses
+   ouvertes. */
 export function Faq({ dict }: { dict: Dictionary }) {
   return (
     <section id="faq" aria-labelledby="faq-titre" className="scroll-mt-16">
@@ -179,7 +193,7 @@ export function Faq({ dict }: { dict: Dictionary }) {
         </div>
         <div className="reveal lg:col-span-7">
           {dict.faq.items.map((item) => (
-            <details key={item.q} className="group border-t border-line-strong last:border-b">
+            <details key={item.q} name="faq" className="group border-t border-line-strong last:border-b">
               <summary className="type-lead flex cursor-pointer list-none items-center justify-between gap-6 py-5 font-medium text-text [&::-webkit-details-marker]:hidden">
                 {item.q}
                 <span aria-hidden className="relative size-5 shrink-0 text-text-3">

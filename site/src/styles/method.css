@@ -1,1 +1,289 @@
-/* method — rempli par le chantier du 10/10. */
+/* ===========================================================================
+   La méthode en flèche (retour du 10/10) — `method-timeline.tsx`.
+
+   Une seule variable pilote tout : `--p`, de 0 à 1, posée par le script à
+   chaque image de défilement. Le trait s'en déduit (`scale`), le curseur
+   aussi (sa position), la pointe s'allume à `data-end`, et chaque étape
+   s'affiche quand le curseur passe son repère (`data-reached`).
+
+   Par défaut, `--p` vaut 1 et aucune étape n'est masquée : c'est l'état
+   final — flèche pleine, curseur à la pointe, cinq étapes lisibles. Le
+   script ne pose `data-mode` qu'avec du mouvement autorisé ; sans
+   JavaScript ou en mouvement réduit, rien ne se cache.
+
+   Deux géométries, une seule structure :
+   - téléphone et tablette : la flèche descend le long des étapes, à gauche ;
+   - écran large (≥ 1024 px) : elle court de gauche à droite sous les
+     numéros, les étapes en cinq colonnes, chacune posée sur son repère.
+   =========================================================================== */
+
+.method {
+  --p: 1;
+  --node: 11px;
+  --node-top: 2px;
+  --head: 22px;
+  --stroke: 2px;
+  position: relative;
+}
+
+.method-stage {
+  padding-bottom: var(--section);
+}
+
+.method-timeline {
+  position: relative;
+  margin-top: 44px;
+  /* La flèche dépasse la dernière étape avant sa pointe. */
+  padding-bottom: calc(var(--head) + 30px);
+}
+
+/* --- La flèche -------------------------------------------------------------
+   La boîte `.method-line` est la course du curseur ; la pointe vit juste
+   au-delà (`.method-head`), pour que le curseur s'arrête à sa base au lieu
+   de la recouvrir. */
+.method-line {
+  position: absolute;
+  pointer-events: none;
+  /* Verticale : du centre du premier repère jusqu'à la base de la pointe. */
+  top: calc(var(--node-top) + var(--node) / 2);
+  bottom: var(--head);
+  left: calc(var(--node) / 2 - var(--stroke) / 2);
+  width: var(--stroke);
+}
+
+/* Le tracé à venir, en pointillé très discret : on voit où la flèche va. */
+.method-guide {
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(to bottom, var(--line-strong) 0 5px, transparent 5px 11px);
+}
+
+.method-fill {
+  position: absolute;
+  inset: 0;
+  border-radius: var(--stroke);
+  background: var(--text);
+  transform-origin: top;
+  transform: scaleY(var(--p));
+}
+
+/* La pointe : un trait court et un chevron, en pointillé tant que le
+   curseur ne l'a pas atteinte, à l'encre ensuite. */
+.method-head {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  width: var(--stroke);
+  height: var(--head);
+  color: var(--line-strong);
+  transition: color var(--motion) var(--ease);
+}
+.method-head::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 2px;
+  background: repeating-linear-gradient(to bottom, currentColor 0 5px, transparent 5px 11px);
+}
+.method-head::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 2px;
+  width: 11px;
+  height: 11px;
+  border-right: var(--stroke) solid currentColor;
+  border-bottom: var(--stroke) solid currentColor;
+  border-bottom-right-radius: 1px;
+  transform: translateX(-50%) rotate(45deg);
+}
+.method:not([data-mode]) .method-head,
+.method[data-end] .method-head {
+  color: var(--text);
+}
+.method:not([data-mode]) .method-head::before,
+.method[data-end] .method-head::before {
+  background: currentColor;
+}
+
+/* Le curseur Signal, avec son halo. Un liseré Signal 600 le dessine sur la
+   Craie, où le Signal pur seul se lirait mal. */
+.method-cursor {
+  position: absolute;
+  left: 50%;
+  top: calc(var(--p) * 100%);
+  z-index: 2;
+  width: 16px;
+  height: 16px;
+  border-radius: var(--r-pill);
+  background: radial-gradient(circle at 34% 30%, rgb(255 255 255 / 0.7) 0 16%, transparent 46%), var(--signal);
+  box-shadow:
+    0 0 0 1px var(--g-600),
+    0 0 0 6px color-mix(in srgb, var(--signal) 20%, transparent),
+    0 0 26px 6px color-mix(in srgb, var(--signal) 45%, transparent);
+  transform: translate(-50%, -50%);
+}
+
+/* --- Les étapes -------------------------------------------------------- */
+.method-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 36px;
+}
+
+.method-step {
+  position: relative;
+  padding-left: 40px;
+}
+
+/* Le repère d'une étape sur la flèche : un anneau, plein une fois passé. */
+.method-node {
+  position: absolute;
+  left: 0;
+  top: var(--node-top);
+  z-index: 1;
+  width: var(--node);
+  height: var(--node);
+  border-radius: var(--r-pill);
+  background: var(--bg);
+  box-shadow: inset 0 0 0 1.5px var(--text-3);
+  transition:
+    background-color var(--motion) var(--ease),
+    box-shadow var(--motion) var(--ease);
+}
+.method:not([data-mode]) .method-node,
+.method-step[data-reached] .method-node {
+  background: var(--text);
+  box-shadow: inset 0 0 0 1.5px var(--text);
+}
+
+.method-step-body {
+  display: flex;
+  flex-direction: column;
+  transition:
+    opacity var(--motion-slow) var(--ease),
+    transform var(--motion-slow) var(--ease);
+}
+.method[data-mode] .method-step:not([data-reached]) .method-step-body {
+  opacity: 0;
+  transform: translateY(14px);
+}
+
+.method-num {
+  display: block;
+  color: var(--text-3);
+}
+.method-title {
+  margin-top: 8px;
+  color: var(--text);
+}
+.method-text {
+  margin-top: 6px;
+  max-width: 40ch;
+  color: var(--text-2);
+}
+
+/* --- Écran large : la flèche de gauche à droite -------------------------- */
+@media (min-width: 1024px) {
+  .method {
+    /* Hauteur de la flèche sous la rangée des numéros, et un trait plus
+       franc : à cette largeur, 2 px se lisaient comme un filet. */
+    --line-y: 46px;
+    --stroke: 3px;
+    --head: 26px;
+    --node: 13px;
+  }
+
+  .method-timeline {
+    margin-top: clamp(56px, 10vh, 112px);
+    padding-bottom: 0;
+  }
+
+  .method-line {
+    top: calc(var(--line-y) - var(--stroke) / 2);
+    bottom: auto;
+    left: 0;
+    right: var(--head);
+    width: auto;
+    height: var(--stroke);
+  }
+  .method-guide {
+    background: repeating-linear-gradient(to right, var(--line-strong) 0 5px, transparent 5px 11px);
+  }
+  .method-fill {
+    transform-origin: left;
+    transform: scaleX(var(--p));
+  }
+
+  .method-head {
+    top: 0;
+    left: 100%;
+    width: var(--head);
+    height: var(--stroke);
+  }
+  .method-head::before {
+    inset: 0 2px 0 0;
+    background: repeating-linear-gradient(to right, currentColor 0 5px, transparent 5px 11px);
+  }
+  .method-head::after {
+    left: auto;
+    right: 2px;
+    width: 14px;
+    height: 14px;
+    bottom: auto;
+    top: 50%;
+    transform: translateY(-50%) rotate(-45deg);
+  }
+
+  .method-cursor {
+    top: 50%;
+    left: calc(var(--p) * 100%);
+  }
+
+  .method-steps {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 32px;
+  }
+
+  .method-step {
+    padding-left: 0;
+  }
+  .method-node {
+    top: calc(var(--line-y) - var(--node) / 2);
+  }
+
+  /* Le numéro au-dessus de la flèche, le titre et le texte dessous. */
+  .method-title {
+    margin-top: calc(var(--line-y) + 22px - 16px);
+  }
+  .method-text {
+    margin-top: 8px;
+  }
+}
+
+/* --- Figée le temps du tracé --------------------------------------------
+   La course : 170 vh de défilement pendant lesquels la scène reste en
+   place, contenu centré sous l'en-tête (64 px). */
+.method[data-mode="pin"] {
+  height: 270vh;
+}
+.method[data-mode="pin"] .method-stage {
+  position: sticky;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  height: 100vh;
+  height: 100svh;
+  /* L'en-tête en haut ; un peu plus de vide en bas, pour un centre optique. */
+  padding-top: 64px;
+  padding-bottom: 6vh;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .method-head,
+  .method-node,
+  .method-step-body {
+    transition: none;
+  }
+}
