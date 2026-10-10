@@ -1,1 +1,345 @@
-/* header — rempli par le chantier du 10/10. */
+/* ===========================================================================
+   L'en-tête (retours du 10/10) : une pastille de verre qui flotte au-dessus
+   de la page, à la façon de la charte (r-18) et de la référence fournie —
+   transparente, coins très arrondis, liseré lumineux, liens pleins, bouton
+   clair à droite.
+
+   Dans le flux, l'en-tête reste une bande de 64 px : le hero remonte dessous
+   (`-mt-16`) et les sections s'ancrent à 64 px (`scroll-mt-16`). La bande
+   elle-même est vide et laisse passer la souris ; seule la pastille, posée à
+   8 px du haut, se voit et se clique.
+
+   Lisibilité : le verre est transparent, mais pas au point de laisser la
+   lave éteindre les liens. Sur la Profondeur, le flou assombrit ce qu'il
+   voit passer (`brightness`) avant une teinte Profondeur légère : la lave
+   reste visible, en verre fumé, et un reflet blanc de bulle tombe encore
+   sous la Craie à plus de 4,5:1. Sur le Verre clair, une teinte blanche
+   assez dense pour qu'une vignette sombre qui passe dessous laisse l'Encre
+   lisible. Mesuré aux pixels, en haut de page sur la lave comme sur les
+   sections claires (`header-contrast.mjs`).
+   =========================================================================== */
+
+.site-header {
+  pointer-events: none;
+  --nav-h: 48px;
+  --nav-top: 8px;
+  /* La pastille déborde du texte de la page de sa propre marge intérieure :
+     le logotype tombe ainsi à l'aplomb du texte, et la pastille reste en
+     retrait des bords du conteneur. */
+  --nav-out: clamp(6px, calc(var(--gutter) - 14px), 24px);
+
+  /* Verre clair : blanc translucide, flou et saturation de la charte. */
+  --nav-tint: color-mix(in srgb, var(--surface) 54%, transparent);
+  --nav-sheen: linear-gradient(135deg, rgb(255 255 255 / 0.45), rgb(255 255 255 / 0) 55%, rgb(255 255 255 / 0.25));
+  --nav-filter: blur(14px) saturate(1.8) brightness(1.08);
+  --nav-edge: inset 0 1px 0 rgb(255 255 255 / 0.95), inset 0 0 0 1px rgb(255 255 255 / 0.55), inset 0 -1px 0 color-mix(in srgb, var(--encre) 6%, transparent);
+  --nav-shadow: 0 14px 34px -20px color-mix(in srgb, var(--encre) 40%, transparent);
+  --nav-chip: color-mix(in srgb, var(--encre) 6%, transparent);
+  --nav-chip-line: color-mix(in srgb, var(--encre) 14%, transparent);
+  --nav-hover: rgb(255 255 255 / 0.85);
+  --nav-ink-hover: var(--encre);
+  --nav-text-shadow: none;
+  --nav-panel-tint: color-mix(in srgb, var(--surface) 86%, transparent);
+  --nav-panel-filter: blur(20px) saturate(1.8) brightness(1.08);
+}
+
+/* Profondeur : le verre fumé. */
+.site-header.theme-dark {
+  --nav-tint: color-mix(in srgb, var(--profondeur) 40%, transparent);
+  --nav-sheen: linear-gradient(135deg, rgb(255 255 255 / 0.09), rgb(255 255 255 / 0) 55%, rgb(255 255 255 / 0.04));
+  --nav-filter: blur(14px) saturate(1.8) brightness(0.55);
+  --nav-edge: inset 0 1px 0 rgb(255 255 255 / 0.24), inset 0 0 0 1px rgb(255 255 255 / 0.12), inset 0 -1px 0 rgb(255 255 255 / 0.05);
+  --nav-shadow: 0 18px 40px -22px rgb(0 0 0 / 0.75);
+  --nav-chip: rgb(255 255 255 / 0.06);
+  --nav-chip-line: rgb(255 255 255 / 0.18);
+  --nav-hover: rgb(255 255 255 / 0.08);
+  --nav-ink-hover: rgb(255 255 255);
+  --nav-text-shadow: 0 1px 10px rgb(0 0 0 / 0.35);
+  --nav-panel-tint: color-mix(in srgb, var(--profondeur) 70%, transparent);
+  --nav-panel-filter: blur(20px) saturate(1.8) brightness(0.5);
+}
+
+@media (min-width: 768px) {
+  .site-header {
+    --nav-h: 52px;
+  }
+}
+
+/* --- La pastille -------------------------------------------------------
+   Posée par un rembourrage et non par une marge : une marge sur la pastille
+   s'effondrerait à travers l'en-tête, qui descendrait de 8 px et laisserait
+   une bande de Craie au-dessus du hero.
+   Le verre vit sur un pseudo-élément et non sur la pastille : un élément
+   qui porte un `backdrop-filter` devient la racine de fond de ses
+   descendants, et le panneau du menu mobile, qui en descend, n'aurait plus
+   rien vu de la page à flouter — le titre du hero se lisait au travers.
+   Le flou s'écrit sous sa seule forme standard : Lightning CSS (Tailwind 4)
+   ajoute le préfixe lui-même, et quand les deux formes sont écrites il ne
+   garde que `-webkit-backdrop-filter`, que Chrome ignore. */
+.nav-wrap {
+  padding-top: var(--nav-top);
+}
+.nav-pill {
+  pointer-events: auto;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  height: var(--nav-h);
+  margin-inline: calc(-1 * var(--nav-out));
+  padding-inline: max(18px, var(--nav-out)) 6px;
+  border-radius: var(--r-pill);
+  color: var(--text);
+  transition: color var(--motion) var(--ease);
+}
+.nav-pill::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  pointer-events: none;
+  background-color: var(--nav-tint);
+  background-image: var(--nav-sheen);
+  box-shadow: var(--nav-edge), var(--nav-shadow);
+  backdrop-filter: var(--nav-filter);
+  transition:
+    background-color var(--motion) var(--ease),
+    box-shadow var(--motion) var(--ease),
+    backdrop-filter var(--motion) var(--ease);
+}
+
+/* --- Les liens : encre pleine, un peu plus grands, sans mouvement ------- */
+.nav-link {
+  display: inline-flex;
+  align-items: center;
+  height: 38px;
+  padding-inline: 14px;
+  border-radius: var(--r-pill);
+  font-size: 1rem;
+  line-height: 1;
+  font-weight: 550;
+  letter-spacing: -0.005em;
+  white-space: nowrap;
+  color: var(--text);
+  text-shadow: var(--nav-text-shadow);
+  transition:
+    background-color var(--motion) var(--ease),
+    color var(--motion) var(--ease);
+}
+.nav-link:hover {
+  background-color: var(--nav-hover);
+  color: var(--nav-ink-hover);
+}
+
+/* La langue : une pastille discrète, mais lisible — l'encre reste pleine. */
+.nav-lang {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 34px;
+  min-width: 42px;
+  padding-inline: 11px;
+  border-radius: var(--r-pill);
+  font-family: var(--ff-mono);
+  font-size: 0.8125rem;
+  line-height: 1;
+  letter-spacing: 0.08em;
+  color: var(--text);
+  text-shadow: var(--nav-text-shadow);
+  background-color: var(--nav-chip);
+  box-shadow: inset 0 0 0 1px var(--nav-chip-line);
+  transition:
+    background-color var(--motion) var(--ease),
+    box-shadow var(--motion) var(--ease),
+    color var(--motion) var(--ease);
+}
+.nav-lang:hover {
+  background-color: var(--nav-hover);
+  color: var(--nav-ink-hover);
+}
+
+/* Le bouton du quiz : l'aplat de la charte (`btn-primary`), à la taille
+   de la pastille — 6 px de verre autour, comme sur la référence. */
+.nav-cta {
+  height: 40px;
+  padding-inline: 20px;
+  border-radius: var(--r-pill);
+  font-size: 0.9375rem;
+  line-height: 1;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  white-space: nowrap;
+}
+
+/* --- Le menu mobile ------------------------------------------------------
+   Un `<details>` : il s'ouvre et se ferme sans JavaScript ; le script ne
+   fait qu'ajouter Échap, le clic à côté et la fermeture au choix d'un lien. */
+.nav-menu > summary {
+  list-style: none;
+}
+.nav-menu > summary::-webkit-details-marker {
+  display: none;
+}
+.nav-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  height: 36px;
+  padding-inline: 14px 15px;
+  border-radius: var(--r-pill);
+  cursor: pointer;
+  user-select: none;
+  font-size: 0.9375rem;
+  line-height: 1;
+  font-weight: 550;
+  white-space: nowrap;
+  color: var(--text);
+  text-shadow: var(--nav-text-shadow);
+  background-color: var(--nav-chip);
+  box-shadow: inset 0 0 0 1px var(--nav-chip-line);
+  transition:
+    background-color var(--motion) var(--ease),
+    color var(--motion) var(--ease);
+}
+.nav-toggle:hover {
+  background-color: var(--nav-hover);
+  color: var(--nav-ink-hover);
+}
+/* Sous 360 px, le logotype, la langue et « Menu » ne tiennent plus côte à
+   côte : le bouton garde ses deux traits, son nom reste lu à voix haute. */
+@media (max-width: 359.98px) {
+  .nav-toggle {
+    padding-inline: 11px;
+  }
+  .nav-toggle-text {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
+.nav-toggle-label-open,
+.nav-menu[open] .nav-toggle-label-closed {
+  display: none;
+}
+.nav-menu[open] .nav-toggle-label-open {
+  display: inline;
+}
+/* Deux traits qui se croisent à l'ouverture. */
+.nav-toggle-icon {
+  position: relative;
+  width: 14px;
+  height: 10px;
+}
+.nav-toggle-icon::before,
+.nav-toggle-icon::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 1.75px;
+  border-radius: 2px;
+  background: currentColor;
+  transition: transform var(--motion) var(--ease), top var(--motion) var(--ease);
+}
+.nav-toggle-icon::before {
+  top: 1.5px;
+}
+.nav-toggle-icon::after {
+  top: 6.75px;
+}
+.nav-menu[open] .nav-toggle-icon::before {
+  top: 4.25px;
+  transform: rotate(45deg);
+}
+.nav-menu[open] .nav-toggle-icon::after {
+  top: 4.25px;
+  transform: rotate(-45deg);
+}
+
+.nav-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  padding: 8px;
+  border-radius: var(--r-xl);
+  color: var(--text);
+  background-color: var(--nav-panel-tint);
+  background-image: var(--nav-sheen);
+  box-shadow: var(--nav-edge), var(--nav-shadow);
+  backdrop-filter: var(--nav-panel-filter);
+  animation: nav-panel-in 180ms var(--ease) both;
+}
+.nav-panel-link {
+  display: flex;
+  align-items: center;
+  min-height: 52px;
+  padding-inline: 16px;
+  border-radius: var(--r-lg);
+  font-size: 1.1875rem;
+  line-height: 1.2;
+  font-weight: 550;
+  letter-spacing: -0.01em;
+  color: var(--text);
+  text-shadow: var(--nav-text-shadow);
+  transition:
+    background-color var(--motion) var(--ease),
+    color var(--motion) var(--ease);
+}
+.nav-panel-link:hover {
+  background-color: var(--nav-hover);
+  color: var(--nav-ink-hover);
+}
+.nav-panel-cta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 52px;
+  margin-top: 6px;
+  border-radius: var(--r-pill);
+  font-size: 1.0625rem;
+  font-weight: 600;
+}
+
+@keyframes nav-panel-in {
+  from {
+    opacity: 0;
+  }
+}
+
+/* --- Focus clavier : visible partout, à la forme de la pastille ---------- */
+.site-header a:focus-visible,
+.site-header summary:focus-visible {
+  outline: 2px solid var(--accent-ink);
+  outline-offset: 2px;
+  border-radius: var(--r-pill);
+}
+.site-header .nav-panel a:focus-visible {
+  outline-offset: -2px;
+  border-radius: var(--r-lg);
+}
+.site-header .nav-panel .nav-panel-cta:focus-visible {
+  outline-offset: 2px;
+  border-radius: var(--r-pill);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-pill,
+  .nav-pill::before,
+  .nav-link,
+  .nav-lang,
+  .nav-toggle,
+  .nav-panel-link,
+  .nav-toggle-icon::before,
+  .nav-toggle-icon::after {
+    transition: none;
+  }
+  .nav-panel {
+    animation: none;
+  }
+}
