@@ -92,25 +92,49 @@
   "logos": [
     {
       "out": "i-way",
-      "url": "https://www.i-way.fr/landing/img/logo.png"
+      "pages": [
+        "https://www.i-way-world.com/",
+        "https://www.i-way.fr/"
+      ],
+      "pick": "logo",
+      "candidats": true
     },
     {
       "out": "bondet",
-      "bucket": "workspace-logos",
-      "path": "2bf535f0-50f9-4f9a-b659-5ebcc6938cfd/logo.jpeg"
+      "pages": [
+        "https://www.lunettes-bondet.fr/"
+      ],
+      "pick": "logo",
+      "candidats": true
     },
     {
-      "out": "anmf",
-      "bucket": "workspace-logos",
-      "path": "940f89f9-edfa-4107-82d1-3d22e84a418b/logo.jpeg"
+      "out": "catherine-osti",
+      "pages": [
+        "https://www.catherineosti.com/"
+      ],
+      "pick": "logo",
+      "candidats": true
     },
     {
       "out": "chasseurs-de-graines",
       "url": "https://chasseursdegraines.fr/wp-content/uploads/2026/04/logo_chasseursdegraines.svg"
     },
     {
-      "out": "catherine-osti",
-      "url": "https://www.catherineosti.com/cache/images/content/logo-142.jpg"
+      "out": "anmf",
+      "pages": [
+        "https://www.meuneriefrancaise.com/"
+      ],
+      "pick": "logo",
+      "candidats": true
+    },
+    {
+      "out": "banque-populaire",
+      "pages": [
+        "https://www.banquepopulaire.fr/"
+      ],
+      "commons": "Banque Populaire logo",
+      "pick": "logo",
+      "candidats": true
     },
     {
       "out": "kare",
@@ -119,10 +143,6 @@
     {
       "out": "mediapilote",
       "url": "https://www.mediapilote.com/media/logo-mediapiote-white.svg"
-    },
-    {
-      "out": "banque-populaire",
-      "url": "https://bp-prod.cloudimg.io/_images_/app/uploads/sites/5/2022/03/11141119/cropped-banque-populaire-logotype-rvb-1.png?func=bound&w=400&h=400&gravity=auto&optipress=2"
     }
   ]
 }
