@@ -36,7 +36,6 @@
   background: var(--glass), var(--glass-fill);
   box-shadow: var(--glass-shadow);
   backdrop-filter: var(--glass-filter);
-  -webkit-backdrop-filter: var(--glass-filter);
   color: var(--text);
   transition:
     filter var(--motion) var(--ease),
