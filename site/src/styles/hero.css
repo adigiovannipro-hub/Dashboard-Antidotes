@@ -1,1 +1,111 @@
-/* hero — rempli par le chantier du 10/10. */
+/* ===========================================================================
+   Le hero (r-18) : la preuve, le titre sur trois lignes, deux boutons.
+
+   La colonne de texte est un conteneur de requête : le titre prend sa
+   taille de la largeur de la colonne (`cqi`) divisée par la largeur de sa
+   plus longue ligne en em (`--hero-measure`, posée par le composant). Chaque
+   ligne refuse le retour : la phrase tient en trois lignes, de 320 à
+   1920 px, et c'est la taille qui s'adapte, jamais la coupe.
+   =========================================================================== */
+
+.hero-copy {
+  position: relative;
+  container-type: inline-size;
+  width: 100%;
+  max-width: 46rem;
+}
+/* À partir de lg, le texte et la lave se partagent l'écran : la colonne
+   laisse au moins un bon tiers à droite (à 1024 px, la première ligne
+   touchait la lave à 1,2:1). Au-delà de 1536 px, la lave a la place de
+   reculer : le titre gagne un cran. */
+@media (min-width: 64rem) {
+  .hero-copy {
+    max-width: min(46rem, 64%);
+  }
+}
+@media (min-width: 96rem) {
+  .hero-copy {
+    max-width: min(50rem, 70%);
+  }
+}
+
+/* Sous lg, la colonne prend toute la largeur et sa première ligne touche le
+   bord : la pénombre de la section, une ellipse, n'y arrive plus (Craie sur
+   une frange Rose à 3:1 aux pixels, 390 px). Une bande de Profondeur suit
+   donc la colonne d'un bord à l'autre, fondue en haut et en bas — la lave
+   reste vive au-dessus et au-dessous. La colonne, positionnée, en est le
+   bloc conteneur (un conteneur de requête ne l'est pas : sans `position`,
+   la bande couvrait toute la section) ; à z-index −1 dans le contexte de
+   la section, elle passe sous le texte et sur la lave. */
+@media (max-width: 63.999rem) {
+  .hero-copy::before {
+    content: "";
+    position: absolute;
+    z-index: -1;
+    pointer-events: none;
+    inset: -4.5rem calc(-1 * var(--gutter)) -4rem;
+    background: linear-gradient(
+      180deg,
+      transparent,
+      color-mix(in srgb, var(--profondeur) 82%, transparent) 4.5rem,
+      color-mix(in srgb, var(--profondeur) 82%, transparent) calc(100% - 4rem),
+      transparent
+    );
+  }
+}
+
+.hero-title {
+  margin-top: 1.5rem;
+  font-size: min(6.5rem, 100cqi / var(--hero-measure, 12));
+}
+.hero-title > span {
+  white-space: nowrap;
+}
+
+/* ---------------------------------------------------------------------------
+   La preuve, comme sur la couverture LinkedIn : une fine barre verticale,
+   le chiffre, puis le libellé souligné d'un trait de surligneur Signal —
+   épais, un peu décalé vers la droite et sous les jambages, pour que la
+   Craie ne se pose jamais sur le vert (1,7:1, r-13).
+   --------------------------------------------------------------------------- */
+.hero-proof {
+  position: relative;
+  width: fit-content;
+  padding-left: 0.95em;
+  font-family: var(--ff-text);
+  font-size: clamp(1rem, 0.93rem + 0.3vw, 1.1875rem);
+  line-height: 1.35;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+  color: var(--text);
+}
+.hero-proof::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: -0.12em;
+  bottom: -0.16em;
+  width: 1.5px;
+  border-radius: 1px;
+  background: var(--text);
+}
+.hero-proof-value {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.hero-proof-mark {
+  position: relative;
+  white-space: nowrap;
+}
+/* Le trait reste droit et sous la boîte des glyphes : incliné, son bout
+   droit remontait sous « accompagnés » (3,8:1 aux pixels). */
+.hero-proof-mark::after {
+  content: "";
+  position: absolute;
+  left: 0.1em;
+  right: -0.16em;
+  top: calc(100% + 0.04em);
+  height: max(3px, 0.2em);
+  border-radius: 999px;
+  background: var(--signal);
+}
