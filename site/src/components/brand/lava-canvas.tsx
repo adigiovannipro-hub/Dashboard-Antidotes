@@ -1,151 +1,56 @@
 "use client";
 
-import { useEffect, useId, useRef } from "react";
-import { FALLBACK_FRAMES, GLOW_SIGMA, LAVA_COLORS, createLavaRenderer, fallbackPath, type LavaPointer, type LavaVariant } from "./lava-shader";
+import { useEffect, useRef } from "react";
+import {
+  START_TIME,
+  avoidBoxes,
+  createLavaRenderer,
+  isSoftwareRenderer,
+  measureAvoid,
+  readLavaPalette,
+  type AvoidRects,
+  type LavaBox,
+  type LavaPointer,
+  type LavaRenderer,
+  type LavaVariant,
+} from "./lava-shader";
 
 /**
- * La lave (charte r-04, r-05, r-19) : de grandes masses de matière verte qui
- * entrent par les bords du hero, bougent sur des cycles lents et laissent une
- * goutte suivre le pointeur. Le canvas est transparent hors de la matière, le
- * fond reste au parent. Avant le JavaScript, sans WebGL ou si le GPU lâche,
- * le même contour figé est servi en SVG — le rendu n'est jamais vide.
+ * La lave du hero : les bulles de verre de la V1, aux couleurs et aux règles
+ * de la charte V2 (r-05, r-19). Le canvas peint tout, fond compris ; avant le
+ * JavaScript, sans WebGL ou si le GPU lâche, l'image de repli — le même
+ * shader, rendu une fois à t = 7 s — tient la place.
  */
 type LavaCanvasProps = {
   className?: string;
-  /** « dark » sur Profondeur (cœur Signal, franges Menthe et Rose), « light » sur Craie ou Aura (franges Lagon et Lilas). */
+  /** « dark » sur Profondeur (cœur Signal, franges Menthe et Rose), « light » sur Craie (franges Lagon et Lilas). */
   variant?: LavaVariant;
   /** La lave s'efface sur les premiers 60 vh de défilement : les capsules prennent le relais. */
   fadeOnScroll?: boolean;
 };
 
+/**
+ * Les images de repli, rendues par le shader lui-même à t = 7 s, sans
+ * pointeur, sur la mise en page du hero (1440 × 900 et 390 × 844). Seule la
+ * variante sombre en a : c'est la seule que le site pose.
+ */
+export const LAVA_FALLBACK = { land: "/brand/lave-hero-large.webp", port: "/brand/lave-hero-portrait.webp" } as const;
+
 /** Amorti du pointeur, par image à 60 Hz (charte r-05). */
 const POINTER_EASE = 0.06;
 /** Défilement, en fraction de la hauteur de fenêtre, au bout duquel la lave a disparu. */
 const FADE_DISTANCE = 0.6;
-/** Le fondu de la première image SVG vers la première image WebGL. */
+/** Le fondu de l'image de repli vers la première image WebGL. */
 const REVEAL_MS = 800;
-
-// Les deux contours de repli, calculés une fois au chargement du module (quelques millisecondes), identiques côté serveur et client.
-const FALLBACK_PATHS = { land: fallbackPath("land"), port: fallbackPath("port") } as const;
-
-/*
- * Les courbes de la lueur intérieure, en tables pour feComponentTransfer : les
- * mêmes que le shader, smoothstep(0,04 ; 0,9) pour le liseré et
- * smoothstep(0 ; 0,62) pour la frange, échantillonnées sur [0, 1].
- */
-const RIM_TABLE = "0 0.057 0.27 0.53 0.82 0.98 1";
-const FRINGE_TABLE = "0 0.18 0.54 0.9 1 1 1";
-/** Côté du carreau de grain du repli, en unités du cadre SVG. */
-const GRAIN_TILE = 160;
-
-/**
- * Le contour de la lave à t = 0, en SVG. Même recette que le shader : la
- * part de vide que ramène un flou de la forme éclaire le bord, et la frange
- * apparaît sur les faces tournées dans sa direction (la forme moins sa copie
- * décalée).
- */
-function FallbackFrame({ frame, variant, id }: { frame: keyof typeof FALLBACK_FRAMES; variant: LavaVariant; id: string }) {
-  const { width: w, height: h, margin: m } = FALLBACK_FRAMES[frame];
-  const unit = Math.min(w, h);
-  const c = LAVA_COLORS[variant];
-  const sigma = GLOW_SIGMA[variant] * unit;
-  const offset = unit * 0.075;
-  // Direction vers l'extérieur des faces qui portent la frange, en coordonnées SVG (y vers le bas).
-  const [ox, oy] = variant === "dark" ? [-0.29, 0.96] : [0.54, 0.84];
-  const fid = `${id}-${frame}`;
-  // Le shader étend la frange au bas de la section quelle que soit l'orientation du bord (le rose sur le
-  // flanc gauche d'un écran large, le Lilas partout en clair) : un second passage du contour, tout en
-  // frange, masqué par un dégradé vertical aux mêmes bornes, fait la même chose.
-  const lowFringe = variant === "light" || frame === "land";
-  const [fadeFrom, fadeTo] = variant === "dark" ? [0.58, 0.9] : [0.38, 0.85];
-  const region = { filterUnits: "userSpaceOnUse", x: -m, y: -m, width: w + 2 * m, height: h + 2 * m, colorInterpolationFilters: "sRGB" } as const;
-  return (
-    <svg
-      viewBox={`0 0 ${w} ${h}`}
-      // Sur écran large la lave est adossée au bord droit : c'est lui qui sert d'ancre quand le cadre change de proportions.
-      preserveAspectRatio={frame === "land" ? "xMaxYMid slice" : "xMidYMid slice"}
-      className={`absolute inset-0 h-full w-full ${frame === "land" ? "hidden landscape:block" : "block landscape:hidden"}`}
-    >
-      <defs>
-        <filter id={fid} {...region}>
-          <feGaussianBlur in="SourceAlpha" stdDeviation={sigma} result="soft" />
-          <feComposite in="SourceAlpha" in2="soft" operator="arithmetic" k2={2} k3={-2} result="glow" />
-          <feComponentTransfer in="glow" result="rim">
-            <feFuncA type="table" tableValues={RIM_TABLE} />
-          </feComponentTransfer>
-          <feComponentTransfer in="glow" result="band">
-            <feFuncA type="table" tableValues={variant === "dark" ? FRINGE_TABLE : RIM_TABLE} />
-          </feComponentTransfer>
-          <feOffset in="SourceAlpha" dx={-ox * offset} dy={-oy * offset} result="shift" />
-          <feComposite in="SourceAlpha" in2="shift" operator="out" result="face" />
-          <feGaussianBlur in="face" stdDeviation={offset * 0.8} result="faceBlur" />
-          {/* Seules les faces franchement tournées dans la direction gardent la frange, comme le seuil du shader. */}
-          <feComponentTransfer in="faceBlur" result="faceSoft">
-            <feFuncA type="table" tableValues="0 0.12 0.7 1 1 1" />
-          </feComponentTransfer>
-          <feComposite in="band" in2="faceSoft" operator="arithmetic" k1={1} result="fringe" />
-          {/* Là où la frange prend, le liseré vert lui cède la place au lieu de la délaver. */}
-          <feComposite in="rim" in2="fringe" operator="arithmetic" k2={1} k3={-1} result="rimOnly" />
-          <feFlood floodColor={c.core} result="core" />
-          <feFlood floodColor={c.rim} />
-          <feComposite in2="rimOnly" operator="in" result="rimLayer" />
-          <feFlood floodColor={c.fringe} />
-          <feComposite in2="fringe" operator="in" result="fringeLayer" />
-          <feMerge result="paint">
-            <feMergeNode in="core" />
-            <feMergeNode in="rimLayer" />
-            <feMergeNode in="fringeLayer" />
-          </feMerge>
-          {/* Le grain, figé : un carreau de bruit fin, répété, ramené en niveaux de gris puis ajouté à la
-              peinture. Calculer la turbulence sur toute la zone coûterait plus que tout le reste du filtre. */}
-          <feTurbulence type="fractalNoise" baseFrequency={1.6} numOctaves={1} seed={7} stitchTiles="stitch" x={0} y={0} width={GRAIN_TILE} height={GRAIN_TILE} />
-          <feTile />
-          <feColorMatrix type="matrix" values="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 0 0 0 0 1" result="grain" />
-          <feComposite in="paint" in2="grain" operator="arithmetic" k2={1} k3={0.34} k4={-0.17} />
-          <feComposite in2="SourceAlpha" operator="in" />
-        </filter>
-        {lowFringe && (
-          <>
-            <filter id={`${fid}-low`} {...region}>
-              <feGaussianBlur in="SourceAlpha" stdDeviation={sigma} result="soft" />
-              <feComposite in="SourceAlpha" in2="soft" operator="arithmetic" k2={2} k3={-2} result="glow" />
-              <feComponentTransfer in="glow" result="band">
-                <feFuncA type="table" tableValues={variant === "dark" ? FRINGE_TABLE : RIM_TABLE} />
-              </feComponentTransfer>
-              <feFlood floodColor={c.fringe} />
-              <feComposite in2="band" operator="in" result="pink" />
-              <feTurbulence type="fractalNoise" baseFrequency={1.6} numOctaves={1} seed={11} stitchTiles="stitch" x={0} y={0} width={GRAIN_TILE} height={GRAIN_TILE} />
-              <feTile />
-              <feColorMatrix type="matrix" values="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 0 0 0 0 1" result="grain" />
-              <feComposite in="pink" in2="grain" operator="arithmetic" k2={1} k3={0.34} k4={-0.17} />
-              <feComposite in2="band" operator="in" />
-            </filter>
-            <linearGradient id={`${fid}-fade`} gradientUnits="userSpaceOnUse" x1="0" y1={h * fadeFrom} x2="0" y2={h * fadeTo}>
-              <stop offset="0" stopColor="#fff" stopOpacity="0" />
-              <stop offset="1" stopColor="#fff" stopOpacity="0.85" />
-            </linearGradient>
-            <mask id={`${fid}-mask`} maskUnits="userSpaceOnUse" x={-m} y={-m} width={w + 2 * m} height={h + 2 * m}>
-              <rect x={-m} y={0} width={w + 2 * m} height={h + m} fill={`url(#${fid}-fade)`} />
-            </mask>
-          </>
-        )}
-      </defs>
-      <path d={FALLBACK_PATHS[frame]} fill="#000" filter={`url(#${fid})`} />
-      {lowFringe && (
-        <g mask={`url(#${fid}-mask)`}>
-          <path d={FALLBACK_PATHS[frame]} fill="#000" filter={`url(#${fid}-low)`} />
-        </g>
-      )}
-    </svg>
-  );
-}
+/** Sous 20 images par seconde en moyenne sur quarante, la machine ne suit pas. */
+const SLOW_FRAME_MS = 50;
+/** Morsure du grain sur le bord, en pixels du canvas : sur écran large, le verre reste net. */
+const EDGE_GRAIN = { fine: 0.8, coarse: 1.1 } as const;
 
 export function LavaCanvas({ className = "", variant = "dark", fadeOnScroll = true }: LavaCanvasProps) {
   const rootRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const fallbackRef = useRef<HTMLDivElement | null>(null);
-  // Un identifiant de filtre propre à l'instance, sans les caractères que `url(#…)` digère mal.
-  const filterId = `lava-${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`;
 
   useEffect(() => {
     const root = rootRef.current;
@@ -157,9 +62,9 @@ export function LavaCanvas({ className = "", variant = "dark", fadeOnScroll = tr
     const coarse = window.matchMedia("(pointer: coarse)").matches;
     let reduced = motionQuery.matches;
 
-    /* --- Ce qui ne dépend pas du GPU : le fondu au défilement et le pointeur.
-       Tout s'écrit dans des variables lues par la boucle, jamais dans un état
-       React : rien ne re-rend. */
+    /* --- Ce qui ne dépend pas du GPU : le fondu au défilement, le pointeur et
+       les boîtes du texte. Tout s'écrit dans des variables lues par la boucle,
+       jamais dans un état React : rien ne re-rend. */
     let fade = 1;
     const applyFade = () => {
       // En mouvement réduit, rien ne bouge, l'opacité non plus.
@@ -169,12 +74,25 @@ export function LavaCanvas({ className = "", variant = "dark", fadeOnScroll = tr
       root.style.opacity = fade >= 1 ? "" : fade.toFixed(3);
     };
     let rect = root.getBoundingClientRect();
+    // Le texte que la lave évite : relevé au montage, aux polices chargées, au redimensionnement ; remis
+    // en unités à chaque défilement (l'en-tête collant glisse sur la section).
+    let rects: AvoidRects = { flow: [], fixed: [] };
+    let boxes: LavaBox[] = [];
+    // Image figée (mouvement réduit, machine lente) : elle se repeint quand le texte bouge.
+    let redraw: (() => void) | null = null;
+    const remeasure = () => {
+      rect = root.getBoundingClientRect();
+      rects = measureAvoid(root);
+      boxes = avoidBoxes(rects, rect);
+      redraw?.();
+    };
     let pending = 0;
     const onScrollOrResize = () => {
       if (pending) return;
       pending = requestAnimationFrame(() => {
         pending = 0;
         rect = root.getBoundingClientRect();
+        boxes = avoidBoxes(rects, rect);
         applyFade();
       });
     };
@@ -191,6 +109,11 @@ export function LavaCanvas({ className = "", variant = "dark", fadeOnScroll = tr
     const onBlur = () => {
       pointer.active = false;
     };
+    remeasure();
+    let fontsLive = true;
+    document.fonts?.ready.then(() => {
+      if (fontsLive) remeasure();
+    });
     window.addEventListener("scroll", onScrollOrResize, { passive: true });
     window.addEventListener("resize", onScrollOrResize, { passive: true });
     window.addEventListener("pointermove", onPointer, { passive: true });
@@ -201,6 +124,7 @@ export function LavaCanvas({ className = "", variant = "dark", fadeOnScroll = tr
     window.addEventListener("blur", onBlur);
     applyFade();
     const removeInputs = () => {
+      fontsLive = false;
       cancelAnimationFrame(pending);
       window.removeEventListener("scroll", onScrollOrResize);
       window.removeEventListener("resize", onScrollOrResize);
@@ -213,16 +137,27 @@ export function LavaCanvas({ className = "", variant = "dark", fadeOnScroll = tr
       root.style.opacity = "";
     };
 
-    /* --- Le GPU. Sans WebGL, le contour SVG reste : c'est le repli prévu. */
-    const gl = canvas.getContext("webgl", { alpha: true, premultipliedAlpha: true, antialias: false, depth: false, stencil: false, powerPreference: "low-power" });
-    const renderer = gl ? createLavaRenderer(gl, variant) : null;
-    if (!gl || !renderer) return removeInputs;
+    /* --- Le GPU. Sans WebGL, sans les couleurs de la charte ou en rendu logiciel, l'image de repli
+       reste : c'est la même image, immobile. */
+    const palette = readLavaPalette((token) => getComputedStyle(root).getPropertyValue(token), variant);
+    const gl = palette ? canvas.getContext("webgl", { alpha: false, antialias: false, depth: false, stencil: false, powerPreference: "low-power" }) : null;
+    if (!gl || !palette || isSoftwareRenderer(gl)) return removeInputs;
+    // Prêt quand le programme est compilé — hors du fil principal quand le pilote le permet.
+    let renderer: LavaRenderer | null = null;
+    let disposed = false;
 
     const lavaPointer: LavaPointer = { x: 0.5, y: 0.5, presence: 0 };
-    let time = 0;
+    // L'horloge part de l'instant de l'image de repli : la première image WebGL tombe dessus.
+    let time = START_TIME;
     const draw = () => {
-      // Le grain change 24 fois par seconde, la cadence d'une pellicule : à 60 il fourmille comme un écran neigeux.
-      renderer.draw(time, reduced || lavaPointer.presence < 0.001 ? null : lavaPointer, reduced ? 0 : (Math.floor(time * 24) % 61) * 7.31);
+      renderer?.draw({
+        time,
+        pointer: reduced || lavaPointer.presence < 0.001 ? null : lavaPointer,
+        boxes,
+        // Le grain change 24 fois par seconde, la cadence d'une pellicule : à 60 il fourmille comme un écran neigeux.
+        seed: reduced ? 3.7 : (Math.floor(time * 24) % 61) * 7.31,
+        edge: coarse ? EDGE_GRAIN.coarse : EDGE_GRAIN.fine,
+      });
     };
 
     let raf = 0;
@@ -231,20 +166,22 @@ export function LavaCanvas({ className = "", variant = "dark", fadeOnScroll = tr
     let visible = false;
     let painted = false;
     let revealTimer = 0;
-    // Garde-fou : sous 20 images par seconde en moyenne sur les quarante premières (rendu logiciel,
-    // appareil faible), on garde la dernière image, immobile — un fond figé vaut mieux qu'une page qui rame.
+    // Garde-fou : sous 20 images par seconde en moyenne sur quarante, la définition baisse d'abord ; si la
+    // machine ne suit toujours pas, la dernière image reste, immobile — un fond figé vaut mieux qu'une page qui rame.
+    let lowered = false;
     let frozen = false;
     let samples = 0;
     let slowMs = 0;
     const fps = coarse ? 30 : 60;
 
-    // Le shader coûte par pixel : DPR plafonné à 1,5 et quatre millions de pixels au plus. Au doigt, 1,6 :
-    // en dessous, le canvas agrandi épaissit le grain du bord jusqu'à le faire pelucher.
+    // Le shader coûte par pixel : échelle plafonnée à 1,5 (1,6 au doigt, où un canvas agrandi épaissit le
+    // grain) et quatre millions de pixels au plus ; en définition réduite, jamais sous 0,75.
     const resize = () => {
       const cw = canvas.clientWidth;
       const ch = canvas.clientHeight;
       let scale = Math.min(window.devicePixelRatio || 1, coarse ? 1.6 : 1.5);
       if (cw * ch * scale * scale > 4e6) scale = Math.sqrt(4e6 / Math.max(1, cw * ch));
+      if (lowered) scale = Math.max(0.75, scale * 0.6);
       const w = Math.max(1, Math.round(cw * scale));
       const h = Math.max(1, Math.round(ch * scale));
       if (canvas.width === w && canvas.height === h) return;
@@ -257,7 +194,7 @@ export function LavaCanvas({ className = "", variant = "dark", fadeOnScroll = tr
     const reveal = () => {
       painted = true;
       canvas.style.opacity = "1";
-      // Le SVG ne part qu'une fois le fondu fini : le retirer avant laisserait un trou le temps de la transition.
+      // Le repli ne part qu'une fois le fondu fini : le retirer avant laisserait un trou le temps de la transition.
       revealTimer = window.setTimeout(() => {
         fallback.style.display = "none";
       }, reduced ? 0 : REVEAL_MS);
@@ -271,10 +208,17 @@ export function LavaCanvas({ className = "", variant = "dark", fadeOnScroll = tr
       if (painted && samples < 40) {
         samples += 1;
         slowMs += now - last;
-        if (samples === 40 && slowMs / samples > 50) {
-          frozen = true;
-          run();
-          return;
+        if (samples === 40 && slowMs / samples > SLOW_FRAME_MS) {
+          if (!lowered) {
+            lowered = true;
+            samples = 0;
+            slowMs = 0;
+            resize();
+          } else {
+            frozen = true;
+            run();
+            return;
+          }
         }
       }
       last = now;
@@ -302,7 +246,7 @@ export function LavaCanvas({ className = "", variant = "dark", fadeOnScroll = tr
 
     // Une seule boucle, qui ne tourne que visible, onglet au premier plan, mouvement autorisé et machine à la hauteur.
     const run = () => {
-      const next = visible && !document.hidden && !reduced && !frozen;
+      const next = visible && !document.hidden && !reduced && !frozen && renderer !== null;
       if (next === running) return;
       running = next;
       if (running) {
@@ -310,10 +254,27 @@ export function LavaCanvas({ className = "", variant = "dark", fadeOnScroll = tr
         raf = requestAnimationFrame(frame);
       } else cancelAnimationFrame(raf);
     };
-    // Mouvement réduit : une image, la même que le repli (t = 0), et plus rien ne bouge.
+    // Mouvement réduit : une image, la même que le repli (t = 7 s), et plus rien ne bouge.
     const paintStill = () => {
+      if (!renderer) return;
+      time = START_TIME;
       draw();
       if (!painted) reveal();
+    };
+    const build = () => {
+      void createLavaRenderer(gl, palette).then((ready) => {
+        if (disposed) {
+          ready?.dispose();
+          return;
+        }
+        renderer = ready;
+        if (reduced) paintStill();
+        else run();
+      });
+    };
+
+    redraw = () => {
+      if (!running && painted) draw();
     };
 
     const onMotion = () => {
@@ -330,28 +291,36 @@ export function LavaCanvas({ className = "", variant = "dark", fadeOnScroll = tr
     });
     const ro = new ResizeObserver(() => {
       resize();
+      remeasure();
       onScrollOrResize();
     });
-    // Contexte perdu (GPU réinitialisé) : retour au contour SVG, pas un rectangle vide.
+    // Contexte perdu (GPU réinitialisé) : retour à l'image de repli, pas un rectangle noir ; s'il revient,
+    // la lave repart d'elle-même.
     const onLost = (e: Event) => {
       e.preventDefault();
-      frozen = true;
+      renderer = null;
       run();
       window.clearTimeout(revealTimer);
+      painted = false;
+      samples = 0;
+      slowMs = 0;
       canvas.style.opacity = "0";
       fallback.style.display = "";
     };
+    const onRestored = () => build();
 
     if (reduced) canvas.style.transition = "none";
     resize();
-    if (reduced) paintStill();
+    build();
     document.addEventListener("visibilitychange", onVisibility);
     canvas.addEventListener("webglcontextlost", onLost);
+    canvas.addEventListener("webglcontextrestored", onRestored);
     motionQuery.addEventListener("change", onMotion);
     io.observe(root);
     ro.observe(canvas);
 
     return () => {
+      disposed = true;
       running = false;
       cancelAnimationFrame(raf);
       window.clearTimeout(revealTimer);
@@ -359,19 +328,31 @@ export function LavaCanvas({ className = "", variant = "dark", fadeOnScroll = tr
       ro.disconnect();
       document.removeEventListener("visibilitychange", onVisibility);
       canvas.removeEventListener("webglcontextlost", onLost);
+      canvas.removeEventListener("webglcontextrestored", onRestored);
       motionQuery.removeEventListener("change", onMotion);
       removeInputs();
       // Les ressources GPU sont rendues, pas le contexte : le perdre exprès le laisserait perdu pour le
       // montage suivant sur le même canvas (double montage du mode strict de React, changement de variante).
-      renderer.dispose();
+      renderer?.dispose();
     };
   }, [variant, fadeOnScroll]);
 
   return (
     <div ref={rootRef} aria-hidden="true" className={`pointer-events-none overflow-hidden ${className}`}>
       <div ref={fallbackRef} className="absolute inset-0">
-        <FallbackFrame frame="land" variant={variant} id={filterId} />
-        <FallbackFrame frame="port" variant={variant} id={filterId} />
+        {variant === "dark" && (
+          <picture>
+            <source media="(max-aspect-ratio: 1/1)" srcSet={LAVA_FALLBACK.port} />
+            {/* Rendu du shader déjà encodé en WebP : next/image le réencoderait sans rien gagner. */}
+            <img
+              src={LAVA_FALLBACK.land}
+              alt=""
+              decoding="async"
+              fetchPriority="high"
+              className="absolute inset-0 h-full w-full select-none object-cover object-right portrait:object-bottom"
+            />
+          </picture>
+        )}
       </div>
       <canvas
         ref={canvasRef}
