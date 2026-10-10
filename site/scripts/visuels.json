@@ -89,12 +89,10 @@
    "url": "https://scontent-iad3-2.cdninstagram.com/v/t51.75761-15/504573249_18508330213031087_8335628391542339415_n.jpg?stp=dst-jpg_e35_tt6&_nc_cat=111&ccb=7-5&_nc_sid=18de74&efg=eyJlZmdfdGFnIjoiQ0xJUFMuYmVzdF9pbWFnZV91cmxnZW4uQzMifQ%3D%3D&_nc_ohc=F3eQqfd3iewQ7kNvwGbYb2f&_nc_oc=AdoouxFR_BdFUZbF2fTb3qi7AAhQf1wYoZcJqxs_WTsex2GDLP1wV3zI_qYPqSdpQr0&_nc_zt=23&_nc_ht=scontent-iad3-2.cdninstagram.com&edm=AM6HXa8EAAAA&_nc_gid=1_ZsRxZtKqMkZ3hHATnO5Q&_nc_tpa=Q5bMBQJcuxpFC-Ql3w7kwxdIZTdEu2fDHnUVo-CPZ0IlO4MbPa0S5SqY2dEk1xg2zJW4JaE8ksk2uecj3A&oh=00_AQF7t5etFF4aTy5frwEe7J1NHHPsEI_2T28EYOSZlOE8Cg&oe=6A8C70F6"
   },
   {
-   "out": "catherine-osti-portrait",
-   "url": "https://www.catherineosti.com/cache/images/content/2.mobile_1-556.jpg"
-  },
-  {
-   "out": "catherine-osti-paysage",
-   "url": "https://www.catherineosti.com/cache/images/content/7be8426b870cc230885d4d06745b1bb1-1.home_2-548.jpg"
+   "out": "catherine-osti-proof",
+   "url": "https://www.catherineosti.com/cache/images/content/2.mobile_1-556.jpg",
+   "decoupe": "50%x100%+0+0",
+   "largeur": 1000
   }
  ],
  "logos": [
@@ -138,15 +136,6 @@
   {
    "out": "mediapilote",
    "url": "https://www.mediapilote.com/media/logo-mediapiote-white.svg"
-  },
-  {
-   "out": "bexley",
-   "pages": [
-    "https://www.bexley.com/fr/",
-    "https://www.bexley.com/"
-   ],
-   "pick": "logo",
-   "candidats": true
   }
  ]
 }

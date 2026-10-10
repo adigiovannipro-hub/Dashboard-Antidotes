@@ -76,7 +76,11 @@ for (const item of LIST.cases) {
     ]);
     report.push(`${item.out}: source ${Math.round(bytes / 1024)} Ko → affiche ${sizeOf(`${base}.webp`)} Ko, extrait ${sizeOf(`${base}.mp4`)} Ko`);
   } else {
-    run("convert", [`${src}[0]`, "-auto-orient", "-resize", "720x>", "-strip", "-quality", "82", `${base}.webp`]);
+    // `decoupe` (géométrie ImageMagick, en % pour ne pas dépendre de la définition
+    // de la source) isole un panneau d'une image composée ; `largeur` relève le
+    // plafond de 720 px quand l'image sert de fond pleine hauteur.
+    const crop = item.decoupe ? ["-crop", item.decoupe, "+repage"] : [];
+    run("convert", [`${src}[0]`, "-auto-orient", ...crop, "-resize", `${item.largeur ?? 720}x>`, "-strip", "-quality", "82", `${base}.webp`]);
     report.push(`${item.out}: source ${Math.round(bytes / 1024)} Ko → ${sizeOf(`${base}.webp`)} Ko`);
   }
 }
