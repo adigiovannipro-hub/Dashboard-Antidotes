@@ -4,6 +4,7 @@ import type { Dictionary, Service } from "@/i18n/types";
 import { CASE_VISUALS, type CaseVisual } from "@/lib/cases";
 import { CLIENT_LOGOS } from "@/lib/logos";
 import { LogoMarquee } from "./logo-marquee";
+import { MethodTimeline } from "./method-timeline";
 import { PhoneCase } from "./phone-case";
 
 /**
@@ -161,25 +162,18 @@ export function Cases({ dict }: { dict: Dictionary }) {
   );
 }
 
-/* --- Méthode : cinq étapes numérotées en Geist Mono. ------------------------- */
+/* --- Méthode : une flèche que le défilement trace, cinq étapes le long. -------- */
+/* Retour du 10/10 : la flèche se dessine de gauche à droite au fil du
+   défilement, les cinq étapes apparaissent une à une, et un curseur Signal la
+   parcourt jusqu'à la pointe. Le rendu serveur est l'état final — flèche
+   pleine, curseur au bout, tout lisible — : c'est ce que voient un visiteur
+   sans JavaScript et celui qui a demandé de réduire les animations. */
 export function Method({ dict }: { dict: Dictionary }) {
   return (
     <section id="methode" aria-labelledby="methode-titre" className="scroll-mt-16">
-      <div className="container-site section-pad pt-0">
+      <MethodTimeline steps={dict.method.steps}>
         <SectionHeading eyebrow={dict.method.eyebrow} index={3} title={dict.method.title} id="methode-titre" />
-        <ol className="mt-12 grid grid-cols-1 gap-x-8 gap-y-6 sm:grid-cols-2 lg:grid-cols-5">
-          {dict.method.steps.map((step, index) => (
-            <li key={step.title} className="reveal border-t border-line-strong pt-5">
-              <span className="type-overline flex items-center gap-2 text-text-3">
-                <span aria-hidden className={`size-1.5 rounded-pill ${index === 0 ? "bg-signal" : "bg-text-3"}`} />
-                {String(index + 1).padStart(2, "0")}
-              </span>
-              <h3 className="type-h3 mt-4 text-text lg:min-h-15">{step.title}</h3>
-              <p className="type-small mt-2 hidden text-text-2 lg:block">{step.text}</p>
-            </li>
-          ))}
-        </ol>
-      </div>
+      </MethodTimeline>
     </section>
   );
 }
