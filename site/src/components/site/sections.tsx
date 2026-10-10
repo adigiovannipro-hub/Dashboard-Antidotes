@@ -185,6 +185,11 @@ export function Method({ dict }: { dict: Dictionary }) {
 }
 
 /* --- FAQ : accordéons natifs, à filets. -------------------------------------- */
+/* Un seul dévoilement à la fois (retour du 10/10) : les `<details>` d'un même
+   `name` forment un accordéon exclusif, tenu par le navigateur — ouvrir une
+   question referme l'autre, sans script, clavier et lecteur d'écran compris.
+   Un navigateur qui ne le connaît pas laisse simplement plusieurs réponses
+   ouvertes. */
 export function Faq({ dict }: { dict: Dictionary }) {
   return (
     <section id="faq" aria-labelledby="faq-titre" className="scroll-mt-16">
@@ -194,7 +199,7 @@ export function Faq({ dict }: { dict: Dictionary }) {
         </div>
         <div className="reveal lg:col-span-7">
           {dict.faq.items.map((item) => (
-            <details key={item.q} className="group border-t border-line-strong last:border-b">
+            <details key={item.q} name="faq" className="group border-t border-line-strong last:border-b">
               <summary className="type-lead flex cursor-pointer list-none items-center justify-between gap-6 py-5 font-medium text-text [&::-webkit-details-marker]:hidden">
                 {item.q}
                 <span aria-hidden className="relative size-5 shrink-0 text-text-3">
