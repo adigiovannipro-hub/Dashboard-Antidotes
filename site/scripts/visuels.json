@@ -1,135 +1,152 @@
 {
-  "cases": [
-    {
-      "out": "anmf-meunier",
-      "kind": "video",
-      "bucket": "planning-visuals",
-      "path": "940f89f9-edfa-4107-82d1-3d22e84a418b/3d9a9b57-20ab-4d06-a172-31ca5ddd0790/monday-264387312-Meunier.mp4"
-    },
-    {
-      "out": "anmf-expert",
-      "kind": "video",
-      "bucket": "planning-visuals",
-      "path": "940f89f9-edfa-4107-82d1-3d22e84a418b/c9b06fb1-2c73-4041-b190-39e334d51fc2/monday-264387318-2931_mstream_cdg_portrait-expert-pierre-antoine_master260420.mp4",
-      "start": 2
-    },
-    {
-      "out": "anmf-spot",
-      "kind": "video",
-      "bucket": "planning-visuals",
-      "path": "940f89f9-edfa-4107-82d1-3d22e84a418b/07bbf761-e58e-4864-9f56-306871e9083f/monday-240013747-2931_chasseursdegraines-30s-1-.mp4",
-      "start": 1
-    },
-    {
-      "out": "anmf-post",
-      "kind": "image",
-      "bucket": "planning-visuals",
-      "path": "940f89f9-edfa-4107-82d1-3d22e84a418b/6f852a34-dcf8-44fe-a37c-e822da531e7d/1791364795002-ON-A-TOUS-UN-.png"
-    },
-    {
-      "out": "anmf-carrousel",
-      "kind": "image",
-      "bucket": "planning-visuals",
-      "path": "940f89f9-edfa-4107-82d1-3d22e84a418b/5dc9dca2-260a-49db-bf15-4926f199aaa5/1790944431557-UNE-SEMAINE-DANS-1-.png"
-    },
-    {
-      "out": "bondet-solaire",
-      "kind": "video",
-      "bucket": "planning-visuals",
-      "path": "2bf535f0-50f9-4f9a-b659-5ebcc6938cfd/20d3adcc-cd77-40ec-85b0-89b591b93685/monday-262548836-copy_E261CE8F-D433-4487-8E28-03693D7BBC9E.mp4"
-    },
-    {
-      "out": "bondet-lumiere",
-      "kind": "video",
-      "bucket": "planning-visuals",
-      "path": "2bf535f0-50f9-4f9a-b659-5ebcc6938cfd/d3df4135-3c6d-4c5c-8782-095e9df834dd/monday-262548808-7118C58B-2724-4AEC-921C-674CD26ECA67.mp4"
-    },
-    {
-      "out": "bondet-moments",
-      "kind": "image",
-      "bucket": "planning-visuals",
-      "path": "2bf535f0-50f9-4f9a-b659-5ebcc6938cfd/1f13d995-8b82-4ee6-87c3-e4980112bdcd/monday-251445195-sanstitre-552.jpg"
-    },
-    {
-      "out": "bondet-joy",
-      "kind": "image",
-      "bucket": "planning-visuals",
-      "path": "2bf535f0-50f9-4f9a-b659-5ebcc6938cfd/0ede973b-d717-4972-b588-381f6207995c/monday-253272673-Plan-de-travail-8.png"
-    },
-    {
-      "out": "bondet-silmo",
-      "kind": "image",
-      "bucket": "planning-visuals",
-      "path": "2bf535f0-50f9-4f9a-b659-5ebcc6938cfd/a0178ac0-3357-41b2-a27f-9e3306032616/1791372474867-SILMO_-31.jpg"
-    },
-    {
-      "out": "bondet-jackie",
-      "kind": "image",
-      "bucket": "planning-visuals",
-      "path": "2bf535f0-50f9-4f9a-b659-5ebcc6938cfd/a5ec1c46-bf36-4fee-b2ea-78d2c5f53814/monday-262473188-Plan-de-travail-23-3.png"
-    },
-    {
-      "out": "iway-f1",
-      "kind": "image",
-      "url": "https://scontent-iad6-1.cdninstagram.com/v/t51.82787-15/565585977_18531352324031087_8380187213165318331_n.jpg?stp=dst-jpg_e35_tt6&_nc_cat=109&ccb=7-5&_nc_sid=18de74&efg=eyJlZmdfdGFnIjoiQ0xJUFMuYmVzdF9pbWFnZV91cmxnZW4uQzMifQ%3D%3D&_nc_ohc=DPbVn15i4hsQ7kNvwFgwtTt&_nc_oc=Adot2Sok5ZghpQvXhG0gNZVYem9_x_mO-jZbqlRSdfG6x5e8rziwf-Tztzz1ISvUXbo&_nc_zt=23&_nc_ht=scontent-iad6-1.cdninstagram.com&edm=AM6HXa8EAAAA&_nc_gid=lO9uwkZFg3sqeXUdi-q9VA&_nc_tpa=Q5bMBQLdo79ZvspwUVhdTEMhIDqwgNtDvhke6Jj-k7FkzueeFH0rBUd2D8Dw4YW5mqXo22bt2pceQB3x4g&oh=00_AQFAEvKnLZb57Ns9aqmWcPv0TarJGY8myJYCc4Xr70OyhA&oe=6A8C9B1E"
-    },
-    {
-      "out": "iway-f18",
-      "kind": "image",
-      "url": "https://scontent-iad6-1.cdninstagram.com/v/t51.82787-15/606157025_18545967337031087_7264169680632512547_n.jpg?stp=dst-jpg_e35_tt6&_nc_cat=102&ccb=7-5&_nc_sid=18de74&efg=eyJlZmdfdGFnIjoiQ0xJUFMuYmVzdF9pbWFnZV91cmxnZW4uQzMifQ%3D%3D&_nc_ohc=9EMGyhT4zOQQ7kNvwFXjcyw&_nc_oc=AdqSzvFSBHpDKfKZm8H-nbJgm0bOCe6hjgQCvtDDevYXwcaXgVNimhKwlXpRqyWza7Y&_nc_zt=23&_nc_ht=scontent-iad6-1.cdninstagram.com&edm=AM6HXa8EAAAA&_nc_gid=lO9uwkZFg3sqeXUdi-q9VA&_nc_tpa=Q5bMBQKewfIlvANSszLHTq6bkh2prDN6AHHPB2457cPrgOQlx4Ly2js6d81unkpzfb6gGZP-_FUITM9TFQ&oh=00_AQGqDfAEchASd4ioSeOmYLQbE99HgZFZJlpnE6eZZo76hg&oe=6A8C6884"
-    },
-    {
-      "out": "iway-sphere",
-      "kind": "image",
-      "url": "https://scontent-iad6-1.cdninstagram.com/v/t51.82787-15/519061009_18512777842031087_8575130238991073155_n.jpg?stp=dst-jpg_e35_tt6&_nc_cat=106&ccb=7-5&_nc_sid=18de74&efg=eyJlZmdfdGFnIjoiQ0xJUFMuYmVzdF9pbWFnZV91cmxnZW4uQzMifQ%3D%3D&_nc_ohc=eV1qv31hYBIQ7kNvwF4_LMb&_nc_oc=AdqtQK6eN-ZsnVOimn8gqurWAG_UJRd_h9B1EuLfS6RKgZ0FYF0JqyBVo2gosRSNaGk&_nc_zt=23&_nc_ht=scontent-iad6-1.cdninstagram.com&edm=AM6HXa8EAAAA&_nc_gid=1_ZsRxZtKqMkZ3hHATnO5Q&_nc_tpa=Q5bMBQJzW5-vS69Eky2uNta8MDJbU2Yc0-Q2uxBQhMsV1FlarCYQE5XzHTL1wQ9nHRRkiMyOjxd_8_ZwQg&oh=00_AQHU4Da60ripu_x7qOR4HNV15MYb-OWUiwe9nmRreDC7iw&oe=6A8C9287"
-    },
-    {
-      "out": "iway-combat",
-      "kind": "image",
-      "url": "https://scontent-iad3-2.cdninstagram.com/v/t51.75761-15/504573249_18508330213031087_8335628391542339415_n.jpg?stp=dst-jpg_e35_tt6&_nc_cat=111&ccb=7-5&_nc_sid=18de74&efg=eyJlZmdfdGFnIjoiQ0xJUFMuYmVzdF9pbWFnZV91cmxnZW4uQzMifQ%3D%3D&_nc_ohc=F3eQqfd3iewQ7kNvwGbYb2f&_nc_oc=AdoouxFR_BdFUZbF2fTb3qi7AAhQf1wYoZcJqxs_WTsex2GDLP1wV3zI_qYPqSdpQr0&_nc_zt=23&_nc_ht=scontent-iad3-2.cdninstagram.com&edm=AM6HXa8EAAAA&_nc_gid=1_ZsRxZtKqMkZ3hHATnO5Q&_nc_tpa=Q5bMBQJcuxpFC-Ql3w7kwxdIZTdEu2fDHnUVo-CPZ0IlO4MbPa0S5SqY2dEk1xg2zJW4JaE8ksk2uecj3A&oh=00_AQF7t5etFF4aTy5frwEe7J1NHHPsEI_2T28EYOSZlOE8Cg&oe=6A8C70F6"
-    }
-  ],
-  "logos": [
-    {
-      "out": "i-way",
-      "url": "https://www.i-way-world.com/assets/frontOffice/iway/template-assets/assets/img/a185c42.png"
-    },
-    {
-      "out": "bondet",
-      "url": "https://bondet.com/cdn/shop/files/bondet-logo.svg?v=1772808528",
-      "cadre": "0 5.9 170 35.4"
-    },
-    {
-      "out": "catherine-osti",
-      "url": "https://www.catherineosti.com/cache/images/content/logo-142.jpg",
-      "decoupe": "391x44+0+202",
-      "encre": true
-    },
-    {
-      "out": "chasseurs-de-graines",
-      "url": "https://chasseursdegraines.fr/wp-content/uploads/2026/04/logo_chasseursdegraines.svg",
-      "retirer": [
-        "#F3ECDD"
-      ],
-      "cadre": "37.1 15.8 199.8 73"
-    },
-    {
-      "out": "anmf",
-      "url": "https://www.meuneriefrancaise.com/wp-content/uploads/logo-footer.svg"
-    },
-    {
-      "out": "banque-populaire",
-      "url": "https://upload.wikimedia.org/wikipedia/commons/2/26/Banque_Populaire_landscape_2018_logo.svg",
-      "evider": true,
-      "cadre": "-0.5 -0.4 593.3 119.8"
-    },
-    {
-      "out": "kare",
-      "url": "https://www.kare-click.fr/img/logo-1776412632.svg"
-    },
-    {
-      "out": "mediapilote",
-      "url": "https://www.mediapilote.com/media/logo-mediapiote-white.svg"
-    }
-  ]
+ "cases": [
+  {
+   "out": "anmf-meunier",
+   "kind": "video",
+   "bucket": "planning-visuals",
+   "path": "940f89f9-edfa-4107-82d1-3d22e84a418b/3d9a9b57-20ab-4d06-a172-31ca5ddd0790/monday-264387312-Meunier.mp4"
+  },
+  {
+   "out": "anmf-expert",
+   "kind": "video",
+   "bucket": "planning-visuals",
+   "path": "940f89f9-edfa-4107-82d1-3d22e84a418b/c9b06fb1-2c73-4041-b190-39e334d51fc2/monday-264387318-2931_mstream_cdg_portrait-expert-pierre-antoine_master260420.mp4",
+   "start": 2
+  },
+  {
+   "out": "anmf-spot",
+   "kind": "video",
+   "bucket": "planning-visuals",
+   "path": "940f89f9-edfa-4107-82d1-3d22e84a418b/07bbf761-e58e-4864-9f56-306871e9083f/monday-240013747-2931_chasseursdegraines-30s-1-.mp4",
+   "start": 1
+  },
+  {
+   "out": "anmf-post",
+   "kind": "image",
+   "bucket": "planning-visuals",
+   "path": "940f89f9-edfa-4107-82d1-3d22e84a418b/6f852a34-dcf8-44fe-a37c-e822da531e7d/1791364795002-ON-A-TOUS-UN-.png"
+  },
+  {
+   "out": "anmf-carrousel",
+   "kind": "image",
+   "bucket": "planning-visuals",
+   "path": "940f89f9-edfa-4107-82d1-3d22e84a418b/5dc9dca2-260a-49db-bf15-4926f199aaa5/1790944431557-UNE-SEMAINE-DANS-1-.png"
+  },
+  {
+   "out": "bondet-solaire",
+   "kind": "video",
+   "bucket": "planning-visuals",
+   "path": "2bf535f0-50f9-4f9a-b659-5ebcc6938cfd/20d3adcc-cd77-40ec-85b0-89b591b93685/monday-262548836-copy_E261CE8F-D433-4487-8E28-03693D7BBC9E.mp4"
+  },
+  {
+   "out": "bondet-lumiere",
+   "kind": "video",
+   "bucket": "planning-visuals",
+   "path": "2bf535f0-50f9-4f9a-b659-5ebcc6938cfd/d3df4135-3c6d-4c5c-8782-095e9df834dd/monday-262548808-7118C58B-2724-4AEC-921C-674CD26ECA67.mp4"
+  },
+  {
+   "out": "bondet-moments",
+   "kind": "image",
+   "bucket": "planning-visuals",
+   "path": "2bf535f0-50f9-4f9a-b659-5ebcc6938cfd/1f13d995-8b82-4ee6-87c3-e4980112bdcd/monday-251445195-sanstitre-552.jpg"
+  },
+  {
+   "out": "bondet-joy",
+   "kind": "image",
+   "bucket": "planning-visuals",
+   "path": "2bf535f0-50f9-4f9a-b659-5ebcc6938cfd/0ede973b-d717-4972-b588-381f6207995c/monday-253272673-Plan-de-travail-8.png"
+  },
+  {
+   "out": "bondet-silmo",
+   "kind": "image",
+   "bucket": "planning-visuals",
+   "path": "2bf535f0-50f9-4f9a-b659-5ebcc6938cfd/a0178ac0-3357-41b2-a27f-9e3306032616/1791372474867-SILMO_-31.jpg"
+  },
+  {
+   "out": "bondet-jackie",
+   "kind": "image",
+   "bucket": "planning-visuals",
+   "path": "2bf535f0-50f9-4f9a-b659-5ebcc6938cfd/a5ec1c46-bf36-4fee-b2ea-78d2c5f53814/monday-262473188-Plan-de-travail-23-3.png"
+  },
+  {
+   "out": "iway-f1",
+   "kind": "image",
+   "url": "https://scontent-iad6-1.cdninstagram.com/v/t51.82787-15/565585977_18531352324031087_8380187213165318331_n.jpg?stp=dst-jpg_e35_tt6&_nc_cat=109&ccb=7-5&_nc_sid=18de74&efg=eyJlZmdfdGFnIjoiQ0xJUFMuYmVzdF9pbWFnZV91cmxnZW4uQzMifQ%3D%3D&_nc_ohc=DPbVn15i4hsQ7kNvwFgwtTt&_nc_oc=Adot2Sok5ZghpQvXhG0gNZVYem9_x_mO-jZbqlRSdfG6x5e8rziwf-Tztzz1ISvUXbo&_nc_zt=23&_nc_ht=scontent-iad6-1.cdninstagram.com&edm=AM6HXa8EAAAA&_nc_gid=lO9uwkZFg3sqeXUdi-q9VA&_nc_tpa=Q5bMBQLdo79ZvspwUVhdTEMhIDqwgNtDvhke6Jj-k7FkzueeFH0rBUd2D8Dw4YW5mqXo22bt2pceQB3x4g&oh=00_AQFAEvKnLZb57Ns9aqmWcPv0TarJGY8myJYCc4Xr70OyhA&oe=6A8C9B1E"
+  },
+  {
+   "out": "iway-f18",
+   "kind": "image",
+   "url": "https://scontent-iad6-1.cdninstagram.com/v/t51.82787-15/606157025_18545967337031087_7264169680632512547_n.jpg?stp=dst-jpg_e35_tt6&_nc_cat=102&ccb=7-5&_nc_sid=18de74&efg=eyJlZmdfdGFnIjoiQ0xJUFMuYmVzdF9pbWFnZV91cmxnZW4uQzMifQ%3D%3D&_nc_ohc=9EMGyhT4zOQQ7kNvwFXjcyw&_nc_oc=AdqSzvFSBHpDKfKZm8H-nbJgm0bOCe6hjgQCvtDDevYXwcaXgVNimhKwlXpRqyWza7Y&_nc_zt=23&_nc_ht=scontent-iad6-1.cdninstagram.com&edm=AM6HXa8EAAAA&_nc_gid=lO9uwkZFg3sqeXUdi-q9VA&_nc_tpa=Q5bMBQKewfIlvANSszLHTq6bkh2prDN6AHHPB2457cPrgOQlx4Ly2js6d81unkpzfb6gGZP-_FUITM9TFQ&oh=00_AQGqDfAEchASd4ioSeOmYLQbE99HgZFZJlpnE6eZZo76hg&oe=6A8C6884"
+  },
+  {
+   "out": "iway-sphere",
+   "kind": "image",
+   "url": "https://scontent-iad6-1.cdninstagram.com/v/t51.82787-15/519061009_18512777842031087_8575130238991073155_n.jpg?stp=dst-jpg_e35_tt6&_nc_cat=106&ccb=7-5&_nc_sid=18de74&efg=eyJlZmdfdGFnIjoiQ0xJUFMuYmVzdF9pbWFnZV91cmxnZW4uQzMifQ%3D%3D&_nc_ohc=eV1qv31hYBIQ7kNvwF4_LMb&_nc_oc=AdqtQK6eN-ZsnVOimn8gqurWAG_UJRd_h9B1EuLfS6RKgZ0FYF0JqyBVo2gosRSNaGk&_nc_zt=23&_nc_ht=scontent-iad6-1.cdninstagram.com&edm=AM6HXa8EAAAA&_nc_gid=1_ZsRxZtKqMkZ3hHATnO5Q&_nc_tpa=Q5bMBQJzW5-vS69Eky2uNta8MDJbU2Yc0-Q2uxBQhMsV1FlarCYQE5XzHTL1wQ9nHRRkiMyOjxd_8_ZwQg&oh=00_AQHU4Da60ripu_x7qOR4HNV15MYb-OWUiwe9nmRreDC7iw&oe=6A8C9287"
+  },
+  {
+   "out": "iway-combat",
+   "kind": "image",
+   "url": "https://scontent-iad3-2.cdninstagram.com/v/t51.75761-15/504573249_18508330213031087_8335628391542339415_n.jpg?stp=dst-jpg_e35_tt6&_nc_cat=111&ccb=7-5&_nc_sid=18de74&efg=eyJlZmdfdGFnIjoiQ0xJUFMuYmVzdF9pbWFnZV91cmxnZW4uQzMifQ%3D%3D&_nc_ohc=F3eQqfd3iewQ7kNvwGbYb2f&_nc_oc=AdoouxFR_BdFUZbF2fTb3qi7AAhQf1wYoZcJqxs_WTsex2GDLP1wV3zI_qYPqSdpQr0&_nc_zt=23&_nc_ht=scontent-iad3-2.cdninstagram.com&edm=AM6HXa8EAAAA&_nc_gid=1_ZsRxZtKqMkZ3hHATnO5Q&_nc_tpa=Q5bMBQJcuxpFC-Ql3w7kwxdIZTdEu2fDHnUVo-CPZ0IlO4MbPa0S5SqY2dEk1xg2zJW4JaE8ksk2uecj3A&oh=00_AQF7t5etFF4aTy5frwEe7J1NHHPsEI_2T28EYOSZlOE8Cg&oe=6A8C70F6"
+  },
+  {
+   "out": "catherine-osti-portrait",
+   "url": "https://www.catherineosti.com/cache/images/content/2.mobile_1-556.jpg"
+  },
+  {
+   "out": "catherine-osti-paysage",
+   "url": "https://www.catherineosti.com/cache/images/content/7be8426b870cc230885d4d06745b1bb1-1.home_2-548.jpg"
+  }
+ ],
+ "logos": [
+  {
+   "out": "i-way",
+   "url": "https://www.i-way-world.com/assets/frontOffice/iway/template-assets/assets/img/a185c42.png"
+  },
+  {
+   "out": "bondet",
+   "url": "https://bondet.com/cdn/shop/files/bondet-logo.svg?v=1772808528",
+   "cadre": "0 5.9 170 35.4"
+  },
+  {
+   "out": "catherine-osti",
+   "url": "https://www.catherineosti.com/cache/images/content/logo-142.jpg",
+   "decoupe": "391x44+0+202",
+   "encre": true
+  },
+  {
+   "out": "chasseurs-de-graines",
+   "url": "https://chasseursdegraines.fr/wp-content/uploads/2026/04/logo_chasseursdegraines.svg",
+   "retirer": [
+    "#F3ECDD"
+   ],
+   "cadre": "37.1 15.8 199.8 73"
+  },
+  {
+   "out": "anmf",
+   "url": "https://www.meuneriefrancaise.com/wp-content/uploads/logo-footer.svg"
+  },
+  {
+   "out": "banque-populaire",
+   "url": "https://upload.wikimedia.org/wikipedia/commons/2/26/Banque_Populaire_landscape_2018_logo.svg",
+   "evider": true,
+   "cadre": "-0.5 -0.4 593.3 119.8"
+  },
+  {
+   "out": "kare",
+   "url": "https://www.kare-click.fr/img/logo-1776412632.svg"
+  },
+  {
+   "out": "mediapilote",
+   "url": "https://www.mediapilote.com/media/logo-mediapiote-white.svg"
+  },
+  {
+   "out": "bexley",
+   "pages": [
+    "https://www.bexley.com/fr/",
+    "https://www.bexley.com/"
+   ],
+   "pick": "logo",
+   "candidats": true
+  }
+ ]
 }
