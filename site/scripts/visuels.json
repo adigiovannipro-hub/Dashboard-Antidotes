@@ -92,25 +92,36 @@
   "logos": [
     {
       "out": "i-way",
-      "url": "https://www.i-way.fr/landing/img/logo.png"
+      "url": "https://www.i-way-world.com/assets/frontOffice/iway/template-assets/assets/img/a185c42.png"
     },
     {
       "out": "bondet",
-      "bucket": "workspace-logos",
-      "path": "2bf535f0-50f9-4f9a-b659-5ebcc6938cfd/logo.jpeg"
-    },
-    {
-      "out": "anmf",
-      "bucket": "workspace-logos",
-      "path": "940f89f9-edfa-4107-82d1-3d22e84a418b/logo.jpeg"
-    },
-    {
-      "out": "chasseurs-de-graines",
-      "url": "https://chasseursdegraines.fr/wp-content/uploads/2026/04/logo_chasseursdegraines.svg"
+      "url": "https://bondet.com/cdn/shop/files/bondet-logo.svg?v=1772808528",
+      "cadre": "0 5.9 170 35.4"
     },
     {
       "out": "catherine-osti",
-      "url": "https://www.catherineosti.com/cache/images/content/logo-142.jpg"
+      "url": "https://www.catherineosti.com/cache/images/content/logo-142.jpg",
+      "decoupe": "391x44+0+202",
+      "encre": true
+    },
+    {
+      "out": "chasseurs-de-graines",
+      "url": "https://chasseursdegraines.fr/wp-content/uploads/2026/04/logo_chasseursdegraines.svg",
+      "retirer": [
+        "#F3ECDD"
+      ],
+      "cadre": "37.1 15.8 199.8 73"
+    },
+    {
+      "out": "anmf",
+      "url": "https://www.meuneriefrancaise.com/wp-content/uploads/logo-footer.svg"
+    },
+    {
+      "out": "banque-populaire",
+      "url": "https://upload.wikimedia.org/wikipedia/commons/2/26/Banque_Populaire_landscape_2018_logo.svg",
+      "evider": true,
+      "cadre": "-0.5 -0.4 593.3 119.8"
     },
     {
       "out": "kare",
@@ -119,10 +130,6 @@
     {
       "out": "mediapilote",
       "url": "https://www.mediapilote.com/media/logo-mediapiote-white.svg"
-    },
-    {
-      "out": "banque-populaire",
-      "url": "https://bp-prod.cloudimg.io/_images_/app/uploads/sites/5/2022/03/11141119/cropped-banque-populaire-logotype-rvb-1.png?func=bound&w=400&h=400&gravity=auto&optipress=2"
     }
   ]
 }
