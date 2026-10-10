@@ -277,22 +277,38 @@
 
 
 /* ---------------------------------------------------------------------------
-   Le bandeau de logos : la piste est rendue deux fois, translatée d'une
+   Le bandeau de logos : la piste est rendue quatre fois, translatée d'une
    moitié, en boucle. Pause au survol ; en mouvement réduit, une rangée fixe
-   qui passe à la ligne. Un tracé sur alpha passe en un seul blanc (`mono`),
-   un tracé sombre s'inverse ; un aplat de couleur n'a pas de filtre honnête
-   et s'écrit en lettres.
+   qui passe à la ligne.
+
+   Chaque logo est un pochoir (`mask-image`) rempli de l'encre du thème : un
+   seul blanc sur la Profondeur, un seul noir sur clair, quelle que soit la
+   couleur du fichier officiel. Sa hauteur vient de la liste (`--logo-h`),
+   réglée marque par marque pour un même poids à l'œil ; sa largeur suit le
+   rapport du fichier.
    --------------------------------------------------------------------------- */
 .marquee {
+  --marquee-gap: clamp(40px, 5.5vw, 80px);
+  --logo-scale: 1;
   overflow: hidden;
+  /* Hors de l'écran, la rangée n'est ni calculée ni peinte : les pochoirs
+     ne se chargent qu'à l'approche (le chargement paresseux d'une image,
+     pour une image de CSS) et la boucle ne tourne pas pour rien. */
+  content-visibility: auto;
+  contain-intrinsic-block-size: auto 56px;
   mask-image: linear-gradient(90deg, transparent, #000 10%, #000 90%, transparent);
   -webkit-mask-image: linear-gradient(90deg, transparent, #000 10%, #000 90%, transparent);
 }
 .marquee-track {
   display: flex;
+  align-items: center;
   width: max-content;
-  gap: clamp(32px, 5vw, 64px);
-  padding-inline: clamp(20px, 3vw, 44px);
+  min-height: 56px;
+  gap: var(--marquee-gap);
+  /* Un demi-écart de chaque côté : la piste fait exactement quatre fois le
+     même motif, et la translation d'une moitié retombe pile sur le motif
+     suivant — pas d'à-coup au raccord de la boucle. */
+  padding-inline: calc(var(--marquee-gap) / 2);
   animation: marquee var(--marquee-duration, 64s) linear infinite;
   will-change: transform;
 }
@@ -303,30 +319,24 @@
 .marquee-item {
   display: flex;
   align-items: center;
-  gap: 12px;
   flex: none;
 }
 .marquee-logo {
-  height: 40px;
+  display: block;
+  height: calc(var(--logo-h, 32px) * var(--logo-scale));
   width: auto;
-  max-width: 176px;
-  object-fit: contain;
-  opacity: 0.85;
+  background-color: var(--text);
+  opacity: 0.9;
+  -webkit-mask: var(--logo) center / contain no-repeat;
+  mask: var(--logo) center / contain no-repeat;
 }
-/* Un mur de marques au même poids : en un seul noir sur clair, en un seul
-   blanc sur la Profondeur. Un tracé sombre (`invert`) reste tel quel sur
-   clair. */
-.marquee-logo-mono {
-  filter: brightness(0);
-}
-.marquee-logo-invert {
-  filter: grayscale(1) brightness(0.2);
-}
-.theme-dark .marquee-logo-mono {
-  filter: brightness(0) invert(1);
-}
-.theme-dark .marquee-logo-invert {
-  filter: invert(1) grayscale(1) brightness(1.15);
+/* Sur téléphone, toute la rangée descend d'un cran : mêmes rapports entre
+   marques, des logos qui ne mangent pas l'écran. */
+@media (max-width: 640px) {
+  .marquee {
+    --logo-scale: 0.82;
+    --marquee-gap: 36px;
+  }
 }
 @keyframes marquee {
   to {
@@ -343,7 +353,7 @@
     width: auto;
     flex-wrap: wrap;
     justify-content: center;
-    row-gap: 20px;
+    row-gap: 24px;
   }
   .marquee-item[aria-hidden="true"] {
     display: none;
