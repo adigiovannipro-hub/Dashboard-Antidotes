@@ -96,9 +96,6 @@ export const en: Dictionary = {
     ],
     badges: ["23+ clients supported", "Score calculated in 1 minute", "Explained on a 30-min call", "No commitment"],
     progress: "{n} / {total}",
-    bullets: ["Based on your answers", "Explained on a 30-minute video call", "No commitment"],
-    start: "Start",
-    duration: "1 minute · 6 questions",
     email: {
       title: "Your score is almost ready. Where can I reach you?",
       lead: "Your address is used to confirm your call and send you the summary. Nothing else.",
@@ -118,7 +115,7 @@ export const en: Dictionary = {
       budget: { title: "What's your _monthly_ social media budget?", help: "Content, management and advertising included.", options: { moins_1k: "Under €1,000", "1k_3k": "€1,000 to €3,000", "3k_8k": "€3,000 to €8,000", plus_8k: "Over €8,000", indefini: "Not defined yet" } },
       timing: { title: "When do you want things to _start moving_?", options: { maintenant: "As soon as possible", trimestre: "Within three months", plus_tard: "Later this year", curiosite: "Just looking" } },
     },
-    nav: { next: "Next", back: "Back", progress: "Question {n} of {total}", multiHint: "Select all that apply", keyHint: "Press Enter to continue" },
+    nav: { next: "Next", back: "Back", multiHint: "Select all that apply", keyHint: "Press Enter to continue" },
     computing: { title: "Calculating your score…", text: "Your answers are analyzed on four axes: consistency, management, measurement and resources." },
     ready: { title: "Your score is ready.", text: "Pick your slot: I walk you through it axis by axis, with your three priority levers.", cta: "Pick my slot" },
     cold: {

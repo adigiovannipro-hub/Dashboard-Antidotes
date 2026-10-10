@@ -214,7 +214,8 @@ export function Booking({ dict, locale, leadId, prefill, onConfirmed }: Props) {
             if (!first) return null;
             return (
               <section key={day.day} aria-label={formatDayHeading(first.start, locale, timeZone)}>
-                <h4 className="type-caption text-text-2 first-letter:uppercase">{formatDayHeading(first.start, locale, timeZone)}</h4>
+                {/* Deux lignes réservées : « Mercredi 14 octobre » passe à la ligne, et les colonnes doivent rester alignées. */}
+                <h4 className="type-caption text-text-2 first-letter:uppercase sm:min-h-[2.9em]">{formatDayHeading(first.start, locale, timeZone)}</h4>
                 <ul className="mt-2 flex flex-col gap-2">
                   {day.slots.map((slot) => {
                     const active = selected?.start === slot.start;

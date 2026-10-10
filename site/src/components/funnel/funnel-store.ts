@@ -6,7 +6,7 @@ import { INITIAL_STATE, STORAGE_KEY, parseStoredState, reduce, serializeState, t
  * L'état du tunnel vit dans `sessionStorage`, lu comme un store externe.
  *
  * C'est ce qui permet de survivre à un rechargement sans `setState` dans un
- * effet : le serveur rend toujours l'intro (`getServerSnapshot`), le
+ * effet : le serveur rend toujours la première question (`getServerSnapshot`), le
  * navigateur relit l'état persisté juste après l'hydratation, et chaque
  * action réécrit la clé puis prévient les abonnés. Un stockage indisponible
  * (navigation privée stricte) retombe sur la mémoire du module.

@@ -5,7 +5,7 @@ import { localePath, type Locale } from "@/i18n/locale";
 import { Footer } from "./footer";
 import { Header } from "./header";
 import { Hero } from "./hero";
-import { Cases, Faq, Method, Services } from "./sections";
+import { Cases, Faq, Method, SectionHeading, Services } from "./sections";
 
 /**
  * La page entière, dans l'ordre de la charte : la lave en hero, les
@@ -30,7 +30,14 @@ export function Home({ dict, locale }: { dict: Dictionary; locale: Locale }) {
           <div aria-hidden className="absolute inset-0 -z-10 bg-[radial-gradient(42%_48%_at_84%_32%,rgb(34_224_91/.2),transparent_70%),radial-gradient(36%_40%_at_12%_52%,rgb(47_211_198/.14),transparent_70%)]" />
           <span aria-hidden className="ring-light -left-[16vw] top-[8%] -z-10 w-[40vw] min-w-[380px] max-w-[620px]" />
           <div className="container-site section-pad">
-            <Funnel dict={dict.funnel} locale={locale} privacyHref={privacyHref} />
+            {/* Le titre et sa promesse au-dessus, la première question juste dessous : rien à cliquer pour commencer. */}
+            <div className="grid grid-cols-1 gap-5 lg:grid-cols-12 lg:items-end lg:gap-16">
+              <SectionHeading eyebrow={dict.funnel.eyebrow} index={4} title={dict.funnel.title} id="note-titre" className="lg:col-span-7" />
+              <p className="reveal type-lead text-text-2 lg:col-span-5">{dict.funnel.lead}</p>
+            </div>
+            <div className="mt-10 lg:mt-12">
+              <Funnel dict={dict.funnel} locale={locale} privacyHref={privacyHref} cases={dict.cases.items} />
+            </div>
           </div>
         </section>
         <Faq dict={dict} />

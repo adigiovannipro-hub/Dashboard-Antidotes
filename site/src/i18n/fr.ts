@@ -96,9 +96,6 @@ export const fr: Dictionary = {
     ],
     badges: ["23+ clients accompagnés", "Note calculée en 1 minute", "Expliquée en visio, 30 min", "Sans engagement"],
     progress: "{n} / {total}",
-    bullets: ["Calculée sur vos réponses", "Expliquée en visio, en 30 minutes", "Sans engagement"],
-    start: "Commencer",
-    duration: "1 minute · 6 questions",
     email: {
       title: "Votre note est presque prête. Où vous écrire ?",
       lead: "Votre adresse sert à confirmer le rendez-⁠vous et à vous envoyer la synthèse. Rien d'autre.",
@@ -118,7 +115,7 @@ export const fr: Dictionary = {
       budget: { title: "Quel budget _par mois_ pour vos réseaux ?", help: "Contenus, accompagnement et publicité compris.", options: { moins_1k: "Moins de 1 000 €", "1k_3k": "1 000 à 3 000 €", "3k_8k": "3 000 à 8 000 €", plus_8k: "Plus de 8 000 €", indefini: "Pas encore défini" } },
       timing: { title: "Quand voulez-vous _que ça bouge_ ?", options: { maintenant: "Dès que possible", trimestre: "Dans les trois mois", plus_tard: "Plus tard dans l'année", curiosite: "Je me renseigne" } },
     },
-    nav: { next: "Suivant", back: "Retour", progress: "Question {n} sur {total}", multiHint: "Plusieurs réponses possibles", keyHint: "Entrée pour continuer" },
+    nav: { next: "Suivant", back: "Retour", multiHint: "Plusieurs réponses possibles", keyHint: "Entrée pour continuer" },
     computing: { title: "Calcul de votre note…", text: "Vos réponses sont analysées sur quatre axes : régularité, pilotage, mesure et moyens." },
     ready: { title: "Votre note est prête.", text: "Choisissez votre créneau : je vous la présente axe par axe, avec vos trois leviers prioritaires.", cta: "Choisir mon créneau" },
     cold: {
