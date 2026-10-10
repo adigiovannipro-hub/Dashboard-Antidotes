@@ -96,39 +96,22 @@
     },
     {
       "out": "bondet",
-      "url": "https://bondet.com/cdn/shop/files/bondet-logo.svg?v=1772808528"
+      "url": "https://bondet.com/cdn/shop/files/bondet-logo.svg?v=1772808528",
+      "cadre": "0 5.9 170 35.4"
     },
     {
       "out": "catherine-osti",
-      "urls": [
-        "https://www.catherineosti.com/images/content/logo.png",
-        "https://www.catherineosti.com/images/content/logo.jpg",
-        "https://www.catherineosti.com/images/content/logo-142.jpg"
-      ],
-      "pages": [
-        "https://www.catherineosti.com/"
-      ],
-      "pick": "logoFull"
-    },
-    {
-      "out": "catherine-osti-sonde",
-      "sonde": true,
-      "pages": [
-        "https://www.catherineosti.com/la-marque",
-        "https://www.catherineosti.com/points-de-vente",
-        "https://www.catherineosti.com/contact",
-        "https://www.catherineosti.com/?lang=en_US",
-        "https://www.catherineosti.com/mentions-legales.html"
-      ],
-      "candidats": true,
-      "liens": true
+      "url": "https://www.catherineosti.com/cache/images/content/logo-142.jpg",
+      "decoupe": "391x44+0+202",
+      "encre": true
     },
     {
       "out": "chasseurs-de-graines",
       "url": "https://chasseursdegraines.fr/wp-content/uploads/2026/04/logo_chasseursdegraines.svg",
       "retirer": [
         "#F3ECDD"
-      ]
+      ],
+      "cadre": "37.1 15.8 199.8 73"
     },
     {
       "out": "anmf",
@@ -137,7 +120,8 @@
     {
       "out": "banque-populaire",
       "url": "https://upload.wikimedia.org/wikipedia/commons/2/26/Banque_Populaire_landscape_2018_logo.svg",
-      "evider": true
+      "evider": true,
+      "cadre": "-0.5 -0.4 593.3 119.8"
     },
     {
       "out": "kare",

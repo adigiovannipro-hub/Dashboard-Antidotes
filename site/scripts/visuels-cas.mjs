@@ -107,14 +107,20 @@ for (const item of LIST.cases) {
 //
 // Traitement : un SVG est gardé tel quel, c'est la CSS qui le passe en blanc.
 // `retirer` en ôte les formes d'une couleur donnée (un fond de pastille ajouté
-// au fichier officiel), et `evider: true` le réécrit en masque — ses blancs
+// au fichier officiel), `evider: true` le réécrit en masque — ses blancs
 // deviennent des jours, tout le reste le tracé — pour qu'un logo à deux tons
 // (un « +x » blanc sur un carré bleu) ne devienne pas un aplat une fois passé
-// en blanc. Une image matricielle est rognée ; son fond blanc n'est rendu transparent
-// que si elle est opaque — un PNG déjà détouré garde ses blancs, qui sont
-// souvent le dessin lui-même (`transparent` force une couleur, ou `none`) —
-// puis elle est ramenée à `height` px de haut au plus (240 par défaut : un
-// logo de 32 px reste net sur un écran 3x). Une sortie qui change de format
+// en blanc, et `cadre` (« x y largeur hauteur ») le recadre sur son dessin,
+// mesuré au rendu : une marge dans le fichier fausserait la hauteur
+// d'affichage et les écarts du bandeau.
+//
+// Une image matricielle peut être découpée (`decoupe`, géométrie
+// ImageMagick), puis rognée ; son fond blanc n'est rendu transparent que si
+// elle est opaque — un PNG déjà détouré garde ses blancs, qui sont souvent le
+// dessin lui-même (`transparent` force une couleur, ou `none`) ; `encre: true`
+// tire l'opacité de la noirceur, pour un tracé sombre sur fond clair. Elle
+// est enfin ramenée à `height` px de haut au plus (240 par défaut : un logo
+// de 32 px reste net sur un écran 3x). Une sortie qui change de format
 // remplace l'ancienne : la liste fait foi.
 // ---------------------------------------------------------------------------
 const LOGOS_DIR = join(SITE, "public", "logos");
@@ -339,6 +345,18 @@ function knockoutSvg(svg) {
   return `${open}<defs><mask id="evide" maskUnits="userSpaceOnUse" ${box}><g fill="#fff">${recoloured}</g></mask></defs><rect ${box} fill="#000" mask="url(#evide)"/></svg>\n`;
 }
 
+/**
+ * Recadre un SVG sur son dessin : le viewBox et la taille intrinsèque
+ * suivent, sinon le navigateur centrerait le dessin dans l'ancien cadre et
+ * les marges reviendraient.
+ */
+function reframeSvg(svg, box) {
+  const [, , width, height] = box.trim().split(/[\s,]+/).map(Number);
+  return svg.replace(/<svg\b[^>]*>/i, (open) =>
+    open.replace(/\s(?:viewBox|width|height)\s*=\s*"[^"]*"/gi, "").replace(/^<svg\b/i, `<svg viewBox="${box}" width="${width}" height="${height}"`),
+  );
+}
+
 /** Écrit le logo dans public/logos et rend la ligne du rapport. */
 function writeLogo(logo, source) {
   const target = join(LOGOS_DIR, logo.out);
@@ -348,10 +366,11 @@ function writeLogo(logo, source) {
     const colours = [...new Set(svg.match(/#[0-9a-f]{3,8}\b|rgb\([^)]*\)/gi) ?? [])].slice(0, 8).join(" ");
     for (const colour of logo.retirer ?? []) svg = removeColour(svg, colour);
     if (logo.evider) svg = knockoutSvg(svg);
+    if (logo.cadre) svg = reframeSvg(svg, logo.cadre);
     writeFileSync(`${target}.svg`, svg);
     rmSync(`${target}.png`, { force: true });
     const box = svg.match(/viewBox\s*=\s*"([^"]*)"/i)?.[1] ?? "?";
-    const steps = [logo.retirer?.length ? `sans ${logo.retirer.join(", ")}` : "", logo.evider ? "évidé" : ""].filter(Boolean).join(", ");
+    const steps = [logo.retirer?.length ? `sans ${logo.retirer.join(", ")}` : "", logo.evider ? "évidé" : "", logo.cadre ? "recadré" : ""].filter(Boolean).join(", ");
     return `${logo.out}: svg ${Math.round(svg.length / 1024)} Ko, viewBox ${box}, couleurs ${colours || "—"}${steps ? `, ${steps}` : ""} ← ${source.from}`;
   }
   const src = join(TMP, `${logo.out}.raster`);
@@ -360,13 +379,22 @@ function writeLogo(logo, source) {
   const opaque = execFileSync("identify", ["-format", "%[opaque]", `${src}[0]`]).toString().trim().toLowerCase() === "true";
   const knockout = logo.transparent ?? (opaque ? "white" : "none");
   const args = [`${src}[0]`, "-auto-orient"];
-  if (knockout !== "none") args.push("-fuzz", `${logo.fuzz ?? 8}%`, "-transparent", knockout);
-  args.push("-trim", "+repage", "-resize", `x${logo.height ?? 240}>`, "-strip", out);
+  if (logo.decoupe) args.push("-crop", logo.decoupe, "+repage");
+  if (logo.encre) {
+    // Un tracé sombre sur fond clair : sa noirceur devient son opacité. Les
+    // bords lissés le restent, là où un fond blanc rendu transparent laisse
+    // un liseré gris qui s'épaissit une fois le logo passé en blanc.
+    args.push("-colorspace", "Gray", "-auto-level", "-negate", "-level", "6%,100%", "-alpha", "copy", "-channel", "RGB", "-evaluate", "set", "0", "+channel");
+  } else if (knockout !== "none") {
+    args.push("-fuzz", `${logo.fuzz ?? 8}%`, "-transparent", knockout);
+  }
+  args.push("-trim", "+repage", "-resize", `x${logo.height ?? 240}>`, "-strip", "-define", "png:color-type=6", out);
   run("convert", args);
   writeFileSync(`${target}.png`, readFileSync(out));
   rmSync(`${target}.svg`, { force: true });
   const size = execFileSync("identify", ["-format", "%wx%h", `${target}.png`]).toString().trim();
-  return `${logo.out}: ${opaque ? "opaque" : "détouré"}, fond ${knockout} → png ${size}, ${sizeOf(`${target}.png`)} Ko ← ${source.from}`;
+  const steps = [logo.decoupe ? `découpe ${logo.decoupe}` : "", logo.encre ? "encre" : `fond ${knockout}`].filter(Boolean).join(", ");
+  return `${logo.out}: ${opaque ? "opaque" : "détouré"}, ${steps} → png ${size}, ${sizeOf(`${target}.png`)} Ko ← ${source.from}`;
 }
 
 for (const logo of LIST.logos) {
